@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: CryptoGate Phase 1 API
+  version: 0.1.0
+  description: >
+    Source of truth for apps/api and apps/cashier-apk.
+    Payment orders are watch-only. Service bills are a separate rail.
+servers:
+  - url: /v1
+tags:
+  - name: orders
+  - name: webhooks
+paths:
+  /orders:
+    post:
+      tags: [orders]
+      operationId: createPaymentOrder
+      summary: Create a payment order (idempotent with Idempotency-Key)
+      responses:
+        "201":
+          description: Order created
+    get:
+      tags: [orders]
+      operationId: listPaymentOrders
+      summary: List orders in the caller’s merchant scope
+      responses:
+        "200":
+          description: Order list
+  /orders/{id}:
+    get:
+      tags: [orders]
+      operationId: getPaymentOrder
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+      responses:
+        "200":
+          description: Order status and received amount
+  /orders/{id}/on-chain:
+    get:
+      tags: [orders]
+      operationId: getPaymentOrderOnChain
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+      responses:
+        "200":
+          description: Hash, height, addresses, amount, time
+  /orders/{id}/payment:
+    get:
+      tags: [orders]
+      operationId: getPaymentOrderPayment
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+      responses:
+        "200":
+          description: Payment page URL, QR payload, copy-ready address and amount
+  /webhooks:
+    post:
+      tags: [webhooks]
+      operationId: registerWebhook
+      responses:
+        "201":
+          description: Callback URL registered
+  /webhooks/test:
+    post:
+      tags: [webhooks]
+      operationId: testWebhook
+      responses:
+        "202":
+          description: Signed sample event accepted for delivery
+components:
+  parameters:
+    orderId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
