@@ -53,7 +53,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
-| M1-10 | Andrew | todo | DB: users, sessions, password hash + policy | Next for Andrew after freeze |
+| M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
 | M1-30 | Bruce | todo | Watcher main loop + graceful shutdown | Upgrade Sprint 0 one-shot stub |
 | M1-01 | Kevin | todo | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
@@ -69,9 +69,9 @@ Open this file on `main` and check **Now**. Pick your next task.
 | S0-03 | Kevin | done | CI skeleton | `.github/workflows/ci.yml` |
 | S0-04 | Kevin | done | `packages/domain` types | |
 | S0-05 | Kevin | done | OpenAPI M1 stub paths | `openapi.yaml` v0.1.0 |
-| S0-06 | Andrew+Bruce | todo | Review domain + OpenAPI vs Business-Model | Confirm enums |
-| S0-07 | Andrew | doing | API entry + health; choose migration tool | Health stub exists; tool TBD |
-| S0-08 | Andrew | todo | First migration skeleton | `apps/api/migrations/` |
+| S0-06 | Andrew+Bruce | done | Review domain + OpenAPI vs Business-Model | Andrew 2026-08-23: enums align; gaps: MerchantStructure (domain), MFA tables (M1-12), Session.memberships needs orgs (M1-13/15) |
+| S0-07 | Andrew | done | API entry + health; choose migration tool | `server.mjs` GET `/health`; CLI `health.mjs` for check script |
+| S0-08 | Andrew | done | First migration skeleton | `apps/api/migrations/` + `scripts/migrate.mjs` |
 | S0-09 | Bruce | done | Watcher boots / health / exits | `apps/watcher/src/main.mjs` stub |
 | S0-10 | Bruce | done | Matching router + mode-b stub | |
 | S0-11 | Bruce | done | Matching public API documented | `doc/Matching-Package-API.md` |
@@ -95,6 +95,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
+| M1-10 | Andrew | done | DB: users, sessions, password hash + policy | PR #1 merged |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | After M1-10 |
 | M1-12 | Andrew | todo | MFA for Owner/Admin (agent + merchant) | After M1-11 |
 | M1-13 | Andrew | todo | DB org_accounts | |

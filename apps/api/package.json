@@ -10,7 +10,8 @@
     "test": "node --test test/**/*.test.mjs",
     "lint": "node -e \"process.exit(0)\"",
     "migrate": "node ./scripts/migrate.mjs",
-    "dev": "node -e \"console.error('HTTP login comes in M1-11; use: pnpm --filter @cryptogate/api migrate && pnpm --filter @cryptogate/api test'); process.exit(1)\""
+    "dev": "node ./src/server.mjs",
+    "start": "node ./src/server.mjs"
   },
   "dependencies": {
     "@cryptogate/domain": "workspace:*",

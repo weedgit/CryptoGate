@@ -1,12 +1,8 @@
 /**
- * Sprint 0 health stub so local `node apps/api/src/health.mjs` works.
- * Andrew replaces with real HTTP server + migration runner.
+ * CLI health check for scripts/check.mjs — prints JSON and exits (no HTTP, no DB required).
  */
-console.log(
-  JSON.stringify({
-    service: "cryptogate-api",
-    status: "ok",
-    phase: "sprint0-stub",
-    message: "Health placeholder — Andrew owns apps/api",
-  }),
-);
+import { getHealthPayload } from "./health-payload.mjs";
+
+const payload = await getHealthPayload({ checkDb: false });
+console.log(JSON.stringify(payload));
+process.exit(0);
