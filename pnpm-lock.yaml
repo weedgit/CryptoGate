@@ -27,6 +27,9 @@ importers:
 
   apps/watcher:
     dependencies:
+      '@cryptogate/chain-clients':
+        specifier: workspace:*
+        version: link:../../packages/chain-clients
       '@cryptogate/domain':
         specifier: workspace:*
         version: link:../../packages/domain

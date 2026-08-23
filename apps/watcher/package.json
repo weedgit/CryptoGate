@@ -3,15 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Chain watcher — owned by Bruce. Sprint 0 scaffold only.",
+  "description": "Chain watcher — owned by Bruce.",
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/watcher: scaffold — Bruce implements')\"",
+    "build": "node -e \"console.log('@cryptogate/watcher: m1 loop')\"",
     "typecheck": "node -e \"process.exit(0)\"",
-    "test": "node -e \"process.exit(0)\"",
+    "test": "node --test test/watcher.test.mjs",
     "lint": "node -e \"process.exit(0)\"",
-    "start": "node ./src/main.mjs"
+    "start": "node ./src/main.mjs --loop",
+    "start:once": "node ./src/main.mjs"
   },
   "dependencies": {
+    "@cryptogate/chain-clients": "workspace:*",
     "@cryptogate/domain": "workspace:*"
   }
 }

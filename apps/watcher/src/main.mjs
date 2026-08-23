@@ -1,16 +1,39 @@
 /**
- * Sprint 0 watcher stub — boots, logs health, exits cleanly.
- * Bruce owns real ingest; this file is a process placeholder so CI and local
- * compose can prove API and watcher stay separate processes.
+ * CryptoGate watcher — separate process from apps/api (Bruce).
+ * M1: poll loop + graceful shutdown; M3: chain ingest + matching.
  */
-const startedAt = new Date().toISOString();
-console.log(
-  JSON.stringify({
-    service: "cryptogate-watcher",
-    status: "ok",
-    phase: "sprint0-stub",
-    startedAt,
-    message: "Watcher process boots separately from apps/api",
-  }),
-);
-process.exit(0);
+import { runWatcherLoop } from "./loop.mjs";
+
+/** Default one tick (CI / `node main.mjs`). Production: `pnpm start` passes `--loop`. */
+const once = !process.argv.includes("--loop");
+
+const controller = new AbortController();
+
+function shutdown(signal) {
+  console.log(
+    JSON.stringify({
+      service: "cryptogate-watcher",
+      event: "signal",
+      signal,
+      at: new Date().toISOString(),
+    }),
+  );
+  controller.abort();
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+try {
+  await runWatcherLoop({ once, signal: controller.signal });
+  process.exitCode = 0;
+} catch (err) {
+  console.error(
+    JSON.stringify({
+      service: "cryptogate-watcher",
+      event: "fatal",
+      message: err instanceof Error ? err.message : String(err),
+    }),
+  );
+  process.exitCode = 1;
+}
