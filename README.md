@@ -10,7 +10,7 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 ## Status
 
-Folder scaffold only. Language and framework are not frozen. See [ARCHITECTURE.md](ARCHITECTURE.md).
+Folder scaffold only. Language and framework are not frozen. Product and architecture notes live in `doc/` locally and are not on GitHub.
 
 ## Repository layout
 
