@@ -3,60 +3,356 @@ info:
   title: CryptoGate Phase 1 API
   version: 0.1.0
   description: >
-    Source of truth for apps/api and apps/cashier-apk.
+    Contract freeze v0.1 (Sprint 0 / M1). Source of truth for apps/api and apps/cashier-apk.
     Payment orders are watch-only. Service bills are a separate rail.
+    Enum string values match @cryptogate/domain.
 servers:
   - url: /v1
 tags:
+  - name: auth
+  - name: orgs
   - name: orders
   - name: webhooks
 paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Password login; returns session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke current session
+      security:
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Logged out
+  /auth/session:
+    get:
+      tags: [auth]
+      operationId: getSession
+      summary: Current session and org memberships
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/mfa/enroll:
+    post:
+      tags: [auth]
+      operationId: enrollMfa
+      summary: Start MFA enrollment (Owner / Administrator on agent and merchant accounts)
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Enrollment challenge (e.g. TOTP secret + otpauth URL)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaEnrollResponse"
+  /auth/mfa/verify:
+    post:
+      tags: [auth]
+      operationId: verifyMfa
+      summary: Verify MFA code to complete login or enrollment
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MfaVerifyRequest"
+      responses:
+        "200":
+          description: MFA accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Invalid MFA code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs:
+    get:
+      tags: [orgs]
+      operationId: listOrgs
+      summary: List org accounts in the caller’s authorized subtree
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Org list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrgAccount"
+    post:
+      tags: [orgs]
+      operationId: createOrg
+      summary: Create org account (Platform / Agent / Merchant / Merchant site rules apply)
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrgRequest"
+      responses:
+        "201":
+          description: Org created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgAccount"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}:
+    get:
+      tags: [orgs]
+      operationId: getOrg
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Org account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgAccount"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/users:
+    post:
+      tags: [orgs]
+      operationId: inviteOrgUser
+      summary: Invite user and assign role
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteUserRequest"
+      responses:
+        "201":
+          description: Membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "403":
+          description: Forbidden (e.g. Cashier cannot manage team)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/users/{userId}/role:
+    put:
+      tags: [orgs]
+      operationId: assignOrgUserRole
+      summary: Assign role; only Owner may add/remove Administrator and Viewer
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/UserRole"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders:
     post:
       tags: [orders]
       operationId: createPaymentOrder
       summary: Create a payment order (idempotent with Idempotency-Key)
+      description: >
+        M1 stub may return mock receive_address and QR payload.
+        Agent-account users must receive 403. Cashiers cannot set matching mode.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/idempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentOrderRequest"
       responses:
         "201":
           description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
+        "403":
+          description: Forbidden (agent cannot create; Cashier cannot change settlement settings)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     get:
       tags: [orders]
       operationId: listPaymentOrders
       summary: List orders in the caller’s merchant scope
+      security:
+        - sessionCookie: []
+        - apiKey: []
       responses:
         "200":
           description: Order list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentOrder"
   /orders/{id}:
     get:
       tags: [orders]
       operationId: getPaymentOrder
       parameters:
         - $ref: "#/components/parameters/orderId"
+      security:
+        - sessionCookie: []
+        - apiKey: []
       responses:
         "200":
           description: Order status and received amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
   /orders/{id}/on-chain:
     get:
       tags: [orders]
       operationId: getPaymentOrderOnChain
       parameters:
         - $ref: "#/components/parameters/orderId"
+      security:
+        - sessionCookie: []
+        - apiKey: []
       responses:
         "200":
           description: Hash, height, addresses, amount, time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnChainDetails"
   /orders/{id}/payment:
     get:
       tags: [orders]
       operationId: getPaymentOrderPayment
       parameters:
         - $ref: "#/components/parameters/orderId"
+      security:
+        - sessionCookie: []
+        - apiKey: []
       responses:
         "200":
           description: Payment page URL, QR payload, copy-ready address and amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDetails"
   /webhooks:
     post:
       tags: [webhooks]
       operationId: registerWebhook
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
       responses:
         "201":
           description: Callback URL registered
@@ -64,10 +360,23 @@ paths:
     post:
       tags: [webhooks]
       operationId: testWebhook
+      security:
+        - sessionCookie: []
+        - apiKey: []
       responses:
         "202":
           description: Signed sample event accepted for delivery
+
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: cg_session
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
   parameters:
     orderId:
       name: id
@@ -75,3 +384,299 @@ components:
       required: true
       schema:
         type: string
+    orgId:
+      name: orgId
+      in: path
+      required: true
+      schema:
+        type: string
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+  schemas:
+    OrgType:
+      type: string
+      enum: [platform, agent, agent_sub, merchant, merchant_site]
+    UserRole:
+      type: string
+      enum: [owner, administrator, viewer, cashier]
+    OrderStatus:
+      type: string
+      enum:
+        - pending_payment
+        - verifying
+        - confirmed
+        - completed
+        - expired
+        - payment_anomaly
+        - failed
+        - cancelled
+    MatchingMode:
+      type: string
+      description: B Standard, C Amount fingerprint, D Memo tag, S Smart address
+      enum: [B, C, D, S]
+    AddressSource:
+      type: string
+      enum: [main, hd_pool]
+    AssetCode:
+      type: string
+      enum: [USDT, USDC, BTC, ETH, TRX]
+    NetworkId:
+      type: string
+      enum:
+        - ethereum
+        - tron
+        - bnb_smart_chain
+        - polygon
+        - arbitrum_one
+        - solana
+        - ton
+        - base
+        - bitcoin
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          description: Decimal string in major units (no float)
+          example: "50.01"
+        currency:
+          $ref: "#/components/schemas/AssetCode"
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+        orgId:
+          type: string
+          description: Optional org scope when user has multiple memberships
+    LoginResponse:
+      type: object
+      required: [session, mfaRequired]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        mfaRequired:
+          type: boolean
+    MfaEnrollResponse:
+      type: object
+      required: [otpauthUrl, secret]
+      properties:
+        otpauthUrl:
+          type: string
+        secret:
+          type: string
+    MfaVerifyRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 8
+    Session:
+      type: object
+      required: [userId, email, memberships]
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+          format: email
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgMembership"
+    OrgAccount:
+      type: object
+      required: [id, type, name, parentId]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/OrgType"
+        name:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        structure:
+          type: string
+          enum: [single_location, multi_location]
+          description: Merchant accounts only
+    CreateOrgRequest:
+      type: object
+      required: [type, name, parentId]
+      properties:
+        type:
+          $ref: "#/components/schemas/OrgType"
+        name:
+          type: string
+        parentId:
+          type: string
+        structure:
+          type: string
+          enum: [single_location, multi_location]
+    InviteUserRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+    OrgMembership:
+      type: object
+      required: [orgId, userId, role, orgType]
+      properties:
+        orgId:
+          type: string
+        userId:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        orgType:
+          $ref: "#/components/schemas/OrgType"
+    CreatePaymentOrderRequest:
+      type: object
+      required: [amount, asset, network, validitySeconds]
+      properties:
+        amount:
+          type: string
+          description: Requested amount before Mode C fingerprint adjustment
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        validitySeconds:
+          type: integer
+          minimum: 60
+        merchantMetadata:
+          type: object
+          additionalProperties: true
+    PaymentOrder:
+      type: object
+      required:
+        - id
+        - orderNumber
+        - status
+        - matchingMode
+        - payableAmount
+        - receiveAddress
+        - asset
+        - network
+        - expiresAt
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        matchingMode:
+          $ref: "#/components/schemas/MatchingMode"
+        payableAmount:
+          $ref: "#/components/schemas/Money"
+        receivedAmount:
+          $ref: "#/components/schemas/Money"
+          nullable: true
+        receiveAddress:
+          type: string
+        addressSource:
+          $ref: "#/components/schemas/AddressSource"
+        hdIndex:
+          type: integer
+          nullable: true
+        memoOrTag:
+          type: string
+          nullable: true
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        expiresAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+    PaymentDetails:
+      type: object
+      required:
+        - paymentPageUrl
+        - qrPayload
+        - receiveAddress
+        - payableAmount
+        - asset
+        - network
+        - expiresAt
+        - wrongNetworkWarning
+      properties:
+        paymentPageUrl:
+          type: string
+          format: uri
+        qrPayload:
+          type: string
+        receiveAddress:
+          type: string
+        payableAmount:
+          $ref: "#/components/schemas/Money"
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        contractAddress:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        wrongNetworkWarning:
+          type: string
+        payExactAmountWarning:
+          type: string
+          description: Present for Mode C fingerprint orders
+    OnChainDetails:
+      type: object
+      properties:
+        txHash:
+          type: string
+          nullable: true
+        blockHeight:
+          type: integer
+          nullable: true
+        fromAddress:
+          type: string
+          nullable: true
+        toAddress:
+          type: string
+          nullable: true
+        amount:
+          $ref: "#/components/schemas/Money"
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true

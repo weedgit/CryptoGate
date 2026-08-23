@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CryptoGate — Pay</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="pay">
+      <p class="brand">CryptoGate</p>
+      <h1 class="amount" id="amount">50.00 USDT</h1>
+      <p class="meta" id="network">Network: Tron · Contract shown below</p>
+      <div class="qr" aria-hidden="true" id="qr">
+        <div class="qr-inner">QR</div>
+      </div>
+      <dl class="details">
+        <div>
+          <dt>Receive address</dt>
+          <dd>
+            <code id="address">TExampleMerchantSettlementAddress0001</code>
+            <button type="button" class="copy" data-copy="address">Copy</button>
+          </dd>
+        </div>
+        <div>
+          <dt>Amount</dt>
+          <dd>
+            <code id="amount-copy">50.00</code>
+            <button type="button" class="copy" data-copy="amount-copy">Copy</button>
+          </dd>
+        </div>
+        <div>
+          <dt>Expires</dt>
+          <dd id="expires">in 14:59</dd>
+        </div>
+      </dl>
+      <p class="warn" role="status">
+        Wrong network warning: send only USDT on Tron to this address. Other
+        networks will not complete this order.
+      </p>
+      <p class="warn exact" id="exact-warn" hidden>
+        Pay the exact amount shown. Do not round or edit in your wallet (Mode C).
+      </p>
+      <p class="status">Status: Pending payment (prototype — no live chain)</p>
+    </main>
+    <script src="./mock-order.js"></script>
+  </body>
+</html>

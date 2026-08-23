@@ -10,23 +10,46 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 ## Status
 
-Folder scaffold only. Language and framework are not frozen. Product and architecture notes live in `doc/` locally and are not on GitHub.
+**Sprint 0 complete / contract freeze v0.1.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. First live chain target (M3): USDT on Tron.
+
+Contract freeze notes, DB conventions, and package API notes live in local `doc/` (gitignored): `CONTRACT-FREEZE.md`, `DB-Conventions.md`, `Matching-Package-API.md`, `Chain-Clients.md`.
 
 ## Repository layout
 
 ```
-apps/api              HTTP: auth, orgs, payment orders, webhooks, service bills
-apps/watcher          Chain ingest and matching (separate process)
+apps/api              HTTP: auth, orgs, payment orders, webhooks, service bills (Andrew)
+apps/watcher          Chain ingest and matching (Bruce) — separate process
 apps/web              Platform / agent / merchant shells (reserved)
-apps/payment-page     Public pay URL (reserved)
-apps/cashier-apk      Cashier Android POS client (reserved)
-packages/api-spec     OpenAPI contract
-packages/domain       Shared types
-packages/matching     Modes B / C / D / S
+apps/payment-page     Public pay URL + M1 prototypes (Kevin)
+apps/cashier-apk      Cashier Android POS client (Bruce, M2+)
+packages/api-spec     OpenAPI contract (Kevin)
+packages/domain       Shared types (Kevin)
+packages/matching     Modes B / C / D / S (Bruce)
 packages/chain-clients
 ```
 
 API and watcher stay separate processes in this repo. Do not merge them.
+
+## Local setup
+
+```bash
+# Install (pnpm 9.15 via packageManager field)
+npx pnpm@9.15.0 install
+
+# Postgres
+docker compose up -d
+cp .env.example .env
+
+# Contract + stub checks
+npx pnpm@9.15.0 check
+# or: node scripts/check.mjs
+
+# M1 payment-page prototypes
+npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
+# → http://localhost:5173  (pay page)
+# → /create-order.html     (create-order prototype)
+# → /pos/                  (cashier POS wireframes)
+```
 
 ## Invariants
 
@@ -35,6 +58,14 @@ API and watcher stay separate processes in this repo. Do not merge them.
 - Cashiers cannot change settlement address, xPub, matching mode, or fees.
 - Agent accounts do not create merchant payment orders.
 - Signed webhooks only; do not fulfill on browser redirect.
+
+## Ownership
+
+| Area | Owner |
+| --- | --- |
+| `packages/api-spec`, `packages/domain`, infra, `apps/payment-page` | Kevin |
+| `apps/api` (+ DB migrations) | Andrew |
+| `apps/watcher`, `packages/matching`, `packages/chain-clients`, `apps/cashier-apk` | Bruce |
 
 ## Local docs
 

@@ -1,0 +1,12 @@
+{
+  "name": "@cryptogate/api-spec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenAPI contract for apps/api and clients. Kevin owns merges.",
+  "scripts": {
+    "lint": "node ./scripts/lint.mjs",
+    "typecheck": "node ./scripts/lint.mjs",
+    "test": "node ./scripts/lint.mjs",
+    "build": "node ./scripts/lint.mjs"
+  }
+}

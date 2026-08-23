@@ -1,0 +1,15 @@
+# Ownership for GitHub (nicks from Team-Work-Plan)
+
+/packages/api-spec/     @kevin
+/packages/domain/       @kevin
+/.github/               @kevin
+/docker-compose.yml     @kevin
+/.env.example           @kevin
+/apps/payment-page/     @kevin
+
+/apps/api/              @andrew
+
+/apps/watcher/          @bruce
+/packages/matching/     @bruce
+/packages/chain-clients/ @bruce
+/apps/cashier-apk/      @bruce
