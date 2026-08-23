@@ -1,6 +1,3 @@
-# Local product and business docs — do not push to GitHub
-/doc/
-
 # Secrets
 .env
 .env.*

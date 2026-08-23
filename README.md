@@ -12,7 +12,7 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 **Sprint 0 complete / contract freeze v0.1.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. First live chain target (M3): USDT on Tron.
 
-Contract freeze notes, DB conventions, and package API notes live in local `doc/` (gitignored): `CONTRACT-FREEZE.md`, `DB-Conventions.md`, `Matching-Package-API.md`, `Chain-Clients.md`.
+Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 
 ## Repository layout
 
@@ -69,4 +69,6 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 
 ## Local docs
 
-Product, business, and planning files live in `doc/` on a local checkout. That folder is gitignored and is not on GitHub.
+Product, business, and planning files live in `doc/` (same repo — Andrew and Bruce pull with `main`).
+
+Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md).
