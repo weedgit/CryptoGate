@@ -54,8 +54,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
-| M1-30 | Bruce | todo | Watcher main loop + graceful shutdown | Upgrade Sprint 0 one-shot stub |
-| M1-01 | Kevin | todo | Confirm M1 scope signed | Requirements + matching + POS in scope |
+| M1-32 | Bruce | todo | Matching test scaffold (mode-b) | M1-30/31/33 merged (PR #2) |
+| M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
 
 ---
@@ -111,9 +111,10 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
-| M1-31 | Bruce | todo | Chain-clients layout; Tron stub | Folders exist |
+| M1-30 | Bruce | done | Watcher main loop + graceful shutdown | PR #2 merged — `pnpm start` loops; default one tick for CI |
+| M1-31 | Bruce | done | Chain-clients layout; Tron stub | `packages/chain-clients/tron` |
 | M1-32 | Bruce | todo | Matching test scaffold (mode-b) | Partial tests exist |
-| M1-33 | Bruce | todo | Watcher ↔ payment_orders status contract | Write under `doc/` |
+| M1-33 | Bruce | done | Watcher ↔ payment_orders status contract | `doc/Watcher-Order-Status-Contract.md` |
 | M1-34 | Bruce | todo | Review Andrew migrations for M3 columns | After M1-19 |
 
 ### UI prototypes (Kevin)
@@ -154,4 +155,4 @@ Open this file on `main` and check **Now**. Pick your next task.
 | --- | --- | --- |
 | Kevin | `feat-kevin-infra-team-board` | M1-01, M1-05 |
 | Andrew | `feat-andrew-api-m1-auth` | S0-07/08, M1-10, M1-11 |
-| Bruce | `feat-bruce-watcher-m1-loop` | M1-30, M1-31, M1-33 |
+| Bruce | `feat-bruce-matching-m1-tests` | M1-32 |
