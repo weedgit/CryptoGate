@@ -3,15 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "HTTP API — owned by Andrew. Sprint 0 scaffold only.",
+  "description": "HTTP API — owned by Andrew. Auth/orgs/orders/webhooks/bills.",
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/api: scaffold — Andrew implements')\"",
+    "build": "node -e \"console.log('@cryptogate/api: no build step (ESM)')\"",
     "typecheck": "node -e \"process.exit(0)\"",
-    "test": "node -e \"process.exit(0)\"",
+    "test": "node --test test/**/*.test.mjs",
     "lint": "node -e \"process.exit(0)\"",
-    "dev": "node -e \"console.error('Not implemented: Andrew owns apps/api'); process.exit(1)\""
+    "migrate": "node ./scripts/migrate.mjs",
+    "dev": "node -e \"console.error('HTTP login comes in M1-11; use: pnpm --filter @cryptogate/api migrate && pnpm --filter @cryptogate/api test'); process.exit(1)\""
   },
   "dependencies": {
-    "@cryptogate/domain": "workspace:*"
+    "@cryptogate/domain": "workspace:*",
+    "pg": "^8.13.1"
   }
 }
