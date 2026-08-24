@@ -543,3 +543,75 @@ export async function listWebhookDeliveries(
   const data = (await res.json()) as { items: WebhookDelivery[] };
   return data.items ?? [];
 }
+
+export type OrgAccount = {
+  id: string;
+  type: string;
+  name: string;
+  parentId: string | null;
+  structure?: string;
+};
+
+export type OrgMembership = {
+  orgId: string;
+  userId: string;
+  role: string;
+  orgType: string;
+};
+
+export async function listOrgs(): Promise<OrgAccount[]> {
+  const res = await fetch(`${API_BASE}/orgs`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: OrgAccount[] };
+  return data.items ?? [];
+}
+
+export async function getOrg(orgId: string): Promise<OrgAccount> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
+export async function inviteOrgUser(
+  orgId: string,
+  body: { email: string; role: string },
+): Promise<OrgMembership> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgMembership;
+}
+
+export async function assignOrgUserRole(
+  orgId: string,
+  userId: string,
+  role: string,
+): Promise<OrgMembership> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/role`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role }),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgMembership;
+}

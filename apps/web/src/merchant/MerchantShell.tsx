@@ -21,6 +21,8 @@ const OWNER_NAV = [
     matchPrefix: "/merchant/settings/integrations",
   },
   { to: "/merchant/settings/organization", label: "Org" },
+  { to: "/merchant/settings/billing", label: "Billing" },
+  { to: "/merchant/settings/notifications", label: "Alerts" },
   { to: "/merchant/settings/team", label: "Team" },
 ] as const;
 
