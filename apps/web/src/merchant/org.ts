@@ -43,6 +43,13 @@ export function sessionCanExportOrders(session: Session): boolean {
   );
 }
 
+/** O / A may open service-bill checkout; viewers read-only. */
+export function sessionCanCheckoutServiceBill(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator"].includes(m.role),
+  );
+}
+
 export function sessionIsCashierOnly(session: Session): boolean {
   if (session.memberships.length === 0) return false;
   return session.memberships.every((m) => m.role === "cashier");
