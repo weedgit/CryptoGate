@@ -31,7 +31,7 @@ Do **not** implement Figma page **98 Archive**. Ignore pink animation sticky not
 
 ## API (Andrew)
 
-Payment page polls **GET `/v1/orders/{id}/payment`** (M2). Until then, `public/mock-order.js` only.
+Payment page polls **GET `/v1/orders/{id}/payment`** (OpenAPI v0.2, public, no merchant session). Until Andrew lands M2-13, `public/mock-order.js` only.
 
 Preview: `pnpm --filter @cryptogate/payment-page dev` then open http://127.0.0.1:5173/ — query `?state=verifying|completed|expired|anomaly|failed|invalid` and `?mode=C|D`. Create-order prototype at `/create-order.html`.
 

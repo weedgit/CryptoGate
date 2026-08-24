@@ -54,12 +54,11 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
-| M1-32 | Bruce | todo | Matching test scaffold (mode-b) | Optional leftover — do not start M2-40 until M2-02 is on `main` |
-| M2-40 | Bruce | blocked | Mode B `assignOnCreate` | Wait for Kevin M2-02 on `main`; then `feat-bruce-matching-mode-b-assign` |
+| M2-40 | Bruce | todo | Mode B `assignOnCreate` | M2-02 on `main` — start `feat-bruce-matching-mode-b-assign` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
-| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | After M2-02 |
-| M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` — unblocks Bruce M2-40 |
+| M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
+| M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
 
 ---
 
@@ -150,7 +149,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
-| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | After M2-02 |
+| M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
 | M2-03 | Kevin | todo | Asset/network registry (USDT + Tron) | After M2-02 |
 

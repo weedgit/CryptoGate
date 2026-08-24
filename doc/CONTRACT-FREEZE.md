@@ -1,15 +1,34 @@
-# Contract freeze v0.1
+# Contract freeze
+
+**Owner:** Kevin (PM + contract gate)
+
+## v0.1 — Sprint 0 / Milestone 1
 
 **Date:** 2026-08-22  
-**Owner:** Kevin (PM + contract gate)  
-**Scope:** Sprint 0 / Milestone 1 shapes
-
-## Frozen for this sprint
+**OpenAPI:** `0.1.0` (superseded for order schemas by v0.2)
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain types | `packages/domain` | `OrgType`, `UserRole`, `OrderStatus`, `MatchingMode`, `Money`, `AssetNetwork`, related enums |
-| OpenAPI | `packages/api-spec/openapi.yaml` | Auth, session, MFA, orgs, order stubs, webhooks stubs; `info.version` **0.1.0** |
+| Domain types | `packages/domain` | `OrgType`, `UserRole`, `OrderStatus`, `MatchingMode`, `Money`, `AssetNetwork` |
+| OpenAPI | `packages/api-spec/openapi.yaml` | Auth, session, MFA, orgs, order stubs, webhooks stubs |
+
+## v0.2 — Milestone 2 order schemas
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.0`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Domain order fields | `packages/domain` `PaymentOrder` | `matching_mode`, `payable_amount`, `receive_address`, `address_source`, `hd_index`, `memo_or_tag` |
+| OpenAPI orders | `POST /v1/orders`, `GET /v1/orders/{id}`, `GET /v1/orders/{id}/payment` | Full schemas; guest `GET .../payment` is public |
+
+Frozen for Andrew (`M2-11`/`M2-13`) and Kevin (`M2-50`):
+
+- Create body has no `matchingMode`; mode is merchant default locked at create.
+- `Idempotency-Key` required on create; reuse with different body → 409.
+- Agent create → 403. Cashier cannot set matching mode / settlement / xPub / fees.
+- `GET /orders/{id}/payment` has **no** merchant session; payment page polls this, not the chain.
+- `PaymentOrder` required fields match `@cryptogate/domain`.
 
 ## Rules
 
@@ -26,8 +45,8 @@
 - [ ] Agent account user cannot create merchant payment orders (403)
 - [ ] Prototype walkthrough: login/roles (API), create-order + payment page + POS wireframes
 - [ ] Watcher runs as separate process (`pnpm --filter @cryptogate/watcher start`)
-- [ ] Implemented M1 routes match OpenAPI v0.1
+- [ ] Implemented M1 routes match OpenAPI v0.1 (auth/orgs); order routes follow v0.2
 
 ## Out of this freeze
 
-Live chain matching, Mode C/D/S full assign, signed API headers, webhook HMAC details (deepened in M2–M3).
+Live chain matching, Mode C/D/S full assign, signed API headers, webhook HMAC details (deepened in M3–M4).

@@ -10,7 +10,7 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 ## Status
 
-**Sprint 0 complete / contract freeze v0.1.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. First live chain target (M3): USDT on Tron.
+**Sprint 0 complete. OpenAPI order freeze v0.2.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. First live chain target (M3): USDT on Tron.
 
 Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 

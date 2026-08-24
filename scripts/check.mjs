@@ -29,4 +29,4 @@ run("node", ["--test", "packages/chain-clients/test/tron.test.mjs"]);
 run("node", ["--test", "apps/watcher/test/watcher.test.mjs"]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 run("node", ["apps/api/src/health.mjs"]);
-console.log("Sprint 0 check: ok (contract freeze v0.1)");
+console.log("Check: ok (OpenAPI order freeze v0.2)");
