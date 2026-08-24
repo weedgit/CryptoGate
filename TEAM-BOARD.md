@@ -177,8 +177,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | Priority | Ask | Why |
 | --- | --- | --- |
 | — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
-| P1 | M3-32 / M4-22 next network | Kevin must enable registry row first (`doc/M3-04-Asset-Networks.md`) |
-| P2 | Web polish when Andrew lands APIs | Team list, org PATCH, notification prefs |
+| **P1** | **M3-32 / M4-22** second network | **Ask Kevin first** (ETH ERC-20 USDT? BSC?) — do not start chain client until Kevin adds `enabled: true` in [`doc/M3-04-Asset-Networks.md`](doc/M3-04-Asset-Networks.md) / `ASSET_NETWORK_REGISTRY` |
+| **P2** | Web polish when Andrew lands APIs | Team member list, org PATCH, notification prefs — OK to start if org-list API lands before registry row |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
