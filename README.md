@@ -14,6 +14,8 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 
+UI lock + Figma handoff: `doc/UI-Style-Lock.md`, `doc/UI-Handoff.md`. Preview guest pay: `pnpm --filter @cryptogate/payment-page dev` → http://127.0.0.1:5173/
+
 ## Repository layout
 
 ```

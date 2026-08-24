@@ -54,9 +54,12 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
-| M1-32 | Bruce | todo | Matching test scaffold (mode-b) | M1-30/31/33 merged (PR #2) |
+| M1-32 | Bruce | todo | Matching test scaffold (mode-b) | Optional leftover — do not start M2-40 until M2-02 is on `main` |
+| M2-40 | Bruce | blocked | Mode B `assignOnCreate` | Wait for Kevin M2-02 on `main`; then `feat-bruce-matching-mode-b-assign` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
+| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | Next Kevin branch after payment-page lands |
+| M2-02 | Kevin | todo | Domain order fields for matching assign | Unblocks Bruce M2-40 |
 
 ---
 
@@ -122,7 +125,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-40 | Kevin | done | Payment page wireframe | `apps/payment-page/public/` |
-| M1-41 | Kevin | done | Payment page layout prototype | |
+| M1-41 | Kevin | done | Payment page from Figma E1 | Institutional Ink; `doc/UI-Handoff.md` |
 | M1-42 | Kevin | done | Create-order prototype | |
 | M1-43 | Kevin | done | Cashier POS wireframes | `/pos/` |
 | M1-44 | Kevin | done | POS device class note | In POS page |
