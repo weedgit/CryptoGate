@@ -11,7 +11,11 @@ import {
   handleAssignOrgUserRole,
   handleInviteOrgUser,
 } from "../orgs/membership-routes.mjs";
-import { handleCreatePaymentOrder } from "../orders/order-routes.mjs";
+import {
+  handleCreatePaymentOrder,
+  handleGetPaymentOrder,
+  handleGetPaymentOrderPayment,
+} from "../orders/order-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -73,6 +77,22 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/orders") {
     await handleCreatePaymentOrder(req, res);
+    return;
+  }
+
+  const paymentMatch = path.match(/^\/v1\/orders\/([^/]+)\/payment$/);
+  if (method === "GET" && paymentMatch) {
+    await handleGetPaymentOrderPayment(
+      req,
+      res,
+      decodeURIComponent(paymentMatch[1]),
+    );
+    return;
+  }
+
+  const orderMatch = path.match(/^\/v1\/orders\/([^/]+)$/);
+  if (method === "GET" && orderMatch) {
+    await handleGetPaymentOrder(req, res, decodeURIComponent(orderMatch[1]));
     return;
   }
 

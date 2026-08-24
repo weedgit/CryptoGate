@@ -7,6 +7,7 @@ import {
   canCreatePaymentOrder,
   canEnrollMfa,
   resolveOrderOrgId,
+  canReadPaymentOrder,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -150,6 +151,63 @@ describe("role policy", () => {
       canChangeSettlementSettings(
         { platformOwner: true, memberships: [platformOwner] },
         merchant,
+      ),
+      true,
+    );
+  });
+
+  it("scopes payment-order reads to the merchant org (Cashier own only)", () => {
+    const order = { orgId: "m1", createdBy: "u1" };
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "u2", platformOperator: false, memberships: [merchantOwner] },
+        order,
+      ),
+      true,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "u3", platformOperator: false, memberships: [merchantViewer] },
+        order,
+      ),
+      true,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "u1", platformOperator: false, memberships: [merchantCashier] },
+        order,
+      ),
+      true,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "other", platformOperator: false, memberships: [merchantCashier] },
+        order,
+      ),
+      false,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "u4", platformOperator: false, memberships: [agentOwner] },
+        order,
+      ),
+      false,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        {
+          userId: "u2",
+          platformOperator: false,
+          memberships: [{ ...merchantOwner, orgId: "m2" }],
+        },
+        order,
+      ),
+      false,
+    );
+    assert.equal(
+      canReadPaymentOrder(
+        { userId: "u5", platformOperator: true, memberships: [platformOwner] },
+        order,
       ),
       true,
     );

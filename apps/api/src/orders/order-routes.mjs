@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { OrderStatus } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { resolveOrderOrgId } from "../orgs/role-policy.mjs";
+import { resolveOrderOrgId, canReadPaymentOrder } from "../orgs/role-policy.mjs";
 import {
   extraCreateOrderKeys,
   idempotencyBodyHashPayload,
@@ -10,10 +10,12 @@ import {
   validateCreateOrderBody,
 } from "./order-rules.mjs";
 import {
+  findOrderById,
   findOrderByIdempotency,
   insertPaymentOrder,
   toPaymentOrder,
 } from "./order-store.mjs";
+import { toPaymentDetails } from "./order-map.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -147,4 +149,46 @@ export async function handleCreatePaymentOrder(req, res) {
   }
 
   sendJson(res, 201, toPaymentOrder(inserted.row));
+}
+
+/**
+ * GET /v1/orders/{id} — merchant/cashier session. Cross-merchant is 403.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleGetPaymentOrder(req, res, orderId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const row = await findOrderById(orderId);
+  if (!row) {
+    sendError(res, 404, "not_found", "Order not found");
+    return;
+  }
+  if (
+    !canReadPaymentOrder(caller, {
+      orgId: row.org_id,
+      createdBy: row.created_by,
+    })
+  ) {
+    sendError(res, 403, "forbidden", "Outside merchant scope");
+    return;
+  }
+  sendJson(res, 200, toPaymentOrder(row));
+}
+
+/**
+ * GET /v1/orders/{id}/payment — public guest payload (no session).
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleGetPaymentOrderPayment(req, res, orderId) {
+  const row = await findOrderById(orderId);
+  if (!row) {
+    sendError(res, 404, "not_found", "Payment link not found");
+    return;
+  }
+  sendJson(res, 200, toPaymentDetails(row));
 }

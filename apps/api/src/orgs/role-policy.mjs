@@ -91,6 +91,26 @@ export function resolveOrderOrgId(memberships, requestedOrgId) {
   };
 }
 
+const ORDER_READ_ROLES = new Set(["owner", "administrator", "viewer"]);
+
+/**
+ * Merchant A cannot read Merchant B. Agents have no payment-order access.
+ * Cashier may read own orders only.
+ * @param {{
+ *   userId: string,
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ orgId: string, createdBy: string }} order
+ */
+export function canReadPaymentOrder(caller, order) {
+  if (caller.platformOperator) return true;
+  const m = caller.memberships.find((row) => row.orgId === order.orgId);
+  if (!m || !MERCHANT_TYPES.has(m.orgType)) return false;
+  if (m.role === "cashier") return order.createdBy === caller.userId;
+  return ORDER_READ_ROLES.has(m.role);
+}
+
 /**
  * Cashier cannot change settlement address, xPub, matching mode, or fees.
  * Agent memberships are not enough — caller must be Owner/Admin on that merchant org
