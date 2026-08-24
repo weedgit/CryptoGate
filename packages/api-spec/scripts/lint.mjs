@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.3.1",
+  "version: 0.3.2",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -91,6 +91,13 @@ const required = [
   "issueServiceBill",
   "getServiceBill",
   "getServiceBillCheckout",
+  "updateServiceBill",
+  "UpdateServiceBillRequest",
+  "/audit",
+  "listAuditLog",
+  "AuditLogEntry",
+  "AuditLogList",
+  "AuditAction",
   "ServiceBillStatus",
   "ServiceBillCheckout",
   "security: []",
@@ -149,4 +156,4 @@ if (
   process.exit(1);
 }
 
-console.log("OpenAPI contract freeze v0.3.1: ok");
+console.log("OpenAPI contract freeze v0.3.2: ok");

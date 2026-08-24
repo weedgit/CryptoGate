@@ -114,6 +114,20 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 Additive to v0.3.0. Signing canonical string unchanged.
 
+## v0.3.2 — Audit list + service bill lifecycle
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.3.2`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Domain | `@cryptogate/domain` | `AuditAction`, `AuditLogEntry`, `AuditLogColumn`, `ServiceBillUpdateAction`; optional `ServiceBill.paidAt` / `voidedAt` |
+| Handoff | `doc/M4-36-Audit-Bills-v032.md` | Andrew implements GET `/audit`, PATCH service bills |
+| Audit | `GET /v1/audit` | Read-only; Cashier 403; scoped by role |
+| Service bills | `PATCH /v1/service-bills/{billId}` | Platform-only mark_paid / void / adjust |
+
+Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
@@ -133,4 +147,4 @@ Additive to v0.3.0. Signing canonical string unchanged.
 
 ## Out of this freeze
 
-M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. M4-11 OpenAPI freeze is **v0.3.1**. Remaining: M4-12 load tests (Andrew); IaC when Company A picks cloud; second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. **OpenAPI freeze is v0.3.2** (audit + bill PATCH). Andrew implements routes + migration 018. Remaining: IaC when Company A picks cloud; second live network — see `doc/M3-04-Asset-Networks.md`.

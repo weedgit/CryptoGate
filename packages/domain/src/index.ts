@@ -297,6 +297,73 @@ export type ServiceBill = {
   currency: BillingCurrency;
   status: ServiceBillStatus;
   dueAt: string;
+  /** Set when status becomes paid (v0.3.2). */
+  paidAt?: string | null;
+  /** Set when status becomes voided (v0.3.2). */
+  voidedAt?: string | null;
+  /** Last platform adjustment note (v0.3.2). */
+  lastAdjustmentReason?: string | null;
+};
+
+/** Platform-only service bill lifecycle updates (v0.3.2). */
+export const ServiceBillUpdateAction = {
+  MarkPaid: "mark_paid",
+  Void: "void",
+  Adjust: "adjust",
+} as const;
+
+export type ServiceBillUpdateAction =
+  (typeof ServiceBillUpdateAction)[keyof typeof ServiceBillUpdateAction];
+
+/**
+ * Append-only audit actions (M1-17). Values match `audit_log.action` and
+ * apps/api audit-rules where implemented.
+ */
+export const AuditAction = {
+  Login: "login",
+  Logout: "logout",
+  MfaEnroll: "mfa_enroll",
+  MfaVerifyEnroll: "mfa_verify_enroll",
+  MfaVerifyLogin: "mfa_verify_login",
+  OrgCreate: "org_create",
+  OrgUserInvite: "org_user_invite",
+  OrgUserRole: "org_user_role",
+  SettlementPut: "settlement_put",
+  MatchingModePut: "matching_mode_put",
+  XpubPut: "xpub_put",
+  WebhookRegister: "webhook_register",
+  WebhookDelete: "webhook_delete",
+  ServiceBillIssue: "service_bill_issue",
+  ServiceBillMarkPaid: "service_bill_mark_paid",
+  ServiceBillVoid: "service_bill_void",
+  ServiceBillAdjust: "service_bill_adjust",
+  ApiKeyCreate: "api_key_create",
+  ApiKeyRevoke: "api_key_revoke",
+  ApiKeyRotate: "api_key_rotate",
+} as const;
+
+export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
+
+/** DB columns on `audit_log`. */
+export const AuditLogColumn = {
+  actorUserId: "actor_user_id",
+  orgId: "org_id",
+  action: "action",
+  metadata: "metadata",
+  createdAt: "created_at",
+} as const;
+
+export type AuditLogColumnName =
+  (typeof AuditLogColumn)[keyof typeof AuditLogColumn];
+
+/** Redacted audit row for GET /audit (v0.3.2). Never includes secrets in metadata. */
+export type AuditLogEntry = {
+  id: string;
+  actorUserId: string | null;
+  orgId: string | null;
+  action: AuditAction | string;
+  metadata: Record<string, string | number | boolean | null>;
+  createdAt: string;
 };
 
 /**

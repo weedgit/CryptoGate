@@ -15,6 +15,9 @@ import {
   getAssetNetworkConfig,
   WebhookEventType,
   ServiceBillStatus,
+  ServiceBillUpdateAction,
+  AuditAction,
+  AuditLogColumn,
   ApiSigningHeader,
   API_SIGNING_MAX_SKEW_SECONDS,
   RateLimitPerMinute,
@@ -81,6 +84,10 @@ describe("@cryptogate/domain", () => {
     assert.equal(WebhookEventType.PaymentOrderCompleted, "payment_order.completed");
     assert.equal(WebhookEventType.WebhookTest, "webhook.test");
     assert.equal(ServiceBillStatus.Issued, "issued");
+    assert.equal(ServiceBillUpdateAction.MarkPaid, "mark_paid");
+    assert.equal(AuditAction.ServiceBillIssue, "service_bill_issue");
+    assert.equal(AuditAction.ServiceBillAdjust, "service_bill_adjust");
+    assert.equal(AuditLogColumn.action, "action");
     assert.equal(ApiSigningHeader.Signature, "X-Signature");
     assert.equal(API_SIGNING_MAX_SKEW_SECONDS, 300);
     assert.equal(RateLimitPerMinute.apiKey, 120);

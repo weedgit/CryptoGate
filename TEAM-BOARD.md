@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/webhooks/bills).
+Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v0.3.1 API keys).
 
 ### This week standup (Kevin — async OK)
 
@@ -152,6 +152,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M4-33 | Kevin | done | Ops runbook index (daily ops map) | `doc/M4-33-Ops-Runbook-Index.md` |
 | M4-34 | Kevin | done | Third-party / OSS license list | `doc/M4-34-Third-Party-Licenses.md` |
 | M4-35 | Kevin | done | DB schema reference (migrations 001–017) | `doc/M4-35-Database-Schema.md` |
+| M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bill lifecycle | `doc/M4-36-Audit-Bills-v032.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -162,9 +163,9 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | B4 branch up | Standup: confirm stub vs real for commercial step |
-| P2 | M4-12 load tests | No OpenAPI wait |
-| — | Run migrate **017** | Required on any DB before API key routes |
+| **P1** | **v0.3.2** — `GET /v1/audit`, `PATCH /v1/service-bills/{id}`, migrate **018** | `doc/M4-36-Audit-Bills-v032.md`; unblocks B9/B10/B14 |
+| **P2** | **B4** agent wizard | `POST /orgs` — no v0.3.2 wait for wizard shell |
+| — | Run migrate **017** | Required before API key routes on any DB |
 
 CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
 
@@ -313,6 +314,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M4-33 | Kevin | done | Ops runbook index | `doc/M4-33-Ops-Runbook-Index.md` |
 | M4-34 | Kevin | done | OSS / third-party license list | `doc/M4-34-Third-Party-Licenses.md` |
 | M4-35 | Kevin | done | DB schema reference | `doc/M4-35-Database-Schema.md` |
+| M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bills | `doc/M4-36-Audit-Bills-v032.md` |
 
 ### API (Andrew)
 

@@ -1,14 +1,13 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.3.1
+  version: 0.3.2
   description: >
-    Contract freeze v0.3.1 (M4-11). Adds merchant API key CRUD/rotation on top of
-    v0.3.0 HMAC signing, webhooks, and service bills. Source of truth for apps/api,
-    apps/payment-page, and apps/cashier-apk. Payment orders are watch-only. Service
-    bills are a separate rail — never merge with /orders. Enums match
-    @cryptogate/domain. Never return spend keys, full xPub, webhook signingSecret,
-    or API key secret on GET.
+    Contract freeze v0.3.2 (audit list + service bill lifecycle). Builds on v0.3.1
+    API keys. Source of truth for apps/api, apps/payment-page, and apps/cashier-apk.
+    Payment orders are watch-only. Service bills are a separate rail — never merge
+    with /orders. Enums match @cryptogate/domain. Never return spend keys, full xPub,
+    webhook signingSecret, or API key secret on GET.
 
     Machine clients (security apiKey): send X-Api-Key, X-Timestamp, X-Nonce,
     X-Signature. Canonical string is timestamp LF nonce LF METHOD LF pathAndQuery
@@ -25,6 +24,7 @@ tags:
   - name: api-keys
   - name: webhooks
   - name: service-bills
+  - name: audit
 paths:
   /auth/login:
     post:
@@ -1383,6 +1383,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    patch:
+      tags: [service-bills]
+      operationId: updateServiceBill
+      summary: Mark paid, void, or adjust a service bill (platform only)
+      description: >
+        Platform Owner/Administrator only. mark_paid: issued or overdue → paid.
+        void: issued → voided (reason required). adjust: issued or overdue —
+        delta on totalAmount (reason required). Cashier 403.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/billId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceBillRequest"
+      responses:
+        "200":
+          description: Updated bill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBill"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /service-bills/{billId}/checkout:
     get:
       tags: [service-bills]
@@ -1410,6 +1453,61 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /audit:
+    get:
+      tags: [audit]
+      operationId: listAuditLog
+      summary: List append-only audit events (read-only)
+      description: >
+        Platform operators: global filters. Agent and merchant roles: events for
+        orgs in authorized subtree only. Cashier 403. No DELETE — immutable log.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actorUserId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditAction"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Audit entries (newest first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogList"
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -2262,6 +2360,20 @@ components:
         dueAt:
           type: string
           format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when status is paid (v0.3.2)
+        voidedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when status is voided (v0.3.2)
+        lastAdjustmentReason:
+          type: string
+          nullable: true
+          description: Most recent platform adjustment note (v0.3.2)
     ServiceBillList:
       type: object
       required: [items]
@@ -2290,6 +2402,29 @@ components:
         dueAt:
           type: string
           format: date-time
+    UpdateServiceBillRequest:
+      type: object
+      required: [action]
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [mark_paid, void, adjust]
+          description: Matches @cryptogate/domain ServiceBillUpdateAction
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Required for void and adjust
+        adjustmentAmount:
+          type: string
+          description: >
+            USD delta applied to totalAmount when action=adjust (signed decimal
+            string, e.g. "-10.00" or "5.50"). Required for adjust.
+        paymentReference:
+          type: string
+          maxLength: 256
+          description: Optional off-chain or on-chain reference when action=mark_paid
     ServiceBillCheckout:
       type: object
       required: [billId, totalAmount, currency, payTo, instructions]
@@ -2311,3 +2446,64 @@ components:
           nullable: true
         instructions:
           type: string
+    AuditAction:
+      type: string
+      description: Matches @cryptogate/domain AuditAction
+      enum:
+        - login
+        - logout
+        - mfa_enroll
+        - mfa_verify_enroll
+        - mfa_verify_login
+        - org_create
+        - org_user_invite
+        - org_user_role
+        - settlement_put
+        - matching_mode_put
+        - xpub_put
+        - webhook_register
+        - webhook_delete
+        - service_bill_issue
+        - service_bill_mark_paid
+        - service_bill_void
+        - service_bill_adjust
+        - api_key_create
+        - api_key_revoke
+        - api_key_rotate
+    AuditLogEntry:
+      type: object
+      required: [id, action, metadata, createdAt]
+      description: Append-only audit row; metadata redacted (no secrets)
+      properties:
+        id:
+          type: string
+          format: uuid
+        actorUserId:
+          type: string
+          format: uuid
+          nullable: true
+        orgId:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        metadata:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+    AuditLogList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogEntry"
