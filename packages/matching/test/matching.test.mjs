@@ -19,6 +19,7 @@ import {
   MODE_C_RESERVED_STATUSES,
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
+  matchModeC,
   matchTransaction,
 } from "../dist/index.js";
 
@@ -582,12 +583,90 @@ describe("@cryptogate/matching Mode B match (M3-60)", () => {
     await assert.rejects(() => matchModeB({ ...baseTx }), /candidates is required/);
   });
 
-  it("Mode C/D/S match still stub until M3-61+", async () => {
-    const c = await matchTransaction({ ...baseTx, mode: "C", candidates: [] });
-    assert.match(c.reason ?? "", /M3-61/);
+  it("Mode D/S match still stub until M3-62+", async () => {
     const d = await matchTransaction({ ...baseTx, mode: "D", candidates: [] });
     assert.match(d.reason ?? "", /M3-62/);
     const s = await matchTransaction({ ...baseTx, mode: "S", candidates: [] });
     assert.match(s.reason ?? "", /M3-63/);
+  });
+});
+
+describe("@cryptogate/matching Mode C match (M3-61)", () => {
+  const baseCandidate = {
+    orderId: "ord-c1",
+    payableAmount: "50.01",
+    receiveAddress: "TMainAddressExample",
+    asset: "USDT",
+    network: "tron",
+  };
+
+  const baseTx = {
+    mode: "C",
+    toAddress: "TMainAddressExample",
+    amount: "50.01",
+    asset: "USDT",
+    network: "tron",
+    txHash: "0xcfp",
+  };
+
+  it("exact fingerprint match → verifying", async () => {
+    const result = await matchModeC({
+      ...baseTx,
+      candidates: [
+        baseCandidate,
+        {
+          ...baseCandidate,
+          orderId: "ord-c2",
+          payableAmount: "50.02",
+        },
+      ],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-c1");
+    assert.equal(result.reason, "mode_c_exact_match");
+  });
+
+  it("two concurrent fingerprints match the correct orders", async () => {
+    const a = await matchTransaction({
+      ...baseTx,
+      amount: "50.01",
+      candidates: [
+        baseCandidate,
+        { ...baseCandidate, orderId: "ord-c2", payableAmount: "50.02" },
+      ],
+    });
+    const b = await matchTransaction({
+      ...baseTx,
+      amount: "50.02",
+      candidates: [
+        baseCandidate,
+        { ...baseCandidate, orderId: "ord-c2", payableAmount: "50.02" },
+      ],
+    });
+    assert.equal(a.orderId, "ord-c1");
+    assert.equal(b.orderId, "ord-c2");
+  });
+
+  it("duplicate fingerprints (data bug) → anomaly, never FIFO", async () => {
+    const result = await matchModeC({
+      ...baseTx,
+      candidates: [
+        baseCandidate,
+        { ...baseCandidate, orderId: "ord-c2" },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.deepEqual(result.orderIds, ["ord-c1", "ord-c2"]);
+    assert.equal(result.reason, "mode_c_fingerprint_collision");
+  });
+
+  it("wrong fingerprint amount on sole order → underpay anomaly", async () => {
+    const result = await matchModeC({
+      ...baseTx,
+      amount: "50.00",
+      candidates: [baseCandidate],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_c_underpay");
   });
 });

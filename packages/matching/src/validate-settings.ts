@@ -3,8 +3,8 @@
  * Called by API / merchant UI before saving mode — not a substitute for per-order assign.
  * Mode is singular (B|C|D|S); secondary flags catch illegal stacked collision strategies.
  */
+import { majorToMinor } from "./amount.js";
 import { MatchingMode, type MatchingMode as MatchingModeType } from "@cryptogate/domain";
-import { majorToMinor } from "./mode-b/index.js";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 

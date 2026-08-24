@@ -105,7 +105,7 @@ export type MatchInput = {
   txHash: string;
   /**
    * Open orders at this address / asset / network (watcher loads from payment_orders).
-   * Required for Mode B match (M3-60).
+   * Required for Mode B / Mode C match.
    */
   candidates?: readonly MatchCandidateOrder[];
   /** Optional clock for expiry checks (tests). Default Date.now(). */

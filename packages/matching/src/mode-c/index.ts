@@ -12,8 +12,14 @@ import {
   type AssetCode as AssetCodeType,
   type NetworkId as NetworkIdType,
 } from "@cryptogate/domain";
-import { majorToMinor } from "../mode-b/index.js";
-import type { AssignInput, AssignResult } from "../types.js";
+import { majorToMinor } from "../amount.js";
+import { matchExactPayable } from "../match-exact.js";
+import type {
+  AssignInput,
+  AssignResult,
+  MatchInput,
+  MatchResult,
+} from "../types.js";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
@@ -188,4 +194,17 @@ export async function assignModeC(input: AssignInput): Promise<AssignResult> {
     hdIndex: null,
     memoOrTag: null,
   };
+}
+
+/**
+ * Mode C match (M3-61): exact fingerprint payable among open orders.
+ * Fingerprints are unique at assign; duplicate exact matches → anomaly (data bug, never FIFO).
+ */
+export async function matchModeC(input: MatchInput): Promise<MatchResult> {
+  return matchExactPayable(input, "C", {
+    exact: "mode_c_exact_match",
+    collision: "mode_c_fingerprint_collision",
+    underpay: "mode_c_underpay",
+    overpay: "mode_c_overpay",
+  });
 }
