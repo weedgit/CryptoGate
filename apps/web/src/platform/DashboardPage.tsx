@@ -12,7 +12,7 @@ import { sessionCanIssueServiceBill } from "./org";
 type Props = { session: Session };
 
 export function DashboardPage({ session }: Props) {
-  const canIssue = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const canOperate = useMemo(() => sessionCanIssueServiceBill(session), [session]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -108,10 +108,15 @@ export function DashboardPage({ session }: Props) {
           <Link className="btn-secondary" to="/platform/service-bills">
             Service bills ({stats.issuedBills} issued)
           </Link>
-          {canIssue ? (
-            <Link className="btn-primary" to="/platform/service-bills/new">
-              Issue service bill
-            </Link>
+          {canOperate ? (
+            <>
+              <Link className="btn-primary" to="/platform/agents/new">
+                Onboard agent
+              </Link>
+              <Link className="btn-primary" to="/platform/service-bills/new">
+                Issue service bill
+              </Link>
+            </>
           ) : null}
         </div>
         <p style={{ color: "var(--muted)", marginTop: 16 }}>

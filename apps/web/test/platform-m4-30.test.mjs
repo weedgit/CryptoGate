@@ -37,3 +37,26 @@ describe("@cryptogate/web platform M4-30", () => {
     assert.doesNotMatch(issue, /\/orders/);
   });
 });
+
+describe("@cryptogate/web platform B4 onboard agent", () => {
+  it("wires wizard route and marks commercial step stub", () => {
+    const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
+    assert.match(app, /agents\/new/);
+    assert.match(app, /OnboardAgentPage/);
+    const wizard = readFileSync(
+      join(root, "src/platform/OnboardAgentPage.tsx"),
+      "utf8",
+    );
+    assert.match(wizard, /stub UI/i);
+    assert.match(wizard, /createOrg/);
+    assert.match(wizard, /inviteOrgUser/);
+  });
+
+  it("depth helper matches API default max agent depth", () => {
+    const rules = readFileSync(
+      join(root, "src/platform/onboardAgent.ts"),
+      "utf8",
+    );
+    assert.match(rules, /DEFAULT_MAX_AGENT_DEPTH = 2/);
+  });
+});
