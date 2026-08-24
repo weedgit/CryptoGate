@@ -41,6 +41,15 @@ export function isPlatformOperator(memberships) {
   );
 }
 
+/** Platform Owner/Admin/Viewer — read-only portal access (UI spec Part B). */
+export function isPlatformStaff(memberships) {
+  return memberships.some(
+    (m) =>
+      m.orgType === "platform" &&
+      (m.role === "owner" || m.role === "administrator" || m.role === "viewer"),
+  );
+}
+
 /**
  * Invite: org Owner (or platform Owner) may add any allowed role.
  * Empty child org: platform Owner/Admin or parent Owner/Admin may invite the first Owner only.

@@ -7,6 +7,7 @@ import {
   canManageTeam,
   isLastOwnerDemotion,
   isPlatformOperator,
+  isPlatformStaff,
   roleAllowedOnOrg,
 } from "../src/orgs/membership-rules.mjs";
 
@@ -100,5 +101,17 @@ describe("membership rules", () => {
       }),
       false,
     );
+  });
+
+  it("detects platform staff including viewers", () => {
+    assert.equal(
+      isPlatformStaff([{ orgType: "platform", role: "viewer" }]),
+      true,
+    );
+    assert.equal(
+      isPlatformStaff([{ orgType: "platform", role: "cashier" }]),
+      false,
+    );
+    assert.equal(isPlatformOperator([{ orgType: "platform", role: "viewer" }]), false);
   });
 });
