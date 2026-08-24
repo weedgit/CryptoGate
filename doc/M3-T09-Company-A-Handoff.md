@@ -91,7 +91,7 @@ Return this completed for **test** (prod column optional until cutover).
 | On-call / alert email | | |
 | Support contact for integrators | | |
 
-**Migrations:** API owns schema — run through **`018`** before v0.3.2 audit/bill routes; **`019`** for v0.3.3 fee tiers. **`017`** required before API keys.
+**Migrations:** run through **`019`** (v0.3.3 fee tiers). **`017`** required before API keys.
 
 ---
 

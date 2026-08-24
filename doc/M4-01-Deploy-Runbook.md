@@ -86,7 +86,11 @@ Repeat per environment. Prefer test first.
 # 1) Install & build on the build host (or CI artifact)
 npx pnpm@9.15.0 install --frozen-lockfile
 npx pnpm@9.15.0 build
-npx pnpm@9.15.0 check   # contract gate
+node scripts/check.mjs   # contract gate
+
+# Or one-shot local / staging-shaped deploy:
+node scripts/deploy-wave5.mjs
+# Company A test host: set DATABASE_URL + API_PUBLIC_BASE_URL, then same script.
 
 # 2) Configure secrets (inject DATABASE_URL, SESSION_SECRET, …)
 

@@ -213,7 +213,7 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 2 Platform UI | B8/B13/B4/C6 wired | **Done** |
 | 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
-| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Blocked** (client hostnames) |
+| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy ready** — Company A hostnames pending |
 | 6 X-backlog | Per ID | **Scheduled** |
 | 7 M5 hardware | Reference device | **Blocked** (client) |
 | 8 Design polish | Token sync | **Optional** |
@@ -233,6 +233,8 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 
 | Command | Purpose |
 | --- | --- |
+| `node scripts/deploy-wave5.mjs` | Wave 5 local deploy (postgres + migrate + API + watcher + smoke) |
+| `docker compose -f docker-compose.deploy.yml up -d` | Containerized API + watcher + Postgres |
 | `node scripts/check.mjs` | Full contract gate (CI) |
 | `pnpm run e2e` | Signing + webhook samples |
 | `pnpm run e2e:check` | E2E + check.mjs |

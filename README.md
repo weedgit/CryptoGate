@@ -62,6 +62,11 @@ cp .env.example .env
 npx pnpm@9.15.0 check
 # or: node scripts/check.mjs
 
+# Wave 5 local deploy (Postgres + migrate + API + watcher + smoke)
+node scripts/deploy-wave5.mjs
+# Stop: node scripts/deploy-wave5.mjs --down
+# Docker stack: docker compose -f docker-compose.deploy.yml up -d
+
 # M1 payment-page prototypes
 npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 # → http://localhost:5173  (pay page)

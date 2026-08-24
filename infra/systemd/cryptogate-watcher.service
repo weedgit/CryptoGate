@@ -1,0 +1,16 @@
+[Unit]
+Description=CryptoGate chain watcher
+After=network.target postgresql.service cryptogate-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cryptogate
+EnvironmentFile=/etc/cryptogate/watcher.env
+ExecStart=/usr/bin/node apps/watcher/src/main.mjs --loop
+Restart=always
+RestartSec=5
+User=cryptogate
+
+[Install]
+WantedBy=multi-user.target

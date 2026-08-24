@@ -1,0 +1,66 @@
+# Wave 5 deploy stack — API + watcher + Postgres (local / staging-shaped).
+# Usage:
+#   docker compose -f docker-compose.deploy.yml up -d
+#   docker compose -f docker-compose.deploy.yml exec api node apps/api/scripts/migrate.mjs
+#
+# For Company A test: copy env file, set secrets via orchestrator — never commit .env.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cryptogate
+      POSTGRES_PASSWORD: cryptogate
+      POSTGRES_DB: cryptogate
+    volumes:
+      - cryptogate_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cryptogate -d cryptogate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: node:20-bookworm-slim
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://cryptogate:cryptogate@postgres:5432/cryptogate
+      API_HOST: 0.0.0.0
+      API_PORT: "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    command: >
+      sh -c "node scripts/link-workspace.mjs &&
+             node apps/api/scripts/migrate.mjs &&
+             node apps/api/src/server.mjs"
+
+  watcher:
+    image: node:20-bookworm-slim
+    working_dir: /app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://cryptogate:cryptogate@postgres:5432/cryptogate
+    volumes:
+      - .:/app
+    command: >
+      sh -c "node scripts/link-workspace.mjs &&
+             node apps/watcher/src/main.mjs --loop"
+
+volumes:
+  cryptogate_pgdata:

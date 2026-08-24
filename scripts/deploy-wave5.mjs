@@ -1,0 +1,316 @@
+#!/usr/bin/env node
+/**
+ * Wave 5 — local / staging deploy orchestrator (M4-01 §5, M3-T09 §5).
+ *
+ *   node scripts/deploy-wave5.mjs                 # prepare + up + smoke
+ *   node scripts/deploy-wave5.mjs --prepare       # postgres + install + migrate
+ *   node scripts/deploy-wave5.mjs --up            # start API + watcher (background)
+ *   node scripts/deploy-wave5.mjs --down          # stop background processes
+ *   node scripts/deploy-wave5.mjs --smoke         # health + e2e live
+ *   node scripts/deploy-wave5.mjs --restore-drill # pg_dump restore exercise (local)
+ *   node scripts/deploy-wave5.mjs --audit         # pnpm audit (M4-T04 §4)
+ */
+import { spawn, spawnSync } from "node:child_process";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const deployDir = join(root, ".deploy");
+const pidFile = join(deployDir, "pids.json");
+const dumpFile = join(deployDir, "restore-drill.dump");
+
+const flags = new Set(process.argv.slice(2));
+const runAll = flags.size === 0;
+const doPrepare = runAll || flags.has("--prepare");
+const doUp = runAll || flags.has("--up");
+const doDown = flags.has("--down");
+const doSmoke = runAll || flags.has("--smoke");
+const doRestore = flags.has("--restore-drill");
+const doAudit = flags.has("--audit");
+
+const apiPort = process.env.API_PORT || "3000";
+const apiBase =
+  process.env.API_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
+  `http://127.0.0.1:${apiPort}`;
+
+function log(step, msg) {
+  console.log(`[wave5:${step}] ${msg}`);
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function run(cmd, cmdArgs, opts = {}) {
+  const r = spawnSync(cmd, cmdArgs, {
+    cwd: root,
+    stdio: "inherit",
+    env: opts.env ? { ...process.env, ...opts.env } : process.env,
+  });
+  if (r.status !== 0) {
+    process.exit(r.status ?? 1);
+  }
+}
+
+function pnpm(args) {
+  run("npx", ["pnpm@9.15.0", ...args]);
+}
+
+function loadEnvFile() {
+  const envPath = join(root, ".env");
+  if (!existsSync(envPath)) {
+    copyFileSync(join(root, ".env.example"), envPath);
+    log("env", "created .env from .env.example");
+  }
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (!process.env[key]) {
+      process.env[key] = trimmed.slice(eq + 1).trim();
+    }
+  }
+}
+
+function dockerComposeUp() {
+  log("postgres", "starting docker compose postgres");
+  run("docker", ["compose", "up", "-d", "postgres"]);
+  for (let i = 0; i < 30; i++) {
+    const r = spawnSync(
+      "docker",
+      [
+        "compose",
+        "exec",
+        "-T",
+        "postgres",
+        "pg_isready",
+        "-U",
+        "cryptogate",
+        "-d",
+        "cryptogate",
+      ],
+      { cwd: root, stdio: "pipe" },
+    );
+    if (r.status === 0) {
+      log("postgres", "ready");
+      return;
+    }
+    sleep(1000);
+  }
+  console.error("postgres did not become ready in 30s");
+  process.exit(1);
+}
+
+function prepare() {
+  dockerComposeUp();
+  pnpm(["install", "--frozen-lockfile"]);
+  run(process.execPath, [join(root, "scripts/link-workspace.mjs")]);
+  run(process.execPath, [join(root, "scripts/check.mjs")]);
+  loadEnvFile();
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL =
+      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+  }
+  run(process.execPath, [join(root, "apps/api/scripts/migrate.mjs")]);
+  log("prepare", "ok");
+}
+
+function readPids() {
+  if (!existsSync(pidFile)) return null;
+  try {
+    return JSON.parse(readFileSync(pidFile, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function stopProcesses() {
+  const pids = readPids();
+  if (!pids) {
+    log("down", "no pid file");
+    return;
+  }
+  for (const [name, pid] of Object.entries(pids)) {
+    if (typeof pid === "number" && isAlive(pid)) {
+      log("down", `stopping ${name} (pid ${pid})`);
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  rmSync(pidFile, { force: true });
+}
+
+async function waitForHealth() {
+  const healthUrl = `${apiBase}/health`;
+  for (let i = 0; i < 20; i++) {
+    try {
+      const res = await fetch(healthUrl, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.status === "ok" && body.db === "ok") {
+          log("up", `health ok (${healthUrl})`);
+          return;
+        }
+      }
+    } catch {
+      /* retry */
+    }
+    sleep(500);
+  }
+  console.error("API health did not pass — check .deploy/api.log");
+  process.exit(1);
+}
+
+function up() {
+  loadEnvFile();
+  stopProcesses();
+  mkdirSync(deployDir, { recursive: true });
+
+  const apiLog = join(deployDir, "api.log");
+  const watcherLog = join(deployDir, "watcher.log");
+
+  const apiOut = openSync(apiLog, "a");
+  const apiChild = spawn(process.execPath, [join(root, "apps/api/src/server.mjs")], {
+    cwd: root,
+    env: process.env,
+    detached: true,
+    stdio: ["ignore", apiOut, apiOut],
+  });
+  apiChild.unref();
+
+  const watcherOut = openSync(watcherLog, "a");
+  const watcherChild = spawn(
+    process.execPath,
+    [join(root, "apps/watcher/src/main.mjs"), "--loop"],
+    {
+      cwd: root,
+      env: process.env,
+      detached: true,
+      stdio: ["ignore", watcherOut, watcherOut],
+    },
+  );
+  watcherChild.unref();
+
+  writeFileSync(
+    pidFile,
+    JSON.stringify({ api: apiChild.pid, watcher: watcherChild.pid }, null, 2),
+  );
+  log("up", `API pid ${apiChild.pid} → ${apiLog}`);
+  log("up", `watcher pid ${watcherChild.pid} → ${watcherLog}`);
+}
+
+async function smoke() {
+  loadEnvFile();
+  const healthUrl = `${apiBase}/health`;
+  const res = await fetch(healthUrl, { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) {
+    console.error(`smoke: health ${res.status} ${healthUrl}`);
+    process.exit(1);
+  }
+  const body = await res.json();
+  if (body.status !== "ok" || body.db !== "ok") {
+    console.error("smoke: unexpected health payload", body);
+    process.exit(1);
+  }
+  log("smoke", `health ok (${healthUrl})`);
+
+  run(process.execPath, [join(root, "scripts/e2e-smoke.mjs")]);
+  run(process.execPath, [join(root, "scripts/e2e-smoke.mjs"), "--live"], {
+    env: { E2E_API_BASE: apiBase },
+  });
+  run(process.execPath, [join(root, "scripts/demo-walkthrough.mjs")]);
+  log("smoke", "ok");
+}
+
+async function restoreDrill() {
+  loadEnvFile();
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url.includes("localhost") && !url.includes("127.0.0.1")) {
+    console.error("restore-drill: refuse non-local DATABASE_URL");
+    process.exit(1);
+  }
+
+  mkdirSync(deployDir, { recursive: true });
+  await smoke();
+
+  log("restore", `pg_dump → ${dumpFile}`);
+  run("pg_dump", [url, "-Fc", "-f", dumpFile]);
+
+  stopProcesses();
+  run("docker", [
+    "compose",
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "cryptogate",
+    "-d",
+    "postgres",
+    "-c",
+    "DROP DATABASE IF EXISTS cryptogate WITH (FORCE); CREATE DATABASE cryptogate;",
+  ]);
+
+  log("restore", "pg_restore");
+  run("pg_restore", ["-d", url, "--no-owner", "--no-privileges", dumpFile]);
+  run(process.execPath, [join(root, "apps/api/scripts/migrate.mjs")]);
+  up();
+  await waitForHealth();
+  await smoke();
+  log("restore", "drill complete");
+}
+
+function audit() {
+  pnpm(["audit", "--audit-level=moderate"]);
+  run(process.execPath, [join(root, "scripts/licenses-report.mjs")]);
+  log("audit", "record in M4-T04 ticket");
+}
+
+async function main() {
+  if (doDown) {
+    stopProcesses();
+    return;
+  }
+
+  if (doPrepare) prepare();
+  if (doUp) {
+    up();
+    await waitForHealth();
+  }
+  if (doSmoke) await smoke();
+  if (doRestore) await restoreDrill();
+  if (doAudit) audit();
+
+  if (!doPrepare && !doUp && !doSmoke && !doRestore && !doAudit) {
+    console.error("Unknown flags");
+    process.exit(1);
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

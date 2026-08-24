@@ -1,0 +1,16 @@
+[Unit]
+Description=CryptoGate HTTP API
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cryptogate
+EnvironmentFile=/etc/cryptogate/api.env
+ExecStart=/usr/bin/node apps/api/src/server.mjs
+Restart=always
+RestartSec=5
+User=cryptogate
+
+[Install]
+WantedBy=multi-user.target
