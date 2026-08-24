@@ -66,7 +66,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
-| M2-04 | Kevin | doing | OpenAPI matching-mode settings | `feat-kevin-api-spec-m2-matching-mode` v0.2.1 |
+| M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
+| M2-05 | Kevin | doing | OpenAPI settlement address book | `feat-kevin-api-spec-m2-settlement` v0.2.2 |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — needs Andrew CORS for live path |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -165,7 +166,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
-| M2-04 | Kevin | doing | OpenAPI matching-mode settings | `feat-kevin-api-spec-m2-matching-mode` v0.2.1 |
+| M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
+| M2-05 | Kevin | doing | OpenAPI settlement address book | `feat-kevin-api-spec-m2-settlement` v0.2.2 |
 
 ---
 

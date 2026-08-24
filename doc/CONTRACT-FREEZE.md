@@ -39,7 +39,18 @@ Frozen for Andrew (`M2-11`/`M2-13`) and Kevin (`M2-50`):
 | --- | --- | --- |
 | OpenAPI matching mode | `GET/PUT /v1/orgs/{orgId}/matching-mode` | Mirrors Andrew PR #24; Cashier 403; default `B` when unset |
 
-Additive only — order create / payment schemas unchanged. Settlement address book OpenAPI still pending (Andrew routes exist).
+Additive only — order create / payment schemas unchanged.
+
+## v0.2.2 — Merchant settlement address book
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.2`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| OpenAPI settlement | `GET/PUT /v1/orgs/{orgId}/settlement` | Mirrors Andrew PR #20; Cashier 403; enabled asset/network only |
+
+Additive only. MFA + cool-down before address becomes active for new orders is still M2-16 (schema may grow).
 
 ## Rules
 
