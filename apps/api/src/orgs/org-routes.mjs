@@ -14,6 +14,8 @@ import {
   findPlatformOrg,
   insertOrgAccount,
 } from "./org-store.mjs";
+import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 
 /**
  * GET /v1/orgs
@@ -119,6 +121,13 @@ export async function handleCreateOrg(req, res) {
       role: "owner",
     });
   }
+
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: inserted.row.id,
+    action: AUDIT_ACTIONS.orgCreate,
+    metadata: { type: inserted.row.type, parentId: inserted.row.parent_id },
+  });
 
   sendJson(res, 201, toOrgAccount(inserted.row));
 }

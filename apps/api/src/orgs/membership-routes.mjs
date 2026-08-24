@@ -18,6 +18,8 @@ import {
   updateMembershipRole,
 } from "./membership-store.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
+import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 
 /**
  * POST /v1/orgs/{orgId}/users
@@ -96,6 +98,13 @@ export async function handleInviteOrgUser(req, res, orgId) {
     return;
   }
 
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.orgUserInvite,
+    metadata: { invitedUserId: user.id, role },
+  });
+
   sendJson(
     res,
     201,
@@ -169,6 +178,12 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
   }
 
   await updateMembershipRole(orgId, userId, role);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.orgUserRole,
+    metadata: { targetUserId: userId, role },
+  });
   sendJson(
     res,
     200,
