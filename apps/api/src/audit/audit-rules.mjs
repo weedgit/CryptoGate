@@ -13,6 +13,9 @@ export const AUDIT_ACTIONS = {
   webhookRegister: "webhook_register",
   webhookDelete: "webhook_delete",
   serviceBillIssue: "service_bill_issue",
+  apiKeyCreate: "api_key_create",
+  apiKeyRevoke: "api_key_revoke",
+  apiKeyRotate: "api_key_rotate",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

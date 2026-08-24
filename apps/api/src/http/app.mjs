@@ -36,6 +36,12 @@ import {
   handleTestWebhook,
 } from "../webhooks/webhook-routes.mjs";
 import {
+  handleCreateApiKey,
+  handleListApiKeys,
+  handleRevokeApiKey,
+  handleRotateApiKey,
+} from "../api-keys/api-key-routes.mjs";
+import {
   handleGetServiceBill,
   handleGetServiceBillCheckout,
   handleIssueServiceBill,
@@ -186,6 +192,39 @@ export async function handleRequest(req, res) {
   const hdPoolMatch = path.match(/^\/v1\/orgs\/([^/]+)\/hd-pool$/);
   if (method === "GET" && hdPoolMatch) {
     await handleGetHdPool(req, res, decodeURIComponent(hdPoolMatch[1]));
+    return;
+  }
+
+  if (path === "/v1/api-keys") {
+    if (method === "GET") {
+      await handleListApiKeys(req, res, url);
+      return;
+    }
+    if (method === "POST") {
+      await handleCreateApiKey(req, res);
+      return;
+    }
+  }
+
+  const apiKeyRotateMatch = path.match(/^\/v1\/api-keys\/([^/]+)\/rotate$/);
+  if (method === "POST" && apiKeyRotateMatch) {
+    await handleRotateApiKey(
+      req,
+      res,
+      decodeURIComponent(apiKeyRotateMatch[1]),
+      url,
+    );
+    return;
+  }
+
+  const apiKeyMatch = path.match(/^\/v1\/api-keys\/([^/]+)$/);
+  if (method === "DELETE" && apiKeyMatch) {
+    await handleRevokeApiKey(
+      req,
+      res,
+      decodeURIComponent(apiKeyMatch[1]),
+      url,
+    );
     return;
   }
 

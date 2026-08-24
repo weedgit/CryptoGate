@@ -418,4 +418,26 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects api-keys list and create without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const list = await fetch(`${base}/v1/api-keys`);
+      assert.equal(list.status, 401);
+      const create = await fetch(`${base}/v1/api-keys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "Production" }),
+      });
+      assert.equal(create.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

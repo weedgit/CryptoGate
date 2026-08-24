@@ -1,5 +1,9 @@
 import { readRawBody } from "../http/json.mjs";
-import { findActiveApiKeyByKeyId, consumeApiKeyNonce } from "./api-key-store.mjs";
+import {
+  findActiveApiKeyByKeyId,
+  consumeApiKeyNonce,
+  touchApiKeyLastUsed,
+} from "./api-key-store.mjs";
 import {
   canonicalString,
   checkTimestampSkew,
@@ -42,6 +46,12 @@ export async function authenticateApiKeyRequest(req) {
 
   const nonce = await consumeApiKeyNonce(key.id, parsed.nonce);
   if (!nonce.ok) return nonce;
+
+  try {
+    await touchApiKeyLastUsed(key.id);
+  } catch {
+    // best-effort; do not fail auth
+  }
 
   return {
     ok: true,

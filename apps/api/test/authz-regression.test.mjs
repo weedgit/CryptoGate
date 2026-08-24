@@ -22,6 +22,7 @@ import {
   canViewWebhooks,
   canViewXpubSettings,
   paymentOrderListScope,
+  resolveApiKeyOrgId,
   resolveOrderOrgId,
   resolveWebhookOrgId,
   serviceBillListScope,
@@ -90,16 +91,13 @@ function caller(memberships, extras = {}) {
 describe("M4-10 authz regression — Cashier denials", () => {
   const c = caller([cashierA]);
 
-  it("forbids settlement / matching / xPub change and view", () => {
+  it("forbids settlement / matching / xPub / API-key surfaces and CSV export", () => {
     assert.equal(canChangeSettlementSettings(c, merchantA), false);
     assert.equal(canViewSettlementSettings(c, merchantA), false);
     assert.equal(canChangeMatchingModeSettings(c, merchantA), false);
     assert.equal(canViewMatchingModeSettings(c, merchantA), false);
     assert.equal(canChangeXpubSettings(c, merchantA), false);
     assert.equal(canViewXpubSettings(c, merchantA), false);
-  });
-
-  it("forbids webhooks manage/view and CSV export", () => {
     assert.equal(canManageWebhooks(c, merchantA), false);
     assert.equal(canViewWebhooks(c, merchantA), false);
     assert.equal(canExportPaymentOrders(c), false);
@@ -132,10 +130,11 @@ describe("M4-10 authz regression — agent bars", () => {
     assert.equal(canExportPaymentOrders(a), false);
   });
 
-  it("cannot manage merchant webhooks or change settlement", () => {
+  it("cannot manage merchant webhooks/API keys or change settlement", () => {
     assert.equal(canManageWebhooks(a, merchantA), false);
     assert.equal(canChangeSettlementSettings(a, merchantA), false);
     assert.equal(resolveWebhookOrgId(a.memberships, null, "manage").status, 403);
+    assert.equal(resolveApiKeyOrgId(a.memberships, null, "manage").status, 403);
     assert.equal(
       resolveWebhookOrgId(a.memberships, null, "manage").message.includes(
         "Agent",
