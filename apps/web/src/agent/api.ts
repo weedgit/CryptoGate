@@ -63,9 +63,11 @@ export async function listOrgs(): Promise<OrgAccount[]> {
 
 export async function listServiceBills(opts?: {
   status?: string;
+  orgId?: string;
 }): Promise<ServiceBill[]> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
+  if (opts?.orgId) q.set("orgId", opts.orgId);
   const suffix = q.toString() ? `?${q}` : "";
   const res = await fetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
