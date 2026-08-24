@@ -57,6 +57,15 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/webhooks/bills).
 
+### This week standup (Kevin — async OK)
+
+| Who | Focus | Status / note |
+| --- | --- | --- |
+| **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
+| **Bruce** | Merge D5–D6, start D14 | **Ahead:** D5–D6 (#76), D14 (#77), D10 (#79), D12–D16 (#81), D7–D9 (#83) on `main`; merchant Figma D1–D17 shell complete |
+| **Kevin** | Refresh `TEAM-BOARD.md`; chase M1-01 + Company A hostname table with client | Board refreshed; M1-01 still **blocked** (client sign-off) |
+| **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
+
 ---
 
 ## Now (start here)
@@ -153,7 +162,9 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none blocking Kevin) | M4-11 done (run migrate **017** before routes). Next Andrew: **M4-12** load tests — no OpenAPI wait. |
+| P1 | B4 branch up | Standup: confirm stub vs real for commercial step |
+| P2 | M4-12 load tests | No OpenAPI wait |
+| — | Run migrate **017** | Required on any DB before API key routes |
 
 CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
 
@@ -163,7 +174,9 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none — merchant Figma D1–D17 shell complete) | Next Bruce: polish / API gaps when Andrew lands list endpoints |
+| — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
+| P1 | Polish when Andrew lands APIs | Team member list (`GET /orgs/{id}/users`), org PATCH, notification prefs |
+| P2 | Watcher / matching / APK | Back to VM2 surfaces when web polish blocked |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
