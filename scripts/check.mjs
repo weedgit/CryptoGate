@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureChainClientsDomainLink } from "./link-workspace.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const tsc = join(root, "node_modules", ".bin", "tsc");
@@ -42,7 +43,12 @@ run("node", [
   "packages/matching/test/acceptance-2.8.test.mjs",
 ]);
 
-run("node", ["--test", "packages/chain-clients/test/tron.test.mjs"]);
+ensureChainClientsDomainLink();
+run("node", [
+  "--test",
+  "packages/chain-clients/test/tron.test.mjs",
+  "packages/chain-clients/test/ethereum.test.mjs",
+]);
 run("node", [
   "--test",
   "apps/watcher/test/watcher.test.mjs",

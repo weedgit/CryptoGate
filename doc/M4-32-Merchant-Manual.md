@@ -141,7 +141,37 @@ Typical causes: same-amount collision under Standard, underpay/overpay, wrong ne
 
 ---
 
-## 10. Related docs
+## 10. Cashier POS (Android APK) — M5-09
+
+Merchants may deploy the **Cashier Android POS** app for counter staff. It uses the **same APIs** as the web Cashier — no extra keys on the device.
+
+### What Cashiers do on POS
+
+| Action | Allowed |
+| --- | --- |
+| Log in with Cashier role | ✓ |
+| Create payment orders (amount, asset, network, validity) | ✓ |
+| Show QR / amount / network / address from the server | ✓ |
+| Poll order status until Completed / Expired / Payment anomaly | ✓ |
+| Change settlement address, xPub, matching mode, fees | **No** (403) |
+| Mark an order paid locally | **No** — server + chain only |
+
+### What Owners should know
+
+- **Two app flavors:** **Test** (`com.cryptogate.cashier.staging`) and **Production** (`com.cryptogate.cashier`). Install the flavor that matches your environment ([M4-05-Env-Matrix.md](M4-05-Env-Matrix.md)).
+- **MFA:** If the Cashier user’s org requires MFA, login may direct staff to complete MFA on the **web** portal first — the POS does not enroll MFA.
+- **Offline:** Create order is blocked without network; existing orders continue polling when connectivity returns.
+- **Receipt / printer:** Generic Android shows QR on screen. Built-in printer and customer-facing second screen depend on the **reference POS device** (M5-01) — see install notes.
+
+### Install (IT / Company A)
+
+Full sideload, MDM, checksum, and upgrade steps: **[M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md)**.
+
+Developer invariants and Studio setup: [Cashier-Apk.md](Cashier-Apk.md).
+
+---
+
+## 11. Related docs
 
 | Doc | Topic |
 | --- | --- |
@@ -149,6 +179,5 @@ Typical causes: same-amount collision under Standard, underpay/overpay, wrong ne
 | [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md) | Test vs prod |
 | [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) | Live vs planned networks |
 | [UI-Handoff.md](UI-Handoff.md) | Portal frame map (D11) |
-| [Cashier-Apk.md](Cashier-Apk.md) | POS daily use |
-
-POS / install chapter for cashiers is M5-09 (after reference device notes).
+| [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) | POS install & checksum |
+| [Cashier-Apk.md](Cashier-Apk.md) | POS technical reference |

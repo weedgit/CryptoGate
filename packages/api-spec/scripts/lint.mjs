@@ -174,4 +174,4 @@ if (
   process.exit(1);
 }
 
-console.log("OpenAPI contract freeze v0.3.2: ok");
+console.log("OpenAPI contract freeze v0.3.3: ok");

@@ -157,6 +157,7 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | X-01 | Kevin | done | OpenAPI v0.3.3 fee tiers + merchant commercial | `doc/X-01-Fee-Tiers-v033.md` |
 | M5-08 | Kevin | done | Cashier APK sideload / MDM / checksum | `doc/M5-08-Cashier-Apk-Install.md` + `scripts/apk-checksum.mjs` |
 | M5-09 | Kevin | done | Cashier POS section in merchant manual | `doc/M4-32-Merchant-Manual.md` §10 |
+| M5-01 | Kevin | done | Reference device confirmation template | `doc/M5-01-Reference-Device.md` — await Company A sign-off |
 | M1-T05 | Kevin | doing | Prototype walkthrough checklist | `doc/M1-T05-Prototype-Walkthrough.md` |
 | M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send when client fills §3 hostnames |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |

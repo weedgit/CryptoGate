@@ -111,7 +111,7 @@ pnpm --filter @cryptogate/watcher start
 | `GET {API}/v1/orders/{id}/payment` on a known order | Public JSON; no session |
 | Watcher logs | Ticks without crash; Tron errors backoff |
 | `POST /v1/webhooks/test` (auth) | Delivery reaches merchant HTTPS URL |
-| Cashier **staging** APK → test API only | Login + create order |
+| Cashier **staging** APK → test API only | Login + create order — install per [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) |
 
 ---
 

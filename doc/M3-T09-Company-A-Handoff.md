@@ -21,6 +21,8 @@ Phase 1 deploys on **Company A accounts** (requirement). This pack is what Kevin
 | [M3-02-Integration-Guide.md](M3-02-Integration-Guide.md) | Merchant API, signing, webhooks |
 | [M3-03-Webhook-Verify-Example.md](M3-03-Webhook-Verify-Example.md) | Webhook HMAC sample |
 | [M4-36-Audit-Bills-v032.md](M4-36-Audit-Bills-v032.md) | OpenAPI v0.3.2 (audit + bill PATCH) |
+| [X-01-Fee-Tiers-v033.md](X-01-Fee-Tiers-v033.md) | OpenAPI v0.3.3 fee tiers |
+| [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) | POS sideload / MDM / checksum |
 | Repo | Delivered source — `main` branch, tag TBD at release |
 
 Repo root: `.env.example` (variable catalog).
@@ -61,7 +63,7 @@ Phase 1 source is ready for deployment to your **test/staging** cloud account. C
 3. TronGrid (or private Tron) endpoint + API key for **test**
 4. Confirmation that managed Postgres backups are enabled on test ([M4-03](M4-03-Backup-Monitoring.md))
 
-**After you reply**, we schedule a deploy window: migrate DB (through **018**), start API + watcher, run smoke (health, sample order, webhook test).
+**After you reply**, we schedule a deploy window: migrate DB (through **018**; **019** when X-01 fee-tier API lands), start API + watcher, run smoke (health, sample order, webhook test). Staging Cashier APK install: [M5-08](M5-08-Cashier-Apk-Install.md).
 
 Regards,  
 [Kevin / Company B]
@@ -89,7 +91,7 @@ Return this completed for **test** (prod column optional until cutover).
 | On-call / alert email | | |
 | Support contact for integrators | | |
 
-**Migrations:** API owns schema — run through **`018`** before v0.3.2 audit/bill routes. **`017`** required before API keys.
+**Migrations:** API owns schema — run through **`018`** before v0.3.2 audit/bill routes; **`019`** for v0.3.3 fee tiers. **`017`** required before API keys.
 
 ---
 
