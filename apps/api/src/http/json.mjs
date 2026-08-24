@@ -35,15 +35,26 @@ export function sendCsv(res, status, filename, body) {
 }
 
 /**
- * @param {import("node:http").IncomingMessage} req
- * @returns {Promise<unknown>}
+ * Exact request bytes (HMAC hashes this, not a trimmed JSON view).
+ * @param {import("node:http").IncomingMessage & { rawBody?: Buffer }} req
+ * @returns {Promise<Buffer>}
  */
-export async function readJsonBody(req) {
+export async function readRawBody(req) {
+  if (Buffer.isBuffer(req.rawBody)) return req.rawBody;
   const chunks = [];
   for await (const chunk of req) {
     chunks.push(chunk);
   }
-  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  req.rawBody = Buffer.concat(chunks);
+  return req.rawBody;
+}
+
+/**
+ * @param {import("node:http").IncomingMessage} req
+ * @returns {Promise<unknown>}
+ */
+export async function readJsonBody(req) {
+  const raw = (await readRawBody(req)).toString("utf8").trim();
   if (raw === "") return {};
   return JSON.parse(raw);
 }
