@@ -46,7 +46,9 @@ import {
   handleGetServiceBillCheckout,
   handleIssueServiceBill,
   handleListServiceBills,
+  handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
+import { handleListAuditLog } from "../audit/audit-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -279,6 +281,11 @@ export async function handleRequest(req, res) {
     }
   }
 
+  if (path === "/v1/audit" && method === "GET") {
+    await handleListAuditLog(req, res, url);
+    return;
+  }
+
   const serviceBillCheckoutMatch = path.match(
     /^\/v1\/service-bills\/([^/]+)\/checkout$/,
   );
@@ -292,13 +299,16 @@ export async function handleRequest(req, res) {
   }
 
   const serviceBillMatch = path.match(/^\/v1\/service-bills\/([^/]+)$/);
-  if (method === "GET" && serviceBillMatch) {
-    await handleGetServiceBill(
-      req,
-      res,
-      decodeURIComponent(serviceBillMatch[1]),
-    );
-    return;
+  if (serviceBillMatch) {
+    const billId = decodeURIComponent(serviceBillMatch[1]);
+    if (method === "GET") {
+      await handleGetServiceBill(req, res, billId);
+      return;
+    }
+    if (method === "PATCH") {
+      await handleUpdateServiceBill(req, res, billId);
+      return;
+    }
   }
 
   const roleMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/role$/);

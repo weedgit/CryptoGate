@@ -2,7 +2,8 @@ import { getPool } from "../db/pool.mjs";
 
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
-  total_amount, currency, status, due_at, created_at, updated_at
+  total_amount, currency, status, due_at, paid_at, voided_at,
+  last_adjustment_reason, payment_reference, created_at, updated_at
 `;
 
 /**
@@ -88,4 +89,50 @@ export async function insertServiceBill(input) {
     ],
   );
   return rows[0];
+}
+
+/**
+ * @param {string} id
+ * @param {string | null} paymentReference
+ */
+export async function markServiceBillPaid(id, paymentReference) {
+  const { rows } = await getPool().query(
+    `UPDATE service_bills
+     SET status = 'paid', paid_at = now(), payment_reference = $2, updated_at = now()
+     WHERE id = $1 AND status IN ('issued', 'overdue')
+     RETURNING ${BILL_SELECT}`,
+    [id, paymentReference],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} id
+ * @param {string} reason
+ */
+export async function voidServiceBill(id, _reason) {
+  const { rows } = await getPool().query(
+    `UPDATE service_bills
+     SET status = 'voided', voided_at = now(), updated_at = now()
+     WHERE id = $1 AND status = 'issued'
+     RETURNING ${BILL_SELECT}`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} id
+ * @param {string} totalAmount
+ * @param {string} reason
+ */
+export async function adjustServiceBill(id, totalAmount, reason) {
+  const { rows } = await getPool().query(
+    `UPDATE service_bills
+     SET total_amount = $2, last_adjustment_reason = $3, updated_at = now()
+     WHERE id = $1 AND status IN ('issued', 'overdue')
+     RETURNING ${BILL_SELECT}`,
+    [id, totalAmount, reason],
+  );
+  return rows[0] ?? null;
 }
