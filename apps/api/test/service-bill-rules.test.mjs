@@ -2,11 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   addUsdAmounts,
+  checkoutAllowedForBillStatus,
   parseServiceBillStatusFilter,
+  serviceBillQrPayload,
   toServiceBill,
   toServiceBillCheckout,
   validateIssueServiceBillBody,
 } from "../src/service-bills/service-bill-rules.mjs";
+import { ServiceBillStatus } from "@cryptogate/domain";
 import {
   canCheckoutServiceBill,
   canIssueServiceBill,
@@ -44,7 +47,7 @@ describe("service-bill rules (M3-16)", () => {
 
   it("maps checkout without PaymentDetails fields", () => {
     const prev = process.env.PLATFORM_BILLING_PAY_TO;
-    process.env.PLATFORM_BILLING_PAY_TO = "TPlatformWallet";
+    process.env.PLATFORM_BILLING_PAY_TO = "TPlatformWallet1234567890123456789012";
     try {
       const checkout = toServiceBillCheckout({
         id: "b1",
@@ -52,10 +55,11 @@ describe("service-bill rules (M3-16)", () => {
         currency: "USD",
       });
       assert.equal(checkout.billId, "b1");
-      assert.equal(checkout.payTo, "TPlatformWallet");
+      assert.equal(checkout.payTo, "TPlatformWallet1234567890123456789012");
       assert.equal("receiveAddress" in checkout, false);
       assert.equal("paymentPageUrl" in checkout, false);
       assert.match(checkout.instructions, /not a merchant payment order/i);
+      assert.match(checkout.qrPayload ?? "", /^tron:TPlatformWallet1234567890123456789012\?/);
     } finally {
       if (prev === undefined) delete process.env.PLATFORM_BILLING_PAY_TO;
       else process.env.PLATFORM_BILLING_PAY_TO = prev;
@@ -82,6 +86,19 @@ describe("service-bill rules (M3-16)", () => {
   it("parses status filter", () => {
     assert.equal(parseServiceBillStatusFilter("issued").ok, true);
     assert.equal(parseServiceBillStatusFilter("nope").ok, false);
+  });
+
+  it("allows checkout for issued/overdue only (M4-13)", () => {
+    assert.equal(checkoutAllowedForBillStatus(ServiceBillStatus.Issued), true);
+    assert.equal(checkoutAllowedForBillStatus(ServiceBillStatus.Overdue), true);
+    assert.equal(checkoutAllowedForBillStatus(ServiceBillStatus.Paid), false);
+    assert.equal(checkoutAllowedForBillStatus(ServiceBillStatus.Voided), false);
+  });
+
+  it("builds Tron qrPayload for platform billing wallet", () => {
+    const uri = serviceBillQrPayload("TPlatformWallet1234567890123456789012", "61.50");
+    assert.match(uri ?? "", /^tron:TPlatform/);
+    assert.equal(serviceBillQrPayload("not-tron", "1.00"), null);
   });
 });
 

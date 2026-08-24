@@ -16,6 +16,7 @@ import {
   parseServiceBillStatusFilter,
   toServiceBill,
   toServiceBillCheckout,
+  checkoutAllowedForBillStatus,
   validateIssueServiceBillBody,
 } from "./service-bill-rules.mjs";
 import {
@@ -178,6 +179,16 @@ async function loadReadableBill(req, res, billId, mode) {
 
   if (mode === "checkout" && !canCheckoutServiceBill(caller, org)) {
     sendError(res, 403, "forbidden", "Not allowed to open service-bill checkout");
+    return null;
+  }
+
+  if (mode === "checkout" && !checkoutAllowedForBillStatus(row.status)) {
+    sendError(
+      res,
+      422,
+      "bill_not_payable",
+      "Service bill cannot be paid in its current status",
+    );
     return null;
   }
 

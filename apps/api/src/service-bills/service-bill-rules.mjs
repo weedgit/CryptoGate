@@ -136,10 +136,37 @@ export function toServiceBill(row) {
  * @param {object} billRow
  * @param {{ payTo?: string }} [opts]
  */
+export function serviceBillQrPayload(payTo, totalAmount) {
+  if (typeof payTo !== "string" || !payTo.startsWith("T") || payTo.length < 30) {
+    return null;
+  }
+  const q = new URLSearchParams({
+    amount: totalAmount,
+    asset: "USDT",
+    network: "tron",
+  });
+  return `tron:${payTo}?${q.toString()}`;
+}
+
+/**
+ * Issued and overdue bills may open checkout; paid/voided may not.
+ * @param {string} status
+ */
+export function checkoutAllowedForBillStatus(status) {
+  return (
+    status === ServiceBillStatus.Issued || status === ServiceBillStatus.Overdue
+  );
+}
+
+/**
+ * Checkout payload — not PaymentDetails / guest pay page.
+ * @param {object} billRow
+ * @param {{ payTo?: string }} [opts]
+ */
 export function toServiceBillCheckout(billRow, opts = {}) {
   const payTo =
     opts.payTo ??
-    process.env.PLATFORM_BILLING_PAY_TO ??
+    process.env.PLATFORM_BILLING_PAY_TO?.trim() ??
     "Configure PLATFORM_BILLING_PAY_TO";
   const totalAmount = billRow.total_amount;
   const currency = billRow.currency ?? BillingCurrency.USD;
@@ -148,7 +175,7 @@ export function toServiceBillCheckout(billRow, opts = {}) {
     totalAmount,
     currency,
     payTo,
-    qrPayload: null,
+    qrPayload: serviceBillQrPayload(payTo, totalAmount),
     instructions:
       `Pay platform service bill ${billRow.id} for ${totalAmount} ${currency} to ${payTo}. ` +
       "This is not a merchant payment order and must not use the guest payment page.",
