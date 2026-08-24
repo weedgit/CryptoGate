@@ -71,6 +71,15 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 | --- | --- | --- |
 | OpenAPI list/export | `GET /v1/orders` | Query `format`, `status`, `orgId`, `limit`; CSV Cashier 403 (Andrew PR #41) |
 
+## v0.2.5 — Mode S HD pool list
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.5`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| OpenAPI HD pool | `GET /v1/orgs/{orgId}/hd-pool` | FREE/IN_USE/COOLDOWN; never xPub; claim only via order create (Andrew PR #44) |
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.

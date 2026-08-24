@@ -1,13 +1,13 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.2.4
+  version: 0.2.5
   description: >
-    Contract freeze v0.2.4 (M2 orders, matching-mode, settlement cool-down, xPub
-    presence, order list/export). Source of truth for apps/api, apps/payment-page,
-    and apps/cashier-apk. Payment orders are watch-only. Service bills are a separate
-    rail. Enum string values and PaymentOrder fields match @cryptogate/domain.
-    Never return spend keys or full xPub strings.
+    Contract freeze v0.2.5 (M2 orders, matching-mode, settlement cool-down, xPub
+    presence, order list/export, Mode S HD pool list). Source of truth for apps/api,
+    apps/payment-page, and apps/cashier-apk. Payment orders are watch-only. Service
+    bills are a separate rail. Enum string values and PaymentOrder fields match
+    @cryptogate/domain. Never return spend keys or full xPub strings.
 servers:
   - url: /v1
 tags:
@@ -540,6 +540,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/hd-pool:
+    get:
+      tags: [orgs]
+      operationId: listHdPoolAddresses
+      summary: List Mode S HD pool addresses (watch-only)
+      description: >
+        Same visibility bar as xPub GET (Owner/Admin/Viewer; Cashier 403). Returns
+        merchant-controlled receive addresses with FREE / IN_USE / COOLDOWN status.
+        Never returns xPub, derivation private keys, or seeds. Claiming a FREE slot
+        or deriving a new index happens only inside POST /orders Mode S assign —
+        there is no public claim endpoint.
+
+        derivationPath is the relative template under the account xPub (e.g. 0/{index}).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: HD pool snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HdPoolList"
+        "400":
+          description: Org is not a merchant (or merchant site)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders:
     post:
       tags: [orders]
@@ -549,7 +597,8 @@ paths:
         Merchant or Cashier creates a collection order. Matching mode is the merchant
         default at create time and is stored on the order; the request body must not
         include matchingMode. Payable amount, receive address, addressSource, hdIndex,
-        and memoOrTag come from packages/matching assignOnCreate.
+        and memoOrTag come from packages/matching assignOnCreate. Mode S same-amount
+        conflicts claim or derive from the HD pool under the create lock.
 
         Agent-account users receive 403. Cashiers may create orders but cannot set
         matching mode, settlement address, xPub, or fees (those endpoints are 403).
@@ -969,6 +1018,51 @@ components:
           type: string
           minLength: 6
           maxLength: 8
+    HdPoolState:
+      type: string
+      description: Mode S pool slot state (matches @cryptogate/domain HdPoolState)
+      enum: [FREE, IN_USE, COOLDOWN]
+    HdPoolAddress:
+      type: object
+      required: [id, orgId, asset, network, hdIndex, receiveAddress, status]
+      description: Watch-only derived receive address — never xPub
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        hdIndex:
+          type: integer
+          minimum: 0
+        receiveAddress:
+          type: string
+        status:
+          $ref: "#/components/schemas/HdPoolState"
+        cooldownUntil:
+          type: string
+          format: date-time
+          nullable: true
+        lastOrderId:
+          type: string
+          nullable: true
+          description: Last order that held this address (audit)
+    HdPoolList:
+      type: object
+      required: [derivationPath, items]
+      properties:
+        derivationPath:
+          type: string
+          description: Relative path template under the account xPub
+          example: "0/{index}"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HdPoolAddress"
     AddressSource:
       type: string
       enum: [main, hd_pool]

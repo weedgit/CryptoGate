@@ -1,6 +1,6 @@
 {
   "name": "@cryptogate/api-spec",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
   "description": "OpenAPI contract for apps/api and clients. Kevin owns merges.",
   "scripts": {
