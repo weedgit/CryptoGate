@@ -5,7 +5,9 @@
  */
 export function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, { "Content-Type": "application/json" });
+  // Use statusCode + setHeader so CORS headers applied earlier stay intact.
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json");
   res.end(payload);
 }
 

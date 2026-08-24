@@ -24,6 +24,7 @@ import {
   handleGetMatchingMode,
   handlePutMatchingMode,
 } from "../matching-mode/matching-mode-routes.mjs";
+import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -32,6 +33,9 @@ import { sendError, sendJson } from "./json.mjs";
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleRequest(req, res) {
+  applyCorsHeaders(req, res);
+  if (handleCorsPreflight(req, res)) return;
+
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const path = url.pathname;
   const method = req.method ?? "GET";
