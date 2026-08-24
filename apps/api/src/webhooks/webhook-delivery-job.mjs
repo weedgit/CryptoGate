@@ -1,7 +1,8 @@
 import { processDueWebhookDeliveries } from "./webhook-deliver.mjs";
+import { processPaymentOrderWebhookOutbox } from "./webhook-fanout.mjs";
 
 /**
- * Background delivery worker (M3-14).
+ * Background delivery worker (M3-14): fan-out outbox then POST deliveries.
  * @param {{
  *   intervalMs?: number,
  *   enabled?: boolean,
@@ -27,6 +28,7 @@ export function startWebhookDeliveryJob(options = {}) {
     options.run ??
     (async () => {
       try {
+        await processPaymentOrderWebhookOutbox();
         await processDueWebhookDeliveries();
       } catch (err) {
         if (process.env.NODE_ENV !== "test") {

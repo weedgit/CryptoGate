@@ -5,7 +5,7 @@ import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
 
 /**
- * HTTP entry. Background: order expiry (M2-14), webhook delivery (M3-14).
+ * HTTP entry. Background: order expiry (M2-14), webhook fan-out + delivery (M3-14).
  */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
