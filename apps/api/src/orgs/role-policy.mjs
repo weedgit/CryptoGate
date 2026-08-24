@@ -217,3 +217,69 @@ export function canChangeXpubSettings(caller, org) {
 export function canViewXpubSettings(caller, org) {
   return canViewSettlementSettings(caller, org);
 }
+
+/**
+ * Webhooks: Owner/Admin on merchant (or platform owner). Cashier and agent 403.
+ * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string, orgType: string }[] }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canManageWebhooks(caller, org) {
+  return canChangeSettlementSettings(caller, org);
+}
+
+/**
+ * List/test visibility: same as xPub GET (Owner/Admin/Viewer; Cashier 403).
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canViewWebhooks(caller, org) {
+  return canViewXpubSettings(caller, org);
+}
+
+/**
+ * Resolve merchant org for /v1/webhooks (no orgId in path).
+ * @param {{ orgId: string, role: string, orgType: string }[]} memberships
+ * @param {string | null} requestedOrgId
+ * @param {"view" | "manage"} mode
+ */
+export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
+  const roleSet = mode === "manage" ? SETTINGS_ROLES : ORDER_READ_ROLES;
+  const eligible = memberships.filter(
+    (m) => MERCHANT_TYPES.has(m.orgType) && roleSet.has(m.role),
+  );
+  if (requestedOrgId) {
+    const m = eligible.find((row) => row.orgId === requestedOrgId);
+    if (!m) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "Not allowed to manage webhooks for this org",
+      };
+    }
+    return { ok: true, orgId: m.orgId };
+  }
+  if (eligible.length === 1) return { ok: true, orgId: eligible[0].orgId };
+  if (eligible.length === 0) {
+    const agentOnly = memberships.some(
+      (m) => m.orgType === "agent" || m.orgType === "agent_sub",
+    );
+    return {
+      ok: false,
+      status: 403,
+      code: "forbidden",
+      message: agentOnly
+        ? "Agent accounts cannot register merchant webhooks"
+        : "Not allowed to manage webhooks",
+    };
+  }
+  return {
+    ok: false,
+    status: 400,
+    code: "org_required",
+    message: "orgId is required when you have multiple merchant memberships",
+  };
+}

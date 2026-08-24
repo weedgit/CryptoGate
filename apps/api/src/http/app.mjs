@@ -28,6 +28,13 @@ import {
 } from "../matching-mode/matching-mode-routes.mjs";
 import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
+import {
+  handleDeleteWebhook,
+  handleListWebhookDeliveries,
+  handleListWebhooks,
+  handleRegisterWebhook,
+  handleTestWebhook,
+} from "../webhooks/webhook-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -173,6 +180,46 @@ export async function handleRequest(req, res) {
   const hdPoolMatch = path.match(/^\/v1\/orgs\/([^/]+)\/hd-pool$/);
   if (method === "GET" && hdPoolMatch) {
     await handleGetHdPool(req, res, decodeURIComponent(hdPoolMatch[1]));
+    return;
+  }
+
+  if (path === "/v1/webhooks") {
+    if (method === "GET") {
+      await handleListWebhooks(req, res, url);
+      return;
+    }
+    if (method === "POST") {
+      await handleRegisterWebhook(req, res);
+      return;
+    }
+  }
+
+  if (method === "POST" && path === "/v1/webhooks/test") {
+    await handleTestWebhook(req, res, url);
+    return;
+  }
+
+  const webhookDeliveriesMatch = path.match(
+    /^\/v1\/webhooks\/([^/]+)\/deliveries$/,
+  );
+  if (method === "GET" && webhookDeliveriesMatch) {
+    await handleListWebhookDeliveries(
+      req,
+      res,
+      decodeURIComponent(webhookDeliveriesMatch[1]),
+      url,
+    );
+    return;
+  }
+
+  const webhookMatch = path.match(/^\/v1\/webhooks\/([^/]+)$/);
+  if (method === "DELETE" && webhookMatch) {
+    await handleDeleteWebhook(
+      req,
+      res,
+      decodeURIComponent(webhookMatch[1]),
+      url,
+    );
     return;
   }
 
