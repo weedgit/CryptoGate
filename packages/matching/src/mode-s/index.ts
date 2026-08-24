@@ -14,7 +14,8 @@ import {
   type NetworkId as NetworkIdType,
 } from "@cryptogate/domain";
 import { majorToMinor } from "../amount.js";
-import type { AssignInput, AssignResult } from "../types.js";
+import { matchExactPayable } from "../match-exact.js";
+import type { AssignInput, AssignResult, MatchInput, MatchResult } from "../types.js";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
@@ -161,4 +162,18 @@ export async function assignModeS(input: AssignInput): Promise<AssignResult> {
     hdIndex: claimed.hdIndex,
     memoOrTag: null,
   };
+}
+
+/**
+ * Mode S match (M3-63): bind by owned receive address (main or HD) + exact payable.
+ * Distinct HD addresses make same-amount open orders unambiguous; if two candidates
+ * still share address+amount → anomaly (never FIFO). Pool COOLDOWN→FREE is API-owned.
+ */
+export async function matchModeS(input: MatchInput): Promise<MatchResult> {
+  return matchExactPayable(input, "S", {
+    exact: "mode_s_exact_match",
+    collision: "mode_s_same_amount_collision",
+    underpay: "mode_s_underpay",
+    overpay: "mode_s_overpay",
+  });
 }

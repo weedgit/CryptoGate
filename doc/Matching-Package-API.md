@@ -7,7 +7,7 @@ Package path: `packages/matching`
 | Function / type | Called by | Purpose |
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
-| `matchModeB` / `matchModeC` / `matchModeD` | watcher / tests | Mode B/C/D match (also via `matchTransaction`) |
+| `matchModeB` / `matchModeC` / `matchModeD` / `matchModeS` | watcher / tests | Mode B/C/D/S match (also via `matchTransaction`) |
 | `MatchCandidateOrder` | watcher | Open-order row shape for match |
 | `assignModeB` / `assignModeC` / `assignModeD` / `assignModeS` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
@@ -33,7 +33,7 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (+ `mode-s/pool` FREE/IN_US
 | B | **M3-60 done** — exact match → `verifying`; same-amount collision → `payment_anomaly` (all `orderIds`); under/overpay on sole order → anomaly |
 | C | **M3-61 done** — exact fingerprint match → `verifying`; duplicate fingerprints → anomaly (never FIFO) |
 | D | **M3-62 done** — amount + memo; missing/wrong memo → anomaly; unsupported network → no match |
-| S | Stub until M3-63 |
+| S | **M3-63 done** — match by owned address (main or HD) + exact payable; collision → anomaly; pool COOLDOWN→FREE is API (`releaseDueHdPoolAddresses`) |
 
 ## Mode B match (`matchModeB` / `matchTransaction` with `mode: "B"`)
 
@@ -100,9 +100,15 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (+ `mode-s/pool` FREE/IN_US
   3. Conflict → require `claimHdPoolAddress` (atomic FREE claim or derive-next). Result: `addressSource: "hd_pool"`, `hdIndex` ≥ 0, address ≠ main.
 - Matching **never** holds keys, derives, signs, or sweeps.
 - Issued receive address is immutable after create (API invariant).
-- Pool COOLDOWN → FREE helpers exported (M2-44); API migration + claim wiring — see `doc/M2-44-Hd-Pool.md`.
+- Pool COOLDOWN → FREE helpers exported (M2-44); API owns claim/release (`doc/M2-44-Hd-Pool.md`, PR #44).
 
-## Matching settings policy (M2-45)
+## Mode S match (`matchModeS` / `matchTransaction` with `mode: "S"`)
+
+- Bind by **owned receive address** (main or HD pool) + asset + network + exact payable.
+- One open order at address with exact amount → `verifying` (`mode_s_exact_match`).
+- Two+ open orders same address + same payable → `payment_anomaly` with all `orderIds` (never FIFO) — should not occur if assign claimed distinct HD addresses.
+- Sole order under/overpay → anomaly (`mode_s_underpay` / `mode_s_overpay`).
+- Pool COOLDOWN → FREE after window is **API** (`releaseDueHdPoolAddresses`), not matching.
 
 Call `validateMatchingSettings` (or `assertMatchingSettings`) when saving merchant matching settings — **before** create order.
 

@@ -2,11 +2,10 @@
  * Matching package public API. Bruce owns Modes B/C/D/S.
  * Andrew calls assignOnCreate from order create; watcher calls matchTransaction.
  */
-import { OrderStatus as Status } from "@cryptogate/domain";
 import { assignModeB, matchModeB } from "./mode-b/index.js";
 import { assignModeC, matchModeC } from "./mode-c/index.js";
 import { assignModeD, matchModeD } from "./mode-d/index.js";
-import { assignModeS } from "./mode-s/index.js";
+import { assignModeS, matchModeS } from "./mode-s/index.js";
 import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types.js";
 
 export type {
@@ -47,7 +46,7 @@ export async function assignOnCreate(input: AssignInput): Promise<AssignResult> 
   }
 }
 
-/** Watcher maps inbound tx → order status. Mode B is M3-60; C/D/S follow. */
+/** Watcher maps inbound tx → order status. Modes B/C/D/S. */
 export async function matchTransaction(input: MatchInput): Promise<MatchResult> {
   switch (input.mode) {
     case "B":
@@ -57,10 +56,7 @@ export async function matchTransaction(input: MatchInput): Promise<MatchResult> 
     case "D":
       return matchModeD(input);
     case "S":
-      return {
-        status: Status.PendingPayment,
-        reason: "matchTransaction Mode S — Bruce M3-63",
-      };
+      return matchModeS(input);
     default: {
       const _exhaustive: never = input.mode;
       throw new Error(`Unknown matching mode: ${_exhaustive}`);
@@ -92,6 +88,7 @@ export {
 } from "./mode-d/index.js";
 export {
   assignModeS,
+  matchModeS,
   modeSAddressSource,
   MODE_S_CONFLICT_STATUSES,
 } from "./mode-s/index.js";
