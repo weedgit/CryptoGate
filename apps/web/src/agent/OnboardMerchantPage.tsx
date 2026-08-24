@@ -1,12 +1,18 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ApiError, createOrg, inviteOrgUser, type Session } from "./api";
 import {
-  MERCHANT_TIER_LABELS,
+  ApiError,
+  createOrg,
+  getFeeTierSettings,
+  inviteOrgUser,
+  type FeeTierBand,
+  type Session,
+} from "./api";
+import { tierLabel } from "../commercialLabels";
+import {
   STRUCTURE_LABELS,
   type MerchantStructure,
   type MerchantTier,
-  type OnboardMerchantCommercialStub,
 } from "./onboardMerchant";
 import { primaryAgentOrgId } from "./org";
 
@@ -17,11 +23,16 @@ type WizardState = {
   name: string;
   country: string;
   billingContact: string;
-  commercial: OnboardMerchantCommercialStub;
+  commercial: { tier: MerchantTier; volumeFeePercent: string };
   ownerEmail: string;
 };
 
 const STEPS = ["Structure", "Details", "Tier", "Volume fee", "Owner", "Review"] as const;
+
+function defaultVolumeForTier(tiers: FeeTierBand[], tier: MerchantTier): string {
+  const band = tiers.find((t) => t.tier === tier);
+  return band?.defaultSignupPercent ?? "1.5";
+}
 
 export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
@@ -29,14 +40,35 @@ export function OnboardMerchantPage({ session }: Props) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
   const [form, setForm] = useState<WizardState>({
     structure: "single_location",
     name: "",
     country: "",
     billingContact: "",
-    commercial: { tier: "mid", volumeFeePercent: "1.5" },
+    commercial: { tier: "mid", volumeFeePercent: "1.2" },
     ownerEmail: "",
   });
+
+  useEffect(() => {
+    getFeeTierSettings()
+      .then((settings) => {
+        setFeeTiers(settings.tiers);
+        setForm((prev) => ({
+          ...prev,
+          commercial: {
+            ...prev.commercial,
+            volumeFeePercent: defaultVolumeForTier(settings.tiers, prev.commercial.tier),
+          },
+        }));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const selectedBand = useMemo(
+    () => feeTiers.find((t) => t.tier === form.commercial.tier) ?? null,
+    [feeTiers, form.commercial.tier],
+  );
 
   function patch<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -45,6 +77,14 @@ export function OnboardMerchantPage({ session }: Props) {
   function validateStep(): string | null {
     if (!parentId) return "No agent org on this session.";
     if (step === 1 && !form.name.trim()) return "Merchant name is required.";
+    if (step === 3 && selectedBand) {
+      const pct = Number(form.commercial.volumeFeePercent);
+      const min = Number(selectedBand.volumeFeeMinPercent);
+      const max = Number(selectedBand.volumeFeeMaxPercent);
+      if (!Number.isFinite(pct) || pct < min || pct > max) {
+        return `Volume fee must be between ${min}% and ${max}% for ${tierLabel(form.commercial.tier)} tier.`;
+      }
+    }
     if (step === 4 && !form.ownerEmail.trim()) return "Owner email is required.";
     return null;
   }
@@ -80,6 +120,10 @@ export function OnboardMerchantPage({ session }: Props) {
         name: form.name.trim(),
         parentId,
         structure: form.structure,
+        commercial: {
+          tier: form.commercial.tier,
+          volumeFeePercent: form.commercial.volumeFeePercent.trim(),
+        },
       });
       await inviteOrgUser(created.id, {
         email: form.ownerEmail.trim(),
@@ -88,8 +132,7 @@ export function OnboardMerchantPage({ session }: Props) {
       navigate(`/agent/merchants/${created.id}`, {
         state: {
           invitationSent: true,
-          enterprisePending:
-            form.commercial.tier === "enterprise" ? true : undefined,
+          enterprisePending: form.commercial.tier === "enterprise",
         },
       });
     } catch (err) {
@@ -138,9 +181,6 @@ export function OnboardMerchantPage({ session }: Props) {
                 {STRUCTURE_LABELS[s]}
               </label>
             ))}
-            <p style={{ color: "var(--muted)", fontSize: 13 }}>
-              Real — sent as <code>structure</code> on <code>POST /v1/orgs</code>.
-            </p>
           </div>
         ) : null}
 
@@ -176,48 +216,53 @@ export function OnboardMerchantPage({ session }: Props) {
                 />
               </div>
             </div>
-            <p className="stub-note">
-              Stub — country and billing contact are UI-only until org profile API
-              exists. <strong>Name</strong> is persisted via org create.
+            <p style={{ color: "var(--muted)", fontSize: 13 }}>
+              Country and billing contact are UI-only until org profile API ships.
             </p>
           </>
         ) : null}
 
         {step === 2 ? (
           <>
-            <div className="banner banner-warn">
-              Tier selection is <strong>stub UI</strong> until X-01 fee tier API.
-              Enterprise shows a platform-approval banner on success only.
-            </div>
+            {form.commercial.tier === "enterprise" ? (
+              <div className="banner banner-warn">
+                Enterprise tier may require platform approval when the volume fee is
+                outside the global band.
+              </div>
+            ) : null}
             <div className="field">
               <label htmlFor="tier">Merchant tier</label>
               <select
                 id="tier"
                 className="field-control"
                 value={form.commercial.tier}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const tier = e.target.value as MerchantTier;
                   patch("commercial", {
-                    ...form.commercial,
-                    tier: e.target.value as MerchantTier,
-                  })
-                }
+                    tier,
+                    volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
+                  });
+                }}
               >
-                {(Object.keys(MERCHANT_TIER_LABELS) as MerchantTier[]).map((t) => (
+                {(["small", "mid", "enterprise"] as MerchantTier[]).map((t) => (
                   <option key={t} value={t}>
-                    {MERCHANT_TIER_LABELS[t]}
+                    {tierLabel(t)}
                   </option>
                 ))}
               </select>
             </div>
+            {selectedBand ? (
+              <p style={{ color: "var(--muted)", fontSize: 13 }}>
+                Band: {selectedBand.volumeFeeMinPercent}% –{" "}
+                {selectedBand.volumeFeeMaxPercent}% · default signup{" "}
+                {selectedBand.defaultSignupPercent}%
+              </p>
+            ) : null}
           </>
         ) : null}
 
         {step === 3 ? (
           <>
-            <div className="banner banner-warn">
-              Volume fee % is <strong>stub UI</strong> — not sent to API (effective
-              next billing period requires X-01).
-            </div>
             <div className="field">
               <label htmlFor="volume-fee">Volume fee %</label>
               <input
@@ -231,6 +276,13 @@ export function OnboardMerchantPage({ session }: Props) {
                   })
                 }
               />
+              {selectedBand ? (
+                <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
+                  Allowed {selectedBand.volumeFeeMinPercent}% –{" "}
+                  {selectedBand.volumeFeeMaxPercent}%. Changes apply next billing
+                  period after create.
+                </p>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -256,13 +308,13 @@ export function OnboardMerchantPage({ session }: Props) {
             <dt>Name</dt>
             <dd>{form.name.trim()}</dd>
             <dt>Country</dt>
-            <dd>{form.country.trim() || "— (stub)"}</dd>
+            <dd>{form.country.trim() || "—"}</dd>
             <dt>Billing contact</dt>
-            <dd>{form.billingContact.trim() || "— (stub)"}</dd>
+            <dd>{form.billingContact.trim() || "—"}</dd>
             <dt>Tier</dt>
-            <dd>{MERCHANT_TIER_LABELS[form.commercial.tier]} (stub)</dd>
+            <dd>{tierLabel(form.commercial.tier)}</dd>
             <dt>Volume fee</dt>
-            <dd>{form.commercial.volumeFeePercent}% (stub)</dd>
+            <dd>{form.commercial.volumeFeePercent}%</dd>
             <dt>Owner invite</dt>
             <dd>{form.ownerEmail.trim()}</dd>
             <dt>Parent agent</dt>

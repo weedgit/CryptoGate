@@ -616,6 +616,32 @@ export async function assignOrgUserRole(
   return (await res.json()) as OrgMembership;
 }
 
+export type MerchantCommercialSettings = {
+  orgId: string;
+  tier: string;
+  volumeFeePercent: string;
+  pendingVolumeFeePercent?: string | null;
+  subscriptionAmountUsd: string;
+  bandMinPercent: string;
+  bandMaxPercent: string;
+  effectiveFrom: string;
+  enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
+};
+
+export async function getMerchantCommercial(
+  orgId: string,
+): Promise<MerchantCommercialSettings> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as MerchantCommercialSettings;
+}
+
 export async function createOrg(body: {
   type: string;
   name: string;

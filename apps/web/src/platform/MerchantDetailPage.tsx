@@ -3,11 +3,13 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ApiError,
   getMatchingMode,
+  getMerchantCommercial,
   listOrders,
   listOrgs,
   listServiceBills,
   listSettlement,
   listXpub,
+  type MerchantCommercialSettings,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
@@ -20,6 +22,7 @@ import {
   STRUCTURE_LABELS,
 } from "./merchantSubtree";
 import { formatUsd, orgTypeLabel } from "./org";
+import { tierLabel } from "../commercialLabels";
 import { matchingModeLabel } from "../merchant/matchingLabels";
 import {
   formatBillId,
@@ -53,6 +56,7 @@ export function MerchantDetailPage() {
   const [settlement, setSettlement] = useState<SettlementAddress[]>([]);
   const [xpubs, setXpubs] = useState<XpubSettings[]>([]);
   const [matchingMode, setMatchingMode] = useState<string>("—");
+  const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +123,25 @@ export function MerchantDetailPage() {
   useEffect(() => {
     void loadCore();
   }, [loadCore]);
+
+  useEffect(() => {
+    if (!id || !org || loading) return;
+    if (tab !== "overview") return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await getMerchantCommercial(id);
+        if (!cancelled) setCommercial(row);
+      } catch {
+        if (!cancelled) setCommercial(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, org, tab, loading]);
 
   useEffect(() => {
     if (!id || !org || loading) return;
@@ -222,9 +245,31 @@ export function MerchantDetailPage() {
               <span className="status-badge tone-ok">Active</span>
             </dd>
             <dt>Fee tier</dt>
-            <dd style={{ color: "var(--muted)" }}>Mid (stub — X-01)</dd>
+            <dd>{commercial ? tierLabel(commercial.tier) : "—"}</dd>
             <dt>Effective volume fee</dt>
-            <dd style={{ color: "var(--muted)" }}>— (stub — X-01)</dd>
+            <dd>
+              {commercial ? (
+                <>
+                  {commercial.volumeFeePercent}%
+                  {commercial.pendingVolumeFeePercent ? (
+                    <span style={{ color: "var(--muted)" }}>
+                      {" "}
+                      → {commercial.pendingVolumeFeePercent}% from{" "}
+                      {commercial.effectiveFrom}
+                    </span>
+                  ) : null}
+                  {commercial.enterpriseApprovalStatus === "pending" ? (
+                    <span className="status-badge tone-warn" style={{ marginLeft: 8 }}>
+                      Pending approval
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                "—"
+              )}
+            </dd>
+            <dt>Subscription (USD)</dt>
+            <dd>{commercial ? formatUsd(commercial.subscriptionAmountUsd) : "—"}</dd>
           </dl>
           <p style={{ color: "var(--muted)", marginTop: 16, marginBottom: 0 }}>
             Suspend and compliance override (B7) ship when org PATCH and override API

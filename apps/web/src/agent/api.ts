@@ -87,11 +87,79 @@ export async function getServiceBill(billId: string): Promise<ServiceBill> {
   return (await res.json()) as ServiceBill;
 }
 
+export type MerchantCommercialSettings = {
+  orgId: string;
+  tier: string;
+  volumeFeePercent: string;
+  pendingVolumeFeePercent?: string | null;
+  subscriptionAmountUsd: string;
+  bandMinPercent: string;
+  bandMaxPercent: string;
+  effectiveFrom: string;
+  enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
+};
+
+export type FeeTierBand = {
+  tier: string;
+  subscriptionAmountUsd: string;
+  volumeFeeMinPercent: string;
+  volumeFeeMaxPercent: string;
+  defaultSignupPercent: string;
+  tierDescription?: string;
+};
+
+export async function getFeeTierSettings(): Promise<{
+  tiers: FeeTierBand[];
+  updatedAt: string;
+}> {
+  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { tiers: FeeTierBand[]; updatedAt: string };
+}
+
+export async function getMerchantCommercial(
+  orgId: string,
+): Promise<MerchantCommercialSettings> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as MerchantCommercialSettings;
+}
+
+export async function updateMerchantCommercial(
+  orgId: string,
+  body: { tier?: string; volumeFeePercent?: string; reason?: string },
+): Promise<MerchantCommercialSettings> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as MerchantCommercialSettings;
+}
+
 export async function createOrg(body: {
   type: string;
   name: string;
   parentId: string;
   structure?: string;
+  commercial?: { tier: string; volumeFeePercent: string };
 }): Promise<OrgAccount> {
   const res = await fetch(`${API_BASE}/orgs`, {
     method: "POST",

@@ -1,11 +1,50 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Session } from "./api";
-import { sessionCanCheckoutServiceBill } from "./org";
+import {
+  ApiError,
+  getMerchantCommercial,
+  listOrgs,
+  type MerchantCommercialSettings,
+  type Session,
+} from "./api";
+import { tierLabel } from "../commercialLabels";
+import { primaryMerchantOrgId, sessionCanCheckoutServiceBill } from "./org";
 
 type Props = { session: Session };
 
 export function BillingSettingsPage({ session }: Props) {
+  const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canPay = sessionCanCheckoutServiceBill(session);
+  const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(null);
+  const [agentName, setAgentName] = useState<string>("—");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [row, orgs] = await Promise.all([
+          getMerchantCommercial(orgId),
+          listOrgs(),
+        ]);
+        if (cancelled) return;
+        setCommercial(row);
+        const self = orgs.find((o) => o.id === orgId);
+        if (self?.parentId) {
+          const agent = orgs.find((o) => o.id === self.parentId);
+          setAgentName(agent?.name ?? self.parentId);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load billing");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
 
   return (
     <div className="settings-page">
@@ -21,24 +60,46 @@ export function BillingSettingsPage({ session }: Props) {
         ) : null}
       </div>
 
+      {error ? <p className="error">{error}</p> : null}
+
       <div className="panel settings-panel">
         <h2>Current plan</h2>
         <div className="settings-field">
           <span className="settings-label">Tier</span>
-          <span>Standard (display stub until fee API)</span>
+          <span>{commercial ? tierLabel(commercial.tier) : "Loading…"}</span>
         </div>
         <div className="settings-field">
           <span className="settings-label">Volume fee</span>
-          <span>Set by agent / platform — not deducted from payer on-chain</span>
+          <span>
+            {commercial
+              ? `${commercial.volumeFeePercent}% (not deducted from payer on-chain)`
+              : "—"}
+          </span>
         </div>
         <div className="settings-field">
           <span className="settings-label">Next period rate</span>
-          <span>—</span>
+          <span>
+            {commercial?.pendingVolumeFeePercent
+              ? `${commercial.pendingVolumeFeePercent}%`
+              : "—"}
+          </span>
+        </div>
+        <div className="settings-field">
+          <span className="settings-label">Subscription</span>
+          <span>
+            {commercial ? `$${commercial.subscriptionAmountUsd} / month` : "—"}
+          </span>
         </div>
         <div className="settings-field">
           <span className="settings-label">Agent</span>
-          <span>— (parent org name when fee API lands)</span>
+          <span>{agentName}</span>
         </div>
+        {commercial?.enterpriseApprovalStatus === "pending" ? (
+          <div className="alert-card tone-anomaly" style={{ marginTop: 16 }}>
+            <strong>PENDING APPROVAL</strong>
+            <p>Custom Enterprise rate awaits platform Owner review.</p>
+          </div>
+        ) : null}
       </div>
 
       <div className="alert-card tone-teal">

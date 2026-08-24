@@ -2,13 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import {
   ApiError,
+  getMerchantCommercial,
   listOrders,
   listOrgs,
   listServiceBills,
+  updateMerchantCommercial,
+  type MerchantCommercialSettings,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
 } from "./api";
+import { tierLabel } from "../commercialLabels";
 import { merchantSites } from "./merchantSubtree";
 import { STRUCTURE_LABELS, type MerchantStructure } from "./onboardMerchant";
 import { formatShortDate, formatUsd, orgTypeLabel } from "./org";
@@ -49,6 +53,11 @@ export function MerchantDetailPage() {
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(null);
+  const [editTier, setEditTier] = useState("");
+  const [editVolume, setEditVolume] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [commercialBusy, setCommercialBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +128,29 @@ export function MerchantDetailPage() {
 
   useEffect(() => {
     if (!id || !org || loading) return;
+    if (tab !== "overview" && tab !== "commission") return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await getMerchantCommercial(id);
+        if (!cancelled) {
+          setCommercial(row);
+          setEditTier(row.tier);
+          setEditVolume(row.volumeFeePercent);
+        }
+      } catch {
+        if (!cancelled) setCommercial(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, org, tab, loading]);
+
+  useEffect(() => {
+    if (!id || !org || loading) return;
     if (tab !== "service-bills" && tab !== "volume") return;
 
     let cancelled = false;
@@ -180,8 +212,8 @@ export function MerchantDetailPage() {
       ) : null}
       {toastEnterprise ? (
         <div className="banner banner-warn" style={{ marginBottom: 12 }}>
-          Enterprise tier selected (stub) — would require platform approval when X-01
-          ships.
+          Enterprise rate submitted — platform Owner must approve on Fee tiers (B8)
+          before the custom rate applies.
         </div>
       ) : null}
 
@@ -216,9 +248,28 @@ export function MerchantDetailPage() {
               <span className="status-badge tone-ok">Active</span>
             </dd>
             <dt>Fee tier</dt>
-            <dd style={{ color: "var(--muted)" }}>Mid (stub — X-01)</dd>
+            <dd>{commercial ? tierLabel(commercial.tier) : "—"}</dd>
             <dt>Volume fee %</dt>
-            <dd style={{ color: "var(--muted)" }}>— (stub — C8)</dd>
+            <dd>
+              {commercial ? (
+                <>
+                  {commercial.volumeFeePercent}%
+                  {commercial.pendingVolumeFeePercent ? (
+                    <span style={{ color: "var(--muted)" }}>
+                      {" "}
+                      → {commercial.pendingVolumeFeePercent}% next period
+                    </span>
+                  ) : null}
+                  {commercial.enterpriseApprovalStatus === "pending" ? (
+                    <span className="status-badge tone-warn" style={{ marginLeft: 8 }}>
+                      Pending approval
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                "—"
+              )}
+            </dd>
           </dl>
           <p style={{ color: "var(--muted)", marginTop: 16, marginBottom: 0 }}>
             Settlement addresses, API keys, webhooks, and credentials are{" "}
@@ -321,10 +372,84 @@ export function MerchantDetailPage() {
       ) : null}
 
       {tab === "commission" ? (
-        <p style={{ color: "var(--muted)", margin: 0 }}>
-          Commission attribution statements require X-01 fee tier API. Volume fee edit
-          (C8) ships when band contract lands.
-        </p>
+        commercial ? (
+          <form
+            className="form-stack"
+            style={{ maxWidth: 480 }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!id) return;
+              setCommercialBusy(true);
+              setTabError(null);
+              try {
+                const updated = await updateMerchantCommercial(id, {
+                  tier: editTier,
+                  volumeFeePercent: editVolume.trim(),
+                  reason: editReason.trim() || undefined,
+                });
+                setCommercial(updated);
+                setEditReason("");
+              } catch (err) {
+                setTabError(
+                  err instanceof ApiError ? err.message : "Failed to update commercial",
+                );
+              } finally {
+                setCommercialBusy(false);
+              }
+            }}
+          >
+            <p style={{ color: "var(--muted)", marginTop: 0 }}>
+              Adjust tier or volume fee within platform bands. Effective next billing
+              period; Enterprise outside band queues platform approval.
+            </p>
+            <div className="field">
+              <label htmlFor="c-tier">Tier</label>
+              <select
+                id="c-tier"
+                className="field-control"
+                value={editTier}
+                onChange={(e) => setEditTier(e.target.value)}
+                disabled={commercialBusy}
+              >
+                {(["small", "mid", "enterprise"] as const).map((t) => (
+                  <option key={t} value={t}>
+                    {tierLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="c-volume">Volume fee %</label>
+              <input
+                id="c-volume"
+                className="field-control"
+                value={editVolume}
+                onChange={(e) => setEditVolume(e.target.value)}
+                disabled={commercialBusy}
+              />
+              <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
+                Band {commercial.bandMinPercent}% – {commercial.bandMaxPercent}%
+              </p>
+            </div>
+            <div className="field">
+              <label htmlFor="c-reason">Note (optional)</label>
+              <input
+                id="c-reason"
+                className="field-control"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                disabled={commercialBusy}
+              />
+            </div>
+            <button type="submit" className="btn-primary" disabled={commercialBusy}>
+              {commercialBusy ? "Saving…" : "Schedule change"}
+            </button>
+          </form>
+        ) : (
+          <p style={{ color: "var(--muted)", margin: 0 }}>
+            Commercial settings not configured for this merchant.
+          </p>
+        )
       ) : null}
     </div>
   );
