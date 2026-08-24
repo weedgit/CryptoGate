@@ -8,6 +8,7 @@ import {
   canEnrollMfa,
   resolveOrderOrgId,
   canReadPaymentOrder,
+  canViewSettlementSettings,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -153,6 +154,38 @@ describe("role policy", () => {
         merchant,
       ),
       true,
+    );
+  });
+
+  it("lets agent users view settlement but not Cashiers", () => {
+    const merchant = { id: "m1", type: "merchant" };
+    assert.equal(
+      canViewSettlementSettings(
+        { platformOperator: false, memberships: [merchantViewer] },
+        merchant,
+      ),
+      true,
+    );
+    assert.equal(
+      canViewSettlementSettings(
+        { platformOperator: false, memberships: [agentOwner] },
+        merchant,
+      ),
+      true,
+    );
+    assert.equal(
+      canViewSettlementSettings(
+        { platformOperator: false, memberships: [merchantCashier] },
+        merchant,
+      ),
+      false,
+    );
+    assert.equal(
+      canViewSettlementSettings(
+        { platformOperator: false, memberships: [merchantCashier] },
+        { id: "site-1", type: "merchant_site" },
+      ),
+      false,
     );
   });
 

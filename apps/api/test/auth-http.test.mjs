@@ -222,4 +222,30 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects settlement get and put without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const get = await fetch(`${base}/v1/orgs/org-1/settlement`);
+      assert.equal(get.status, 401);
+      const put = await fetch(`${base}/v1/orgs/org-1/settlement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          asset: "USDT",
+          network: "tron",
+          address: "TCryptoGateStubReceiveAddress00001",
+        }),
+      });
+      assert.equal(put.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

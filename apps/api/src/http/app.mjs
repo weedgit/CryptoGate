@@ -16,6 +16,10 @@ import {
   handleGetPaymentOrder,
   handleGetPaymentOrderPayment,
 } from "../orders/order-routes.mjs";
+import {
+  handleGetSettlement,
+  handlePutSettlement,
+} from "../settlement/settlement-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -94,6 +98,19 @@ export async function handleRequest(req, res) {
   if (method === "GET" && orderMatch) {
     await handleGetPaymentOrder(req, res, decodeURIComponent(orderMatch[1]));
     return;
+  }
+
+  const settlementMatch = path.match(/^\/v1\/orgs\/([^/]+)\/settlement$/);
+  if (settlementMatch) {
+    const orgId = decodeURIComponent(settlementMatch[1]);
+    if (method === "GET") {
+      await handleGetSettlement(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutSettlement(req, res, orgId);
+      return;
+    }
   }
 
   const roleMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/role$/);
