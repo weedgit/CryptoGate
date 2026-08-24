@@ -54,7 +54,7 @@ export async function createUser(input) {
 export async function findUserByEmail(email) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, password_hash
+    `SELECT id, email, password_hash, mfa_enrolled_at
      FROM users
      WHERE email = $1`,
     [normalizeEmail(email)],
@@ -65,6 +65,7 @@ export async function findUserByEmail(email) {
     id: row.id,
     email: row.email,
     passwordHash: row.password_hash,
+    mfaEnrolled: Boolean(row.mfa_enrolled_at),
   };
 }
 
@@ -83,6 +84,30 @@ export async function findUserById(id) {
   const row = rows[0];
   if (!row) return null;
   return { id: row.id, email: row.email };
+}
+
+/**
+ * MFA secrets for enroll/verify only — never put these on HTTP session JSON.
+ * @param {string} id
+ * @returns {Promise<{ id: string, email: string, mfaSecret: string | null, mfaPendingSecret: string | null, mfaEnrolled: boolean } | null>}
+ */
+export async function findUserMfaById(id) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, email, mfa_secret, mfa_pending_secret, mfa_enrolled_at
+     FROM users
+     WHERE id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    mfaSecret: row.mfa_secret,
+    mfaPendingSecret: row.mfa_pending_secret,
+    mfaEnrolled: Boolean(row.mfa_enrolled_at),
+  };
 }
 
 /** Lazy dummy hash so missing-user paths still run scrypt verify. */
@@ -105,5 +130,5 @@ export async function authenticateUser(email, password) {
   const hash = user?.passwordHash ?? (await getDummyPasswordHash());
   const ok = await verifyPassword(password, hash);
   if (!user || !ok) return null;
-  return { id: user.id, email: user.email };
+  return { id: user.id, email: user.email, mfaEnrolled: user.mfaEnrolled };
 }

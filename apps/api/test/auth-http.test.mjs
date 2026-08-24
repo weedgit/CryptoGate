@@ -80,4 +80,26 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects MFA enroll and verify without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const enroll = await fetch(`${base}/v1/auth/mfa/enroll`, { method: "POST" });
+      assert.equal(enroll.status, 401);
+      const verify = await fetch(`${base}/v1/auth/mfa/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "123456" }),
+      });
+      assert.equal(verify.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

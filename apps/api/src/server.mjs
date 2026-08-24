@@ -1,5 +1,5 @@
 /**
- * HTTP entry (S0-07 + M1-11). Auth: /v1/auth/login|logout|session
+ * HTTP entry (M1-11 + M1-12). Auth: /v1/auth/login|logout|session|mfa/*
  */
 import { createServer } from "node:http";
 import { closePool } from "./db/pool.mjs";
