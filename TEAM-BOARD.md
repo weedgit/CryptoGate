@@ -58,8 +58,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-40 | Bruce | blocked | Mode B `assignOnCreate` | Wait for Kevin M2-02 on `main`; then `feat-bruce-matching-mode-b-assign` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
-| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | Next Kevin branch after payment-page lands |
-| M2-02 | Kevin | todo | Domain order fields for matching assign | Unblocks Bruce M2-40 |
+| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | After M2-02 |
+| M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` — unblocks Bruce M2-40 |
 
 ---
 
@@ -141,6 +141,18 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M1-T05 | todo | Prototype walkthrough | Kevin |
 | M1-T06 | todo | Watcher separate process | Bruce |
 | M1-T07 | todo | Routes match OpenAPI v0.1 | Andrew |
+
+---
+
+## Milestone 2 — orders, QR, payment page
+
+### Contract (Kevin)
+
+| ID | Owner | Status | Task | Notes |
+| --- | --- | --- | --- | --- |
+| M2-01 | Kevin | todo | OpenAPI: full order + payment schemas | After M2-02 |
+| M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
+| M2-03 | Kevin | todo | Asset/network registry (USDT + Tron) | After M2-02 |
 
 ---
 

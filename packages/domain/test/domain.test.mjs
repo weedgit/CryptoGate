@@ -5,9 +5,11 @@ import {
   UserRole,
   OrderStatus,
   MatchingMode,
+  AddressSource,
   DEFAULT_ASSET_NETWORK,
   AssetCode,
   NetworkId,
+  PaymentOrderColumn,
 } from "../dist/index.js";
 
 describe("@cryptogate/domain", () => {
@@ -34,5 +36,16 @@ describe("@cryptogate/domain", () => {
   it("defaults first network to USDT on Tron", () => {
     assert.equal(DEFAULT_ASSET_NETWORK.asset, AssetCode.USDT);
     assert.equal(DEFAULT_ASSET_NETWORK.network, NetworkId.Tron);
+  });
+
+  it("exports payment-order DB columns for matching assign", () => {
+    assert.equal(PaymentOrderColumn.matchingMode, "matching_mode");
+    assert.equal(PaymentOrderColumn.payableAmount, "payable_amount");
+    assert.equal(PaymentOrderColumn.receiveAddress, "receive_address");
+    assert.equal(PaymentOrderColumn.addressSource, "address_source");
+    assert.equal(PaymentOrderColumn.hdIndex, "hd_index");
+    assert.equal(PaymentOrderColumn.memoOrTag, "memo_or_tag");
+    assert.equal(AddressSource.Main, "main");
+    assert.equal(AddressSource.HdPool, "hd_pool");
   });
 });
