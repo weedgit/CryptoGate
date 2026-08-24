@@ -108,6 +108,9 @@ export function DashboardPage({ session }: Props) {
           <Link className="btn-secondary" to="/platform/service-bills">
             Service bills ({stats.issuedBills} issued)
           </Link>
+          <Link className="btn-secondary" to="/platform/audit">
+            Audit log
+          </Link>
           {canOperate ? (
             <>
               <Link className="btn-primary" to="/platform/agents/new">
@@ -120,8 +123,8 @@ export function DashboardPage({ session }: Props) {
           ) : null}
         </div>
         <p style={{ color: "var(--muted)", marginTop: 16 }}>
-          Charts, watcher health, and audit review (B1/B14) ship in follow-up
-          platform tasks. Volume totals use live org and order lists.
+          Charts and watcher health (B1) ship in follow-up platform tasks. Volume
+          totals use live org and order lists; audit trail is on Audit Log.
         </p>
       </div>
     </>

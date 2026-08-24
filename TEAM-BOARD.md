@@ -61,10 +61,10 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 
 | Who | Focus | Status / note |
 | --- | --- | --- |
-| **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
-| **Bruce** | Merge D5–D6, start D14 | **Done:** merchant web D1–D17 (#67–#83); **M1-32** mode-b test scaffold |
+| **Andrew** | B4 branch up; wire v0.3.3 commercial when API lands | X-01 on `main` — migrate **019** |
+| **Bruce** | **M3-32** USDT/ethereum ingest | Registry row on `main`; merchant web D1–D17 done (#67–#83) |
 | **Kevin** | X-01 v0.3.3 landed; M3-T09 handoff; chase M1-01 | [`doc/X-01-Fee-Tiers-v033.md`](doc/X-01-Fee-Tiers-v033.md) |
-| **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
+| **All** | `git pull origin main`; migrate **017** + **018** | **019** when Andrew lands X-01 API |
 
 ---
 
@@ -161,6 +161,22 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | M2-53 | Kevin | done | Mode C exact payable warning | PR #25 |
 | M2-54 | Kevin | done | Hide Mode D when memo unsupported | PR #25 |
 
+### Asks for Kevin
+
+| Priority | Ask | Why |
+| --- | --- | --- |
+| P1 | **Pick second live network** | **Done — USDT / `ethereum`** (see decision table below; BSC deferred) |
+| P2 | M1-01 client sign-off + Company A hostname table | Still blocked on client |
+
+**Second network decision** (Phase 1 §VI):
+
+| Candidate | Pros | Cons | Status |
+| --- | --- | --- | --- |
+| USDT / `ethereum` | Common merchant expectation; Blockonomics-adjacent | Higher gas; Mode D off (no memo on USDT ERC-20) | **Selected** — registry row on `main`; Bruce owns ingest |
+| USDT / `bnb_smart_chain` | Lower fees; popular in Asia | Separate contract + ingest module | Deferred |
+
+Kevin adds/enables registry row + `doc/M3-04-Asset-Networks.md` **live** section after Bruce staging smoke → Bruce owns `packages/chain-clients/ethereum/`.
+
 ### Asks for Andrew
 
 | Priority | Ask | Why |
@@ -178,10 +194,11 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | Priority | Ask | Why |
 | --- | --- | --- |
 | — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
+| — | M1-32 mode-b test scaffold **done** | PR #86 — `packages/matching/test/mode-b.test.mjs` |
 | **P1** | **M3-32 / M4-22** USDT **ethereum** ERC-20 | Registry row `USDT_ETHEREUM` on `main` (`enabled: false` until ingest smoke). Branch `feat-bruce-chain-ethereum-ingest`. Kevin flips `enabled: true` after staging sign-off. |
-| **P2** | Web polish when Andrew lands APIs | Team member list, org PATCH, notification prefs — OK to start if org-list API lands before registry row |
+| **P2** | Web polish when Andrew lands APIs | Team list, org PATCH, notification prefs |
 
-Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
+Branch example: `feat-bruce-matching-m1-tests`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
 ---
 
