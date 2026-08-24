@@ -1502,6 +1502,10 @@ select {
   background: #6c8cff;
 }
 
+.agent-shell .logo-mark {
+  background: #9b7bff;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
