@@ -6,12 +6,16 @@
   "description": "Per-network chain clients — owned by Bruce.",
   "exports": {
     ".": "./index.mjs",
-    "./tron": "./tron/index.mjs"
+    "./tron": "./tron/index.mjs",
+    "./ethereum": "./ethereum/index.mjs"
   },
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/chain-clients: tron trongrid ready')\"",
+    "build": "node -e \"console.log('@cryptogate/chain-clients: tron + ethereum ready')\"",
     "typecheck": "node -e \"process.exit(0)\"",
-    "test": "node --test test/tron.test.mjs",
+    "test": "pnpm --filter @cryptogate/domain build && node --test test/*.test.mjs",
     "lint": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@cryptogate/domain": "workspace:*"
   }
 }

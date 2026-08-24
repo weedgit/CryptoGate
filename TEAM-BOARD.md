@@ -119,6 +119,7 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | M2-75 | Bruce | done | Reports & export (D10) | PR #79 merged |
 | M2-76 | Bruce | done | Settings pages org/billing/alerts/team (D12–D16) | PR #81 merged |
 | M2-77 | Bruce | done | Sites list/create/detail (D7–D9) | PR #83 merged |
+| M3-32 | Bruce | doing | USDT/ethereum ERC-20 chain client | `feat-bruce-chain-ethereum-ingest` — ping Kevin for `enabled: true` after staging smoke |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
