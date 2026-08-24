@@ -50,6 +50,20 @@ export function sessionCanCheckoutServiceBill(session: Session): boolean {
   );
 }
 
+/** O / A may manage API keys and webhooks. */
+export function sessionCanManageIntegrations(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator"].includes(m.role),
+  );
+}
+
+/** O / A / V may view integrations metadata (no secrets on GET). */
+export function sessionCanViewIntegrations(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator", "viewer"].includes(m.role),
+  );
+}
+
 export function sessionIsCashierOnly(session: Session): boolean {
   if (session.memberships.length === 0) return false;
   return session.memberships.every((m) => m.role === "cashier");
