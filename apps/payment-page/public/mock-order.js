@@ -393,7 +393,7 @@ async function loadLiveOrder(id) {
     const raw = sessionStorage.getItem(sessionKey(id));
     if (raw) {
       setSourceBanner(
-        "Showing create snapshot. Live GET /payment failed (CORS or network). Ask Andrew to allow this origin.",
+        "Showing create snapshot. Live GET /payment failed — check CORS_ALLOWED_ORIGINS includes this page’s exact Origin (localhost vs 127.0.0.1).",
       );
       paint(fromPaymentOrder(JSON.parse(raw)));
       return;

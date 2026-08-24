@@ -60,8 +60,9 @@
         Merchant / Cashier prototype. Calls <code>POST /v1/orders</code>
         (<code>assignOnCreate</code> is live). Matching mode is merchant default.
         Log in on the API first. Guest pay polls
-        <code>GET /v1/orders/{id}/payment</code> — Andrew still needs CORS from
-        this origin. Smoke steps: <code>doc/M2-Mid-Gate.md</code>.
+        <code>GET /v1/orders/{id}/payment</code> (CORS landed — keep
+        <code>CORS_ALLOWED_ORIGINS</code> in sync with this page’s Origin).
+        Smoke: <code>doc/M2-Mid-Gate.md</code>.
       </p>
       <p id="form-error" hidden></p>
       <label>
