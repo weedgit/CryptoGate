@@ -15,12 +15,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cryptogate.cashier.api.CashierPosSurface
 import com.cryptogate.cashier.api.Session
 
 @Composable
 fun HomeScreen(
     session: Session?,
     emailFallback: String?,
+    online: Boolean,
     onCreateOrder: () -> Unit,
     onSignOut: () -> Unit,
 ) {
@@ -42,13 +44,23 @@ fun HomeScreen(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Wallet, xPub, and matching settings are not available on POS.",
+            text = "POS only: create and watch payment orders. Wallet, xPub, matching mode, and fees are not available here.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
+        if (!online) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = CashierPosSurface.OFFLINE_BANNER,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Spacer(modifier = Modifier.height(32.dp))
         Button(
             onClick = onCreateOrder,
+            enabled = online,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),

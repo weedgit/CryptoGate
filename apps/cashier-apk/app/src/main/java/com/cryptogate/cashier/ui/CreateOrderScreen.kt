@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cryptogate.cashier.api.CashierPosSurface
 import com.cryptogate.cashier.api.OrderDefaults
 
 data class ValidityChoice(val label: String, val seconds: Int)
@@ -40,6 +41,7 @@ fun CreateOrderScreen(
     validitySeconds: Int,
     error: String?,
     loading: Boolean,
+    online: Boolean,
     onAmountChange: (String) -> Unit,
     onValidityChange: (Int) -> Unit,
     onSubmit: () -> Unit,
@@ -59,10 +61,19 @@ fun CreateOrderScreen(
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = "${OrderDefaults.ASSET} on ${OrderDefaults.NETWORK.uppercase()} TRC-20. Matching mode is the merchant default.",
+            text = "${OrderDefaults.ASSET} on ${OrderDefaults.NETWORK.uppercase()} TRC-20. Matching mode is the merchant default (not editable on POS).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
+        if (!online) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = CashierPosSurface.OFFLINE_CREATE,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Spacer(modifier = Modifier.height(20.dp))
         OutlinedTextField(
             value = amount,
@@ -70,7 +81,7 @@ fun CreateOrderScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Amount") },
             singleLine = true,
-            enabled = !loading,
+            enabled = !loading && online,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             supportingText = { Text("Major units, e.g. 50.00") },
         )
@@ -84,7 +95,7 @@ fun CreateOrderScreen(
                 FilterChip(
                     selected = validitySeconds == choice.seconds,
                     onClick = { onValidityChange(choice.seconds) },
-                    enabled = !loading,
+                    enabled = !loading && online,
                     label = { Text(choice.label) },
                 )
             }
@@ -99,7 +110,7 @@ fun CreateOrderScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            enabled = !loading && amount.isNotBlank(),
+            enabled = !loading && online && amount.isNotBlank(),
         ) {
             if (loading) {
                 CircularProgressIndicator(

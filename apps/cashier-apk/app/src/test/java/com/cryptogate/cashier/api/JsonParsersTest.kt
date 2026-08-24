@@ -130,3 +130,30 @@ class OrderStatusUiTest {
         assertFalse(OrderStatusUi.isTerminal("verifying"))
     }
 }
+
+class CashierPosSurfaceTest {
+    @Test
+    fun hidesWalletXpubMatching() {
+        assertFalse(CashierPosSurface.allowsFeature("wallet"))
+        assertFalse(CashierPosSurface.allowsFeature("xPub"))
+        assertFalse(CashierPosSurface.allowsFeature("matching_mode"))
+        assertFalse(CashierPosSurface.allowsFeature("settlement_address"))
+        assertTrue(CashierPosSurface.allowsFeature("create_order"))
+    }
+
+    @Test
+    fun maps403ToPosFriendlyMessage() {
+        val msg = CashierPosSurface.userMessage(
+            ApiError("forbidden", "cannot change settlement", 403),
+        )
+        assertEquals(CashierPosSurface.FORBIDDEN_POS, msg)
+        assertTrue(msg.contains("xPub"))
+        assertTrue(msg.contains("matching mode"))
+    }
+
+    @Test
+    fun mapsIoExceptionToOfflineCreate() {
+        val msg = CashierPosSurface.userMessage(java.net.UnknownHostException("api"))
+        assertEquals(CashierPosSurface.OFFLINE_CREATE, msg)
+    }
+}

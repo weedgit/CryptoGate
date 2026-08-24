@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0-m2-72"
+        versionName = "0.1.0-m2-74"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Emulator → host machine API (apps/api default :3000).
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/v1\"")
