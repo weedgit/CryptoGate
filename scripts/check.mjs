@@ -50,6 +50,7 @@ run("node", [
   "apps/watcher/test/confirmations.test.mjs",
   "apps/watcher/test/restart-safety.test.mjs",
   "apps/watcher/test/reorg.test.mjs",
+  "apps/watcher/test/anomaly-paths.test.mjs",
 ]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 
@@ -72,13 +73,16 @@ run("node", [
   "apps/api/test/audit-rules.test.mjs",
   "apps/api/test/hd-pool.test.mjs",
   "apps/api/test/signing.test.mjs",
+  "apps/api/test/auth-http.test.mjs",
   "apps/api/test/rate-limit.test.mjs",
   "apps/api/test/webhook-rules.test.mjs",
   "apps/api/test/webhook-deliver.test.mjs",
+  "apps/api/test/webhook-fanout.test.mjs",
   "apps/api/test/service-bill-rules.test.mjs",
+  "apps/api/test/authz-regression.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.1 + domain/matching/watcher/api/cashier-apk + M3-03 sample)");
+console.log("Check: ok (OpenAPI v0.3.1 + M3 acceptance T02–T08 evidence)");

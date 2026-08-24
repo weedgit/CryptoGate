@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, service bills).
+Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/webhooks/bills).
 
 ---
 
@@ -118,6 +118,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M3-03 | Kevin | done | Worked webhook verify + replay sample | `doc/M3-03-Webhook-Verify-Example.md` |
 | — | Kevin | done | Merchant Figma frame → route map (unblocks M2-60+) | `doc/UI-Handoff.md` |
 | M4-11 | Kevin | done | OpenAPI API key CRUD / rotation freeze | v0.3.1 `doc/M4-11-Api-Keys.md` |
+| M3-gate | Kevin | done | M3 acceptance checklist T02–T08 (CI) | `doc/M3-Acceptance.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -130,6 +131,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | --- | --- | --- |
 | P1 | Implement M4-11 `/v1/api-keys` | OpenAPI **v0.3.1** + `doc/M4-11-Api-Keys.md`; extend `api_keys` for label/last_used/expires |
 | P2 | Cashier 403 + rotate acceptance | Secret once; revoke stops HMAC; max 10 active |
+| P2 | M3-T07 nonce_replay live smoke | After a provisioned key (CRUD or seed); CI covers unsigned + skew |
 
 Webhook secret rotate = delete + re-register (no new path). Fan-out already on main.
 
@@ -256,6 +258,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M3-04 | Kevin | done | Live vs planned asset/network list | `doc/M3-04-Asset-Networks.md` |
 | M3-02 | Kevin | done | Integration guide | `doc/M3-02-Integration-Guide.md` |
 | M3-03 | Kevin | done | Webhook verify sample | `doc/examples/webhook-verify.mjs` |
+| M3-gate | Kevin | done | M3 acceptance T02–T08 mapped to CI | `doc/M3-Acceptance.md` |
 
 ---
 

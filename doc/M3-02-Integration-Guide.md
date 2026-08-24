@@ -159,5 +159,7 @@ Locked onto each order at create. Changing the merchant default does not rewrite
 
 | ID | What merchants / Kevin check |
 | --- | --- |
-| M3-T07 | Unsigned / replayed API key calls rejected |
+| M3-T07 | Unsigned/replayed API calls rejected |
 | M3-T08 | Sample handler verifies HMAC; duplicate `Event-Id` ignored |
+
+Gate doc: [M3-Acceptance.md](M3-Acceptance.md) (CI evidence for T02–T08).
