@@ -1,4 +1,5 @@
 import { expireDuePaymentOrders } from "./order-expiry.mjs";
+import { activateDuePendingSettlements } from "../settlement/settlement-store.mjs";
 
 /**
  * @param {{
@@ -27,6 +28,7 @@ export function startOrderExpiryJob(options = {}) {
     (async () => {
       try {
         await expireDuePaymentOrders();
+        await activateDuePendingSettlements();
       } catch (err) {
         if (process.env.NODE_ENV !== "test") {
           console.error("order expiry tick failed", err);
