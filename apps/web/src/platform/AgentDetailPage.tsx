@@ -249,7 +249,9 @@ export function AgentDetailPage() {
                 <tbody>
                   {merchants.map((m) => (
                     <tr key={m.id}>
-                      <td>{m.name}</td>
+                      <td>
+                        <Link to={`/platform/merchants/${m.id}`}>{m.name}</Link>
+                      </td>
                       <td>{orgTypeLabel(m.type)}</td>
                       <td>{m.structure?.replace("_", " ") ?? "—"}</td>
                       <td className="mono">{m.id}</td>
@@ -259,7 +261,7 @@ export function AgentDetailPage() {
               </table>
             )}
             <p style={{ color: "var(--muted)", marginTop: 16, marginBottom: 0 }}>
-              Merchant detail (B6) links ship when platform merchant detail route exists.
+              Merchants link to platform merchant detail (B6).
             </p>
           </>
         ) : null}

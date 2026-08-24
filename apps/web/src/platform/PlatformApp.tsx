@@ -7,6 +7,7 @@ import { DashboardPage } from "./DashboardPage";
 import { IssueServiceBillPage } from "./IssueServiceBillPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantsListPage } from "./MerchantsListPage";
+import { MerchantDetailPage } from "./MerchantDetailPage";
 import { OnboardAgentPage } from "./OnboardAgentPage";
 import { PlatformShell } from "./PlatformShell";
 import {
@@ -135,6 +136,19 @@ export function PlatformApp() {
             onSignOut={signOut}
           >
             <MerchantsListPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="merchants/:id"
+        element={
+          <Shell
+            session={session}
+            title="Merchant Detail"
+            crumb="Merchants"
+            onSignOut={signOut}
+          >
+            <MerchantDetailPage />
           </Shell>
         }
       />
