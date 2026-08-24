@@ -13,6 +13,7 @@ import {
   RequirePlatformOperator,
   RequirePlatformPortal,
 } from "./RequirePlatformPortal";
+import { AuditLogPage } from "./AuditLogPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 
@@ -174,7 +175,20 @@ export function PlatformApp() {
             crumb="Billing"
             onSignOut={signOut}
           >
-            <ServiceBillDetailPage />
+            <ServiceBillDetailPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="audit"
+        element={
+          <Shell
+            session={session}
+            title="Audit Log"
+            crumb="Audit"
+            onSignOut={signOut}
+          >
+            <AuditLogPage />
           </Shell>
         }
       />

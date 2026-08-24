@@ -3,15 +3,13 @@ import { Link } from "react-router-dom";
 import { ApiError, listOrgs, listServiceBills, type ServiceBill } from "./api";
 import { formatShortDate, formatUsd, sessionCanIssueServiceBill } from "./org";
 import type { Session } from "./api";
+import {
+  formatBillId,
+  serviceBillStatusLabel,
+  serviceBillStatusTone,
+} from "./serviceBillStatus";
 
 type Props = { session: Session };
-
-const STATUS_LABEL: Record<string, string> = {
-  issued: "Issued",
-  paid: "Paid",
-  overdue: "Overdue",
-  voided: "Voided",
-};
 
 export function ServiceBillsListPage({ session }: Props) {
   const canIssue = useMemo(() => sessionCanIssueServiceBill(session), [session]);
@@ -74,6 +72,7 @@ export function ServiceBillsListPage({ session }: Props) {
         <table className="data-table">
           <thead>
             <tr>
+              <th>Bill</th>
               <th>Merchant</th>
               <th>Period</th>
               <th>Total</th>
@@ -85,12 +84,19 @@ export function ServiceBillsListPage({ session }: Props) {
           <tbody>
             {items.map((bill) => (
               <tr key={bill.id}>
+                <td className="mono">{formatBillId(bill.id)}</td>
                 <td>{orgNames.get(bill.orgId) ?? bill.orgId}</td>
                 <td>
                   {bill.periodStart} → {bill.periodEnd}
                 </td>
                 <td>{formatUsd(bill.totalAmount)}</td>
-                <td>{STATUS_LABEL[bill.status] ?? bill.status}</td>
+                <td>
+                  <span
+                    className={`status-badge tone-${serviceBillStatusTone(bill.status)}`}
+                  >
+                    {serviceBillStatusLabel(bill.status)}
+                  </span>
+                </td>
                 <td>{formatShortDate(bill.dueAt)}</td>
                 <td>
                   <Link to={`/platform/service-bills/${bill.id}`}>View</Link>
