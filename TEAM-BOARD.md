@@ -93,6 +93,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M2-73 | Bruce | done | Cashier APK hide settings + graceful 403 | PR #56 merged |
 | M2-74 | Bruce | done | Cashier APK offline/network-error; no create offline | PR #56 merged |
 | M4-21 | Bruce | done | Reorg / rollback handling for Tron confirmations | PR #58 merged |
+| M4-23 | Bruce | doing | Signed APK flavors (staging vs prod API URL) | `feat-bruce-cashier-apk-flavors` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
