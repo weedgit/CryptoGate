@@ -270,4 +270,31 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects xpub get and put without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const get = await fetch(`${base}/v1/orgs/org-1/xpub`);
+      assert.equal(get.status, 401);
+      const put = await fetch(`${base}/v1/orgs/org-1/xpub`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          asset: "USDT",
+          network: "tron",
+          xPub: "xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKpovv",
+          mfaCode: "123456",
+        }),
+      });
+      assert.equal(put.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

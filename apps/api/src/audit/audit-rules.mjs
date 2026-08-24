@@ -9,9 +9,10 @@ export const AUDIT_ACTIONS = {
   orgUserRole: "org_user_role",
   settlementPut: "settlement_put",
   matchingModePut: "matching_mode_put",
+  xpubPut: "xpub_put",
 };
 
-const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization/i;
+const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;
 
 /**
  * Drop secret-like keys; keep scalars only.

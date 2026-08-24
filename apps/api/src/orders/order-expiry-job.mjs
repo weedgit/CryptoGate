@@ -1,5 +1,6 @@
 import { expireDuePaymentOrders } from "./order-expiry.mjs";
 import { activateDuePendingSettlements } from "../settlement/settlement-store.mjs";
+import { activateDuePendingXpubs } from "../xpub/xpub-store.mjs";
 
 /**
  * @param {{
@@ -29,6 +30,7 @@ export function startOrderExpiryJob(options = {}) {
       try {
         await expireDuePaymentOrders();
         await activateDuePendingSettlements();
+        await activateDuePendingXpubs();
       } catch (err) {
         if (process.env.NODE_ENV !== "test") {
           console.error("order expiry tick failed", err);

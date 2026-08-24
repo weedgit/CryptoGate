@@ -5,6 +5,7 @@ import {
   MODE_S_CONFLICT_STATUSES,
 } from "@cryptogate/matching";
 import { findSettlementAddress } from "../settlement/settlement-store.mjs";
+import { hasActiveXpub } from "../xpub/xpub-store.mjs";
 import { mapAssignError } from "./order-assign.mjs";
 import {
   hasModeSSameAmountConflict,
@@ -44,6 +45,12 @@ export async function assignOnOrderCreate(input) {
   }
 
   const mainSettlementAddress = settlement.address;
+  const xPubConfigured = await hasActiveXpub(
+    input.orgId,
+    input.asset,
+    input.network,
+    input.client,
+  );
   /** @type {import("@cryptogate/matching").ListReservedPayableAmounts} */
   const listPayables = (query) =>
     listReservedPayableAmounts(input.client, {
@@ -74,8 +81,8 @@ export async function assignOnOrderCreate(input) {
       listReservedPayableAmounts: listPayables,
       listReservedMemoOrTags: listMemos,
       memoSeed: input.idempotencyKey,
-      // xPub / HD pool registration is M2-20 / M2-44 — Mode S uses main until then.
-      xPubConfigured: false,
+      // HD pool FREE claim is M2-44 — conflict with xPub still needs claimHdPoolAddress.
+      xPubConfigured,
       hasModeSSameAmountConflict: hasConflict,
     });
 
