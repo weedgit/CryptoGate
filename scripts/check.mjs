@@ -81,4 +81,4 @@ run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.0 + domain/matching/watcher/api/cashier-apk + M3-03 sample)");
+console.log("Check: ok (OpenAPI v0.3.1 + domain/matching/watcher/api/cashier-apk + M3-03 sample)");

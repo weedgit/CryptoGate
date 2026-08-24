@@ -101,6 +101,19 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 | --- | --- | --- |
 | Live vs planned pairs | `doc/M3-04-Asset-Networks.md` | Only **USDT / tron** enabled; §VI remainder planned |
 
+## v0.3.1 — M4-11 API key CRUD / rotation
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.3.1`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Domain | `@cryptogate/domain` | `ApiKey`, `API_KEY_MAX_PER_ORG`, `ApiKeyColumn` |
+| Handoff | `doc/M4-11-Api-Keys.md` | Paths, secret-once, rotate, webhook secret rotate-by-recreate |
+| API keys | `GET/POST /v1/api-keys`, `DELETE /v1/api-keys/{apiKeyId}`, `POST …/rotate` | Cashier 403; secret never on GET |
+
+Additive to v0.3.0. Signing canonical string unchanged.
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
@@ -120,4 +133,4 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 ## Out of this freeze
 
-M3-02 / M3-03 are published (`doc/M3-02-Integration-Guide.md`, `doc/M3-03-Webhook-Verify-Example.md`). Remaining: API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12). Second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 are published. M4-11 OpenAPI freeze is **v0.3.1** (`doc/M4-11-Api-Keys.md`). Remaining: Andrew implements api-keys routes; live webhook fan-out load tests (M4-12). Second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.

@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.3.0",
+  "version: 0.3.1",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -69,6 +69,15 @@ const required = [
   "timestamp_skew",
   "signature_invalid",
   "rate_limited",
+  "/api-keys",
+  "listApiKeys",
+  "createApiKey",
+  "revokeApiKey",
+  "rotateApiKey",
+  "ApiKey",
+  "ApiKeyCreated",
+  "ApiKeyList",
+  "CreateApiKeyRequest",
   "listWebhooks",
   "registerWebhook",
   "testWebhook",
@@ -106,13 +115,20 @@ if (hdSlice.includes("xPub") && /properties:[\s\S]*xPub:/.test(hdSlice)) {
 }
 
 const paymentSlice =
-  raw.split("/orders/{id}/payment:")[1]?.split("/webhooks:")[0] ?? "";
+  raw.split("/orders/{id}/payment:")[1]?.split("/api-keys:")[0] ?? "";
 if (paymentSlice.includes("sessionCookie") || paymentSlice.includes("apiKey")) {
   console.error("GET /orders/{id}/payment must not require a merchant session");
   process.exit(1);
 }
 if (!paymentSlice.includes("security: []")) {
   console.error("GET /orders/{id}/payment must set security: []");
+  process.exit(1);
+}
+
+const apiKeyListSchema =
+  raw.split("    ApiKey:")[1]?.split("    ApiKeyList:")[0] ?? "";
+if (/^\s+secret:/m.test(apiKeyListSchema)) {
+  console.error("ApiKey GET schema must not include secret");
   process.exit(1);
 }
 
@@ -133,4 +149,4 @@ if (
   process.exit(1);
 }
 
-console.log("OpenAPI M3 contract freeze v0.3.0: ok");
+console.log("OpenAPI contract freeze v0.3.1: ok");

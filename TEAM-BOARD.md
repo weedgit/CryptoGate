@@ -117,6 +117,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M3-02 | Kevin | done | Integration guide (auth, signing, webhooks) | `doc/M3-02-Integration-Guide.md` |
 | M3-03 | Kevin | done | Worked webhook verify + replay sample | `doc/M3-03-Webhook-Verify-Example.md` |
 | — | Kevin | done | Merchant Figma frame → route map (unblocks M2-60+) | `doc/UI-Handoff.md` |
+| M4-11 | Kevin | done | OpenAPI API key CRUD / rotation freeze | v0.3.1 `doc/M4-11-Api-Keys.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -127,7 +128,10 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none blocking merchant UI map) | Fan-out + outbox on main; API-key CRUD still M4-11 |
+| P1 | Implement M4-11 `/v1/api-keys` | OpenAPI **v0.3.1** + `doc/M4-11-Api-Keys.md`; extend `api_keys` for label/last_used/expires |
+| P2 | Cashier 403 + rotate acceptance | Secret once; revoke stops HMAC; max 10 active |
+
+Webhook secret rotate = delete + re-register (no new path). Fan-out already on main.
 
 ### Asks for Bruce
 
@@ -252,6 +256,22 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M3-04 | Kevin | done | Live vs planned asset/network list | `doc/M3-04-Asset-Networks.md` |
 | M3-02 | Kevin | done | Integration guide | `doc/M3-02-Integration-Guide.md` |
 | M3-03 | Kevin | done | Webhook verify sample | `doc/examples/webhook-verify.mjs` |
+
+---
+
+## Milestone 4 — hardening & ops
+
+### Contract (Kevin)
+
+| ID | Owner | Status | Task | Notes |
+| --- | --- | --- | --- | --- |
+| M4-11 | Kevin | done | OpenAPI API keys CRUD/rotate | v0.3.1 `feat-kevin-api-spec-m4-api-keys` |
+
+### API (Andrew)
+
+| ID | Owner | Status | Task | Notes |
+| --- | --- | --- | --- | --- |
+| M4-11 | Andrew | todo | Implement `/v1/api-keys` + migrate columns | After v0.3.1 on main |
 
 ---
 
