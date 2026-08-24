@@ -65,6 +65,63 @@ export async function findOrderByIdempotency(orgId, idempotencyKey, client) {
 }
 
 /**
+ * List payment orders in caller scope. Cap `limit` in the route.
+ * @param {{
+ *   kind: "all" | "filter",
+ *   treeOrgIds?: string[],
+ *   cashierOrgIds?: string[],
+ *   createdBy?: string | null,
+ *   orgId?: string | null,
+ *   status?: string | null,
+ *   limit: number,
+ * }} query
+ */
+export async function listPaymentOrders(query) {
+  const params = [];
+  /** @type {string[]} */
+  const where = [];
+
+  if (query.kind === "filter") {
+    const parts = [];
+    if (query.treeOrgIds && query.treeOrgIds.length > 0) {
+      params.push(query.treeOrgIds);
+      parts.push(`org_id = ANY($${params.length}::uuid[])`);
+    }
+    if (query.cashierOrgIds && query.cashierOrgIds.length > 0) {
+      params.push(query.cashierOrgIds);
+      const orgIdx = params.length;
+      params.push(query.createdBy);
+      const userIdx = params.length;
+      parts.push(
+        `(org_id = ANY($${orgIdx}::uuid[]) AND created_by = $${userIdx})`,
+      );
+    }
+    if (parts.length === 0) return [];
+    where.push(`(${parts.join(" OR ")})`);
+  }
+
+  if (query.orgId) {
+    params.push(query.orgId);
+    where.push(`org_id = $${params.length}::uuid`);
+  }
+  if (query.status) {
+    params.push(query.status);
+    where.push(`status = $${params.length}`);
+  }
+
+  params.push(query.limit);
+  const { rows } = await db().query(
+    `SELECT ${ORDER_SELECT}
+     FROM payment_orders
+     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ORDER BY created_at DESC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+/**
  * @param {string} id
  */
 export async function findOrderById(id) {

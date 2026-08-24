@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { OrderStatus } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { resolveOrderOrgId, canReadPaymentOrder } from "../orgs/role-policy.mjs";
+import { resolveOrderOrgId } from "../orgs/role-policy.mjs";
+import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
   extraCreateOrderKeys,
   idempotencyBodyHashPayload,
@@ -225,10 +226,10 @@ export async function handleGetPaymentOrder(req, res, orderId) {
     return;
   }
   if (
-    !canReadPaymentOrder(caller, {
+    !(await callerCanReadPaymentOrder(caller, {
       orgId: row.org_id,
       createdBy: row.created_by,
-    })
+    }))
   ) {
     sendError(res, 403, "forbidden", "Outside merchant scope");
     return;
