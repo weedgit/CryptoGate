@@ -73,4 +73,4 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 
 Product, business, and planning files live in `doc/` (same repo — Andrew and Bruce pull with `main`).
 
-Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md).
+Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md). Deploy scaffold: [`doc/M4-01-Deploy-Runbook.md`](doc/M4-01-Deploy-Runbook.md).

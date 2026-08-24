@@ -1,7 +1,7 @@
 # M4-05 — Test vs production environment matrix
 
 **Owner:** Kevin. **Lives in:** integration guide §1 ([M3-02-Integration-Guide.md](M3-02-Integration-Guide.md)).  
-**Unblocks:** M3-T09 (Company A test-env handoff). Deploy automation is M4-01+.
+**Unblocks:** M3-T09 (Company A test-env handoff). Deploy steps: [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md).
 
 Three logical environments. Hostnames below are **placeholders** — Company A fills real DNS when cloud accounts are ready.
 
@@ -66,6 +66,7 @@ When cloud DNS and TLS are ready, replace placeholders and send this table to in
 
 ## Related
 
+- Deploy / runbook: [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md)
 - Env var catalog: repo root `.env.example`
 - Cashier flavors: `doc/Cashier-Apk.md`, `apps/cashier-apk` M4-23
 - Signing / webhooks: [M3-01-Signed-Api.md](M3-01-Signed-Api.md)

@@ -127,6 +127,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M4-05 | Kevin | done | Test vs prod environment matrix | `doc/M4-05-Env-Matrix.md` |
 | — | Kevin | done | CI: api-key rules + T07 signing smoke | `doc/examples/api-signing-smoke.mjs` |
 | M4-32 | Kevin | done | Merchant manual: modes, collision, cool-down | `doc/M4-32-Merchant-Manual.md` |
+| M4-01 | Kevin | done | Deploy/runbook scaffold (Company A accounts) | `doc/M4-01-Deploy-Runbook.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -279,6 +280,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M4-11 | Kevin | done | OpenAPI API keys CRUD/rotate | v0.3.1 `feat-kevin-api-spec-m4-api-keys` |
 | M4-05 | Kevin | done | Test vs prod env matrix in integration guide | `doc/M4-05-Env-Matrix.md` |
 | M4-32 | Kevin | done | Merchant manual (matching / collision / cool-down) | `doc/M4-32-Merchant-Manual.md` |
+| M4-01 | Kevin | done | Deploy/runbook on Company A accounts | `doc/M4-01-Deploy-Runbook.md` |
 
 ### API (Andrew)
 

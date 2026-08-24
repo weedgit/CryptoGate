@@ -133,4 +133,4 @@ Additive to v0.3.0. Signing canonical string unchanged.
 
 ## Out of this freeze
 
-M3-02 / M3-03 / M4-05 / M4-32 are published. M4-11 OpenAPI freeze is **v0.3.1**. Remaining: M4-12 load tests (Andrew); second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 / M4-05 / M4-32 / M4-01 runbook are published. M4-11 OpenAPI freeze is **v0.3.1**. Remaining: M4-02–04 ops detail; M4-12 load tests (Andrew); IaC when Company A picks cloud; second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
