@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.2.0
+  version: 0.2.1
   description: >
-    Contract freeze v0.2 (M2 order schemas). Source of truth for apps/api, apps/payment-page,
-    and apps/cashier-apk. Payment orders are watch-only. Service bills are a separate rail.
-    Enum string values and PaymentOrder fields match @cryptogate/domain.
+    Contract freeze v0.2.1 (M2 orders + merchant matching-mode settings). Source of truth
+    for apps/api, apps/payment-page, and apps/cashier-apk. Payment orders are watch-only.
+    Service bills are a separate rail. Enum string values and PaymentOrder fields match
+    @cryptogate/domain.
 servers:
   - url: /v1
 tags:
@@ -231,6 +232,103 @@ paths:
                 $ref: "#/components/schemas/OrgMembership"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/matching-mode:
+    get:
+      tags: [orgs]
+      operationId: getMatchingModeSettings
+      summary: Get merchant matching mode (default B when unset)
+      description: >
+        Merchant Owner, Administrator, or Viewer (and platform operators / agent
+        ancestors) may read. Cashier receives 403. Only merchant and merchant_site
+        orgs are valid; other org types return 400. Changing this setting does not
+        rewrite open orders — mode is locked onto each order at create.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Current merchant matching mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchingModeSettings"
+        "400":
+          description: Org is not a merchant (or merchant site)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: putMatchingModeSettings
+      summary: Set merchant matching mode (Owner / Administrator only)
+      description: >
+        Labels (product): B Standard, C Amount fingerprint, D Memo tag, S Smart
+        address. Cashier and Viewer receive 403. Mode D is only useful when the
+        asset/network registry has memoSupported true (USDT Tron is false). Dangerous
+        combinations (e.g. Mode S with Mode C) are rejected by packages/matching
+        validateMatchingSettings when Andrew wires that check on save. Does not
+        rewrite open orders.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMatchingModeRequest"
+      responses:
+        "200":
+          description: Matching mode saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchingModeSettings"
+        "400":
+          description: Invalid matchingMode or non-merchant org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / Viewer / insufficient role)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
           content:
             application/json:
               schema:
@@ -519,6 +617,21 @@ components:
       type: string
       description: B Standard, C Amount fingerprint, D Memo tag, S Smart address
       enum: [B, C, D, S]
+    MatchingModeSettings:
+      type: object
+      required: [orgId, matchingMode]
+      properties:
+        orgId:
+          type: string
+          description: Merchant or merchant_site org id
+        matchingMode:
+          $ref: "#/components/schemas/MatchingMode"
+    UpdateMatchingModeRequest:
+      type: object
+      required: [matchingMode]
+      properties:
+        matchingMode:
+          $ref: "#/components/schemas/MatchingMode"
     AddressSource:
       type: string
       enum: [main, hd_pool]

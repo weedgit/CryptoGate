@@ -15,7 +15,7 @@
 ## v0.2 — Milestone 2 order schemas
 
 **Date:** 2026-08-24  
-**OpenAPI:** `0.2.0`
+**OpenAPI:** `0.2.0` (superseded patch `0.2.1` for matching-mode settings)
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
@@ -29,6 +29,17 @@ Frozen for Andrew (`M2-11`/`M2-13`) and Kevin (`M2-50`):
 - Agent create → 403. Cashier cannot set matching mode / settlement / xPub / fees.
 - `GET /orders/{id}/payment` has **no** merchant session; payment page polls this, not the chain.
 - `PaymentOrder` required fields match `@cryptogate/domain`.
+
+## v0.2.1 — Merchant matching-mode settings
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.1`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| OpenAPI matching mode | `GET/PUT /v1/orgs/{orgId}/matching-mode` | Mirrors Andrew PR #24; Cashier 403; default `B` when unset |
+
+Additive only — order create / payment schemas unchanged. Settlement address book OpenAPI still pending (Andrew routes exist).
 
 ## Rules
 

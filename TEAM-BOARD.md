@@ -63,14 +63,15 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
-| M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
+| M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
+| M2-04 | Kevin | doing | OpenAPI matching-mode settings | `feat-kevin-api-spec-m2-matching-mode` v0.2.1 |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — needs Andrew CORS for live path |
-| M2-51 | Kevin | doing | Guest display + wrong-network | `feat-kevin-payment-page-guest-display` |
-| M2-52 | Kevin | doing | QR + copy + share link | same branch |
-| M2-53 | Kevin | doing | Mode C exact payable warning | same branch |
-| M2-54 | Kevin | doing | Hide Mode D when memo unsupported | USDT Tron `memoSupported: false` |
+| M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
+| M2-52 | Kevin | done | QR + copy + share link | PR #25 |
+| M2-53 | Kevin | done | Mode C exact payable warning | PR #25 |
+| M2-54 | Kevin | done | Hide Mode D when memo unsupported | PR #25 |
 
 ---
 
@@ -164,6 +165,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
+| M2-04 | Kevin | doing | OpenAPI matching-mode settings | `feat-kevin-api-spec-m2-matching-mode` v0.2.1 |
 
 ---
 
