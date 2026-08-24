@@ -8,11 +8,13 @@ Package path: `packages/matching`
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
 | `matchTransaction` | `apps/watcher` | Map inbound tx → order status |
-| `assignModeB` / `assignModeC` | tests / direct | Mode modules (also via router) |
+| `assignModeB` / `assignModeC` / `assignModeD` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
 | `pickUniquePayableMinor` | tests | Mode C fingerprint picker (pure) |
+| `pickUniqueMemoOrTag` | tests | Mode D memo picker (pure) |
 | `ListReservedPayableAmounts` | Andrew | Port for open-order payable list |
-| `MODE_C_RESERVED_STATUSES` | Andrew | Statuses that keep a payable reserved |
+| `ListReservedMemoOrTags` | Andrew | Port for open-order memo list |
+| `MODE_C_RESERVED_STATUSES` / `MODE_D_RESERVED_STATUSES` | Andrew | Statuses that keep payable/memo reserved |
 
 Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s, not create-order).
 
@@ -20,7 +22,7 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s
 | --- | --- |
 | B | **M2-40 done** — main settlement address; payable = requested; validates registry min/decimals; `hdIndex`/`memoOrTag` null |
 | C | **M2-41 done** — main address + unique payable via `amountStep`; requires `listReservedPayableAmounts` |
-| D | Throws until M2-42 |
+| D | **M2-42 done** — rejects when `memoSupported=false` (USDT Tron); assigns unique `memoOrTag` when supported |
 | S | Throws until M2-43 |
 
 `matchTransaction` returns Pending Payment stub until M3.
@@ -41,3 +43,14 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s
 - Andrew should filter statuses with `MODE_C_RESERVED_STATUSES` (`pending_payment`, `verifying`, `confirmed`, `payment_anomaly`) under a create-order lock.
 - Result: `addressSource: "main"`, possibly bumped `payableAmount`, `hdIndex`/`memoOrTag` null.
 - Guest must pay the **exact** fingerprint (underpay tolerance 0 or ≪ step — API/merchant setting, not this package).
+
+## Mode D contract (`assignModeD` / `assignOnCreate` with `mode: "D"`)
+
+- Base layer B: main settlement address; payable = requested amount.
+- If registry `memoSupported` is **false** (Phase 1 USDT Tron): **reject create** — do not assign a fake memo.
+- If `memoSupported` is **true** (future enabled pair):
+  - **Required:** `memoSeed` (idempotency key or provisional order id) and `listReservedMemoOrTags` (same scope/lock pattern as Mode C; use `MODE_D_RESERVED_STATUSES`).
+  - Memo = `CG-{sanitizedSeed}`, bump `-2`, `-3`, … on collision; max length `MODE_D_MAX_MEMO_LENGTH`.
+  - Result: `memoOrTag` set; `hdIndex` null; `addressSource: "main"`.
+- Wrong/missing on-chain memo → anomaly in M3 `matchTransaction` (not this assign).
+- UI/API should hide Mode D on unsupported USDT networks (Kevin M2-54); matching still enforces the flag.

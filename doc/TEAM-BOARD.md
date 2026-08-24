@@ -13,29 +13,31 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M1-32 | Matching package test scaffold (B + empty C/D/S) | Bruce | **done** | `feat-bruce-matching-test-scaffold` |
 | M2-40 | Mode B assign (main address + amount validation) | Bruce | **done** | PR #12 merged |
 | M1-34 | Review Andrew `payment_orders` migration | Bruce | **done** | `doc/M1-34-Payment-Orders-Review.md` |
-| M2-41 | Mode C assign (fingerprint + reservation port) | Bruce | **doing** | `feat-bruce-matching-mode-c-assign` |
+| M2-41 | Mode C assign (fingerprint + reservation port) | Bruce | **done** | PR #17 merged |
+| M2-42 | Mode D assign (memoSupported gate + unique memo) | Bruce | **doing** | `feat-bruce-matching-mode-d-assign` |
 
 ## Now — matching (Bruce)
 
-**Current:** M2-41 Mode C on `feat-bruce-matching-mode-c-assign` — unique payable via `listReservedPayableAmounts`.
+**Current:** M2-42 Mode D on `feat-bruce-matching-mode-d-assign` — reject USDT Tron; assign memo when registry allows.
 
-**Next after merge:** Mode S (M2-43) needs HD pool table; Mode D (M2-42) waits on memo-capable registry row. Ask Andrew to wire `assignOnCreate` + Mode C query (see M1-34).
+**Next after merge:** Mode S (M2-43) needs Andrew xPub + HD pool migration. Ask Andrew to wire `assignOnCreate` + Mode C/D reservation ports.
 
 ## Blockers / asks for Kevin
 
-- Optional: `scripts/check.mjs` run `apps/watcher/test` + domain `pnpm build` before matching tsc (local check currently fragile).
+- Optional: `scripts/check.mjs` run `apps/watcher/test` + domain `pnpm build` before matching tsc.
+- Enable a `memoSupported: true` asset/network when Mode D should go live beyond reject-path.
 - `HdPoolState` in OpenAPI if merchant UI exposes pool (M2).
 
 ## Blockers / asks for Andrew
 
-- Wire `@cryptogate/matching` `assignOnCreate` instead of stub; implement `listReservedPayableAmounts` under create lock (M1-34).
-- Optional Mode C index on `(org_id, receive_address, asset, network)`.
-- Mode S: HD pool migration when ready for M2-43.
+- Wire `@cryptogate/matching` `assignOnCreate` instead of stub; Mode C/D reservation ports under create lock.
+- Mode S: HD pool migration + xPub registration when ready for M2-43.
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M2-42 Mode D assign (memoSupported gate) |
 | 2026-08-24 | Bruce: M1-34 accept payment_orders; M2-41 Mode C assign |
 | 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |
 | 2026-08-24 | Bruce: M1-32 scaffold branch; C/D/S stubs; next M2-40 after merge |

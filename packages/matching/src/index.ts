@@ -12,6 +12,7 @@ import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types
 export type {
   AssignInput,
   AssignResult,
+  ListReservedMemoOrTags,
   ListReservedPayableAmounts,
   MatchInput,
   MatchResult,
@@ -51,5 +52,13 @@ export {
   MODE_C_RESERVED_STATUSES,
   MODE_C_MAX_FINGERPRINT_STEPS,
 } from "./mode-c/index.js";
-export { assignModeD } from "./mode-d/index.js";
+export {
+  assignModeD,
+  assignModeDForConfig,
+  pickUniqueMemoOrTag,
+  sanitizeMemoSeed,
+  MODE_D_RESERVED_STATUSES,
+  MODE_D_MAX_MEMO_ATTEMPTS,
+  MODE_D_MAX_MEMO_LENGTH,
+} from "./mode-d/index.js";
 export { assignModeS } from "./mode-s/index.js";
