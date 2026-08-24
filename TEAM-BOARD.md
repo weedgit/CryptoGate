@@ -64,7 +64,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
-| M2-50 | Kevin | doing | Wire pay page to API | `feat-kevin-payment-page-api-wire` — needs Andrew GET `/payment` + CORS |
+| M2-50 | Kevin | doing | Live pay page poll GET /payment | `feat-kevin-payment-page-live-poll` — needs Andrew CORS |
 
 ---
 

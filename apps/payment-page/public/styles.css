@@ -64,6 +64,50 @@ body {
   text-align: center;
 }
 
+.amount-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.amount-row .amount {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.source-banner {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  background: rgba(255, 183, 3, 0.1);
+  color: var(--warn);
+  font-size: 0.7rem;
+  text-align: left;
+}
+
+.qr.qr-live .qr-finder,
+.qr.qr-live .qr-scan {
+  display: none;
+}
+
+.qr-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .label {
   margin: 0 0 0.35rem;
   color: var(--muted);

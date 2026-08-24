@@ -1,9 +1,12 @@
-/** Prototype — GET /v1/orders/{id}/payment when Andrew lands M2-13. Do not poll chain. */
+/** Live guest pay — poll GET /v1/orders/{id}/payment. Do not poll chain. */
 const params = new URLSearchParams(location.search);
 const demoState = params.get("state") || "pending";
-const orderId = params.get("id");
-const apiBase = (window.CRYPTOGATE_API_BASE || "http://127.0.0.1:3000").replace(/\/$/, "");
+const apiBase = (window.CRYPTOGATE_API_BASE || "http://127.0.0.1:3000").replace(
+  /\/$/,
+  "",
+);
 const sessionKey = (id) => `cg-order-${id}`;
+const POLL_MS = 5000;
 
 const networkLabels = {
   tron: "TRON TRC-20",
@@ -28,6 +31,7 @@ const statusCopy = {
 
 const merchantEl = document.getElementById("merchant");
 const amountEl = document.getElementById("amount");
+const amountCopyEl = document.getElementById("amount-copy");
 const networkEl = document.getElementById("network");
 const addressEl = document.getElementById("address");
 const contractEl = document.getElementById("contract");
@@ -38,6 +42,17 @@ const memoWarn = document.getElementById("memo-warn");
 const statusEl = document.getElementById("status");
 const orderRefEl = document.getElementById("order-ref");
 const mainEl = document.querySelector(".pay");
+const qrEl = document.getElementById("qr");
+const sourceEl = document.getElementById("source-banner");
+
+function resolveOrderId() {
+  const fromQuery = params.get("id");
+  if (fromQuery) return fromQuery;
+  const match = location.pathname.match(/\/pay\/([^/]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+const orderId = resolveOrderId();
 
 function shortAddr(value) {
   if (!value || value.length <= 28) return value || "";
@@ -51,31 +66,51 @@ function uiState(status) {
   return status;
 }
 
+function setSourceBanner(text) {
+  if (!sourceEl) return;
+  if (!text) {
+    sourceEl.hidden = true;
+    sourceEl.textContent = "";
+    return;
+  }
+  sourceEl.hidden = false;
+  sourceEl.textContent = text;
+}
+
 function demoView() {
   const network = params.get("network") || "tron";
+  const amount = params.get("amount") || "245.00";
+  const asset = params.get("asset") || "USDT";
+  const address = "TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2";
   return {
     merchantName: "Hotel Marrakech — Casablanca",
-    payableAmount: params.get("amount") || "245.00",
-    asset: params.get("asset") || "USDT",
+    payableAmount: amount,
+    copyAmount: amount,
+    asset,
     network,
     networkLabel: networkLabels[network] || network.toUpperCase(),
-    receiveAddress: "TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2",
+    receiveAddress: address,
     contractAddress: USDT_TRON_CONTRACT,
     matchingMode: (params.get("mode") || "B").toUpperCase(),
     memoOrTag: params.get("memo") || "",
-    expiresAt: new Date(Date.now() + ((Number(params.get("validity")) || 28) * 60 + 42) * 1000).toISOString(),
+    expiresAt: new Date(
+      Date.now() + ((Number(params.get("validity")) || 28) * 60 + 42) * 1000,
+    ).toISOString(),
     status: demoState,
     orderNumber: "#CG-2026-0847",
+    qrPayload: `${network}:${address}?amount=${encodeURIComponent(amount)}&asset=${asset}&network=${network}`,
   };
 }
 
 function fromPaymentOrder(order) {
   const network = order.network || "tron";
   const payable = order.payableAmount;
-  const amount = typeof payable === "object" && payable ? payable.amount : String(payable ?? "");
+  const amount =
+    typeof payable === "object" && payable ? payable.amount : String(payable ?? "");
   return {
     merchantName: "Merchant",
     payableAmount: amount,
+    copyAmount: amount,
     asset: order.asset || "USDT",
     network,
     networkLabel: networkLabels[network] || String(network).toUpperCase(),
@@ -86,6 +121,7 @@ function fromPaymentOrder(order) {
     expiresAt: order.expiresAt,
     status: order.status || "pending_payment",
     orderNumber: order.orderNumber || order.id,
+    qrPayload: `${network}:${order.receiveAddress || ""}?amount=${encodeURIComponent(amount)}&asset=${order.asset || "USDT"}&network=${network}`,
   };
 }
 
@@ -98,11 +134,13 @@ function fromPaymentDetails(d) {
   return {
     merchantName: d.merchantName || "Merchant",
     payableAmount: amount,
+    copyAmount: d.copyAmount || amount,
     asset: d.asset || "USDT",
     network,
     networkLabel: networkLabels[network] || String(network).toUpperCase(),
     receiveAddress: d.receiveAddress || "",
-    contractAddress: d.contractAddress || (network === "tron" ? USDT_TRON_CONTRACT : ""),
+    contractAddress:
+      d.contractAddress || (network === "tron" ? USDT_TRON_CONTRACT : ""),
     matchingMode: d.matchingMode || "B",
     memoOrTag: d.memoOrTag || "",
     expiresAt: d.expiresAt,
@@ -111,6 +149,7 @@ function fromPaymentDetails(d) {
     wrongNetworkWarning: d.wrongNetworkWarning,
     payExactAmountWarning: d.payExactAmountWarning,
     memoWarning: d.memoWarning,
+    qrPayload: d.qrPayload || "",
   };
 }
 
@@ -120,18 +159,52 @@ function remainingSeconds(expiresAt) {
   return Math.max(0, Math.floor((t - Date.now()) / 1000));
 }
 
+function renderQr(payload) {
+  if (!qrEl) return;
+  const existing = qrEl.querySelector("canvas.qr-canvas");
+  if (!payload) {
+    if (existing) existing.remove();
+    qrEl.classList.remove("qr-live");
+    return;
+  }
+  const draw = () => {
+    let canvas = existing;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.className = "qr-canvas";
+      qrEl.appendChild(canvas);
+    }
+    qrEl.classList.add("qr-live");
+    window.QRCode.toCanvas(
+      canvas,
+      payload,
+      { width: 160, margin: 1, color: { dark: "#0b0f14", light: "#ffffff" } },
+      () => {},
+    );
+  };
+  if (window.QRCode) draw();
+  else {
+    qrEl.dataset.qrPayload = payload;
+  }
+}
+
 function paint(view) {
   const state = uiState(view.status);
   if (merchantEl) merchantEl.textContent = view.merchantName;
   if (amountEl) amountEl.textContent = `${view.payableAmount} ${view.asset}`;
+  if (amountCopyEl) {
+    amountCopyEl.textContent = view.copyAmount || view.payableAmount;
+    amountCopyEl.dataset.full = view.copyAmount || view.payableAmount;
+  }
   if (networkEl) networkEl.textContent = view.networkLabel;
   if (addressEl) {
     addressEl.textContent = shortAddr(view.receiveAddress);
     addressEl.dataset.full = view.receiveAddress;
   }
   if (contractEl) {
-    contractEl.textContent = shortAddr(view.contractAddress);
-    contractEl.dataset.full = view.contractAddress;
+    const c = view.contractAddress || "";
+    contractEl.textContent = shortAddr(c);
+    contractEl.dataset.full = c;
   }
   if (netWarn) {
     netWarn.textContent =
@@ -143,7 +216,9 @@ function paint(view) {
     if (view.payExactAmountWarning) exactWarn.textContent = view.payExactAmountWarning;
   }
   if (memoWarn) {
-    const show = Boolean(view.matchingMode === "D" || view.memoOrTag || view.memoWarning);
+    const show = Boolean(
+      view.matchingMode === "D" || view.memoOrTag || view.memoWarning,
+    );
     memoWarn.hidden = !show;
     if (show) {
       memoWarn.textContent =
@@ -151,7 +226,11 @@ function paint(view) {
     }
   }
   if (mainEl) mainEl.dataset.state = state === "pending" ? "pending" : state;
-  if (statusEl) statusEl.textContent = statusCopy[view.status] || statusCopy[state] || statusCopy.pending;
+  if (statusEl) {
+    statusEl.textContent =
+      statusCopy[view.status] || statusCopy[state] || statusCopy.pending;
+  }
+  renderQr(view.qrPayload);
   tick(remainingSeconds(view.expiresAt), state);
 }
 
@@ -187,8 +266,18 @@ function tick(remaining, state) {
   tickTimer = window.setTimeout(() => tick(remaining - 1, state), 1000);
 }
 
+function paintInvalid() {
+  setSourceBanner("");
+  if (mainEl) mainEl.dataset.state = "invalid";
+  if (statusEl) statusEl.textContent = statusCopy.invalid;
+  if (expiresEl) expiresEl.textContent = "This payment link is not valid";
+  renderQr("");
+}
+
 async function fetchPaymentDetails(id) {
-  const res = await fetch(`${apiBase}/v1/orders/${encodeURIComponent(id)}/payment`);
+  const res = await fetch(
+    `${apiBase}/v1/orders/${encodeURIComponent(id)}/payment`,
+  );
   if (res.status === 404) return { missing: true };
   if (!res.ok) throw new Error(`payment ${res.status}`);
   return { details: await res.json() };
@@ -197,31 +286,38 @@ async function fetchPaymentDetails(id) {
 async function loadLiveOrder(id) {
   try {
     const got = await fetchPaymentDetails(id);
+    if (got.missing) {
+      paintInvalid();
+      return;
+    }
     if (got.details) {
+      setSourceBanner("");
       paint(fromPaymentDetails(got.details));
       return;
     }
   } catch {
-    /* CORS or GET /payment not on API yet (M2-13). */
+    /* Network / CORS — fall back to create snapshot only. */
   }
   try {
     const raw = sessionStorage.getItem(sessionKey(id));
     if (raw) {
+      setSourceBanner(
+        "Showing create snapshot. Live GET /payment failed (CORS or network). Ask Andrew to allow this origin.",
+      );
       paint(fromPaymentOrder(JSON.parse(raw)));
       return;
     }
   } catch {
     /* ignore */
   }
-  if (mainEl) mainEl.dataset.state = "invalid";
-  if (statusEl) statusEl.textContent = statusCopy.invalid;
-  if (expiresEl) expiresEl.textContent = "This payment link is not valid";
+  paintInvalid();
 }
 
 if (orderId) {
   loadLiveOrder(orderId);
-  window.setInterval(() => loadLiveOrder(orderId), 5000);
+  window.setInterval(() => loadLiveOrder(orderId), POLL_MS);
 } else {
+  setSourceBanner("");
   paint(demoView());
 }
 
