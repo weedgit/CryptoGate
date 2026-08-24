@@ -1,11 +1,11 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Contract freeze v0.1 (Sprint 0 / M1). Source of truth for apps/api and apps/cashier-apk.
-    Payment orders are watch-only. Service bills are a separate rail.
-    Enum string values match @cryptogate/domain.
+    Contract freeze v0.2 (M2 order schemas). Source of truth for apps/api, apps/payment-page,
+    and apps/cashier-apk. Payment orders are watch-only. Service bills are a separate rail.
+    Enum string values and PaymentOrder fields match @cryptogate/domain.
 servers:
   - url: /v1
 tags:
@@ -241,8 +241,14 @@ paths:
       operationId: createPaymentOrder
       summary: Create a payment order (idempotent with Idempotency-Key)
       description: >
-        M1 stub may return mock receive_address and QR payload.
-        Agent-account users must receive 403. Cashiers cannot set matching mode.
+        Merchant or Cashier creates a collection order. Matching mode is the merchant
+        default at create time and is stored on the order; the request body must not
+        include matchingMode. Payable amount, receive address, addressSource, hdIndex,
+        and memoOrTag come from packages/matching assignOnCreate.
+
+        Agent-account users receive 403. Cashiers may create orders but cannot set
+        matching mode, settlement address, xPub, or fees (those endpoints are 403).
+        Volume fee is not deducted from the on-chain payable amount.
       security:
         - sessionCookie: []
         - apiKey: []
@@ -256,13 +262,37 @@ paths:
               $ref: "#/components/schemas/CreatePaymentOrderRequest"
       responses:
         "201":
-          description: Order created
+          description: Order created; matching fields locked
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentOrder"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
-          description: Forbidden (agent cannot create; Cashier cannot change settlement settings)
+          description: Agent cannot create; or Cashier attempted a privileged field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Idempotency-Key reused with a different body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Asset/network not enabled or matching assign rejected
           content:
             application/json:
               schema:
@@ -287,10 +317,27 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/PaymentOrder"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Outside merchant scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders/{id}:
     get:
       tags: [orders]
       operationId: getPaymentOrder
+      summary: Order status and received amount (merchant / cashier session)
+      description: >
+        Returns the payment order including matching fields locked at create.
+        Cross-merchant access is 403. Payers must use GET /orders/{id}/payment
+        (public) instead of this path.
       parameters:
         - $ref: "#/components/parameters/orderId"
       security:
@@ -303,6 +350,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentOrder"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Outside merchant scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders/{id}/on-chain:
     get:
       tags: [orders]
@@ -319,15 +384,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OnChainDetails"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders/{id}/payment:
     get:
       tags: [orders]
       operationId: getPaymentOrderPayment
+      summary: Public guest-pay payload (no merchant session)
+      description: >
+        Polled by apps/payment-page and cashier QR screens. No login.
+        Order ids are opaque; response must not include settlement keys, xPub,
+        fee rates, or merchant session data. Do not poll the chain from the
+        payment page — poll this endpoint for status.
+
+        Expired and anomaly orders still return 200 with status set so the
+        guest page can render those states. Unknown id returns 404.
       parameters:
         - $ref: "#/components/parameters/orderId"
-      security:
-        - sessionCookie: []
-        - apiKey: []
+      security: []
       responses:
         "200":
           description: Payment page URL, QR payload, copy-ready address and amount
@@ -335,6 +419,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentDetails"
+        "404":
+          description: Payment link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /webhooks:
     post:
       tags: [webhooks]
@@ -399,9 +489,14 @@ components:
     idempotencyKey:
       name: Idempotency-Key
       in: header
-      required: false
+      required: true
+      description: >
+        Required on POST /orders. Reuse of the same key with the same body
+        returns the original 201 body. Same key with a different body is 409.
       schema:
         type: string
+        minLength: 8
+        maxLength: 128
   schemas:
     OrgType:
       type: string
@@ -564,10 +659,15 @@ components:
     CreatePaymentOrderRequest:
       type: object
       required: [amount, asset, network, validitySeconds]
+      additionalProperties: false
+      description: >
+        Do not send matchingMode, receiveAddress, or fee fields. Matching mode
+        is the merchant default locked onto the order at create.
       properties:
         amount:
           type: string
           description: Requested amount before Mode C fingerprint adjustment
+          example: "245.00"
         asset:
           $ref: "#/components/schemas/AssetCode"
         network:
@@ -575,18 +675,26 @@ components:
         validitySeconds:
           type: integer
           minimum: 60
+          example: 900
         merchantMetadata:
           type: object
           additionalProperties: true
     PaymentOrder:
       type: object
+      description: >
+        Shared payment-order row (API camelCase). DB columns are PaymentOrderColumn
+        in @cryptogate/domain. Receive address is merchant-controlled.
       required:
         - id
         - orderNumber
         - status
         - matchingMode
         - payableAmount
+        - receivedAmount
         - receiveAddress
+        - addressSource
+        - hdIndex
+        - memoOrTag
         - asset
         - network
         - expiresAt
@@ -595,6 +703,7 @@ components:
           type: string
         orderNumber:
           type: string
+          example: "CG-2026-0042"
         status:
           $ref: "#/components/schemas/OrderStatus"
         matchingMode:
@@ -606,14 +715,17 @@ components:
           nullable: true
         receiveAddress:
           type: string
+          description: Merchant-controlled; immutable after QR is issued
         addressSource:
           $ref: "#/components/schemas/AddressSource"
         hdIndex:
           type: integer
           nullable: true
+          description: Set when addressSource is hd_pool (Mode S)
         memoOrTag:
           type: string
           nullable: true
+          description: Set for Mode D when the network supports memos
         asset:
           $ref: "#/components/schemas/AssetCode"
         network:
@@ -625,25 +737,46 @@ components:
           type: string
     PaymentDetails:
       type: object
+      description: Guest pay / POS QR payload. Never includes keys, xPub, or fees.
       required:
+        - orderNumber
+        - status
+        - merchantName
+        - matchingMode
         - paymentPageUrl
         - qrPayload
         - receiveAddress
         - payableAmount
+        - copyAmount
         - asset
         - network
         - expiresAt
         - wrongNetworkWarning
       properties:
+        orderNumber:
+          type: string
+          example: "CG-2026-0042"
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        merchantName:
+          type: string
+          example: "Hotel Marrakech — Casablanca"
+        matchingMode:
+          $ref: "#/components/schemas/MatchingMode"
         paymentPageUrl:
           type: string
           format: uri
         qrPayload:
           type: string
+          description: Network URI encoded in the QR (not a chain RPC URL)
         receiveAddress:
           type: string
         payableAmount:
           $ref: "#/components/schemas/Money"
+        copyAmount:
+          type: string
+          description: Copy-ready payable amount (major units, no asset suffix)
+          example: "245.00"
         asset:
           $ref: "#/components/schemas/AssetCode"
         network:
@@ -651,14 +784,23 @@ components:
         contractAddress:
           type: string
           nullable: true
+        memoOrTag:
+          type: string
+          nullable: true
         expiresAt:
           type: string
           format: date-time
         wrongNetworkWarning:
           type: string
+          example: "Send only USDT on TRON TRC-20. Wrong network may result in lost funds."
         payExactAmountWarning:
           type: string
+          nullable: true
           description: Present for Mode C fingerprint orders
+        memoWarning:
+          type: string
+          nullable: true
+          description: Present for Mode D when memoOrTag is required
     OnChainDetails:
       type: object
       properties:
