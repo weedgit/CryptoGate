@@ -11,6 +11,7 @@ import {
   NetworkId,
   PaymentOrderColumn,
   USDT_TRON,
+  ASSET_NETWORK_REGISTRY,
   getAssetNetworkConfig,
   WebhookEventType,
   ServiceBillStatus,
@@ -59,6 +60,8 @@ describe("@cryptogate/domain", () => {
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum),
       undefined,
     );
+    assert.equal(ASSET_NETWORK_REGISTRY.length, 1);
+    assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
   });
 
   it("exports payment-order DB columns for matching assign", () => {
