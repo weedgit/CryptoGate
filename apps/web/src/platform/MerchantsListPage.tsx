@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, listOrgs, type OrgAccount } from "./api";
+import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { orgTypeLabel } from "./org";
 
 export function MerchantsListPage() {
@@ -13,9 +15,7 @@ export function MerchantsListPage() {
     setError(null);
     try {
       const orgs = await listOrgs();
-      setItems(
-        orgs.filter((o) => o.type === "merchant" || o.type === "merchant_site"),
-      );
+      setItems(orgs.filter((o) => o.type === "merchant"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load merchants");
     } finally {
@@ -58,7 +58,6 @@ export function MerchantsListPage() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Type</th>
               <th>Structure</th>
               <th>Parent</th>
               <th>ID</th>
@@ -67,9 +66,14 @@ export function MerchantsListPage() {
           <tbody>
             {filtered.map((row) => (
               <tr key={row.id}>
-                <td>{row.name}</td>
-                <td>{orgTypeLabel(row.type)}</td>
-                <td>{row.structure?.replace("_", " ") ?? "—"}</td>
+                <td>
+                  <Link to={`/platform/merchants/${row.id}`}>{row.name}</Link>
+                </td>
+                <td>
+                  {row.structure
+                    ? (STRUCTURE_LABELS[row.structure] ?? row.structure)
+                    : "—"}
+                </td>
                 <td className="mono">{row.parentId ?? "—"}</td>
                 <td className="mono">{row.id}</td>
               </tr>

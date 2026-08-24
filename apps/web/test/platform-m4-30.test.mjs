@@ -129,3 +129,26 @@ describe("@cryptogate/web platform B3 agent detail", () => {
     assert.doesNotMatch(list, /B3.*follow-up/);
   });
 });
+
+describe("@cryptogate/web platform B6 merchant detail", () => {
+  it("wires merchant detail route and tabbed read-only views", () => {
+    const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
+    assert.match(app, /merchants\/:id/);
+    assert.match(app, /MerchantDetailPage/);
+
+    const detail = readFileSync(
+      join(root, "src/platform/MerchantDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /filter-tabs/);
+    assert.match(detail, /listSettlement/);
+    assert.match(detail, /getMatchingMode/);
+    assert.match(detail, /Read-only platform view/);
+
+    const list = readFileSync(
+      join(root, "src/platform/MerchantsListPage.tsx"),
+      "utf8",
+    );
+    assert.match(list, /\/platform\/merchants\/\$\{row\.id\}/);
+  });
+});
