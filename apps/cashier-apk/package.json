@@ -2,11 +2,11 @@
   "name": "@cryptogate/cashier-apk",
   "version": "0.1.0",
   "private": true,
-  "description": "Cashier Android POS — owned by Bruce (M2+). Wireframes under payment-page prototypes.",
+  "description": "Cashier Android POS (Kotlin) — owned by Bruce. See doc/Cashier-Apk.md.",
   "scripts": {
-    "build": "node -e \"process.exit(0)\"",
-    "typecheck": "node -e \"process.exit(0)\"",
-    "test": "node -e \"process.exit(0)\"",
-    "lint": "node -e \"process.exit(0)\""
+    "build": "node -e \"console.log('@cryptogate/cashier-apk: open apps/cashier-apk in Android Studio')\"",
+    "typecheck": "node ./scripts/check-scaffold.mjs",
+    "test": "node --test ./scripts/check-scaffold.mjs",
+    "lint": "node ./scripts/check-scaffold.mjs"
   }
 }

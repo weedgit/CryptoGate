@@ -21,3 +21,8 @@ Thumbs.db
 .idea/
 .vscode/
 .cursor/
+
+# Android (cashier-apk)
+**/local.properties
+**/.gradle/
+apps/cashier-apk/**/build/
