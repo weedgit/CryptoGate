@@ -4,19 +4,19 @@
  * No apps/api imports.
  */
 
-/** Terminal statuses watcher must never rewrite. */
+/** Terminal statuses watcher must never rewrite (except late-pay expired → anomaly). */
 export const WATCHER_TERMINAL_STATUSES = [
   "completed",
-  "expired",
   "cancelled",
   "failed",
 ];
 
-/** Statuses match apply may transition from. */
+/** Statuses match apply may transition from (incl. expired for late payment). */
 export const WATCHER_MATCH_APPLY_STATUSES = [
   "pending_payment",
   "verifying",
   "payment_anomaly",
+  "expired",
 ];
 
 /**
@@ -35,6 +35,11 @@ export function matchWriteNeeded(row, result, transfer) {
   }
   if (!WATCHER_MATCH_APPLY_STATUSES.includes(row.status)) {
     return { write: false, reason: "status_not_matchable" };
+  }
+
+  // Late payment after API expiry → anomaly (M3-43).
+  if (row.status === "expired" && result.status !== "payment_anomaly") {
+    return { write: false, reason: "expired_not_anomaly" };
   }
 
   const existingTx = row.txHash?.trim() || "";
@@ -68,7 +73,7 @@ export function matchWriteNeeded(row, result, transfer) {
  * @returns {{ write: boolean, reason: string }}
  */
 export function confirmationWriteNeeded(row, confirmations, nextStatus, opts = {}) {
-  if (WATCHER_TERMINAL_STATUSES.includes(row.status)) {
+  if (WATCHER_TERMINAL_STATUSES.includes(row.status) || row.status === "expired") {
     return { write: false, reason: "terminal_order" };
   }
   if (row.status !== "verifying" && row.status !== "confirmed") {

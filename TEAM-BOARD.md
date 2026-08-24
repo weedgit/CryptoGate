@@ -94,6 +94,8 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M2-74 | Bruce | done | Cashier APK offline/network-error; no create offline | PR #56 merged |
 | M4-21 | Bruce | done | Reorg / rollback handling for Tron confirmations | PR #58 merged |
 | M4-23 | Bruce | done | Signed APK flavors (staging vs prod API URL) | PR #61 merged |
+| M3-43 | Bruce | doing | Expired / anomaly / failed watcher paths | `feat-bruce-watcher-anomaly-paths` |
+| M3-44 | Bruce | doing | Underpay, overpay, duplicate hash, wrong network | same branch as M3-43 |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
