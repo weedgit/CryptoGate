@@ -1,5 +1,5 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
-import { requireSession } from "../http/require-session.mjs";
+import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "./org-store.mjs";
 import {
   canAssignOrgRole,
@@ -17,22 +17,20 @@ import {
   insertMembership,
   updateMembershipRole,
 } from "./membership-store.mjs";
-import { isVisibleOrg, listVisibleOrgs, loadCaller, roleOnOrg } from "./org-access.mjs";
+import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 
 /**
  * POST /v1/orgs/{orgId}/users
  */
 export async function handleInviteOrgUser(req, res, orgId) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
   const org = await findOrgById(orgId);
   if (!org) {
     sendError(res, 404, "not_found", "Org not found");
     return;
   }
-
-  const caller = await loadCaller(auth.userId);
   const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
     sendError(res, 404, "not_found", "Org not found");
@@ -114,16 +112,14 @@ export async function handleInviteOrgUser(req, res, orgId) {
  * PUT /v1/orgs/{orgId}/users/{userId}/role
  */
 export async function handleAssignOrgUserRole(req, res, orgId, userId) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
   const org = await findOrgById(orgId);
   if (!org) {
     sendError(res, 404, "not_found", "Org not found");
     return;
   }
-
-  const caller = await loadCaller(auth.userId);
   const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
     sendError(res, 404, "not_found", "Org not found");

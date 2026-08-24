@@ -14,9 +14,11 @@ import {
   getSessionToken,
   sessionCookie,
 } from "./cookies.mjs";
+import { requireCaller } from "./require-caller.mjs";
 import { requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
+import { canEnrollMfa } from "../orgs/role-policy.mjs";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 const INVALID_MFA = "Invalid MFA code";
@@ -90,30 +92,35 @@ export async function handleLogout(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleGetSession(req, res) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
-  const user = await findUserById(auth.userId);
+  const user = await findUserById(caller.userId);
   if (!user) {
     sendError(res, 401, "unauthenticated", "Not authenticated");
     return;
   }
 
-  await extendSessionByToken(auth.token);
-  setSessionCookie(res, auth.token);
-  sendJson(res, 200, await sessionPayload(user));
+  await extendSessionByToken(caller.token);
+  setSessionCookie(res, caller.token);
+  sendJson(res, 200, sessionFromUser(user, caller.memberships));
 }
 
 /**
- * Start TOTP enrollment. Owner/Admin-only gating is M1-16.
+ * Start TOTP enrollment. Owner/Administrator only.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleMfaEnroll(req, res) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
-  const user = await findUserMfaById(auth.userId);
+  if (!canEnrollMfa(caller.memberships)) {
+    sendError(res, 403, "forbidden", "Only Owner or Administrator may enroll MFA");
+    return;
+  }
+
+  const user = await findUserMfaById(caller.userId);
   if (!user) {
     sendError(res, 401, "unauthenticated", "Not authenticated");
     return;

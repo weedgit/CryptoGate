@@ -1,15 +1,13 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
-import { requireSession } from "../http/require-session.mjs";
+import { requireCaller } from "../http/require-caller.mjs";
 import { DEFAULT_MAX_AGENT_DEPTH, toOrgAccount } from "./org-accounts.mjs";
 import { validateCreateOrg } from "./org-rules.mjs";
-import { canManageOrgTree } from "./membership-rules.mjs";
 import { insertMembership } from "./membership-store.mjs";
+import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
-  isVisibleOrg,
-  listVisibleOrgs,
-  loadCaller,
-  roleOnOrg,
-} from "./org-access.mjs";
+  canBootstrapPlatform,
+  canCreateOrgUnderParent,
+} from "./role-policy.mjs";
 import {
   agentDepthOfParent,
   findOrgById,
@@ -21,9 +19,8 @@ import {
  * GET /v1/orgs
  */
 export async function handleListOrgs(req, res) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
-  const caller = await loadCaller(auth.userId);
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
   const rows = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   sendJson(res, 200, { items: rows.map(toOrgAccount) });
 }
@@ -32,9 +29,8 @@ export async function handleListOrgs(req, res) {
  * GET /v1/orgs/{orgId}
  */
 export async function handleGetOrg(req, res, orgId) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
-  const caller = await loadCaller(auth.userId);
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
   const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   const row = await findOrgById(orgId);
   if (!row || !isVisibleOrg(visible, orgId)) {
@@ -48,8 +44,8 @@ export async function handleGetOrg(req, res, orgId) {
  * POST /v1/orgs
  */
 export async function handleCreateOrg(req, res) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
   let body;
   try {
@@ -69,12 +65,15 @@ export async function handleCreateOrg(req, res) {
     return;
   }
 
-  const caller = await loadCaller(auth.userId);
-  const creatingPlatform = (body?.type === "platform");
+  const creatingPlatform = body?.type === "platform";
   if (creatingPlatform) {
     const platform = await findPlatformOrg();
     if (platform) {
       sendError(res, 403, "platform_exists", "Platform org already exists");
+      return;
+    }
+    if (!canBootstrapPlatform(caller)) {
+      sendError(res, 403, "forbidden", "Not allowed to create the platform org");
       return;
     }
   } else if (parent) {
@@ -84,7 +83,7 @@ export async function handleCreateOrg(req, res) {
       return;
     }
     const parentRole = roleOnOrg(caller.memberships, parent.id);
-    if (!caller.platformOperator && !canManageOrgTree(parentRole)) {
+    if (!canCreateOrgUnderParent(caller, parentRole)) {
       sendError(res, 403, "forbidden", "Not allowed to create orgs under this parent");
       return;
     }
@@ -116,7 +115,7 @@ export async function handleCreateOrg(req, res) {
   if (inserted.row.type === "platform") {
     await insertMembership({
       orgId: inserted.row.id,
-      userId: auth.userId,
+      userId: caller.userId,
       role: "owner",
     });
   }
