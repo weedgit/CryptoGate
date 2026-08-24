@@ -19,6 +19,8 @@ import {
   API_SIGNING_MAX_SKEW_SECONDS,
   RateLimitPerMinute,
   WEBHOOK_RETRY_DELAYS_SECONDS,
+  API_KEY_MAX_PER_ORG,
+  ApiKeyColumn,
 } from "../dist/index.js";
 
 describe("@cryptogate/domain", () => {
@@ -83,5 +85,8 @@ describe("@cryptogate/domain", () => {
     assert.equal(API_SIGNING_MAX_SKEW_SECONDS, 300);
     assert.equal(RateLimitPerMinute.apiKey, 120);
     assert.deepEqual([...WEBHOOK_RETRY_DELAYS_SECONDS], [1, 5, 25, 125, 625]);
+    assert.equal(API_KEY_MAX_PER_ORG, 10);
+    assert.equal(ApiKeyColumn.keyId, "key_id");
+    assert.equal(ApiKeyColumn.secret, "secret");
   });
 });

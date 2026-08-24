@@ -17,7 +17,7 @@ Do not merge payment-order routes with service-bill routes. Do not fulfill merch
 | Guest pay page | none | No (`GET /orders/{id}/payment` stays `security: []`) |
 | `POST /auth/login` | none | No |
 
-API keys are provisioned for M3 (DB/admin). Key CRUD / rotation UI is M4-11. Never log the HMAC secret or a signed payload with the secret.
+API keys: use `GET/POST /v1/api-keys` (OpenAPI **v0.3.1**, [M4-11-Api-Keys.md](M4-11-Api-Keys.md)). Secret shown **once** on create/rotate; never on list. Never log the HMAC secret or a signed payload with the secret.
 
 ### Canonical string (byte-stable)
 

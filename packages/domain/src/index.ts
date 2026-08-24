@@ -299,6 +299,38 @@ export type ServiceBill = {
   dueAt: string;
 };
 
+/**
+ * Machine API key metadata (M4-11). Never include `secret` on list/GET.
+ * `keyId` is the public X-Api-Key value; HMAC uses the one-time `secret`.
+ */
+export type ApiKey = {
+  id: string;
+  orgId: string;
+  keyId: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+};
+
+/** Soft cap on active (non-revoked) keys per merchant org. */
+export const API_KEY_MAX_PER_ORG = 10;
+
+/** DB columns on `api_keys` (Andrew migration — extend 012 for label/last_used/expires). */
+export const ApiKeyColumn = {
+  orgId: "org_id",
+  userId: "user_id",
+  keyId: "key_id",
+  secret: "secret",
+  label: "label",
+  lastUsedAt: "last_used_at",
+  expiresAt: "expires_at",
+  revokedAt: "revoked_at",
+  createdAt: "created_at",
+} as const;
+
+export type ApiKeyColumnName = (typeof ApiKeyColumn)[keyof typeof ApiKeyColumn];
+
 /** Machine-client signing headers (required with X-Api-Key; omit on session). */
 export const ApiSigningHeader = {
   ApiKey: "X-Api-Key",

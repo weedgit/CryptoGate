@@ -1,14 +1,14 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.3.0
+  version: 0.3.1
   description: >
-    Contract freeze v0.3.0 (M3-01). M2 order/matching/settlement/xPub/HD-pool
-    schemas plus API HMAC headers, rate limits, signed webhooks, and service-bill
-    stubs. Source of truth for apps/api, apps/payment-page, and apps/cashier-apk.
-    Payment orders are watch-only. Service bills are a separate rail — never merge
-    with /orders. Enums match @cryptogate/domain. Never return spend keys, full
-    xPub, or webhook signingSecret on GET.
+    Contract freeze v0.3.1 (M4-11). Adds merchant API key CRUD/rotation on top of
+    v0.3.0 HMAC signing, webhooks, and service bills. Source of truth for apps/api,
+    apps/payment-page, and apps/cashier-apk. Payment orders are watch-only. Service
+    bills are a separate rail — never merge with /orders. Enums match
+    @cryptogate/domain. Never return spend keys, full xPub, webhook signingSecret,
+    or API key secret on GET.
 
     Machine clients (security apiKey): send X-Api-Key, X-Timestamp, X-Nonce,
     X-Signature. Canonical string is timestamp LF nonce LF METHOD LF pathAndQuery
@@ -22,6 +22,7 @@ tags:
   - name: auth
   - name: orgs
   - name: orders
+  - name: api-keys
   - name: webhooks
   - name: service-bills
 paths:
@@ -874,6 +875,204 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api-keys:
+    get:
+      tags: [api-keys]
+      operationId: listApiKeys
+      summary: List API keys for the caller merchant org (never secret)
+      description: >
+        Owner/Admin/Viewer. Cashier 403. Agent accounts cannot list merchant keys.
+        Returns active keys only (revoked rows omitted). Never returns `secret`.
+        Max active keys per merchant org: 10 (`API_KEY_MAX_PER_ORG`).
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "200":
+          description: Active key metadata without secrets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier / agent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [api-keys]
+      operationId: createApiKey
+      summary: Create a machine API key; secret shown once
+      description: >
+        Owner/Admin only. Cashier 403. Agent cannot create merchant keys.
+        `secret` is returned once on 201 and never again — store hashed at rest;
+        never log. `keyId` is the public id for `X-Api-Key` (prefix `cgk_`).
+        HMAC uses `secret` as in v0.3.0. At most 10 active keys per org → 409
+        when full. Audit-log create.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: Key created; secret shown once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "400":
+          description: Invalid label or expiresAt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / Viewer / agent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Org already at API_KEY_MAX_PER_ORG active keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api-keys/{apiKeyId}:
+    delete:
+      tags: [api-keys]
+      operationId: revokeApiKey
+      summary: Revoke an API key (soft revoke)
+      description: >
+        Owner/Admin. Cashier 403. Sets revoked_at; HMAC with that keyId fails
+        immediately. Idempotent if already revoked → 204. Audit-log revoke.
+        Confirm in UI before calling (dangerous action).
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiKeyId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "204":
+          description: Revoked (or already revoked)
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found in caller org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api-keys/{apiKeyId}/rotate:
+    post:
+      tags: [api-keys]
+      operationId: rotateApiKey
+      summary: Revoke key and issue a replacement; secret shown once
+      description: >
+        Owner/Admin. Cashier 403. Atomically revokes `{apiKeyId}` and creates a
+        new active key (same label; optional new expiresAt in body). Returns the
+        new key with `secret` once — same bar as create. Old keyId stops working
+        immediately. 404 if target missing or already revoked. Does not count
+        against max until the old row is revoked (net active count unchanged).
+        Audit-log rotate.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiKeyId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateApiKeyRequest"
+      responses:
+        "201":
+          description: Replacement key created; secret shown once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: apiKeyId not active in caller org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /webhooks:
     get:
       tags: [webhooks]
@@ -1295,6 +1494,14 @@ components:
       name: webhookId
       in: path
       required: true
+      schema:
+        type: string
+        format: uuid
+    apiKeyId:
+      name: apiKeyId
+      in: path
+      required: true
+      description: Internal UUID of the api_keys row (not the public keyId / X-Api-Key)
       schema:
         type: string
         format: uuid
@@ -1810,6 +2017,82 @@ components:
         - payment_order.payment_anomaly
         - payment_order.failed
         - webhook.test
+    CreateApiKeyRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Human label in merchant portal (not the keyId)
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiry; null = no expiry. Rejected if in the past.
+    RotateApiKeyRequest:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Optional new expiry for the replacement key. Omit to keep the
+            previous key's expiresAt (including null).
+    ApiKey:
+      type: object
+      required: [id, orgId, keyId, label, createdAt, lastUsedAt, expiresAt]
+      description: >
+        Public API key metadata — never `secret`. Matches @cryptogate/domain ApiKey.
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        keyId:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Public id sent as X-Api-Key (prefix cgk_)
+          example: cgk_live_1a2b3c4d5e6f
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+    ApiKeyList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ApiKey"
+    ApiKeyCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiKey"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              minLength: 32
+              description: >
+                HMAC secret shown once on create/rotate; store hashed at rest;
+                never log; never return on GET
     WebhookDeliveryStatus:
       type: string
       enum: [pending, success, failed]

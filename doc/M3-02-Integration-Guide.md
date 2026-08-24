@@ -17,7 +17,7 @@ Do not fulfill payment orders from browser redirect or payment-page status alone
 | Webhook URL | HTTPS, or `http://127.0.0.1` / `http://localhost` when `NODE_ENV !== production` | **HTTPS only** |
 | Assets | Only **USDT / `tron`** enabled — [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) | Same until Kevin enables another registry row |
 
-Provision API keys in DB for M3 (`api_keys`). Key CRUD / rotation UI is M4-11. Never log API secrets or webhook signing secrets.
+Provision API keys via `POST /v1/api-keys` (OpenAPI **v0.3.1** — [M4-11-Api-Keys.md](M4-11-Api-Keys.md)). Secret once on create/rotate; never on GET. Never log API secrets or webhook signing secrets.
 
 ---
 
