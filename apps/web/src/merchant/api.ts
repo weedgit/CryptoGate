@@ -73,7 +73,10 @@ async function parseError(res: Response): Promise<never> {
   }
 }
 
-export async function login(email: string, password: string): Promise<Session> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ session: Session; mfaRequired: boolean }> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -82,14 +85,28 @@ export async function login(email: string, password: string): Promise<Session> {
   });
   if (!res.ok) await parseError(res);
   const data = (await res.json()) as { session: Session; mfaRequired?: boolean };
-  if (data.mfaRequired) {
-    throw new ApiError(
-      "mfa_required",
-      "This account requires MFA. Complete MFA on the web portal first.",
-      403,
-    );
-  }
-  return data.session;
+  return { session: data.session, mfaRequired: data.mfaRequired === true };
+}
+
+export async function verifyMfa(code: string): Promise<Session> {
+  const res = await fetch(`${API_BASE}/auth/mfa/verify`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code.trim() }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as Session;
+}
+
+export async function enrollMfa(): Promise<{ secret: string; otpauthUrl: string }> {
+  const res = await fetch(`${API_BASE}/auth/mfa/enroll`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { secret: string; otpauthUrl: string };
 }
 
 export async function getSession(): Promise<Session> {

@@ -209,9 +209,9 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | Wave | Gate | Status |
 | --- | --- | --- |
 | 0 Core rail | CI + matching §2.8 | **Done** |
-| 1 Platform API | Commercial persist + tests | **Todo** |
-| 2 Platform UI | B8/B13/B4/C6 wired | **Todo** |
-| 3 MFA UX | Enroll + login | **Todo** |
+| 1 Platform API | Commercial persist + tests | **Done** |
+| 2 Platform UI | B8/B13/B4/C6 wired | **Done** |
+| 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
 | 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Blocked** (client hostnames) |
 | 6 X-backlog | Per ID | **Scheduled** |

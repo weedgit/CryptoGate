@@ -15,6 +15,7 @@ import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 import { BillingSettingsPage } from "./BillingSettingsPage";
 import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
 import { TeamSettingsPage } from "./TeamSettingsPage";
+import { SecuritySettingsPage } from "./SecuritySettingsPage";
 import { SettlementPage } from "./SettlementPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { CreateSitePage } from "./CreateSitePage";
@@ -209,6 +210,16 @@ export function MerchantApp() {
           <Shell session={session} title="Fee & Billing" crumb="Settings" onSignOut={signOut}>
             <OwnerOnly session={session} area="billing settings">
               <BillingSettingsPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/settings/security"
+        element={
+          <Shell session={session} title="Security" crumb="Settings" onSignOut={signOut}>
+            <OwnerOnly session={session} area="security settings">
+              <SecuritySettingsPage session={session} />
             </OwnerOnly>
           </Shell>
         }

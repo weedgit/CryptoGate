@@ -18,13 +18,14 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
   "/v1";
 
-export { ApiError, getSession, login, logout, listOrders, getMatchingMode, listSettlement, listXpub };
+export { ApiError, getSession, login, logout, listOrders, getMatchingMode, listSettlement, listXpub, listOrgUsers };
 export type {
   PaymentOrder,
   Session,
   MatchingModeSettings,
   SettlementAddress,
   XpubSettings,
+  OrgMember,
 };
 
 export type OrgAccount = {

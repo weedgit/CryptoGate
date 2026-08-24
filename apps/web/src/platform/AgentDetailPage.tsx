@@ -3,10 +3,12 @@ import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import {
   ApiError,
   listAuditLog,
+  listOrgUsers,
   listOrgs,
   listServiceBills,
   type AuditLogEntry,
   type OrgAccount,
+  type OrgMember,
   type ServiceBill,
 } from "./api";
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
@@ -59,6 +61,7 @@ export function AgentDetailPage() {
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
+  const [team, setTeam] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +126,7 @@ export function AgentDetailPage() {
 
   useEffect(() => {
     if (!id || !org || loading) return;
-    if (tab !== "service-bills" && tab !== "audit") return;
+    if (tab !== "service-bills" && tab !== "audit" && tab !== "team") return;
 
     let cancelled = false;
     setTabLoading(true);
@@ -132,9 +135,12 @@ export function AgentDetailPage() {
         if (tab === "service-bills") {
           const rows = await listServiceBills();
           if (!cancelled) setBills(rows);
-        } else {
+        } else if (tab === "audit") {
           const rows = await listAuditLog({ orgId: id, limit: 100 });
           if (!cancelled) setAudit(rows);
+        } else {
+          const rows = await listOrgUsers(id);
+          if (!cancelled) setTeam(rows);
         }
       } catch (err) {
         if (!cancelled) {
@@ -331,13 +337,32 @@ export function AgentDetailPage() {
 
         {tab === "team" ? (
           <>
-            <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              Team membership is managed by the agent Owner. Platform view is read-only
-              when <code>GET /v1/orgs/&#123;id&#125;/users</code> list ships.
-            </p>
-            <p style={{ color: "var(--muted)", marginBottom: 0 }}>
-              New owners are invited during{" "}
-              <Link to="/platform/agents/new">onboard agent (B4)</Link>.
+            {tabLoading ? (
+              <p style={{ color: "var(--muted)" }}>Loading team…</p>
+            ) : team.length === 0 ? (
+              <p style={{ color: "var(--muted)" }}>No members on this agent org.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>User ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {team.map((m) => (
+                    <tr key={m.userId}>
+                      <td>{m.email}</td>
+                      <td>{m.role}</td>
+                      <td className="mono">{m.userId}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p style={{ color: "var(--muted)", marginTop: 16, marginBottom: 0 }}>
+              Read-only platform view. Agent Owner manages invites on the agent portal.
             </p>
           </>
         ) : null}
