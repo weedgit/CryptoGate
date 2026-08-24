@@ -47,3 +47,19 @@ describe("@cryptogate/web agent C6 onboard merchant", () => {
     assert.doesNotMatch(wizard, /createOrder/);
   });
 });
+
+describe("@cryptogate/web agent C7 merchant detail", () => {
+  it("wires tabbed merchant detail with read-only managed-by-merchant labels", () => {
+    const detail = readFileSync(
+      join(root, "src/agent/MerchantDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /filter-tabs/);
+    assert.match(detail, /managed by merchant/i);
+    assert.match(detail, /listServiceBills/);
+    assert.doesNotMatch(detail, /follow in a later/);
+
+    const api = readFileSync(join(root, "src/agent/api.ts"), "utf8");
+    assert.match(api, /orgId/);
+  });
+});
