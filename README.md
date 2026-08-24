@@ -10,7 +10,23 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 ## Status
 
-**Sprint 0 complete. OpenAPI v0.3.3.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. Live: USDT/Tron; USDT/Ethereum ingest ready (registry disabled until staging sign-off).
+**Phase 1 code-complete for review (2026-08-24).** OpenAPI **v0.3.3** · `main` @ `a6c4447`. Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose.
+
+| Area | State |
+| --- | --- |
+| Core rail (API, matching, watcher, merchant web) | Implemented |
+| Platform commercial (B8/B13, fee tiers, org policy, enterprise approvals) | Wired |
+| Agent onboard + C8 volume fee | Wired |
+| MFA login + merchant enroll | Wired |
+| USDT/Tron | Live |
+| USDT/Ethereum | Client ready — enable after staging smoke ([`doc/M3-32-Ethereum-Go-Live.md`](doc/M3-32-Ethereum-Go-Live.md)) |
+
+**Your review:** run `node scripts/check.mjs`, bring up API + web + payment-page, walk [`doc/M1-T05-Demo-Script.md`](doc/M1-T05-Demo-Script.md).  
+**Blocked on you:** Company A hostnames (M3-T09), pilot merchant (M4-40), reference POS device (M5-01), scope sign-off (M1-01).
+
+Implementation plan: [`doc/Phase1-Implementation-Plan.md`](doc/Phase1-Implementation-Plan.md).
+
+Implementation plan: [`doc/Phase1-Implementation-Plan.md`](doc/Phase1-Implementation-Plan.md). Ops index: [`doc/M4-33-Ops-Runbook-Index.md`](doc/M4-33-Ops-Runbook-Index.md).
 
 Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 
@@ -72,5 +88,3 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 ## Local docs
 
 Product, business, and planning files live in `doc/` (same repo — Andrew and Bruce pull with `main`).
-
-Implementation plan: [`doc/Phase1-Implementation-Plan.md`](doc/Phase1-Implementation-Plan.md). Ops index: [`doc/M4-33-Ops-Runbook-Index.md`](doc/M4-33-Ops-Runbook-Index.md).
