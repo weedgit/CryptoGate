@@ -12,7 +12,6 @@ import { AUDIT_ACTIONS } from "../src/audit/audit-rules.mjs";
 import { getPool } from "../src/db/pool.mjs";
 import {
   apiFetch,
-  closePool,
   createIssuedBill,
   ensureV032Seed,
   hasPostgres,
@@ -40,7 +39,6 @@ describePg("v0.3.2 audit + service bill PATCH (Postgres integration)", () => {
 
   after(async () => {
     await stopTestServer(server);
-    await closePool();
   });
 
   it("migration 018 adds service bill lifecycle columns", async () => {

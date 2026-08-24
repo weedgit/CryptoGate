@@ -428,3 +428,81 @@ export function canViewServiceBill(caller, org, visibleOrgIds) {
   if (role && ORDER_READ_ROLES.has(role)) return true;
   return false;
 }
+
+/** Platform Owner only — fee tiers, org policy, enterprise approve/deny. */
+export function canUpdatePlatformOwnerSettings(caller) {
+  return caller.platformOwner === true;
+}
+
+/**
+ * Global tier bands: platform / agent / merchant O·A·V. Cashier 403.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgType: string, role: string }[],
+ * }} caller
+ */
+export function canReadFeeTierBands(caller) {
+  if (platformHasGlobalRead(caller)) return true;
+  return caller.memberships.some(
+    (m) =>
+      m.role !== "cashier" &&
+      ORDER_READ_ROLES.has(m.role) &&
+      (MERCHANT_TYPES.has(m.orgType) ||
+        m.orgType === "agent" ||
+        m.orgType === "agent_sub"),
+  );
+}
+
+/** Platform O·A·V only (OpenAPI v0.3.3). */
+export function canReadPlatformOrgPolicy(caller) {
+  return caller.memberships.some(
+    (m) => m.orgType === "platform" && ORDER_READ_ROLES.has(m.role),
+  );
+}
+
+/** Platform staff read enterprise approval queue. */
+export function canListEnterpriseApprovals(caller) {
+  return caller.memberships.some(
+    (m) => m.orgType === "platform" && ORDER_READ_ROLES.has(m.role),
+  );
+}
+
+/**
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canReadMerchantCommercial(caller, org) {
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (platformHasGlobalRead(caller)) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role === "cashier") return false;
+  if (role && ORDER_READ_ROLES.has(role)) return true;
+  return caller.memberships.some(
+    (m) =>
+      (m.orgType === "agent" || m.orgType === "agent_sub") &&
+      ORDER_READ_ROLES.has(m.role),
+  );
+}
+
+/**
+ * Agent O·A (subtree) or Platform O·A. Merchant roles 403.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canUpdateMerchantCommercial(caller, org) {
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (caller.platformOperator) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role && SETTINGS_ROLES.has(role)) return false;
+  return caller.memberships.some(
+    (m) =>
+      (m.orgType === "agent" || m.orgType === "agent_sub") &&
+      SETTINGS_ROLES.has(m.role),
+  );
+}

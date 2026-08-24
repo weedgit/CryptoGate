@@ -19,6 +19,10 @@ export const AUDIT_ACTIONS = {
   apiKeyCreate: "api_key_create",
   apiKeyRevoke: "api_key_revoke",
   apiKeyRotate: "api_key_rotate",
+  feeTierPut: "fee_tier_put",
+  orgPolicyPut: "org_policy_put",
+  merchantCommercialPut: "merchant_commercial_put",
+  enterpriseRateDecide: "enterprise_rate_decide",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;
