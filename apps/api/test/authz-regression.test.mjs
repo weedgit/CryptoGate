@@ -21,6 +21,8 @@ import {
   canViewSettlementSettings,
   canViewWebhooks,
   canViewXpubSettings,
+  canUpdateServiceBill,
+  auditListScope,
   paymentOrderListScope,
   resolveApiKeyOrgId,
   resolveOrderOrgId,
@@ -242,9 +244,11 @@ describe("M4-30 platform viewer read scope", () => {
 
   it("may list orgs, orders, and service bills but not issue bills", () => {
     assert.equal(canIssueServiceBill(v), false);
+    assert.equal(canUpdateServiceBill(v), false);
     assert.equal(canReadPaymentOrder(v, orderB), true);
     assert.equal(paymentOrderListScope(v).kind, "all");
     assert.equal(serviceBillListScope(v).kind, "all");
+    assert.equal(auditListScope(v).kind, "all");
     assert.equal(canViewServiceBill(v, merchantA), true);
   });
 });
