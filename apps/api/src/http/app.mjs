@@ -14,6 +14,7 @@ import {
 import {
   handleCreatePaymentOrder,
   handleGetPaymentOrder,
+  handleGetPaymentOrderOnChain,
   handleGetPaymentOrderPayment,
 } from "../orders/order-routes.mjs";
 import { handleListPaymentOrders } from "../orders/order-list-routes.mjs";
@@ -107,6 +108,16 @@ export async function handleRequest(req, res) {
       req,
       res,
       decodeURIComponent(paymentMatch[1]),
+    );
+    return;
+  }
+
+  const onChainMatch = path.match(/^\/v1\/orders\/([^/]+)\/on-chain$/);
+  if (method === "GET" && onChainMatch) {
+    await handleGetPaymentOrderOnChain(
+      req,
+      res,
+      decodeURIComponent(onChainMatch[1]),
     );
     return;
   }

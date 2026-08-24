@@ -17,7 +17,7 @@ import {
   toPaymentOrder,
   withCreateOrderLock,
 } from "./order-store.mjs";
-import { toPaymentDetails } from "./order-map.mjs";
+import { toOnChainDetails, toPaymentDetails } from "./order-map.mjs";
 import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 
@@ -226,19 +226,19 @@ export async function handleCreatePaymentOrder(req, res) {
 }
 
 /**
- * GET /v1/orders/{id} — merchant/cashier session. Cross-merchant is 403.
+ * Session + same merchant-read bar as GET /orders/{id}.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  * @param {string} orderId
  */
-export async function handleGetPaymentOrder(req, res, orderId) {
+async function loadReadablePaymentOrder(req, res, orderId) {
   const caller = await requireCaller(req, res);
-  if (!caller) return;
+  if (!caller) return null;
 
   const row = await findOrderById(orderId);
   if (!row) {
     sendError(res, 404, "not_found", "Order not found");
-    return;
+    return null;
   }
   if (
     !(await callerCanReadPaymentOrder(caller, {
@@ -247,9 +247,33 @@ export async function handleGetPaymentOrder(req, res, orderId) {
     }))
   ) {
     sendError(res, 403, "forbidden", "Outside merchant scope");
-    return;
+    return null;
   }
+  return row;
+}
+
+/**
+ * GET /v1/orders/{id} — merchant/cashier session. Cross-merchant is 403.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleGetPaymentOrder(req, res, orderId) {
+  const row = await loadReadablePaymentOrder(req, res, orderId);
+  if (!row) return;
   sendJson(res, 200, toPaymentOrder(row));
+}
+
+/**
+ * GET /v1/orders/{id}/on-chain — watcher facts; same read scope as GET order.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleGetPaymentOrderOnChain(req, res, orderId) {
+  const row = await loadReadablePaymentOrder(req, res, orderId);
+  if (!row) return;
+  sendJson(res, 200, toOnChainDetails(row));
 }
 
 /**
