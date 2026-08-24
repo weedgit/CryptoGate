@@ -80,12 +80,25 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 | --- | --- | --- |
 | OpenAPI HD pool | `GET /v1/orgs/{orgId}/hd-pool` | FREE/IN_USE/COOLDOWN; never xPub; claim only via order create (Andrew PR #44) |
 
+## v0.3.0 — M3-01 signed API, webhooks, service bills
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.3.0`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Domain | `@cryptogate/domain` | `WebhookEventType`, `ServiceBillStatus`, `ApiSigningHeader`, rate-limit + retry constants |
+| Handoff | `doc/M3-01-Signed-Api.md` | Canonical HMAC string, 401 codes, 429 limits |
+| Signing | `X-Timestamp` `X-Nonce` `X-Signature` with `X-Api-Key` | Session cookie and guest `/payment` do not sign |
+| Webhooks | `GET/POST /v1/webhooks`, `POST /v1/webhooks/test`, deliveries | Secret once; HMAC outbound; Cashier 403 |
+| Service bills | `/v1/service-bills` | Separate rail; USD; platform issue; not `/orders` |
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
 2. Weekly freeze: Tuesday EOD unless Kevin announces otherwise.
 3. Andrew implements `apps/api` against this contract; Bruce implements matching/watcher against domain enums.
-4. Do not fulfill on browser redirect; webhooks are signed (full schemas in M3).
+4. Do not fulfill on browser redirect; webhooks are signed (v0.3.0).
 
 ## M1 acceptance checklist (Kevin verifies Day 6)
 
@@ -99,4 +112,4 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 ## Out of this freeze
 
-Live chain matching, Mode C/D/S full assign, signed API headers, webhook HMAC details (deepened in M3–M4).
+M3-02 integration guide prose, M3-03 sample handler, API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12).

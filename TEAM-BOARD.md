@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when M3 webhooks land.
+Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, service bills).
 
 ---
 
@@ -98,6 +98,7 @@ Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when
 | M2-11 | Kevin | done | OpenAPI order list + CSV (v0.2.4) | merged to main |
 | M2-12 | Kevin | done | OpenAPI Mode S HD pool list (v0.2.5) | merged to main |
 | M2-13 | Kevin | done | CI: matching §2.8 acceptance suite | `feat-kevin-infra-matching-acceptance` |
+| M3-01 | Kevin | done | OpenAPI M3 signing, webhooks, service bills (v0.3.0) | `feat-kevin-api-spec-m3-signing-webhooks` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -108,9 +109,12 @@ Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none for M2 contract) | HD pool landed (#44). Next contract bump is M3 webhooks. |
+| P1 | M3-10 HMAC (`X-Timestamp` / nonce / signature) | Freeze v0.3.0 + `doc/M3-01-Signed-Api.md` |
+| P1 | M3-11 rate limits | `RateLimitPerMinute` in domain; 429 + `Retry-After` |
+| P1 | M3-13/14 webhooks + delivery worker | Register/test/deliveries; secret once; HMAC outbound |
+| P1 | M3-16 service bill stubs | `/service-bills` — do not merge with `/orders` |
 
-Landed: assign (#30), CORS/expiry (#33), settlement cool-down (#38), xPub (#40), list/CSV (#41), HD pool (#44). Mode S match (#45).
+Unblocked by OpenAPI **v0.3.0**. Cashier 403 on webhooks and bills. Guest `/payment` stays unsigned.
 
 ---
 
@@ -212,6 +216,16 @@ Landed: assign (#30), CORS/expiry (#33), settlement cool-down (#38), xPub (#40),
 | M2-13 | Kevin | done | CI: matching §2.8 acceptance | `feat-kevin-infra-matching-acceptance` |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
 | M2-08 | Kevin | done | Pay page CORS live path notes | merged to main |
+
+---
+
+## Milestone 3 — on-chain & full API
+
+### Contract (Kevin)
+
+| ID | Owner | Status | Task | Notes |
+| --- | --- | --- | --- | --- |
+| M3-01 | Kevin | done | OpenAPI signing, webhooks, service bills | v0.3.0 `feat-kevin-api-spec-m3-signing-webhooks` |
 
 ---
 

@@ -1,13 +1,21 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.2.5
+  version: 0.3.0
   description: >
-    Contract freeze v0.2.5 (M2 orders, matching-mode, settlement cool-down, xPub
-    presence, order list/export, Mode S HD pool list). Source of truth for apps/api,
-    apps/payment-page, and apps/cashier-apk. Payment orders are watch-only. Service
-    bills are a separate rail. Enum string values and PaymentOrder fields match
-    @cryptogate/domain. Never return spend keys or full xPub strings.
+    Contract freeze v0.3.0 (M3-01). M2 order/matching/settlement/xPub/HD-pool
+    schemas plus API HMAC headers, rate limits, signed webhooks, and service-bill
+    stubs. Source of truth for apps/api, apps/payment-page, and apps/cashier-apk.
+    Payment orders are watch-only. Service bills are a separate rail — never merge
+    with /orders. Enums match @cryptogate/domain. Never return spend keys, full
+    xPub, or webhook signingSecret on GET.
+
+    Machine clients (security apiKey): send X-Api-Key, X-Timestamp, X-Nonce,
+    X-Signature. Canonical string is timestamp LF nonce LF METHOD LF pathAndQuery
+    LF sha256Hex(rawBody); signature is hex HMAC-SHA256(apiSecret, canonical).
+    Session cookie and public GET /orders/{id}/payment do not sign. Replay and
+    skew codes: signature_invalid, timestamp_skew, nonce_replay (401). Rate
+    limits: RateLimitPerMinute in domain; 429 rate_limited + Retry-After.
 servers:
   - url: /v1
 tags:
@@ -15,6 +23,7 @@ tags:
   - name: orgs
   - name: orders
   - name: webhooks
+  - name: service-bills
 paths:
   /auth/login:
     post:
@@ -36,6 +45,16 @@ paths:
                 $ref: "#/components/schemas/LoginResponse"
         "401":
           description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Login rate limit (10/min per IP)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -608,6 +627,9 @@ paths:
         - apiKey: []
       parameters:
         - $ref: "#/components/parameters/idempotencyKey"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
       requestBody:
         required: true
         content:
@@ -651,6 +673,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit (API key 120/min or IP 300/min)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     get:
       tags: [orders]
       operationId: listPaymentOrders
@@ -685,6 +717,9 @@ paths:
           schema:
             type: integer
             minimum: 1
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
       responses:
         "200":
           description: Order list (JSON) or CSV download
@@ -727,6 +762,9 @@ paths:
         (public) instead of this path.
       parameters:
         - $ref: "#/components/parameters/orderId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
       security:
         - sessionCookie: []
         - apiKey: []
@@ -759,8 +797,16 @@ paths:
     get:
       tags: [orders]
       operationId: getPaymentOrderOnChain
+      summary: On-chain facts for a payment order (watcher-written)
+      description: >
+        Merchant/cashier session or signed API key. 200 even when no tx yet
+        (txHash null). toAddress is the order receive address. Cross-merchant
+        403. Guest pay page must not call this — use GET /orders/{id}/payment.
       parameters:
         - $ref: "#/components/parameters/orderId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
       security:
         - sessionCookie: []
         - apiKey: []
@@ -773,6 +819,12 @@ paths:
                 $ref: "#/components/schemas/OnChainDetails"
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Outside merchant scope
           content:
             application/json:
               schema:
@@ -812,37 +864,357 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          description: Guest pay poll rate limit (60/min per IP)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /webhooks:
-    post:
+    get:
       tags: [webhooks]
-      operationId: registerWebhook
+      operationId: listWebhooks
+      summary: List webhook endpoints (never signingSecret)
+      description: >
+        Same visibility bar as xPub GET (Owner/Admin/Viewer; Cashier 403).
+        GET never returns signingSecret. Max 5 endpoints per merchant org.
       security:
         - sessionCookie: []
         - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "200":
+          description: Endpoint list without secrets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [webhooks]
+      operationId: registerWebhook
+      summary: Register a merchant callback URL
+      description: >
+        HTTPS only (http://127.0.0.1 or http://localhost allowed in non-production).
+        signingSecret is returned once on 201 and never again. Cashier 403.
+        Agent accounts cannot register merchant callbacks. Duplicate URL → 409.
+        Merchant fulfillment must use these signed events — not browser redirect.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [url]
-              properties:
-                url:
-                  type: string
-                  format: uri
+              $ref: "#/components/schemas/RegisterWebhookRequest"
       responses:
         "201":
-          description: Callback URL registered
+          description: Endpoint created; signingSecret shown once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookCreated"
+        "400":
+          description: Invalid URL or events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / agent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: URL already registered for this org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /webhooks/test:
     post:
       tags: [webhooks]
       operationId: testWebhook
+      summary: Enqueue a signed webhook.test sample
+      description: >
+        Delivery worker signs the payload with the endpoint secret (M3-14).
+        Returns 202 when queued. Optional body webhookId; otherwise all enabled
+        endpoints for the caller’s merchant org.
       security:
         - sessionCookie: []
         - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestWebhookRequest"
       responses:
         "202":
           description: Signed sample event accepted for delivery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTestAccepted"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: webhookId not in caller org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /webhooks/{webhookId}:
+    delete:
+      tags: [webhooks]
+      operationId: deleteWebhook
+      summary: Disable and remove a webhook endpoint
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/webhookId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /webhooks/{webhookId}/deliveries:
+    get:
+      tags: [webhooks]
+      operationId: listWebhookDeliveries
+      summary: Recent delivery attempts (M3-14 worker)
+      description: Newest first. Retries reuse the same eventId.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/webhookId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Delivery log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /service-bills:
+    get:
+      tags: [service-bills]
+      operationId: listServiceBills
+      summary: List service bills (not payment orders)
+      description: >
+        Separate rail from /orders. USD subscription + volume fee. Cashier 403.
+        Merchant Owner/Admin/Viewer — own org. Agent — subtree read-only.
+        Platform Owner/Admin — any org via query orgId.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ServiceBillStatus"
+      responses:
+        "200":
+          description: Service bill list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBillList"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [service-bills]
+      operationId: issueServiceBill
+      summary: Issue a service bill (platform only)
+      description: >
+        Platform Owner/Administrator only. Does not create a payment order and
+        must not debit merchant settlement or payer on-chain amounts.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueServiceBillRequest"
+      responses:
+        "201":
+          description: Bill issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBill"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /service-bills/{billId}:
+    get:
+      tags: [service-bills]
+      operationId: getServiceBill
+      summary: Service bill detail
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/billId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "200":
+          description: Service bill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBill"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /service-bills/{billId}/checkout:
+    get:
+      tags: [service-bills]
+      operationId: getServiceBillCheckout
+      summary: Platform-billing checkout payload (not guest /orders/payment)
+      description: >
+        Merchant Owner/Admin session. QR/link pay the platform billing wallet.
+        Must not reuse PaymentDetails or payment-page routes.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/billId"
+      responses:
+        "200":
+          description: Checkout instructions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBillCheckout"
+        "403":
+          description: Forbidden (Cashier / agent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -854,6 +1226,9 @@ components:
       type: apiKey
       in: header
       name: X-Api-Key
+      description: >
+        Machine client id. Must be paired with X-Timestamp, X-Nonce, X-Signature
+        (see info description and M3-01). Session cookie callers omit all four.
   parameters:
     orderId:
       name: id
@@ -884,6 +1259,52 @@ components:
         type: string
         minLength: 8
         maxLength: 128
+    apiTimestamp:
+      name: X-Timestamp
+      in: header
+      required: false
+      description: >
+        Unix seconds (UTC). Required when using X-Api-Key. Rejected when
+        |now − value| > 300 (API_SIGNING_MAX_SKEW_SECONDS). Omit with session cookie.
+      schema:
+        type: string
+        pattern: "^[0-9]{10,12}$"
+    apiNonce:
+      name: X-Nonce
+      in: header
+      required: false
+      description: >
+        16–64 chars [A-Za-z0-9_-]. Unique per API key for 600s
+        (API_SIGNING_NONCE_TTL_SECONDS). Reuse → 401 nonce_replay.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 64
+        pattern: "^[A-Za-z0-9_-]{16,64}$"
+    apiSignature:
+      name: X-Signature
+      in: header
+      required: false
+      description: >
+        Lowercase hex HMAC-SHA256(apiSecret, canonical). Canonical =
+        timestamp LF nonce LF METHOD LF pathAndQuery LF sha256Hex(rawBody).
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{64}$"
+    webhookId:
+      name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    billId:
+      name: billId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     OrgType:
       type: string
@@ -1355,6 +1776,10 @@ components:
           description: Present for Mode D when memoOrTag is required
     OnChainDetails:
       type: object
+      description: >
+        Watcher-written facts (Andrew GET /orders/{id}/on-chain). Unseen tx
+        fields are null; toAddress is the order receive address even before a
+        match. Do not invent blockHeight, fromAddress, or confirmedAt.
       properties:
         txHash:
           type: string
@@ -1374,3 +1799,232 @@ components:
           type: string
           format: date-time
           nullable: true
+    WebhookEventType:
+      type: string
+      description: Matches @cryptogate/domain WebhookEventType
+      enum:
+        - payment_order.created
+        - payment_order.verifying
+        - payment_order.completed
+        - payment_order.expired
+        - payment_order.payment_anomaly
+        - payment_order.failed
+        - webhook.test
+    WebhookDeliveryStatus:
+      type: string
+      enum: [pending, success, failed]
+    RegisterWebhookRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+          description: Default all payment_order.* (not webhook.test)
+    WebhookEndpoint:
+      type: object
+      required: [id, orgId, url, events, enabled]
+      description: Public endpoint row — never signingSecret
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    WebhookEndpointList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEndpoint"
+    WebhookCreated:
+      allOf:
+        - $ref: "#/components/schemas/WebhookEndpoint"
+        - type: object
+          required: [signingSecret]
+          properties:
+            signingSecret:
+              type: string
+              minLength: 32
+              description: Shown once on create; store hashed at rest; never log
+    TestWebhookRequest:
+      type: object
+      properties:
+        webhookId:
+          type: string
+          format: uuid
+    WebhookTestAccepted:
+      type: object
+      required: [queued]
+      properties:
+        queued:
+          type: integer
+          minimum: 0
+    WebhookEvent:
+      type: object
+      required: [id, type, createdAt, data]
+      description: Body POSTed to the merchant URL (HMAC over raw JSON bytes)
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: eventId — retries keep this id
+        type:
+          $ref: "#/components/schemas/WebhookEventType"
+        createdAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+          properties:
+            orderId:
+              type: string
+            orderNumber:
+              type: string
+            status:
+              $ref: "#/components/schemas/OrderStatus"
+    WebhookDelivery:
+      type: object
+      required: [id, eventId, status, attempt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/WebhookDeliveryStatus"
+        attempt:
+          type: integer
+          minimum: 1
+        httpStatus:
+          type: integer
+          nullable: true
+        nextRetryAt:
+          type: string
+          format: date-time
+          nullable: true
+    WebhookDeliveryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+    ServiceBillStatus:
+      type: string
+      description: Matches @cryptogate/domain ServiceBillStatus
+      enum: [issued, paid, overdue, voided]
+    ServiceBill:
+      type: object
+      required:
+        - id
+        - orgId
+        - periodStart
+        - periodEnd
+        - subscriptionAmount
+        - volumeFeeAmount
+        - totalAmount
+        - currency
+        - status
+        - dueAt
+      description: Platform SaaS invoice — not a payment order
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        subscriptionAmount:
+          type: string
+          example: "49.00"
+        volumeFeeAmount:
+          type: string
+          example: "12.50"
+        totalAmount:
+          type: string
+          example: "61.50"
+        currency:
+          type: string
+          enum: [USD]
+        status:
+          $ref: "#/components/schemas/ServiceBillStatus"
+        dueAt:
+          type: string
+          format: date-time
+    ServiceBillList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBill"
+    IssueServiceBillRequest:
+      type: object
+      required: [orgId, periodStart, periodEnd, subscriptionAmount, volumeFeeAmount, dueAt]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        subscriptionAmount:
+          type: string
+        volumeFeeAmount:
+          type: string
+        dueAt:
+          type: string
+          format: date-time
+    ServiceBillCheckout:
+      type: object
+      required: [billId, totalAmount, currency, payTo, instructions]
+      description: Not PaymentDetails; not served by apps/payment-page
+      properties:
+        billId:
+          type: string
+          format: uuid
+        totalAmount:
+          type: string
+        currency:
+          type: string
+          enum: [USD]
+        payTo:
+          type: string
+          description: Platform billing wallet or bank instructions
+        qrPayload:
+          type: string
+          nullable: true
+        instructions:
+          type: string

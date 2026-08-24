@@ -72,4 +72,4 @@ run("node", [
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.2.5 + domain/matching/watcher/api unit)");
+console.log("Check: ok (OpenAPI v0.3.0 + domain/matching/watcher/api unit)");

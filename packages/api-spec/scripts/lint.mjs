@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.5",
+  "version: 0.3.0",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -46,6 +46,8 @@ const required = [
   "PaymentOrderList",
   "format=csv",
   "/orders/{id}/payment",
+  "/orders/{id}/on-chain",
+  "getPaymentOrderOnChain",
   "createPaymentOrder",
   "getPaymentOrder",
   "getPaymentOrderPayment",
@@ -60,12 +62,34 @@ const required = [
   "merchantName",
   "payExactAmountWarning",
   "Idempotency-Key",
+  "X-Timestamp",
+  "X-Nonce",
+  "X-Signature",
+  "nonce_replay",
+  "timestamp_skew",
+  "signature_invalid",
+  "rate_limited",
+  "listWebhooks",
+  "registerWebhook",
+  "testWebhook",
+  "deleteWebhook",
+  "listWebhookDeliveries",
+  "WebhookEventType",
+  "WebhookEndpoint",
+  "WebhookCreated",
+  "signingSecret",
+  "listServiceBills",
+  "issueServiceBill",
+  "getServiceBill",
+  "getServiceBillCheckout",
+  "ServiceBillStatus",
+  "ServiceBillCheckout",
   "security: []",
 ];
 
 const missing = required.filter((needle) => !raw.includes(needle));
 if (missing.length > 0) {
-  console.error("OpenAPI M2 contract freeze checks failed. Missing:");
+  console.error("OpenAPI M3 contract freeze checks failed. Missing:");
   for (const m of missing) console.error(`  - ${m}`);
   process.exit(1);
 }
@@ -92,4 +116,21 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 contract freeze v0.2.5: ok");
+const endpointSchema =
+  raw.split("    WebhookEndpoint:")[1]?.split("    WebhookEndpointList:")[0] ?? "";
+if (/^\s+signingSecret:/m.test(endpointSchema)) {
+  console.error("WebhookEndpoint GET schema must not include signingSecret");
+  process.exit(1);
+}
+
+const billsSlice = raw.split("/service-bills:")[1]?.split("\ncomponents:")[0] ?? "";
+if (
+  billsSlice.includes("createPaymentOrder") ||
+  billsSlice.includes("#/components/schemas/PaymentDetails") ||
+  billsSlice.includes("#/components/schemas/PaymentOrder")
+) {
+  console.error("service-bills rail must not reuse payment-order operations");
+  process.exit(1);
+}
+
+console.log("OpenAPI M3 contract freeze v0.3.0: ok");
