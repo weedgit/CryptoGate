@@ -19,8 +19,10 @@ export type AssignResult = {
   payableAmount: Money;
   receiveAddress: string;
   addressSource: AddressSource;
-  hdIndex?: number;
-  memoOrTag?: string;
+  /** Null unless Mode S assigned an HD pool index */
+  hdIndex: number | null;
+  /** Null unless Mode D assigned a memo/tag */
+  memoOrTag: string | null;
 };
 
 export type MatchInput = {

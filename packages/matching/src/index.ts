@@ -41,4 +41,7 @@ export async function matchTransaction(_input: MatchInput): Promise<MatchResult>
   };
 }
 
-export { assignModeB, assignModeC, assignModeD, assignModeS };
+export { assignModeB, majorToMinor } from "./mode-b/index.js";
+export { assignModeC } from "./mode-c/index.js";
+export { assignModeD } from "./mode-d/index.js";
+export { assignModeS } from "./mode-s/index.js";
