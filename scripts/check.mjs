@@ -71,5 +71,6 @@ run("node", [
   "apps/api/test/hd-pool.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
+run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.2.5 + domain/matching/watcher/api unit)");
+console.log("Check: ok (OpenAPI v0.2.5 + domain/matching/watcher/api/cashier-apk)");

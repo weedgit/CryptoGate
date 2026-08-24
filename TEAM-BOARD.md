@@ -81,7 +81,8 @@ Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when
 | M3-63 | Bruce | done | Mode S matchTransaction by owned address | PR #45 merged |
 | M3-64 | Bruce | done | §2.8 matching acceptance (B/C/D/S) | PR #46 merged |
 | M3-45 | Bruce | done | Watcher/RPC congestion backoff | PR #47 merged |
-| M2-70 | Bruce | doing | Cashier APK Kotlin scaffold + login | `feat-bruce-cashier-apk-scaffold` |
+| M2-70 | Bruce | done | Cashier APK Kotlin scaffold + login | PR #49 merged |
+| M2-71 | Bruce | doing | Cashier APK create order + QR (M2-72) | `feat-bruce-cashier-apk-create-order` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |

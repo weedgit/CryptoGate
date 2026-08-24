@@ -59,4 +59,69 @@ object JsonParsers {
         if (!orgId.isNullOrBlank()) o.put("orgId", orgId)
         return o.toString()
     }
+
+    fun createOrderRequestJson(
+        amount: String,
+        asset: String,
+        network: String,
+        validitySeconds: Int,
+    ): String {
+        val o = JSONObject()
+        o.put("amount", amount)
+        o.put("asset", asset)
+        o.put("network", network)
+        o.put("validitySeconds", validitySeconds)
+        return o.toString()
+    }
+
+    fun parseMoney(obj: JSONObject): Money =
+        Money(
+            amount = obj.getString("amount"),
+            currency = obj.getString("currency"),
+        )
+
+    fun parsePaymentOrder(body: String): PaymentOrder {
+        val obj = JSONObject(body)
+        return PaymentOrder(
+            id = obj.getString("id"),
+            orderNumber = obj.getString("orderNumber"),
+            status = obj.getString("status"),
+            matchingMode = obj.getString("matchingMode"),
+            payableAmount = parseMoney(obj.getJSONObject("payableAmount")),
+            receiveAddress = obj.getString("receiveAddress"),
+            asset = obj.getString("asset"),
+            network = obj.getString("network"),
+            expiresAt = obj.getString("expiresAt"),
+            memoOrTag = obj.optNullableString("memoOrTag"),
+        )
+    }
+
+    fun parsePaymentDetails(body: String): PaymentDetails {
+        val obj = JSONObject(body)
+        return PaymentDetails(
+            orderNumber = obj.getString("orderNumber"),
+            status = obj.getString("status"),
+            merchantName = obj.getString("merchantName"),
+            matchingMode = obj.getString("matchingMode"),
+            paymentPageUrl = obj.getString("paymentPageUrl"),
+            qrPayload = obj.getString("qrPayload"),
+            receiveAddress = obj.getString("receiveAddress"),
+            payableAmount = parseMoney(obj.getJSONObject("payableAmount")),
+            copyAmount = obj.getString("copyAmount"),
+            asset = obj.getString("asset"),
+            network = obj.getString("network"),
+            expiresAt = obj.getString("expiresAt"),
+            wrongNetworkWarning = obj.getString("wrongNetworkWarning"),
+            payExactAmountWarning = obj.optNullableString("payExactAmountWarning"),
+            memoOrTag = obj.optNullableString("memoOrTag"),
+            memoWarning = obj.optNullableString("memoWarning"),
+            contractAddress = obj.optNullableString("contractAddress"),
+        )
+    }
+
+    private fun JSONObject.optNullableString(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        val value = getString(key).trim()
+        return value.ifEmpty { null }
+    }
 }
