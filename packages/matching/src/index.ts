@@ -12,6 +12,7 @@ import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types
 export type {
   AssignInput,
   AssignResult,
+  ListReservedPayableAmounts,
   MatchInput,
   MatchResult,
 } from "./types.js";
@@ -42,6 +43,13 @@ export async function matchTransaction(_input: MatchInput): Promise<MatchResult>
 }
 
 export { assignModeB, majorToMinor } from "./mode-b/index.js";
-export { assignModeC } from "./mode-c/index.js";
+export {
+  assignModeC,
+  formatPayableAmount,
+  minorToMajor,
+  pickUniquePayableMinor,
+  MODE_C_RESERVED_STATUSES,
+  MODE_C_MAX_FINGERPRINT_STEPS,
+} from "./mode-c/index.js";
 export { assignModeD } from "./mode-d/index.js";
 export { assignModeS } from "./mode-s/index.js";

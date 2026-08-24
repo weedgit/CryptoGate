@@ -7,6 +7,9 @@ import {
   assignModeS,
   assignOnCreate,
   majorToMinor,
+  minorToMajor,
+  pickUniquePayableMinor,
+  MODE_C_RESERVED_STATUSES,
   matchTransaction,
 } from "../dist/index.js";
 
@@ -98,14 +101,81 @@ describe("@cryptogate/matching Mode B assign (M2-40)", () => {
   });
 });
 
-describe("@cryptogate/matching M1-32 stubs", () => {
-  it("Mode C assign is not implemented yet (M2-41)", async () => {
+describe("@cryptogate/matching Mode C assign (M2-41)", () => {
+  it("exports reserved statuses for Andrew's open-order query", () => {
+    assert.deepEqual([...MODE_C_RESERVED_STATUSES], [
+      "pending_payment",
+      "verifying",
+      "confirmed",
+      "payment_anomaly",
+    ]);
+  });
+
+  it("uses requested amount when no reserved payables", async () => {
+    const result = await assignModeC({
+      ...baseAssign,
+      mode: "C",
+      listReservedPayableAmounts: async () => [],
+    });
+    assert.equal(result.payableAmount.amount, "50.00");
+    assert.equal(result.receiveAddress, "TMainAddressExample");
+    assert.equal(result.addressSource, "main");
+    assert.equal(result.hdIndex, null);
+    assert.equal(result.memoOrTag, null);
+  });
+
+  it("bumps by amountStep when base is reserved", async () => {
+    const result = await assignModeC({
+      ...baseAssign,
+      mode: "C",
+      listReservedPayableAmounts: async () => ["50.00", "50.01"],
+    });
+    assert.equal(result.payableAmount.amount, "50.02");
+  });
+
+  it("treats equivalent decimal strings as the same reserved minor", async () => {
+    const result = await assignModeC({
+      ...baseAssign,
+      mode: "C",
+      listReservedPayableAmounts: async () => ["50", "50.010000"],
+    });
+    assert.equal(result.payableAmount.amount, "50.02");
+  });
+
+  it("assignOnCreate routes Mode C with reservation port", async () => {
+    const result = await assignOnCreate({
+      ...baseAssign,
+      mode: "C",
+      listReservedPayableAmounts: async () => ["50.00"],
+    });
+    assert.equal(result.payableAmount.amount, "50.01");
+  });
+
+  it("rejects Mode C without listReservedPayableAmounts", async () => {
     await assert.rejects(
       () => assignModeC({ ...baseAssign, mode: "C" }),
-      /M2-41/,
+      /listReservedPayableAmounts is required/,
     );
   });
 
+  it("fails when fingerprint range is exhausted", () => {
+    const step = 10000n; // 0.01 USDT at 6 decimals
+    const reserved = new Set();
+    const base = 50000000n;
+    for (let i = 0; i <= 3; i++) reserved.add(base + BigInt(i) * step);
+    assert.throws(
+      () => pickUniquePayableMinor(base, step, reserved, 3),
+      /no free Mode C fingerprint/,
+    );
+  });
+
+  it("minorToMajor pads fractional digits", () => {
+    assert.equal(minorToMajor(50010000n, 6), "50.010000");
+    assert.equal(minorToMajor(1n, 6), "0.000001");
+  });
+});
+
+describe("@cryptogate/matching M1-32 stubs", () => {
   it("Mode D assign is not implemented yet (M2-42)", async () => {
     await assert.rejects(
       () => assignModeD({ ...baseAssign, mode: "D" }),
@@ -120,8 +190,7 @@ describe("@cryptogate/matching M1-32 stubs", () => {
     );
   });
 
-  it("assignOnCreate routes Mode C/D/S to stubs that throw", async () => {
-    await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "C" }), /M2-41/);
+  it("assignOnCreate routes Mode D/S to stubs that throw", async () => {
     await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "D" }), /M2-42/);
     await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "S" }), /M2-43/);
   });
