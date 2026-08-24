@@ -84,8 +84,10 @@ export async function processConfirmationBatch(input) {
       orderId: order.orderId,
       confirmations,
       nextStatus: decision.nextStatus,
-      reason: decision.reason,
+      reason: applied.reason ?? decision.reason,
       updated: applied.updated,
+      skipped: applied.skipped === true || (applied.updated ?? 0) === 0,
+      alreadyCurrent: applied.alreadyCurrent === true,
     });
   }
   return outcomes;

@@ -79,7 +79,7 @@ export async function runTick(ctx) {
 
       ingest = {
         mode: "match+confirm",
-        phase: "m3-40",
+        phase: "m4-20",
         chainPollMode: polled.mode,
         ingestError: polled.error ?? null,
         watchedAddresses: watchedAddresses.length,
@@ -89,6 +89,7 @@ export async function runTick(ctx) {
         matchOutcomes,
         awaitingConfirmations: awaiting.length,
         confirmOutcomes,
+        restartSafe: true,
       };
     } catch (err) {
       ingest = {
@@ -101,7 +102,7 @@ export async function runTick(ctx) {
 
   return {
     service: "cryptogate-watcher",
-    phase: ctx.config.databaseUrl ? "m3-ingest-wire" : "m1-loop",
+    phase: ctx.config.databaseUrl ? "m4-restart-safe" : "m1-loop",
     tick: ctx.tick,
     startedAt: ctx.startedAt,
     at: new Date().toISOString(),
