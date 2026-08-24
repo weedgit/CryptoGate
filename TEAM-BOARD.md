@@ -63,7 +63,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M3-61 | Bruce | done | Mode C exact fingerprint match | PR #29 merged |
 | M3-62 | Bruce | done | Mode D memo match | PR #32 merged |
 | M3-41 | Bruce | done | Watcher → matchTransaction wire | PR #34 merged |
-| M3-42 | Bruce | doing | Confirmations → completed | `feat-bruce-watcher-confirmations` |
+| M3-42 | Bruce | done | Confirmations → completed | PR #37 merged |
+| M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR pending |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
