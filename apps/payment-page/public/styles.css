@@ -364,6 +364,32 @@ code {
   color: var(--warn);
 }
 
+.pay[data-state="verifying"] .countdown {
+  color: var(--warn);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pay[data-state="verifying"] .status {
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pay[data-state="verifying"] .status {
+    animation: none;
+  }
+}
+
 .pay[data-state="invalid"] .qr,
 .pay[data-state="failed"] .qr {
   opacity: 0.45;

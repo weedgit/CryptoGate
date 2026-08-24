@@ -63,7 +63,7 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | --- | --- | --- |
 | **Andrew** | B4 branch up; wire v0.3.3 commercial when API lands | X-01 on `main` — migrate **019** |
 | **Bruce** | **M3-32 done** (#90) | Ping Kevin: flip `USDT_ETHEREUM` `enabled: true` after staging smoke |
-| **Kevin** | M4-T04 + X-07 done; M1-T05 demo; M3-T09 when §3 filled | [`doc/X-07-E2E-Smoke.md`](doc/X-07-E2E-Smoke.md) |
+| **Kevin** | M1-T05 demo script ready; flip ETH after [M3-32 go-live](doc/M3-32-Ethereum-Go-Live.md) smoke | `node scripts/demo-walkthrough.mjs` |
 | **All** | `git pull origin main`; migrate **017** + **018** | **019** when Andrew lands X-01 API |
 
 ---
@@ -172,9 +172,9 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | **Pick second live network** | **Done** — USDT / `ethereum` |
-| P2 | M1-01 client sign-off + Company A §3 hostnames | Blocked on client |
-| P3 | M1-T05 prototype walkthrough sign-off | Checklist ready — schedule demo |
+| P1 | Flip `USDT_ETHEREUM.enabled` after Bruce staging smoke | [M3-32-Ethereum-Go-Live.md](doc/M3-32-Ethereum-Go-Live.md) |
+| P2 | M1-01 + Company A §3 hostnames | Blocked on client |
+| P3 | M1-T05 walkthrough sign-off | [M1-T05-Demo-Script.md](doc/M1-T05-Demo-Script.md) |
 
 **Second network decision** (Phase 1 §VI):
 

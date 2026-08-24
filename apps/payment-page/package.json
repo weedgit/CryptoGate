@@ -5,6 +5,7 @@
   "description": "Public guest pay URL — owned by Kevin. M1 static prototype.",
   "scripts": {
     "dev": "npx --yes serve@14 public -p 5173",
+    "demo": "node ../../scripts/demo-walkthrough.mjs",
     "build": "node -e \"console.log('@cryptogate/payment-page: static prototype in public/')\"",
     "typecheck": "node -e \"process.exit(0)\"",
     "test": "node -e \"process.exit(0)\"",

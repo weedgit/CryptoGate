@@ -58,12 +58,14 @@
             <img src="/icons/copy.svg" alt="" width="16" height="16" />
           </button>
         </div>
-        <p class="label">Token contract</p>
-        <div class="address-row">
-          <code id="contract">TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t</code>
-          <button type="button" class="icon-btn" data-copy="contract" aria-label="Copy contract">
-            <img src="/icons/copy.svg" alt="" width="16" height="16" />
-          </button>
+        <div id="contract-section">
+          <p class="label">Token contract</p>
+          <div class="address-row">
+            <code id="contract">TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t</code>
+            <button type="button" class="icon-btn" data-copy="contract" aria-label="Copy contract">
+              <img src="/icons/copy.svg" alt="" width="16" height="16" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -78,7 +80,7 @@
       <p class="custody">
         Payment goes directly to the merchant’s wallet. CryptoGate does not hold these funds.
       </p>
-      <p class="status" id="status">Pending Payment</p>
+      <p class="status" id="status" aria-live="polite">Pending Payment</p>
       <p class="order-ref">Order <span id="order-ref">#CG-2026-0847</span></p>
       <div class="share-row">
         <button type="button" class="share-btn" id="share-link">

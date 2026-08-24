@@ -50,7 +50,7 @@ Source row: `USDT_ETHEREUM` in `ASSET_NETWORK_REGISTRY` with **`enabled: false`*
 
 **Bruce (M3-32):** implement `packages/chain-clients/ethereum/` ingest against this row; use `USDT_ETHEREUM.requiredConfirmations` — do not hardcode. Matching modes **B, C, S** only (same as Tron).
 
-**Go-live:** Kevin sets `enabled: true` on `USDT_ETHEREUM` only after ingest + watcher smoke on staging (coordinate so create-order does not open before ingest).
+**Go-live:** Kevin sets `enabled: true` on `USDT_ETHEREUM` only after ingest + watcher smoke on staging — see [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 
 **Alternate queue:** USDT / `bnb_smart_chain` (BEP-20) is next after Ethereum unless client reprioritizes.
 

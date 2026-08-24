@@ -18,7 +18,22 @@ const ASSET_NETWORK_UI = {
     contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
     memoSupported: false,
   },
+  "USDT:ethereum": {
+    displayNetwork: "Ethereum ERC-20",
+    contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    memoSupported: false,
+  },
 };
+
+const TERMINAL_STATUSES = new Set([
+  "completed",
+  "confirmed",
+  "expired",
+  "payment_anomaly",
+  "failed",
+  "cancelled",
+  "invalid",
+]);
 
 const statusCopy = {
   pending_payment: "Pending Payment",
@@ -47,7 +62,7 @@ const netWarn = document.getElementById("net-warn");
 const memoWarn = document.getElementById("memo-warn");
 const statusEl = document.getElementById("status");
 const orderRefEl = document.getElementById("order-ref");
-const shareBtn = document.getElementById("share-link");
+const contractSection = document.getElementById("contract-section");
 const mainEl = document.querySelector(".pay");
 const qrEl = document.getElementById("qr");
 const sourceEl = document.getElementById("source-banner");
@@ -90,6 +105,11 @@ function uiState(status) {
   if (status === "payment_anomaly") return "anomaly";
   if (status === "cancelled") return "failed";
   return status;
+}
+
+function isTerminalStatus(status) {
+  const state = uiState(status);
+  return TERMINAL_STATUSES.has(state) || TERMINAL_STATUSES.has(status);
 }
 
 function setSourceBanner(text) {
@@ -281,6 +301,7 @@ function paint(view) {
     const c = view.contractAddress || "";
     contractEl.textContent = shortAddr(c);
     contractEl.dataset.full = c;
+    if (contractSection) contractSection.hidden = !c;
   }
   if (netWarn) {
     netWarn.textContent =
@@ -310,6 +331,9 @@ function paint(view) {
   if (statusEl) {
     statusEl.textContent =
       statusCopy[view.status] || statusCopy[state] || statusCopy.pending;
+  }
+  if (mainEl) {
+    mainEl.dataset.pollState = state;
   }
   setShareUrl(
     view.paymentPageUrl ||
@@ -374,16 +398,28 @@ async function fetchPaymentDetails(id) {
   return { details: await res.json() };
 }
 
+let pollTimer = 0;
+
+function stopPolling() {
+  if (pollTimer) {
+    window.clearInterval(pollTimer);
+    pollTimer = 0;
+  }
+}
+
 async function loadLiveOrder(id) {
   try {
     const got = await fetchPaymentDetails(id);
     if (got.missing) {
+      stopPolling();
       paintInvalid();
       return;
     }
     if (got.details) {
       setSourceBanner("");
-      paint(fromPaymentDetails(got.details));
+      const view = fromPaymentDetails(got.details);
+      paint(view);
+      if (isTerminalStatus(view.status)) stopPolling();
       return;
     }
   } catch {
@@ -395,18 +431,21 @@ async function loadLiveOrder(id) {
       setSourceBanner(
         "Showing create snapshot. Live GET /payment failed — check CORS_ALLOWED_ORIGINS includes this page’s exact Origin (localhost vs 127.0.0.1).",
       );
-      paint(fromPaymentOrder(JSON.parse(raw)));
+      const view = fromPaymentOrder(JSON.parse(raw));
+      paint(view);
+      if (isTerminalStatus(view.status)) stopPolling();
       return;
     }
   } catch {
     /* ignore */
   }
+  stopPolling();
   paintInvalid();
 }
 
 if (orderId) {
   loadLiveOrder(orderId);
-  window.setInterval(() => loadLiveOrder(orderId), POLL_MS);
+  pollTimer = window.setInterval(() => loadLiveOrder(orderId), POLL_MS);
 } else {
   setSourceBanner("");
   paint(demoView());

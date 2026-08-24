@@ -5,6 +5,8 @@
 
 Walkthrough demonstrates **roles, login concept, order screen, payment page, and POS wireframes** before M2 feature depth. Mark each item when demonstrated or explicitly deferred with ticket.
 
+**Runnable demo:** [M1-T05-Demo-Script.md](M1-T05-Demo-Script.md) · `node scripts/demo-walkthrough.mjs`
+
 ---
 
 ## 1. Surfaces to show

@@ -29,7 +29,8 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | Company A test handoff (M3-T09) | [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) | Kevin |
 | Cashier APK install / MDM / checksum (M5-08) | [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) | Kevin |
 | Reference POS device sign-off (M5-01) | [M5-01-Reference-Device.md](M5-01-Reference-Device.md) | Kevin |
-| M1 prototype walkthrough (M1-T05) | [M1-T05-Prototype-Walkthrough.md](M1-T05-Prototype-Walkthrough.md) | Kevin |
+| M1 prototype walkthrough (M1-T05) | [M1-T05-Prototype-Walkthrough.md](M1-T05-Prototype-Walkthrough.md) · [Demo script](M1-T05-Demo-Script.md) | Kevin |
+| Ethereum go-live (M3-32) | [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md) | Kevin |
 
 **Platform portal ops UI** (audit review, system health B17): Andrew — M4-30. **Cashier APK dev reference:** [Cashier-Apk.md](Cashier-Apk.md) — Bruce.
 
