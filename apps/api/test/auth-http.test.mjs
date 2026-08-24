@@ -389,4 +389,33 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects service-bills list and issue without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const list = await fetch(`${base}/v1/service-bills`);
+      assert.equal(list.status, 401);
+      const issue = await fetch(`${base}/v1/service-bills`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: "11111111-1111-1111-1111-111111111111",
+          periodStart: "2026-08-01",
+          periodEnd: "2026-08-31",
+          subscriptionAmount: "49.00",
+          volumeFeeAmount: "12.50",
+          dueAt: "2026-09-15T00:00:00.000Z",
+        }),
+      });
+      assert.equal(issue.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

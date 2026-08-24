@@ -283,3 +283,69 @@ export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
     message: "orgId is required when you have multiple merchant memberships",
   };
 }
+
+/**
+ * Platform Owner/Admin may issue service bills (never Cashiers).
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canIssueServiceBill(caller) {
+  return caller.platformOperator === true;
+}
+
+/**
+ * Merchant Owner/Admin may open checkout for their org. Not Viewer/Cashier/agent.
+ * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canCheckoutServiceBill(caller, org) {
+  return canChangeSettlementSettings(caller, org);
+}
+
+/**
+ * List/read scope for service bills. Cashiers have none. Agents: subtree.
+ * Merchants: own O/A/V orgs. Platform: all.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @returns {{ kind: "all" } | { kind: "none" } | { kind: "scoped", rootIds: string[] }}
+ */
+export function serviceBillListScope(caller) {
+  if (caller.platformOperator) return { kind: "all" };
+  /** @type {string[]} */
+  const rootIds = [];
+  for (const m of caller.memberships) {
+    if (m.role === "cashier") continue;
+    if (MERCHANT_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role)) {
+      rootIds.push(m.orgId);
+      continue;
+    }
+    if (
+      (m.orgType === "agent" || m.orgType === "agent_sub") &&
+      ORDER_READ_ROLES.has(m.role)
+    ) {
+      rootIds.push(m.orgId);
+    }
+  }
+  if (rootIds.length === 0) return { kind: "none" };
+  return { kind: "scoped", rootIds };
+}
+
+/**
+ * Whether caller may read a bill for this merchant org.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ * @param {Set<string>} [visibleOrgIds]
+ */
+export function canViewServiceBill(caller, org, visibleOrgIds) {
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (caller.platformOperator) return true;
+  if (visibleOrgIds) return visibleOrgIds.has(org.id);
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role === "cashier") return false;
+  if (role && ORDER_READ_ROLES.has(role)) return true;
+  return false;
+}
