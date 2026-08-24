@@ -1,17 +1,21 @@
 /**
  * One watcher iteration.
- * M1: health + chain stub.
- * M3-41: when DATABASE_URL set, load open orders + listRecentTransfers → matchTransaction.
+ * M3-41: match inbound transfers → payment_orders.
+ * M3-42: advance verifying/confirmed → completed when confirmations met.
  */
 import {
+  getTransactionConfirmations,
   healthCheck as tronHealthCheck,
   listRecentTransfers,
 } from "@cryptogate/chain-clients/tron";
+import { processConfirmationBatch } from "./confirm/advance.mjs";
 import { getWatcherPool } from "./db/pool.mjs";
 import { processTransferBatch } from "./match/inbound.mjs";
 import {
+  applyConfirmationUpdate,
   applyMatchResult,
   listOpenOrdersForMatch,
+  listOrdersAwaitingConfirmations,
 } from "./orders/order-store.mjs";
 
 /**
@@ -22,22 +26,21 @@ export async function runTick(ctx) {
   /** @type {Record<string, unknown>} */
   let ingest = {
     mode: "noop",
-    note: "Set DATABASE_URL to enable payment_orders match wire (M3-41)",
+    note: "Set DATABASE_URL to enable payment_orders match + confirmations",
   };
 
   if (ctx.config.databaseUrl) {
     try {
       const pool = getWatcherPool();
-      const openOrders = await listOpenOrdersForMatch(pool, {
+      const filter = {
         asset: ctx.config.defaultAsset,
         network: ctx.config.defaultNetwork,
-      });
-      const { transfers } = await listRecentTransfers({
-        asset: ctx.config.defaultAsset,
-        network: ctx.config.defaultNetwork,
-      });
+      };
 
-      const outcomes = await processTransferBatch({
+      const openOrders = await listOpenOrdersForMatch(pool, filter);
+      const { transfers } = await listRecentTransfers(filter);
+
+      const matchOutcomes = await processTransferBatch({
         transfers: transfers.map((t) => ({
           toAddress: t.toAddress,
           amount: t.amount,
@@ -50,17 +53,26 @@ export async function runTick(ctx) {
         apply: (args) => applyMatchResult(pool, args),
       });
 
+      const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
+      const confirmOutcomes = await processConfirmationBatch({
+        orders: awaiting,
+        getConfirmations: getTransactionConfirmations,
+        apply: (args) => applyConfirmationUpdate(pool, args),
+      });
+
       ingest = {
-        mode: "match",
-        phase: "m3-41",
+        mode: "match+confirm",
+        phase: "m3-42",
         openOrders: openOrders.length,
         transfersSeen: transfers.length,
-        outcomes,
+        matchOutcomes,
+        awaitingConfirmations: awaiting.length,
+        confirmOutcomes,
       };
     } catch (err) {
       ingest = {
         mode: "error",
-        phase: "m3-41",
+        phase: "m3-42",
         error: err instanceof Error ? err.message : String(err),
       };
     }
@@ -68,7 +80,7 @@ export async function runTick(ctx) {
 
   return {
     service: "cryptogate-watcher",
-    phase: ctx.config.databaseUrl ? "m3-match-wire" : "m1-loop",
+    phase: ctx.config.databaseUrl ? "m3-confirm-wire" : "m1-loop",
     tick: ctx.tick,
     startedAt: ctx.startedAt,
     at: new Date().toISOString(),

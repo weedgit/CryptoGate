@@ -1,5 +1,5 @@
 /**
- * payment_orders access for watcher match (M3-41). No apps/api imports.
+ * payment_orders access for watcher match + confirmations. No apps/api imports.
  */
 
 /** Open statuses eligible for inbound tx matching. */
@@ -9,6 +9,9 @@ export const WATCHER_MATCH_STATUSES = [
   "confirmed",
   "payment_anomaly",
 ];
+
+/** Orders waiting on chain confirmations. */
+export const WATCHER_CONFIRM_STATUSES = ["verifying", "confirmed"];
 
 /**
  * @param {import("pg").Pool | import("pg").PoolClient} db
@@ -43,6 +46,31 @@ export async function listOpenOrdersForMatch(db, filter) {
 }
 
 /**
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ asset: string, network: string }} filter
+ */
+export async function listOrdersAwaitingConfirmations(db, filter) {
+  const { rows } = await db.query(
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network
+     FROM payment_orders
+     WHERE asset = $1
+       AND network = $2
+       AND status = ANY($3::text[])
+       AND tx_hash IS NOT NULL
+     ORDER BY updated_at ASC`,
+    [filter.asset, filter.network, WATCHER_CONFIRM_STATUSES],
+  );
+  return rows.map((row) => ({
+    orderId: row.id,
+    status: row.status,
+    txHash: row.tx_hash,
+    confirmations: row.confirmations ?? 0,
+    requiredConfirmations: row.required_confirmations,
+    network: row.network,
+  }));
+}
+
+/**
  * Apply a match result. Idempotent on (network, tx_hash) unique index.
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{
@@ -63,7 +91,6 @@ export async function applyMatchResult(db, input) {
     return { updated: 0, skipped: true, reason: result.reason ?? "no_order" };
   }
 
-  // Only advance pending → verifying / anomaly from match. Do not rewrite completed.
   const { rowCount } = await db.query(
     `UPDATE payment_orders
      SET status = $1,
@@ -95,4 +122,41 @@ export async function applyMatchResult(db, input) {
     status: result.status,
     reason: result.reason,
   };
+}
+
+/**
+ * Persist confirmation count and optional status advance (M3-42).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ orderId: string, confirmations: number, nextStatus: string | null }} input
+ */
+export async function applyConfirmationUpdate(db, input) {
+  if (input.nextStatus) {
+    const { rowCount } = await db.query(
+      `UPDATE payment_orders
+       SET confirmations = $1,
+           status = $2,
+           updated_at = now()
+       WHERE id = $3::uuid
+         AND status = ANY($4::text[])
+         AND tx_hash IS NOT NULL`,
+      [
+        input.confirmations,
+        input.nextStatus,
+        input.orderId,
+        WATCHER_CONFIRM_STATUSES,
+      ],
+    );
+    return { updated: rowCount ?? 0 };
+  }
+
+  const { rowCount } = await db.query(
+    `UPDATE payment_orders
+     SET confirmations = $1,
+         updated_at = now()
+     WHERE id = $2::uuid
+       AND status = ANY($3::text[])
+       AND tx_hash IS NOT NULL`,
+    [input.confirmations, input.orderId, WATCHER_CONFIRM_STATUSES],
+  );
+  return { updated: rowCount ?? 0 };
 }
