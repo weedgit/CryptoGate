@@ -153,3 +153,13 @@ export function canChangeMatchingModeSettings(caller, org) {
 export function canViewMatchingModeSettings(caller, org) {
   return canViewSettlementSettings(caller, org);
 }
+
+/** Same bar as settlement: Cashier cannot change xPub. */
+export function canChangeXpubSettings(caller, org) {
+  return canChangeSettlementSettings(caller, org);
+}
+
+/** Same bar as settlement: Cashier cannot view xPub settings. */
+export function canViewXpubSettings(caller, org) {
+  return canViewSettlementSettings(caller, org);
+}

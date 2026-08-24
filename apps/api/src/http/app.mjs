@@ -24,6 +24,7 @@ import {
   handleGetMatchingMode,
   handlePutMatchingMode,
 } from "../matching-mode/matching-mode-routes.mjs";
+import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
@@ -130,6 +131,19 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutMatchingMode(req, res, orgId);
+      return;
+    }
+  }
+
+  const xpubMatch = path.match(/^\/v1\/orgs\/([^/]+)\/xpub$/);
+  if (xpubMatch) {
+    const orgId = decodeURIComponent(xpubMatch[1]);
+    if (method === "GET") {
+      await handleGetXpub(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutXpub(req, res, orgId);
       return;
     }
   }
