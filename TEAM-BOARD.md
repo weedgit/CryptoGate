@@ -62,8 +62,8 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | Who | Focus | Status / note |
 | --- | --- | --- |
 | **Andrew** | B4 branch up; wire v0.3.3 commercial when API lands | X-01 on `main` — migrate **019** |
-| **Bruce** | **M3-32** USDT/ethereum ingest | Registry row on `main`; merchant web D1–D17 done (#67–#83) |
-| **Kevin** | X-01 v0.3.3 landed; M3-T09 handoff; chase M1-01 | [`doc/X-01-Fee-Tiers-v033.md`](doc/X-01-Fee-Tiers-v033.md) |
+| **Bruce** | **M3-32 done** (#90) | Ping Kevin: flip `USDT_ETHEREUM` `enabled: true` after staging smoke |
+| **Kevin** | M5-08/M5-09 POS docs done; M1-T05 checklist; M3-T09 send when §3 filled | [`doc/M5-08-Cashier-Apk-Install.md`](doc/M5-08-Cashier-Apk-Install.md) |
 | **All** | `git pull origin main`; migrate **017** + **018** | **019** when Andrew lands X-01 API |
 
 ---
@@ -119,7 +119,7 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | M2-75 | Bruce | done | Reports & export (D10) | PR #79 merged |
 | M2-76 | Bruce | done | Settings pages org/billing/alerts/team (D12–D16) | PR #81 merged |
 | M2-77 | Bruce | done | Sites list/create/detail (D7–D9) | PR #83 merged |
-| M3-32 | Bruce | doing | USDT/ethereum ERC-20 chain client | `feat-bruce-chain-ethereum-ingest` — ping Kevin for `enabled: true` after staging smoke |
+| M3-32 | Bruce | done | USDT/ethereum ERC-20 chain client + watcher routing | PR #90 — **ping Kevin** for `USDT_ETHEREUM` `enabled: true` after staging smoke |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -155,7 +155,10 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | M4-35 | Kevin | done | DB schema reference (migrations 001–018) | `doc/M4-35-Database-Schema.md` |
 | M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bill lifecycle | `doc/M4-36-Audit-Bills-v032.md` |
 | X-01 | Kevin | done | OpenAPI v0.3.3 fee tiers + merchant commercial | `doc/X-01-Fee-Tiers-v033.md` |
-| M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send `doc/M3-T09-Company-A-Handoff.md` when client ready |
+| M5-08 | Kevin | done | Cashier APK sideload / MDM / checksum | `doc/M5-08-Cashier-Apk-Install.md` + `scripts/apk-checksum.mjs` |
+| M5-09 | Kevin | done | Cashier POS section in merchant manual | `doc/M4-32-Merchant-Manual.md` §10 |
+| M1-T05 | Kevin | doing | Prototype walkthrough checklist | `doc/M1-T05-Prototype-Walkthrough.md` |
+| M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send when client fills §3 hostnames |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -166,8 +169,9 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | **Pick second live network** | **Done — USDT / `ethereum`** (see decision table below; BSC deferred) |
-| P2 | M1-01 client sign-off + Company A hostname table | Still blocked on client |
+| P1 | **Pick second live network** | **Done** — USDT / `ethereum` |
+| P2 | M1-01 client sign-off + Company A §3 hostnames | Blocked on client |
+| P3 | M1-T05 prototype walkthrough sign-off | Checklist ready — schedule demo |
 
 **Second network decision** (Phase 1 §VI):
 
@@ -196,7 +200,7 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | --- | --- | --- |
 | — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
 | — | M1-32 mode-b test scaffold **done** | PR #86 — `packages/matching/test/mode-b.test.mjs` |
-| **P1** | **M3-32 / M4-22** USDT **ethereum** ERC-20 | Registry row `USDT_ETHEREUM` on `main` (`enabled: false` until ingest smoke). Branch `feat-bruce-chain-ethereum-ingest`. Kevin flips `enabled: true` after staging sign-off. |
+| — | **M3-32** USDT **ethereum** ERC-20 | **Done** PR #90 — registry row on `main` (`enabled: false`). **Kevin:** flip `enabled: true` after staging smoke. |
 | **P2** | Web polish when Andrew lands APIs | Team list, org PATCH, notification prefs |
 
 Branch example: `feat-bruce-matching-m1-tests`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
