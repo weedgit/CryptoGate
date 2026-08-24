@@ -88,9 +88,6 @@ export function AgentsListPage({ session }: Props) {
           </tbody>
         </table>
       ) : null}
-      <p style={{ color: "var(--muted)", marginTop: 16 }}>
-        Agent detail tabs (B3) ship in a follow-up platform task.
-      </p>
     </div>
   );
 }
