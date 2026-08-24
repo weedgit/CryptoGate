@@ -8,6 +8,8 @@ import {
   AddressSource,
   DEFAULT_ASSET_NETWORK,
   AssetCode,
+  MerchantTier,
+  DEFAULT_FEE_TIER_BANDS,
   NetworkId,
   PaymentOrderColumn,
   USDT_TRON,
@@ -52,6 +54,14 @@ describe("@cryptogate/domain", () => {
     assert.equal(DEFAULT_ASSET_NETWORK.asset, AssetCode.USDT);
     assert.equal(DEFAULT_ASSET_NETWORK.network, NetworkId.Tron);
     assert.equal(DEFAULT_ASSET_NETWORK.contractAddress, USDT_TRON.contractAddress);
+  });
+
+  it("seeds Small/Mid/Enterprise fee bands from Business-Model", () => {
+    assert.equal(DEFAULT_FEE_TIER_BANDS.length, 3);
+    assert.equal(DEFAULT_FEE_TIER_BANDS[0].tier, MerchantTier.Small);
+    assert.equal(DEFAULT_FEE_TIER_BANDS[0].defaultSignupPercent, "2.0");
+    assert.equal(AuditAction.FeeTierPut, "fee_tier_put");
+    assert.equal(AuditAction.EnterpriseRateDecide, "enterprise_rate_decide");
   });
 
   it("registers USDT Tron with confirmations and no memo (Mode D hidden)", () => {

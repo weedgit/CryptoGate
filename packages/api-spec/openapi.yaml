@@ -1,13 +1,14 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.3.2
+  version: 0.3.3
   description: >
-    Contract freeze v0.3.2 (audit list + service bill lifecycle). Builds on v0.3.1
-    API keys. Source of truth for apps/api, apps/payment-page, and apps/cashier-apk.
-    Payment orders are watch-only. Service bills are a separate rail — never merge
-    with /orders. Enums match @cryptogate/domain. Never return spend keys, full xPub,
-    webhook signingSecret, or API key secret on GET.
+    Contract freeze v0.3.3 (platform fee tiers + merchant commercial settings).
+    Builds on v0.3.2 audit + service bill lifecycle. Source of truth for apps/api,
+    apps/payment-page, and apps/cashier-apk. Payment orders are watch-only.
+    Service bills are a separate rail — never merge with /orders. Enums match
+    @cryptogate/domain. Never return spend keys, full xPub, webhook signingSecret,
+    or API key secret on GET.
 
     Machine clients (security apiKey): send X-Api-Key, X-Timestamp, X-Nonce,
     X-Signature. Canonical string is timestamp LF nonce LF METHOD LF pathAndQuery
@@ -25,6 +26,7 @@ tags:
   - name: webhooks
   - name: service-bills
   - name: audit
+  - name: platform-settings
 paths:
   /auth/login:
     post:
@@ -1512,6 +1514,250 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /platform/settings/fee-tiers:
+    get:
+      tags: [platform-settings]
+      operationId: getFeeTierSettings
+      summary: Read global Small/Mid/Enterprise tier bands
+      description: >
+        Platform, agent, and merchant Owner/Administrator/Viewer may read bands
+        for onboard sliders and effective-rate display. Cashier 403. Volume fee is
+        never deducted from payer on-chain amounts.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Global tier configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformFeeTierSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [platform-settings]
+      operationId: updateFeeTierSettings
+      summary: Update global tier bands (Platform Owner only)
+      description: >
+        Changes apply to the **next billing period** only — not retroactive.
+        Platform Administrator may read but not edit. Logged to audit.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformFeeTierSettingsRequest"
+      responses:
+        "200":
+          description: Updated tier configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformFeeTierSettings"
+        "403":
+          description: Not Platform Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/settings/org-policy:
+    get:
+      tags: [platform-settings]
+      operationId: getPlatformOrgPolicy
+      summary: Read platform org policy (max agent depth)
+      description: Platform Owner/Administrator/Viewer read. Agent and merchant 403.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Org policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformOrgPolicy"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [platform-settings]
+      operationId: updatePlatformOrgPolicy
+      summary: Update max agent nesting depth (Platform Owner only)
+      description: >
+        Phase 1 default **2** (agent → agent (sub) → merchant). Changing depth
+        requires confirmation in UI; logged to audit with warning metadata.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformOrgPolicyRequest"
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformOrgPolicy"
+        "403":
+          description: Not Platform Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/commercial:
+    get:
+      tags: [orgs]
+      operationId: getMerchantCommercial
+      summary: Merchant commercial settings (tier + volume fee %)
+      description: >
+        Merchant org accounts only. Platform and agent roles may read merchants in
+        authorized subtree. Merchant Owner/Administrator/Viewer read own org.
+        Cashier 403.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Commercial settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantCommercialSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not a merchant account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: updateMerchantCommercial
+      summary: Assign tier and volume fee within platform band
+      description: >
+        Agent Owner/Administrator for merchants in subtree; Platform
+        Owner/Administrator for any merchant. Rate must fall inside the tier band
+        unless tier is Enterprise — then creates a pending approval (see
+        /platform/enterprise-rate-approvals). Merchant roles and Cashier 403.
+        Changes apply to the **next billing period** unless noted in response.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMerchantCommercialRequest"
+      responses:
+        "200":
+          description: Updated or pending approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantCommercialSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Rate outside band or invalid tier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/enterprise-rate-approvals:
+    get:
+      tags: [platform-settings]
+      operationId: listEnterpriseRateApprovals
+      summary: List pending Enterprise custom rate requests
+      description: Platform Owner/Administrator/Viewer. Cashier 403.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Approval queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseRateApprovalList"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/enterprise-rate-approvals/{approvalId}:
+    patch:
+      tags: [platform-settings]
+      operationId: decideEnterpriseRateApproval
+      summary: Approve or deny Enterprise custom rate (Platform Owner only)
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: approvalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideEnterpriseRateApprovalRequest"
+      responses:
+        "200":
+          description: Decision recorded; merchant commercial updated on approve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseRateApproval"
+        "403":
+          description: Not Platform Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -1905,6 +2151,22 @@ components:
         structure:
           type: string
           enum: [single_location, multi_location]
+        commercial:
+          $ref: "#/components/schemas/MerchantCommercialOnCreate"
+          description: >
+            Required when type is merchant. Agent assigns tier and volume fee
+            within platform band; Enterprise custom rates may enter pending approval.
+    MerchantCommercialOnCreate:
+      type: object
+      required: [tier, volumeFeePercent]
+      additionalProperties: false
+      properties:
+        tier:
+          $ref: "#/components/schemas/MerchantTier"
+        volumeFeePercent:
+          type: string
+          description: Percent in major units, e.g. "2.0"
+          example: "2.0"
     InviteUserRequest:
       type: object
       required: [email, role]
@@ -2446,6 +2708,197 @@ components:
           nullable: true
         instructions:
           type: string
+    MerchantTier:
+      type: string
+      description: Matches @cryptogate/domain MerchantTier
+      enum: [small, mid, enterprise]
+    FeeTierBand:
+      type: object
+      required:
+        - tier
+        - subscriptionAmountUsd
+        - volumeFeeMinPercent
+        - volumeFeeMaxPercent
+        - defaultSignupPercent
+      properties:
+        tier:
+          $ref: "#/components/schemas/MerchantTier"
+        subscriptionAmountUsd:
+          type: string
+          description: Monthly subscription in USD major units. Enterprise may be negotiated per contract.
+          example: "49.00"
+        volumeFeeMinPercent:
+          type: string
+          example: "1.2"
+        volumeFeeMaxPercent:
+          type: string
+          example: "2.0"
+        defaultSignupPercent:
+          type: string
+          description: Default rate at merchant signup (within min–max)
+          example: "2.0"
+        tierDescription:
+          type: string
+          description: Editable help text for platform UI (B8)
+    PlatformFeeTierSettings:
+      type: object
+      required: [tiers, updatedAt]
+      properties:
+        tiers:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/FeeTierBand"
+        updatedAt:
+          type: string
+          format: date-time
+    UpdatePlatformFeeTierSettingsRequest:
+      type: object
+      required: [tiers]
+      additionalProperties: false
+      properties:
+        tiers:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/FeeTierBand"
+    PlatformOrgPolicy:
+      type: object
+      required: [maxAgentDepth]
+      properties:
+        maxAgentDepth:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: Phase 1 default 2
+          example: 2
+    UpdatePlatformOrgPolicyRequest:
+      type: object
+      required: [maxAgentDepth]
+      additionalProperties: false
+      properties:
+        maxAgentDepth:
+          type: integer
+          minimum: 0
+          maximum: 5
+    MerchantCommercialSettings:
+      type: object
+      required:
+        - orgId
+        - tier
+        - volumeFeePercent
+        - subscriptionAmountUsd
+        - bandMinPercent
+        - bandMaxPercent
+        - effectiveFrom
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        tier:
+          $ref: "#/components/schemas/MerchantTier"
+        volumeFeePercent:
+          type: string
+          description: Effective rate for current billing period
+          example: "2.0"
+        pendingVolumeFeePercent:
+          type: string
+          nullable: true
+          description: Scheduled rate for next billing period when a change is queued
+        subscriptionAmountUsd:
+          type: string
+          example: "49.00"
+        bandMinPercent:
+          type: string
+          description: Platform band for current tier (UI slider bounds)
+        bandMaxPercent:
+          type: string
+        effectiveFrom:
+          type: string
+          format: date
+          description: Start of billing period this rate applies to
+        enterpriseApprovalStatus:
+          $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
+          nullable: true
+          description: Set when Enterprise custom rate awaits or completed platform review
+    UpdateMerchantCommercialRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        tier:
+          $ref: "#/components/schemas/MerchantTier"
+        volumeFeePercent:
+          type: string
+        reason:
+          type: string
+          description: Optional note; logged to audit
+    EnterpriseRateApprovalStatus:
+      type: string
+      enum: [pending, approved, denied]
+    EnterpriseRateApproval:
+      type: object
+      required:
+        - id
+        - orgId
+        - merchantName
+        - requestedTier
+        - requestedVolumeFeePercent
+        - status
+        - requestedByUserId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        merchantName:
+          type: string
+        requestedTier:
+          $ref: "#/components/schemas/MerchantTier"
+        requestedVolumeFeePercent:
+          type: string
+        status:
+          $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
+        requestedByUserId:
+          type: string
+          format: uuid
+        decidedByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        decisionReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+    EnterpriseRateApprovalList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnterpriseRateApproval"
+    DecideEnterpriseRateApprovalRequest:
+      type: object
+      required: [decision]
+      additionalProperties: false
+      properties:
+        decision:
+          type: string
+          enum: [approve, deny]
+        reason:
+          type: string
+          description: Required when decision is deny
     AuditAction:
       type: string
       description: Matches @cryptogate/domain AuditAction
@@ -2470,6 +2923,10 @@ components:
         - api_key_create
         - api_key_revoke
         - api_key_rotate
+        - fee_tier_put
+        - org_policy_put
+        - merchant_commercial_put
+        - enterprise_rate_decide
     AuditLogEntry:
       type: object
       required: [id, action, metadata, createdAt]

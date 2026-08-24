@@ -83,6 +83,50 @@ export const AssetCode = {
 
 export type AssetCode = (typeof AssetCode)[keyof typeof AssetCode];
 
+/** Merchant size tier for platform fee bands (Business-Model.md). */
+export const MerchantTier = {
+  Small: "small",
+  Mid: "mid",
+  Enterprise: "enterprise",
+} as const;
+
+export type MerchantTier = (typeof MerchantTier)[keyof typeof MerchantTier];
+
+/** One Small/Mid/Enterprise band row (platform settings B8). */
+export type FeeTierBand = {
+  tier: MerchantTier;
+  subscriptionAmountUsd: string;
+  volumeFeeMinPercent: string;
+  volumeFeeMaxPercent: string;
+  defaultSignupPercent: string;
+  tierDescription?: string;
+};
+
+/** Phase 1 seed values — Platform Owner may change via PUT /platform/settings/fee-tiers. */
+export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
+  {
+    tier: MerchantTier.Small,
+    subscriptionAmountUsd: "49.00",
+    volumeFeeMinPercent: "1.2",
+    volumeFeeMaxPercent: "2.0",
+    defaultSignupPercent: "2.0",
+  },
+  {
+    tier: MerchantTier.Mid,
+    subscriptionAmountUsd: "199.00",
+    volumeFeeMinPercent: "0.8",
+    volumeFeeMaxPercent: "1.5",
+    defaultSignupPercent: "1.2",
+  },
+  {
+    tier: MerchantTier.Enterprise,
+    subscriptionAmountUsd: "0.00",
+    volumeFeeMinPercent: "0.5",
+    volumeFeeMaxPercent: "1.0",
+    defaultSignupPercent: "0.8",
+  },
+] as const;
+
 /** Network identifiers used in API and config. */
 export const NetworkId = {
   Ethereum: "ethereum",
@@ -360,6 +404,10 @@ export const AuditAction = {
   ApiKeyCreate: "api_key_create",
   ApiKeyRevoke: "api_key_revoke",
   ApiKeyRotate: "api_key_rotate",
+  FeeTierPut: "fee_tier_put",
+  OrgPolicyPut: "org_policy_put",
+  MerchantCommercialPut: "merchant_commercial_put",
+  EnterpriseRateDecide: "enterprise_rate_decide",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];

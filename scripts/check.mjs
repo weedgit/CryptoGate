@@ -89,4 +89,4 @@ run("node", ["doc/examples/webhook-verify.mjs"]);
 run("node", ["doc/examples/api-signing-smoke.mjs"]);
 run("node", ["apps/api/scripts/load-m4-12.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.2 + audit/bills + M4-12 load smoke + M3 samples)");
+console.log("Check: ok (OpenAPI v0.3.3 + fee tiers + M4-12 load smoke + M3 samples)");

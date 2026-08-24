@@ -128,6 +128,22 @@ Additive to v0.3.0. Signing canonical string unchanged.
 
 Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
+## v0.3.3 — Platform fee tiers + merchant commercial (X-01)
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.3.3`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Domain | `@cryptogate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put`, `enterprise_rate_decide` |
+| Handoff | `doc/X-01-Fee-Tiers-v033.md` | Andrew implements platform settings + merchant commercial; migration **019** suggested |
+| Platform settings | `GET/PUT /platform/settings/fee-tiers`, `GET/PUT /platform/settings/org-policy` | Owner-only PUT; changes next billing period |
+| Merchant commercial | `GET/PUT /orgs/{orgId}/commercial` | Agent/platform assign within band; Enterprise approval queue |
+| Enterprise | `GET /platform/enterprise-rate-approvals`, `PATCH …/{approvalId}` | Platform Owner approve/deny |
+| Create org | `CreateOrgRequest.commercial` | Merchant onboard (C6) |
+
+Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
@@ -147,4 +163,4 @@ Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
 ## Out of this freeze
 
-M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. **OpenAPI freeze is v0.3.2** (audit + bill PATCH). Andrew implements routes + migration 018. Remaining: IaC when Company A picks cloud; second live network — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. **OpenAPI freeze is v0.3.3** (fee tiers + merchant commercial). Andrew implements routes + migration **019**. Prior v0.3.2 (audit + bill PATCH) on main. Second live network — see `doc/M3-04-Asset-Networks.md`.

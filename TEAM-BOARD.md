@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v0.3.1 API keys).
+Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v0.3.2 audit + bill PATCH).
 
 ### This week standup (Kevin — async OK)
 
@@ -63,7 +63,7 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | --- | --- | --- |
 | **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
 | **Bruce** | Merge D5–D6, start D14 | **Done:** merchant web D1–D17 (#67–#83); **M1-32** mode-b test scaffold |
-| **Kevin** | M3-32 network pick done (**USDT/ethereum**); M3-T09 handoff; chase M1-01 | [`doc/M3-04-Asset-Networks.md`](doc/M3-04-Asset-Networks.md) § Next |
+| **Kevin** | X-01 v0.3.3 landed; M3-T09 handoff; chase M1-01 | [`doc/X-01-Fee-Tiers-v033.md`](doc/X-01-Fee-Tiers-v033.md) |
 | **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
 
 ---
@@ -151,8 +151,9 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | M4-04 | Kevin | done | Admin jump host + named vendor access | `doc/M4-04-Admin-Host-Vendor-Access.md` |
 | M4-33 | Kevin | done | Ops runbook index (daily ops map) | `doc/M4-33-Ops-Runbook-Index.md` |
 | M4-34 | Kevin | done | Third-party / OSS license list | `doc/M4-34-Third-Party-Licenses.md` |
-| M4-35 | Kevin | done | DB schema reference (migrations 001–017) | `doc/M4-35-Database-Schema.md` |
+| M4-35 | Kevin | done | DB schema reference (migrations 001–018) | `doc/M4-35-Database-Schema.md` |
 | M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bill lifecycle | `doc/M4-36-Audit-Bills-v032.md` |
+| X-01 | Kevin | done | OpenAPI v0.3.3 fee tiers + merchant commercial | `doc/X-01-Fee-Tiers-v033.md` |
 | M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send `doc/M3-T09-Company-A-Handoff.md` when client ready |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
@@ -164,9 +165,9 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| **P1** | **v0.3.2** — `GET /v1/audit`, `PATCH /v1/service-bills/{id}`, migrate **018** | `doc/M4-36-Audit-Bills-v032.md`; unblocks B9/B10/B14 |
-| **P2** | **B4** agent wizard | `POST /orgs` — no v0.3.2 wait for wizard shell |
-| — | Run migrate **017** | Required before API key routes on any DB |
+| **P1** | **X-01 / v0.3.3** — fee tiers, org policy, merchant commercial, migrate **019** | `doc/X-01-Fee-Tiers-v033.md`; unblocks B8/B13 + real B4/C6 commercial (replace stubs) |
+| **P2** | **v0.3.2 UI** — audit list, bill PATCH, B14 | Already on main API; wire platform pages |
+| — | Run migrate **017** + **018** | Required before API keys + bill lifecycle on any DB |
 
 CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
 
@@ -316,6 +317,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M4-34 | Kevin | done | OSS / third-party license list | `doc/M4-34-Third-Party-Licenses.md` |
 | M4-35 | Kevin | done | DB schema reference | `doc/M4-35-Database-Schema.md` |
 | M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bills | `doc/M4-36-Audit-Bills-v032.md` |
+| X-01 | Kevin | done | OpenAPI v0.3.3 fee tiers + commercial | `doc/X-01-Fee-Tiers-v033.md` |
 
 ### API (Andrew)
 

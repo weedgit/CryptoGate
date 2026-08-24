@@ -5,7 +5,9 @@
 
 Phase 1 Postgres schema for CryptoGate. Watcher reads/writes **payment order** chain columns; it does **not** run migrations.
 
-**Latest migration:** `017_api_keys_mgmt.sql` (run `pnpm --filter @cryptogate/api migrate` before deploy).
+**Latest migration:** `018_service_bill_lifecycle_audit.sql` (run `pnpm --filter @cryptogate/api migrate` before deploy).
+
+**018 before 017 on fresh env:** migrations apply in filename order; **017** then **018** on existing DBs that already ran through 017.
 
 ---
 
@@ -77,13 +79,13 @@ erDiagram
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `service_bills` | Subscription + volume fee | `subscription_amount`, `volume_fee_amount`, `status`, `due_at` |
+| `service_bills` | Subscription + volume fee | `subscription_amount`, `volume_fee_amount`, `status`, `due_at`, `paid_at`, `voided_at`, `last_adjustment_reason`, `payment_reference` |
 
 ### Audit
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `audit_log` | Append-only privileged actions | `actor_user_id`, `org_id`, `action`, `metadata` — **no UPDATE/DELETE** (trigger) |
+| `audit_log` | Append-only privileged actions | `actor_user_id`, `org_id`, `action`, `metadata` — **no UPDATE/DELETE** (trigger); index `(action, created_at DESC)` from **018** |
 
 ### Schema meta
 
@@ -114,6 +116,9 @@ erDiagram
 | `015_service_bills.sql` | M3-16 | `service_bills` |
 | `016_payment_order_webhook_outbox.sql` | M3-14 | outbox + order triggers |
 | `017_api_keys_mgmt.sql` | M4-11 | `label`, `last_used_at`, `expires_at` on `api_keys` |
+| `018_service_bill_lifecycle_audit.sql` | M4-36 | `paid_at`, `voided_at`, `last_adjustment_reason`, `payment_reference` on `service_bills`; audit action index |
+
+**Pending (X-01 / v0.3.3):** Andrew migration **019** — `platform_fee_tiers`, `merchant_commercial`, `enterprise_rate_approvals` (see [X-01-Fee-Tiers-v033.md](X-01-Fee-Tiers-v033.md)).
 
 ---
 
