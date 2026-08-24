@@ -49,7 +49,7 @@ fun LoginScreen(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        Spacer(Modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "No wallet keys. Matching mode is set on the server.",
             style = MaterialTheme.typography.bodySmall,

@@ -17,10 +17,13 @@ const required = [
   "app/src/main/java/com/cryptogate/cashier/api/CryptoGateClient.kt",
   "app/src/main/java/com/cryptogate/cashier/api/SessionStore.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/LoginScreen.kt",
+  "app/src/main/java/com/cryptogate/cashier/ui/CreateOrderScreen.kt",
+  "app/src/main/java/com/cryptogate/cashier/ui/OrderPayScreen.kt",
+  "app/src/main/java/com/cryptogate/cashier/qr/QrBitmaps.kt",
   "app/src/test/java/com/cryptogate/cashier/api/JsonParsersTest.kt",
 ];
 
-describe("@cryptogate/cashier-apk scaffold (M2-70)", () => {
+describe("@cryptogate/cashier-apk scaffold (M2-70/71/72)", () => {
   for (const rel of required) {
     it(`has ${rel}`, () => {
       assert.equal(existsSync(join(root, rel)), true);

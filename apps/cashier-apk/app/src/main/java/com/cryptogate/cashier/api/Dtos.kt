@@ -23,6 +23,50 @@ data class LoginResult(
     val mfaRequired: Boolean,
 )
 
+data class Money(
+    val amount: String,
+    val currency: String,
+)
+
+data class PaymentOrder(
+    val id: String,
+    val orderNumber: String,
+    val status: String,
+    val matchingMode: String,
+    val payableAmount: Money,
+    val receiveAddress: String,
+    val asset: String,
+    val network: String,
+    val expiresAt: String,
+    val memoOrTag: String?,
+)
+
+data class PaymentDetails(
+    val orderNumber: String,
+    val status: String,
+    val merchantName: String,
+    val matchingMode: String,
+    val paymentPageUrl: String,
+    val qrPayload: String,
+    val receiveAddress: String,
+    val payableAmount: Money,
+    val copyAmount: String,
+    val asset: String,
+    val network: String,
+    val expiresAt: String,
+    val wrongNetworkWarning: String,
+    val payExactAmountWarning: String?,
+    val memoOrTag: String?,
+    val memoWarning: String?,
+    val contractAddress: String?,
+)
+
+object OrderDefaults {
+    const val ASSET = "USDT"
+    const val NETWORK = "tron"
+    const val VALIDITY_SECONDS = 900
+}
+
 object SessionRules {
     const val ROLE_CASHIER = "cashier"
     const val ORG_MERCHANT = "merchant"

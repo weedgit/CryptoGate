@@ -93,6 +93,61 @@ class CryptoGateClient(
 
     fun isSignedIn(): Boolean = !sessionStore.sessionToken.isNullOrBlank()
 
+    /**
+     * POST /v1/orders — matching mode comes from merchant default, never the POS.
+     */
+    suspend fun createOrder(
+        amount: String,
+        asset: String = OrderDefaults.ASSET,
+        network: String = OrderDefaults.NETWORK,
+        validitySeconds: Int = OrderDefaults.VALIDITY_SECONDS,
+        idempotencyKey: String = newIdempotencyKey(),
+    ): PaymentOrder =
+        withContext(Dispatchers.IO) {
+            val token = requireToken()
+            val req = Request.Builder()
+                .url(config.url("/orders"))
+                .post(
+                    JsonParsers.createOrderRequestJson(amount, asset, network, validitySeconds)
+                        .toRequestBody(jsonMedia),
+                )
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader(token))
+                .header("Idempotency-Key", idempotencyKey)
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    if (res.code == 401) sessionStore.clear()
+                    throw JsonParsers.parseError(body, res.code)
+                }
+                JsonParsers.parsePaymentOrder(body)
+            }
+        }
+
+    /** Public GET /v1/orders/{id}/payment — same payload as the guest pay page. */
+    suspend fun getPaymentDetails(orderId: String): PaymentDetails =
+        withContext(Dispatchers.IO) {
+            val req = Request.Builder()
+                .url(config.url("/orders/${orderId.trim()}/payment"))
+                .get()
+                .header("Accept", "application/json")
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    throw JsonParsers.parseError(body, res.code)
+                }
+                JsonParsers.parsePaymentDetails(body)
+            }
+        }
+
+    private fun requireToken(): String =
+        sessionStore.sessionToken
+            ?: throw ApiError("not_authenticated", "Not signed in", 401)
+
+    private fun cookieHeader(token: String): String = "${SessionStore.COOKIE_NAME}=$token"
+
     private fun captureSessionCookie(setCookieHeaders: List<String>) {
         for (header in setCookieHeaders) {
             val part = header.substringBefore(';').trim()
@@ -115,5 +170,9 @@ class CryptoGateClient(
                 .readTimeout(30, TimeUnit.SECONDS)
                 .followRedirects(false)
                 .build()
+
+        fun newIdempotencyKey(): String =
+            "pos-${java.util.UUID.randomUUID()}"
     }
 }
+

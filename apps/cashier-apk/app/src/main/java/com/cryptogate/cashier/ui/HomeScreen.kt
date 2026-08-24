@@ -53,7 +53,7 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
-            Text("Create order (next: M2-71)")
+            Text("Create order")
         }
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(

@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0-m2-70"
+        versionName = "0.1.0-m2-72"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Emulator → host machine API (apps/api default :3000).
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/v1\"")
@@ -62,6 +62,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.json:json:20240303")
 

@@ -52,4 +52,68 @@ class JsonParsersTest {
         assertTrue(json.contains("a@b.co"))
         assertFalse(json.contains("orgId"))
     }
+
+    @Test
+    fun createOrderJsonOmitsMatchingMode() {
+        val json = JsonParsers.createOrderRequestJson("50.00", "USDT", "tron", 900)
+        val obj = JSONObject(json)
+        assertEquals("50.00", obj.getString("amount"))
+        assertEquals("USDT", obj.getString("asset"))
+        assertEquals("tron", obj.getString("network"))
+        assertEquals(900, obj.getInt("validitySeconds"))
+        assertFalse(obj.has("matchingMode"))
+        assertFalse(obj.has("receiveAddress"))
+    }
+
+    @Test
+    fun parsePaymentOrderAndDetails() {
+        val order =
+            JsonParsers.parsePaymentOrder(
+                """
+                {
+                  "id": "ord-1",
+                  "orderNumber": "CG-1",
+                  "status": "pending_payment",
+                  "matchingMode": "B",
+                  "payableAmount": { "amount": "50.00", "currency": "USDT" },
+                  "receivedAmount": null,
+                  "receiveAddress": "TMain",
+                  "addressSource": "main",
+                  "hdIndex": null,
+                  "memoOrTag": null,
+                  "asset": "USDT",
+                  "network": "tron",
+                  "expiresAt": "2026-08-24T12:00:00.000Z"
+                }
+                """.trimIndent(),
+            )
+        assertEquals("ord-1", order.id)
+        assertEquals("50.00", order.payableAmount.amount)
+        assertEquals("TMain", order.receiveAddress)
+
+        val pay =
+            JsonParsers.parsePaymentDetails(
+                """
+                {
+                  "orderNumber": "CG-1",
+                  "status": "pending_payment",
+                  "merchantName": "Hotel",
+                  "matchingMode": "C",
+                  "paymentPageUrl": "http://localhost:5173/pay/ord-1",
+                  "qrPayload": "tron:TMain?amount=50.01&asset=USDT&network=tron",
+                  "receiveAddress": "TMain",
+                  "payableAmount": { "amount": "50.01", "currency": "USDT" },
+                  "copyAmount": "50.01",
+                  "asset": "USDT",
+                  "network": "tron",
+                  "expiresAt": "2026-08-24T12:00:00.000Z",
+                  "wrongNetworkWarning": "Send only USDT on TRON TRC-20.",
+                  "payExactAmountWarning": "Send the exact payable amount."
+                }
+                """.trimIndent(),
+            )
+        assertEquals("50.01", pay.copyAmount)
+        assertTrue(pay.qrPayload.startsWith("tron:TMain"))
+        assertEquals("Send the exact payable amount.", pay.payExactAmountWarning)
+    }
 }
