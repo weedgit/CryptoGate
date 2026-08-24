@@ -64,7 +64,11 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
-| M2-50 | Kevin | doing | Live pay page poll GET /payment | `feat-kevin-payment-page-live-poll` — needs Andrew CORS |
+| M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — needs Andrew CORS for live path |
+| M2-51 | Kevin | doing | Guest display + wrong-network | `feat-kevin-payment-page-guest-display` |
+| M2-52 | Kevin | doing | QR + copy + share link | same branch |
+| M2-53 | Kevin | doing | Mode C exact payable warning | same branch |
+| M2-54 | Kevin | doing | Hide Mode D when memo unsupported | USDT Tron `memoSupported: false` |
 
 ---
 
