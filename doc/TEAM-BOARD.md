@@ -17,13 +17,14 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M2-42 | Mode D assign (memoSupported gate + unique memo) | Bruce | **done** | PR #18 merged |
 | M2-45 | Reject Mode S+C / Mode C wide underpay | Bruce | **done** | PR #21 merged |
 | M2-43 | Mode S assign (main vs HD on conflict) | Bruce | **done** | PR #23 merged |
-| M3-60 | Mode B `matchTransaction` (collision → anomaly) | Bruce | **doing** | `feat-bruce-matching-mode-b-match` |
+| M3-60 | Mode B `matchTransaction` (collision → anomaly) | Bruce | **done** | PR #26 merged |
+| M3-61 | Mode C exact fingerprint match | Bruce | **doing** | `feat-bruce-matching-mode-c-match` |
 
 ## Now — matching (Bruce)
 
-**Current:** M3-60 Mode B match on `feat-bruce-matching-mode-b-match`.
+**Current:** M3-61 Mode C match on `feat-bruce-matching-mode-c-match`.
 
-**Next after merge:** Mode C match (M3-61), or wire watcher to call `matchTransaction` with candidates. HD pool (M2-44) still Andrew.
+**Next after merge:** Mode D match (M3-62) or watcher wiring (M3-41). Mode S match needs HD pool (M2-44).
 
 ## Blockers / asks for Kevin
 
@@ -35,12 +36,12 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 - Wire `@cryptogate/matching` `assignOnCreate` (settlement + matching settings exist).
 - Mode S ports + HD pool table (M2-44) + xPub (M2-20).
-- Call `validateMatchingSettings` on matching mode save (if not already).
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M3-61 Mode C matchTransaction (exact fingerprint) |
 | 2026-08-24 | Bruce: M3-60 Mode B matchTransaction (collision → anomaly) |
 | 2026-08-24 | Bruce: M2-43 Mode S assign (main vs HD ports) |
 | 2026-08-24 | Bruce: M2-45 reject Mode S+C / Mode C wide underpay |

@@ -7,7 +7,7 @@ Package path: `packages/matching`
 | Function / type | Called by | Purpose |
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
-| `matchModeB` | watcher / tests | Mode B match (also via `matchTransaction`) |
+| `matchModeB` / `matchModeC` | watcher / tests | Mode B/C match (also via `matchTransaction`) |
 | `MatchCandidateOrder` | watcher | Open-order row shape for match |
 | `assignModeB` / `assignModeC` / `assignModeD` / `assignModeS` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
@@ -31,7 +31,8 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
 | Match | Status |
 | --- | --- |
 | B | **M3-60 done** — exact match → `verifying`; same-amount collision → `payment_anomaly` (all `orderIds`); under/overpay on sole order → anomaly |
-| C / D / S | Stub until M3-61 / M3-62 / M3-63 |
+| C | **M3-61 done** — exact fingerprint match → `verifying`; duplicate fingerprints → anomaly (never FIFO) |
+| D / S | Stub until M3-62 / M3-63 |
 
 ## Mode B match (`matchModeB` / `matchTransaction` with `mode: "B"`)
 
@@ -43,6 +44,14 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
   - **0** at address → `pending_payment` / `no_open_order_at_address`.
   - All candidates expired → `late_payment_after_expiry` anomaly.
 - Does not set `completed` (watcher waits for confirmations).
+
+## Mode C match (`matchModeC` / `matchTransaction` with `mode: "C"`)
+
+- Same candidate + exact payable rules as Mode B (fingerprints are unique at assign).
+- **1** exact fingerprint → `verifying` / `mode_c_exact_match`.
+- **2+** same fingerprint (should not happen if assign reserved correctly) → `mode_c_fingerprint_collision` anomaly — never FIFO.
+- Sole order wrong amount → `mode_c_underpay` / `mode_c_overpay`.
+- Guest must pay the exact fingerprint shown on the payment page.
 
 ## Mode B contract (`assignModeB` / `assignOnCreate` with `mode: "B"`)
 

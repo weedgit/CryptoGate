@@ -13,7 +13,7 @@ import {
   type AssetCode as AssetCodeType,
   type NetworkId as NetworkIdType,
 } from "@cryptogate/domain";
-import { majorToMinor } from "../mode-b/index.js";
+import { majorToMinor } from "../amount.js";
 import type { AssignInput, AssignResult } from "../types.js";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;

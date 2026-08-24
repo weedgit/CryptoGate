@@ -4,7 +4,7 @@
  */
 import { OrderStatus as Status } from "@cryptogate/domain";
 import { assignModeB, matchModeB } from "./mode-b/index.js";
-import { assignModeC } from "./mode-c/index.js";
+import { assignModeC, matchModeC } from "./mode-c/index.js";
 import { assignModeD } from "./mode-d/index.js";
 import { assignModeS } from "./mode-s/index.js";
 import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types.js";
@@ -53,10 +53,7 @@ export async function matchTransaction(input: MatchInput): Promise<MatchResult> 
     case "B":
       return matchModeB(input);
     case "C":
-      return {
-        status: Status.PendingPayment,
-        reason: "matchTransaction Mode C — Bruce M3-61",
-      };
+      return matchModeC(input);
     case "D":
       return {
         status: Status.PendingPayment,
@@ -77,6 +74,7 @@ export async function matchTransaction(input: MatchInput): Promise<MatchResult> 
 export { assignModeB, matchModeB, majorToMinor } from "./mode-b/index.js";
 export {
   assignModeC,
+  matchModeC,
   formatPayableAmount,
   minorToMajor,
   pickUniquePayableMinor,
