@@ -31,3 +31,19 @@ describe("@cryptogate/web agent M4-31", () => {
     assert.doesNotMatch(agent, /CreateOrderPage/);
   });
 });
+
+describe("@cryptogate/web agent C6 onboard merchant", () => {
+  it("wires merchant wizard with stub tier/fee steps", () => {
+    const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
+    assert.match(app, /merchants\/new/);
+    assert.match(app, /OnboardMerchantPage/);
+    const wizard = readFileSync(
+      join(root, "src/agent/OnboardMerchantPage.tsx"),
+      "utf8",
+    );
+    assert.match(wizard, /stub UI/i);
+    assert.match(wizard, /createOrg/);
+    assert.match(wizard, /structure/);
+    assert.doesNotMatch(wizard, /createOrder/);
+  });
+});

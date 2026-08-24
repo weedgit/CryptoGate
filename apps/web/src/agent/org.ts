@@ -24,6 +24,15 @@ export function primaryAgentOrgId(session: Session): string | null {
   return agent?.orgId ?? null;
 }
 
+/** Agent Owner/Admin may onboard merchants (C6). Viewers read-only. */
+export function sessionCanOnboardMerchant(session: Session): boolean {
+  return session.memberships.some(
+    (m) =>
+      AGENT_TYPES.has(m.orgType ?? "") &&
+      (m.role === "owner" || m.role === "administrator"),
+  );
+}
+
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
   if (type === "agent_sub") return "Agent (sub)";

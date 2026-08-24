@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import type { Session } from "./api";
 import { sessionIsAgentStaff } from "./org";
 
@@ -23,6 +24,24 @@ export function RequireAgentPortal({ session, children }: Props) {
         </div>
       </div>
     );
+  }
+  return <>{children}</>;
+}
+
+export function RequireAgentOperator({
+  session,
+  children,
+}: {
+  session: Session;
+  children: ReactNode;
+}) {
+  const allowed = session.memberships.some(
+    (m) =>
+      (m.orgType === "agent" || m.orgType === "agent_sub") &&
+      (m.role === "owner" || m.role === "administrator"),
+  );
+  if (!allowed) {
+    return <Navigate to="/agent" replace />;
   }
   return <>{children}</>;
 }

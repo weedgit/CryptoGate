@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError, listOrgs, type OrgAccount } from "./api";
-import { orgTypeLabel } from "./org";
+import { Link } from "react-router-dom";
+import { ApiError, listOrgs, type OrgAccount, type Session } from "./api";
+import { orgTypeLabel, sessionCanOnboardMerchant } from "./org";
 
-export function MerchantsListPage() {
+type Props = { session: Session };
+
+export function MerchantsListPage({ session }: Props) {
+  const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
   const [items, setItems] = useState<OrgAccount[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -41,12 +45,19 @@ export function MerchantsListPage() {
     <div className="panel">
       <div className="panel-head">
         <h2>Merchants (subtree)</h2>
-        <input
-          className="field-control"
-          placeholder="Search name or ID"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="action-row">
+          <input
+            className="field-control"
+            placeholder="Search name or ID"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {canOnboard ? (
+            <Link className="btn-primary" to="/agent/merchants/new">
+              Onboard merchant
+            </Link>
+          ) : null}
+        </div>
       </div>
       {loading ? <p style={{ color: "var(--muted)" }}>Loading…</p> : null}
       {error ? <p className="error">{error}</p> : null}
@@ -66,7 +77,9 @@ export function MerchantsListPage() {
           <tbody>
             {filtered.map((row) => (
               <tr key={row.id}>
-                <td>{row.name}</td>
+                <td>
+                  <Link to={`/agent/merchants/${row.id}`}>{row.name}</Link>
+                </td>
                 <td>{orgTypeLabel(row.type)}</td>
                 <td>{row.structure?.replace("_", " ") ?? "—"}</td>
                 <td className="mono">{row.id}</td>

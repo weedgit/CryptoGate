@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ApiError, listOrgs, listServiceBills } from "./api";
+import { ApiError, listOrgs, listServiceBills, type Session } from "./api";
+import { sessionCanOnboardMerchant } from "./org";
 
-export function DashboardPage() {
+type Props = { session: Session };
+
+export function DashboardPage({ session }: Props) {
+  const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -81,13 +85,18 @@ export function DashboardPage() {
           <Link className="btn-secondary" to="/agent/merchants">
             View merchants
           </Link>
+          {canOnboard ? (
+            <Link className="btn-primary" to="/agent/merchants/new">
+              Onboard merchant
+            </Link>
+          ) : null}
           <Link className="btn-secondary" to="/agent/service-bills?status=overdue">
             Overdue bills
           </Link>
         </div>
         <p style={{ color: "var(--muted)", marginTop: 16 }}>
-          Onboard merchant (C6) and commission statements (C10) ship in follow-up
-          agent tasks. Agents do not create payment orders.
+          Commission statements (C10) ship in a follow-up task. Agents do not create
+          payment orders.
         </p>
       </div>
     </>
