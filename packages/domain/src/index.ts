@@ -220,3 +220,108 @@ export type PaymentOrder = PaymentOrderAssignFields & {
   expiresAt: string;
   createdBy?: string;
 };
+
+/** Outbound merchant webhook names (OpenAPI WebhookEventType). */
+export const WebhookEventType = {
+  PaymentOrderCreated: "payment_order.created",
+  PaymentOrderVerifying: "payment_order.verifying",
+  PaymentOrderCompleted: "payment_order.completed",
+  PaymentOrderExpired: "payment_order.expired",
+  PaymentOrderPaymentAnomaly: "payment_order.payment_anomaly",
+  PaymentOrderFailed: "payment_order.failed",
+  WebhookTest: "webhook.test",
+} as const;
+
+export type WebhookEventType =
+  (typeof WebhookEventType)[keyof typeof WebhookEventType];
+
+export const WebhookDeliveryStatus = {
+  Pending: "pending",
+  Success: "success",
+  Failed: "failed",
+} as const;
+
+export type WebhookDeliveryStatus =
+  (typeof WebhookDeliveryStatus)[keyof typeof WebhookDeliveryStatus];
+
+/**
+ * Service bill lifecycle. Separate rail from OrderStatus — never reuse
+ * payment-order states for platform billing.
+ */
+export const ServiceBillStatus = {
+  Issued: "issued",
+  Paid: "paid",
+  Overdue: "overdue",
+  Voided: "voided",
+} as const;
+
+export type ServiceBillStatus =
+  (typeof ServiceBillStatus)[keyof typeof ServiceBillStatus];
+
+/** Phase 1 service bills are invoiced in USD (not skimmed from on-chain USDT). */
+export const BillingCurrency = {
+  USD: "USD",
+} as const;
+
+export type BillingCurrency =
+  (typeof BillingCurrency)[keyof typeof BillingCurrency];
+
+/** DB columns on `service_bills` (Andrew migration). */
+export const ServiceBillColumn = {
+  orgId: "org_id",
+  periodStart: "period_start",
+  periodEnd: "period_end",
+  subscriptionAmount: "subscription_amount",
+  volumeFeeAmount: "volume_fee_amount",
+  totalAmount: "total_amount",
+  currency: "currency",
+  status: "status",
+  dueAt: "due_at",
+} as const;
+
+export type ServiceBillColumnName =
+  (typeof ServiceBillColumn)[keyof typeof ServiceBillColumn];
+
+/**
+ * Platform SaaS invoice (subscription + volume fee). Funds go to the
+ * platform billing wallet — never deducted from the payer's on-chain payment.
+ */
+export type ServiceBill = {
+  id: string;
+  orgId: string;
+  periodStart: string;
+  periodEnd: string;
+  subscriptionAmount: string;
+  volumeFeeAmount: string;
+  totalAmount: string;
+  currency: BillingCurrency;
+  status: ServiceBillStatus;
+  dueAt: string;
+};
+
+/** Machine-client signing headers (required with X-Api-Key; omit on session). */
+export const ApiSigningHeader = {
+  ApiKey: "X-Api-Key",
+  Timestamp: "X-Timestamp",
+  Nonce: "X-Nonce",
+  Signature: "X-Signature",
+} as const;
+
+/** |now - X-Timestamp| greater than this → 401 timestamp_skew. */
+export const API_SIGNING_MAX_SKEW_SECONDS = 300;
+
+/** Nonce uniqueness window per API key (must be ≥ 2× skew). */
+export const API_SIGNING_NONCE_TTL_SECONDS = 600;
+
+/** Phase 1 rate limits (M3-11). 429 + Retry-After when exceeded. */
+export const RateLimitPerMinute = {
+  apiKey: 120,
+  ip: 300,
+  login: 10,
+  guestPayment: 60,
+} as const;
+
+/** Delivery worker backoff after non-2xx or timeout (M3-14). */
+export const WEBHOOK_RETRY_DELAYS_SECONDS = [1, 5, 25, 125, 625] as const;
+
+export const WEBHOOK_HTTP_TIMEOUT_MS = 10_000;
