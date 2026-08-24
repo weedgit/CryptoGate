@@ -20,6 +20,10 @@ import {
   handleGetSettlement,
   handlePutSettlement,
 } from "../settlement/settlement-routes.mjs";
+import {
+  handleGetMatchingMode,
+  handlePutMatchingMode,
+} from "../matching-mode/matching-mode-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -109,6 +113,19 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutSettlement(req, res, orgId);
+      return;
+    }
+  }
+
+  const matchingModeMatch = path.match(/^\/v1\/orgs\/([^/]+)\/matching-mode$/);
+  if (matchingModeMatch) {
+    const orgId = decodeURIComponent(matchingModeMatch[1]);
+    if (method === "GET") {
+      await handleGetMatchingMode(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutMatchingMode(req, res, orgId);
       return;
     }
   }

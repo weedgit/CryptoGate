@@ -124,12 +124,18 @@ export function validateCreateOrderBody(body) {
 }
 
 /**
- * M1 stub assign (Mode B). Does not call packages/matching.
- * @param {{ amount: string, asset: string, config: { requiredConfirmations: number } }} input
+ * Stub assign until M2-12 wires `@cryptogate/matching`.
+ * Locks the merchant default mode onto the order; address/payable stay stub.
+ * @param {{
+ *   amount: string,
+ *   asset: string,
+ *   matchingMode: string,
+ *   config: { requiredConfirmations: number },
+ * }} input
  */
 export function stubAssignOnCreate(input) {
   return {
-    matchingMode: "B",
+    matchingMode: input.matchingMode,
     payableAmount: { amount: input.amount, currency: input.asset },
     receiveAddress: STUB_RECEIVE_ADDRESS,
     addressSource: "main",

@@ -143,3 +143,13 @@ export function canViewSettlementSettings(caller, org) {
   // read settlement on descendant sites either.
   return caller.memberships.some((m) => m.role !== "cashier");
 }
+
+/** Same bar as settlement: Cashier cannot change matching mode. */
+export function canChangeMatchingModeSettings(caller, org) {
+  return canChangeSettlementSettings(caller, org);
+}
+
+/** Same bar as settlement: Cashier cannot view matching mode. */
+export function canViewMatchingModeSettings(caller, org) {
+  return canViewSettlementSettings(caller, org);
+}
