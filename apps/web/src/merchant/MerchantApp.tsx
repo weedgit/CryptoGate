@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { getSession, logout, type PaymentDetails, type Session } from "./api";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { getSession, logout, type Session } from "./api";
 import { CreateOrderPage } from "./CreateOrderPage";
+import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantShell } from "./MerchantShell";
+import { OrderDetailPage } from "./OrderDetailPage";
+import { OrdersListPage } from "./OrdersListPage";
 import { SettlementPage } from "./SettlementPage";
 
 function Placeholder({ title }: { title: string }) {
@@ -13,46 +16,23 @@ function Placeholder({ title }: { title: string }) {
       <p style={{ color: "var(--muted)" }}>
         Shell placeholder — wired in a later merchant task.
       </p>
-      <p>
-        <Link to="/merchant/orders/new" style={{ color: "var(--teal)" }}>
-          Create payment order →
-        </Link>
-      </p>
     </div>
   );
 }
 
-function OrderDetail() {
-  const { id } = useParams();
-  const location = useLocation();
-  const pay = (location.state as { pay?: PaymentDetails } | null)?.pay;
+type ShellProps = {
+  session: Session;
+  title: string;
+  crumb: string;
+  children: ReactNode;
+  onSignOut: () => void;
+};
+
+function Shell({ session, title, crumb, children, onSignOut }: ShellProps) {
   return (
-    <div className="panel">
-      <h2>Order {pay?.orderNumber ?? id}</h2>
-      {pay ? (
-        <>
-          <p style={{ color: "var(--muted)" }}>
-            Status: {pay.status} · {pay.payableAmount.amount} {pay.asset} on{" "}
-            {pay.network.toUpperCase()}
-          </p>
-          <div className="addr-box">{pay.receiveAddress}</div>
-          <p style={{ marginTop: 16 }}>
-            <a href={pay.paymentPageUrl} style={{ color: "var(--teal)" }} target="_blank" rel="noreferrer">
-              Open guest payment page
-            </a>
-          </p>
-        </>
-      ) : (
-        <p style={{ color: "var(--muted)" }}>
-          Order created. Reload detail from list in a later slice.
-        </p>
-      )}
-      <p style={{ marginTop: 16 }}>
-        <Link to="/merchant/orders/new" style={{ color: "var(--teal)" }}>
-          Create another
-        </Link>
-      </p>
-    </div>
+    <MerchantShell session={session} title={title} crumb={crumb} onSignOut={onSignOut}>
+      {children}
+    </MerchantShell>
   );
 }
 
@@ -85,89 +65,72 @@ export function MerchantApp() {
     );
   }
 
+  const signOut = async () => {
+    await logout();
+    setSession(null);
+  };
+
   return (
     <Routes>
       <Route
+        path="/merchant"
+        element={
+          <Shell session={session} title="Merchant Dashboard" crumb="Overview" onSignOut={signOut}>
+            <DashboardPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/orders"
+        element={
+          <Shell session={session} title="Orders Directory" crumb="Payment Orders" onSignOut={signOut}>
+            <OrdersListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
         path="/merchant/orders/new"
         element={
-          <MerchantShell
+          <Shell
             session={session}
             title="New Payment Request"
             crumb="Generate Invoice Flow"
-            onSignOut={async () => {
-              await logout();
-              setSession(null);
-            }}
+            onSignOut={signOut}
           >
             <CreateOrderPage />
-          </MerchantShell>
+          </Shell>
         }
       />
       <Route
         path="/merchant/orders/:id"
         element={
-          <MerchantShell
-            session={session}
-            title="Order detail"
-            crumb="Orders"
-            onSignOut={async () => {
-              await logout();
-              setSession(null);
-            }}
-          >
-            <OrderDetail />
-          </MerchantShell>
+          <Shell session={session} title="Order Insights" crumb="Orders" onSignOut={signOut}>
+            <OrderDetailPage />
+          </Shell>
         }
       />
       <Route
         path="/merchant/settings/settlement"
         element={
-          <MerchantShell
+          <Shell
             session={session}
             title="Settlement Protocol & Address Book"
             crumb="HD Pool & Routing Config"
-            onSignOut={async () => {
-              await logout();
-              setSession(null);
-            }}
+            onSignOut={signOut}
           >
             <SettlementPage session={session} />
-          </MerchantShell>
-        }
-      />
-      <Route
-        path="/merchant"
-        element={
-          <MerchantShell
-            session={session}
-            title="Dashboard"
-            crumb="Overview"
-            onSignOut={async () => {
-              await logout();
-              setSession(null);
-            }}
-          >
-            <Placeholder title="Dashboard" />
-          </MerchantShell>
+          </Shell>
         }
       />
       <Route
         path="/merchant/*"
         element={
-          <MerchantShell
-            session={session}
-            title="Merchant"
-            crumb="Portal"
-            onSignOut={async () => {
-              await logout();
-              setSession(null);
-            }}
-          >
+          <Shell session={session} title="Merchant" crumb="Portal" onSignOut={signOut}>
             <Placeholder title="Coming next" />
-          </MerchantShell>
+          </Shell>
         }
       />
-      <Route path="*" element={<Navigate to="/merchant/orders/new" replace />} />
+      <Route path="*" element={<Navigate to="/merchant" replace />} />
     </Routes>
   );
 }

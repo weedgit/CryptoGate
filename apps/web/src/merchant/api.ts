@@ -14,10 +14,24 @@ export type PaymentOrder = {
   status: string;
   matchingMode: string;
   payableAmount: { amount: string; currency: string };
+  receivedAmount?: { amount: string; currency: string } | null;
   receiveAddress: string;
+  addressSource?: string;
+  hdIndex?: number | null;
+  memoOrTag?: string | null;
   asset: string;
   network: string;
   expiresAt: string;
+  createdBy?: string;
+};
+
+export type OnChainDetails = {
+  txHash?: string | null;
+  blockHeight?: number | null;
+  fromAddress?: string | null;
+  toAddress?: string | null;
+  amount?: { amount: string; currency: string } | null;
+  confirmedAt?: string | null;
 };
 
 export type PaymentDetails = {
@@ -125,6 +139,51 @@ export async function getPaymentDetails(orderId: string): Promise<PaymentDetails
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as PaymentDetails;
+}
+
+export async function listOrders(opts?: {
+  status?: string;
+  limit?: number;
+}): Promise<PaymentOrder[]> {
+  const q = new URLSearchParams();
+  if (opts?.status) q.set("status", opts.status);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(`${API_BASE}/orders${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: PaymentOrder[] };
+  return data.items ?? [];
+}
+
+export async function getOrder(orderId: string): Promise<PaymentOrder> {
+  const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PaymentOrder;
+}
+
+export async function getOnChain(orderId: string): Promise<OnChainDetails> {
+  const res = await fetch(
+    `${API_BASE}/orders/${encodeURIComponent(orderId)}/on-chain`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OnChainDetails;
+}
+
+/** Relative CSV export URL (session cookie). Cashiers get 403 from API. */
+export function ordersCsvUrl(status?: string): string {
+  const q = new URLSearchParams({ format: "csv" });
+  if (status) q.set("status", status);
+  return `${API_BASE}/orders?${q}`;
 }
 
 export type MatchingModeSettings = {
