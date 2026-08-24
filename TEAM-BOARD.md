@@ -77,7 +77,8 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 | M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR #39 |
 | M3-30 | Bruce | done | Live TronGrid USDT TRC-20 ingest + confirmations | PR #42 merged |
 | M2-44 | Bruce | done | HD pool state helpers + Andrew schema handoff | PR #43; API claim PR #44 |
-| M3-63 | Bruce | doing | Mode S matchTransaction by owned address | `feat-bruce-matching-mode-s-match` |
+| M3-63 | Bruce | done | Mode S matchTransaction by owned address | PR #45 merged |
+| M3-64 | Bruce | doing | §2.8 matching acceptance (B/C/D/S) | `feat-bruce-matching-acceptance` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |

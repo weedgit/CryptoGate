@@ -35,6 +35,8 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (+ `mode-s/pool` FREE/IN_US
 | D | **M3-62 done** — amount + memo; missing/wrong memo → anomaly; unsupported network → no match |
 | S | **M3-63 done** — match by owned address (main or HD) + exact payable; collision → anomaly; pool COOLDOWN→FREE is API (`releaseDueHdPoolAddresses`) |
 
+**Acceptance (M3-64):** `packages/matching/test/acceptance-2.8.test.mjs` covers Phase1 §2.8 / M3-T02–T06 matching slices (B collision, C fingerprints, D memo, S three-order + pool reuse, never rewrite address, under/overpay, wrong network).
+
 ## Mode B match (`matchModeB` / `matchTransaction` with `mode: "B"`)
 
 - Watcher loads open orders and passes `candidates` (same address / asset / network scope).
