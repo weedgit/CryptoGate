@@ -101,6 +101,9 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-61 | Bruce | done | Matching mode settings UI | PR #70 merged |
 | M2-62 | Bruce | done | Settlement address book + cool-down UI | PR #70 merged |
 | M2-63 | Bruce | done | xPub / HD pool settings UI | PR #70 merged |
+| M2-64 | Bruce | doing | Merchant dashboard (D1) | `feat-bruce-web-merchant-m2-orders-shell` |
+| M2-65 | Bruce | doing | Orders list + CSV export (D2) | same branch |
+| M2-66 | Bruce | doing | Order detail + on-chain panel (D3) | same branch |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -148,9 +151,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | Start M2-60 from Figma map | `doc/UI-Handoff.md` — dark `d4` `29:2023` + D1–D3 support; do not invent UI |
-| P1 | Then M2-61/62/63 | D11 frames — copy must match `doc/M4-32-Merchant-Manual.md` |
-| P2 | APK smoke notes | Optional while scaffolding `apps/web/src/merchant` |
+| P1 | D1–D3 dashboard / orders / detail | `doc/UI-Handoff.md` — D1 `29:1617`, D2 `29:1750`, D3 `29:1888`; no Mark paid |
+| P2 | APK smoke notes | Optional while finishing merchant shell |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 

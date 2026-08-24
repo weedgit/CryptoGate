@@ -35,3 +35,15 @@ export function networkLabel(network: string): string {
   if (network === "ethereum") return "ERC-20";
   return network.toUpperCase();
 }
+
+/** O / A / V may export CSV; cashiers cannot. */
+export function sessionCanExportOrders(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator", "viewer"].includes(m.role),
+  );
+}
+
+export function sessionIsCashierOnly(session: Session): boolean {
+  if (session.memberships.length === 0) return false;
+  return session.memberships.every((m) => m.role === "cashier");
+}
