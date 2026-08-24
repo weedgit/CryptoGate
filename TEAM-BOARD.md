@@ -47,6 +47,16 @@ Open this file on `main` and check **Now**. Pick your next task.
 
 **Suggested contract freeze:** Tuesday EOD (Kevin announces if different).
 
+### Contract freeze (M1-05)
+
+| Cadence | What |
+| --- | --- |
+| **Tuesday EOD** | Kevin freezes OpenAPI/`domain` for the week; Andrew/Bruce rebase |
+| **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
+| **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
+
+Current freeze: OpenAPI **v0.2.2** (orders + matching-mode + settlement). Next bump when Andrew ships xPub or cool-down schemas.
+
 ---
 
 ## Now (start here)
@@ -64,10 +74,10 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M3-62 | Bruce | done | Mode D memo match | PR #32 merged |
 | M3-41 | Bruce | done | Watcher → matchTransaction wire | PR #34 merged |
 | M3-42 | Bruce | done | Confirmations → completed | PR #37 merged |
-| M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR pending |
+| M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR #39 |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
-| M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
+| M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
@@ -75,7 +85,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
 | M2-06 | Kevin | done | CI package gate + Andrew unblock notes | PR #31 |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 — `doc/M2-Mid-Gate.md` |
-| M2-08 | Kevin | doing | Pay page CORS live path + origin notes | `feat-kevin-payment-page-cors-live` |
+| M2-08 | Kevin | done | Pay page CORS live path + origin notes | merged to main |
+| M2-09 | Kevin | done | CI: watcher inbound + API cors/expiry/audit tests | merged to main |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
