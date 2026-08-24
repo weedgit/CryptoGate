@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.2.3** (orders + matching-mode + settlement cool-down + xPub presence). Next bump when HD pool or M3 webhooks land.
+Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-down + xPub presence + list/CSV). Next bump when HD pool or M3 webhooks land.
 
 ---
 
@@ -87,7 +87,8 @@ Current freeze: OpenAPI **v0.2.3** (orders + matching-mode + settlement cool-dow
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 — `doc/M2-Mid-Gate.md` |
 | M2-08 | Kevin | done | Pay page CORS live path + origin notes | merged to main |
 | M2-09 | Kevin | done | CI: watcher inbound + API cors/expiry/audit tests | merged to main |
-| M2-10 | Kevin | doing | OpenAPI settlement cool-down + xPub (v0.2.3) | `feat-kevin-api-spec-m2-xpub-cooldown` |
+| M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub (v0.2.3) | merged to main |
+| M2-11 | Kevin | doing | OpenAPI order list + CSV (v0.2.4) | `feat-kevin-api-spec-m2-order-list` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -196,7 +197,8 @@ Landed: `assignOnCreate` (#30), CORS + expiry (#33), settlement MFA/cool-down (#
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
-| M2-10 | Kevin | doing | OpenAPI settlement cool-down + xPub | `feat-kevin-api-spec-m2-xpub-cooldown` v0.2.3 |
+| M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub | v0.2.3 merged |
+| M2-11 | Kevin | doing | OpenAPI order list + CSV | `feat-kevin-api-spec-m2-order-list` v0.2.4 |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
 | M2-08 | Kevin | doing | Pay page CORS live path notes | `feat-kevin-payment-page-cors-live` |
 

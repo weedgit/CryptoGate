@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.3",
+  "version: 0.2.4",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -37,7 +37,8 @@ const required = [
   "UpsertXpubRequest",
   "xPubConfigured",
   "pendingXPub",
-  "/orders",
+  "PaymentOrderList",
+  "format=csv",
   "/orders/{id}/payment",
   "createPaymentOrder",
   "getPaymentOrder",
@@ -79,4 +80,4 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 contract freeze v0.2.3: ok");
+console.log("OpenAPI M2 contract freeze v0.2.4: ok");

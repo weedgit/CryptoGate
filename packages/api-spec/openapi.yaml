@@ -1,12 +1,13 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.2.3
+  version: 0.2.4
   description: >
-    Contract freeze v0.2.3 (M2 orders, matching-mode, settlement cool-down, xPub presence).
-    Source of truth for apps/api, apps/payment-page, and apps/cashier-apk. Payment orders
-    are watch-only. Service bills are a separate rail. Enum string values and PaymentOrder
-    fields match @cryptogate/domain. Never return spend keys or full xPub strings.
+    Contract freeze v0.2.4 (M2 orders, matching-mode, settlement cool-down, xPub
+    presence, order list/export). Source of truth for apps/api, apps/payment-page,
+    and apps/cashier-apk. Payment orders are watch-only. Service bills are a separate
+    rail. Enum string values and PaymentOrder fields match @cryptogate/domain.
+    Never return spend keys or full xPub strings.
 servers:
   - url: /v1
 tags:
@@ -604,23 +605,56 @@ paths:
     get:
       tags: [orders]
       operationId: listPaymentOrders
-      summary: List orders in the caller’s merchant scope
+      summary: List or export orders in the caller’s merchant scope
+      description: >
+        JSON default `{ items }`. `format=csv` (or Accept: text/csv) returns a
+        spreadsheet-safe CSV. Cashier JSON is own orders only; Cashier CSV is 403.
+        Merchant Owner/Admin/Viewer may list descendant merchant_site orders.
+        Query orgId must be inside that tree. Platform operator lists all.
       security:
         - sessionCookie: []
         - apiKey: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+          description: Default json. csv max 5000 rows; json max 200 (default 100).
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+        - name: orgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Restrict to one org in the caller’s merchant tree
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
       responses:
         "200":
-          description: Order list
+          description: Order list (JSON) or CSV download
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/PaymentOrder"
+                $ref: "#/components/schemas/PaymentOrderList"
+            text/csv:
+              schema:
+                type: string
+              description: >
+                Headers include matching_mode, payable_amount, receive_address,
+                address_source, hd_index, memo_or_tag. Cells neutralize leading =+-@.
+        "400":
+          description: Invalid format, status, orgId, or limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           description: Not authenticated
           content:
@@ -628,7 +662,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Outside merchant scope
+          description: Outside merchant scope, or Cashier attempted CSV export
           content:
             application/json:
               schema:
@@ -1151,6 +1185,14 @@ components:
           format: date-time
         createdBy:
           type: string
+    PaymentOrderList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentOrder"
     PaymentDetails:
       type: object
       description: Guest pay / POS QR payload. Never includes keys, xPub, or fees.
