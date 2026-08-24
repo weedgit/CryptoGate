@@ -8,7 +8,7 @@ const NAV = [
   { to: "/merchant/service-bills", label: "Service Bills" },
   { to: "/merchant/sites", label: "Sites" },
   { to: "/merchant/reports", label: "Reports" },
-  { to: "/merchant/settings/settlement", label: "Settlement" },
+  { to: "/merchant/settings/settlement", label: "Settlement", matchPrefix: "/merchant/settings/settlement" },
   { to: "/merchant/settings/organization", label: "Org" },
   { to: "/merchant/settings/team", label: "Team" },
 ] as const;
