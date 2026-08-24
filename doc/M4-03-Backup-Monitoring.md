@@ -2,7 +2,7 @@
 
 **Owner:** Kevin (infra). **Implements:** Milestone M4-03.  
 **Depends on:** [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md), [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
-**Follow-ons:** M4-04 admin host · M4-33 ops polish · M4-T04 restore drill sign-off.
+**Follow-ons:** M4-33 ops polish · [M4-04 admin host](M4-04-Admin-Host-Vendor-Access.md).
 
 Company A owns cloud accounts. This doc defines **what to back up**, **how to restore**, and **which alerts to wire** for test and prod. It does not lock a monitoring vendor — use Company A standard (CloudWatch, Datadog, Grafana, UptimeRobot, PagerDuty, etc.).
 
@@ -35,7 +35,7 @@ Use the cloud provider’s **managed Postgres** backup features (RDS, Cloud SQL,
 | Encryption at rest | Provider default | Provider default | |
 | Retention | 7 days (minimum) | 14–30 days (Company A policy) | Include compliance hold if needed |
 | Cross-region copy | Optional | Recommended for prod DR | Company A choice |
-| Access to backups | Named ops roles only | Same + break-glass | M4-04 vendor access |
+| Access to backups | Named ops roles only | Same + break-glass | [M4-04](M4-04-Admin-Host-Vendor-Access.md) vendor access |
 
 **Targets (fill with Company A SLA):**
 

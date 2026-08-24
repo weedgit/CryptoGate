@@ -73,4 +73,4 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 
 Product, business, and planning files live in `doc/` (same repo — Andrew and Bruce pull with `main`).
 
-Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md). Deploy: [`doc/M4-01-Deploy-Runbook.md`](doc/M4-01-Deploy-Runbook.md). Secrets/TLS: [`doc/M4-02-Secrets-TLS.md`](doc/M4-02-Secrets-TLS.md). Backup/monitoring: [`doc/M4-03-Backup-Monitoring.md`](doc/M4-03-Backup-Monitoring.md).
+Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md). Deploy: [`doc/M4-01-Deploy-Runbook.md`](doc/M4-01-Deploy-Runbook.md). Secrets/TLS: [`doc/M4-02-Secrets-TLS.md`](doc/M4-02-Secrets-TLS.md). Backup/monitoring: [`doc/M4-03-Backup-Monitoring.md`](doc/M4-03-Backup-Monitoring.md). Admin/vendor access: [`doc/M4-04-Admin-Host-Vendor-Access.md`](doc/M4-04-Admin-Host-Vendor-Access.md).

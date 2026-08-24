@@ -69,6 +69,7 @@ When cloud DNS and TLS are ready, replace placeholders and send this table to in
 - Deploy / runbook: [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md)
 - Secrets & TLS: [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md)
 - Backup & monitoring: [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md)
+- Admin host & vendor access: [M4-04-Admin-Host-Vendor-Access.md](M4-04-Admin-Host-Vendor-Access.md)
 - Env var catalog: repo root `.env.example`
 - Cashier flavors: `doc/Cashier-Apk.md`, `apps/cashier-apk` M4-23
 - Signing / webhooks: [M3-01-Signed-Api.md](M3-01-Signed-Api.md)

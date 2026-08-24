@@ -51,7 +51,7 @@ Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
 | 8 | TronGrid (or private) endpoint + API key | ☐ | ☐ | Company A |
 | 9 | Backup schedule + restore drill | ☐ | ☐ | [M4-03](M4-03-Backup-Monitoring.md) §2–4 |
 | 10 | Uptime + watcher-lag alerts | ☐ | ☐ | [M4-03](M4-03-Backup-Monitoring.md) §5 |
-| 11 | Named vendor access + admin jump host | ☐ | ☐ | M4-04 |
+| 11 | Named vendor access + admin jump host | ☐ | ☐ | [M4-04](M4-04-Admin-Host-Vendor-Access.md) |
 
 **Terraform / IaC:** not locked to a vendor in Phase 1. When Company A picks AWS / GCP / Azure / other, add IaC under `infra/` (Kevin) as a follow-up PR. Until then, this runbook + container/VM commands are the deploy path.
 
@@ -170,6 +170,6 @@ Local compose file: repo root `docker-compose.yml` (Postgres only).
 | IaC (`infra/`) | Pending Company A cloud choice |
 | Secrets / TLS detail | Done — [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) |
 | Backup / monitoring | Done — [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md) |
-| Admin host / vendor access | M4-04 |
+| Admin host / vendor access | Done — [M4-04-Admin-Host-Vendor-Access.md](M4-04-Admin-Host-Vendor-Access.md) |
 
 **M3-T09:** send Company A the M4-05 hostname table + this runbook; they fill DNS/TLS/DB then Kevin assists first test deploy.

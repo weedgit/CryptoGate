@@ -1,7 +1,7 @@
 # M4-02 — TLS & secrets (Company A test / prod)
 
 **Owner:** Kevin (infra). **Depends on:** [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md), [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
-**Follow-ons:** [M4-03 backup/monitoring](M4-03-Backup-Monitoring.md) · M4-04 admin host.
+**Follow-ons:** [M4-03 backup/monitoring](M4-03-Backup-Monitoring.md) · [M4-04 admin host](M4-04-Admin-Host-Vendor-Access.md).
 
 Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. This doc lists **platform** secrets, TLS surfaces, and rotation — not merchant wallet material.
 
