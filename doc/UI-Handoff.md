@@ -31,17 +31,19 @@ Do **not** implement Figma page **98 Archive**. Ignore pink animation sticky not
 
 ## API (Andrew)
 
-Payment page polls **GET `/v1/orders/{id}/payment`** (OpenAPI v0.2, public, no merchant session). Until Andrew lands M2-13, `public/mock-order.js` only.
+| Call | Status |
+| --- | --- |
+| `POST /v1/orders` | Landed (PR #15 stub). Create-order prototype uses it. Needs session cookie + `Idempotency-Key`. |
+| `GET /v1/orders/{id}/payment` | **Still needed (M2-13).** Public, no session. Pay page polls this; until then falls back to `sessionStorage` from create. |
+| CORS | Needed for `PAYMENT_PAGE_BASE_URL` → `API_PUBLIC_BASE_URL` browser calls. |
 
-Preview: `pnpm --filter @cryptogate/payment-page dev` then open http://127.0.0.1:5173/ — query `?state=verifying|completed|expired|anomaly|failed|invalid` and `?mode=C|D`. Create-order prototype at `/create-order.html`.
+`public/config.js` sets `CRYPTOGATE_API_BASE` (default `http://127.0.0.1:3000`).
+
+Preview: `pnpm --filter @cryptogate/payment-page dev` → http://127.0.0.1:5173/  
+Demo states: `?state=verifying|completed|expired|anomaly|failed` · live order: `?id={uuid}` · create: `/create-order.html`
 
 ## Branch (Kevin)
 
 ```
-feat-kevin-payment-page-ui-lock
-```
-
-```bash
-git checkout main && git pull
-git checkout -b feat-kevin-payment-page-ui-lock
+feat-kevin-payment-page-api-wire
 ```

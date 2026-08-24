@@ -46,16 +46,23 @@
       .note a {
         color: var(--accent);
       }
+      #form-error {
+        color: var(--danger, #e85a5a);
+        font-size: 0.9rem;
+      }
     </style>
   </head>
   <body>
-    <form class="form" action="./index.html" method="get">
+    <form class="form">
       <p class="brand">CryptoGate</p>
       <h1 class="amount" style="font-size: 1.8rem">Create payment order</h1>
       <p class="note">
-        Merchant / Cashier prototype. Matching mode is merchant default (not
-        editable by Cashier). No live chain in M1.
+        Merchant / Cashier prototype. Calls <code>POST /v1/orders</code> (Andrew
+        stub). Matching mode is merchant default. Log in on the API first.
+        Guest pay still needs public <code>GET /v1/orders/{id}/payment</code>
+        (M2-13) plus CORS from this origin.
       </p>
+      <p id="form-error" hidden></p>
       <label>
         Amount
         <input name="amount" type="text" value="245.00" required />
@@ -69,9 +76,12 @@
       <label>
         Network
         <select name="network">
-          <option value="tron" selected>Tron</option>
-          <option value="ethereum">Ethereum</option>
+          <option value="tron" selected>Tron (USDT TRC-20)</option>
         </select>
+      </label>
+      <label>
+        Org id (if you belong to more than one)
+        <input name="orgId" type="text" placeholder="optional" />
       </label>
       <label>
         Validity (minutes)
@@ -92,5 +102,7 @@
         <a href="./index.html?mode=D">mode D</a>
       </p>
     </form>
+    <script src="./config.js"></script>
+    <script src="./create-order.js"></script>
   </body>
 </html>
