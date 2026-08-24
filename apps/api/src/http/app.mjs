@@ -35,6 +35,12 @@ import {
   handleRegisterWebhook,
   handleTestWebhook,
 } from "../webhooks/webhook-routes.mjs";
+import {
+  handleGetServiceBill,
+  handleGetServiceBillCheckout,
+  handleIssueServiceBill,
+  handleListServiceBills,
+} from "../service-bills/service-bill-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -219,6 +225,39 @@ export async function handleRequest(req, res) {
       res,
       decodeURIComponent(webhookMatch[1]),
       url,
+    );
+    return;
+  }
+
+  if (path === "/v1/service-bills") {
+    if (method === "GET") {
+      await handleListServiceBills(req, res, url);
+      return;
+    }
+    if (method === "POST") {
+      await handleIssueServiceBill(req, res);
+      return;
+    }
+  }
+
+  const serviceBillCheckoutMatch = path.match(
+    /^\/v1\/service-bills\/([^/]+)\/checkout$/,
+  );
+  if (method === "GET" && serviceBillCheckoutMatch) {
+    await handleGetServiceBillCheckout(
+      req,
+      res,
+      decodeURIComponent(serviceBillCheckoutMatch[1]),
+    );
+    return;
+  }
+
+  const serviceBillMatch = path.match(/^\/v1\/service-bills\/([^/]+)$/);
+  if (method === "GET" && serviceBillMatch) {
+    await handleGetServiceBill(
+      req,
+      res,
+      decodeURIComponent(serviceBillMatch[1]),
     );
     return;
   }

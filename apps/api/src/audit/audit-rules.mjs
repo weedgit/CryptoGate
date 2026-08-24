@@ -12,6 +12,7 @@ export const AUDIT_ACTIONS = {
   xpubPut: "xpub_put",
   webhookRegister: "webhook_register",
   webhookDelete: "webhook_delete",
+  serviceBillIssue: "service_bill_issue",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;
