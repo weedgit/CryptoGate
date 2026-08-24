@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.1",
+  "version: 0.2.2",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -20,6 +20,12 @@ const required = [
   "putMatchingModeSettings",
   "MatchingModeSettings",
   "UpdateMatchingModeRequest",
+  "/orgs/{orgId}/settlement",
+  "listSettlementAddresses",
+  "putSettlementAddress",
+  "SettlementAddress",
+  "SettlementAddressList",
+  "UpsertSettlementAddressRequest",
   "/orders",
   "/orders/{id}/payment",
   "createPaymentOrder",
@@ -46,8 +52,8 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-if (!raw.includes("version: 0.2.1")) {
-  console.error("OpenAPI must declare version 0.2.1 for matching-mode settings");
+if (!raw.includes("version: 0.2.2")) {
+  console.error("OpenAPI must declare version 0.2.2 for settlement address book");
   process.exit(1);
 }
 
@@ -62,4 +68,4 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 contract freeze v0.2.1: ok");
+console.log("OpenAPI M2 contract freeze v0.2.2: ok");
