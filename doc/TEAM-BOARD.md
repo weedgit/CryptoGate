@@ -19,13 +19,14 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M2-43 | Mode S assign (main vs HD on conflict) | Bruce | **done** | PR #23 merged |
 | M3-60 | Mode B `matchTransaction` (collision → anomaly) | Bruce | **done** | PR #26 merged |
 | M3-61 | Mode C exact fingerprint match | Bruce | **done** | PR #29 merged |
-| M3-62 | Mode D memo match | Bruce | **doing** | `feat-bruce-matching-mode-d-match` |
+| M3-62 | Mode D memo match | Bruce | **done** | PR #32 merged |
+| M3-41 | Watcher → matchTransaction wire | Bruce | **doing** | `feat-bruce-watcher-match-wire` |
 
-## Now — matching (Bruce)
+## Now — matching / watcher (Bruce)
 
-**Current:** M3-62 Mode D match on `feat-bruce-matching-mode-d-match`.
+**Current:** M3-41 watcher match wire — load open orders + transfers → `matchTransaction` → UPDATE.
 
-**Next after merge:** Mode S match (M3-63) needs HD pool; or watcher wiring (M3-41). Andrew has `feat-andrew-api-m2-matching-assign` in flight.
+**Next after merge:** Live Tron transfer poll (M3-40); confirmations → completed (M3-42); Mode S match (M3-63) needs HD pool.
 
 ## Blockers / asks for Kevin
 
@@ -34,18 +35,19 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 ## Blockers / asks for Andrew
 
-- Wire `assignOnCreate` (branch in progress).
 - Mode S: HD pool table (M2-44) + xPub (M2-20).
+- `assignOnCreate` wired (PR #30) — confirm Mode C reservation under lock in prod path.
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M3-41 watcher match wire (candidates → matchTransaction) |
 | 2026-08-24 | Bruce: M3-62 Mode D matchTransaction (memo exact / mismatch anomaly) |
 | 2026-08-24 | Bruce: M3-61 Mode C matchTransaction (exact fingerprint) |
 | 2026-08-24 | Bruce: M3-60 Mode B matchTransaction (collision → anomaly) |
 | 2026-08-24 | Bruce: M2-43 Mode S assign (main vs HD ports) |
-| 2026-08-24 | Bruce: optional check.mjs domain build + watcher tests — addressed in Kevin `feat-kevin-infra-ci-packages` |
+| 2026-08-24 | Bruce: M2-45 reject Mode S+C / Mode C wide underpay |
 | 2026-08-24 | Bruce: M2-42 Mode D assign (memoSupported gate) |
 | 2026-08-24 | Bruce: M1-34 accept payment_orders; M2-41 Mode C assign |
 | 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |
