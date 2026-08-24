@@ -10,6 +10,8 @@ import {
   AssetCode,
   NetworkId,
   PaymentOrderColumn,
+  USDT_TRON,
+  getAssetNetworkConfig,
 } from "../dist/index.js";
 
 describe("@cryptogate/domain", () => {
@@ -36,6 +38,21 @@ describe("@cryptogate/domain", () => {
   it("defaults first network to USDT on Tron", () => {
     assert.equal(DEFAULT_ASSET_NETWORK.asset, AssetCode.USDT);
     assert.equal(DEFAULT_ASSET_NETWORK.network, NetworkId.Tron);
+    assert.equal(DEFAULT_ASSET_NETWORK.contractAddress, USDT_TRON.contractAddress);
+  });
+
+  it("registers USDT Tron with confirmations and no memo (Mode D hidden)", () => {
+    const row = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron);
+    assert.ok(row);
+    assert.equal(row.displayNetwork, "TRON TRC-20");
+    assert.equal(row.decimals, 6);
+    assert.equal(row.requiredConfirmations, 19);
+    assert.equal(row.memoSupported, false);
+    assert.equal(row.minAmount, "0.01");
+    assert.equal(
+      getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum),
+      undefined,
+    );
   });
 
   it("exports payment-order DB columns for matching assign", () => {
