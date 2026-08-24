@@ -3,8 +3,10 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AgentShell } from "./AgentShell";
 import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
+import { MerchantDetailPage } from "./MerchantDetailPage";
 import { MerchantsListPage } from "./MerchantsListPage";
-import { RequireAgentPortal } from "./RequireAgentPortal";
+import { OnboardMerchantPage } from "./OnboardMerchantPage";
+import { RequireAgentOperator, RequireAgentPortal } from "./RequireAgentPortal";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { SubAgentsListPage } from "./SubAgentsListPage";
@@ -78,7 +80,7 @@ export function AgentApp() {
             crumb="Overview"
             onSignOut={signOut}
           >
-            <DashboardPage />
+            <DashboardPage session={session} />
           </Shell>
         }
       />
@@ -91,7 +93,35 @@ export function AgentApp() {
             crumb="Subtree"
             onSignOut={signOut}
           >
-            <MerchantsListPage />
+            <MerchantsListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="merchants/new"
+        element={
+          <Shell
+            session={session}
+            title="Onboard Merchant"
+            crumb="Merchants"
+            onSignOut={signOut}
+          >
+            <RequireAgentOperator session={session}>
+              <OnboardMerchantPage session={session} />
+            </RequireAgentOperator>
+          </Shell>
+        }
+      />
+      <Route
+        path="merchants/:id"
+        element={
+          <Shell
+            session={session}
+            title="Merchant Detail"
+            crumb="Merchants"
+            onSignOut={signOut}
+          >
+            <MerchantDetailPage />
           </Shell>
         }
       />
