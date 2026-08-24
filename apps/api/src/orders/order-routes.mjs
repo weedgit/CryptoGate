@@ -16,6 +16,7 @@ import {
   toPaymentOrder,
 } from "./order-store.mjs";
 import { toPaymentDetails } from "./order-map.mjs";
+import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -105,9 +106,12 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
+  // Mode locked from merchant settings at create (M2-17). Real assign is M2-12.
+  const matchingMode = await getEffectiveMatchingMode(scope.orgId);
   const assign = stubAssignOnCreate({
     amount: validated.parsed.amount,
     asset: validated.parsed.asset,
+    matchingMode,
     config: validated.parsed.config,
   });
   const expiresAt = new Date(

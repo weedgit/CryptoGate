@@ -9,6 +9,8 @@ import {
   resolveOrderOrgId,
   canReadPaymentOrder,
   canViewSettlementSettings,
+  canChangeMatchingModeSettings,
+  canViewMatchingModeSettings,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -184,6 +186,38 @@ describe("role policy", () => {
       canViewSettlementSettings(
         { platformOperator: false, memberships: [merchantCashier] },
         { id: "site-1", type: "merchant_site" },
+      ),
+      false,
+    );
+  });
+
+  it("uses the same role bar for matching mode as settlement", () => {
+    const merchant = { id: "m1", type: "merchant" };
+    assert.equal(
+      canChangeMatchingModeSettings(
+        { platformOwner: false, memberships: [merchantOwner] },
+        merchant,
+      ),
+      true,
+    );
+    assert.equal(
+      canChangeMatchingModeSettings(
+        { platformOwner: false, memberships: [merchantCashier] },
+        merchant,
+      ),
+      false,
+    );
+    assert.equal(
+      canViewMatchingModeSettings(
+        { platformOperator: false, memberships: [agentOwner] },
+        merchant,
+      ),
+      true,
+    );
+    assert.equal(
+      canViewMatchingModeSettings(
+        { platformOperator: false, memberships: [merchantCashier] },
+        merchant,
       ),
       false,
     );

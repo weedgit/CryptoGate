@@ -68,13 +68,14 @@ describe("order create rules", () => {
     assert.equal(amountToMinor("1.1234567", 6), null);
   });
 
-  it("stubs Mode B assign with a non-live receive address", () => {
+  it("stubs assign and locks the merchant matching mode", () => {
     const assign = stubAssignOnCreate({
       amount: "245.00",
       asset: "USDT",
+      matchingMode: "C",
       config: { requiredConfirmations: 19 },
     });
-    assert.equal(assign.matchingMode, "B");
+    assert.equal(assign.matchingMode, "C");
     assert.equal(assign.addressSource, "main");
     assert.equal(assign.receiveAddress, STUB_RECEIVE_ADDRESS);
     assert.equal(assign.payableAmount.amount, "245.00");
