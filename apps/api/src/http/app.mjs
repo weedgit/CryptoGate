@@ -30,6 +30,7 @@ import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
+import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
 
 /**
  * HTTP router for apps/api. Auth paths match OpenAPI servers.url `/v1`.
@@ -43,6 +44,8 @@ export async function handleRequest(req, res) {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const path = url.pathname;
   const method = req.method ?? "GET";
+
+  if (applyRateLimits(req, res, { method, path })) return;
 
   if (method === "GET" && path === "/health") {
     const payload = await getHealthPayload({ checkDb: true });
