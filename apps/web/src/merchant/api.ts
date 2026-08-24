@@ -316,3 +316,61 @@ export async function listHdPool(orgId: string): Promise<HdPoolList> {
   if (!res.ok) await parseError(res);
   return (await res.json()) as HdPoolList;
 }
+
+export type ServiceBill = {
+  id: string;
+  orgId: string;
+  periodStart: string;
+  periodEnd: string;
+  subscriptionAmount: string;
+  volumeFeeAmount: string;
+  totalAmount: string;
+  currency: string;
+  status: string;
+  dueAt: string;
+};
+
+export type ServiceBillCheckout = {
+  billId: string;
+  totalAmount: string;
+  currency: string;
+  payTo: string;
+  qrPayload?: string | null;
+  instructions: string;
+};
+
+export async function listServiceBills(opts?: {
+  status?: string;
+}): Promise<ServiceBill[]> {
+  const q = new URLSearchParams();
+  if (opts?.status) q.set("status", opts.status);
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(`${API_BASE}/service-bills${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: ServiceBill[] };
+  return data.items ?? [];
+}
+
+export async function getServiceBill(billId: string): Promise<ServiceBill> {
+  const res = await fetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ServiceBill;
+}
+
+export async function getServiceBillCheckout(billId: string): Promise<ServiceBillCheckout> {
+  const res = await fetch(
+    `${API_BASE}/service-bills/${encodeURIComponent(billId)}/checkout`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ServiceBillCheckout;
+}

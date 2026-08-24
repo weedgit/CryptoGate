@@ -123,3 +123,31 @@ describe("@cryptogate/web merchant D17 cashier shell", () => {
     assert.doesNotMatch(banner, /sparkles|fade-in 400ms/i);
   });
 });
+
+describe("@cryptogate/web merchant D5-D6 service bills", () => {
+  it("wires service bill list and detail routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /ServiceBillsListPage/);
+    assert.match(app, /ServiceBillDetailPage/);
+    assert.match(app, /\/merchant\/service-bills/);
+  });
+
+  it("uses separate service bill API and status labels", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listServiceBills/);
+    assert.match(api, /getServiceBillCheckout/);
+    const labels = readFileSync(
+      join(root, "src/merchant/serviceBillStatus.ts"),
+      "utf8",
+    );
+    assert.match(labels, /overdue/);
+    assert.doesNotMatch(labels, /pending_payment/);
+    const list = readFileSync(
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
+      "utf8",
+    );
+    assert.match(list, /Customer payments go to your wallet[\s\S]*separately/);
+    assert.match(list, /listServiceBills/);
+    assert.doesNotMatch(list, /createOrder|listOrders/);
+  });
+});

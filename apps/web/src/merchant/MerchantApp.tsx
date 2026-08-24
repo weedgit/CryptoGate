@@ -10,6 +10,8 @@ import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
 import { SettlementPage } from "./SettlementPage";
+import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
+import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { sessionIsCashierOnly } from "./org";
 
 function Placeholder({ title }: { title: string }) {
@@ -178,11 +180,21 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/service-bills/*"
+        path="/merchant/service-bills"
         element={
-          <Shell session={session} title="Service Bills" crumb="Restricted" onSignOut={signOut}>
+          <Shell session={session} title="Service Bills" crumb="Platform billing" onSignOut={signOut}>
             <OwnerOnly session={session} area="service bills">
-              <Placeholder title="Service bills" />
+              <ServiceBillsListPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/service-bills/:id"
+        element={
+          <Shell session={session} title="Service Bill" crumb="Bill detail" onSignOut={signOut}>
+            <OwnerOnly session={session} area="service bills">
+              <ServiceBillDetailPage session={session} />
             </OwnerOnly>
           </Shell>
         }

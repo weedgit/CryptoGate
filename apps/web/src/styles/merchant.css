@@ -1141,6 +1141,137 @@ select {
   margin-top: 0;
 }
 
+.bills-page,
+.bills-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bills-banner {
+  background: rgba(255, 183, 3, 0.12);
+  border: 1px solid rgba(255, 183, 3, 0.45);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.bills-filter-overdue.active {
+  border-color: var(--anomaly);
+  background: rgba(255, 90, 106, 0.12);
+  color: var(--text);
+}
+
+.bills-table {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  border-left: 3px solid var(--warn);
+}
+
+.bills-head,
+.bills-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 0.9fr 0.9fr 1fr 0.9fr 1fr 72px;
+  gap: 10px;
+  padding: 12px 16px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.bills-head {
+  background: var(--bg);
+  color: var(--footer);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.bills-row {
+  border-top: 1px solid var(--border);
+}
+
+.bills-row-main {
+  grid-column: 1 / 8;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 0.9fr 0.9fr 1fr 0.9fr 1fr;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+}
+
+.bills-row:hover {
+  background: rgba(255, 183, 3, 0.04);
+}
+
+.bills-total {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.bills-pay-dash {
+  grid-column: 8;
+  text-align: center;
+}
+
+.bills-row .btn-inline {
+  grid-column: 8;
+  justify-self: center;
+}
+
+.bills-detail-card {
+  border-left: 3px solid var(--warn);
+}
+
+.bills-line-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.bills-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.bills-line-total {
+  color: var(--text);
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.bills-checkout {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.bills-checkout h3 {
+  margin: 0 0 12px;
+}
+
+.bills-checkout-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 @media (max-width: 1100px) {
   .split {
     flex-direction: column;
@@ -1174,5 +1305,13 @@ select {
   .qr-section {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .bills-head,
+  .bills-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bills-row-main {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
   }
 }
