@@ -8,13 +8,18 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.0",
+  "version: 0.2.1",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
   "/auth/mfa/enroll",
   "/auth/mfa/verify",
   "/orgs",
+  "/orgs/{orgId}/matching-mode",
+  "getMatchingModeSettings",
+  "putMatchingModeSettings",
+  "MatchingModeSettings",
+  "UpdateMatchingModeRequest",
   "/orders",
   "/orders/{id}/payment",
   "createPaymentOrder",
@@ -36,13 +41,13 @@ const required = [
 
 const missing = required.filter((needle) => !raw.includes(needle));
 if (missing.length > 0) {
-  console.error("OpenAPI M2 order contract freeze checks failed. Missing:");
+  console.error("OpenAPI M2 contract freeze checks failed. Missing:");
   for (const m of missing) console.error(`  - ${m}`);
   process.exit(1);
 }
 
-if (raw.includes("version: 0.1.0")) {
-  console.error("OpenAPI still declares 0.1.0; M2 freeze is 0.2.0");
+if (!raw.includes("version: 0.2.1")) {
+  console.error("OpenAPI must declare version 0.2.1 for matching-mode settings");
   process.exit(1);
 }
 
@@ -57,4 +62,4 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 order contract freeze v0.2: ok");
+console.log("OpenAPI M2 contract freeze v0.2.1: ok");
