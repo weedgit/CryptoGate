@@ -16,6 +16,7 @@ import {
 } from "./cookies.mjs";
 import { requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
+import { listMembershipsForUser } from "../orgs/membership-store.mjs";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 const INVALID_MFA = "Invalid MFA code";
@@ -26,6 +27,11 @@ function cookieMaxAgeSec() {
 
 function setSessionCookie(res, token) {
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec: cookieMaxAgeSec() }));
+}
+
+async function sessionPayload(user) {
+  const memberships = await listMembershipsForUser(user.id);
+  return sessionFromUser(user, memberships);
 }
 
 /**
@@ -60,7 +66,7 @@ export async function handleLogin(req, res) {
   });
   setSessionCookie(res, created.token);
   sendJson(res, 200, {
-    session: sessionFromUser(user),
+    session: await sessionPayload(user),
     mfaRequired: user.mfaEnrolled,
   });
 }
@@ -95,11 +101,11 @@ export async function handleGetSession(req, res) {
 
   await extendSessionByToken(auth.token);
   setSessionCookie(res, auth.token);
-  sendJson(res, 200, sessionFromUser(user));
+  sendJson(res, 200, await sessionPayload(user));
 }
 
 /**
- * Start TOTP enrollment. Role restriction (Owner/Admin) is M1-15/16.
+ * Start TOTP enrollment. Owner/Admin-only gating is M1-16.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */
@@ -161,7 +167,7 @@ export async function handleMfaVerify(req, res) {
     }
     await activatePendingMfa(user.id);
     await markSessionMfaVerified(auth.token);
-    sendJson(res, 200, sessionFromUser(user));
+    sendJson(res, 200, await sessionPayload(user));
     return;
   }
 
@@ -171,7 +177,7 @@ export async function handleMfaVerify(req, res) {
       return;
     }
     await markSessionMfaVerified(auth.token);
-    sendJson(res, 200, sessionFromUser(user));
+    sendJson(res, 200, await sessionPayload(user));
     return;
   }
 

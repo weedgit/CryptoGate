@@ -7,6 +7,10 @@ import {
   handleMfaVerify,
 } from "./auth-routes.mjs";
 import { handleCreateOrg, handleGetOrg, handleListOrgs } from "../orgs/org-routes.mjs";
+import {
+  handleAssignOrgUserRole,
+  handleInviteOrgUser,
+} from "../orgs/membership-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -63,6 +67,23 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/orgs") {
     await handleCreateOrg(req, res);
+    return;
+  }
+
+  const roleMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/role$/);
+  if (method === "PUT" && roleMatch) {
+    await handleAssignOrgUserRole(
+      req,
+      res,
+      decodeURIComponent(roleMatch[1]),
+      decodeURIComponent(roleMatch[2]),
+    );
+    return;
+  }
+
+  const inviteMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users$/);
+  if (method === "POST" && inviteMatch) {
+    await handleInviteOrgUser(req, res, decodeURIComponent(inviteMatch[1]));
     return;
   }
 
