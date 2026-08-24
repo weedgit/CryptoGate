@@ -4,16 +4,28 @@ import {
   login,
   logout,
   listOrders,
+  getMatchingMode,
+  listSettlement,
+  listXpub,
+  type MatchingModeSettings,
   type PaymentOrder,
   type Session,
+  type SettlementAddress,
+  type XpubSettings,
 } from "../merchant/api";
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
   "/v1";
 
-export { ApiError, getSession, login, logout, listOrders };
-export type { PaymentOrder, Session };
+export { ApiError, getSession, login, logout, listOrders, getMatchingMode, listSettlement, listXpub };
+export type {
+  PaymentOrder,
+  Session,
+  MatchingModeSettings,
+  SettlementAddress,
+  XpubSettings,
+};
 
 export type OrgAccount = {
   id: string;
