@@ -101,6 +101,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M2-12 | Kevin | done | OpenAPI Mode S HD pool list (v0.2.5) | merged to main |
 | M2-13 | Kevin | done | CI: matching §2.8 acceptance suite | `feat-kevin-infra-matching-acceptance` |
 | M3-01 | Kevin | done | OpenAPI M3 signing, webhooks, service bills (v0.3.0) | `feat-kevin-api-spec-m3-signing-webhooks` |
+| M3-04 | Kevin | done | Connected assets/networks list (live vs planned) | `doc/M3-04-Asset-Networks.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -228,6 +229,7 @@ Unblocked by OpenAPI **v0.3.0**. Cashier 403 on webhooks and bills. Guest `/paym
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M3-01 | Kevin | done | OpenAPI signing, webhooks, service bills | v0.3.0 `feat-kevin-api-spec-m3-signing-webhooks` |
+| M3-04 | Kevin | done | Live vs planned asset/network list | `doc/M3-04-Asset-Networks.md` |
 
 ---
 

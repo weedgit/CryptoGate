@@ -93,6 +93,14 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 | Webhooks | `GET/POST /v1/webhooks`, `POST /v1/webhooks/test`, deliveries | Secret once; HMAC outbound; Cashier 403 |
 | Service bills | `/v1/service-bills` | Separate rail; USD; platform issue; not `/orders` |
 
+## v0.3.0 addendum — M3-04 asset/network list
+
+**Date:** 2026-08-24
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Live vs planned pairs | `doc/M3-04-Asset-Networks.md` | Only **USDT / tron** enabled; §VI remainder planned |
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
@@ -112,4 +120,4 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 ## Out of this freeze
 
-M3-02 integration guide prose, M3-03 sample handler, API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12).
+M3-02 integration guide prose, M3-03 sample handler, API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12). Second live network (after USDT/tron) waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
