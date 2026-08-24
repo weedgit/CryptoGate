@@ -1,3 +1,4 @@
+import { extraWatcherBackoffMs } from "@cryptogate/chain-clients/tron";
 import { loadWatcherConfig } from "./config.mjs";
 import { runTick } from "./tick.mjs";
 
@@ -39,7 +40,20 @@ export async function runWatcherLoop(options = {}) {
 
     if (options.once) break;
 
-    await sleep(config.pollIntervalMs, options.signal);
+    const extraMs = extraWatcherBackoffMs(payload, config.pollIntervalMs);
+    if (extraMs > 0) {
+      console.log(
+        JSON.stringify({
+          service: "cryptogate-watcher",
+          event: "rpc-backoff",
+          extraMs,
+          ingestMode: payload.ingest?.mode,
+          chainPollMode: payload.ingest?.chainPollMode,
+          at: new Date().toISOString(),
+        }),
+      );
+    }
+    await sleep(config.pollIntervalMs + extraMs, options.signal);
     if (options.signal?.aborted) stopping = true;
   }
 
