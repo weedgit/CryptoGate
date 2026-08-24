@@ -62,6 +62,15 @@ Additive only — order create / payment schemas unchanged.
 
 Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
+## v0.2.4 — Order list + CSV export
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.4`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| OpenAPI list/export | `GET /v1/orders` | Query `format`, `status`, `orgId`, `limit`; CSV Cashier 403 (Andrew PR #41) |
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
