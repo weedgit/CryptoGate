@@ -1,4 +1,4 @@
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus, ServiceBillUpdateAction } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
@@ -6,6 +6,7 @@ import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import {
   canCheckoutServiceBill,
   canIssueServiceBill,
+  canUpdateServiceBill,
   canViewServiceBill,
   isMerchantOrgType,
   serviceBillListScope,
@@ -18,11 +19,16 @@ import {
   toServiceBillCheckout,
   checkoutAllowedForBillStatus,
   validateIssueServiceBillBody,
+  validateUpdateServiceBillBody,
+  applyUsdAdjustment,
 } from "./service-bill-rules.mjs";
 import {
   findServiceBillById,
   insertServiceBill,
   listServiceBills,
+  markServiceBillPaid,
+  voidServiceBill,
+  adjustServiceBill,
 } from "./service-bill-store.mjs";
 
 /**
@@ -211,4 +217,98 @@ export async function handleGetServiceBillCheckout(req, res, billId) {
   const loaded = await loadReadableBill(req, res, billId, "checkout");
   if (!loaded) return;
   sendJson(res, 200, toServiceBillCheckout(loaded.row));
+}
+
+/**
+ * PATCH /v1/service-bills/{billId} — platform operator only (v0.3.2).
+ */
+export async function handleUpdateServiceBill(req, res, billId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  if (!canUpdateServiceBill(caller)) {
+    sendError(res, 403, "forbidden", "Only platform operators may update service bills");
+    return;
+  }
+
+  const row = await findServiceBillById(billId);
+  if (!row) {
+    sendError(res, 404, "not_found", "Service bill not found");
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const validated = validateUpdateServiceBillBody(body, row.status);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+
+  /** @type {object | null} */
+  let updated = null;
+
+  if (validated.action === ServiceBillUpdateAction.MarkPaid) {
+    updated = await markServiceBillPaid(billId, validated.paymentReference);
+    if (updated) {
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillMarkPaid,
+        metadata: {
+          billId,
+          paymentReference: validated.paymentReference,
+        },
+      });
+    }
+  } else if (validated.action === ServiceBillUpdateAction.Void) {
+    updated = await voidServiceBill(billId, validated.reason);
+    if (updated) {
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillVoid,
+        metadata: { billId, reason: validated.reason },
+      });
+    }
+  } else if (validated.action === ServiceBillUpdateAction.Adjust) {
+    let nextTotal;
+    try {
+      nextTotal = applyUsdAdjustment(row.total_amount, validated.adjustmentAmount);
+    } catch {
+      sendError(res, 400, "invalid_request", "Invalid adjustmentAmount");
+      return;
+    }
+    updated = await adjustServiceBill(billId, nextTotal, validated.reason);
+    if (updated) {
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillAdjust,
+        metadata: {
+          billId,
+          adjustmentAmount: validated.adjustmentAmount,
+          totalAmount: nextTotal,
+        },
+      });
+    }
+  }
+
+  if (!updated) {
+    sendError(
+      res,
+      422,
+      "invalid_transition",
+      "Service bill cannot transition in its current status",
+    );
+    return;
+  }
+
+  sendJson(res, 200, toServiceBill(updated));
 }

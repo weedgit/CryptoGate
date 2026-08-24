@@ -342,6 +342,36 @@ export function canIssueServiceBill(caller) {
 }
 
 /**
+ * Platform Owner/Admin may PATCH service bills (mark paid / void / adjust).
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canUpdateServiceBill(caller) {
+  return caller.platformOperator === true;
+}
+
+/**
+ * Audit log list scope. Cashier none; platform staff all; agent/merchant O/A/V subtree.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @returns {{ kind: "all" } | { kind: "none" } | { kind: "scoped", rootIds: string[] }}
+ */
+export function auditListScope(caller) {
+  if (platformHasGlobalRead(caller)) return { kind: "all" };
+  /** @type {string[]} */
+  const rootIds = [];
+  for (const m of caller.memberships) {
+    if (m.role === "cashier") continue;
+    if (!ORDER_READ_ROLES.has(m.role)) continue;
+    if (m.orgType === "platform") continue;
+    rootIds.push(m.orgId);
+  }
+  if (rootIds.length === 0) return { kind: "none" };
+  return { kind: "scoped", rootIds };
+}
+
+/**
  * Merchant Owner/Admin may open checkout for their org. Not Viewer/Cashier/agent.
  * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string }[] }} caller
  * @param {{ id: string, type: string }} org
