@@ -17,6 +17,14 @@ export type {
   MatchInput,
   MatchResult,
 } from "./types.js";
+export type {
+  MatchingSettingsInput,
+  MatchingSettingsValidation,
+} from "./validate-settings.js";
+export {
+  assertMatchingSettings,
+  validateMatchingSettings,
+} from "./validate-settings.js";
 
 /** Router selects the mode stored on the order at create time. */
 export async function assignOnCreate(input: AssignInput): Promise<AssignResult> {

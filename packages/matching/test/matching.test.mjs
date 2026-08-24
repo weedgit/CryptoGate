@@ -7,11 +7,13 @@ import {
   assignModeDForConfig,
   assignModeS,
   assignOnCreate,
+  assertMatchingSettings,
   majorToMinor,
   minorToMajor,
   pickUniqueMemoOrTag,
   pickUniquePayableMinor,
   sanitizeMemoSeed,
+  validateMatchingSettings,
   MODE_C_RESERVED_STATUSES,
   MODE_D_RESERVED_STATUSES,
   matchTransaction,
@@ -279,6 +281,88 @@ describe("@cryptogate/matching Mode D assign (M2-42)", () => {
           config,
         ),
       /listReservedMemoOrTags is required/,
+    );
+  });
+});
+
+describe("@cryptogate/matching matching settings policy (M2-45)", () => {
+  it("allows singular Mode B / C / D / S", () => {
+    for (const mode of ["B", "C", "D", "S"]) {
+      assert.equal(validateMatchingSettings({ mode }).ok, true);
+    }
+  });
+
+  it("rejects Mode S + Mode C via mode C with smartAddressEnabled", () => {
+    const result = validateMatchingSettings({
+      mode: "C",
+      smartAddressEnabled: true,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mode_s_with_mode_c");
+  });
+
+  it("rejects Mode S + Mode C via mode S with amountFingerprintEnabled", () => {
+    const result = validateMatchingSettings({
+      mode: "S",
+      amountFingerprintEnabled: true,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mode_s_with_mode_c");
+  });
+
+  it("rejects both secondary collision flags together", () => {
+    const result = validateMatchingSettings({
+      mode: "B",
+      smartAddressEnabled: true,
+      amountFingerprintEnabled: true,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mode_s_with_mode_c");
+  });
+
+  it("allows Mode C with zero underpay tolerance", () => {
+    assert.equal(
+      validateMatchingSettings({
+        mode: "C",
+        underpayTolerance: "0",
+        amountStep: "0.01",
+        decimals: 6,
+      }).ok,
+      true,
+    );
+  });
+
+  it("allows Mode C underpay strictly below amountStep", () => {
+    assert.equal(
+      validateMatchingSettings({
+        mode: "C",
+        underpayTolerance: "0.001",
+        amountStep: "0.01",
+        decimals: 6,
+      }).ok,
+      true,
+    );
+  });
+
+  it("rejects Mode C underpay >= amountStep", () => {
+    const result = validateMatchingSettings({
+      mode: "C",
+      underpayTolerance: "0.01",
+      amountStep: "0.01",
+      decimals: 6,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mode_c_underpay_too_wide");
+  });
+
+  it("assertMatchingSettings throws on Mode S + C", () => {
+    assert.throws(
+      () =>
+        assertMatchingSettings({
+          mode: "S",
+          amountFingerprintEnabled: true,
+        }),
+      /mode_s_with_mode_c/,
     );
   });
 });

@@ -14,7 +14,7 @@ Package path: `packages/matching`
 | `pickUniqueMemoOrTag` | tests | Mode D memo picker (pure) |
 | `ListReservedPayableAmounts` | Andrew | Port for open-order payable list |
 | `ListReservedMemoOrTags` | Andrew | Port for open-order memo list |
-| `MODE_C_RESERVED_STATUSES` / `MODE_D_RESERVED_STATUSES` | Andrew | Statuses that keep payable/memo reserved |
+| `validateMatchingSettings` / `assertMatchingSettings` | API / merchant UI | Reject Mode S+C and Mode C with wide underpay (M2-45) |
 
 Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s, not create-order).
 
@@ -54,3 +54,14 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s
   - Result: `memoOrTag` set; `hdIndex` null; `addressSource: "main"`.
 - Wrong/missing on-chain memo → anomaly in M3 `matchTransaction` (not this assign).
 - UI/API should hide Mode D on unsupported USDT networks (Kevin M2-54); matching still enforces the flag.
+
+## Matching settings policy (M2-45)
+
+Call `validateMatchingSettings` (or `assertMatchingSettings`) when saving merchant matching settings — **before** create order.
+
+| Rule | Code |
+| --- | --- |
+| Mode S and Mode C on the same path (mode C + `smartAddressEnabled`, mode S + `amountFingerprintEnabled`, or both secondary flags) | `mode_s_with_mode_c` |
+| Mode C with `underpayTolerance` ≥ registry `amountStep` | `mode_c_underpay_too_wide` |
+
+Singular modes B / C / D / S alone are allowed. Open orders keep the mode stored at create; changing the merchant default does not rewrite them.
