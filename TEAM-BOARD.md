@@ -63,7 +63,7 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | --- | --- | --- |
 | **Andrew** | B4 branch up; wire v0.3.3 commercial when API lands | X-01 on `main` — migrate **019** |
 | **Bruce** | **M3-32 done** (#90) | Ping Kevin: flip `USDT_ETHEREUM` `enabled: true` after staging smoke |
-| **Kevin** | M5-08/M5-09 POS docs done; M1-T05 checklist; M3-T09 send when §3 filled | [`doc/M5-08-Cashier-Apk-Install.md`](doc/M5-08-Cashier-Apk-Install.md) |
+| **Kevin** | M4-T04 + X-07 done; M1-T05 demo; M3-T09 when §3 filled | [`doc/X-07-E2E-Smoke.md`](doc/X-07-E2E-Smoke.md) |
 | **All** | `git pull origin main`; migrate **017** + **018** | **019** when Andrew lands X-01 API |
 
 ---
@@ -158,6 +158,8 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | M5-08 | Kevin | done | Cashier APK sideload / MDM / checksum | `doc/M5-08-Cashier-Apk-Install.md` + `scripts/apk-checksum.mjs` |
 | M5-09 | Kevin | done | Cashier POS section in merchant manual | `doc/M4-32-Merchant-Manual.md` §10 |
 | M5-01 | Kevin | done | Reference device confirmation template | `doc/M5-01-Reference-Device.md` — await Company A sign-off |
+| M4-T04 | Kevin | done | Restore drill report + CVE/load template | `doc/M4-T04-Restore-Drill-Report.md` — execute after M3-T09 |
+| X-07 | Kevin | done | E2E smoke suite (`scripts/e2e-smoke.mjs`) | `doc/X-07-E2E-Smoke.md` |
 | M1-T05 | Kevin | doing | Prototype walkthrough checklist | `doc/M1-T05-Prototype-Walkthrough.md` |
 | M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send when client fills §3 hostnames |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |

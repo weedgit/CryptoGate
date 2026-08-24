@@ -24,6 +24,8 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | Watcher ↔ order status | [Watcher-Order-Status-Contract.md](Watcher-Order-Status-Contract.md) | Bruce |
 | Live asset/network | [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) | Kevin |
 | M3 acceptance / CI gate | [M3-Acceptance.md](M3-Acceptance.md) | Kevin |
+| E2E smoke suite (X-07) | [X-07-E2E-Smoke.md](X-07-E2E-Smoke.md) | Kevin |
+| Restore drill report (M4-T04) | [M4-T04-Restore-Drill-Report.md](M4-T04-Restore-Drill-Report.md) | Kevin |
 | Company A test handoff (M3-T09) | [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) | Kevin |
 | Cashier APK install / MDM / checksum (M5-08) | [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) | Kevin |
 | Reference POS device sign-off (M5-01) | [M5-01-Reference-Device.md](M5-01-Reference-Device.md) | Kevin |
@@ -55,7 +57,7 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | First deploy to test/prod | [M4-01](M4-01-Deploy-Runbook.md) §5 |
 | Rotate session secret | [M4-02](M4-02-Secrets-TLS.md) §6 |
 | Restore DB after incident | [M4-03](M4-03-Backup-Monitoring.md) §4.2 |
-| Test restore drill (M4-T04) | [M4-03](M4-03-Backup-Monitoring.md) §4.1 |
+| Test restore drill (M4-T04) | [M4-T04-Restore-Drill-Report.md](M4-T04-Restore-Drill-Report.md) · [M4-03](M4-03-Backup-Monitoring.md) §4.1 |
 | Grant vendor break-glass | [M4-04](M4-04-Admin-Host-Vendor-Access.md) §7 |
 | Roll back bad API release | [M4-01](M4-01-Deploy-Runbook.md) §7 |
 | Merchant integration handoff | [M4-05](M4-05-Env-Matrix.md) §Company A fill-in + [M3-02](M3-02-Integration-Guide.md) |

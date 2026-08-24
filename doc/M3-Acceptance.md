@@ -9,6 +9,8 @@ Kevin owns the gate; evidence is automated where noted. Matching slices (T02–T
 
 ```bash
 node scripts/check.mjs
+node scripts/e2e-smoke.mjs          # tier A — signing + webhook samples
+node scripts/e2e-smoke.mjs --check  # tier A + full contract gate
 # or focused:
 node --test apps/api/test/signing.test.mjs apps/api/test/auth-http.test.mjs apps/api/test/api-key-rules.test.mjs
 node doc/examples/api-signing-smoke.mjs
