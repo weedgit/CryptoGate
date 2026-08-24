@@ -52,6 +52,7 @@ run("node", [
 run("node", [
   "--test",
   "apps/watcher/test/watcher.test.mjs",
+  "apps/watcher/test/ethereum-tick.test.mjs",
   "apps/watcher/test/inbound-match.test.mjs",
   "apps/watcher/test/confirmations.test.mjs",
   "apps/watcher/test/restart-safety.test.mjs",

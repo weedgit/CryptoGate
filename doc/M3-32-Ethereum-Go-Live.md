@@ -22,6 +22,15 @@ Do **not** set `enabled: true` until staging smoke passes — create-order must 
 
 ## 2. Staging smoke (Bruce + Kevin)
 
+### Automated (CI / local — no RPC)
+
+```bash
+pnpm --filter @cryptogate/domain build
+pnpm --filter @cryptogate/watcher test
+```
+
+Includes `apps/watcher/test/ethereum-tick.test.mjs` — watcher tick with `DEFAULT_NETWORK=ethereum` and mock `ETH_RPC_URL`.
+
 | # | Check | Pass |
 | --- | --- | --- |
 | 1 | Watcher tick logs ethereum health when `ETH_RPC_URL` set | ☐ |

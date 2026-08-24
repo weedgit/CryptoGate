@@ -61,10 +61,26 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 
 | Who | Focus | Status / note |
 | --- | --- | --- |
-| **Andrew** | B4 branch up; wire v0.3.3 commercial when API lands | X-01 on `main` — migrate **019** |
-| **Bruce** | **M3-32 done** (#90) | Ping Kevin: flip `USDT_ETHEREUM` `enabled: true` after staging smoke |
-| **Kevin** | M1-T05 demo script ready; flip ETH after [M3-32 go-live](doc/M3-32-Ethereum-Go-Live.md) smoke | `node scripts/demo-walkthrough.mjs` |
+| **Andrew** | **X-01** API + migrate **019**; platform **B8/B13** | Spec on `main`; replace commercial stubs |
+| **Bruce** | **M3-32 staging smoke** — tick tests on `main` | Code #90; live smoke per [M3-32-Ethereum-Go-Live.md](doc/M3-32-Ethereum-Go-Live.md) §2 |
+| **Kevin** | **Blocked** on client (§ below); M1-T05 demo | `node scripts/demo-walkthrough.mjs`; flip ETH after Bruce §2 sign-off |
 | **All** | `git pull origin main`; migrate **017** + **018** | **019** when Andrew lands X-01 API |
+
+### Kevin — blocked on client
+
+| ID | Blocker |
+| --- | --- |
+| **M1-01** | Written scope sign-off (`Phase1-Requirement`) |
+| **M3-T09 send** | Company A §3 hostname table (pack ready on `main`) |
+| **M5-01** | Reference POS SKU confirmed in writing |
+| **M4-40** | Pilot merchant selection |
+
+### Kevin — next (when unblocked or you say go)
+
+| ID | Task |
+| --- | --- |
+| **M1-T05** | Prototype walkthrough → mark board **done** |
+| — | Flip **`USDT_ETHEREUM.enabled: true`** after Bruce staging smoke sign-off |
 
 ---
 
@@ -119,9 +135,9 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | M2-75 | Bruce | done | Reports & export (D10) | PR #79 merged |
 | M2-76 | Bruce | done | Settings pages org/billing/alerts/team (D12–D16) | PR #81 merged |
 | M2-77 | Bruce | done | Sites list/create/detail (D7–D9) | PR #83 merged |
-| M3-32 | Bruce | done | USDT/ethereum ERC-20 chain client + watcher routing | PR #90 — **ping Kevin** for `USDT_ETHEREUM` `enabled: true` after staging smoke |
+| M3-32 | Bruce | doing | M3-32 staging smoke | Code #90 merged — tick test + live checklist; then ping Kevin for enable flip |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
-| M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
+| M1-01 | Kevin | blocked | Confirm M1 scope signed | Client written sign-off (`Phase1-Requirement`) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
@@ -157,11 +173,12 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 | X-01 | Kevin | done | OpenAPI v0.3.3 fee tiers + merchant commercial | `doc/X-01-Fee-Tiers-v033.md` |
 | M5-08 | Kevin | done | Cashier APK sideload / MDM / checksum | `doc/M5-08-Cashier-Apk-Install.md` + `scripts/apk-checksum.mjs` |
 | M5-09 | Kevin | done | Cashier POS section in merchant manual | `doc/M4-32-Merchant-Manual.md` §10 |
-| M5-01 | Kevin | done | Reference device confirmation template | `doc/M5-01-Reference-Device.md` — await Company A sign-off |
+| M5-01 | Kevin | blocked | Reference device confirmation | Template `doc/M5-01-Reference-Device.md` — await Company A sign-off |
+| M4-40 | Kevin | blocked | Select pilot merchants | Client sign-off |
 | M4-T04 | Kevin | done | Restore drill report + CVE/load template | `doc/M4-T04-Restore-Drill-Report.md` — execute after M3-T09 |
 | X-07 | Kevin | done | E2E smoke suite (`scripts/e2e-smoke.mjs`) | `doc/X-07-E2E-Smoke.md` |
 | M1-T05 | Kevin | doing | Prototype walkthrough checklist | `doc/M1-T05-Prototype-Walkthrough.md` |
-| M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send when client fills §3 hostnames |
+| M3-T09 | Kevin | blocked | Send Company A handoff | Pack on `main` — send blocked on client §3 hostname table |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -172,9 +189,10 @@ Current freeze: OpenAPI **v0.3.3** (fee tiers + merchant commercial; builds on v
 
 | Priority | Ask | Why |
 | --- | --- | --- |
+| — | **Blocked on client** | M1-01 · M3-T09 §3 hostnames · M5-01 POS SKU · M4-40 pilot merchants |
 | P1 | Flip `USDT_ETHEREUM.enabled` after Bruce staging smoke | [M3-32-Ethereum-Go-Live.md](doc/M3-32-Ethereum-Go-Live.md) |
-| P2 | M1-01 + Company A §3 hostnames | Blocked on client |
-| P3 | M1-T05 walkthrough sign-off | [M1-T05-Demo-Script.md](doc/M1-T05-Demo-Script.md) |
+| P2 | **M1-T05** walkthrough sign-off | [M1-T05-Demo-Script.md](doc/M1-T05-Demo-Script.md) |
+| — | **Pick second live network** | **Done** — USDT / `ethereum` (BSC deferred) |
 
 **Second network decision** (Phase 1 §VI):
 
@@ -189,8 +207,9 @@ Kevin adds/enables registry row + `doc/M3-04-Asset-Networks.md` **live** section
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| **P1** | **X-01 / v0.3.3** — fee tiers, org policy, merchant commercial, migrate **019** | `doc/X-01-Fee-Tiers-v033.md`; unblocks B8/B13 + real B4/C6 commercial (replace stubs) |
-| **P2** | **v0.3.2 UI** — audit list, bill PATCH, B14 | Already on main API; wire platform pages |
+| **P1** | **X-01 / v0.3.3** — fee tiers, org policy, merchant commercial, migrate **019** | `doc/X-01-Fee-Tiers-v033.md` |
+| **P1** | Platform **B8/B13** + wire commercial (replace stubs) | After **019** lands |
+| **P2** | **v0.3.2 UI** — audit list, bill PATCH, B14 | Already on main API |
 | — | Run migrate **017** + **018** | Required before API keys + bill lifecycle on any DB |
 
 CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
@@ -201,9 +220,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
-| — | M1-32 mode-b test scaffold **done** | PR #86 — `packages/matching/test/mode-b.test.mjs` |
-| — | **M3-32** USDT **ethereum** ERC-20 | **Done** PR #90 — registry row on `main` (`enabled: false`). **Kevin:** flip `enabled: true` after staging smoke. |
+| — | M3-32 chain client **done** (#90) | `packages/chain-clients/ethereum/` on `main` |
+| **P1** | **M3-32 staging smoke** | Tick test + live checklist; ping Kevin for enable flip |
 | **P2** | Web polish when Andrew lands APIs | Team list, org PATCH, notification prefs |
 
 Branch example: `feat-bruce-matching-m1-tests`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
@@ -285,7 +303,7 @@ Branch example: `feat-bruce-matching-m1-tests`. Style lock = Institutional Ink (
 | M1-T02 | todo | Cross-merchant isolation | Andrew |
 | M1-T03 | todo | MFA + session revoke | Andrew |
 | M1-T04 | todo | Agent cannot create payment orders | Andrew |
-| M1-T05 | todo | Prototype walkthrough | Kevin |
+| M1-T05 | todo | Prototype walkthrough | Kevin — queued after client unblock or go |
 | M1-T06 | todo | Watcher separate process | Bruce |
 | M1-T07 | todo | Routes match OpenAPI v0.1 | Andrew |
 
