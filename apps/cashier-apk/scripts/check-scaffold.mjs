@@ -2,7 +2,7 @@
  * Scaffold integrity for CI (no Android SDK required).
  */
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -12,22 +12,44 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const required = [
   "settings.gradle.kts",
   "app/build.gradle.kts",
+  "keystore.properties.example",
   "app/src/main/AndroidManifest.xml",
   "app/src/main/java/com/cryptogate/cashier/MainActivity.kt",
   "app/src/main/java/com/cryptogate/cashier/api/CryptoGateClient.kt",
   "app/src/main/java/com/cryptogate/cashier/api/SessionStore.kt",
+  "app/src/main/java/com/cryptogate/cashier/api/CashierPosSurface.kt",
+  "app/src/main/java/com/cryptogate/cashier/api/NetworkReachability.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/LoginScreen.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/CreateOrderScreen.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/OrderPayScreen.kt",
+  "app/src/main/java/com/cryptogate/cashier/ui/HomeScreen.kt",
   "app/src/main/java/com/cryptogate/cashier/qr/QrBitmaps.kt",
   "app/src/main/java/com/cryptogate/cashier/api/OrderStatusUi.kt",
   "app/src/test/java/com/cryptogate/cashier/api/JsonParsersTest.kt",
 ];
 
-describe("@cryptogate/cashier-apk scaffold (M2-70/71/72)", () => {
+describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
   for (const rel of required) {
     it(`has ${rel}`, () => {
       assert.equal(existsSync(join(root, rel)), true);
     });
   }
+
+  it("defines staging and prod product flavors (M4-23)", () => {
+    const gradle = readFileSync(join(root, "app/build.gradle.kts"), "utf8");
+    assert.match(gradle, /productFlavors/);
+    assert.match(gradle, /create\("staging"\)/);
+    assert.match(gradle, /create\("prod"\)/);
+    assert.match(gradle, /cryptogate\.stagingApi/);
+    assert.match(gradle, /cryptogate\.prodApi/);
+    assert.match(gradle, /APP_ENV/);
+    assert.match(gradle, /signingConfigs/);
+    assert.match(gradle, /keystore\.properties/);
+  });
+
+  it("does not commit keystore.properties", () => {
+    assert.equal(existsSync(join(root, "keystore.properties")), false);
+    const ignore = readFileSync(join(root, ".gitignore"), "utf8");
+    assert.match(ignore, /keystore\.properties/);
+  });
 });

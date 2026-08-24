@@ -23,6 +23,7 @@ fun HomeScreen(
     session: Session?,
     emailFallback: String?,
     online: Boolean,
+    appEnv: String,
     onCreateOrder: () -> Unit,
     onSignOut: () -> Unit,
 ) {
@@ -38,6 +39,14 @@ fun HomeScreen(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
         )
+        if (appEnv.equals("staging", ignoreCase = true)) {
+            Text(
+                text = "TEST BUILD — staging API",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+            )
+        }
         Text(
             text = session?.email ?: emailFallback ?: "Cashier",
             style = MaterialTheme.typography.bodyLarge,

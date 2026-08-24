@@ -11,3 +11,4 @@ captures/
 .idea/
 *.keystore
 *.jks
+keystore.properties

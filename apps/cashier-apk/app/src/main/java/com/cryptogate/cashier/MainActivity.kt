@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
                             session = session,
                             emailFallback = app.sessionStore.cachedEmail,
                             online = online,
+                            appEnv = BuildConfig.APP_ENV,
                             onCreateOrder = {
                                 if (!NetworkReachability.isOnline(this@MainActivity)) {
                                     online = false
