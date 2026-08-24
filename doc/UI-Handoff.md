@@ -40,10 +40,18 @@ Do **not** implement Figma page **98 Archive**. Ignore pink animation sticky not
 `public/config.js` sets `CRYPTOGATE_API_BASE` (default `http://127.0.0.1:3000`).
 
 Guest URLs: `/pay/{id}` (rewritten to `index.html`) or `/?id={id}`.  
-Demo states (no id): `?state=verifying|completed|expired|anomaly|failed` · create: `/create-order.html`
+Demo (no id):
+
+- States: `?state=verifying|completed|expired|anomaly|failed`
+- Mode C: `?mode=C&amount=245.01`
+- Mode D (hidden on USDT Tron): `?mode=D&memo=CG-0847` — memo UI stays hidden
+- Mode D demo on supported net: `?mode=D&memo=CG-0847&memoSupported=1`
+- Create: `/create-order.html`
+
+Guest page shows amount/asset/network/contract/address/expiry, wrong-network warning, QR, copy amount/address/contract, share link. Mode C uses “Exact payable” + exact-amount warning. Mode D memo only when `memoSupported` (mirrors `packages/domain` for USDT+tron).
 
 ## Branch (Kevin)
 
 ```
-feat-kevin-payment-page-live-poll
+feat-kevin-payment-page-guest-display
 ```

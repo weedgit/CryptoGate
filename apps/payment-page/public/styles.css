@@ -287,6 +287,44 @@ code {
   font-size: 0.75rem;
 }
 
+.pay[data-mode="C"] .amount {
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.pay[data-mode="C"] .warn-exact {
+  border-left-color: var(--accent);
+  color: var(--ink);
+  background: rgba(0, 212, 200, 0.08);
+}
+
+.share-row {
+  display: flex;
+  justify-content: center;
+}
+
+.share-btn {
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-btn:hover {
+  border-color: var(--accent);
+}
+
+.share-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .custody,
 .status,
 .order-ref {
