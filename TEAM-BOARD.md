@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.2.2** (orders + matching-mode + settlement). Next bump when Andrew ships xPub or cool-down schemas.
+Current freeze: OpenAPI **v0.2.3** (orders + matching-mode + settlement cool-down + xPub presence). Next bump when HD pool or M3 webhooks land.
 
 ---
 
@@ -87,6 +87,7 @@ Current freeze: OpenAPI **v0.2.2** (orders + matching-mode + settlement). Next b
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 — `doc/M2-Mid-Gate.md` |
 | M2-08 | Kevin | done | Pay page CORS live path + origin notes | merged to main |
 | M2-09 | Kevin | done | CI: watcher inbound + API cors/expiry/audit tests | merged to main |
+| M2-10 | Kevin | doing | OpenAPI settlement cool-down + xPub (v0.2.3) | `feat-kevin-api-spec-m2-xpub-cooldown` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -97,10 +98,9 @@ Current freeze: OpenAPI **v0.2.2** (orders + matching-mode + settlement). Next b
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | Settlement PUT: MFA + cool-down (M2-16) | Address change safety |
-| P1 | xPub registration API (M2-20) | Mode S; Kevin adds OpenAPI after |
+| P1 | HD pool persistence API (M2-44) | Mode S conflict assign; Kevin documents after |
 
-Done recently: `assignOnCreate` (PR #30), CORS + order expiry (PR #33).
+Landed: `assignOnCreate` (#30), CORS + expiry (#33), settlement MFA/cool-down (#38), xPub (#40).
 
 ---
 
@@ -196,6 +196,7 @@ Done recently: `assignOnCreate` (PR #30), CORS + order expiry (PR #33).
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
+| M2-10 | Kevin | doing | OpenAPI settlement cool-down + xPub | `feat-kevin-api-spec-m2-xpub-cooldown` v0.2.3 |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
 | M2-08 | Kevin | doing | Pay page CORS live path notes | `feat-kevin-payment-page-cors-live` |
 

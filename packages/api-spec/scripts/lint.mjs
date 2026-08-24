@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.2",
+  "version: 0.2.3",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -26,6 +26,17 @@ const required = [
   "SettlementAddress",
   "SettlementAddressList",
   "UpsertSettlementAddressRequest",
+  "pendingAddress",
+  "pendingActivatesAt",
+  "mfaCode",
+  "/orgs/{orgId}/xpub",
+  "listXpubSettings",
+  "putXpubSettings",
+  "XpubSettings",
+  "XpubSettingsList",
+  "UpsertXpubRequest",
+  "xPubConfigured",
+  "pendingXPub",
   "/orders",
   "/orders/{id}/payment",
   "createPaymentOrder",
@@ -52,8 +63,8 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-if (!raw.includes("version: 0.2.2")) {
-  console.error("OpenAPI must declare version 0.2.2 for settlement address book");
+if (raw.includes("xPubConfigured") === false) {
+  console.error("GET xPub must expose presence (xPubConfigured), not the key");
   process.exit(1);
 }
 
@@ -68,4 +79,4 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 contract freeze v0.2.2: ok");
+console.log("OpenAPI M2 contract freeze v0.2.3: ok");
