@@ -1,9 +1,12 @@
 /**
- * Matching package public API (Sprint 0 stubs). Bruce implements Modes B/C/D/S.
+ * Matching package public API. Bruce owns Modes B/C/D/S.
  * Andrew calls assignOnCreate from order create; watcher calls matchTransaction.
  */
 import { OrderStatus as Status } from "@cryptogate/domain";
 import { assignModeB } from "./mode-b/index.js";
+import { assignModeC } from "./mode-c/index.js";
+import { assignModeD } from "./mode-d/index.js";
+import { assignModeS } from "./mode-s/index.js";
 import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types.js";
 
 export type {
@@ -13,15 +16,17 @@ export type {
   MatchResult,
 } from "./types.js";
 
-/** Router selects the mode stored on the order. */
+/** Router selects the mode stored on the order at create time. */
 export async function assignOnCreate(input: AssignInput): Promise<AssignResult> {
   switch (input.mode) {
     case "B":
       return assignModeB(input);
     case "C":
+      return assignModeC(input);
     case "D":
+      return assignModeD(input);
     case "S":
-      throw new Error(`assignOnCreate mode ${input.mode} not implemented — Bruce`);
+      return assignModeS(input);
     default: {
       const _exhaustive: never = input.mode;
       throw new Error(`Unknown matching mode: ${_exhaustive}`);
@@ -36,4 +41,4 @@ export async function matchTransaction(_input: MatchInput): Promise<MatchResult>
   };
 }
 
-export { assignModeB };
+export { assignModeB, assignModeC, assignModeD, assignModeS };
