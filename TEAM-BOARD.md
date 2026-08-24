@@ -102,7 +102,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-62 | Bruce | done | Settlement address book + cool-down UI | PR #70 merged |
 | M2-63 | Bruce | done | xPub / HD pool settings UI | PR #70 merged |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
-| M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
+| M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
@@ -128,6 +128,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | — | Kevin | done | CI: api-key rules + T07 signing smoke | `doc/examples/api-signing-smoke.mjs` |
 | M4-32 | Kevin | done | Merchant manual: modes, collision, cool-down | `doc/M4-32-Merchant-Manual.md` |
 | M4-01 | Kevin | done | Deploy/runbook scaffold (Company A accounts) | `doc/M4-01-Deploy-Runbook.md` |
+| M4-02 | Kevin | done | TLS + secrets inventory & rotation | `doc/M4-02-Secrets-TLS.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -281,6 +282,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M4-05 | Kevin | done | Test vs prod env matrix in integration guide | `doc/M4-05-Env-Matrix.md` |
 | M4-32 | Kevin | done | Merchant manual (matching / collision / cool-down) | `doc/M4-32-Merchant-Manual.md` |
 | M4-01 | Kevin | done | Deploy/runbook on Company A accounts | `doc/M4-01-Deploy-Runbook.md` |
+| M4-02 | Kevin | done | TLS + secrets (test/prod) | `doc/M4-02-Secrets-TLS.md` |
 
 ### API (Andrew)
 

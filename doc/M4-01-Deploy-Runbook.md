@@ -4,6 +4,8 @@
 **Env matrix:** [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
 **Follow-ons:** M4-02 secrets/TLS · M4-03 backup/monitoring · M4-04 admin host · M4-33 ops polish.
 
+See [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) for TLS surfaces, secret inventory, and rotation.
+
 Phase 1 ships as **source that Company A deploys** on **Company A cloud accounts** (requirement). This runbook is the deploy scaffold — not a locked cloud vendor. Fill the placeholders when DNS/TLS/DB are provisioned.
 
 ---
@@ -166,7 +168,7 @@ Local compose file: repo root `docker-compose.yml` (Postgres only).
 | This runbook | **Done** (scaffold) |
 | Env matrix | Done — M4-05 |
 | IaC (`infra/`) | Pending Company A cloud choice |
-| Secrets / TLS detail | M4-02 |
+| Secrets / TLS detail | Done — [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) |
 | Backup / alerts | M4-03 |
 | Admin host / vendor access | M4-04 |
 
