@@ -49,8 +49,8 @@ Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
 | 6 | App hosts / containers for **API** and **watcher** (two services) | ☐ | ☐ | Company A / Kevin assist |
 | 7 | Outbound HTTPS for webhooks + Tron RPC | ☐ | ☐ | Company A |
 | 8 | TronGrid (or private) endpoint + API key | ☐ | ☐ | Company A |
-| 9 | Backup schedule + restore drill | ☐ | ☐ | M4-03 |
-| 10 | Uptime + watcher-lag alerts | ☐ | ☐ | M4-03 |
+| 9 | Backup schedule + restore drill | ☐ | ☐ | [M4-03](M4-03-Backup-Monitoring.md) §2–4 |
+| 10 | Uptime + watcher-lag alerts | ☐ | ☐ | [M4-03](M4-03-Backup-Monitoring.md) §5 |
 | 11 | Named vendor access + admin jump host | ☐ | ☐ | M4-04 |
 
 **Terraform / IaC:** not locked to a vendor in Phase 1. When Company A picks AWS / GCP / Azure / other, add IaC under `infra/` (Kevin) as a follow-up PR. Until then, this runbook + container/VM commands are the deploy path.
@@ -169,7 +169,7 @@ Local compose file: repo root `docker-compose.yml` (Postgres only).
 | Env matrix | Done — M4-05 |
 | IaC (`infra/`) | Pending Company A cloud choice |
 | Secrets / TLS detail | Done — [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) |
-| Backup / alerts | M4-03 |
+| Backup / monitoring | Done — [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md) |
 | Admin host / vendor access | M4-04 |
 
 **M3-T09:** send Company A the M4-05 hostname table + this runbook; they fill DNS/TLS/DB then Kevin assists first test deploy.
