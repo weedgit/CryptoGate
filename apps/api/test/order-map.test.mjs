@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { qrPayloadForOrder, toPaymentDetails } from "../src/orders/order-map.mjs";
+import {
+  qrPayloadForOrder,
+  toOnChainDetails,
+  toPaymentDetails,
+} from "../src/orders/order-map.mjs";
 
 const row = {
   id: "ord-1",
@@ -46,5 +50,36 @@ describe("payment details mapper", () => {
     });
     assert.match(payload, /^tron:/);
     assert.doesNotMatch(payload, /https?:\/\//);
+  });
+});
+
+describe("on-chain details mapper", () => {
+  it("maps receive address and leaves unseen chain facts null", () => {
+    const details = toOnChainDetails({
+      ...row,
+      tx_hash: null,
+      received_amount: null,
+      updated_at: new Date("2026-08-24T12:05:00.000Z"),
+    });
+    assert.equal(details.toAddress, row.receive_address);
+    assert.equal(details.txHash, null);
+    assert.equal(details.blockHeight, null);
+    assert.equal(details.fromAddress, null);
+    assert.equal(details.amount, null);
+    assert.equal(details.confirmedAt, null);
+  });
+
+  it("maps watcher tx hash and received amount without inventing height", () => {
+    const details = toOnChainDetails({
+      ...row,
+      tx_hash: "abc123",
+      received_amount: "245.00",
+      confirmations: 19,
+    });
+    assert.equal(details.txHash, "abc123");
+    assert.deepEqual(details.amount, { amount: "245.00", currency: "USDT" });
+    assert.equal(details.blockHeight, null);
+    assert.equal(details.fromAddress, null);
+    assert.equal(details.confirmedAt, null);
   });
 });

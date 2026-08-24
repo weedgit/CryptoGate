@@ -239,6 +239,22 @@ describe("auth HTTP (no DB)", () => {
     }
   });
 
+  it("rejects on-chain get without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orders/ord-1/on-chain`);
+      assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
+
   it("rejects settlement get and put without session", async () => {
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {

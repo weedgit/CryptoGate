@@ -108,3 +108,24 @@ export function toPaymentOrder(row) {
   }
   return order;
 }
+
+/**
+ * OpenAPI OnChainDetails. Watcher-owned facts only — never invent height,
+ * payer address, or confirmedAt from updated_at. Missing columns stay null.
+ * @param {object} row
+ */
+export function toOnChainDetails(row) {
+  return {
+    txHash: row.tx_hash ?? null,
+    blockHeight: row.block_height ?? null,
+    fromAddress: row.from_address ?? null,
+    toAddress: row.receive_address ?? null,
+    amount:
+      row.received_amount == null
+        ? null
+        : { amount: row.received_amount, currency: row.asset },
+    confirmedAt: row.confirmed_at
+      ? new Date(row.confirmed_at).toISOString()
+      : null,
+  };
+}
