@@ -63,7 +63,7 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | --- | --- | --- |
 | **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
 | **Bruce** | Merge D5–D6, start D14 | **Done:** merchant web D1–D17 (#67–#83); **M1-32** mode-b test scaffold |
-| **Kevin** | Refresh `TEAM-BOARD.md`; chase M1-01 + Company A hostname table with client | Board refreshed; M1-01 still **blocked** (client sign-off) |
+| **Kevin** | M3-T09 handoff pack ready; chase client for §3 hostname table + M1-01 | [`doc/M3-T09-Company-A-Handoff.md`](doc/M3-T09-Company-A-Handoff.md) |
 | **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
 
 ---
@@ -153,6 +153,7 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | M4-34 | Kevin | done | Third-party / OSS license list | `doc/M4-34-Third-Party-Licenses.md` |
 | M4-35 | Kevin | done | DB schema reference (migrations 001–017) | `doc/M4-35-Database-Schema.md` |
 | M4-36 | Kevin | done | OpenAPI v0.3.2 audit + bill lifecycle | `doc/M4-36-Audit-Bills-v032.md` |
+| M3-T09 | Kevin | done | Company A handoff pack (email + checklists) | Send `doc/M3-T09-Company-A-Handoff.md` when client ready |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |

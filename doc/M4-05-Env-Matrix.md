@@ -54,7 +54,7 @@ Three logical environments. Hostnames below are **placeholders** — Company A f
 
 ## Company A fill-in (M3-T09)
 
-When cloud DNS and TLS are ready, replace placeholders and send this table to integrators:
+When cloud DNS and TLS are ready, use [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) (email template + checklist) and return §3:
 
 | Slot | Test value | Prod value |
 | --- | --- | --- |

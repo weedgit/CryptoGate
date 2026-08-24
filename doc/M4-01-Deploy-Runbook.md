@@ -173,4 +173,4 @@ Local compose file: repo root `docker-compose.yml` (Postgres only).
 | Admin host / vendor access | Done — [M4-04-Admin-Host-Vendor-Access.md](M4-04-Admin-Host-Vendor-Access.md) |
 | Ops index | Done — [M4-33-Ops-Runbook-Index.md](M4-33-Ops-Runbook-Index.md) |
 
-**M3-T09:** send Company A the M4-05 hostname table + this runbook; they fill DNS/TLS/DB then Kevin assists first test deploy.
+**M3-T09:** send [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) when Company A is ready; they fill §3 then Kevin assists first test deploy.

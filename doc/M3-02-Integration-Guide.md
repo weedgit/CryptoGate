@@ -19,7 +19,7 @@ Do not fulfill payment orders from browser redirect or payment-page status alone
 | Cashier APK | Emulator → `10.0.2.2:3000/v1` | Flavor **`staging`** | Flavor **`prod`** |
 | Assets | **USDT / `tron` only** — [M3-04](M3-04-Asset-Networks.md) | Same | Same until Kevin enables another row |
 
-**Never** reuse API keys, webhook secrets, or `SESSION_SECRET` across local ↔ test ↔ prod. Full rows (CORS, Tron RPC, watcher, backups): [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md). Company A fills real hostnames for M3-T09 handoff.
+**Never** reuse API keys, webhook secrets, or `SESSION_SECRET` across local ↔ test ↔ prod. Full rows (CORS, Tron RPC, watcher, backups): [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md). Company A handoff pack: [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md).
 
 Provision API keys via `POST /v1/api-keys` (OpenAPI **v0.3.1** — [M4-11-Api-Keys.md](M4-11-Api-Keys.md)). Secret once on create/rotate; never on GET. Never log API secrets or webhook signing secrets.
 

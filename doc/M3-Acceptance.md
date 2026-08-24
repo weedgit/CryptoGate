@@ -30,7 +30,7 @@ node --test apps/watcher/test/anomaly-paths.test.mjs
 | M3-T06 | **pass (CI)** | matching suite + `apps/watcher/test/anomaly-paths.test.mjs` (under/over/wrong-net/dup) |
 | M3-T07 | **pass (CI)** | Unsigned `X-Api-Key` → 401 `signature_invalid` (`auth-http.test.mjs`). Canonical/HMAC/skew (`signing.test.mjs`). Nonce replay mapping + HMAC sample (`doc/examples/api-signing-smoke.mjs`). Live DB path: `consumeApiKeyNonce` after migrate `017_api_keys_mgmt` + create key. |
 | M3-T08 | **pass (CI)** | Outbound HMAC = raw body (`webhook-deliver.test.mjs`). Sample merchant verify + Event-Id replay ignore (`doc/examples/webhook-verify.mjs` / M3-03). |
-| M3-T09 | ready (Kevin) | Env matrix + deploy runbook — [M4-05](M4-05-Env-Matrix.md), [M4-01](M4-01-Deploy-Runbook.md). Handoff when Company A fills DNS/TLS/DB. |
+| M3-T09 | **pack ready** | [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) — send when Company A fills DNS/TLS/DB; then §5 smoke |
 | M3-T10 | ready (Bruce) | APK poll status incl. anomaly (M3-70). Kevin smoke on device when staging URL set. |
 
 ## T07 live smoke (optional, after API key exists)
