@@ -5,6 +5,29 @@ export const MATCHING_LABELS: Record<string, string> = {
   S: "Smart address",
 };
 
+export const MATCHING_MODE_CARDS = [
+  {
+    mode: "B",
+    label: MATCHING_LABELS.B,
+    blurb: "Simple 1-to-1 routing on the main settlement address.",
+  },
+  {
+    mode: "C",
+    label: MATCHING_LABELS.C,
+    blurb: "Unique payable amounts (fingerprints) among open orders.",
+  },
+  {
+    mode: "D",
+    label: MATCHING_LABELS.D,
+    blurb: "Requires guest memo/tag. Hidden on networks without memo support.",
+  },
+  {
+    mode: "S",
+    label: MATCHING_LABELS.S,
+    blurb: "Main address unless same-amount conflict; then HD pool from xPub.",
+  },
+] as const;
+
 export function matchingModeLabel(mode: string | null | undefined): string {
   if (!mode) return MATCHING_LABELS.B;
   return MATCHING_LABELS[mode] ?? mode;

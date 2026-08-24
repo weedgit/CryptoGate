@@ -4,6 +4,7 @@ import { getSession, logout, type PaymentDetails, type Session } from "./api";
 import { CreateOrderPage } from "./CreateOrderPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantShell } from "./MerchantShell";
+import { SettlementPage } from "./SettlementPage";
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -115,6 +116,22 @@ export function MerchantApp() {
             }}
           >
             <OrderDetail />
+          </MerchantShell>
+        }
+      />
+      <Route
+        path="/merchant/settings/settlement"
+        element={
+          <MerchantShell
+            session={session}
+            title="Settlement Protocol & Address Book"
+            crumb="HD Pool & Routing Config"
+            onSignOut={async () => {
+              await logout();
+              setSession(null);
+            }}
+          >
+            <SettlementPage session={session} />
           </MerchantShell>
         }
       />

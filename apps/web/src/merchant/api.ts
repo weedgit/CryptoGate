@@ -126,3 +126,134 @@ export async function getPaymentDetails(orderId: string): Promise<PaymentDetails
   if (!res.ok) await parseError(res);
   return (await res.json()) as PaymentDetails;
 }
+
+export type MatchingModeSettings = {
+  orgId: string;
+  matchingMode: string;
+};
+
+export type SettlementAddress = {
+  orgId: string;
+  asset: string;
+  network: string;
+  address: string;
+  pendingAddress?: string | null;
+  pendingActivatesAt?: string | null;
+  status: "active" | "pending_cool_down";
+};
+
+export type XpubSettings = {
+  orgId: string;
+  asset: string;
+  network: string;
+  xPubConfigured: boolean;
+  pendingXPub: boolean;
+  pendingActivatesAt?: string | null;
+  status: "active" | "pending_cool_down";
+};
+
+export type HdPoolAddress = {
+  id: string;
+  orgId: string;
+  asset: string;
+  network: string;
+  hdIndex: number;
+  receiveAddress: string;
+  status: "FREE" | "IN_USE" | "COOLDOWN";
+  cooldownUntil?: string | null;
+  lastOrderId?: string | null;
+};
+
+export type HdPoolList = {
+  derivationPath: string;
+  items: HdPoolAddress[];
+};
+
+export async function getMatchingMode(orgId: string): Promise<MatchingModeSettings> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/matching-mode`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as MatchingModeSettings;
+}
+
+export async function putMatchingMode(
+  orgId: string,
+  matchingMode: string,
+): Promise<MatchingModeSettings> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/matching-mode`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ matchingMode }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as MatchingModeSettings;
+}
+
+export async function listSettlement(orgId: string): Promise<SettlementAddress[]> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/settlement`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: SettlementAddress[] };
+  return data.items ?? [];
+}
+
+export async function putSettlement(
+  orgId: string,
+  body: { asset: string; network: string; address: string; mfaCode: string },
+): Promise<SettlementAddress> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/settlement`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as SettlementAddress;
+}
+
+export async function listXpub(orgId: string): Promise<XpubSettings[]> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/xpub`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: XpubSettings[] };
+  return data.items ?? [];
+}
+
+export async function putXpub(
+  orgId: string,
+  body: { asset: string; network: string; xPub: string; mfaCode: string },
+): Promise<XpubSettings> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/xpub`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as XpubSettings;
+}
+
+export async function listHdPool(orgId: string): Promise<HdPoolList> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/hd-pool`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as HdPoolList;
+}
