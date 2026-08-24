@@ -1,5 +1,5 @@
 import { listMembershipsForUser } from "./membership-store.mjs";
-import { isPlatformOperator } from "./membership-rules.mjs";
+import { isPlatformOperator, isPlatformStaff } from "./membership-rules.mjs";
 import { listOrgAccounts } from "./org-store.mjs";
 import { listOrgsInSubtree } from "./org-scope.mjs";
 
@@ -35,7 +35,7 @@ export async function loadCaller(userId) {
  * @param {{ orgId: string }[]} memberships
  */
 export async function listVisibleOrgs(platformOperator, memberships) {
-  if (platformOperator) {
+  if (platformOperator || isPlatformStaff(memberships)) {
     return listOrgAccounts();
   }
   return listOrgsInSubtree(memberships.map((m) => m.orgId));

@@ -227,3 +227,24 @@ describe("M4-10 authz regression — platform operator", () => {
     assert.equal(canCreatePaymentOrder(p.memberships, "m-a"), false);
   });
 });
+
+describe("M4-30 platform viewer read scope", () => {
+  const platformViewer = {
+    orgId: "plat",
+    userId: "u-view",
+    role: "viewer",
+    orgType: "platform",
+  };
+  const v = caller([platformViewer], {
+    platformOperator: false,
+    platformOwner: false,
+  });
+
+  it("may list orgs, orders, and service bills but not issue bills", () => {
+    assert.equal(canIssueServiceBill(v), false);
+    assert.equal(canReadPaymentOrder(v, orderB), true);
+    assert.equal(paymentOrderListScope(v).kind, "all");
+    assert.equal(serviceBillListScope(v).kind, "all");
+    assert.equal(canViewServiceBill(v, merchantA), true);
+  });
+});

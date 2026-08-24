@@ -1,10 +1,18 @@
-import { canManageOrgTree } from "./membership-rules.mjs";
+import { canManageOrgTree, isPlatformStaff } from "./membership-rules.mjs";
 import { roleOnOrg } from "./org-access.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 const MFA_ROLES = new Set(["owner", "administrator"]);
 const ORDER_CREATE_ROLES = new Set(["owner", "administrator", "cashier"]);
 const SETTINGS_ROLES = new Set(["owner", "administrator"]);
+
+/**
+ * Platform staff (O/A/V) may read platform-wide lists; operators may write.
+ * @param {{ platformOperator: boolean, memberships: { orgType: string, role: string }[] }} caller
+ */
+function platformHasGlobalRead(caller) {
+  return caller.platformOperator === true || isPlatformStaff(caller.memberships);
+}
 
 /**
  * OpenAPI: Owner / Administrator may enroll MFA (platform, agent, or merchant).
@@ -108,7 +116,7 @@ export function isMerchantOrgType(type) {
  * @param {{ orgId: string, createdBy: string }} order
  */
 export function canReadPaymentOrder(caller, order) {
-  if (caller.platformOperator) return true;
+  if (platformHasGlobalRead(caller)) return true;
   const m = caller.memberships.find((row) => row.orgId === order.orgId);
   if (!m || !MERCHANT_TYPES.has(m.orgType)) return false;
   if (m.role === "cashier") return order.createdBy === caller.userId;
@@ -130,7 +138,7 @@ export function canReadPaymentOrder(caller, order) {
  * }}
  */
 export function paymentOrderListScope(caller) {
-  if (caller.platformOperator) return { kind: "all" };
+  if (platformHasGlobalRead(caller)) return { kind: "all" };
   /** @type {string[]} */
   const treeRoots = [];
   /** @type {string[]} */
@@ -159,7 +167,7 @@ export function paymentOrderListScope(caller) {
  * }} caller
  */
 export function canExportPaymentOrders(caller) {
-  if (caller.platformOperator) return true;
+  if (platformHasGlobalRead(caller)) return true;
   return caller.memberships.some(
     (m) => MERCHANT_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
   );
@@ -189,7 +197,7 @@ export function canChangeSettlementSettings(caller, org) {
  */
 export function canViewSettlementSettings(caller, org) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
-  if (caller.platformOperator) return true;
+  if (platformHasGlobalRead(caller)) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
   if (role) return true;
@@ -352,7 +360,7 @@ export function canCheckoutServiceBill(caller, org) {
  * @returns {{ kind: "all" } | { kind: "none" } | { kind: "scoped", rootIds: string[] }}
  */
 export function serviceBillListScope(caller) {
-  if (caller.platformOperator) return { kind: "all" };
+  if (platformHasGlobalRead(caller)) return { kind: "all" };
   /** @type {string[]} */
   const rootIds = [];
   for (const m of caller.memberships) {
@@ -383,7 +391,7 @@ export function serviceBillListScope(caller) {
  */
 export function canViewServiceBill(caller, org, visibleOrgIds) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
-  if (caller.platformOperator) return true;
+  if (platformHasGlobalRead(caller)) return true;
   if (visibleOrgIds) return visibleOrgIds.has(org.id);
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
