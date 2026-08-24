@@ -117,3 +117,16 @@ class JsonParsersTest {
         assertEquals("Send the exact payable amount.", pay.payExactAmountWarning)
     }
 }
+
+class OrderStatusUiTest {
+    @Test
+    fun anomalyIsNotCompleted() {
+        assertEquals("Payment anomaly", OrderStatusUi.label("payment_anomaly"))
+        assertTrue(OrderStatusUi.isAnomaly("payment_anomaly"))
+        assertTrue(OrderStatusUi.isTerminal("payment_anomaly"))
+        assertFalse(OrderStatusUi.showsCompleted("payment_anomaly"))
+        assertTrue(OrderStatusUi.showsCompleted("completed"))
+        assertFalse(OrderStatusUi.isTerminal("pending_payment"))
+        assertFalse(OrderStatusUi.isTerminal("verifying"))
+    }
+}

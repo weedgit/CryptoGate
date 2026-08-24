@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cryptogate.cashier.api.PaymentDetails
+import com.cryptogate.cashier.api.OrderStatusUi
 import com.cryptogate.cashier.qr.QrBitmaps
 
 @Composable
@@ -38,6 +39,16 @@ fun OrderPayScreen(
 ) {
     val context = LocalContext.current
     val qr = remember(details.qrPayload) { QrBitmaps.encode(details.qrPayload) }
+    val statusLabel = OrderStatusUi.label(details.status)
+    val statusColor =
+        when {
+            OrderStatusUi.isAnomaly(details.status) -> MaterialTheme.colorScheme.error
+            OrderStatusUi.showsCompleted(details.status) -> MaterialTheme.colorScheme.primary
+            details.status == OrderStatusUi.EXPIRED || details.status == OrderStatusUi.FAILED ->
+                MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.onBackground
+        }
+
 
     Column(
         modifier = Modifier
@@ -59,9 +70,19 @@ fun OrderPayScreen(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "${details.network.uppercase()} · ${details.status.replace('_', ' ')}",
+            text = "${details.network.uppercase()} · $statusLabel",
             style = MaterialTheme.typography.bodyMedium,
+            color = statusColor,
+            fontWeight = if (OrderStatusUi.isAnomaly(details.status)) FontWeight.Bold else FontWeight.Normal,
         )
+        if (OrderStatusUi.isAnomaly(details.status)) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Do not treat this as completed. Review on the merchant portal.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
         Image(
             bitmap = qr.asImageBitmap(),

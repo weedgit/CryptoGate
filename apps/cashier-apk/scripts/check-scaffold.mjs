@@ -20,6 +20,7 @@ const required = [
   "app/src/main/java/com/cryptogate/cashier/ui/CreateOrderScreen.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/OrderPayScreen.kt",
   "app/src/main/java/com/cryptogate/cashier/qr/QrBitmaps.kt",
+  "app/src/main/java/com/cryptogate/cashier/api/OrderStatusUi.kt",
   "app/src/test/java/com/cryptogate/cashier/api/JsonParsersTest.kt",
 ];
 
