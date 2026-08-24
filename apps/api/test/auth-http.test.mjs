@@ -178,4 +178,32 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects order create without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "test-key-01",
+        },
+        body: JSON.stringify({
+          amount: "10.00",
+          asset: "USDT",
+          network: "tron",
+          validitySeconds: 900,
+        }),
+      });
+      assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });
