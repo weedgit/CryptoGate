@@ -108,7 +108,8 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-68 | Bruce | done | Service bills list + checkout (D5–D6) | PR #76 merged |
 | M2-69 | Bruce | done | API keys & webhooks UI (D14) | PR #77 merged |
 | M2-75 | Bruce | done | Reports & export (D10) | PR #79 merged |
-| M2-76 | Bruce | doing | Settings pages org/billing/alerts/team (D12–D16) | `feat-bruce-web-merchant-d12-d16-settings` |
+| M2-76 | Bruce | done | Settings pages org/billing/alerts/team (D12–D16) | PR #81 merged |
+| M2-77 | Bruce | doing | Sites list/create/detail (D7–D9) | `feat-bruce-web-merchant-d7-d9-sites` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -162,7 +163,7 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | D7–D9 Sites | Org-tree sites list/create/detail |
+| — | (none — merchant Figma D1–D17 shell complete) | Next Bruce: polish / API gaps when Andrew lands list endpoints |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 

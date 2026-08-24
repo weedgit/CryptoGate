@@ -118,3 +118,16 @@ export function orgTypeLabel(type: string): string {
   if (type === "platform") return "Platform";
   return type;
 }
+
+/** O / A may create and manage merchant sites under a multi-location parent. */
+export function sessionCanManageSites(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator"].includes(m.role),
+  );
+}
+
+/** Parent merchant org id (not a site login). */
+export function parentMerchantOrgId(session: Session): string | null {
+  const merchant = session.memberships.find((m) => m.orgType === "merchant");
+  return merchant?.orgId ?? primaryMerchantOrgId(session);
+}

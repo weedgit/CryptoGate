@@ -17,6 +17,9 @@ import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
 import { TeamSettingsPage } from "./TeamSettingsPage";
 import { SettlementPage } from "./SettlementPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
+import { CreateSitePage } from "./CreateSitePage";
+import { SiteDetailPage } from "./SiteDetailPage";
+import { SitesListPage } from "./SitesListPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { sessionIsCashierOnly } from "./org";
 
@@ -266,11 +269,31 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/sites/*"
+        path="/merchant/sites"
         element={
-          <Shell session={session} title="Sites" crumb="Restricted" onSignOut={signOut}>
+          <Shell session={session} title="Sites" crumb="Locations" onSignOut={signOut}>
             <OwnerOnly session={session} area="sites">
-              <Placeholder title="Sites" />
+              <SitesListPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/sites/new"
+        element={
+          <Shell session={session} title="Add Site" crumb="Sites" onSignOut={signOut}>
+            <OwnerOnly session={session} area="sites">
+              <CreateSitePage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/sites/:id"
+        element={
+          <Shell session={session} title="Site Detail" crumb="Sites" onSignOut={signOut}>
+            <OwnerOnly session={session} area="sites">
+              <SiteDetailPage />
             </OwnerOnly>
           </Shell>
         }
