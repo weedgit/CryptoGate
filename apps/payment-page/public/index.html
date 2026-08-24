@@ -10,13 +10,14 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Outfit:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="pay" data-node-id="29:4197">
+      <p id="source-banner" class="source-banner" hidden></p>
       <header class="merchant">
         <p class="trusted">
-          <img class="icon-sm" src="./icons/shield-check.svg" alt="" width="12" height="12" />
+          <img class="icon-sm" src="/icons/shield-check.svg" alt="" width="12" height="12" />
           Trusted merchant
         </p>
         <h1 class="merchant-name" id="merchant">Hotel Marrakech — Casablanca</h1>
@@ -24,7 +25,18 @@
 
       <section class="amount-block" aria-labelledby="amount">
         <p class="label">Total payable</p>
-        <p class="amount" id="amount">245.00 USDT</p>
+        <div class="amount-row">
+          <p class="amount" id="amount">245.00 USDT</p>
+          <button
+            type="button"
+            class="icon-btn"
+            data-copy="amount-copy"
+            aria-label="Copy amount"
+          >
+            <img src="/icons/copy.svg" alt="" width="16" height="16" />
+          </button>
+          <code id="amount-copy" class="sr-only" hidden>245.00</code>
+        </div>
         <p class="network-pill" id="network">TRON TRC-20</p>
       </section>
 
@@ -43,20 +55,20 @@
         <div class="address-row">
           <code id="address">TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2</code>
           <button type="button" class="icon-btn" data-copy="address" aria-label="Copy address">
-            <img src="./icons/copy.svg" alt="" width="16" height="16" />
+            <img src="/icons/copy.svg" alt="" width="16" height="16" />
           </button>
         </div>
         <p class="label">Token contract</p>
         <div class="address-row">
           <code id="contract">TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t</code>
           <button type="button" class="icon-btn" data-copy="contract" aria-label="Copy contract">
-            <img src="./icons/copy.svg" alt="" width="16" height="16" />
+            <img src="/icons/copy.svg" alt="" width="16" height="16" />
           </button>
         </div>
       </section>
 
       <p class="warn-net" role="status">
-        <img class="icon-sm" src="./icons/alert-triangle.svg" alt="" width="16" height="16" />
+        <img class="icon-sm" src="/icons/alert-triangle.svg" alt="" width="16" height="16" />
         <span id="net-warn">Send ONLY on TRON TRC-20 network.</span>
       </p>
       <p class="warn-exact" id="exact-warn" hidden>
@@ -75,7 +87,8 @@
         <strong>CryptoGate</strong>
       </footer>
     </main>
-    <script src="./config.js"></script>
-    <script src="./mock-order.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <script src="/config.js"></script>
+    <script src="/mock-order.js"></script>
   </body>
 </html>

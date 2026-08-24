@@ -33,17 +33,17 @@ Do **not** implement Figma page **98 Archive**. Ignore pink animation sticky not
 
 | Call | Status |
 | --- | --- |
-| `POST /v1/orders` | Landed (PR #15 stub). Create-order prototype uses it. Needs session cookie + `Idempotency-Key`. |
-| `GET /v1/orders/{id}/payment` | **Still needed (M2-13).** Public, no session. Pay page polls this; until then falls back to `sessionStorage` from create. |
-| CORS | Needed for `PAYMENT_PAGE_BASE_URL` → `API_PUBLIC_BASE_URL` browser calls. |
+| `POST /v1/orders` | Landed (PR #15). Create-order prototype uses it. |
+| `GET /v1/orders/{id}/payment` | Landed (PR #16). Public; pay page polls every 5s. |
+| CORS | **Still needed** for browser calls from `PAYMENT_PAGE_BASE_URL` → API. Without it, pay page falls back to create `sessionStorage` snapshot. |
 
 `public/config.js` sets `CRYPTOGATE_API_BASE` (default `http://127.0.0.1:3000`).
 
-Preview: `pnpm --filter @cryptogate/payment-page dev` → http://127.0.0.1:5173/  
-Demo states: `?state=verifying|completed|expired|anomaly|failed` · live order: `?id={uuid}` · create: `/create-order.html`
+Guest URLs: `/pay/{id}` (rewritten to `index.html`) or `/?id={id}`.  
+Demo states (no id): `?state=verifying|completed|expired|anomaly|failed` · create: `/create-order.html`
 
 ## Branch (Kevin)
 
 ```
-feat-kevin-payment-page-api-wire
+feat-kevin-payment-page-live-poll
 ```

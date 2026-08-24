@@ -47,7 +47,7 @@ form?.addEventListener("submit", async (event) => {
   } catch {
     /* private mode */
   }
-  location.href = `./index.html?id=${encodeURIComponent(payload.id)}`;
+  location.href = `/pay/${encodeURIComponent(payload.id)}`;
 });
 
 function showError(message) {
