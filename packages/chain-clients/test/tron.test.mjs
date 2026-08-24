@@ -199,3 +199,76 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     assert.equal(paths.length, 2);
   });
 });
+
+describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
+  it("tronBackoffMs doubles and caps", async () => {
+    const { tronBackoffMs, extraWatcherBackoffMs, isRetryableTronStatus } =
+      await import("../tron/backoff.mjs");
+    assert.equal(tronBackoffMs(0, { baseMs: 400, maxMs: 30_000 }), 400);
+    assert.equal(tronBackoffMs(1, { baseMs: 400, maxMs: 30_000 }), 800);
+    assert.equal(isRetryableTronStatus(429), true);
+    assert.equal(isRetryableTronStatus(400), false);
+    assert.equal(
+      extraWatcherBackoffMs(
+        { ingest: { chainPollMode: "trongrid-error" } },
+        5000,
+      ),
+      5000,
+    );
+    assert.equal(
+      extraWatcherBackoffMs({ ingest: { chainPollMode: "trongrid" } }, 5000),
+      0,
+    );
+  });
+
+  it("retries 429 then succeeds", async () => {
+    const prevUrl = process.env.TRON_RPC_URL;
+    const prevStub = process.env.WATCHER_STUB_TRANSFERS;
+    process.env.TRON_RPC_URL = "https://api.trongrid.io";
+    delete process.env.WATCHER_STUB_TRANSFERS;
+    let calls = 0;
+    const fetchMock = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: (n) => (n === "retry-after" ? "0" : null) },
+          async text() {
+            return "rate limit";
+          },
+        };
+      }
+      return {
+        ok: true,
+        async json() {
+          return {
+            data: [
+              {
+                transaction_id: "retry-ok",
+                to: "TWatched",
+                value: "1000000",
+                token_info: { address: USDT_TRC20_CONTRACT, decimals: 6 },
+              },
+            ],
+          };
+        },
+      };
+    };
+    try {
+      const result = await listRecentTransfers({
+        watchedAddresses: ["TWatched"],
+        fetch: /** @type {typeof fetch} */ (fetchMock),
+        sleep: async () => {},
+      });
+      assert.equal(calls, 2);
+      assert.equal(result.mode, "trongrid");
+      assert.equal(result.transfers[0].txHash, "retry-ok");
+    } finally {
+      if (prevUrl === undefined) delete process.env.TRON_RPC_URL;
+      else process.env.TRON_RPC_URL = prevUrl;
+      if (prevStub === undefined) delete process.env.WATCHER_STUB_TRANSFERS;
+      else process.env.WATCHER_STUB_TRANSFERS = prevStub;
+    }
+  });
+});

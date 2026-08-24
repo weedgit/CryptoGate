@@ -12,6 +12,12 @@ import {
 export { minorToMajor } from "./amount.mjs";
 export { mapTrc20Row } from "./trongrid.mjs";
 export {
+  extraWatcherBackoffMs,
+  isRetryableTronStatus,
+  parseRetryAfterMs,
+  tronBackoffMs,
+} from "./backoff.mjs";
+export {
   USDT_TRC20_CONTRACT,
   DEFAULT_REQUIRED_CONFIRMATIONS,
   DEFAULT_TRONGRID_BASE,
@@ -58,6 +64,7 @@ export function dedupeTransfersByTxHash(transfers) {
  *   network?: string,
  *   watchedAddresses?: string[],
  *   fetch?: typeof fetch,
+ *   sleep?: (ms: number) => Promise<void>,
  * }} [options]
  */
 export async function listRecentTransfers(options = {}) {
@@ -111,6 +118,7 @@ export async function listRecentTransfers(options = {}) {
     const live = await fetchTrc20TransfersForAddresses({
       watchedAddresses: watched,
       fetchImpl: options.fetch,
+      sleepImpl: options.sleep,
     });
     return {
       transfers: dedupeTransfersByTxHash(live.transfers),

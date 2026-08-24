@@ -4,6 +4,13 @@
  */
 
 import { minorToMajor } from "./amount.mjs";
+import {
+  DEFAULT_TRON_MAX_ATTEMPTS,
+  isRetryableTronStatus,
+  parseRetryAfterMs,
+  sleepMs,
+  tronBackoffMs,
+} from "./backoff.mjs";
 import { getTronRuntimeConfig } from "./config.mjs";
 
 /**
@@ -29,9 +36,36 @@ export async function trongridFetch(baseUrl, path, opts = {}) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`trongrid HTTP ${res.status}: ${text.slice(0, 200)}`);
+    const err = new Error(`trongrid HTTP ${res.status}: ${text.slice(0, 200)}`);
+    err.status = res.status;
+    err.retryAfterMs = parseRetryAfterMs(res.headers);
+    throw err;
   }
   return res.json();
+}
+
+/**
+ * Retry retryable TronGrid HTTP (429 / 5xx) with exponential backoff.
+ * @param {() => Promise<unknown>} fn
+ * @param {{ maxAttempts?: number, sleepImpl?: (ms: number) => Promise<void> }} [opts]
+ */
+export async function withTronRetry(fn, opts = {}) {
+  const maxAttempts = opts.maxAttempts ?? DEFAULT_TRON_MAX_ATTEMPTS;
+  const sleepImpl = opts.sleepImpl;
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const status = err?.status;
+      const retryable = isRetryableTronStatus(status);
+      if (!retryable || attempt === maxAttempts - 1) throw err;
+      const delay = tronBackoffMs(attempt, { retryAfterMs: err.retryAfterMs });
+      await sleepMs(delay, sleepImpl);
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -102,10 +136,14 @@ export async function fetchTrc20TransfersForAddresses(input) {
       `/v1/accounts/${encodeURIComponent(address)}/transactions/trc20` +
       `?only_to=true&limit=${limit}` +
       `&contract_address=${encodeURIComponent(cfg.usdtContractAddress)}`;
-    const json = await trongridFetch(cfg.baseUrl, path, {
-      apiKey: cfg.apiKey,
-      fetchImpl: input.fetchImpl,
-    });
+    const json = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, path, {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
     const rows = Array.isArray(json?.data) ? json.data : [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
@@ -137,20 +175,28 @@ export async function fetchTransactionConfirmations(input) {
   const txHash = input.txHash.trim();
   if (!txHash) return 0;
 
-  const info = await trongridFetch(cfg.baseUrl, "/wallet/gettransactioninfobyid", {
-    apiKey: cfg.apiKey,
-    fetchImpl: input.fetchImpl,
-    body: { value: txHash },
-  });
+  const info = await withTronRetry(
+    () =>
+      trongridFetch(cfg.baseUrl, "/wallet/gettransactioninfobyid", {
+        apiKey: cfg.apiKey,
+        fetchImpl: input.fetchImpl,
+        body: { value: txHash },
+      }),
+    { sleepImpl: input.sleepImpl },
+  );
 
   const txBlock = Number(info?.blockNumber ?? info?.block_number);
   if (!Number.isFinite(txBlock) || txBlock <= 0) return 0;
 
-  const now = await trongridFetch(cfg.baseUrl, "/wallet/getnowblock", {
-    apiKey: cfg.apiKey,
-    fetchImpl: input.fetchImpl,
-    body: {},
-  });
+  const now = await withTronRetry(
+    () =>
+      trongridFetch(cfg.baseUrl, "/wallet/getnowblock", {
+        apiKey: cfg.apiKey,
+        fetchImpl: input.fetchImpl,
+        body: {},
+      }),
+    { sleepImpl: input.sleepImpl },
+  );
   const current = Number(now?.block_header?.raw_data?.number);
   if (!Number.isFinite(current) || current <= 0) return 0;
 

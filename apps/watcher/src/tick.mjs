@@ -81,6 +81,7 @@ export async function runTick(ctx) {
         mode: "match+confirm",
         phase: "m3-40",
         chainPollMode: polled.mode,
+        ingestError: polled.error ?? null,
         watchedAddresses: watchedAddresses.length,
         openOrders: openOrders.length,
         transfersSeen: polled.transfers.length,
