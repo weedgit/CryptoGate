@@ -2,10 +2,11 @@ import { createServer } from "node:http";
 import { closePool } from "./db/pool.mjs";
 import { handleRequest } from "./http/app.mjs";
 import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
+import { startServiceBillOverdueJob } from "./service-bills/service-bill-overdue-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
 
 /**
- * HTTP entry. Background: order expiry (M2-14), webhook fan-out + delivery (M3-14).
+ * HTTP entry. Background: order expiry (M2-14), service bill overdue, webhook fan-out + delivery (M3-14).
  */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
@@ -28,16 +29,21 @@ const server = createServer((req, res) => {
 let expiryJob = null;
 /** @type {{ stop: () => void } | null} */
 let webhookJob = null;
+/** @type {{ stop: () => void } | null} */
+let serviceBillOverdueJob = null;
 
 server.listen(port, host, () => {
   console.log(`cryptogate-api listening on http://${host}:${port}`);
   expiryJob = startOrderExpiryJob();
+  serviceBillOverdueJob = startServiceBillOverdueJob();
   webhookJob = startWebhookDeliveryJob();
 });
 
 function shutdown() {
   expiryJob?.stop();
   expiryJob = null;
+  serviceBillOverdueJob?.stop();
+  serviceBillOverdueJob = null;
   webhookJob?.stop();
   webhookJob = null;
   server.close(async () => {
