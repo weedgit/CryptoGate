@@ -98,9 +98,9 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M3-43 | Bruce | done | Expired / anomaly / failed watcher paths | PR #65 merged |
 | M3-44 | Bruce | done | Underpay, overpay, duplicate hash, wrong network | PR #65 merged |
 | M2-60 | Bruce | done | Merchant create order UI (D4) | PR #67 merged |
-| M2-61 | Bruce | doing | Matching mode settings UI | `feat-bruce-web-merchant-m2-settlement` |
-| M2-62 | Bruce | doing | Settlement address book + cool-down UI | same branch |
-| M2-63 | Bruce | doing | xPub / HD pool settings UI | same branch |
+| M2-61 | Bruce | done | Matching mode settings UI | PR #70 merged |
+| M2-62 | Bruce | done | Settlement address book + cool-down UI | PR #70 merged |
+| M2-63 | Bruce | done | xPub / HD pool settings UI | PR #70 merged |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
