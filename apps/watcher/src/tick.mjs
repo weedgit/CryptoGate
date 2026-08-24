@@ -18,6 +18,7 @@ import {
   listKnownTxHashes,
   listOpenOrdersForMatch,
   listOrdersAwaitingConfirmations,
+  listOrdersByReceiveAddresses,
 } from "./orders/order-store.mjs";
 
 /**
@@ -45,6 +46,14 @@ export async function runTick(ctx) {
           openOrders.map((o) => o.receiveAddress.trim()).filter(Boolean),
         ),
       ];
+      const crossNet = await listOrdersByReceiveAddresses(pool, {
+        addresses: watchedAddresses,
+      });
+      const byId = new Map();
+      for (const o of [...openOrders, ...crossNet]) {
+        byId.set(o.orderId, o);
+      }
+      const matchCandidates = [...byId.values()];
 
       const polled = await listRecentTransfers({
         ...filter,
@@ -55,10 +64,9 @@ export async function runTick(ctx) {
         network: filter.network,
         txHashes: polled.transfers.map((t) => t.txHash).filter(Boolean),
       });
-      const transfers = polled.transfers.filter((t) => !known.has(t.txHash));
 
       const matchOutcomes = await processTransferBatch({
-        transfers: transfers.map((t) => ({
+        transfers: polled.transfers.map((t) => ({
           toAddress: t.toAddress,
           amount: t.amount,
           asset: t.asset ?? ctx.config.defaultAsset,
@@ -66,7 +74,8 @@ export async function runTick(ctx) {
           txHash: t.txHash,
           memoOrTag: t.memoOrTag,
         })),
-        openOrders,
+        openOrders: matchCandidates,
+        knownTxHashes: known,
         apply: (args) => applyMatchResult(pool, args),
       });
 
@@ -79,18 +88,21 @@ export async function runTick(ctx) {
 
       ingest = {
         mode: "match+confirm",
-        phase: "m4-21",
+        phase: "m3-43",
         chainPollMode: polled.mode,
         ingestError: polled.error ?? null,
         watchedAddresses: watchedAddresses.length,
-        openOrders: openOrders.length,
+        openOrders: matchCandidates.length,
         transfersSeen: polled.transfers.length,
-        transfersNew: transfers.length,
+        transfersDuplicate: matchOutcomes.filter(
+          (o) => o.reason === "duplicate_tx_hash",
+        ).length,
         matchOutcomes,
         awaitingConfirmations: awaiting.length,
         confirmOutcomes,
         restartSafe: true,
         reorgAware: true,
+        anomalyPaths: true,
       };
     } catch (err) {
       ingest = {
@@ -103,7 +115,7 @@ export async function runTick(ctx) {
 
   return {
     service: "cryptogate-watcher",
-    phase: ctx.config.databaseUrl ? "m4-reorg-safe" : "m1-loop",
+    phase: ctx.config.databaseUrl ? "m3-anomaly-paths" : "m1-loop",
     tick: ctx.tick,
     startedAt: ctx.startedAt,
     at: new Date().toISOString(),

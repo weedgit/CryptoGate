@@ -1,8 +1,9 @@
 /**
- * Map inbound transfers → matchTransaction → DB updates (M3-41).
+ * Map inbound transfers → matchTransaction → DB updates (M3-41 / M3-43 / M3-44).
  * Matching stays in @cryptogate/matching; watcher never imports apps/api.
  */
 import { matchTransaction } from "@cryptogate/matching";
+import { classifyWrongNetworkOrAsset } from "./classify.mjs";
 
 /**
  * @typedef {{
@@ -25,6 +26,7 @@ import { matchTransaction } from "@cryptogate/matching";
  *   network: string,
  *   memoOrTag?: string | null,
  *   expiresAt?: string,
+ *   status?: string,
  * }} WatcherOrderRow
  */
 
@@ -43,14 +45,25 @@ export async function matchInboundTransfer(input) {
   const transfer = input.transfer;
   const to = transfer.toAddress.trim();
 
-  const atAddress = input.openOrders.filter(
+  const atAddressExact = input.openOrders.filter(
     (o) =>
       o.receiveAddress.trim() === to &&
       o.asset === transfer.asset &&
       o.network === transfer.network,
   );
 
-  if (atAddress.length === 0) {
+  if (atAddressExact.length === 0) {
+    const wrong = classifyWrongNetworkOrAsset(transfer, input.openOrders);
+    if (wrong) {
+      return {
+        applied: true,
+        result: {
+          status: "payment_anomaly",
+          orderIds: wrong.orderIds,
+          reason: wrong.reason,
+        },
+      };
+    }
     return {
       applied: false,
       result: {
@@ -62,7 +75,7 @@ export async function matchInboundTransfer(input) {
 
   /** @type {Map<string, WatcherOrderRow[]>} */
   const byMode = new Map();
-  for (const order of atAddress) {
+  for (const order of atAddressExact) {
     const mode = order.matchingMode;
     const list = byMode.get(mode) ?? [];
     list.push(order);
@@ -121,13 +134,25 @@ export async function matchInboundTransfer(input) {
  * @param {{
  *   transfers: InboundTransfer[],
  *   openOrders: WatcherOrderRow[],
+ *   knownTxHashes?: Set<string>,
  *   apply: (args: { result: object, transfer: InboundTransfer }) => Promise<{ updated: number }>,
  *   matchFn?: typeof matchTransaction,
  * }} input
  */
 export async function processTransferBatch(input) {
+  const known = input.knownTxHashes ?? new Set();
   const outcomes = [];
   for (const transfer of input.transfers) {
+    if (known.has(transfer.txHash?.trim())) {
+      outcomes.push({
+        txHash: transfer.txHash,
+        skipped: true,
+        reason: "duplicate_tx_hash",
+        classified: true,
+      });
+      continue;
+    }
+
     const matched = await matchInboundTransfer({
       transfer,
       openOrders: input.openOrders,

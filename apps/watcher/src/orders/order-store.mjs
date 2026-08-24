@@ -18,6 +18,12 @@ export const WATCHER_MATCH_STATUSES = [
   "payment_anomaly",
 ];
 
+/** Recently expired — still candidates for late_payment_after_expiry (M3-43). */
+export const WATCHER_LATE_PAYMENT_STATUSES = ["expired"];
+
+/** Default lookback for late payment after expiry. */
+export const LATE_PAYMENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Orders waiting on chain confirmations. */
 export const WATCHER_CONFIRM_STATUSES = ["verifying", "confirmed"];
 
@@ -30,18 +36,84 @@ export {
 
 /**
  * @param {import("pg").Pool | import("pg").PoolClient} db
- * @param {{ asset: string, network: string }} filter
+ * @param {{ asset: string, network: string, now?: Date, lateLookbackMs?: number }} filter
  */
 export async function listOpenOrdersForMatch(db, filter) {
+  const now = filter.now ?? new Date();
+  const lookbackMs = filter.lateLookbackMs ?? LATE_PAYMENT_LOOKBACK_MS;
+  const expiredAfter = new Date(now.getTime() - lookbackMs);
+
   const { rows } = await db.query(
     `SELECT id, matching_mode, payable_amount, receive_address, asset, network,
             memo_or_tag, expires_at, status, required_confirmations
      FROM payment_orders
      WHERE asset = $1
        AND network = $2
-       AND status = ANY($3::text[])
+       AND (
+         status = ANY($3::text[])
+         OR (
+           status = ANY($4::text[])
+           AND expires_at >= $5::timestamptz
+         )
+       )
      ORDER BY created_at ASC`,
-    [filter.asset, filter.network, WATCHER_MATCH_STATUSES],
+    [
+      filter.asset,
+      filter.network,
+      WATCHER_MATCH_STATUSES,
+      WATCHER_LATE_PAYMENT_STATUSES,
+      expiredAfter.toISOString(),
+    ],
+  );
+  return rows.map((row) => ({
+    orderId: row.id,
+    matchingMode: row.matching_mode,
+    payableAmount: row.payable_amount,
+    receiveAddress: row.receive_address,
+    asset: row.asset,
+    network: row.network,
+    memoOrTag: row.memo_or_tag,
+    expiresAt:
+      row.expires_at instanceof Date
+        ? row.expires_at.toISOString()
+        : row.expires_at,
+    status: row.status,
+    requiredConfirmations: row.required_confirmations,
+  }));
+}
+
+/**
+ * Same-address orders on any network (M3-44 wrong-network / wrong-asset).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ addresses: string[], now?: Date, lateLookbackMs?: number }} filter
+ */
+export async function listOrdersByReceiveAddresses(db, filter) {
+  const addresses = [...new Set(filter.addresses.map((a) => a.trim()).filter(Boolean))];
+  if (addresses.length === 0) return [];
+
+  const now = filter.now ?? new Date();
+  const lookbackMs = filter.lateLookbackMs ?? LATE_PAYMENT_LOOKBACK_MS;
+  const expiredAfter = new Date(now.getTime() - lookbackMs);
+
+  const { rows } = await db.query(
+    `SELECT id, matching_mode, payable_amount, receive_address, asset, network,
+            memo_or_tag, expires_at, status, required_confirmations
+     FROM payment_orders
+     WHERE receive_address = ANY($1::text[])
+       AND (
+         status = ANY($2::text[])
+         OR (
+           status = ANY($3::text[])
+           AND expires_at >= $4::timestamptz
+         )
+       )
+     ORDER BY created_at ASC`,
+    [
+      addresses,
+      WATCHER_MATCH_STATUSES,
+      WATCHER_LATE_PAYMENT_STATUSES,
+      expiredAfter.toISOString(),
+    ],
   );
   return rows.map((row) => ({
     orderId: row.id,
