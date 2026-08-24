@@ -35,6 +35,7 @@ run("node", [
   "--test",
   "apps/watcher/test/watcher.test.mjs",
   "apps/watcher/test/inbound-match.test.mjs",
+  "apps/watcher/test/confirmations.test.mjs",
 ]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 
