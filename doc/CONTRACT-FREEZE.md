@@ -44,13 +44,23 @@ Additive only — order create / payment schemas unchanged.
 ## v0.2.2 — Merchant settlement address book
 
 **Date:** 2026-08-24  
-**OpenAPI:** `0.2.2`
+**OpenAPI:** `0.2.2` (superseded by `0.2.3` for MFA + cool-down)
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| OpenAPI settlement | `GET/PUT /v1/orgs/{orgId}/settlement` | Mirrors Andrew PR #20; Cashier 403; enabled asset/network only |
+| OpenAPI settlement | `GET/PUT /v1/orgs/{orgId}/settlement` | Mirrors Andrew PR #20; Cashier 403 |
 
-Additive only. MFA + cool-down before address becomes active for new orders is still M2-16 (schema may grow).
+## v0.2.3 — Settlement cool-down + xPub presence
+
+**Date:** 2026-08-24  
+**OpenAPI:** `0.2.3`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Settlement PUT | `PUT /v1/orgs/{orgId}/settlement` | `mfaCode` required; first address active; change → `pendingAddress` until `pendingActivatesAt` (PR #38) |
+| xPub | `GET/PUT /v1/orgs/{orgId}/xpub` | GET is presence only (`xPubConfigured`); never full xPub; MFA + cool-down on PUT (PR #40) |
+
+Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 ## Rules
 

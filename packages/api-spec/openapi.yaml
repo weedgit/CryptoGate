@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.2.2
+  version: 0.2.3
   description: >
-    Contract freeze v0.2.2 (M2 orders, matching-mode, settlement address book). Source of
-    truth for apps/api, apps/payment-page, and apps/cashier-apk. Payment orders are
-    watch-only. Service bills are a separate rail. Enum string values and PaymentOrder
-    fields match @cryptogate/domain.
+    Contract freeze v0.2.3 (M2 orders, matching-mode, settlement cool-down, xPub presence).
+    Source of truth for apps/api, apps/payment-page, and apps/cashier-apk. Payment orders
+    are watch-only. Service bills are a separate rail. Enum string values and PaymentOrder
+    fields match @cryptogate/domain. Never return spend keys or full xPub strings.
 servers:
   - url: /v1
 tags:
@@ -385,12 +385,12 @@ paths:
       description: >
         Owner or Administrator only (Cashier / Viewer 403). Asset+network must be
         enabled in packages/domain registry (Phase 1: USDT + tron). Upserts one
-        address per (org, asset, network).
+        address per (org, asset, network). Body requires mfaCode.
 
-        Product requirement (M2-16): MFA, cool-down, alert, and audit before a new
-        address becomes active for new orders. Current Andrew implementation stores
-        the address immediately; cool-down fields will extend this schema when that
-        lands — do not treat PUT as fully hardened cool-down yet.
+        First address for a pair activates immediately. Changing an existing address
+        writes pendingAddress / pendingActivatesAt (default 24h, SETTLEMENT_COOLDOWN_MS)
+        and keeps address as the currently active receive destination until then.
+        New payment orders keep using address until cool-down ends. Audit on PUT.
       security:
         - sessionCookie: []
       parameters:
@@ -403,7 +403,7 @@ paths:
               $ref: "#/components/schemas/UpsertSettlementAddressRequest"
       responses:
         "200":
-          description: Settlement address saved
+          description: Settlement address saved (active or pending_cool_down)
           content:
             application/json:
               schema:
@@ -415,13 +415,114 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "401":
+          description: Not authenticated or invalid MFA code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / Viewer / MFA not enrolled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Asset/network not enabled in domain registry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/xpub:
+    get:
+      tags: [orgs]
+      operationId: listXpubSettings
+      summary: List xPub registration presence (never the full xPub)
+      description: >
+        Merchant Owner, Administrator, or Viewer (and platform / agent ancestors)
+        may read. Cashier 403. Response is presence + cool-down status only —
+        never the xPub string, seed, or private key. Mode S HD assign needs an
+        active (non-pending) xPub for the asset/network.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: xPub presence list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/XpubSettingsList"
+        "400":
+          description: Org is not a merchant (or merchant site)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
           description: Not authenticated
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Forbidden (Cashier / Viewer / insufficient role)
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: putXpubSettings
+      summary: Register or rotate watch-only xPub (MFA + cool-down)
+      description: >
+        Owner or Administrator only. Body requires asset, network, xPub, mfaCode.
+        First xPub for a pair activates immediately. Rotation stores pendingXPub
+        (GET never echoes the string) until pendingActivatesAt. Same cool-down
+        default as settlement (24h / SETTLEMENT_COOLDOWN_MS). Audit on PUT.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertXpubRequest"
+      responses:
+        "200":
+          description: xPub presence saved (active or pending_cool_down)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/XpubSettings"
+        "400":
+          description: Invalid body or non-merchant org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated or invalid MFA code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / Viewer / MFA not enrolled)
           content:
             application/json:
               schema:
@@ -739,7 +840,7 @@ components:
           $ref: "#/components/schemas/MatchingMode"
     SettlementAddress:
       type: object
-      required: [orgId, asset, network, address]
+      required: [orgId, asset, network, address, status]
       properties:
         orgId:
           type: string
@@ -749,8 +850,19 @@ components:
           $ref: "#/components/schemas/NetworkId"
         address:
           type: string
-          description: Merchant-controlled receive address (watch-only for platform)
+          description: Currently active receive address (orders still use this during cool-down)
           example: TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2
+        pendingAddress:
+          type: string
+          nullable: true
+          description: Next address; ignored by assignOnCreate until pendingActivatesAt
+        pendingActivatesAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [active, pending_cool_down]
     SettlementAddressList:
       type: object
       required: [items]
@@ -761,7 +873,7 @@ components:
             $ref: "#/components/schemas/SettlementAddress"
     UpsertSettlementAddressRequest:
       type: object
-      required: [asset, network, address]
+      required: [asset, network, address, mfaCode]
       properties:
         asset:
           $ref: "#/components/schemas/AssetCode"
@@ -770,7 +882,59 @@ components:
         address:
           type: string
           minLength: 1
-          description: No whitespace; must be valid for the network when cool-down lands
+          description: No whitespace
+        mfaCode:
+          type: string
+          minLength: 6
+          maxLength: 8
+          description: TOTP; required on every settlement PUT
+    XpubSettings:
+      type: object
+      required: [orgId, asset, network, xPubConfigured, pendingXPub, status]
+      description: Presence only — never the xPub string
+      properties:
+        orgId:
+          type: string
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        xPubConfigured:
+          type: boolean
+        pendingXPub:
+          type: boolean
+          description: True when a rotation is waiting on cool-down (string not returned)
+        pendingActivatesAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [active, pending_cool_down]
+    XpubSettingsList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/XpubSettings"
+    UpsertXpubRequest:
+      type: object
+      required: [asset, network, xPub, mfaCode]
+      properties:
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        xPub:
+          type: string
+          minLength: 20
+          description: Watch-only extended public key; write-only (never echoed on GET)
+        mfaCode:
+          type: string
+          minLength: 6
+          maxLength: 8
     AddressSource:
       type: string
       enum: [main, hd_pool]
