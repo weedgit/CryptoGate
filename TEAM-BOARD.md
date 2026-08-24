@@ -54,7 +54,9 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
-| M2-40 | Bruce | doing | Mode B `assignOnCreate` | `feat-bruce-matching-mode-b-assign` — registry validation + null hd/memo |
+| M2-40 | Bruce | done | Mode B `assignOnCreate` | PR #12 merged |
+| M2-41 | Bruce | doing | Mode C fingerprint assign | `feat-bruce-matching-mode-c-assign` |
+| M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
@@ -118,7 +120,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M1-31 | Bruce | done | Chain-clients layout; Tron stub | `packages/chain-clients/tron` |
 | M1-32 | Bruce | todo | Matching test scaffold (mode-b) | Partial tests exist |
 | M1-33 | Bruce | done | Watcher ↔ payment_orders status contract | `doc/Watcher-Order-Status-Contract.md` |
-| M1-34 | Bruce | todo | Review Andrew migrations for M3 columns | After M1-19 |
+| M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 
 ### UI prototypes (Kevin)
 

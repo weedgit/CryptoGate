@@ -11,13 +11,15 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M1-31 | Tron client stub | Bruce | **done** | `packages/chain-clients/tron` |
 | M1-33 | Watcher ↔ order status contract doc | Bruce | **done** | `doc/Watcher-Order-Status-Contract.md` |
 | M1-32 | Matching package test scaffold (B + empty C/D/S) | Bruce | **done** | `feat-bruce-matching-test-scaffold` |
-| M2-40 | Mode B assign (main address + amount validation) | Bruce | **doing** | `feat-bruce-matching-mode-b-assign` |
+| M2-40 | Mode B assign (main address + amount validation) | Bruce | **done** | PR #12 merged |
+| M1-34 | Review Andrew `payment_orders` migration | Bruce | **done** | `doc/M1-34-Payment-Orders-Review.md` |
+| M2-41 | Mode C assign (fingerprint + reservation port) | Bruce | **doing** | `feat-bruce-matching-mode-c-assign` |
 
 ## Now — matching (Bruce)
 
-**Current:** M2-40 Mode B assign on `feat-bruce-matching-mode-b-assign` — registry min/decimals, `hdIndex`/`memoOrTag` null.
+**Current:** M2-41 Mode C on `feat-bruce-matching-mode-c-assign` — unique payable via `listReservedPayableAmounts`.
 
-**Next after merge:** wait on Andrew `payment_orders` for Mode C open-order reservation (M2-41) / Mode S pool (M2-43). Mode D (M2-42) can follow independently if memo networks land.
+**Next after merge:** Mode S (M2-43) needs HD pool table; Mode D (M2-42) waits on memo-capable registry row. Ask Andrew to wire `assignOnCreate` + Mode C query (see M1-34).
 
 ## Blockers / asks for Kevin
 
@@ -26,12 +28,15 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 ## Blockers / asks for Andrew
 
-- M1-19 / M2: `payment_orders` migration with columns per `doc/Watcher-Order-Status-Contract.md` + domain `PaymentOrderColumn` (needed for M1-34 review and Mode C/S).
+- Wire `@cryptogate/matching` `assignOnCreate` instead of stub; implement `listReservedPayableAmounts` under create lock (M1-34).
+- Optional Mode C index on `(org_id, receive_address, asset, network)`.
+- Mode S: HD pool migration when ready for M2-43.
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M1-34 accept payment_orders; M2-41 Mode C assign |
 | 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |
 | 2026-08-24 | Bruce: M1-32 scaffold branch; C/D/S stubs; next M2-40 after merge |
 | 2026-08-23 | Bruce: S0-06 + M1-30/31/33 complete |
