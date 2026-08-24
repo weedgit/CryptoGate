@@ -1,11 +1,12 @@
-/**
- * HTTP entry (M1-11 + M1-12). Auth: /v1/auth/login|logout|session|mfa/*
- * Background: order expiry job (M2-14).
- */
 import { createServer } from "node:http";
 import { closePool } from "./db/pool.mjs";
 import { handleRequest } from "./http/app.mjs";
 import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
+import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
+
+/**
+ * HTTP entry. Background: order expiry (M2-14), webhook delivery (M3-14).
+ */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
 const port = Number(process.env.API_PORT ?? 3000);
@@ -25,15 +26,20 @@ const server = createServer((req, res) => {
 
 /** @type {{ stop: () => void } | null} */
 let expiryJob = null;
+/** @type {{ stop: () => void } | null} */
+let webhookJob = null;
 
 server.listen(port, host, () => {
   console.log(`cryptogate-api listening on http://${host}:${port}`);
   expiryJob = startOrderExpiryJob();
+  webhookJob = startWebhookDeliveryJob();
 });
 
 function shutdown() {
   expiryJob?.stop();
   expiryJob = null;
+  webhookJob?.stop();
+  webhookJob = null;
   server.close(async () => {
     await closePool();
     process.exit(0);
