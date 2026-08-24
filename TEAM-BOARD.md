@@ -58,6 +58,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |
+| M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
 
 ---
@@ -151,7 +152,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | --- | --- | --- | --- | --- |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` v0.2.0 |
 | M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
-| M2-03 | Kevin | todo | Asset/network registry (USDT + Tron) | After M2-02 |
+| M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
 
 ---
 

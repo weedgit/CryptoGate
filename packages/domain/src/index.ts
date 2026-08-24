@@ -107,18 +107,73 @@ export type AssetNetwork = {
 };
 
 /**
+ * Per asset+network catalog. Confirmations, decimals, and Mode D support
+ * come from here — not magic numbers in API, watcher, or payment-page.
+ *
+ * Phase 1 enabled pair: USDT on Tron. Other AssetCode/NetworkId values stay
+ * in enums for later milestones; lookup returns undefined until enabled here.
+ */
+export type AssetNetworkConfig = {
+  asset: AssetCode;
+  network: NetworkId;
+  enabled: boolean;
+  /** Guest/cashier label, e.g. TRON TRC-20 */
+  displayNetwork: string;
+  /** Token contract; null for native assets */
+  contractAddress: string | null;
+  decimals: number;
+  /** Major-unit decimal string */
+  minAmount: string;
+  /** Mode C fingerprint step in major units */
+  amountStep: string;
+  requiredConfirmations: number;
+  /** False for typical USDT account tokens (Phase1-Project-Plan §2.4) */
+  memoSupported: boolean;
+};
+
+/** First live M3 target: USDT TRC-20. */
+export const USDT_TRON: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.Tron,
+  enabled: true,
+  displayNetwork: "TRON TRC-20",
+  contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 19,
+  memoSupported: false,
+};
+
+export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [USDT_TRON];
+
+export function getAssetNetworkConfig(
+  asset: AssetCode,
+  network: NetworkId,
+): AssetNetworkConfig | undefined {
+  return ASSET_NETWORK_REGISTRY.find(
+    (row) => row.enabled && row.asset === asset && row.network === network,
+  );
+}
+
+export function toAssetNetwork(row: AssetNetworkConfig): AssetNetwork {
+  return {
+    asset: row.asset,
+    network: row.network,
+    ...(row.contractAddress ? { contractAddress: row.contractAddress } : {}),
+  };
+}
+
+/** First Sprint 0 / M3 target pair. */
+export const DEFAULT_ASSET_NETWORK: AssetNetwork = toAssetNetwork(USDT_TRON);
+
+/**
  * Money amount as a decimal string in major units (avoid float).
  * Example: "50.01" USDT.
  */
 export type Money = {
   amount: string;
   currency: AssetCode;
-};
-
-/** First Sprint 0 / M3 target pair. */
-export const DEFAULT_ASSET_NETWORK: AssetNetwork = {
-  asset: AssetCode.USDT,
-  network: NetworkId.Tron,
 };
 
 /**

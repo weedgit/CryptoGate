@@ -2,7 +2,7 @@
  * Mode B stub — fixed settlement address assign.
  * Bruce owns implementation.
  */
-import type { AssetCode } from "@cryptogate/domain";
+import type { AssetCode, AddressSource } from "@cryptogate/domain";
 import type { AssignInput, AssignResult } from "../types.js";
 
 export async function assignModeB(input: AssignInput): Promise<AssignResult> {
@@ -12,6 +12,6 @@ export async function assignModeB(input: AssignInput): Promise<AssignResult> {
       currency: input.asset as AssetCode,
     },
     receiveAddress: input.mainSettlementAddress,
-    addressSource: "main",
+    addressSource: "main" satisfies AddressSource,
   };
 }

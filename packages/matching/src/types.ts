@@ -1,4 +1,9 @@
-import type { MatchingMode, Money, OrderStatus } from "@cryptogate/domain";
+import type {
+  AddressSource,
+  MatchingMode,
+  Money,
+  OrderStatus,
+} from "@cryptogate/domain";
 
 export type AssignInput = {
   mode: MatchingMode;
@@ -9,10 +14,11 @@ export type AssignInput = {
   mainSettlementAddress: string;
 };
 
+/** Aligns with domain PaymentOrderAssignFields (camelCase at package boundary). */
 export type AssignResult = {
   payableAmount: Money;
   receiveAddress: string;
-  addressSource: "main" | "hd_pool";
+  addressSource: AddressSource;
   hdIndex?: number;
   memoOrTag?: string;
 };
