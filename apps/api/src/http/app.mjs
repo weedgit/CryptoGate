@@ -26,6 +26,7 @@ import {
   handlePutMatchingMode,
 } from "../matching-mode/matching-mode-routes.mjs";
 import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
+import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
@@ -153,6 +154,12 @@ export async function handleRequest(req, res) {
       await handlePutXpub(req, res, orgId);
       return;
     }
+  }
+
+  const hdPoolMatch = path.match(/^\/v1\/orgs\/([^/]+)\/hd-pool$/);
+  if (method === "GET" && hdPoolMatch) {
+    await handleGetHdPool(req, res, decodeURIComponent(hdPoolMatch[1]));
+    return;
   }
 
   const roleMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/role$/);

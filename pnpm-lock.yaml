@@ -20,6 +20,18 @@ importers:
       '@cryptogate/matching':
         specifier: workspace:*
         version: link:../../packages/matching
+      '@noble/curves':
+        specifier: ^2.3.0
+        version: 2.3.0
+      '@noble/hashes':
+        specifier: ^2.3.0
+        version: 2.3.0
+      '@scure/base':
+        specifier: ^2.3.0
+        version: 2.3.0
+      '@scure/bip32':
+        specifier: ^2.3.0
+        version: 2.3.0
       pg:
         specifier: ^8.13.1
         version: 8.23.0
@@ -66,6 +78,20 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@noble/curves@2.3.0':
+    resolution: {integrity: sha512-v7cY+4oWYPQszRj6ZFGzTVL7uP2TaLo1xMhWHzYC5wj0ZhOXQ5x+sBre8rF3hi8cAoi0bh1qXoovoOkdFtvqEg==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.3.0':
+    resolution: {integrity: sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ==}
+    engines: {node: '>= 20.19.0'}
+
+  '@scure/base@2.3.0':
+    resolution: {integrity: sha512-NsG6Y03tY6R5BUis4FdVtHVkur0U6FOzskgs9ZXNl78CUc9fkZ78HmENUle1nSOkCasDmbubmWD9qwB7mm4PZA==}
+
+  '@scure/bip32@2.3.0':
+    resolution: {integrity: sha512-mMPjNcXxJsvNveIgRIXrnwd4omu0wdXo4JowAUZO7/82+/bpAwVltclx6MG6nv2M3dA6IbfVv4xwWxaREm3OcA==}
 
   pg-cloudflare@1.4.0:
     resolution: {integrity: sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==}
@@ -131,6 +157,20 @@ packages:
     engines: {node: '>=0.4'}
 
 snapshots:
+
+  '@noble/curves@2.3.0':
+    dependencies:
+      '@noble/hashes': 2.3.0
+
+  '@noble/hashes@2.3.0': {}
+
+  '@scure/base@2.3.0': {}
+
+  '@scure/bip32@2.3.0':
+    dependencies:
+      '@noble/curves': 2.3.0
+      '@noble/hashes': 2.3.0
+      '@scure/base': 2.3.0
 
   pg-cloudflare@1.4.0:
     optional: true

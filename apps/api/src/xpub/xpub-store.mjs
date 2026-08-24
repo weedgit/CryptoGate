@@ -63,6 +63,25 @@ export async function hasActiveXpub(orgId, asset, network, client) {
 }
 
 /**
+ * Active watch-only xPub string. Do not log the return value.
+ * @param {string} orgId
+ * @param {string} asset
+ * @param {string} network
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ * @returns {Promise<string | null>}
+ */
+export async function getActiveXpub(orgId, asset, network, client) {
+  await activateDuePendingXpubs(client);
+  const { rows } = await db(client).query(
+    `SELECT xpub
+     FROM merchant_xpubs
+     WHERE org_id = $1 AND asset = $2 AND network = $3 AND xpub IS NOT NULL`,
+    [orgId, asset, network],
+  );
+  return rows[0]?.xpub ?? null;
+}
+
+/**
  * @param {{
  *   orgId: string,
  *   asset: string,

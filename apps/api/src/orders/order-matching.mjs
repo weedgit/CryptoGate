@@ -6,6 +6,7 @@ import {
 } from "@cryptogate/matching";
 import { findSettlementAddress } from "../settlement/settlement-store.mjs";
 import { hasActiveXpub } from "../xpub/xpub-store.mjs";
+import { claimHdPoolAddress } from "../mode-s/hd-pool-store.mjs";
 import { mapAssignError } from "./order-assign.mjs";
 import {
   hasModeSSameAmountConflict,
@@ -81,9 +82,13 @@ export async function assignOnOrderCreate(input) {
       listReservedPayableAmounts: listPayables,
       listReservedMemoOrTags: listMemos,
       memoSeed: input.idempotencyKey,
-      // HD pool FREE claim is M2-44 — conflict with xPub still needs claimHdPoolAddress.
       xPubConfigured,
       hasModeSSameAmountConflict: hasConflict,
+      claimHdPoolAddress: (query) =>
+        claimHdPoolAddress(input.client, {
+          ...query,
+          mainSettlementAddress,
+        }),
     });
 
     return {

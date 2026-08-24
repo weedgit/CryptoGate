@@ -42,6 +42,26 @@ export function mapAssignError(err) {
       message: "Matching mode is not available yet",
     };
   }
+  if (
+    message.includes("not a valid BIP32") ||
+    message.includes("could not derive a public key")
+  ) {
+    return {
+      status: 422,
+      code: "invalid_xpub",
+      message: "Configured xPub cannot derive a Tron receive address",
+    };
+  }
+  if (
+    message.includes("HD pool") ||
+    message.includes("only available for tron")
+  ) {
+    return {
+      status: 422,
+      code: "hd_pool_unavailable",
+      message: "Could not assign an HD pool address for Mode S",
+    };
+  }
   if (message.includes("claimHdPoolAddress") || message.includes("xPub")) {
     return {
       status: 422,
