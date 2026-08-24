@@ -58,15 +58,16 @@ export function matchWriteNeeded(row, result, transfer) {
 }
 
 /**
- * Never decrease confirmations (reorg handling is M4-21).
  * Skip no-op UPDATEs that only bump updated_at.
+ * Normal path never decreases confirmations; reorg (M4-21) may rewind + anomaly.
  *
  * @param {{ status: string, confirmations: number }} row
  * @param {number} confirmations
  * @param {string | null} nextStatus
+ * @param {{ reorg?: boolean }} [opts]
  * @returns {{ write: boolean, reason: string }}
  */
-export function confirmationWriteNeeded(row, confirmations, nextStatus) {
+export function confirmationWriteNeeded(row, confirmations, nextStatus, opts = {}) {
   if (WATCHER_TERMINAL_STATUSES.includes(row.status)) {
     return { write: false, reason: "terminal_order" };
   }
@@ -76,6 +77,10 @@ export function confirmationWriteNeeded(row, confirmations, nextStatus) {
 
   const current = Number(row.confirmations) || 0;
   const next = Number(confirmations) || 0;
+
+  if (opts.reorg && nextStatus === "payment_anomaly") {
+    return { write: true, reason: "reorg_anomaly" };
+  }
 
   if (nextStatus && nextStatus !== row.status) {
     if (next < current) {

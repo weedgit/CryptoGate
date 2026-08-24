@@ -209,10 +209,15 @@ export async function listKnownTxHashes(db, input) {
 }
 
 /**
- * Persist confirmation count and optional status advance (M3-42 / M4-20).
- * Skips no-ops; never decreases confirmations.
+ * Persist confirmation count and optional status advance (M3-42 / M4-20 / M4-21).
+ * Skips no-ops; never decreases confirmations unless reorg → payment_anomaly.
  * @param {import("pg").Pool | import("pg").PoolClient} db
- * @param {{ orderId: string, confirmations: number, nextStatus: string | null }} input
+ * @param {{
+ *   orderId: string,
+ *   confirmations: number,
+ *   nextStatus: string | null,
+ *   reorg?: boolean,
+ * }} input
  */
 export async function applyConfirmationUpdate(db, input) {
   const { rows } = await db.query(
@@ -230,6 +235,7 @@ export async function applyConfirmationUpdate(db, input) {
     { status: row.status, confirmations: row.confirmations ?? 0 },
     input.confirmations,
     input.nextStatus,
+    { reorg: input.reorg === true },
   );
   if (!decision.write) {
     return {
@@ -237,6 +243,25 @@ export async function applyConfirmationUpdate(db, input) {
       skipped: true,
       alreadyCurrent: true,
       reason: decision.reason,
+    };
+  }
+
+  if (input.reorg && input.nextStatus === "payment_anomaly") {
+    const { rowCount } = await db.query(
+      `UPDATE payment_orders
+       SET confirmations = $1,
+           status = 'payment_anomaly',
+           updated_at = now()
+       WHERE id = $2::uuid
+         AND status = ANY($3::text[])
+         AND tx_hash IS NOT NULL`,
+      [input.confirmations, input.orderId, WATCHER_CONFIRM_STATUSES],
+    );
+    return {
+      updated: rowCount ?? 0,
+      skipped: (rowCount ?? 0) === 0,
+      reason: decision.reason,
+      reorg: true,
     };
   }
 

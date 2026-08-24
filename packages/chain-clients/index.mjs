@@ -3,6 +3,7 @@ export {
   listRecentTransfers,
   dedupeTransfersByTxHash,
   getTransactionConfirmations,
+  getTransactionConfirmationState,
   getTronConfig,
   minorToMajor,
   mapTrc20Row,
