@@ -75,7 +75,8 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 | M3-41 | Bruce | done | Watcher → matchTransaction wire | PR #34 merged |
 | M3-42 | Bruce | done | Confirmations → completed | PR #37 merged |
 | M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR #39 |
-| M3-30 | Bruce | doing | Live TronGrid USDT TRC-20 ingest + confirmations | `feat-bruce-chain-tron-live` |
+| M3-30 | Bruce | done | Live TronGrid USDT TRC-20 ingest + confirmations | PR #42 merged |
+| M2-44 | Bruce | doing | HD pool state helpers + Andrew schema handoff | `feat-bruce-matching-hd-pool` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -100,7 +101,7 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | HD pool persistence API (M2-44) | Mode S conflict assign; Kevin documents after |
+| P1 | HD pool migration + `claimHdPoolAddress` (M2-44) | Schema in `doc/M2-44-Hd-Pool.md`; matching helpers on Bruce branch |
 
 Landed: `assignOnCreate` (#30), CORS + expiry (#33), settlement MFA/cool-down (#38), xPub (#40).
 

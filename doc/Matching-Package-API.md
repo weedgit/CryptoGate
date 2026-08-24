@@ -19,7 +19,7 @@ Package path: `packages/matching`
 | `MODE_S_CONFLICT_STATUSES` | Andrew | Statuses that count as Mode S same-amount conflict |
 | `validateMatchingSettings` / `assertMatchingSettings` | API / merchant UI | Reject Mode S+C and Mode C with wide underpay (M2-45) |
 
-Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN DB owned by API — M2-44).
+Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (+ `mode-s/pool` FREE/IN_USE/COOLDOWN helpers — M2-44; DB owned by API — see `doc/M2-44-Hd-Pool.md`).
 
 | Mode | Assign status |
 | --- | --- |
@@ -100,7 +100,7 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
   3. Conflict → require `claimHdPoolAddress` (atomic FREE claim or derive-next). Result: `addressSource: "hd_pool"`, `hdIndex` ≥ 0, address ≠ main.
 - Matching **never** holds keys, derives, signs, or sweeps.
 - Issued receive address is immutable after create (API invariant).
-- Pool COOLDOWN → FREE is M2-44 / M3 — not this assign.
+- Pool COOLDOWN → FREE helpers exported (M2-44); API migration + claim wiring — see `doc/M2-44-Hd-Pool.md`.
 
 ## Matching settings policy (M2-45)
 

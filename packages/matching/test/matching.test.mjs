@@ -23,6 +23,13 @@ import {
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
   matchTransaction,
+  canClaimHdPoolSlot,
+  hdPoolStateAfterClaim,
+  hdPoolStateAfterCooldownElapsed,
+  hdPoolStateAfterOrderFinal,
+  isHdPoolCooldownElapsed,
+  isHdPoolReleaseOrderStatus,
+  DEFAULT_HD_POOL_COOLDOWN_MS,
 } from "../dist/index.js";
 
 const baseAssign = {
@@ -479,6 +486,41 @@ describe("@cryptogate/matching Mode S assign (M2-43)", () => {
           }),
         }),
       /must not return the main settlement address/,
+    );
+  });
+});
+
+describe("@cryptogate/matching Mode S HD pool state (M2-44)", () => {
+  it("claims only FREE → IN_USE", () => {
+    assert.equal(canClaimHdPoolSlot("FREE"), true);
+    assert.equal(canClaimHdPoolSlot("IN_USE"), false);
+    assert.equal(canClaimHdPoolSlot("COOLDOWN"), false);
+    assert.equal(hdPoolStateAfterClaim("FREE"), "IN_USE");
+    assert.throws(() => hdPoolStateAfterClaim("IN_USE"), /FREE/);
+  });
+
+  it("releases IN_USE → COOLDOWN on final order statuses", () => {
+    assert.equal(hdPoolStateAfterOrderFinal("IN_USE"), "COOLDOWN");
+    assert.equal(isHdPoolReleaseOrderStatus("completed"), true);
+    assert.equal(isHdPoolReleaseOrderStatus("expired"), true);
+    assert.equal(isHdPoolReleaseOrderStatus("verifying"), false);
+  });
+
+  it("cooldown → FREE after window", () => {
+    assert.equal(hdPoolStateAfterCooldownElapsed("COOLDOWN"), "FREE");
+    assert.equal(
+      isHdPoolCooldownElapsed({
+        cooldownStartedAtMs: 1_000,
+        nowMs: 1_000 + DEFAULT_HD_POOL_COOLDOWN_MS,
+      }),
+      true,
+    );
+    assert.equal(
+      isHdPoolCooldownElapsed({
+        cooldownStartedAtMs: 1_000,
+        nowMs: 1_000 + DEFAULT_HD_POOL_COOLDOWN_MS - 1,
+      }),
+      false,
     );
   });
 });
