@@ -167,3 +167,5 @@ Locked onto each order at create. Changing the merchant default does not rewrite
 | M3-T08 | Sample handler verifies HMAC; duplicate `Event-Id` ignored |
 
 Gate doc: [M3-Acceptance.md](M3-Acceptance.md) (CI evidence for T02–T08).
+
+Merchant ops copy (modes / collisions / cool-downs): [M4-32-Merchant-Manual.md](M4-32-Merchant-Manual.md).

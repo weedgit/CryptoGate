@@ -123,6 +123,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M3-gate | Kevin | done | M3 acceptance checklist T02–T08 (CI) | `doc/M3-Acceptance.md` |
 | M4-05 | Kevin | done | Test vs prod environment matrix | `doc/M4-05-Env-Matrix.md` |
 | — | Kevin | done | CI: api-key rules + T07 signing smoke | `doc/examples/api-signing-smoke.mjs` |
+| M4-32 | Kevin | done | Merchant manual: modes, collision, cool-down | `doc/M4-32-Merchant-Manual.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -133,7 +134,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none blocking Kevin) | M4-11 `/v1/api-keys` on main (migrate 017); next: M4-12 load tests when ready |
+| — | (none blocking Kevin) | M4-11 done (run migrate **017** before routes). Next Andrew: **M4-12** load tests — no OpenAPI wait. |
 
 CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
 
@@ -144,7 +145,7 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | Priority | Ask | Why |
 | --- | --- | --- |
 | P1 | Start M2-60 from Figma map | `doc/UI-Handoff.md` — dark `d4` `29:2023` + D1–D3 support; do not invent UI |
-| P1 | Then M2-61/62/63 | D11 frames `13:5987` / `13:6192` / `13:6354` + MFA `44:72` |
+| P1 | Then M2-61/62/63 | D11 frames — copy must match `doc/M4-32-Merchant-Manual.md` |
 | P2 | APK smoke notes | Optional while scaffolding `apps/web/src/merchant` |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
@@ -274,6 +275,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | --- | --- | --- | --- | --- |
 | M4-11 | Kevin | done | OpenAPI API keys CRUD/rotate | v0.3.1 `feat-kevin-api-spec-m4-api-keys` |
 | M4-05 | Kevin | done | Test vs prod env matrix in integration guide | `doc/M4-05-Env-Matrix.md` |
+| M4-32 | Kevin | done | Merchant manual (matching / collision / cool-down) | `doc/M4-32-Merchant-Manual.md` |
 
 ### API (Andrew)
 
