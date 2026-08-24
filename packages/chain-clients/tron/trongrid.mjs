@@ -165,40 +165,72 @@ export async function fetchTrc20TransfersForAddresses(input) {
 
 /**
  * Confirmations = current block − tx block (floored at 0).
- * @param {{ txHash: string, fetchImpl?: typeof fetch }} input
+ * Presence distinguishes reorg (tx gone) from RPC failure (M4-21).
+ * @param {{ txHash: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
+ */
+export async function fetchTransactionConfirmationState(input) {
+  const cfg = getTronRuntimeConfig();
+  if (!cfg.configured) {
+    return { confirmations: 0, presence: "unknown" };
+  }
+
+  const txHash = input.txHash.trim();
+  if (!txHash) {
+    return { confirmations: 0, presence: "missing" };
+  }
+
+  try {
+    const info = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, "/wallet/gettransactioninfobyid", {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+          body: { value: txHash },
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+
+    // Empty object / no block → tx not in current tip view (dropped or never indexed).
+    const txBlock = Number(info?.blockNumber ?? info?.block_number);
+    if (!Number.isFinite(txBlock) || txBlock <= 0) {
+      const empty =
+        info == null ||
+        (typeof info === "object" && Object.keys(info).length === 0);
+      return {
+        confirmations: 0,
+        presence: empty || !Number.isFinite(txBlock) ? "missing" : "missing",
+      };
+    }
+
+    const now = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, "/wallet/getnowblock", {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+          body: {},
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+    const current = Number(now?.block_header?.raw_data?.number);
+    if (!Number.isFinite(current) || current <= 0) {
+      return { confirmations: 0, presence: "unknown" };
+    }
+
+    return {
+      confirmations: Math.max(0, current - txBlock),
+      presence: "confirmed",
+    };
+  } catch {
+    return { confirmations: 0, presence: "unknown" };
+  }
+}
+
+/**
+ * @param {{ txHash: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
  * @returns {Promise<number>}
  */
 export async function fetchTransactionConfirmations(input) {
-  const cfg = getTronRuntimeConfig();
-  if (!cfg.configured) return 0;
-
-  const txHash = input.txHash.trim();
-  if (!txHash) return 0;
-
-  const info = await withTronRetry(
-    () =>
-      trongridFetch(cfg.baseUrl, "/wallet/gettransactioninfobyid", {
-        apiKey: cfg.apiKey,
-        fetchImpl: input.fetchImpl,
-        body: { value: txHash },
-      }),
-    { sleepImpl: input.sleepImpl },
-  );
-
-  const txBlock = Number(info?.blockNumber ?? info?.block_number);
-  if (!Number.isFinite(txBlock) || txBlock <= 0) return 0;
-
-  const now = await withTronRetry(
-    () =>
-      trongridFetch(cfg.baseUrl, "/wallet/getnowblock", {
-        apiKey: cfg.apiKey,
-        fetchImpl: input.fetchImpl,
-        body: {},
-      }),
-    { sleepImpl: input.sleepImpl },
-  );
-  const current = Number(now?.block_header?.raw_data?.number);
-  if (!Number.isFinite(current) || current <= 0) return 0;
-
-  return Math.max(0, current - txBlock);
+  const state = await fetchTransactionConfirmationState(input);
+  return state.confirmations;
 }

@@ -5,7 +5,7 @@
 
 import { getTronRuntimeConfig } from "./config.mjs";
 import {
-  fetchTransactionConfirmations,
+  fetchTransactionConfirmationState,
   fetchTrc20TransfersForAddresses,
 } from "./trongrid.mjs";
 
@@ -136,29 +136,47 @@ export async function listRecentTransfers(options = {}) {
 }
 
 /**
+ * Confirmation observation for a tx (M3-42 / M3-30 / M4-21).
+ * Precedence: WATCHER_STUB_CONFIRMATIONS (+ optional WATCHER_STUB_TX_PRESENCE) → TronGrid → unknown.
+ * @param {{ txHash: string, network?: string, fetch?: typeof fetch }} args
+ * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
+ */
+export async function getTransactionConfirmationState(args) {
+  const stubPresence = process.env.WATCHER_STUB_TX_PRESENCE?.trim();
+  const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
+  if (stub !== undefined && stub !== "") {
+    const n = Number.parseInt(stub, 10);
+    if (!Number.isNaN(n) && n >= 0) {
+      const presence =
+        stubPresence === "missing" || stubPresence === "unknown"
+          ? stubPresence
+          : "confirmed";
+      return { confirmations: n, presence };
+    }
+  }
+  if (stubPresence === "missing" || stubPresence === "unknown") {
+    return { confirmations: 0, presence: stubPresence };
+  }
+
+  const cfg = getTronRuntimeConfig();
+  if (!cfg.configured || !args?.txHash) {
+    return { confirmations: 0, presence: "unknown" };
+  }
+
+  return fetchTransactionConfirmationState({
+    txHash: args.txHash,
+    fetchImpl: args.fetch,
+  });
+}
+
+/**
  * Confirmation count for a tx (M3-42 / M3-30).
- * Precedence: WATCHER_STUB_CONFIRMATIONS → TronGrid → 0.
  * @param {{ txHash: string, network?: string, fetch?: typeof fetch }} args
  * @returns {Promise<number>}
  */
 export async function getTransactionConfirmations(args) {
-  const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
-  if (stub !== undefined && stub !== "") {
-    const n = Number.parseInt(stub, 10);
-    if (!Number.isNaN(n) && n >= 0) return n;
-  }
-
-  const cfg = getTronRuntimeConfig();
-  if (!cfg.configured || !args?.txHash) return 0;
-
-  try {
-    return await fetchTransactionConfirmations({
-      txHash: args.txHash,
-      fetchImpl: args.fetch,
-    });
-  } catch {
-    return 0;
-  }
+  const state = await getTransactionConfirmationState(args);
+  return state.confirmations;
 }
 
 export function getTronConfig() {

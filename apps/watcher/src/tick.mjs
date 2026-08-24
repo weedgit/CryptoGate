@@ -5,7 +5,7 @@
  * M3-42: advance verifying/confirmed → completed when confirmations met.
  */
 import {
-  getTransactionConfirmations,
+  getTransactionConfirmationState,
   healthCheck as tronHealthCheck,
   listRecentTransfers,
 } from "@cryptogate/chain-clients/tron";
@@ -73,13 +73,13 @@ export async function runTick(ctx) {
       const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
       const confirmOutcomes = await processConfirmationBatch({
         orders: awaiting,
-        getConfirmations: getTransactionConfirmations,
+        getConfirmationState: getTransactionConfirmationState,
         apply: (args) => applyConfirmationUpdate(pool, args),
       });
 
       ingest = {
         mode: "match+confirm",
-        phase: "m4-20",
+        phase: "m4-21",
         chainPollMode: polled.mode,
         ingestError: polled.error ?? null,
         watchedAddresses: watchedAddresses.length,
@@ -90,6 +90,7 @@ export async function runTick(ctx) {
         awaitingConfirmations: awaiting.length,
         confirmOutcomes,
         restartSafe: true,
+        reorgAware: true,
       };
     } catch (err) {
       ingest = {
@@ -102,7 +103,7 @@ export async function runTick(ctx) {
 
   return {
     service: "cryptogate-watcher",
-    phase: ctx.config.databaseUrl ? "m4-restart-safe" : "m1-loop",
+    phase: ctx.config.databaseUrl ? "m4-reorg-safe" : "m1-loop",
     tick: ctx.tick,
     startedAt: ctx.startedAt,
     at: new Date().toISOString(),

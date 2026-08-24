@@ -1,36 +1,23 @@
 /**
- * Confirmation advancement (M3-42).
- * verifying → confirmed → completed when confirmations >= required.
- * Phase 1 may complete in one step once required confirmations are met.
+ * Confirmation advancement (M3-42) + reorg safety (M4-21).
+ * verifying → completed when confirmations >= required.
+ * Reorg / missing tx → payment_anomaly (never silent complete).
  */
 import { OrderStatus } from "@cryptogate/domain";
+import { evaluateConfirmationObservation } from "./reorg.mjs";
 
 /**
- * Pure decision: given current confirmations vs required, next status.
+ * Pure decision when only a confirmation count is known (unit tests / stubs).
+ * Prefer evaluateConfirmationObservation when presence is available.
  * @param {{ status: string, confirmations: number, requiredConfirmations: number }} order
  * @returns {{ nextStatus: string | null, reason: string }}
  */
 export function nextConfirmationStatus(order) {
-  if (order.status !== OrderStatus.Verifying && order.status !== OrderStatus.Confirmed) {
-    return { nextStatus: null, reason: "not_in_confirmation_path" };
-  }
-
-  const conf = Number(order.confirmations) || 0;
-  const required = Number(order.requiredConfirmations) || 0;
-
-  if (conf < required) {
-    return { nextStatus: null, reason: "awaiting_confirmations" };
-  }
-
-  // Phase 1: once required confirmations are reached, complete in one step.
-  if (
-    order.status === OrderStatus.Verifying ||
-    order.status === OrderStatus.Confirmed
-  ) {
-    return { nextStatus: OrderStatus.Completed, reason: "confirmations_met" };
-  }
-
-  return { nextStatus: null, reason: "no_transition" };
+  const decision = evaluateConfirmationObservation(order, {
+    confirmations: order.confirmations,
+    presence: "confirmed",
+  });
+  return { nextStatus: decision.nextStatus, reason: decision.reason };
 }
 
 /**
@@ -43,12 +30,17 @@ export function nextConfirmationStatus(order) {
  *     requiredConfirmations: number,
  *     network: string,
  *   }>,
- *   getConfirmations: (args: { txHash: string, network: string }) => Promise<number>,
+ *   getConfirmations?: (args: { txHash: string, network: string }) => Promise<number>,
+ *   getConfirmationState?: (args: {
+ *     txHash: string,
+ *     network: string,
+ *   }) => Promise<{ confirmations: number, presence: string }>,
  *   apply: (args: {
  *     orderId: string,
  *     confirmations: number,
  *     nextStatus: string | null,
- *   }) => Promise<{ updated: number }>,
+ *     reorg?: boolean,
+ *   }) => Promise<{ updated: number, skipped?: boolean, reason?: string, alreadyCurrent?: boolean }>,
  * }} input
  */
 export async function processConfirmationBatch(input) {
@@ -63,32 +55,63 @@ export async function processConfirmationBatch(input) {
       continue;
     }
 
-    const confirmations = await input.getConfirmations({
-      txHash: order.txHash,
-      network: order.network,
-    });
+    /** @type {{ confirmations: number, presence: string }} */
+    let observation;
+    if (input.getConfirmationState) {
+      observation = await input.getConfirmationState({
+        txHash: order.txHash,
+        network: order.network,
+      });
+    } else {
+      const confirmations = await input.getConfirmations({
+        txHash: order.txHash,
+        network: order.network,
+      });
+      observation = { confirmations, presence: "confirmed" };
+    }
 
-    const decision = nextConfirmationStatus({
-      status: order.status,
-      confirmations,
-      requiredConfirmations: order.requiredConfirmations,
-    });
+    const decision = evaluateConfirmationObservation(
+      {
+        status: order.status,
+        confirmations: order.confirmations,
+        requiredConfirmations: order.requiredConfirmations,
+      },
+      observation,
+    );
+
+    if (decision.skipWrite) {
+      outcomes.push({
+        orderId: order.orderId,
+        confirmations: decision.confirmations,
+        nextStatus: null,
+        reason: decision.reason,
+        updated: 0,
+        skipped: true,
+        reorg: decision.reorg,
+      });
+      continue;
+    }
 
     const applied = await input.apply({
       orderId: order.orderId,
-      confirmations,
+      confirmations: decision.confirmations,
       nextStatus: decision.nextStatus,
+      reorg: decision.reorg,
     });
 
     outcomes.push({
       orderId: order.orderId,
-      confirmations,
+      confirmations: decision.confirmations,
       nextStatus: decision.nextStatus,
       reason: applied.reason ?? decision.reason,
       updated: applied.updated,
       skipped: applied.skipped === true || (applied.updated ?? 0) === 0,
       alreadyCurrent: applied.alreadyCurrent === true,
+      reorg: decision.reorg,
     });
   }
   return outcomes;
 }
+
+export { evaluateConfirmationObservation, REORG_CONFIRMATION_DROP_MIN } from "./reorg.mjs";
+export { OrderStatus };

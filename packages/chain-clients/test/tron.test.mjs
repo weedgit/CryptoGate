@@ -198,6 +198,22 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     assert.equal(n, 25);
     assert.equal(paths.length, 2);
   });
+
+  it("getTransactionConfirmationState marks empty info missing (M4-21)", async () => {
+    const { getTransactionConfirmationState } = await import("../tron/index.mjs");
+    const fetchMock = async (url) => {
+      if (String(url).includes("gettransactioninfobyid")) {
+        return { ok: true, async json() { return {}; } };
+      }
+      throw new Error("unexpected " + url);
+    };
+    const state = await getTransactionConfirmationState({
+      txHash: "deadbeef",
+      fetch: /** @type {typeof fetch} */ (fetchMock),
+    });
+    assert.equal(state.presence, "missing");
+    assert.equal(state.confirmations, 0);
+  });
 });
 
 describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
