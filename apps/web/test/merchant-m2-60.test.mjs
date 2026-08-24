@@ -93,3 +93,33 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
     assert.match(detail, /anomaly-panel/);
   });
 });
+
+describe("@cryptogate/web merchant D17 cashier shell", () => {
+  it("limits nav and guards owner-only routes for cashiers", () => {
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.match(shell, /CASHIER PORTAL/);
+    assert.match(shell, /CASHIER TERMINAL/);
+    assert.match(shell, /CASHIER_NAV/);
+    assert.match(shell, /My Orders/);
+    assert.match(shell, /Create Order/);
+    assert.doesNotMatch(shell, /CASHIER_NAV[\s\S]*Service Bills/);
+
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /RequireOwnerPortal/);
+    assert.match(app, /CashierForbiddenPage/);
+    assert.match(app, /showCashierBanner/);
+
+    const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
+    assert.match(org, /sessionIsCashierOnly/);
+  });
+
+  it("shows restricted banner without Figma pink sticky", () => {
+    const banner = readFileSync(
+      join(root, "src/merchant/CashierRestrictedBanner.tsx"),
+      "utf8",
+    );
+    assert.match(banner, /Cashier/);
+    assert.match(banner, /strictly restricted/);
+    assert.doesNotMatch(banner, /sparkles|fade-in 400ms/i);
+  });
+});

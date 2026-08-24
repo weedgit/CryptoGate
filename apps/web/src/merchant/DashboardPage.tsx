@@ -90,14 +90,16 @@ export function DashboardPage({ session }: Props) {
     <div className="dash-page">
       <div className="orders-toolbar">
         <p className="muted" style={{ margin: 0 }}>
-          Live order health from merchant scope
+          {cashierOnly
+            ? "Your open and recent payment orders"
+            : "Live order health from merchant scope"}
         </p>
         <div className="orders-actions">
           <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            + Create Payment Order
+            + {cashierOnly ? "Create Order" : "Create Payment Order"}
           </Link>
           <Link className="btn-ghost btn-inline" to="/merchant/orders">
-            View orders
+            {cashierOnly ? "My orders" : "View orders"}
           </Link>
         </div>
       </div>
@@ -155,13 +157,15 @@ export function DashboardPage({ session }: Props) {
 
       <div className="panel">
         <div className="detail-header">
-          <h2>Recent payment orders</h2>
+          <h2>{cashierOnly ? "My recent orders" : "Recent payment orders"}</h2>
           <Link to="/merchant/orders" style={{ color: "var(--teal)", fontSize: 13 }}>
-            All orders →
+            {cashierOnly ? "All my orders →" : "All orders →"}
           </Link>
         </div>
         {recent.length === 0 ? (
-          <p className="muted">No payment orders yet.</p>
+          <p className="muted">
+            {cashierOnly ? "No orders yet. Create one to issue a QR." : "No payment orders yet."}
+          </p>
         ) : (
           <div className="feed-list">
             {recent.map((o) => (
