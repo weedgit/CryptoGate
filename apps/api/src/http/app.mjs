@@ -49,6 +49,18 @@ import {
   handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
 import { handleListAuditLog } from "../audit/audit-routes.mjs";
+import {
+  handleDecideEnterpriseRateApproval,
+  handleGetFeeTierSettings,
+  handleGetPlatformOrgPolicy,
+  handleListEnterpriseRateApprovals,
+  handlePutFeeTierSettings,
+  handlePutPlatformOrgPolicy,
+} from "../platform-settings/platform-settings-routes.mjs";
+import {
+  handleGetMerchantCommercial,
+  handlePutMerchantCommercial,
+} from "../commercial/merchant-commercial-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -284,6 +296,58 @@ export async function handleRequest(req, res) {
   if (path === "/v1/audit" && method === "GET") {
     await handleListAuditLog(req, res, url);
     return;
+  }
+
+  if (path === "/v1/platform/settings/fee-tiers") {
+    if (method === "GET") {
+      await handleGetFeeTierSettings(req, res);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutFeeTierSettings(req, res);
+      return;
+    }
+  }
+
+  if (path === "/v1/platform/settings/org-policy") {
+    if (method === "GET") {
+      await handleGetPlatformOrgPolicy(req, res);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutPlatformOrgPolicy(req, res);
+      return;
+    }
+  }
+
+  if (path === "/v1/platform/enterprise-rate-approvals" && method === "GET") {
+    await handleListEnterpriseRateApprovals(req, res, url);
+    return;
+  }
+
+  const enterpriseApprovalMatch = path.match(
+    /^\/v1\/platform\/enterprise-rate-approvals\/([^/]+)$/,
+  );
+  if (method === "PATCH" && enterpriseApprovalMatch) {
+    await handleDecideEnterpriseRateApproval(
+      req,
+      res,
+      decodeURIComponent(enterpriseApprovalMatch[1]),
+    );
+    return;
+  }
+
+  const commercialMatch = path.match(/^\/v1\/orgs\/([^/]+)\/commercial$/);
+  if (commercialMatch) {
+    const orgId = decodeURIComponent(commercialMatch[1]);
+    if (method === "GET") {
+      await handleGetMerchantCommercial(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutMerchantCommercial(req, res, orgId);
+      return;
+    }
   }
 
   const serviceBillCheckoutMatch = path.match(

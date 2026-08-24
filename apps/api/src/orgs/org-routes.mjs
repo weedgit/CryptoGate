@@ -16,6 +16,11 @@ import {
 } from "./org-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import {
+  bootstrapMerchantCommercial,
+  parseCommercialOnCreate,
+} from "../commercial/merchant-commercial-routes.mjs";
+import { validateCommercialOnCreate } from "../commercial/merchant-commercial-rules.mjs";
 
 /**
  * GET /v1/orgs
@@ -108,6 +113,26 @@ export async function handleCreateOrg(req, res) {
     return;
   }
 
+  /** @type {{ tier: string, volumeFeePercent: string, needsApproval?: boolean } | null} */
+  let commercialPlan = null;
+  if (result.insert.type === "merchant") {
+    const parsed = parseCommercialOnCreate(body?.commercial);
+    if (!parsed.ok) {
+      sendError(res, parsed.status, parsed.code, parsed.message);
+      return;
+    }
+    const bandCheck = await validateCommercialOnCreate(parsed.tier, parsed.volumeFeePercent);
+    if (!bandCheck.ok) {
+      sendError(res, bandCheck.status, bandCheck.code, bandCheck.message);
+      return;
+    }
+    commercialPlan = {
+      tier: parsed.tier,
+      volumeFeePercent: parsed.volumeFeePercent,
+      needsApproval: bandCheck.needsApproval,
+    };
+  }
+
   const inserted = await insertOrgAccount(result.insert);
   if (!inserted.ok) {
     sendError(res, 403, "platform_exists", "Platform org already exists");
@@ -119,6 +144,16 @@ export async function handleCreateOrg(req, res) {
       orgId: inserted.row.id,
       userId: caller.userId,
       role: "owner",
+    });
+  }
+
+  if (inserted.row.type === "merchant" && commercialPlan) {
+    await bootstrapMerchantCommercial({
+      orgId: inserted.row.id,
+      tier: commercialPlan.tier,
+      volumeFeePercent: commercialPlan.volumeFeePercent,
+      actorUserId: caller.userId,
+      needsApproval: commercialPlan.needsApproval,
     });
   }
 
