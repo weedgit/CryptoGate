@@ -246,6 +246,39 @@ export function canViewWebhooks(caller, org) {
  * @param {"view" | "manage"} mode
  */
 export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
+  return resolveMerchantSettingsOrgId(memberships, requestedOrgId, mode, {
+    manageForbidden: "Not allowed to manage webhooks for this org",
+    agentForbidden: "Agent accounts cannot register merchant webhooks",
+    emptyForbidden: "Not allowed to manage webhooks",
+  });
+}
+
+/**
+ * Same role bar as webhooks (Owner/Admin manage; Viewer list; Cashier/agent 403).
+ * @param {{ orgId: string, role: string, orgType: string }[]} memberships
+ * @param {string | null} requestedOrgId
+ * @param {"view" | "manage"} mode
+ */
+export function resolveApiKeyOrgId(memberships, requestedOrgId, mode) {
+  return resolveMerchantSettingsOrgId(memberships, requestedOrgId, mode, {
+    manageForbidden: "Not allowed to manage API keys for this org",
+    agentForbidden: "Agent accounts cannot manage merchant API keys",
+    emptyForbidden: "Not allowed to manage API keys",
+  });
+}
+
+/**
+ * @param {{ orgId: string, role: string, orgType: string }[]} memberships
+ * @param {string | null} requestedOrgId
+ * @param {"view" | "manage"} mode
+ * @param {{ manageForbidden: string, agentForbidden: string, emptyForbidden: string }} messages
+ */
+function resolveMerchantSettingsOrgId(
+  memberships,
+  requestedOrgId,
+  mode,
+  messages,
+) {
   const roleSet = mode === "manage" ? SETTINGS_ROLES : ORDER_READ_ROLES;
   const eligible = memberships.filter(
     (m) => MERCHANT_TYPES.has(m.orgType) && roleSet.has(m.role),
@@ -257,7 +290,7 @@ export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
         ok: false,
         status: 403,
         code: "forbidden",
-        message: "Not allowed to manage webhooks for this org",
+        message: messages.manageForbidden,
       };
     }
     return { ok: true, orgId: m.orgId };
@@ -271,9 +304,7 @@ export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
       ok: false,
       status: 403,
       code: "forbidden",
-      message: agentOnly
-        ? "Agent accounts cannot register merchant webhooks"
-        : "Not allowed to manage webhooks",
+      message: agentOnly ? messages.agentForbidden : messages.emptyForbidden,
     };
   }
   return {
@@ -282,6 +313,16 @@ export function resolveWebhookOrgId(memberships, requestedOrgId, mode) {
     code: "org_required",
     message: "orgId is required when you have multiple merchant memberships",
   };
+}
+
+/** Same bar as webhooks: Cashier cannot manage API keys. */
+export function canManageApiKeys(caller, org) {
+  return canManageWebhooks(caller, org);
+}
+
+/** Same bar as webhooks GET: Owner/Admin/Viewer; Cashier 403. */
+export function canViewApiKeys(caller, org) {
+  return canViewWebhooks(caller, org);
 }
 
 /**
