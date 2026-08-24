@@ -101,9 +101,10 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-61 | Bruce | done | Matching mode settings UI | PR #70 merged |
 | M2-62 | Bruce | done | Settlement address book + cool-down UI | PR #70 merged |
 | M2-63 | Bruce | done | xPub / HD pool settings UI | PR #70 merged |
-| M2-64 | Bruce | doing | Merchant dashboard (D1) | `feat-bruce-web-merchant-m2-orders-shell` |
-| M2-65 | Bruce | doing | Orders list + CSV export (D2) | same branch |
-| M2-66 | Bruce | doing | Order detail + on-chain panel (D3) | same branch |
+| M2-64 | Bruce | done | Merchant dashboard (D1) | PR #73 merged |
+| M2-65 | Bruce | done | Orders list + CSV export (D2) | PR #73 merged |
+| M2-66 | Bruce | done | Order detail + on-chain panel (D3) | PR #73 merged |
+| M2-67 | Bruce | doing | Cashier web shell (D17) | `feat-bruce-web-merchant-d17-cashier-shell` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -152,8 +153,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | D1–D3 dashboard / orders / detail | `doc/UI-Handoff.md` — D1 `29:1617`, D2 `29:1750`, D3 `29:1888`; no Mark paid |
-| P2 | APK smoke notes | Optional while finishing merchant shell |
+| P1 | D5–D6 service bills UI | Separate rail from payment orders — Figma `29:2136` |
+| P2 | D14 API keys & webhooks | Wire M4-11 + M3-13 when building integrations page |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 

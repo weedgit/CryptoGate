@@ -13,7 +13,7 @@ import {
   orderStatusLabel,
   orderStatusTone,
 } from "./orderStatus";
-import { networkLabel, sessionCanExportOrders, truncateAddress } from "./org";
+import { networkLabel, sessionCanExportOrders, sessionIsCashierOnly, truncateAddress } from "./org";
 
 type Filter = "all" | "anomalies";
 
@@ -22,6 +22,7 @@ type Props = { session: Session };
 export function OrdersListPage({ session }: Props) {
   const navigate = useNavigate();
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
+  const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
   const [filter, setFilter] = useState<Filter>("all");
   const [items, setItems] = useState<PaymentOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +83,7 @@ export function OrdersListPage({ session }: Props) {
             </button>
           ) : null}
           <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            + New Payment Request
+            + {cashierOnly ? "Create Order" : "New Payment Request"}
           </Link>
         </div>
       </div>
@@ -93,10 +94,14 @@ export function OrdersListPage({ session }: Props) {
         <p className="muted">Loading orders…</p>
       ) : items.length === 0 ? (
         <div className="panel empty-orders">
-          <h2>No payment orders yet</h2>
-          <p className="muted">Create a payment order to show a QR and watch the chain.</p>
+          <h2>{cashierOnly ? "No orders yet" : "No payment orders yet"}</h2>
+          <p className="muted">
+            {cashierOnly
+              ? "Create a payment order to show a QR at the terminal."
+              : "Create a payment order to show a QR and watch the chain."}
+          </p>
           <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            Create payment order
+            {cashierOnly ? "Create order" : "Create payment order"}
           </Link>
         </div>
       ) : (
