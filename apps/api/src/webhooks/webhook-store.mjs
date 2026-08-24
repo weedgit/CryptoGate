@@ -55,14 +55,14 @@ export async function insertWebhookEndpoint(input) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: countRows } = await client.query(
-      `SELECT COUNT(*)::int AS n
+    const { rows: lockRows } = await client.query(
+      `SELECT id
        FROM webhook_endpoints
        WHERE org_id = $1 AND enabled = true
        FOR UPDATE`,
       [input.orgId],
     );
-    if ((countRows[0]?.n ?? 0) >= WEBHOOK_MAX_PER_ORG) {
+    if (lockRows.length >= WEBHOOK_MAX_PER_ORG) {
       await client.query("ROLLBACK");
       return { ok: false, code: "limit" };
     }

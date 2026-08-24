@@ -7,7 +7,7 @@ function expiresAtIso(value) {
 function paymentPageBaseUrl() {
   const raw = process.env.PAYMENT_PAGE_BASE_URL;
   if (typeof raw === "string" && raw.trim()) {
-    return raw.replace(/\/$/, "");
+    return raw.trim().replace(/\/$/, "");
   }
   return "http://localhost:5173";
 }
