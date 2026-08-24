@@ -10,6 +10,7 @@
     "test": "node --test test/**/*.test.mjs",
     "lint": "node -e \"process.exit(0)\"",
     "migrate": "node ./scripts/migrate.mjs",
+    "load:m4-12": "node ./scripts/load-m4-12.mjs",
     "dev": "node ./src/server.mjs",
     "start": "node ./src/server.mjs"
   },

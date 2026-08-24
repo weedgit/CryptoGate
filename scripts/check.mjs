@@ -81,10 +81,12 @@ run("node", [
   "apps/api/test/webhook-fanout.test.mjs",
   "apps/api/test/service-bill-rules.test.mjs",
   "apps/api/test/authz-regression.test.mjs",
+  "apps/api/test/load-m4-12.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
 run("node", ["doc/examples/api-signing-smoke.mjs"]);
+run("node", ["apps/api/scripts/load-m4-12.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.1 + M4-11 api-keys + M3 T07/T08 samples)");
+console.log("Check: ok (OpenAPI v0.3.1 + M4-11 api-keys + M4-12 load smoke + M3 samples)");

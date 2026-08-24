@@ -81,14 +81,14 @@ export async function insertApiKey(input) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: countRows } = await client.query(
-      `SELECT COUNT(*)::int AS n
+    const { rows: lockRows } = await client.query(
+      `SELECT id
        FROM api_keys
        WHERE org_id = $1 AND revoked_at IS NULL
        FOR UPDATE`,
       [input.orgId],
     );
-    if ((countRows[0]?.n ?? 0) >= API_KEY_MAX_PER_ORG) {
+    if (lockRows.length >= API_KEY_MAX_PER_ORG) {
       await client.query("ROLLBACK");
       return { ok: false, code: "limit" };
     }
