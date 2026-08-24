@@ -62,7 +62,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | Who | Focus | Status / note |
 | --- | --- | --- |
 | **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
-| **Bruce** | Merge D5–D6, start D14 | **Ahead:** D5–D6 (#76), D14 (#77), D10 (#79), D12–D16 (#81), D7–D9 (#83) on `main`; merchant Figma D1–D17 shell complete |
+| **Bruce** | Merge D5–D6, start D14 | **Done:** merchant web D1–D17 (#67–#83); **M1-32** mode-b test scaffold |
 | **Kevin** | Refresh `TEAM-BOARD.md`; chase M1-01 + Company A hostname table with client | Board refreshed; M1-01 still **blocked** (client sign-off) |
 | **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
 
@@ -175,8 +175,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | Priority | Ask | Why |
 | --- | --- | --- |
 | — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
-| P1 | Polish when Andrew lands APIs | Team member list (`GET /orgs/{id}/users`), org PATCH, notification prefs |
-| P2 | Watcher / matching / APK | Back to VM2 surfaces when web polish blocked |
+| P1 | M3-32 / M4-22 next network | Kevin must enable registry row first (`doc/M3-04-Asset-Networks.md`) |
+| P2 | Web polish when Andrew lands APIs | Team list, org PATCH, notification prefs |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
@@ -235,7 +235,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | --- | --- | --- | --- | --- |
 | M1-30 | Bruce | done | Watcher main loop + graceful shutdown | PR #2 merged — `pnpm start` loops; default one tick for CI |
 | M1-31 | Bruce | done | Chain-clients layout; Tron stub | `packages/chain-clients/tron` |
-| M1-32 | Bruce | todo | Matching test scaffold (mode-b) | Partial tests exist |
+| M1-32 | Bruce | done | Matching test scaffold (mode-b) | `packages/matching/test/mode-b.test.mjs` |
 | M1-33 | Bruce | done | Watcher ↔ payment_orders status contract | `doc/Watcher-Order-Status-Contract.md` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 

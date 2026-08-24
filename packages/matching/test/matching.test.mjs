@@ -1,15 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-  assignModeB,
   assignModeC,
   assignModeD,
   assignModeDForConfig,
   assignModeS,
   assignOnCreate,
   assertMatchingSettings,
-  majorToMinor,
-  matchModeB,
   matchModeC,
   matchModeD,
   matchModeDForConfig,
@@ -40,86 +37,6 @@ const baseAssign = {
   requestedAmount: "50.00",
   mainSettlementAddress: "TMainAddressExample",
 };
-
-describe("@cryptogate/matching Mode B assign (M2-40)", () => {
-  it("assigns main settlement address and payable = requested amount", async () => {
-    const result = await assignModeB({ ...baseAssign, mode: "B" });
-    assert.equal(result.receiveAddress, "TMainAddressExample");
-    assert.equal(result.addressSource, "main");
-    assert.equal(result.payableAmount.amount, "50.00");
-    assert.equal(result.payableAmount.currency, "USDT");
-    assert.equal(result.hdIndex, null);
-    assert.equal(result.memoOrTag, null);
-  });
-
-  it("trims settlement address", async () => {
-    const result = await assignModeB({
-      ...baseAssign,
-      mode: "B",
-      mainSettlementAddress: "  TMainAddressExample  ",
-    });
-    assert.equal(result.receiveAddress, "TMainAddressExample");
-  });
-
-  it("assignOnCreate routes Mode B", async () => {
-    const result = await assignOnCreate({ ...baseAssign, mode: "B" });
-    assert.equal(result.receiveAddress, "TMainAddressExample");
-    assert.equal(result.hdIndex, null);
-  });
-
-  it("rejects empty settlement address", async () => {
-    await assert.rejects(
-      () =>
-        assignModeB({
-          ...baseAssign,
-          mode: "B",
-          mainSettlementAddress: "   ",
-        }),
-      /mainSettlementAddress is required/,
-    );
-  });
-
-  it("rejects amount below registry minAmount", async () => {
-    await assert.rejects(
-      () =>
-        assignModeB({
-          ...baseAssign,
-          mode: "B",
-          requestedAmount: "0.001",
-        }),
-      /below minAmount/,
-    );
-  });
-
-  it("rejects unknown asset/network pair", async () => {
-    await assert.rejects(
-      () =>
-        assignModeB({
-          ...baseAssign,
-          mode: "B",
-          network: "ethereum",
-        }),
-      /not enabled in registry/,
-    );
-  });
-
-  it("rejects too many decimal places for USDT", async () => {
-    await assert.rejects(
-      () =>
-        assignModeB({
-          ...baseAssign,
-          mode: "B",
-          requestedAmount: "1.1234567",
-        }),
-      /decimal places/,
-    );
-  });
-
-  it("majorToMinor respects decimals", () => {
-    assert.equal(majorToMinor("50.01", 6), 50010000n);
-    assert.equal(majorToMinor("0.01", 6), 10000n);
-  });
-});
 
 describe("@cryptogate/matching Mode C assign (M2-41)", () => {
   it("exports reserved statuses for Andrew's open-order query", () => {
@@ -523,109 +440,6 @@ describe("@cryptogate/matching Mode S HD pool state (M2-44)", () => {
       }),
       false,
     );
-  });
-});
-
-describe("@cryptogate/matching Mode B match (M3-60)", () => {
-  const baseCandidate = {
-    orderId: "ord-1",
-    payableAmount: "50.00",
-    receiveAddress: "TMainAddressExample",
-    asset: "USDT",
-    network: "tron",
-  };
-
-  const baseTx = {
-    mode: "B",
-    toAddress: "TMainAddressExample",
-    amount: "50.00",
-    asset: "USDT",
-    network: "tron",
-    txHash: "0xabc",
-  };
-
-  it("exact unique match → verifying", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      candidates: [baseCandidate],
-    });
-    assert.equal(result.status, "verifying");
-    assert.equal(result.orderId, "ord-1");
-    assert.equal(result.reason, "mode_b_exact_match");
-  });
-
-  it("same-amount collision → payment_anomaly with all orderIds (never FIFO)", async () => {
-    const result = await matchTransaction({
-      ...baseTx,
-      candidates: [
-        baseCandidate,
-        { ...baseCandidate, orderId: "ord-2" },
-      ],
-    });
-    assert.equal(result.status, "payment_anomaly");
-    assert.deepEqual(result.orderIds, ["ord-1", "ord-2"]);
-    assert.equal(result.orderId, undefined);
-    assert.equal(result.reason, "mode_b_same_amount_collision");
-  });
-
-  it("treats equivalent decimals as the same payable", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      amount: "50",
-      candidates: [{ ...baseCandidate, payableAmount: "50.000000" }],
-    });
-    assert.equal(result.status, "verifying");
-    assert.equal(result.orderId, "ord-1");
-  });
-
-  it("single open order underpay → anomaly", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      amount: "49.00",
-      candidates: [baseCandidate],
-    });
-    assert.equal(result.status, "payment_anomaly");
-    assert.equal(result.orderId, "ord-1");
-    assert.equal(result.reason, "mode_b_underpay");
-  });
-
-  it("single open order overpay → anomaly", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      amount: "51.00",
-      candidates: [baseCandidate],
-    });
-    assert.equal(result.status, "payment_anomaly");
-    assert.equal(result.reason, "mode_b_overpay");
-  });
-
-  it("no candidates at address → pending (unmatched)", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      candidates: [],
-    });
-    assert.equal(result.status, "pending_payment");
-    assert.equal(result.reason, "no_open_order_at_address");
-  });
-
-  it("late payment after expiry → anomaly", async () => {
-    const result = await matchModeB({
-      ...baseTx,
-      nowMs: Date.parse("2026-08-24T12:00:00.000Z"),
-      candidates: [
-        {
-          ...baseCandidate,
-          expiresAt: "2026-08-24T11:00:00.000Z",
-        },
-      ],
-    });
-    assert.equal(result.status, "payment_anomaly");
-    assert.equal(result.reason, "late_payment_after_expiry");
-    assert.deepEqual(result.orderIds, ["ord-1"]);
-  });
-
-  it("requires candidates", async () => {
-    await assert.rejects(() => matchModeB({ ...baseTx }), /candidates is required/);
   });
 });
 
