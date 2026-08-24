@@ -114,6 +114,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M3-04 | Kevin | done | Connected assets/networks list (live vs planned) | `doc/M3-04-Asset-Networks.md` |
 | M3-02 | Kevin | done | Integration guide (auth, signing, webhooks) | `doc/M3-02-Integration-Guide.md` |
 | M3-03 | Kevin | done | Worked webhook verify + replay sample | `doc/M3-03-Webhook-Verify-Example.md` |
+| — | Kevin | done | Merchant Figma frame → route map (unblocks M2-60+) | `doc/UI-Handoff.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -124,9 +125,17 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| — | (none blocking M3 docs) | Signing (#53), webhooks (#55/#57), service bills (#59) on main |
+| — | (none blocking merchant UI map) | Fan-out + outbox on main; API-key CRUD still M4-11 |
 
-Landed M3 API: HMAC + rate limits, webhook register/test/delivery, service-bill stubs. Next Andrew: fan-out `payment_order.*` on status change if not already wired; API-key CRUD (M4-11).
+### Asks for Bruce
+
+| Priority | Ask | Why |
+| --- | --- | --- |
+| P1 | Start M2-60 from Figma map | `doc/UI-Handoff.md` — dark `d4` `29:2023` + D1–D3 support; do not invent UI |
+| P1 | Then M2-61/62/63 | D11 frames `13:5987` / `13:6192` / `13:6354` + MFA `44:72` |
+| P2 | APK smoke notes | Optional while scaffolding `apps/web/src/merchant` |
+
+Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
 ---
 
