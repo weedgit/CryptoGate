@@ -2,7 +2,7 @@
 
 **Owner:** Kevin (infra). **Implements:** Milestone M4-01.  
 **Env matrix:** [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
-**Follow-ons:** M4-02 secrets/TLS · M4-03 backup/monitoring · M4-04 admin host · M4-33 ops polish.
+**Follow-ons:** M4-02 secrets/TLS · M4-03 backup/monitoring · M4-04 admin host · [M4-33 ops index](M4-33-Ops-Runbook-Index.md).
 
 See [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) for TLS surfaces, secret inventory, and rotation.
 
@@ -171,5 +171,6 @@ Local compose file: repo root `docker-compose.yml` (Postgres only).
 | Secrets / TLS detail | Done — [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) |
 | Backup / monitoring | Done — [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md) |
 | Admin host / vendor access | Done — [M4-04-Admin-Host-Vendor-Access.md](M4-04-Admin-Host-Vendor-Access.md) |
+| Ops index | Done — [M4-33-Ops-Runbook-Index.md](M4-33-Ops-Runbook-Index.md) |
 
 **M3-T09:** send Company A the M4-05 hostname table + this runbook; they fill DNS/TLS/DB then Kevin assists first test deploy.

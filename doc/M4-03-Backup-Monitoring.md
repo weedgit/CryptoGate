@@ -2,7 +2,7 @@
 
 **Owner:** Kevin (infra). **Implements:** Milestone M4-03.  
 **Depends on:** [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md), [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
-**Follow-ons:** M4-33 ops polish · [M4-04 admin host](M4-04-Admin-Host-Vendor-Access.md).
+**Follow-ons:** [M4-04 admin host](M4-04-Admin-Host-Vendor-Access.md) · [M4-33 ops index](M4-33-Ops-Runbook-Index.md).
 
 Company A owns cloud accounts. This doc defines **what to back up**, **how to restore**, and **which alerts to wire** for test and prod. It does not lock a monitoring vendor — use Company A standard (CloudWatch, Datadog, Grafana, UptimeRobot, PagerDuty, etc.).
 
