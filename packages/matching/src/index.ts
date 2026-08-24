@@ -95,3 +95,16 @@ export {
   modeSAddressSource,
   MODE_S_CONFLICT_STATUSES,
 } from "./mode-s/index.js";
+export {
+  DEFAULT_HD_POOL_COOLDOWN_MS,
+  HD_POOL_ALLOWED_TRANSITIONS,
+  HD_POOL_RELEASE_STATUSES,
+  canClaimHdPoolSlot,
+  hdPoolStateAfterClaim,
+  hdPoolStateAfterCooldownElapsed,
+  hdPoolStateAfterOrderFinal,
+  isAllowedHdPoolTransition,
+  isHdPoolCooldownElapsed,
+  isHdPoolReleaseOrderStatus,
+  isHdPoolState,
+} from "./mode-s/pool.js";

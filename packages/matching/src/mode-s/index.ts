@@ -1,7 +1,7 @@
 /**
  * Mode S — Smart address: main unless same-amount conflict, then HD pool claim.
  * Matching never holds keys, derives, signs, or sweeps — Andrew supplies claimHdPoolAddress.
- * Pool FREE / IN_USE / COOLDOWN state machine lives in API/DB (M2-44); this module only assigns.
+ * Pool FREE / IN_USE / COOLDOWN transitions: mode-s/pool.ts (M2-44); API owns DB.
  */
 import {
   AddressSource,
