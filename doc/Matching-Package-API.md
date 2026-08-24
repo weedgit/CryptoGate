@@ -8,22 +8,24 @@ Package path: `packages/matching`
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
 | `matchTransaction` | `apps/watcher` | Map inbound tx → order status |
-| `assignModeB` / `assignModeC` / `assignModeD` | tests / direct | Mode modules (also via router) |
+| `assignModeB` / `assignModeC` / `assignModeD` / `assignModeS` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
 | `pickUniquePayableMinor` | tests | Mode C fingerprint picker (pure) |
 | `pickUniqueMemoOrTag` | tests | Mode D memo picker (pure) |
 | `ListReservedPayableAmounts` | Andrew | Port for open-order payable list |
 | `ListReservedMemoOrTags` | Andrew | Port for open-order memo list |
+| `HasModeSSameAmountConflict` / `ClaimHdPoolAddress` | Andrew | Mode S conflict + HD claim ports |
+| `MODE_S_CONFLICT_STATUSES` | Andrew | Statuses that count as Mode S same-amount conflict |
 | `validateMatchingSettings` / `assertMatchingSettings` | API / merchant UI | Reject Mode S+C and Mode C with wide underpay (M2-45) |
 
-Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s, not create-order).
+Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN DB owned by API — M2-44).
 
 | Mode | Assign status |
 | --- | --- |
 | B | **M2-40 done** — main settlement address; payable = requested; validates registry min/decimals; `hdIndex`/`memoOrTag` null |
 | C | **M2-41 done** — main address + unique payable via `amountStep`; requires `listReservedPayableAmounts` |
 | D | **M2-42 done** — rejects when `memoSupported=false` (USDT Tron); assigns unique `memoOrTag` when supported |
-| S | Throws until M2-43 |
+| S | **M2-43 done** — no conflict → main; conflict → `claimHdPoolAddress`; no xPub → Mode B fallback |
 
 `matchTransaction` returns Pending Payment stub until M3.
 
@@ -54,6 +56,18 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s
   - Result: `memoOrTag` set; `hdIndex` null; `addressSource: "main"`.
 - Wrong/missing on-chain memo → anomaly in M3 `matchTransaction` (not this assign).
 - UI/API should hide Mode D on unsupported USDT networks (Kevin M2-54); matching still enforces the flag.
+
+## Mode S contract (`assignModeS` / `assignOnCreate` with `mode: "S"`)
+
+- Payable = requested amount (no fingerprint). Main settlement address required.
+- **`xPubConfigured` false/omitted:** fall back to Mode B (main only) — Mode S unavailable without xPub (Phase1 §2.5).
+- **`xPubConfigured` true:**
+  1. Require `hasModeSSameAmountConflict` (lock scope: merchant + asset + network + payable; any open order on main **or** HD with same payable → conflict). Use `MODE_S_CONFLICT_STATUSES`.
+  2. No conflict → `addressSource: "main"`, `hdIndex: null`.
+  3. Conflict → require `claimHdPoolAddress` (atomic FREE claim or derive-next). Result: `addressSource: "hd_pool"`, `hdIndex` ≥ 0, address ≠ main.
+- Matching **never** holds keys, derives, signs, or sweeps.
+- Issued receive address is immutable after create (API invariant).
+- Pool COOLDOWN → FREE is M2-44 / M3 — not this assign.
 
 ## Matching settings policy (M2-45)
 

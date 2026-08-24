@@ -10,12 +10,14 @@ import {
   assertMatchingSettings,
   majorToMinor,
   minorToMajor,
+  modeSAddressSource,
   pickUniqueMemoOrTag,
   pickUniquePayableMinor,
   sanitizeMemoSeed,
   validateMatchingSettings,
   MODE_C_RESERVED_STATUSES,
   MODE_D_RESERVED_STATUSES,
+  MODE_S_CONFLICT_STATUSES,
   matchTransaction,
 } from "../dist/index.js";
 
@@ -367,18 +369,117 @@ describe("@cryptogate/matching matching settings policy (M2-45)", () => {
   });
 });
 
-describe("@cryptogate/matching M1-32 stubs", () => {
-  it("Mode S assign is not implemented yet (M2-43)", async () => {
+describe("@cryptogate/matching Mode S assign (M2-43)", () => {
+  it("exports conflict statuses for Andrew's open-order query", () => {
+    assert.deepEqual([...MODE_S_CONFLICT_STATUSES], [
+      "pending_payment",
+      "verifying",
+      "confirmed",
+      "payment_anomaly",
+    ]);
+  });
+
+  it("modeSAddressSource maps conflict to hd_pool", () => {
+    assert.equal(modeSAddressSource(false), "main");
+    assert.equal(modeSAddressSource(true), "hd_pool");
+  });
+
+  it("falls back to main address when xPub is not configured", async () => {
+    const result = await assignModeS({ ...baseAssign, mode: "S" });
+    assert.equal(result.receiveAddress, "TMainAddressExample");
+    assert.equal(result.addressSource, "main");
+    assert.equal(result.hdIndex, null);
+    assert.equal(result.payableAmount.amount, "50.00");
+  });
+
+  it("uses main address when xPub configured and no conflict", async () => {
+    const result = await assignModeS({
+      ...baseAssign,
+      mode: "S",
+      xPubConfigured: true,
+      hasModeSSameAmountConflict: async () => false,
+    });
+    assert.equal(result.addressSource, "main");
+    assert.equal(result.hdIndex, null);
+    assert.equal(result.memoOrTag, null);
+  });
+
+  it("claims HD pool address on same-amount conflict", async () => {
+    const result = await assignModeS({
+      ...baseAssign,
+      mode: "S",
+      xPubConfigured: true,
+      hasModeSSameAmountConflict: async () => true,
+      claimHdPoolAddress: async () => ({
+        receiveAddress: "THdDerivedAddress0001",
+        hdIndex: 3,
+      }),
+    });
+    assert.equal(result.receiveAddress, "THdDerivedAddress0001");
+    assert.equal(result.addressSource, "hd_pool");
+    assert.equal(result.hdIndex, 3);
+    assert.equal(result.payableAmount.amount, "50.00");
+  });
+
+  it("assignOnCreate routes Mode S conflict to HD", async () => {
+    const result = await assignOnCreate({
+      ...baseAssign,
+      mode: "S",
+      xPubConfigured: true,
+      hasModeSSameAmountConflict: async () => true,
+      claimHdPoolAddress: async () => ({
+        receiveAddress: "THdDerivedAddress0002",
+        hdIndex: 0,
+      }),
+    });
+    assert.equal(result.addressSource, "hd_pool");
+    assert.equal(result.hdIndex, 0);
+  });
+
+  it("requires conflict port when xPub configured", async () => {
     await assert.rejects(
-      () => assignModeS({ ...baseAssign, mode: "S" }),
-      /M2-43/,
+      () =>
+        assignModeS({
+          ...baseAssign,
+          mode: "S",
+          xPubConfigured: true,
+        }),
+      /hasModeSSameAmountConflict is required/,
     );
   });
 
-  it("assignOnCreate routes Mode S to stub that throws", async () => {
-    await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "S" }), /M2-43/);
+  it("requires claimHdPoolAddress on conflict", async () => {
+    await assert.rejects(
+      () =>
+        assignModeS({
+          ...baseAssign,
+          mode: "S",
+          xPubConfigured: true,
+          hasModeSSameAmountConflict: async () => true,
+        }),
+      /claimHdPoolAddress is required/,
+    );
   });
 
+  it("rejects HD claim that returns main settlement address", async () => {
+    await assert.rejects(
+      () =>
+        assignModeS({
+          ...baseAssign,
+          mode: "S",
+          xPubConfigured: true,
+          hasModeSSameAmountConflict: async () => true,
+          claimHdPoolAddress: async () => ({
+            receiveAddress: "TMainAddressExample",
+            hdIndex: 1,
+          }),
+        }),
+      /must not return the main settlement address/,
+    );
+  });
+});
+
+describe("@cryptogate/matching M1-32 stubs", () => {
   it("matchTransaction is a Pending Payment stub until M3", async () => {
     const result = await matchTransaction({
       mode: "B",

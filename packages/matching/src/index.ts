@@ -12,6 +12,8 @@ import type { AssignInput, AssignResult, MatchInput, MatchResult } from "./types
 export type {
   AssignInput,
   AssignResult,
+  ClaimHdPoolAddress,
+  HasModeSSameAmountConflict,
   ListReservedMemoOrTags,
   ListReservedPayableAmounts,
   MatchInput,
@@ -69,4 +71,8 @@ export {
   MODE_D_MAX_MEMO_ATTEMPTS,
   MODE_D_MAX_MEMO_LENGTH,
 } from "./mode-d/index.js";
-export { assignModeS } from "./mode-s/index.js";
+export {
+  assignModeS,
+  modeSAddressSource,
+  MODE_S_CONFLICT_STATUSES,
+} from "./mode-s/index.js";
