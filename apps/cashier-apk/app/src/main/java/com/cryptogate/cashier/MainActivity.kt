@@ -14,7 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.cryptogate.cashier.api.ApiError
+import com.cryptogate.cashier.api.CashierPosSurface
+import com.cryptogate.cashier.api.NetworkReachability
 import com.cryptogate.cashier.api.OrderDefaults
 import com.cryptogate.cashier.api.OrderStatusUi
 import com.cryptogate.cashier.api.PaymentDetails
@@ -26,7 +27,7 @@ import com.cryptogate.cashier.ui.OrderPayScreen
 import com.cryptogate.cashier.ui.theme.CashierTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
+/** Only POS flows — no wallet / xPub / matching settings screens (M2-73). */
 private enum class PosScreen { Home, Create, Pay }
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +51,14 @@ class MainActivity : ComponentActivity() {
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
                     var watchingOrderId by remember { mutableStateOf<String?>(null) }
+                    var online by remember { mutableStateOf(NetworkReachability.isOnline(this@MainActivity)) }
+
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            online = NetworkReachability.isOnline(this@MainActivity)
+                            delay(2_000)
+                        }
+                    }
 
                     LaunchedEffect(signedIn) {
                         if (signedIn) {
@@ -87,16 +96,17 @@ class MainActivity : ComponentActivity() {
                                     loading = true
                                     error = null
                                     try {
+                                        if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                            error = CashierPosSurface.OFFLINE_CREATE
+                                            return@launch
+                                        }
                                         val result = app.api.login(email.trim(), password)
                                         session = result.session
                                         password = ""
                                         signedIn = true
                                         screen = PosScreen.Home
-                                    } catch (e: ApiError) {
-                                        error = e.message
-                                        signedIn = false
                                     } catch (e: Exception) {
-                                        error = e.message ?: "Network error — cannot sign in offline"
+                                        error = CashierPosSurface.userMessage(e)
                                         signedIn = false
                                     } finally {
                                         loading = false
@@ -108,7 +118,12 @@ class MainActivity : ComponentActivity() {
                         PosScreen.Home -> HomeScreen(
                             session = session,
                             emailFallback = app.sessionStore.cachedEmail,
+                            online = online,
                             onCreateOrder = {
+                                if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                    online = false
+                                    return@HomeScreen
+                                }
                                 error = null
                                 amount = ""
                                 screen = PosScreen.Create
@@ -129,10 +144,16 @@ class MainActivity : ComponentActivity() {
                             validitySeconds = validitySeconds,
                             error = error,
                             loading = loading,
+                            online = online,
                             onAmountChange = { amount = it; error = null },
                             onValidityChange = { validitySeconds = it },
                             onSubmit = {
                                 scope.launch {
+                                    if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                        online = false
+                                        error = CashierPosSurface.OFFLINE_CREATE
+                                        return@launch
+                                    }
                                     loading = true
                                     error = null
                                     try {
@@ -143,10 +164,8 @@ class MainActivity : ComponentActivity() {
                                         payment = app.api.getPaymentDetails(order.id)
                                         watchingOrderId = order.id
                                         screen = PosScreen.Pay
-                                    } catch (e: ApiError) {
-                                        error = e.message
                                     } catch (e: Exception) {
-                                        error = e.message ?: "Network error — cannot create orders offline"
+                                        error = CashierPosSurface.userMessage(e)
                                     } finally {
                                         loading = false
                                     }
