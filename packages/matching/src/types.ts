@@ -91,6 +91,8 @@ export type MatchCandidateOrder = {
   receiveAddress: string;
   asset: string;
   network: string;
+  /** Mode D — expected memo/tag on the order (null/omit for B/C/S). */
+  memoOrTag?: string | null;
   /** ISO-8601; if in the past, order is excluded from successful match (late → anomaly if sole candidate) */
   expiresAt?: string;
 };
@@ -101,11 +103,12 @@ export type MatchInput = {
   amount: string;
   asset: string;
   network: string;
+  /** On-chain memo/tag (Mode D). Missing/wrong → anomaly. */
   memoOrTag?: string;
   txHash: string;
   /**
    * Open orders at this address / asset / network (watcher loads from payment_orders).
-   * Required for Mode B / Mode C match.
+   * Required for Mode B / C / D match.
    */
   candidates?: readonly MatchCandidateOrder[];
   /** Optional clock for expiry checks (tests). Default Date.now(). */
