@@ -6,14 +6,15 @@ import { resolveOrderOrgId, canReadPaymentOrder } from "../orgs/role-policy.mjs"
 import {
   extraCreateOrderKeys,
   idempotencyBodyHashPayload,
-  stubAssignOnCreate,
   validateCreateOrderBody,
 } from "./order-rules.mjs";
+import { assignOnOrderCreate } from "./order-matching.mjs";
 import {
   findOrderById,
   findOrderByIdempotency,
   insertPaymentOrder,
   toPaymentOrder,
+  withCreateOrderLock,
 } from "./order-store.mjs";
 import { toPaymentDetails } from "./order-map.mjs";
 import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
@@ -33,7 +34,7 @@ function hashBody(payload) {
 }
 
 /**
- * POST /v1/orders — M1 stub (mock receive address; matching assign is M2-12).
+ * POST /v1/orders — assign via `@cryptogate/matching` (M2-12).
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */
@@ -91,9 +92,9 @@ export async function handleCreatePaymentOrder(req, res) {
   }
 
   const bodyHash = hashBody(idempotencyBodyHashPayload(validated.parsed));
-  const existing = await findOrderByIdempotency(scope.orgId, idempotencyKey);
-  if (existing) {
-    if (existing.idempotency_body_hash !== bodyHash) {
+  const existingOutside = await findOrderByIdempotency(scope.orgId, idempotencyKey);
+  if (existingOutside) {
+    if (existingOutside.idempotency_body_hash !== bodyHash) {
       sendError(
         res,
         409,
@@ -102,47 +103,100 @@ export async function handleCreatePaymentOrder(req, res) {
       );
       return;
     }
-    sendJson(res, 201, toPaymentOrder(existing));
+    sendJson(res, 201, toPaymentOrder(existingOutside));
     return;
   }
 
-  // Mode locked from merchant settings at create (M2-17). Real assign is M2-12.
-  const matchingMode = await getEffectiveMatchingMode(scope.orgId);
-  const assign = stubAssignOnCreate({
-    amount: validated.parsed.amount,
-    asset: validated.parsed.asset,
-    matchingMode,
-    config: validated.parsed.config,
-  });
-  const expiresAt = new Date(
-    Date.now() + validated.parsed.validitySeconds * 1000,
-  );
+  /** @type {{ kind: "created", row: object } | { kind: "replay", row: object } | { kind: "error", status: number, code: string, message: string } | { kind: "conflict" }} */
+  let outcome;
+  try {
+    outcome = await withCreateOrderLock(
+      scope.orgId,
+      validated.parsed.asset,
+      validated.parsed.network,
+      async (client) => {
+        const existing = await findOrderByIdempotency(
+          scope.orgId,
+          idempotencyKey,
+          client,
+        );
+        if (existing) {
+          if (existing.idempotency_body_hash !== bodyHash) {
+            return { kind: "conflict" };
+          }
+          return { kind: "replay", row: existing };
+        }
 
-  const inserted = await insertPaymentOrder({
-    orgId: scope.orgId,
-    createdBy: caller.userId,
-    status: OrderStatus.PendingPayment,
-    matchingMode: assign.matchingMode,
-    payableAmount: assign.payableAmount.amount,
-    receiveAddress: assign.receiveAddress,
-    addressSource: assign.addressSource,
-    hdIndex: assign.hdIndex,
-    memoOrTag: assign.memoOrTag,
-    asset: validated.parsed.asset,
-    network: validated.parsed.network,
-    expiresAt,
-    requiredConfirmations: assign.requiredConfirmations,
-    idempotencyKey,
-    idempotencyBodyHash: bodyHash,
-    merchantMetadata: validated.parsed.merchantMetadata,
-  });
+        const matchingMode = await getEffectiveMatchingMode(scope.orgId, client);
+        const assigned = await assignOnOrderCreate({
+          client,
+          orgId: scope.orgId,
+          matchingMode,
+          asset: validated.parsed.asset,
+          network: validated.parsed.network,
+          amount: validated.parsed.amount,
+          idempotencyKey,
+          requiredConfirmations: validated.parsed.config.requiredConfirmations,
+        });
+        if (!assigned.ok) {
+          return {
+            kind: "error",
+            status: assigned.status,
+            code: assigned.code,
+            message: assigned.message,
+          };
+        }
 
-  if (!inserted.ok) {
-    const raced = await findOrderByIdempotency(scope.orgId, idempotencyKey);
-    if (raced && raced.idempotency_body_hash === bodyHash) {
-      sendJson(res, 201, toPaymentOrder(raced));
-      return;
-    }
+        const expiresAt = new Date(
+          Date.now() + validated.parsed.validitySeconds * 1000,
+        );
+        const inserted = await insertPaymentOrder(
+          {
+            orgId: scope.orgId,
+            createdBy: caller.userId,
+            status: OrderStatus.PendingPayment,
+            matchingMode: assigned.assign.matchingMode,
+            payableAmount: assigned.assign.payableAmount.amount,
+            receiveAddress: assigned.assign.receiveAddress,
+            addressSource: assigned.assign.addressSource,
+            hdIndex: assigned.assign.hdIndex,
+            memoOrTag: assigned.assign.memoOrTag,
+            asset: validated.parsed.asset,
+            network: validated.parsed.network,
+            expiresAt,
+            requiredConfirmations: assigned.assign.requiredConfirmations,
+            idempotencyKey,
+            idempotencyBodyHash: bodyHash,
+            merchantMetadata: validated.parsed.merchantMetadata,
+          },
+          client,
+        );
+
+        if (!inserted.ok) {
+          const raced = await findOrderByIdempotency(
+            scope.orgId,
+            idempotencyKey,
+            client,
+          );
+          if (raced && raced.idempotency_body_hash === bodyHash) {
+            return { kind: "replay", row: raced };
+          }
+          return { kind: "conflict" };
+        }
+
+        return { kind: "created", row: inserted.row };
+      },
+    );
+  } catch {
+    sendError(res, 500, "internal_error", "Could not create payment order");
+    return;
+  }
+
+  if (outcome.kind === "error") {
+    sendError(res, outcome.status, outcome.code, outcome.message);
+    return;
+  }
+  if (outcome.kind === "conflict") {
     sendError(
       res,
       409,
@@ -152,7 +206,7 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
-  sendJson(res, 201, toPaymentOrder(inserted.row));
+  sendJson(res, 201, toPaymentOrder(outcome.row));
 }
 
 /**

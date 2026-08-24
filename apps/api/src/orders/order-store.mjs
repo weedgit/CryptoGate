@@ -10,12 +10,52 @@ const ORDER_SELECT = `
 `;
 
 /**
+ * @param {import("pg").Pool | import("pg").PoolClient | null | undefined} client
+ */
+function db(client) {
+  return client ?? getPool();
+}
+
+/**
+ * Serialize Mode C / D / S assign against concurrent creates for the same
+ * merchant asset/network (transaction-scoped advisory lock).
+ * @param {string} orgId
+ * @param {string} asset
+ * @param {string} network
+ * @param {(client: import("pg").PoolClient) => Promise<T>} fn
+ * @template T
+ */
+export async function withCreateOrderLock(orgId, asset, network, fn) {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtext($1::text), hashtext($2::text))`,
+      [orgId, `${asset}:${network}`],
+    );
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * @param {string} orgId
  * @param {string} idempotencyKey
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
-export async function findOrderByIdempotency(orgId, idempotencyKey) {
-  const pool = getPool();
-  const { rows } = await pool.query(
+export async function findOrderByIdempotency(orgId, idempotencyKey, client) {
+  const { rows } = await db(client).query(
     `SELECT ${ORDER_SELECT}
      FROM payment_orders
      WHERE org_id = $1 AND idempotency_key = $2`,
@@ -28,8 +68,7 @@ export async function findOrderByIdempotency(orgId, idempotencyKey) {
  * @param {string} id
  */
 export async function findOrderById(id) {
-  const pool = getPool();
-  const { rows } = await pool.query(
+  const { rows } = await db().query(
     `SELECT o.id, o.org_id, o.created_by, o.order_number, o.status, o.matching_mode,
             o.payable_amount, o.received_amount, o.receive_address, o.address_source,
             o.hd_index, o.memo_or_tag, o.asset, o.network, o.expires_at, o.tx_hash,
@@ -42,6 +81,101 @@ export async function findOrderById(id) {
     [id],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Mode C reservation port — payable amounts for open statuses.
+ * @param {import("pg").Pool | import("pg").PoolClient} client
+ * @param {{
+ *   merchantId: string,
+ *   asset: string,
+ *   network: string,
+ *   receiveAddress: string,
+ *   statuses: readonly string[],
+ * }} query
+ */
+export async function listReservedPayableAmounts(client, query) {
+  const { rows } = await client.query(
+    `SELECT payable_amount
+     FROM payment_orders
+     WHERE org_id = $1
+       AND asset = $2
+       AND network = $3
+       AND receive_address = $4
+       AND status = ANY($5::text[])`,
+    [
+      query.merchantId,
+      query.asset,
+      query.network,
+      query.receiveAddress,
+      [...query.statuses],
+    ],
+  );
+  return rows.map((row) => row.payable_amount);
+}
+
+/**
+ * Mode D reservation port — memo/tag values for open statuses.
+ * @param {import("pg").Pool | import("pg").PoolClient} client
+ * @param {{
+ *   merchantId: string,
+ *   asset: string,
+ *   network: string,
+ *   receiveAddress: string,
+ *   statuses: readonly string[],
+ * }} query
+ */
+export async function listReservedMemoOrTags(client, query) {
+  const { rows } = await client.query(
+    `SELECT memo_or_tag
+     FROM payment_orders
+     WHERE org_id = $1
+       AND asset = $2
+       AND network = $3
+       AND receive_address = $4
+       AND memo_or_tag IS NOT NULL
+       AND status = ANY($5::text[])`,
+    [
+      query.merchantId,
+      query.asset,
+      query.network,
+      query.receiveAddress,
+      [...query.statuses],
+    ],
+  );
+  return rows.map((row) => row.memo_or_tag);
+}
+
+/**
+ * Mode S conflict port — any open order with the same payable (main or HD).
+ * @param {import("pg").Pool | import("pg").PoolClient} client
+ * @param {{
+ *   merchantId: string,
+ *   asset: string,
+ *   network: string,
+ *   payableAmount: string,
+ *   statuses: readonly string[],
+ * }} query
+ */
+export async function hasModeSSameAmountConflict(client, query) {
+  const { rows } = await client.query(
+    `SELECT 1
+     FROM payment_orders
+     WHERE org_id = $1
+       AND asset = $2
+       AND network = $3
+       AND payable_amount = $4
+       AND status = ANY($5::text[])
+     LIMIT 1`,
+    [
+      query.merchantId,
+      query.asset,
+      query.network,
+      query.payableAmount,
+      [...query.statuses],
+    ],
+  );
+  return rows.length > 0;
 }
 
 /**
@@ -63,11 +197,11 @@ export async function findOrderById(id) {
  *   idempotencyBodyHash: string,
  *   merchantMetadata: unknown,
  * }} input
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
-export async function insertPaymentOrder(input) {
-  const pool = getPool();
+export async function insertPaymentOrder(input, client) {
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db(client).query(
       `INSERT INTO payment_orders (
          org_id, created_by, order_number, status, matching_mode,
          payable_amount, receive_address, address_source, hd_index, memo_or_tag,

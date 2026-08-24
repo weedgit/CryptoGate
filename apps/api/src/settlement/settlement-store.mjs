@@ -1,11 +1,18 @@
 import { getPool } from "../db/pool.mjs";
 
 /**
- * @param {string} orgId
+ * @param {import("pg").Pool | import("pg").PoolClient | null | undefined} client
  */
-export async function listSettlementAddresses(orgId) {
-  const pool = getPool();
-  const { rows } = await pool.query(
+function db(client) {
+  return client ?? getPool();
+}
+
+/**
+ * @param {string} orgId
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function listSettlementAddresses(orgId, client) {
+  const { rows } = await db(client).query(
     `SELECT org_id, asset, network, address
      FROM settlement_addresses
      WHERE org_id = $1
@@ -16,11 +23,27 @@ export async function listSettlementAddresses(orgId) {
 }
 
 /**
- * @param {{ orgId: string, asset: string, network: string, address: string }} input
+ * @param {string} orgId
+ * @param {string} asset
+ * @param {string} network
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
-export async function upsertSettlementAddress(input) {
-  const pool = getPool();
-  const { rows } = await pool.query(
+export async function findSettlementAddress(orgId, asset, network, client) {
+  const { rows } = await db(client).query(
+    `SELECT org_id, asset, network, address
+     FROM settlement_addresses
+     WHERE org_id = $1 AND asset = $2 AND network = $3`,
+    [orgId, asset, network],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {{ orgId: string, asset: string, network: string, address: string }} input
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function upsertSettlementAddress(input, client) {
+  const { rows } = await db(client).query(
     `INSERT INTO settlement_addresses (org_id, asset, network, address)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (org_id, asset, network)

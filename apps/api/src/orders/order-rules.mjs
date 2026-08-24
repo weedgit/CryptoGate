@@ -124,8 +124,7 @@ export function validateCreateOrderBody(body) {
 }
 
 /**
- * Stub assign until M2-12 wires `@cryptogate/matching`.
- * Locks the merchant default mode onto the order; address/payable stay stub.
+ * Stub assign retained for unit tests only. Create path uses `@cryptogate/matching`.
  * @param {{
  *   amount: string,
  *   asset: string,

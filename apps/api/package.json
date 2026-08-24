@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@cryptogate/domain": "workspace:*",
+    "@cryptogate/matching": "workspace:*",
     "pg": "^8.13.1"
   }
 }
