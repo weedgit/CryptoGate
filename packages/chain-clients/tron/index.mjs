@@ -28,6 +28,21 @@ export async function listRecentTransfers(_options) {
   return { transfers: [] };
 }
 
+/**
+ * Confirmation count for a tx (M3-42). Stub returns 0 until live RPC.
+ * Set WATCHER_STUB_CONFIRMATIONS to simulate enough confirms in local tests.
+ * @param {{ txHash: string, network?: string }} _args
+ * @returns {Promise<number>}
+ */
+export async function getTransactionConfirmations(_args) {
+  const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
+  if (stub !== undefined && stub !== "") {
+    const n = Number.parseInt(stub, 10);
+    if (!Number.isNaN(n) && n >= 0) return n;
+  }
+  return 0;
+}
+
 export function getTronConfig() {
   return {
     network: "tron",

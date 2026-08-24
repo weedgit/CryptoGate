@@ -1,1 +1,6 @@
-export { healthCheck, listRecentTransfers, getTronConfig } from "./tron/index.mjs";
+export {
+  healthCheck,
+  listRecentTransfers,
+  getTransactionConfirmations,
+  getTronConfig,
+} from "./tron/index.mjs";

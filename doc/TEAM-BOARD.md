@@ -6,51 +6,26 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 | ID | Task | Owner | Status | Branch / note |
 | --- | --- | --- | --- | --- |
-| S0-06 | Review domain + OpenAPI (watcher/matching) | Bruce | **done** | `doc/S0-06-Bruce-Review.md` |
-| M1-30 | Watcher main loop + graceful shutdown | Bruce | **done** | `apps/watcher` — `--loop` for prod, default one tick for CI |
-| M1-31 | Tron client stub | Bruce | **done** | `packages/chain-clients/tron` |
-| M1-33 | Watcher ↔ order status contract doc | Bruce | **done** | `doc/Watcher-Order-Status-Contract.md` |
-| M1-32 | Matching package test scaffold (B + empty C/D/S) | Bruce | **done** | `feat-bruce-matching-test-scaffold` |
-| M2-40 | Mode B assign (main address + amount validation) | Bruce | **done** | PR #12 merged |
-| M1-34 | Review Andrew `payment_orders` migration | Bruce | **done** | `doc/M1-34-Payment-Orders-Review.md` |
-| M2-41 | Mode C assign (fingerprint + reservation port) | Bruce | **done** | PR #17 merged |
-| M2-42 | Mode D assign (memoSupported gate + unique memo) | Bruce | **done** | PR #18 merged |
-| M2-45 | Reject Mode S+C / Mode C wide underpay | Bruce | **done** | PR #21 merged |
-| M2-43 | Mode S assign (main vs HD on conflict) | Bruce | **done** | PR #23 merged |
-| M3-60 | Mode B `matchTransaction` (collision → anomaly) | Bruce | **done** | PR #26 merged |
-| M3-61 | Mode C exact fingerprint match | Bruce | **done** | PR #29 merged |
+| M3-41 | Watcher → matchTransaction wire | Bruce | **done** | PR #34 merged |
+| M3-42 | Confirmations → completed | Bruce | **doing** | `feat-bruce-watcher-confirmations` |
 | M3-62 | Mode D memo match | Bruce | **done** | PR #32 merged |
-| M3-41 | Watcher → matchTransaction wire | Bruce | **doing** | `feat-bruce-watcher-match-wire` |
+| M3-60 / M3-61 | Mode B/C match | Bruce | **done** | PR #26 / #29 |
 
-## Now — matching / watcher (Bruce)
+## Now — watcher (Bruce)
 
-**Current:** M3-41 watcher match wire — load open orders + transfers → `matchTransaction` → UPDATE.
+**Current:** M3-42 confirmation advance on `feat-bruce-watcher-confirmations`.
 
-**Next after merge:** Live Tron transfer poll (M3-40); confirmations → completed (M3-42); Mode S match (M3-63) needs HD pool.
+**Next after merge:** Live Tron transfer poll (M3-40) needs RPC; Mode S match (M3-63) needs HD pool.
 
-## Blockers / asks for Kevin
+## Blockers
 
-- Enable a `memoSupported: true` asset/network when Mode D should go live beyond reject-path.
-- `HdPoolState` in OpenAPI if merchant UI exposes pool (M2).
-
-## Blockers / asks for Andrew
-
-- Mode S: HD pool table (M2-44) + xPub (M2-20).
-- `assignOnCreate` wired (PR #30) — confirm Mode C reservation under lock in prod path.
+- Andrew: HD pool (M2-44) + xPub (M2-20) for Mode S.
+- Kevin: `memoSupported: true` registry row when Mode D goes live on-chain.
 
 ---
 
 | Date | Change |
 | --- | --- |
-| 2026-08-24 | Bruce: M3-41 watcher match wire (candidates → matchTransaction) |
-| 2026-08-24 | Bruce: M3-62 Mode D matchTransaction (memo exact / mismatch anomaly) |
-| 2026-08-24 | Bruce: M3-61 Mode C matchTransaction (exact fingerprint) |
-| 2026-08-24 | Bruce: M3-60 Mode B matchTransaction (collision → anomaly) |
-| 2026-08-24 | Bruce: M2-43 Mode S assign (main vs HD ports) |
-| 2026-08-24 | Bruce: M2-45 reject Mode S+C / Mode C wide underpay |
-| 2026-08-24 | Bruce: M2-42 Mode D assign (memoSupported gate) |
-| 2026-08-24 | Bruce: M1-34 accept payment_orders; M2-41 Mode C assign |
-| 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |
-| 2026-08-24 | Bruce: M1-32 scaffold branch; C/D/S stubs; next M2-40 after merge |
-| 2026-08-23 | Bruce: S0-06 + M1-30/31/33 complete |
-| 2026-08-23 | Bruce: default watcher one-tick; `pnpm start` uses `--loop`; reverted root file edits |
+| 2026-08-24 | Bruce: M3-42 watcher confirmations → completed |
+| 2026-08-24 | Bruce: M3-41 watcher match wire |
+| 2026-08-24 | Bruce: M3-60/61/62 matchTransaction modes B/C/D |
