@@ -10,6 +10,8 @@ export const AUDIT_ACTIONS = {
   settlementPut: "settlement_put",
   matchingModePut: "matching_mode_put",
   xpubPut: "xpub_put",
+  webhookRegister: "webhook_register",
+  webhookDelete: "webhook_delete",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

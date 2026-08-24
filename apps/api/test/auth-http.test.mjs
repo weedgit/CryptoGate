@@ -365,4 +365,28 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects webhooks list and register without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const list = await fetch(`${base}/v1/webhooks`);
+      assert.equal(list.status, 401);
+      const create = await fetch(`${base}/v1/webhooks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "https://hooks.example/cb" }),
+      });
+      assert.equal(create.status, 401);
+      const test = await fetch(`${base}/v1/webhooks/test`, { method: "POST" });
+      assert.equal(test.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });
