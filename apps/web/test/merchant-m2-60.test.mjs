@@ -58,3 +58,38 @@ describe("@cryptogate/web merchant M2-61/62/63 settlement", () => {
     assert.match(labels, /Memo tag/);
   });
 });
+
+describe("@cryptogate/web merchant D1-D3 orders shell", () => {
+  it("wires dashboard, list, and detail routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /\/merchant\/orders/);
+    assert.match(app, /DashboardPage/);
+    assert.match(app, /OrdersListPage/);
+    assert.match(app, /OrderDetailPage/);
+    assert.match(app, /Navigate to="\/merchant"/);
+  });
+
+  it("lists and exports orders via API helpers", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listOrders/);
+    assert.match(api, /getOrder/);
+    assert.match(api, /getOnChain/);
+    assert.match(api, /ordersCsvUrl/);
+  });
+
+  it("uses canonical status labels and never Mark paid", () => {
+    const status = readFileSync(
+      join(root, "src/merchant/orderStatus.ts"),
+      "utf8",
+    );
+    assert.match(status, /Pending Payment/);
+    assert.match(status, /Payment Anomaly/);
+    assert.doesNotMatch(status, /:\s*"Paid"/);
+    const detail = readFileSync(
+      join(root, "src/merchant/OrderDetailPage.tsx"),
+      "utf8",
+    );
+    assert.doesNotMatch(detail, /<button[^>]*>[^<]*Mark paid/i);
+    assert.match(detail, /anomaly-panel/);
+  });
+});
