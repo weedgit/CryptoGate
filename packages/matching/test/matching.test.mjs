@@ -4,12 +4,16 @@ import {
   assignModeB,
   assignModeC,
   assignModeD,
+  assignModeDForConfig,
   assignModeS,
   assignOnCreate,
   majorToMinor,
   minorToMajor,
+  pickUniqueMemoOrTag,
   pickUniquePayableMinor,
+  sanitizeMemoSeed,
   MODE_C_RESERVED_STATUSES,
+  MODE_D_RESERVED_STATUSES,
   matchTransaction,
 } from "../dist/index.js";
 
@@ -175,14 +179,111 @@ describe("@cryptogate/matching Mode C assign (M2-41)", () => {
   });
 });
 
-describe("@cryptogate/matching M1-32 stubs", () => {
-  it("Mode D assign is not implemented yet (M2-42)", async () => {
+describe("@cryptogate/matching Mode D assign (M2-42)", () => {
+  it("rejects USDT Tron because memoSupported is false", async () => {
     await assert.rejects(
-      () => assignModeD({ ...baseAssign, mode: "D" }),
-      /M2-42/,
+      () =>
+        assignModeD({
+          ...baseAssign,
+          mode: "D",
+          memoSeed: "idem-1",
+          listReservedMemoOrTags: async () => [],
+        }),
+      /memo not supported/,
     );
   });
 
+  it("assignOnCreate routes Mode D to memoSupported reject on Tron", async () => {
+    await assert.rejects(
+      () => assignOnCreate({ ...baseAssign, mode: "D", memoSeed: "x" }),
+      /memo not supported/,
+    );
+  });
+
+  it("exports reserved statuses for Andrew's open-order memo query", () => {
+    assert.deepEqual([...MODE_D_RESERVED_STATUSES], [
+      "pending_payment",
+      "verifying",
+      "confirmed",
+      "payment_anomaly",
+    ]);
+  });
+
+  it("pickUniqueMemoOrTag uses CG-seed and bumps on collision", () => {
+    assert.equal(pickUniqueMemoOrTag("ord-1", new Set()), "CG-ord-1");
+    assert.equal(
+      pickUniqueMemoOrTag("ord-1", new Set(["CG-ord-1"])),
+      "CG-ord-1-2",
+    );
+  });
+
+  it("sanitizeMemoSeed strips unsafe characters", () => {
+    assert.equal(sanitizeMemoSeed("  ab/cd#1  "), "ab_cd_1");
+  });
+
+  it("assignModeDForConfig assigns memo when memoSupported", async () => {
+    const config = {
+      asset: "USDT",
+      network: "ton",
+      enabled: true,
+      displayNetwork: "TON",
+      contractAddress: null,
+      decimals: 6,
+      minAmount: "0.01",
+      amountStep: "0.01",
+      requiredConfirmations: 1,
+      memoSupported: true,
+    };
+    const result = await assignModeDForConfig(
+      {
+        ...baseAssign,
+        mode: "D",
+        network: "ton",
+        memoSeed: "idem-abc",
+        listReservedMemoOrTags: async () => ["CG-other"],
+      },
+      config,
+    );
+    assert.equal(result.memoOrTag, "CG-idem-abc");
+    assert.equal(result.payableAmount.amount, "50.00");
+    assert.equal(result.receiveAddress, "TMainAddressExample");
+    assert.equal(result.addressSource, "main");
+    assert.equal(result.hdIndex, null);
+  });
+
+  it("assignModeDForConfig requires memoSeed and reservation port", async () => {
+    const config = {
+      asset: "USDT",
+      network: "ton",
+      enabled: true,
+      displayNetwork: "TON",
+      contractAddress: null,
+      decimals: 6,
+      minAmount: "0.01",
+      amountStep: "0.01",
+      requiredConfirmations: 1,
+      memoSupported: true,
+    };
+    await assert.rejects(
+      () =>
+        assignModeDForConfig(
+          { ...baseAssign, mode: "D", listReservedMemoOrTags: async () => [] },
+          config,
+        ),
+      /memoSeed is required/,
+    );
+    await assert.rejects(
+      () =>
+        assignModeDForConfig(
+          { ...baseAssign, mode: "D", memoSeed: "x" },
+          config,
+        ),
+      /listReservedMemoOrTags is required/,
+    );
+  });
+});
+
+describe("@cryptogate/matching M1-32 stubs", () => {
   it("Mode S assign is not implemented yet (M2-43)", async () => {
     await assert.rejects(
       () => assignModeS({ ...baseAssign, mode: "S" }),
@@ -190,8 +291,7 @@ describe("@cryptogate/matching M1-32 stubs", () => {
     );
   });
 
-  it("assignOnCreate routes Mode D/S to stubs that throw", async () => {
-    await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "D" }), /M2-42/);
+  it("assignOnCreate routes Mode S to stub that throws", async () => {
     await assert.rejects(() => assignOnCreate({ ...baseAssign, mode: "S" }), /M2-43/);
   });
 

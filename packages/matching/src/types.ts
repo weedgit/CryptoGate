@@ -17,6 +17,17 @@ export type ListReservedPayableAmounts = (query: {
   receiveAddress: string;
 }) => Promise<readonly string[]>;
 
+/**
+ * Andrew lists memo_or_tag for open Mode D orders (MODE_D_RESERVED_STATUSES)
+ * under the same create-order lock scope as Mode C.
+ */
+export type ListReservedMemoOrTags = (query: {
+  merchantId: string;
+  asset: string;
+  network: string;
+  receiveAddress: string;
+}) => Promise<readonly string[]>;
+
 export type AssignInput = {
   mode: MatchingMode;
   merchantId: string;
@@ -26,6 +37,10 @@ export type AssignInput = {
   mainSettlementAddress: string;
   /** Required for Mode C */
   listReservedPayableAmounts?: ListReservedPayableAmounts;
+  /** Required for Mode D when memoSupported (idempotency key or provisional id) */
+  memoSeed?: string;
+  /** Required for Mode D when memoSupported */
+  listReservedMemoOrTags?: ListReservedMemoOrTags;
 };
 
 /** Aligns with domain PaymentOrderAssignFields (camelCase at package boundary). */

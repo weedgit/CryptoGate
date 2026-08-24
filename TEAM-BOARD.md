@@ -55,7 +55,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
 | M2-40 | Bruce | done | Mode B `assignOnCreate` | PR #12 merged |
-| M2-41 | Bruce | doing | Mode C fingerprint assign | `feat-bruce-matching-mode-c-assign` |
+| M2-41 | Bruce | done | Mode C fingerprint assign | PR #17 merged |
+| M2-42 | Bruce | doing | Mode D memo/tag assign | `feat-bruce-matching-mode-d-assign` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
