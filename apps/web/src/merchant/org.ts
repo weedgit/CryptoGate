@@ -68,3 +68,53 @@ export function sessionIsCashierOnly(session: Session): boolean {
   if (session.memberships.length === 0) return false;
   return session.memberships.every((m) => m.role === "cashier");
 }
+
+export function sessionRoleOnOrg(session: Session, orgId: string): string | null {
+  return session.memberships.find((m) => m.orgId === orgId)?.role ?? null;
+}
+
+export function sessionIsOrgOwner(session: Session, orgId: string): boolean {
+  return sessionRoleOnOrg(session, orgId) === "owner";
+}
+
+/** O / A / V may view org settings. */
+export function sessionCanViewOrgSettings(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator", "viewer"].includes(m.role),
+  );
+}
+
+/** O / A may edit org profile fields when API supports PATCH. */
+export function sessionCanEditOrgSettings(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator"].includes(m.role),
+  );
+}
+
+/** Owner only — team invite and role changes. */
+export function sessionCanManageTeam(session: Session, orgId: string): boolean {
+  return sessionIsOrgOwner(session, orgId);
+}
+
+export function roleLabel(role: string): string {
+  if (role === "owner") return "Owner";
+  if (role === "administrator") return "Administrator";
+  if (role === "viewer") return "Viewer";
+  if (role === "cashier") return "Cashier";
+  return role;
+}
+
+export function structureLabel(structure: string | undefined): string {
+  if (structure === "single_location") return "Single location";
+  if (structure === "multi_location") return "Multi-location";
+  return structure ?? "—";
+}
+
+export function orgTypeLabel(type: string): string {
+  if (type === "merchant") return "Merchant";
+  if (type === "merchant_site") return "Merchant (site)";
+  if (type === "agent") return "Agent";
+  if (type === "agent_sub") return "Agent (sub)";
+  if (type === "platform") return "Platform";
+  return type;
+}

@@ -11,6 +11,10 @@ import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
 import { ReportsPage } from "./ReportsPage";
 import { IntegrationsPage } from "./IntegrationsPage";
+import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
+import { BillingSettingsPage } from "./BillingSettingsPage";
+import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
+import { TeamSettingsPage } from "./TeamSettingsPage";
 import { SettlementPage } from "./SettlementPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
@@ -187,11 +191,56 @@ export function MerchantApp() {
         }
       />
       <Route
+        path="/merchant/settings/organization"
+        element={
+          <Shell session={session} title="Organization" crumb="Settings" onSignOut={signOut}>
+            <OwnerOnly session={session} area="organization settings">
+              <OrganizationSettingsPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/settings/billing"
+        element={
+          <Shell session={session} title="Fee & Billing" crumb="Settings" onSignOut={signOut}>
+            <OwnerOnly session={session} area="billing settings">
+              <BillingSettingsPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/settings/notifications"
+        element={
+          <Shell
+            session={session}
+            title="Notifications"
+            crumb="Settings"
+            onSignOut={signOut}
+          >
+            <OwnerOnly session={session} area="notification settings">
+              <NotificationsSettingsPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/settings/team"
+        element={
+          <Shell session={session} title="Team" crumb="Settings" onSignOut={signOut}>
+            <OwnerOnly session={session} area="team settings">
+              <TeamSettingsPage session={session} />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
         path="/merchant/settings/*"
         element={
           <Shell session={session} title="Settings" crumb="Configuration" onSignOut={signOut}>
             <OwnerOnly session={session} area="settings">
-              <Placeholder title="Settings" />
+              <Navigate to="/merchant/settings/organization" replace />
             </OwnerOnly>
           </Shell>
         }

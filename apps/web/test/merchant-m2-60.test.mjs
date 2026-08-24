@@ -193,3 +193,34 @@ describe("@cryptogate/web merchant D10 reports", () => {
     assert.doesNotMatch(page, /listServiceBills/);
   });
 });
+
+describe("@cryptogate/web merchant D12-D16 settings", () => {
+  it("wires org, billing, notifications, and team routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /OrganizationSettingsPage/);
+    assert.match(app, /BillingSettingsPage/);
+    assert.match(app, /NotificationsSettingsPage/);
+    assert.match(app, /TeamSettingsPage/);
+    assert.match(app, /\/merchant\/settings\/organization/);
+    assert.match(app, /\/merchant\/settings\/billing/);
+    assert.match(app, /\/merchant\/settings\/notifications/);
+    assert.match(app, /\/merchant\/settings\/team/);
+  });
+
+  it("uses org API helpers and owner-only team management", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listOrgs/);
+    assert.match(api, /getOrg/);
+    assert.match(api, /inviteOrgUser/);
+    assert.match(api, /assignOrgUserRole/);
+    const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
+    assert.match(team, /Only the Owner manages team/i);
+    assert.match(team, /inviteOrgUser/);
+    const billing = readFileSync(
+      join(root, "src/merchant/BillingSettingsPage.tsx"),
+      "utf8",
+    );
+    assert.match(billing, /not deducted from payer on-chain/i);
+    assert.match(billing, /service-bills/);
+  });
+});

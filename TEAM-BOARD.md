@@ -107,7 +107,8 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-67 | Bruce | done | Cashier web shell (D17) | PR #74 merged |
 | M2-68 | Bruce | done | Service bills list + checkout (D5–D6) | PR #76 merged |
 | M2-69 | Bruce | done | API keys & webhooks UI (D14) | PR #77 merged |
-| M2-75 | Bruce | doing | Reports & export (D10) | `feat-bruce-web-merchant-d10-reports` |
+| M2-75 | Bruce | done | Reports & export (D10) | PR #79 merged |
+| M2-76 | Bruce | doing | Settings pages org/billing/alerts/team (D12–D16) | `feat-bruce-web-merchant-d12-d16-settings` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -161,8 +162,7 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | D12–D16 settings pages | Org, billing, notifications, team |
-| P2 | D7–D9 Sites | Org-tree sites list/create/detail |
+| P1 | D7–D9 Sites | Org-tree sites list/create/detail |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 
