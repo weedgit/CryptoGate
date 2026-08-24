@@ -43,6 +43,9 @@
         color: var(--muted);
         font-size: 0.9rem;
       }
+      .note a {
+        color: var(--accent);
+      }
     </style>
   </head>
   <body>
@@ -55,7 +58,7 @@
       </p>
       <label>
         Amount
-        <input name="amount" type="text" value="50.00" required />
+        <input name="amount" type="text" value="245.00" required />
       </label>
       <label>
         Asset
@@ -77,6 +80,17 @@
       <div class="actions">
         <button class="cta" type="submit">Create &amp; show pay page</button>
       </div>
+      <p class="note">
+        State previews:
+        <a href="./index.html">pending</a> ·
+        <a href="./index.html?state=verifying">verifying</a> ·
+        <a href="./index.html?state=completed">completed</a> ·
+        <a href="./index.html?state=expired">expired</a> ·
+        <a href="./index.html?state=anomaly">anomaly</a> ·
+        <a href="./index.html?state=failed">failed</a> ·
+        <a href="./index.html?mode=C">mode C</a> ·
+        <a href="./index.html?mode=D">mode D</a>
+      </p>
     </form>
   </body>
 </html>
