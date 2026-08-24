@@ -71,22 +71,22 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
 | M2-06 | Kevin | done | CI package gate + Andrew unblock notes | PR #31 |
-| M2-07 | Kevin | doing | M2 mid-gate smoke (create → pay) | `feat-kevin-docs-m2-mid-gate` — `doc/M2-Mid-Gate.md` |
-| M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — **blocked on Andrew CORS** |
+| M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 — `doc/M2-Mid-Gate.md` |
+| M2-08 | Kevin | doing | Pay page CORS live path + origin notes | `feat-kevin-payment-page-cors-live` |
+| M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
 | M2-53 | Kevin | done | Mode C exact payable warning | PR #25 |
 | M2-54 | Kevin | done | Hide Mode D when memo unsupported | PR #25 |
 
-### Asks for Andrew (unblock M2 mid-gate)
+### Asks for Andrew
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P0 | CORS: allow `PAYMENT_PAGE_BASE_URL` → API | Live `GET /payment` from guest pay page |
-| P1 | Settlement PUT: MFA + cool-down (M2-16) | Address change safety; OpenAPI notes pending fields |
-| P1 | xPub registration API (M2-20) | Mode S merchant setup; Kevin will add OpenAPI after |
+| P1 | Settlement PUT: MFA + cool-down (M2-16) | Address change safety |
+| P1 | xPub registration API (M2-20) | Mode S; Kevin adds OpenAPI after |
 
-`assignOnCreate` on `POST /v1/orders` **landed** (Andrew PR #30).
+Done recently: `assignOnCreate` (PR #30), CORS + order expiry (PR #33).
 
 ---
 
@@ -182,7 +182,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
-| M2-07 | Kevin | doing | M2 mid-gate smoke checklist | `doc/M2-Mid-Gate.md` |
+| M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
+| M2-08 | Kevin | doing | Pay page CORS live path notes | `feat-kevin-payment-page-cors-live` |
 
 ---
 

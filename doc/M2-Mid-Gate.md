@@ -1,27 +1,27 @@
 # M2 mid-gate — Kevin smoke (create → guest pay)
 
-**Date:** 2026-08-24  
-**Depends on:** OpenAPI v0.2.2, Andrew PR #30 (`assignOnCreate` on `POST /v1/orders`), payment page PR #22/#25.
+**Date:** 2026-08-24 (updated)  
+**Depends on:** OpenAPI v0.2.2, Andrew PR #30 (`assignOnCreate`), PR #33 (CORS + order expiry), payment page PR #22/#25.
 
-Guest pay still **polls** `GET /v1/orders/{id}/payment`. Without CORS, the browser falls back to the create `sessionStorage` snapshot (banner on the pay page). Matching fields on that snapshot come from the create response once assign is wired.
+Guest pay polls `GET /v1/orders/{id}/payment` (public). With CORS configured, the live payload wins over the create `sessionStorage` snapshot.
 
 ## Services
 
 ```bash
-# API (Andrew) — session + settlement + matching mode + orders
+# API (Andrew) — include CORS_ALLOWED_ORIGINS from .env.example
 pnpm --filter @cryptogate/api start   # :3000
 
-# Guest pay (Kevin)
+# Guest pay (Kevin) — open the same host you listed in CORS (localhost vs 127.0.0.1)
 pnpm --filter @cryptogate/payment-page dev   # :5173
 ```
 
-Log in on the **API origin** first so `POST /v1/orders` sends the session cookie. Configure settlement for USDT + tron (`PUT /v1/orgs/{orgId}/settlement`) and matching mode (`PUT /v1/orgs/{orgId}/matching-mode`).
+Log in on the **API origin** first so `POST /v1/orders` can send the session cookie (create still needs credentials). Configure settlement for USDT + tron and matching mode.
 
-Create UI: http://127.0.0.1:5173/create-order.html
+Create UI: http://localhost:5173/create-order.html (or `http://127.0.0.1:5173/...` if that origin is in `CORS_ALLOWED_ORIGINS`).
 
 ## Offline demos (no API)
 
-Use when the API is down. These do **not** count as M2-T01.
+These do **not** count as M2-T01.
 
 | Check | URL |
 | --- | --- |
@@ -33,30 +33,31 @@ Use when the API is down. These do **not** count as M2-T01.
 
 ## Live path (counts for mid-gate)
 
-Prereq: merchant has a Tron USDT settlement address.
+Prereq: merchant has a Tron USDT settlement address. Prefer opening the pay page with **empty** sessionStorage (incognito or different browser) to prove live GET.
 
 | ID | Mode | Expect |
 | --- | --- | --- |
-| Smoke-B | `PUT matching-mode` = `B`, then create 245.00 USDT tron | Pay page: network TRON TRC-20, receive address = settlement, amount 245.00, no exact-amount banner, no memo |
-| Smoke-C | matching-mode `C`, create 245.00 | Pay page: **Exact payable** may differ (fingerprint), exact-amount warning visible, copy amount = payable |
-| Smoke-D | matching-mode `D`, create on USDT tron | API **422** `matching_mode_unavailable` (memo not supported). Do not treat as pay-page bug |
-| Smoke-S | matching-mode `S` without xPub | Create should still assign **main** settlement when no same-amount conflict (Andrew/Bruce). Conflict + no HD pool → 422 |
+| Smoke-B | matching-mode `B`, create 245.00 USDT tron | Network TRON TRC-20, address = settlement, amount 245.00, no exact banner, no memo; **no** CORS fallback banner |
+| Smoke-C | matching-mode `C`, create 245.00 | Exact payable (+ warning); fingerprint may bump amount |
+| Smoke-D | matching-mode `D` on USDT tron | Create **422** `matching_mode_unavailable` |
+| Smoke-S | matching-mode `S` without xPub | Main settlement when no conflict; conflict without HD → 422 |
 | Smoke-settle | No settlement address | Create **422** `settlement_address_required` |
-| Smoke-CORS | Open `/pay/{id}` from another origin with empty sessionStorage | Live GET `/payment` **or** invalid-link. Banner “create snapshot / CORS” means CORS still missing |
-| Smoke-QR | Any successful B/C pay page | QR renders; copy address / amount / share work |
+| Smoke-expire | Pending past `expires_at` | Expiry job → `expired`; pay page shows Expired (poll or refresh) |
+| Smoke-QR | Any successful B/C pay page | QR + copy address/amount + share |
 
-## Formal M2 tests (after CORS)
-
-From `doc/Milestone-Task-List.md`:
+## Formal M2 tests (Kevin)
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| M2-T01 | wait CORS | Pay page network + address match order (live GET) |
-| M2-T05 | wait CORS + Mode C order | Fingerprint amount + warning on pay page |
-| M2-T06 | can run now (demo + 422) | Mode D hidden / create rejected on USDT Tron |
+| M2-T01 | ready to run | Live GET `/payment` shows network + address |
+| M2-T05 | ready to run | Mode C fingerprint + warning |
+| M2-T06 | ready | Mode D hidden / create rejected on USDT Tron |
 
 T02–T04, T07–T08 stay Andrew/Bruce.
 
-## Andrew remaining (P0)
+## Andrew remaining (not P0 for pay page)
 
-CORS: allow `PAYMENT_PAGE_BASE_URL` (see `.env.example` `CORS_ALLOWED_ORIGINS`) so `:5173` can call `:3000` `GET /v1/orders/{id}/payment` without a merchant session.
+| Priority | Ask |
+| --- | --- |
+| P1 | Settlement PUT: MFA + cool-down (M2-16) |
+| P1 | xPub registration API (M2-20) — Kevin adds OpenAPI after |

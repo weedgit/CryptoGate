@@ -31,7 +31,7 @@ form?.addEventListener("submit", async (event) => {
     });
   } catch {
     showError(
-      "Cannot reach API (CORS or server down). Log in on the API origin, or ask Andrew to allow this page origin.",
+      "Cannot reach API (server down, or Origin not in CORS_ALLOWED_ORIGINS). Use the same host as CORS (localhost vs 127.0.0.1) and log in on the API first.",
     );
     return;
   }
