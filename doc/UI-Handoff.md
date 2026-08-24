@@ -1,6 +1,6 @@
 # UI implementation handoff
 
-**Figma:** [Untitled product file](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA89p/Untitled?node-id=0-1)  
+**Figma:** [Design System](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA89p/Untitled?node-id=14-2) (tokens `14:2`) · [Product screens](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA89p/Untitled?node-id=0-1)  
 **Lock:** [UI-Style-Lock.md](UI-Style-Lock.md)  
 **Pages:** [UI-Page-Spec.md](UI-Page-Spec.md) (Part D = merchant)
 

@@ -51,7 +51,7 @@ Walkthrough demonstrates **roles, login concept, order screen, payment page, and
 | Blockers for M2 | |
 | M1-01 client scope sign-off linked | ☐ (separate — [M1-01](Milestone-Task-List.md)) |
 
-Record outcome on `TEAM-BOARD.md` row **M1-T05** when complete.
+Record outcome in [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md) §6 when complete.
 
 ---
 

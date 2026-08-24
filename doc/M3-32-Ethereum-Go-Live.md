@@ -47,7 +47,7 @@ Includes `apps/watcher/test/ethereum-tick.test.mjs` — watcher tick with `DEFAU
 
 1. `packages/domain/src/index.ts` — `USDT_ETHEREUM.enabled: true`
 2. `doc/M3-04-Asset-Networks.md` — move row to **Live** section; shrink **Next**
-3. `TEAM-BOARD.md` — note second live network
+3. [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md) §6 — wave 4 status
 4. Run domain tests + `node scripts/check.mjs`
 
 **Coordinate:** merge enable PR **after** Bruce confirms staging smoke §2. Announce in standup so Andrew/Bruce rebase before prod.

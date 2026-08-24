@@ -132,7 +132,7 @@ Repeat per [M4-01](M4-01-Deploy-Runbook.md) §5 on **test** only.
 | 10 | Watcher ticks in logs | JSON lines |
 | 11 | Update [M4-05](M4-05-Env-Matrix.md) §Company A fill-in with real URLs | |
 | 12 | Send integrators test base URL + [M3-02](M3-02-Integration-Guide.md) | |
-| 13 | Mark M3-T09 **done** on [TEAM-BOARD.md](../TEAM-BOARD.md) | |
+| 13 | Mark M3-T09 complete in [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md) §6 | |
 
 Optional: run [monitoring-queries.sql](examples/monitoring-queries.sql) after 24h uptime.
 

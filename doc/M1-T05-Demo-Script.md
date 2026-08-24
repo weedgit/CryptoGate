@@ -91,7 +91,7 @@ If API + cashier test user exist:
 
 ## 6. Sign-off
 
-Complete §4 in [M1-T05-Prototype-Walkthrough.md](M1-T05-Prototype-Walkthrough.md); set **M1-T05** to `done` on `TEAM-BOARD.md`.
+Complete §4 in [M1-T05-Prototype-Walkthrough.md](M1-T05-Prototype-Walkthrough.md); update Wave 5 in [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md).
 
 **Note:** M1-01 client written sign-off is separate — do not conflate with this internal demo.
 

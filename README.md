@@ -10,7 +10,7 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 
 ## Status
 
-**Sprint 0 complete. OpenAPI order freeze v0.2.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. First live chain target (M3): USDT on Tron.
+**Sprint 0 complete. OpenAPI v0.3.3.** Stack: TypeScript + pnpm workspaces. Postgres via Docker Compose. Live: USDT/Tron; USDT/Ethereum ingest ready (registry disabled until staging sign-off).
 
 Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 
@@ -21,7 +21,7 @@ UI lock + Figma handoff: `doc/UI-Style-Lock.md`, `doc/UI-Handoff.md`. Preview gu
 ```
 apps/api              HTTP: auth, orgs, payment orders, webhooks, service bills (Andrew)
 apps/watcher          Chain ingest and matching (Bruce) — separate process
-apps/web              Platform / agent / merchant shells (reserved)
+apps/web              Platform / agent / merchant portals (React)
 apps/payment-page     Public pay URL + M1 prototypes (Kevin)
 apps/cashier-apk      Cashier Android POS client (Bruce, M2+)
 packages/api-spec     OpenAPI contract (Kevin)
@@ -73,4 +73,4 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 
 Product, business, and planning files live in `doc/` (same repo — Andrew and Bruce pull with `main`).
 
-Shared eng status: [`TEAM-BOARD.md`](TEAM-BOARD.md). Ops index: [`doc/M4-33-Ops-Runbook-Index.md`](doc/M4-33-Ops-Runbook-Index.md).
+Implementation plan: [`doc/Phase1-Implementation-Plan.md`](doc/Phase1-Implementation-Plan.md). Ops index: [`doc/M4-33-Ops-Runbook-Index.md`](doc/M4-33-Ops-Runbook-Index.md).

@@ -92,5 +92,5 @@ OpenAPI freeze: [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md).
 
 ## Related
 
-- Team board: [TEAM-BOARD.md](../TEAM-BOARD.md)  
+- Implementation plan: [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md)  
 - Requirement deliverable §IV.12: deployment + daily O&M documentation
