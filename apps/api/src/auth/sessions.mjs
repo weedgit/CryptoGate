@@ -7,7 +7,7 @@ export { hashSessionToken };
 export const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * @param {{ userId: string, ttlMs?: number }} input
+ * @param {{ userId: string, ttlMs?: number, mfaVerified?: boolean }} input
  * @returns {Promise<{ token: string, sessionId: string, expiresAt: Date }>}
  */
 export async function createSession(input) {
@@ -15,12 +15,13 @@ export async function createSession(input) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + ttlMs);
+  const mfaVerifiedAt = input.mfaVerified ? new Date().toISOString() : null;
   const pool = getPool();
   const { rows } = await pool.query(
-    `INSERT INTO sessions (user_id, token_hash, expires_at)
-     VALUES ($1, $2, $3)
+    `INSERT INTO sessions (user_id, token_hash, expires_at, mfa_verified_at)
+     VALUES ($1, $2, $3, $4)
      RETURNING id`,
-    [input.userId, tokenHash, expiresAt.toISOString()],
+    [input.userId, tokenHash, expiresAt.toISOString(), mfaVerifiedAt],
   );
   return {
     token,
@@ -47,6 +48,22 @@ export async function findActiveSessionByToken(token) {
   const row = rows[0];
   if (!row) return null;
   return { sessionId: row.id, userId: row.user_id };
+}
+
+/**
+ * Mark MFA step-up or enrollment verify complete for this session.
+ * @param {string} token
+ */
+export async function markSessionMfaVerified(token) {
+  const tokenHash = hashSessionToken(token);
+  const pool = getPool();
+  await pool.query(
+    `UPDATE sessions
+     SET mfa_verified_at = now()
+     WHERE token_hash = $1
+       AND revoked_at IS NULL`,
+    [tokenHash],
+  );
 }
 
 /**

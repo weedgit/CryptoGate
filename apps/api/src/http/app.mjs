@@ -1,5 +1,11 @@
 import { getHealthPayload } from "../health-payload.mjs";
-import { handleGetSession, handleLogin, handleLogout } from "./auth-routes.mjs";
+import {
+  handleGetSession,
+  handleLogin,
+  handleLogout,
+  handleMfaEnroll,
+  handleMfaVerify,
+} from "./auth-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -36,6 +42,16 @@ export async function handleRequest(req, res) {
 
   if (method === "GET" && path === "/v1/auth/session") {
     await handleGetSession(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/auth/mfa/enroll") {
+    await handleMfaEnroll(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/auth/mfa/verify") {
+    await handleMfaVerify(req, res);
     return;
   }
 
