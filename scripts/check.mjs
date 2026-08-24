@@ -31,7 +31,11 @@ run(tsc, ["-p", "packages/matching/tsconfig.json"]);
 run("node", ["--test", "packages/matching/test/matching.test.mjs"]);
 
 run("node", ["--test", "packages/chain-clients/test/tron.test.mjs"]);
-run("node", ["--test", "apps/watcher/test/watcher.test.mjs"]);
+run("node", [
+  "--test",
+  "apps/watcher/test/watcher.test.mjs",
+  "apps/watcher/test/inbound-match.test.mjs",
+]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 
 // API unit tests that do not require Postgres (auth-http spins an in-process server).
@@ -40,6 +44,8 @@ run("node", [
   "apps/api/test/role-policy.test.mjs",
   "apps/api/test/order-map.test.mjs",
   "apps/api/test/order-rules.test.mjs",
+  "apps/api/test/order-assign.test.mjs",
+  "apps/api/test/order-expiry.test.mjs",
   "apps/api/test/matching-mode-rules.test.mjs",
   "apps/api/test/settlement-rules.test.mjs",
   "apps/api/test/cookies.test.mjs",
@@ -47,7 +53,9 @@ run("node", [
   "apps/api/test/org-rules.test.mjs",
   "apps/api/test/membership-rules.test.mjs",
   "apps/api/test/health.test.mjs",
+  "apps/api/test/cors.test.mjs",
+  "apps/api/test/audit-rules.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 
-console.log("Check: ok (OpenAPI freeze v0.2.2 + domain/matching/watcher/api unit)");
+console.log("Check: ok (OpenAPI v0.2.2 + domain/matching/watcher/api unit)");
