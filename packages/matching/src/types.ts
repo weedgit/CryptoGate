@@ -28,6 +28,28 @@ export type ListReservedMemoOrTags = (query: {
   receiveAddress: string;
 }) => Promise<readonly string[]>;
 
+/**
+ * Andrew: true if any open order (MODE_S_CONFLICT_STATUSES) already claims this
+ * payable amount for merchant + asset + network (main or HD). Under create lock.
+ */
+export type HasModeSSameAmountConflict = (query: {
+  merchantId: string;
+  asset: string;
+  network: string;
+  payableAmount: string;
+  mainSettlementAddress: string;
+}) => Promise<boolean>;
+
+/**
+ * Andrew: atomic FREE claim or derive-next from merchant xPub (watch-only).
+ * Never called from matching with private keys — API owns derivation material.
+ */
+export type ClaimHdPoolAddress = (query: {
+  merchantId: string;
+  asset: string;
+  network: string;
+}) => Promise<{ receiveAddress: string; hdIndex: number }>;
+
 export type AssignInput = {
   mode: MatchingMode;
   merchantId: string;
@@ -41,6 +63,15 @@ export type AssignInput = {
   memoSeed?: string;
   /** Required for Mode D when memoSupported */
   listReservedMemoOrTags?: ListReservedMemoOrTags;
+  /**
+   * Mode S: merchant has watch-only xPub for this asset/network.
+   * If false/omitted → fall back to Mode B (main address only).
+   */
+  xPubConfigured?: boolean;
+  /** Mode S: required when xPubConfigured */
+  hasModeSSameAmountConflict?: HasModeSSameAmountConflict;
+  /** Mode S: required when conflict and xPubConfigured */
+  claimHdPoolAddress?: ClaimHdPoolAddress;
 };
 
 /** Aligns with domain PaymentOrderAssignFields (camelCase at package boundary). */
