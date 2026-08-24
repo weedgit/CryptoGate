@@ -120,6 +120,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | — | Kevin | done | Merchant Figma frame → route map (unblocks M2-60+) | `doc/UI-Handoff.md` |
 | M4-11 | Kevin | done | OpenAPI API key CRUD / rotation freeze | v0.3.1 `doc/M4-11-Api-Keys.md` |
 | M3-gate | Kevin | done | M3 acceptance checklist T02–T08 (CI) | `doc/M3-Acceptance.md` |
+| M4-05 | Kevin | done | Test vs prod environment matrix | `doc/M4-05-Env-Matrix.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -270,6 +271,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M4-11 | Kevin | done | OpenAPI API keys CRUD/rotate | v0.3.1 `feat-kevin-api-spec-m4-api-keys` |
+| M4-05 | Kevin | done | Test vs prod env matrix in integration guide | `doc/M4-05-Env-Matrix.md` |
 
 ### API (Andrew)
 

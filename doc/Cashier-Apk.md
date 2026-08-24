@@ -28,7 +28,7 @@
 2. Set `local.properties` → `sdk.dir=` (Studio usually writes this).
 3. Sync Gradle; run **app** on an emulator or handheld (minSdk 26).
 4. Debug base URL default: `http://10.0.2.2:3000/v1` (emulator → host API).  
-   Override: `API_BASE_URL` in `app/build.gradle.kts` `buildConfigField`, or later product flavors (test vs prod — M4-23).
+   Override: Gradle flavors **staging** / **prod** (`-Pcryptogate.stagingApi` / `-Pcryptogate.prodApi`) — see [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
 
 ## Package scripts (monorepo)
 

@@ -1,7 +1,8 @@
 # M3-02 — Merchant integration guide
 
-**Owner:** Kevin. **Implements against:** OpenAPI `0.3.0`, `doc/M3-01-Signed-Api.md`, live `apps/api` (signing #53, webhooks #55/#57).  
-**Sample handler:** [M3-03-Webhook-Verify-Example.md](M3-03-Webhook-Verify-Example.md) + `doc/examples/webhook-verify.mjs`.
+**Owner:** Kevin. **Implements against:** OpenAPI `0.3.1`, `doc/M3-01-Signed-Api.md`, live `apps/api`.  
+**Sample handler:** [M3-03-Webhook-Verify-Example.md](M3-03-Webhook-Verify-Example.md) + `doc/examples/webhook-verify.mjs`.  
+**Environments (M4-05):** full matrix in [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
 
 Do not fulfill payment orders from browser redirect or payment-page status alone. Use signed webhooks (or re-GET the order with a signed API call).
 
@@ -9,13 +10,16 @@ Do not fulfill payment orders from browser redirect or payment-page status alone
 
 ## 1. Environments
 
-| | Local / test | Production |
-| --- | --- | --- |
-| Base URL | `http://localhost:3000/v1` (or `API_PUBLIC_BASE_URL`) | HTTPS merchant API host |
-| Session cookie | `cg_session` for portals / cashier APK | Same |
-| Machine auth | `X-Api-Key` + HMAC headers | Same |
-| Webhook URL | HTTPS, or `http://127.0.0.1` / `http://localhost` when `NODE_ENV !== production` | **HTTPS only** |
-| Assets | Only **USDT / `tron`** enabled — [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) | Same until Kevin enables another registry row |
+| | Local | Test / staging | Production |
+| --- | --- | --- | --- |
+| API | `http://127.0.0.1:3000/v1` | `https://api-test.<client>/v1` | `https://api.<client>/v1` |
+| Guest pay | `http://localhost:5173` | `https://pay-test.<client>` | `https://pay.<client>` |
+| DB / secrets | docker-compose / `.env` | Company A **test** project + secret manager | Company A **prod** (separate keys) |
+| Webhook URL | HTTPS, or `http://127.0.0.1` / `localhost` when not production | **HTTPS only** | **HTTPS only** |
+| Cashier APK | Emulator → `10.0.2.2:3000/v1` | Flavor **`staging`** | Flavor **`prod`** |
+| Assets | **USDT / `tron` only** — [M3-04](M3-04-Asset-Networks.md) | Same | Same until Kevin enables another row |
+
+**Never** reuse API keys, webhook secrets, or `SESSION_SECRET` across local ↔ test ↔ prod. Full rows (CORS, Tron RPC, watcher, backups): [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md). Company A fills real hostnames for M3-T09 handoff.
 
 Provision API keys via `POST /v1/api-keys` (OpenAPI **v0.3.1** — [M4-11-Api-Keys.md](M4-11-Api-Keys.md)). Secret once on create/rotate; never on GET. Never log API secrets or webhook signing secrets.
 
