@@ -668,6 +668,7 @@ select {
 
 .orders-page,
 .dash-page,
+.reports-page,
 .detail-page {
   display: flex;
   flex-direction: column;
@@ -865,6 +866,104 @@ select {
 
 .alert-card.tone-ok strong {
   color: var(--ok);
+}
+
+.reports-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reports-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.reports-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reports-filter select {
+  min-width: 160px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.reports-note {
+  margin: 0;
+  font-size: 12px;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reports-breakdown h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.breakdown-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.breakdown-head,
+.breakdown-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  align-items: center;
+}
+
+.breakdown-table.cols-2 .breakdown-head,
+.breakdown-table.cols-2 .breakdown-row {
+  grid-template-columns: 1fr auto;
+}
+
+.breakdown-head {
+  background: var(--surface-elevated);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.breakdown-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.breakdown-row span:last-child {
+  text-align: right;
+}
+
+.breakdown-head span:not(:first-child),
+.breakdown-row span:not(:first-child) {
+  min-width: 4rem;
+}
+
+.tone-anomaly-text {
+  color: var(--anomaly);
+}
+
+.kpi-value-sm {
+  font-size: 18px;
 }
 
 .feed-list {
@@ -1367,6 +1466,9 @@ select {
   }
   .kpi-row {
     grid-template-columns: 1fr 1fr;
+  }
+  .reports-grid {
+    grid-template-columns: 1fr;
   }
   .detail-columns {
     flex-direction: column;

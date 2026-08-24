@@ -9,6 +9,7 @@ import { MerchantShell } from "./MerchantShell";
 import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
+import { ReportsPage } from "./ReportsPage";
 import { IntegrationsPage } from "./IntegrationsPage";
 import { SettlementPage } from "./SettlementPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
@@ -230,7 +231,7 @@ export function MerchantApp() {
         element={
           <Shell session={session} title="Reports" crumb="Restricted" onSignOut={signOut}>
             <OwnerOnly session={session} area="reports">
-              <Placeholder title="Reports" />
+              <ReportsPage session={session} />
             </OwnerOnly>
           </Shell>
         }

@@ -144,10 +144,12 @@ export async function getPaymentDetails(orderId: string): Promise<PaymentDetails
 export async function listOrders(opts?: {
   status?: string;
   limit?: number;
+  orgId?: string;
 }): Promise<PaymentOrder[]> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
+  if (opts?.orgId) q.set("orgId", opts.orgId);
   const suffix = q.toString() ? `?${q}` : "";
   const res = await fetch(`${API_BASE}/orders${suffix}`, {
     credentials: "include",
@@ -180,9 +182,15 @@ export async function getOnChain(orderId: string): Promise<OnChainDetails> {
 }
 
 /** Relative CSV export URL (session cookie). Cashiers get 403 from API. */
-export function ordersCsvUrl(status?: string): string {
+export function ordersCsvUrl(opts?: {
+  status?: string;
+  orgId?: string;
+  limit?: number;
+}): string {
   const q = new URLSearchParams({ format: "csv" });
-  if (status) q.set("status", status);
+  if (opts?.status) q.set("status", opts.status);
+  if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
   return `${API_BASE}/orders?${q}`;
 }
 

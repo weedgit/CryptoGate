@@ -173,3 +173,23 @@ describe("@cryptogate/web merchant D14 integrations", () => {
     assert.match(shell, /Integrations/);
   });
 });
+
+describe("@cryptogate/web merchant D10 reports", () => {
+  it("wires reports route and CSV export helper", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /ReportsPage/);
+    assert.match(app, /\/merchant\/reports/);
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /ordersCsvUrl\(opts\?/);
+  });
+
+  it("shows volume breakdown and separate from service bills", () => {
+    const page = readFileSync(join(root, "src/merchant/ReportsPage.tsx"), "utf8");
+    assert.match(page, /Completed volume|COMPLETED VOLUME/i);
+    assert.match(page, /separate from service bills/i);
+    assert.match(page, /matching_mode/);
+    assert.match(page, /ordersCsvUrl/);
+    assert.doesNotMatch(page, /Mark paid/i);
+    assert.doesNotMatch(page, /listServiceBills/);
+  });
+});
