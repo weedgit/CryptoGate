@@ -54,7 +54,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
 | M1-11 | Andrew | todo | Login, logout, session refresh/revoke | Next — after M1-10 (PR #1 merged) |
-| M2-40 | Bruce | todo | Mode B `assignOnCreate` | M2-02 on `main` — start `feat-bruce-matching-mode-b-assign` |
+| M2-40 | Bruce | doing | Mode B `assignOnCreate` | `feat-bruce-matching-mode-b-assign` — registry validation + null hd/memo |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |
 | M2-01 | Kevin | done | OpenAPI: full order + payment schemas | `feat-kevin-api-spec-m2-orders` |

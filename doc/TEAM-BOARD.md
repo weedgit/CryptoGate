@@ -11,14 +11,13 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M1-31 | Tron client stub | Bruce | **done** | `packages/chain-clients/tron` |
 | M1-33 | Watcher ↔ order status contract doc | Bruce | **done** | `doc/Watcher-Order-Status-Contract.md` |
 | M1-32 | Matching package test scaffold (B + empty C/D/S) | Bruce | **done** | `feat-bruce-matching-test-scaffold` |
+| M2-40 | Mode B assign (main address + amount validation) | Bruce | **doing** | `feat-bruce-matching-mode-b-assign` |
 
 ## Now — matching (Bruce)
 
-M1 watcher rows done (merged). Kevin **M2-02** PaymentOrder fields are on `main` → Mode B assign (M2-40) is unblocked after M1-32 lands.
+**Current:** M2-40 Mode B assign on `feat-bruce-matching-mode-b-assign` — registry min/decimals, `hdIndex`/`memoOrTag` null.
 
-**Current:** M1-32 mode-c / mode-d / mode-s stubs + tests on `feat-bruce-matching-test-scaffold`.
-
-**Next after merge:** `feat-bruce-matching-mode-b-assign` (M2-40).
+**Next after merge:** wait on Andrew `payment_orders` for Mode C open-order reservation (M2-41) / Mode S pool (M2-43). Mode D (M2-42) can follow independently if memo networks land.
 
 ## Blockers / asks for Kevin
 
@@ -27,12 +26,13 @@ M1 watcher rows done (merged). Kevin **M2-02** PaymentOrder fields are on `main`
 
 ## Blockers / asks for Andrew
 
-- M1-19 / M2: `payment_orders` migration with columns per `doc/Watcher-Order-Status-Contract.md` + domain `PaymentOrderColumn` (needed for M1-34 review and Mode S pool).
+- M1-19 / M2: `payment_orders` migration with columns per `doc/Watcher-Order-Status-Contract.md` + domain `PaymentOrderColumn` (needed for M1-34 review and Mode C/S).
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |
 | 2026-08-24 | Bruce: M1-32 scaffold branch; C/D/S stubs; next M2-40 after merge |
 | 2026-08-23 | Bruce: S0-06 + M1-30/31/33 complete |
 | 2026-08-23 | Bruce: default watcher one-tick; `pnpm start` uses `--loop`; reverted root file edits |
