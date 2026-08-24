@@ -1714,3 +1714,64 @@ select {
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
+.wizard-panel {
+  max-width: 720px;
+}
+
+.wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+}
+
+.wizard-steps li {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wizard-steps li.active {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.wizard-steps li.done {
+  color: var(--text);
+}
+
+.radio-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stub-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.banner-ok {
+  background: rgba(46, 229, 157, 0.12);
+  border: 1px solid rgba(46, 229, 157, 0.35);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--ok);
+  font-size: 14px;
+}
