@@ -9,6 +9,7 @@ import {
   assignOnCreate,
   assertMatchingSettings,
   majorToMinor,
+  matchModeB,
   minorToMajor,
   modeSAddressSource,
   pickUniqueMemoOrTag,
@@ -479,17 +480,114 @@ describe("@cryptogate/matching Mode S assign (M2-43)", () => {
   });
 });
 
-describe("@cryptogate/matching M1-32 stubs", () => {
-  it("matchTransaction is a Pending Payment stub until M3", async () => {
+describe("@cryptogate/matching Mode B match (M3-60)", () => {
+  const baseCandidate = {
+    orderId: "ord-1",
+    payableAmount: "50.00",
+    receiveAddress: "TMainAddressExample",
+    asset: "USDT",
+    network: "tron",
+  };
+
+  const baseTx = {
+    mode: "B",
+    toAddress: "TMainAddressExample",
+    amount: "50.00",
+    asset: "USDT",
+    network: "tron",
+    txHash: "0xabc",
+  };
+
+  it("exact unique match → verifying", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      candidates: [baseCandidate],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-1");
+    assert.equal(result.reason, "mode_b_exact_match");
+  });
+
+  it("same-amount collision → payment_anomaly with all orderIds (never FIFO)", async () => {
     const result = await matchTransaction({
-      mode: "B",
-      toAddress: "TMainAddressExample",
-      amount: "50.00",
-      asset: "USDT",
-      network: "tron",
-      txHash: "0xdead",
+      ...baseTx,
+      candidates: [
+        baseCandidate,
+        { ...baseCandidate, orderId: "ord-2" },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.deepEqual(result.orderIds, ["ord-1", "ord-2"]);
+    assert.equal(result.orderId, undefined);
+    assert.equal(result.reason, "mode_b_same_amount_collision");
+  });
+
+  it("treats equivalent decimals as the same payable", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      amount: "50",
+      candidates: [{ ...baseCandidate, payableAmount: "50.000000" }],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-1");
+  });
+
+  it("single open order underpay → anomaly", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      amount: "49.00",
+      candidates: [baseCandidate],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.orderId, "ord-1");
+    assert.equal(result.reason, "mode_b_underpay");
+  });
+
+  it("single open order overpay → anomaly", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      amount: "51.00",
+      candidates: [baseCandidate],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_b_overpay");
+  });
+
+  it("no candidates at address → pending (unmatched)", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      candidates: [],
     });
     assert.equal(result.status, "pending_payment");
-    assert.match(result.reason ?? "", /M3/);
+    assert.equal(result.reason, "no_open_order_at_address");
+  });
+
+  it("late payment after expiry → anomaly", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      nowMs: Date.parse("2026-08-24T12:00:00.000Z"),
+      candidates: [
+        {
+          ...baseCandidate,
+          expiresAt: "2026-08-24T11:00:00.000Z",
+        },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "late_payment_after_expiry");
+    assert.deepEqual(result.orderIds, ["ord-1"]);
+  });
+
+  it("requires candidates", async () => {
+    await assert.rejects(() => matchModeB({ ...baseTx }), /candidates is required/);
+  });
+
+  it("Mode C/D/S match still stub until M3-61+", async () => {
+    const c = await matchTransaction({ ...baseTx, mode: "C", candidates: [] });
+    assert.match(c.reason ?? "", /M3-61/);
+    const d = await matchTransaction({ ...baseTx, mode: "D", candidates: [] });
+    assert.match(d.reason ?? "", /M3-62/);
+    const s = await matchTransaction({ ...baseTx, mode: "S", candidates: [] });
+    assert.match(s.reason ?? "", /M3-63/);
   });
 });

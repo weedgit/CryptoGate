@@ -16,13 +16,14 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | M2-41 | Mode C assign (fingerprint + reservation port) | Bruce | **done** | PR #17 merged |
 | M2-42 | Mode D assign (memoSupported gate + unique memo) | Bruce | **done** | PR #18 merged |
 | M2-45 | Reject Mode S+C / Mode C wide underpay | Bruce | **done** | PR #21 merged |
-| M2-43 | Mode S assign (main vs HD on conflict) | Bruce | **doing** | `feat-bruce-matching-mode-s-assign` |
+| M2-43 | Mode S assign (main vs HD on conflict) | Bruce | **done** | PR #23 merged |
+| M3-60 | Mode B `matchTransaction` (collision → anomaly) | Bruce | **doing** | `feat-bruce-matching-mode-b-match` |
 
 ## Now — matching (Bruce)
 
-**Current:** M2-43 Mode S on `feat-bruce-matching-mode-s-assign` — conflict → HD claim port; no xPub → Mode B fallback.
+**Current:** M3-60 Mode B match on `feat-bruce-matching-mode-b-match`.
 
-**Next after merge:** M2-44 HD pool DB (Andrew migration + FREE/IN_USE/COOLDOWN). Then M3 `matchTransaction`. Ask Andrew to wire `assignOnCreate` + Mode S ports.
+**Next after merge:** Mode C match (M3-61), or wire watcher to call `matchTransaction` with candidates. HD pool (M2-44) still Andrew.
 
 ## Blockers / asks for Kevin
 
@@ -32,14 +33,15 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 ## Blockers / asks for Andrew
 
-- Wire `@cryptogate/matching` `assignOnCreate` (settlement address exists).
-- Mode S: `hasModeSSameAmountConflict` + `claimHdPoolAddress`; HD pool table (M2-44) + xPub registration (M2-20).
-- Call `validateMatchingSettings` on matching mode save.
+- Wire `@cryptogate/matching` `assignOnCreate` (settlement + matching settings exist).
+- Mode S ports + HD pool table (M2-44) + xPub (M2-20).
+- Call `validateMatchingSettings` on matching mode save (if not already).
 
 ---
 
 | Date | Change |
 | --- | --- |
+| 2026-08-24 | Bruce: M3-60 Mode B matchTransaction (collision → anomaly) |
 | 2026-08-24 | Bruce: M2-43 Mode S assign (main vs HD ports) |
 | 2026-08-24 | Bruce: M2-45 reject Mode S+C / Mode C wide underpay |
 | 2026-08-24 | Bruce: M2-42 Mode D assign (memoSupported gate) |

@@ -7,7 +7,8 @@ Package path: `packages/matching`
 | Function / type | Called by | Purpose |
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
-| `matchTransaction` | `apps/watcher` | Map inbound tx → order status |
+| `matchModeB` | watcher / tests | Mode B match (also via `matchTransaction`) |
+| `MatchCandidateOrder` | watcher | Open-order row shape for match |
 | `assignModeB` / `assignModeC` / `assignModeD` / `assignModeS` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
 | `pickUniquePayableMinor` | tests | Mode C fingerprint picker (pure) |
@@ -27,7 +28,21 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
 | D | **M2-42 done** — rejects when `memoSupported=false` (USDT Tron); assigns unique `memoOrTag` when supported |
 | S | **M2-43 done** — no conflict → main; conflict → `claimHdPoolAddress`; no xPub → Mode B fallback |
 
-`matchTransaction` returns Pending Payment stub until M3.
+| Match | Status |
+| --- | --- |
+| B | **M3-60 done** — exact match → `verifying`; same-amount collision → `payment_anomaly` (all `orderIds`); under/overpay on sole order → anomaly |
+| C / D / S | Stub until M3-61 / M3-62 / M3-63 |
+
+## Mode B match (`matchModeB` / `matchTransaction` with `mode: "B"`)
+
+- Watcher loads open orders and passes `candidates` (same address / asset / network scope).
+- Exact payable (minor units via registry decimals) + address + asset + network:
+  - **1** match → `status: verifying`, `orderId` set (confirmations still watcher-owned).
+  - **2+** matches → `status: payment_anomaly`, `orderIds` = all colliding — **never FIFO**.
+  - **0** exact, sole open order wrong amount → underpay/overpay anomaly.
+  - **0** at address → `pending_payment` / `no_open_order_at_address`.
+  - All candidates expired → `late_payment_after_expiry` anomaly.
+- Does not set `completed` (watcher waits for confirmations).
 
 ## Mode B contract (`assignModeB` / `assignOnCreate` with `mode: "B"`)
 
