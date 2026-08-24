@@ -34,7 +34,21 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  paidAt?: string | null;
+  voidedAt?: string | null;
+  lastAdjustmentReason?: string | null;
 };
+
+export type AuditLogEntry = {
+  id: string;
+  actorUserId: string | null;
+  orgId: string | null;
+  action: string;
+  metadata: Record<string, string | number | boolean | null>;
+  createdAt: string;
+};
+
+export type ServiceBillUpdateAction = "mark_paid" | "void" | "adjust";
 
 async function parseError(res: Response): Promise<never> {
   const body = await res.text();
@@ -146,4 +160,54 @@ export async function inviteOrgUser(
     role: string;
     orgType: string;
   };
+}
+
+export async function updateServiceBill(
+  billId: string,
+  body: {
+    action: ServiceBillUpdateAction;
+    reason?: string;
+    adjustmentAmount?: string;
+    paymentReference?: string;
+  },
+): Promise<ServiceBill> {
+  const res = await fetch(
+    `${API_BASE}/service-bills/${encodeURIComponent(billId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ServiceBill;
+}
+
+export async function listAuditLog(opts?: {
+  from?: string;
+  to?: string;
+  actorUserId?: string;
+  orgId?: string;
+  action?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  const q = new URLSearchParams();
+  if (opts?.from) q.set("from", opts.from);
+  if (opts?.to) q.set("to", opts.to);
+  if (opts?.actorUserId) q.set("actorUserId", opts.actorUserId);
+  if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.action) q.set("action", opts.action);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(`${API_BASE}/audit${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: AuditLogEntry[] };
+  return data.items ?? [];
 }

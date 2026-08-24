@@ -16,6 +16,11 @@ const NAV = [
     label: "Service Bills",
     matchPrefix: "/platform/service-bills",
   },
+  {
+    to: "/platform/audit",
+    label: "Audit Log",
+    matchPrefix: "/platform/audit",
+  },
 ] as const;
 
 type Props = {
