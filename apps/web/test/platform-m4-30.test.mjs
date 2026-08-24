@@ -102,3 +102,30 @@ describe("@cryptogate/web platform B10 B14 v0.3.2", () => {
     assert.doesNotMatch(detail, /OpenAPI paths/);
   });
 });
+
+describe("@cryptogate/web platform B3 agent detail", () => {
+  it("wires tabbed agent detail with subtree helpers", () => {
+    const detail = readFileSync(
+      join(root, "src/platform/AgentDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /filter-tabs/);
+    assert.match(detail, /merchantsInAgentSubtree/);
+    assert.match(detail, /listAuditLog/);
+    assert.match(detail, /service-bills/);
+    assert.doesNotMatch(detail, /follow in a later/);
+
+    const subtree = readFileSync(
+      join(root, "src/platform/agentSubtree.ts"),
+      "utf8",
+    );
+    assert.match(subtree, /merchantsInAgentSubtree/);
+    assert.match(subtree, /isOrgUnderAgent/);
+
+    const list = readFileSync(
+      join(root, "src/platform/AgentsListPage.tsx"),
+      "utf8",
+    );
+    assert.doesNotMatch(list, /B3.*follow-up/);
+  });
+});
