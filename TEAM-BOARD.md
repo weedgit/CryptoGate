@@ -55,7 +55,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | **15 min standup** | Blockers only (CORS, assign, matching, pay-page) — async on board if no call |
 | **After merge to main** | Pull before editing `TEAM-BOARD.md` or contracts |
 
-Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-down + xPub presence + list/CSV). Next bump when HD pool or M3 webhooks land.
+Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when M3 webhooks land.
 
 ---
 
@@ -76,7 +76,8 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 | M3-42 | Bruce | done | Confirmations → completed | PR #37 merged |
 | M3-40 | Bruce | done | Tron ingest watched addrs + tx dedupe (RPC still stub) | PR #39 |
 | M3-30 | Bruce | done | Live TronGrid USDT TRC-20 ingest + confirmations | PR #42 merged |
-| M2-44 | Bruce | doing | HD pool state helpers + Andrew schema handoff | `feat-bruce-matching-hd-pool` |
+| M2-44 | Bruce | done | HD pool state helpers + Andrew schema handoff | PR #43 |
+| M2-44a | Andrew | done | HD pool claim + list API | PR #44 |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -90,7 +91,8 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 | M2-08 | Kevin | done | Pay page CORS live path + origin notes | merged to main |
 | M2-09 | Kevin | done | CI: watcher inbound + API cors/expiry/audit tests | merged to main |
 | M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub (v0.2.3) | merged to main |
-| M2-11 | Kevin | doing | OpenAPI order list + CSV (v0.2.4) | `feat-kevin-api-spec-m2-order-list` |
+| M2-11 | Kevin | done | OpenAPI order list + CSV (v0.2.4) | merged to main |
+| M2-12 | Kevin | done | OpenAPI Mode S HD pool list (v0.2.5) | `feat-kevin-api-spec-m2-hd-pool` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -101,9 +103,9 @@ Current freeze: OpenAPI **v0.2.4** (orders + matching-mode + settlement cool-dow
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | HD pool migration + `claimHdPoolAddress` (M2-44) | Schema in `doc/M2-44-Hd-Pool.md`; matching helpers on Bruce branch |
+| — | (none for M2 contract) | HD pool landed (#44). Next contract bump is M3 webhooks. |
 
-Landed: `assignOnCreate` (#30), CORS + expiry (#33), settlement MFA/cool-down (#38), xPub (#40).
+Landed: assign (#30), CORS/expiry (#33), settlement cool-down (#38), xPub (#40), list/CSV (#41), HD pool (#44).
 
 ---
 
@@ -200,9 +202,10 @@ Landed: `assignOnCreate` (#30), CORS + expiry (#33), settlement MFA/cool-down (#
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
 | M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
 | M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub | v0.2.3 merged |
-| M2-11 | Kevin | doing | OpenAPI order list + CSV | `feat-kevin-api-spec-m2-order-list` v0.2.4 |
+| M2-11 | Kevin | done | OpenAPI order list + CSV | v0.2.4 merged |
+| M2-12 | Kevin | done | OpenAPI Mode S HD pool list | v0.2.5 merged |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
-| M2-08 | Kevin | doing | Pay page CORS live path notes | `feat-kevin-payment-page-cors-live` |
+| M2-08 | Kevin | done | Pay page CORS live path notes | merged to main |
 
 ---
 

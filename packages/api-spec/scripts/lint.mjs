@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.2.4",
+  "version: 0.2.5",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -37,6 +37,12 @@ const required = [
   "UpsertXpubRequest",
   "xPubConfigured",
   "pendingXPub",
+  "/orgs/{orgId}/hd-pool",
+  "listHdPoolAddresses",
+  "HdPoolState",
+  "HdPoolAddress",
+  "HdPoolList",
+  "derivationPath",
   "PaymentOrderList",
   "format=csv",
   "/orders/{id}/payment",
@@ -69,6 +75,12 @@ if (raw.includes("xPubConfigured") === false) {
   process.exit(1);
 }
 
+const hdSlice = raw.split("/orgs/{orgId}/hd-pool:")[1]?.split("/orders:")[0] ?? "";
+if (hdSlice.includes("xPub") && /properties:[\s\S]*xPub:/.test(hdSlice)) {
+  console.error("GET hd-pool must not expose xPub property");
+  process.exit(1);
+}
+
 const paymentSlice =
   raw.split("/orders/{id}/payment:")[1]?.split("/webhooks:")[0] ?? "";
 if (paymentSlice.includes("sessionCookie") || paymentSlice.includes("apiKey")) {
@@ -80,4 +92,4 @@ if (!paymentSlice.includes("security: []")) {
   process.exit(1);
 }
 
-console.log("OpenAPI M2 contract freeze v0.2.4: ok");
+console.log("OpenAPI M2 contract freeze v0.2.5: ok");

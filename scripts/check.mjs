@@ -56,7 +56,8 @@ run("node", [
   "apps/api/test/health.test.mjs",
   "apps/api/test/cors.test.mjs",
   "apps/api/test/audit-rules.test.mjs",
+  "apps/api/test/hd-pool.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.2.2 + domain/matching/watcher/api unit)");
+console.log("Check: ok (OpenAPI v0.2.5 + domain/matching/watcher/api unit)");
