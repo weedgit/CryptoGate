@@ -6,6 +6,7 @@ import {
   createSession,
   DEFAULT_SESSION_TTL_MS,
   extendSessionByToken,
+  findActiveSessionByToken,
   markSessionMfaVerified,
   revokeSessionByToken,
 } from "../auth/sessions.mjs";
@@ -19,6 +20,8 @@ import { requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
 import { canEnrollMfa } from "../orgs/role-policy.mjs";
+import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 const INVALID_MFA = "Invalid MFA code";
@@ -66,6 +69,10 @@ export async function handleLogin(req, res) {
     userId: user.id,
     mfaVerified: !user.mfaEnrolled,
   });
+  await insertAuditEvent({
+    actorUserId: user.id,
+    action: AUDIT_ACTIONS.login,
+  });
   setSessionCookie(res, created.token);
   sendJson(res, 200, {
     session: await sessionPayload(user),
@@ -80,7 +87,14 @@ export async function handleLogin(req, res) {
 export async function handleLogout(req, res) {
   const token = getSessionToken(req.headers.cookie);
   if (token) {
+    const session = await findActiveSessionByToken(token);
     await revokeSessionByToken(token);
+    if (session) {
+      await insertAuditEvent({
+        actorUserId: session.userId,
+        action: AUDIT_ACTIONS.logout,
+      });
+    }
   }
   res.setHeader("Set-Cookie", clearSessionCookie());
   res.writeHead(204);
@@ -132,6 +146,10 @@ export async function handleMfaEnroll(req, res) {
 
   const secret = generateTotpSecret();
   await setPendingMfaSecret(user.id, secret);
+  await insertAuditEvent({
+    actorUserId: user.id,
+    action: AUDIT_ACTIONS.mfaEnroll,
+  });
   sendJson(res, 200, {
     secret,
     otpauthUrl: otpauthUrl(user.email, secret),
@@ -174,6 +192,10 @@ export async function handleMfaVerify(req, res) {
     }
     await activatePendingMfa(user.id);
     await markSessionMfaVerified(auth.token);
+    await insertAuditEvent({
+      actorUserId: user.id,
+      action: AUDIT_ACTIONS.mfaVerifyEnroll,
+    });
     sendJson(res, 200, await sessionPayload(user));
     return;
   }
@@ -184,6 +206,10 @@ export async function handleMfaVerify(req, res) {
       return;
     }
     await markSessionMfaVerified(auth.token);
+    await insertAuditEvent({
+      actorUserId: user.id,
+      action: AUDIT_ACTIONS.mfaVerifyLogin,
+    });
     sendJson(res, 200, await sessionPayload(user));
     return;
   }

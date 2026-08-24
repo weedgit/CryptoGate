@@ -15,6 +15,8 @@ import {
   listSettlementAddresses,
   upsertSettlementAddress,
 } from "./settlement-store.mjs";
+import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -85,6 +87,16 @@ export async function handlePutSettlement(req, res, orgId) {
     asset: validated.parsed.asset,
     network: validated.parsed.network,
     address: validated.parsed.address,
+  });
+  await insertAuditEvent({
+    actorUserId: loaded.caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.settlementPut,
+    metadata: {
+      asset: validated.parsed.asset,
+      network: validated.parsed.network,
+      address: validated.parsed.address,
+    },
   });
   sendJson(res, 200, toSettlementAddress(row));
 }

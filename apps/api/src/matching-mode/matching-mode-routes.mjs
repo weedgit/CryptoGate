@@ -16,6 +16,8 @@ import {
   findMatchingModeSettings,
   upsertMatchingModeSettings,
 } from "./matching-mode-store.mjs";
+import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -97,6 +99,12 @@ export async function handlePutMatchingMode(req, res, orgId) {
   const row = await upsertMatchingModeSettings({
     orgId,
     matchingMode: validated.parsed.matchingMode,
+  });
+  await insertAuditEvent({
+    actorUserId: loaded.caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.matchingModePut,
+    metadata: { matchingMode: validated.parsed.matchingMode },
   });
   sendJson(res, 200, toMatchingModeSettings(row, orgId));
 }
