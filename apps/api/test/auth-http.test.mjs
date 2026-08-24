@@ -118,4 +118,44 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects org invite without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orgs/org-1/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "a@b.com", role: "viewer" }),
+      });
+      assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
+
+  it("rejects role assign without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orgs/org-1/users/user-1/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "viewer" }),
+      });
+      assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

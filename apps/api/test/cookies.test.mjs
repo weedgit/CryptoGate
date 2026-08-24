@@ -34,15 +34,26 @@ describe("session cookies", () => {
 });
 
 describe("session payload", () => {
-  it("returns OpenAPI Session with empty memberships until orgs exist", () => {
+  it("includes memberships when provided", () => {
+    const session = sessionFromUser(
+      { id: "u1", email: "cashier@example.com" },
+      [
+        {
+          orgId: "m1",
+          userId: "u1",
+          role: "cashier",
+          orgType: "merchant",
+        },
+      ],
+    );
+    assert.equal(session.memberships[0].role, "cashier");
+  });
+
+  it("defaults memberships to empty", () => {
     const session = sessionFromUser({
       id: "u1",
       email: "cashier@example.com",
     });
-    assert.deepEqual(session, {
-      userId: "u1",
-      email: "cashier@example.com",
-      memberships: [],
-    });
+    assert.deepEqual(session.memberships, []);
   });
 });

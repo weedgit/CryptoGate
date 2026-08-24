@@ -1,11 +1,12 @@
 /**
- * OpenAPI Session. memberships stay empty until M1-13/15 org tables exist.
+ * OpenAPI Session.
  * @param {{ id: string, email: string }} user
+ * @param {{ orgId: string, userId: string, role: string, orgType: string }[]} [memberships]
  */
-export function sessionFromUser(user) {
+export function sessionFromUser(user, memberships = []) {
   return {
     userId: user.id,
     email: user.email,
-    memberships: [],
+    memberships,
   };
 }
