@@ -50,7 +50,12 @@ export function OrdersListPage({ session }: Props) {
   }, [load]);
 
   function onExport() {
-    window.open(ordersCsvUrl(filter === "anomalies" ? "payment_anomaly" : undefined), "_blank");
+    window.open(
+      ordersCsvUrl(
+        filter === "anomalies" ? { status: "payment_anomaly" } : undefined,
+      ),
+      "_blank",
+    );
   }
 
   return (
