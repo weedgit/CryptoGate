@@ -33,9 +33,11 @@ Do **not** implement Figma page **98 Archive**. Ignore pink animation sticky not
 
 | Call | Status |
 | --- | --- |
-| `POST /v1/orders` | Landed (PR #15). Create-order prototype uses it. |
+| `POST /v1/orders` | Landed (PR #15). **assignOnCreate wired (PR #30).** Create-order prototype uses it. |
 | `GET /v1/orders/{id}/payment` | Landed (PR #16). Public; pay page polls every 5s. |
 | CORS | **Still needed** — allow `PAYMENT_PAGE_BASE_URL` (see root `.env.example` `CORS_ALLOWED_ORIGINS` note). Without it, pay page falls back to create `sessionStorage` snapshot. |
+
+Kevin smoke checklist: [M2-Mid-Gate.md](M2-Mid-Gate.md).
 
 `public/config.js` sets `CRYPTOGATE_API_BASE` (default `http://127.0.0.1:3000`).
 

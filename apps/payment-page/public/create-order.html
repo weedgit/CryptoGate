@@ -57,10 +57,11 @@
       <p class="brand">CryptoGate</p>
       <h1 class="amount" style="font-size: 1.8rem">Create payment order</h1>
       <p class="note">
-        Merchant / Cashier prototype. Calls <code>POST /v1/orders</code>. Matching
-        mode is merchant default. Log in on the API first. Guest pay polls
+        Merchant / Cashier prototype. Calls <code>POST /v1/orders</code>
+        (<code>assignOnCreate</code> is live). Matching mode is merchant default.
+        Log in on the API first. Guest pay polls
         <code>GET /v1/orders/{id}/payment</code> — Andrew still needs CORS from
-        this origin.
+        this origin. Smoke steps: <code>doc/M2-Mid-Gate.md</code>.
       </p>
       <p id="form-error" hidden></p>
       <label>
