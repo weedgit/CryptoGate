@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.cryptogate.cashier.api.ApiError
 import com.cryptogate.cashier.api.OrderDefaults
+import com.cryptogate.cashier.api.OrderStatusUi
 import com.cryptogate.cashier.api.PaymentDetails
 import com.cryptogate.cashier.api.Session
 import com.cryptogate.cashier.ui.CreateOrderScreen
@@ -23,6 +24,7 @@ import com.cryptogate.cashier.ui.HomeScreen
 import com.cryptogate.cashier.ui.LoginScreen
 import com.cryptogate.cashier.ui.OrderPayScreen
 import com.cryptogate.cashier.ui.theme.CashierTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class PosScreen { Home, Create, Pay }
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
                     var amount by remember { mutableStateOf("") }
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
+                    var watchingOrderId by remember { mutableStateOf<String?>(null) }
 
                     LaunchedEffect(signedIn) {
                         if (signedIn) {
@@ -56,6 +59,18 @@ class MainActivity : ComponentActivity() {
                                     session = null
                                     screen = PosScreen.Home
                                 }
+                        }
+                    }
+
+                    LaunchedEffect(screen, watchingOrderId) {
+                        val id = watchingOrderId
+                        if (screen != PosScreen.Pay || id == null) return@LaunchedEffect
+                        while (true) {
+                            delay(4_000)
+                            val latest = runCatching { app.api.getPaymentDetails(id) }.getOrNull()
+                                ?: continue
+                            payment = latest
+                            if (OrderStatusUi.isTerminal(latest.status)) break
                         }
                     }
 
@@ -103,6 +118,7 @@ class MainActivity : ComponentActivity() {
                                     app.api.logout()
                                     session = null
                                     payment = null
+                                    watchingOrderId = null
                                     signedIn = false
                                     screen = PosScreen.Home
                                 }
@@ -125,6 +141,7 @@ class MainActivity : ComponentActivity() {
                                             validitySeconds = validitySeconds,
                                         )
                                         payment = app.api.getPaymentDetails(order.id)
+                                        watchingOrderId = order.id
                                         screen = PosScreen.Pay
                                     } catch (e: ApiError) {
                                         error = e.message
@@ -149,6 +166,7 @@ class MainActivity : ComponentActivity() {
                                     details = details,
                                     onDone = {
                                         payment = null
+                                        watchingOrderId = null
                                         amount = ""
                                         error = null
                                         screen = PosScreen.Home
