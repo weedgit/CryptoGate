@@ -133,6 +133,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M4-32 | Kevin | done | Merchant manual: modes, collision, cool-down | `doc/M4-32-Merchant-Manual.md` |
 | M4-01 | Kevin | done | Deploy/runbook scaffold (Company A accounts) | `doc/M4-01-Deploy-Runbook.md` |
 | M4-02 | Kevin | done | TLS + secrets inventory & rotation | `doc/M4-02-Secrets-TLS.md` |
+| M4-03 | Kevin | done | DB backup, restore drill, monitoring alerts | `doc/M4-03-Backup-Monitoring.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -286,6 +287,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 | M4-32 | Kevin | done | Merchant manual (matching / collision / cool-down) | `doc/M4-32-Merchant-Manual.md` |
 | M4-01 | Kevin | done | Deploy/runbook on Company A accounts | `doc/M4-01-Deploy-Runbook.md` |
 | M4-02 | Kevin | done | TLS + secrets (test/prod) | `doc/M4-02-Secrets-TLS.md` |
+| M4-03 | Kevin | done | DB backup, restore, monitoring alerts | `doc/M4-03-Backup-Monitoring.md` |
 
 ### API (Andrew)
 
