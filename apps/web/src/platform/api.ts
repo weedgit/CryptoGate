@@ -107,3 +107,43 @@ export async function issueServiceBill(input: {
   if (!res.ok) await parseError(res);
   return (await res.json()) as ServiceBill;
 }
+
+export async function createOrg(body: {
+  type: string;
+  name: string;
+  parentId: string;
+}): Promise<OrgAccount> {
+  const res = await fetch(`${API_BASE}/orgs`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
+export async function inviteOrgUser(
+  orgId: string,
+  body: { email: string; role: string },
+): Promise<{ orgId: string; userId: string; role: string; orgType: string }> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    orgId: string;
+    userId: string;
+    role: string;
+    orgType: string;
+  };
+}

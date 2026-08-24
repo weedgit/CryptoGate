@@ -2,10 +2,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { getSession, logout, type Session } from "./api";
 import { AgentsListPage } from "./AgentsListPage";
+import { AgentDetailPage } from "./AgentDetailPage";
 import { DashboardPage } from "./DashboardPage";
 import { IssueServiceBillPage } from "./IssueServiceBillPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantsListPage } from "./MerchantsListPage";
+import { OnboardAgentPage } from "./OnboardAgentPage";
 import { PlatformShell } from "./PlatformShell";
 import {
   RequirePlatformOperator,
@@ -90,7 +92,35 @@ export function PlatformApp() {
         path="agents"
         element={
           <Shell session={session} title="Agent Accounts" crumb="Agents" onSignOut={signOut}>
-            <AgentsListPage />
+            <AgentsListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="agents/new"
+        element={
+          <Shell
+            session={session}
+            title="Onboard Agent"
+            crumb="Agents"
+            onSignOut={signOut}
+          >
+            <RequirePlatformOperator session={session}>
+              <OnboardAgentPage />
+            </RequirePlatformOperator>
+          </Shell>
+        }
+      />
+      <Route
+        path="agents/:id"
+        element={
+          <Shell
+            session={session}
+            title="Agent Detail"
+            crumb="Agents"
+            onSignOut={signOut}
+          >
+            <AgentDetailPage />
           </Shell>
         }
       />
