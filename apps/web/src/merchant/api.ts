@@ -615,3 +615,22 @@ export async function assignOrgUserRole(
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgMembership;
 }
+
+export async function createOrg(body: {
+  type: string;
+  name: string;
+  parentId: string;
+  structure?: string;
+}): Promise<OrgAccount> {
+  const res = await fetch(`${API_BASE}/orgs`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}

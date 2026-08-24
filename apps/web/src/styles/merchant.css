@@ -966,6 +966,22 @@ select {
   font-size: 18px;
 }
 
+.sites-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sites-table .orders-head,
+.sites-table .sites-row {
+  grid-template-columns: 1.5fr 1fr 1fr auto;
+}
+
+.sites-row {
+  text-decoration: none;
+  color: inherit;
+}
+
 .settings-page {
   display: flex;
   flex-direction: column;

@@ -224,3 +224,23 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
     assert.match(billing, /service-bills/);
   });
 });
+
+describe("@cryptogate/web merchant D7-D9 sites", () => {
+  it("wires sites list, create, and detail routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /SitesListPage/);
+    assert.match(app, /CreateSitePage/);
+    assert.match(app, /SiteDetailPage/);
+    assert.match(app, /\/merchant\/sites\/new/);
+  });
+
+  it("creates merchant_site via org API", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /createOrg/);
+    const create = readFileSync(join(root, "src/merchant/CreateSitePage.tsx"), "utf8");
+    assert.match(create, /merchant_site/);
+    assert.match(create, /multi-location|inherit/i);
+    const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
+    assert.match(list, /multi_location/);
+  });
+});
