@@ -78,6 +78,11 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M3-30 | Bruce | done | Live TronGrid USDT TRC-20 ingest + confirmations | PR #42 merged |
 | M2-44 | Bruce | done | HD pool state helpers + Andrew schema handoff | PR #43 |
 | M2-44a | Andrew | done | HD pool claim + list API | PR #44 |
+| M3-10 | Andrew | done | HMAC API signing (timestamp/nonce) | PR #52/#53 |
+| M3-11 | Andrew | done | Rate limits | PR #53 |
+| M3-13 | Andrew | done | Webhook register / list / test | PR #55 |
+| M3-14 | Andrew | done | Webhook delivery worker + retries | PR #57 |
+| M3-16 | Andrew | done | Service bill stubs | PR #59 |
 | M3-63 | Bruce | done | Mode S matchTransaction by owned address | PR #45 merged |
 | M3-64 | Bruce | done | §2.8 matching acceptance (B/C/D/S) | PR #46 merged |
 | M3-45 | Bruce | done | Watcher/RPC congestion backoff | PR #47 merged |
@@ -87,7 +92,7 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M4-20 | Bruce | done | Watcher HA / restart safety; no duplicate status updates | PR #54 merged |
 | M2-73 | Bruce | done | Cashier APK hide settings + graceful 403 | PR #56 merged |
 | M2-74 | Bruce | done | Cashier APK offline/network-error; no create offline | PR #56 merged |
-| M4-21 | Bruce | doing | Reorg / rollback handling for Tron confirmations | `feat-bruce-watcher-reorg-handling` |
+| M4-21 | Bruce | done | Reorg / rollback handling for Tron confirmations | PR #58 merged |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -106,6 +111,8 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 | M2-13 | Kevin | done | CI: matching §2.8 acceptance suite | `feat-kevin-infra-matching-acceptance` |
 | M3-01 | Kevin | done | OpenAPI M3 signing, webhooks, service bills (v0.3.0) | `feat-kevin-api-spec-m3-signing-webhooks` |
 | M3-04 | Kevin | done | Connected assets/networks list (live vs planned) | `doc/M3-04-Asset-Networks.md` |
+| M3-02 | Kevin | done | Integration guide (auth, signing, webhooks) | `doc/M3-02-Integration-Guide.md` |
+| M3-03 | Kevin | done | Worked webhook verify + replay sample | `doc/M3-03-Webhook-Verify-Example.md` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -116,12 +123,9 @@ Current freeze: OpenAPI **v0.3.0** (M3-01 signing, rate limits, webhooks, servic
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | M3-10 HMAC (`X-Timestamp` / nonce / signature) | Freeze v0.3.0 + `doc/M3-01-Signed-Api.md` |
-| P1 | M3-11 rate limits | `RateLimitPerMinute` in domain; 429 + `Retry-After` |
-| P1 | M3-13/14 webhooks + delivery worker | Register/test/deliveries; secret once; HMAC outbound |
-| P1 | M3-16 service bill stubs | `/service-bills` — do not merge with `/orders` |
+| — | (none blocking M3 docs) | Signing (#53), webhooks (#55/#57), service bills (#59) on main |
 
-Unblocked by OpenAPI **v0.3.0**. Cashier 403 on webhooks and bills. Guest `/payment` stays unsigned.
+Landed M3 API: HMAC + rate limits, webhook register/test/delivery, service-bill stubs. Next Andrew: fan-out `payment_order.*` on status change if not already wired; API-key CRUD (M4-11).
 
 ---
 
@@ -234,6 +238,8 @@ Unblocked by OpenAPI **v0.3.0**. Cashier 403 on webhooks and bills. Guest `/paym
 | --- | --- | --- | --- | --- |
 | M3-01 | Kevin | done | OpenAPI signing, webhooks, service bills | v0.3.0 `feat-kevin-api-spec-m3-signing-webhooks` |
 | M3-04 | Kevin | done | Live vs planned asset/network list | `doc/M3-04-Asset-Networks.md` |
+| M3-02 | Kevin | done | Integration guide | `doc/M3-02-Integration-Guide.md` |
+| M3-03 | Kevin | done | Webhook verify sample | `doc/examples/webhook-verify.mjs` |
 
 ---
 

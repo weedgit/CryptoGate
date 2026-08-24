@@ -120,4 +120,4 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 ## Out of this freeze
 
-M3-02 integration guide prose, M3-03 sample handler, API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12). Second live network (after USDT/tron) waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 are published (`doc/M3-02-Integration-Guide.md`, `doc/M3-03-Webhook-Verify-Example.md`). Remaining: API-key CRUD/rotation (M4-11), live webhook fan-out load tests (M4-12). Second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.

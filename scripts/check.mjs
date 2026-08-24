@@ -48,6 +48,8 @@ run("node", [
   "apps/watcher/test/watcher.test.mjs",
   "apps/watcher/test/inbound-match.test.mjs",
   "apps/watcher/test/confirmations.test.mjs",
+  "apps/watcher/test/restart-safety.test.mjs",
+  "apps/watcher/test/reorg.test.mjs",
 ]);
 run("node", ["apps/watcher/src/main.mjs", "--once"]);
 
@@ -69,8 +71,14 @@ run("node", [
   "apps/api/test/cors.test.mjs",
   "apps/api/test/audit-rules.test.mjs",
   "apps/api/test/hd-pool.test.mjs",
+  "apps/api/test/signing.test.mjs",
+  "apps/api/test/rate-limit.test.mjs",
+  "apps/api/test/webhook-rules.test.mjs",
+  "apps/api/test/webhook-deliver.test.mjs",
+  "apps/api/test/service-bill-rules.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
+run("node", ["doc/examples/webhook-verify.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.0 + domain/matching/watcher/api/cashier-apk)");
+console.log("Check: ok (OpenAPI v0.3.0 + domain/matching/watcher/api/cashier-apk + M3-03 sample)");
