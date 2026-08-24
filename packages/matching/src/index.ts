@@ -3,7 +3,7 @@
  * Andrew calls assignOnCreate from order create; watcher calls matchTransaction.
  */
 import { OrderStatus as Status } from "@cryptogate/domain";
-import { assignModeB } from "./mode-b/index.js";
+import { assignModeB, matchModeB } from "./mode-b/index.js";
 import { assignModeC } from "./mode-c/index.js";
 import { assignModeD } from "./mode-d/index.js";
 import { assignModeS } from "./mode-s/index.js";
@@ -16,6 +16,7 @@ export type {
   HasModeSSameAmountConflict,
   ListReservedMemoOrTags,
   ListReservedPayableAmounts,
+  MatchCandidateOrder,
   MatchInput,
   MatchResult,
 } from "./types.js";
@@ -46,14 +47,34 @@ export async function assignOnCreate(input: AssignInput): Promise<AssignResult> 
   }
 }
 
-export async function matchTransaction(_input: MatchInput): Promise<MatchResult> {
-  return {
-    status: Status.PendingPayment,
-    reason: "matchTransaction stub — Bruce implements in M3",
-  };
+/** Watcher maps inbound tx → order status. Mode B is M3-60; C/D/S follow. */
+export async function matchTransaction(input: MatchInput): Promise<MatchResult> {
+  switch (input.mode) {
+    case "B":
+      return matchModeB(input);
+    case "C":
+      return {
+        status: Status.PendingPayment,
+        reason: "matchTransaction Mode C — Bruce M3-61",
+      };
+    case "D":
+      return {
+        status: Status.PendingPayment,
+        reason: "matchTransaction Mode D — Bruce M3-62",
+      };
+    case "S":
+      return {
+        status: Status.PendingPayment,
+        reason: "matchTransaction Mode S — Bruce M3-63",
+      };
+    default: {
+      const _exhaustive: never = input.mode;
+      throw new Error(`Unknown matching mode: ${_exhaustive}`);
+    }
+  }
 }
 
-export { assignModeB, majorToMinor } from "./mode-b/index.js";
+export { assignModeB, matchModeB, majorToMinor } from "./mode-b/index.js";
 export {
   assignModeC,
   formatPayableAmount,

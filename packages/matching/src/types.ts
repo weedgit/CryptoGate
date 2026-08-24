@@ -85,6 +85,16 @@ export type AssignResult = {
   memoOrTag: string | null;
 };
 
+export type MatchCandidateOrder = {
+  orderId: string;
+  payableAmount: string;
+  receiveAddress: string;
+  asset: string;
+  network: string;
+  /** ISO-8601; if in the past, order is excluded from successful match (late → anomaly if sole candidate) */
+  expiresAt?: string;
+};
+
 export type MatchInput = {
   mode: MatchingMode;
   toAddress: string;
@@ -93,10 +103,19 @@ export type MatchInput = {
   network: string;
   memoOrTag?: string;
   txHash: string;
+  /**
+   * Open orders at this address / asset / network (watcher loads from payment_orders).
+   * Required for Mode B match (M3-60).
+   */
+  candidates?: readonly MatchCandidateOrder[];
+  /** Optional clock for expiry checks (tests). Default Date.now(). */
+  nowMs?: number;
 };
 
 export type MatchResult = {
   orderId?: string;
+  /** Mode B same-amount collision — all ambiguous open orders (never FIFO-pick one). */
+  orderIds?: string[];
   status: OrderStatus;
   reason?: string;
 };
