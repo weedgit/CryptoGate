@@ -25,6 +25,26 @@ export async function findOrderByIdempotency(orgId, idempotencyKey) {
 }
 
 /**
+ * @param {string} id
+ */
+export async function findOrderById(id) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT o.id, o.org_id, o.created_by, o.order_number, o.status, o.matching_mode,
+            o.payable_amount, o.received_amount, o.receive_address, o.address_source,
+            o.hd_index, o.memo_or_tag, o.asset, o.network, o.expires_at, o.tx_hash,
+            o.confirmations, o.required_confirmations, o.idempotency_key,
+            o.idempotency_body_hash, o.merchant_metadata, o.created_at, o.updated_at,
+            org.name AS org_name
+     FROM payment_orders o
+     JOIN org_accounts org ON org.id = o.org_id
+     WHERE o.id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+/**
  * @param {{
  *   orgId: string,
  *   createdBy: string,
