@@ -255,6 +255,26 @@ describe("auth HTTP (no DB)", () => {
     }
   });
 
+  it("rejects API key without signing headers", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orders/ord-1`, {
+        headers: { "X-Api-Key": "cgk_unsigned" },
+      });
+      assert.equal(res.status, 401);
+      const body = await res.json();
+      assert.equal(body.code, "signature_invalid");
+    } finally {
+      await close(server);
+    }
+  });
+
   it("rejects settlement get and put without session", async () => {
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {
