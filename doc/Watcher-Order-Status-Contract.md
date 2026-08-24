@@ -68,7 +68,7 @@ verifying ──(irrecoverable chain error)──► failed
 | Phase | Behavior |
 | --- | --- |
 | **M1** | Poll interval `WATCHER_POLL_INTERVAL_MS`; log health; Tron stub `healthCheck`; no DB |
-| **M3** | Load open orders (`pending_payment`, `verifying`); poll `chain-clients/tron`; call `matchTransaction`; UPDATE row; idempotent on `tx_hash` |
+| **M3** | Load open orders (`pending_payment`, `verifying`, …); poll `chain-clients/tron`; call `matchTransaction`; UPDATE row; idempotent on `tx_hash`. **M3-41 wire:** when `DATABASE_URL` set, watcher pool loads candidates and applies match results (transfers still stub-empty until M3-40 live RPC). |
 
 ---
 

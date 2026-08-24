@@ -21,7 +21,8 @@ export async function healthCheck() {
 
 /**
  * Placeholder for M3 block / TRC-20 transfer polling.
- * @returns {Promise<{ transfers: [] }>}
+ * Each transfer: { toAddress, amount, asset?, network?, txHash, memoOrTag? }
+ * @returns {Promise<{ transfers: Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }> }>}
  */
 export async function listRecentTransfers(_options) {
   return { transfers: [] };
