@@ -20,6 +20,7 @@ Single entry point for **Company A operators** and **Company B assist** — link
 | Webhook HMAC verify | [M3-03-Webhook-Verify-Example.md](M3-03-Webhook-Verify-Example.md) | Kevin |
 | Merchant product manual | [M4-32-Merchant-Manual.md](M4-32-Merchant-Manual.md) | Kevin |
 | OSS / npm licenses | [M4-34-Third-Party-Licenses.md](M4-34-Third-Party-Licenses.md) | Kevin |
+| DB schema reference | [M4-35-Database-Schema.md](M4-35-Database-Schema.md) | Kevin |
 | Watcher ↔ order status | [Watcher-Order-Status-Contract.md](Watcher-Order-Status-Contract.md) | Bruce |
 | Live asset/network | [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) | Kevin |
 | M3 acceptance / CI gate | [M3-Acceptance.md](M3-Acceptance.md) | Kevin |
