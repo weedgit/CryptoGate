@@ -5,7 +5,7 @@
  * Usage: node scripts/check.mjs
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +17,12 @@ function run(cmd, args, cwd = root) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+/** Composite incremental + gitignored dist can skip emit; wipe before tsc. */
+function cleanTsEmit(pkgRel) {
+  rmSync(join(root, pkgRel, "dist"), { recursive: true, force: true });
+  rmSync(join(root, pkgRel, "tsconfig.tsbuildinfo"), { force: true });
+}
+
 run("node", [join(root, "packages/api-spec/scripts/lint.mjs")]);
 if (!existsSync(tsc)) {
   console.error("Missing typescript. Run: npx pnpm@9.15.0 install");
@@ -24,11 +30,17 @@ if (!existsSync(tsc)) {
 }
 
 // Domain must emit dist/ before matching tsc (workspace + project references).
+cleanTsEmit("packages/domain");
 run(tsc, ["-p", "packages/domain/tsconfig.json"]);
 run("node", ["--test", "packages/domain/test/domain.test.mjs"]);
 
+cleanTsEmit("packages/matching");
 run(tsc, ["-p", "packages/matching/tsconfig.json"]);
-run("node", ["--test", "packages/matching/test/matching.test.mjs"]);
+run("node", [
+  "--test",
+  "packages/matching/test/matching.test.mjs",
+  "packages/matching/test/acceptance-2.8.test.mjs",
+]);
 
 run("node", ["--test", "packages/chain-clients/test/tron.test.mjs"]);
 run("node", [

@@ -94,7 +94,8 @@ Current freeze: OpenAPI **v0.2.5** (through Mode S HD pool list). Next bump when
 | M2-09 | Kevin | done | CI: watcher inbound + API cors/expiry/audit tests | merged to main |
 | M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub (v0.2.3) | merged to main |
 | M2-11 | Kevin | done | OpenAPI order list + CSV (v0.2.4) | merged to main |
-| M2-12 | Kevin | done | OpenAPI Mode S HD pool list (v0.2.5) | `feat-kevin-api-spec-m2-hd-pool` |
+| M2-12 | Kevin | done | OpenAPI Mode S HD pool list (v0.2.5) | merged to main |
+| M2-13 | Kevin | done | CI: matching §2.8 acceptance suite | `feat-kevin-infra-matching-acceptance` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -206,6 +207,7 @@ Landed: assign (#30), CORS/expiry (#33), settlement cool-down (#38), xPub (#40),
 | M2-10 | Kevin | done | OpenAPI settlement cool-down + xPub | v0.2.3 merged |
 | M2-11 | Kevin | done | OpenAPI order list + CSV | v0.2.4 merged |
 | M2-12 | Kevin | done | OpenAPI Mode S HD pool list | v0.2.5 merged |
+| M2-13 | Kevin | done | CI: matching §2.8 acceptance | `feat-kevin-infra-matching-acceptance` |
 | M2-07 | Kevin | done | M2 mid-gate smoke checklist | PR #35 |
 | M2-08 | Kevin | done | Pay page CORS live path notes | merged to main |
 
