@@ -4,7 +4,7 @@ import { hashSessionToken } from "./session-token.mjs";
 
 export { hashSessionToken };
 
-const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * @param {{ userId: string, ttlMs?: number }} input
@@ -47,6 +47,29 @@ export async function findActiveSessionByToken(token) {
   const row = rows[0];
   if (!row) return null;
   return { sessionId: row.id, userId: row.user_id };
+}
+
+/**
+ * Extend an active session (UI “Stay signed in” / GET /auth/session).
+ * @param {string} token
+ * @param {{ ttlMs?: number }} [opts]
+ * @returns {Promise<Date | null>}
+ */
+export async function extendSessionByToken(token, opts = {}) {
+  const ttlMs = opts.ttlMs ?? DEFAULT_SESSION_TTL_MS;
+  const expiresAt = new Date(Date.now() + ttlMs);
+  const tokenHash = hashSessionToken(token);
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE sessions
+     SET expires_at = $2
+     WHERE token_hash = $1
+       AND revoked_at IS NULL
+       AND expires_at > now()`,
+    [tokenHash, expiresAt.toISOString()],
+  );
+  if ((rowCount ?? 0) === 0) return null;
+  return expiresAt;
 }
 
 /**
