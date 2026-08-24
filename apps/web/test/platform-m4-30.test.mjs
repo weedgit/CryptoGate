@@ -152,3 +152,23 @@ describe("@cryptogate/web platform B6 merchant detail", () => {
     assert.match(list, /\/platform\/merchants\/\$\{row\.id\}/);
   });
 });
+
+describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
+  it("wires fee tiers and org policy settings to X-01 API", () => {
+    const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
+    assert.match(api, /getFeeTierSettings/);
+    assert.match(api, /updatePlatformOrgPolicy/);
+    assert.match(api, /decideEnterpriseRateApproval/);
+
+    const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
+    assert.match(app, /settings\/fee-tiers/);
+    assert.match(app, /PlatformSettingsPage/);
+
+    const b8 = readFileSync(
+      join(root, "src/platform/FeeTiersSettingsPage.tsx"),
+      "utf8",
+    );
+    assert.match(b8, /next billing period/i);
+    assert.match(b8, /Enterprise rate approvals/);
+  });
+});
