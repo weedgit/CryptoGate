@@ -13,6 +13,7 @@ import {
   matchModeC,
   matchModeD,
   matchModeDForConfig,
+  matchModeS,
   minorToMajor,
   modeSAddressSource,
   pickUniqueMemoOrTag,
@@ -626,10 +627,147 @@ describe("@cryptogate/matching Mode B match (M3-60)", () => {
   it("requires candidates", async () => {
     await assert.rejects(() => matchModeB({ ...baseTx }), /candidates is required/);
   });
+});
 
-  it("Mode S match still stub until M3-63", async () => {
-    const s = await matchTransaction({ ...baseTx, mode: "S", candidates: [] });
-    assert.match(s.reason ?? "", /M3-63/);
+describe("@cryptogate/matching Mode S match (M3-63)", () => {
+  const baseTx = {
+    mode: "S",
+    toAddress: "TMainAddressExample",
+    amount: "50.00",
+    asset: "USDT",
+    network: "tron",
+    txHash: "0xs1",
+  };
+
+  it("exact match on main address → verifying", async () => {
+    const result = await matchModeS({
+      ...baseTx,
+      candidates: [
+        {
+          orderId: "ord-s1",
+          payableAmount: "50.00",
+          receiveAddress: "TMainAddressExample",
+          asset: "USDT",
+          network: "tron",
+        },
+      ],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-s1");
+    assert.equal(result.reason, "mode_s_exact_match");
+  });
+
+  it("three same-amount orders on distinct addresses match correctly", async () => {
+    const candidates = [
+      {
+        orderId: "ord-main",
+        payableAmount: "50.00",
+        receiveAddress: "TMainAddressExample",
+        asset: "USDT",
+        network: "tron",
+      },
+      {
+        orderId: "ord-hd-0",
+        payableAmount: "50.00",
+        receiveAddress: "THdDerivedAddress0000",
+        asset: "USDT",
+        network: "tron",
+      },
+      {
+        orderId: "ord-hd-1",
+        payableAmount: "50.00",
+        receiveAddress: "THdDerivedAddress0001",
+        asset: "USDT",
+        network: "tron",
+      },
+    ];
+
+    const a = await matchTransaction({
+      ...baseTx,
+      toAddress: "TMainAddressExample",
+      txHash: "0xa",
+      candidates,
+    });
+    const b = await matchTransaction({
+      ...baseTx,
+      toAddress: "THdDerivedAddress0000",
+      txHash: "0xb",
+      candidates,
+    });
+    const c = await matchTransaction({
+      ...baseTx,
+      toAddress: "THdDerivedAddress0001",
+      txHash: "0xc",
+      candidates,
+    });
+
+    assert.equal(a.orderId, "ord-main");
+    assert.equal(b.orderId, "ord-hd-0");
+    assert.equal(c.orderId, "ord-hd-1");
+    assert.equal(a.status, "verifying");
+    assert.equal(b.status, "verifying");
+    assert.equal(c.status, "verifying");
+  });
+
+  it("same-address same-amount collision → anomaly (never FIFO)", async () => {
+    const result = await matchModeS({
+      ...baseTx,
+      candidates: [
+        {
+          orderId: "ord-1",
+          payableAmount: "50.00",
+          receiveAddress: "TMainAddressExample",
+          asset: "USDT",
+          network: "tron",
+        },
+        {
+          orderId: "ord-2",
+          payableAmount: "50.00",
+          receiveAddress: "TMainAddressExample",
+          asset: "USDT",
+          network: "tron",
+        },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_s_same_amount_collision");
+    assert.deepEqual(result.orderIds, ["ord-1", "ord-2"]);
+  });
+
+  it("sole HD order underpay → anomaly", async () => {
+    const result = await matchModeS({
+      ...baseTx,
+      toAddress: "THdDerivedAddress0001",
+      amount: "49.00",
+      candidates: [
+        {
+          orderId: "ord-hd",
+          payableAmount: "50.00",
+          receiveAddress: "THdDerivedAddress0001",
+          asset: "USDT",
+          network: "tron",
+        },
+      ],
+    });
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_s_underpay");
+    assert.equal(result.orderId, "ord-hd");
+  });
+
+  it("matchTransaction routes Mode S", async () => {
+    const result = await matchTransaction({
+      ...baseTx,
+      candidates: [
+        {
+          orderId: "ord-s2",
+          payableAmount: "50.00",
+          receiveAddress: "TMainAddressExample",
+          asset: "USDT",
+          network: "tron",
+        },
+      ],
+    });
+    assert.equal(result.reason, "mode_s_exact_match");
   });
 });
 

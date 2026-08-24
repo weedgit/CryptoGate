@@ -81,6 +81,28 @@ describe("@cryptogate/watcher inbound match wire (M3-41)", () => {
     assert.equal(b.result.orderId, orders[1].orderId);
   });
 
+  it("Mode S HD address binds the owning order", async () => {
+    const { applied, result, mode } = await matchInboundTransfer({
+      transfer: {
+        ...baseTransfer,
+        toAddress: "THdDerivedAddress0001",
+        txHash: "0xhd",
+      },
+      openOrders: [
+        {
+          ...baseOrder,
+          matchingMode: "S",
+          orderId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          receiveAddress: "THdDerivedAddress0001",
+        },
+      ],
+    });
+    assert.equal(applied, true);
+    assert.equal(mode, "S");
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "cccccccc-cccc-cccc-cccc-cccccccccccc");
+  });
+
   it("processTransferBatch calls apply for bound matches", async () => {
     const applied = [];
     const outcomes = await processTransferBatch({
