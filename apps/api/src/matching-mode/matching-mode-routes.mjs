@@ -1,3 +1,4 @@
+import { validateMatchingSettings } from "@cryptogate/matching";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
@@ -82,6 +83,14 @@ export async function handlePutMatchingMode(req, res, orgId) {
   const validated = validateMatchingModeBody(body);
   if (!validated.ok) {
     sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+
+  const policy = validateMatchingSettings({
+    mode: validated.parsed.matchingMode,
+  });
+  if (!policy.ok) {
+    sendError(res, 400, policy.code, policy.message);
     return;
   }
 
