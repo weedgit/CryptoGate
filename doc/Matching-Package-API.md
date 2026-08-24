@@ -11,4 +11,11 @@ Package path: `packages/matching`
 
 Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states live in mode-s, not create-order).
 
-Sprint 0: Mode B assign stub only; C/D/S throw until implemented.
+| Mode | Assign status |
+| --- | --- |
+| B | Stub assigns main settlement address (M2-40 will harden) |
+| C | Throws until M2-41 |
+| D | Throws until M2-42 |
+| S | Throws until M2-43 |
+
+`matchTransaction` returns Pending Payment stub until M3.
