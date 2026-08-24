@@ -3,12 +3,11 @@
  * M3-40: poll transfers for watched open-order addresses (RPC stub until live).
  * M3-41: match inbound transfers → payment_orders.
  * M3-42: advance verifying/confirmed → completed when confirmations met.
+ * M3-32: ethereum client when DEFAULT_NETWORK=ethereum.
  */
-import {
-  getTransactionConfirmationState,
-  healthCheck as tronHealthCheck,
-  listRecentTransfers,
-} from "@cryptogate/chain-clients/tron";
+import { healthCheck as ethHealthCheck } from "@cryptogate/chain-clients/ethereum";
+import { healthCheck as tronHealthCheck } from "@cryptogate/chain-clients/tron";
+import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
 import { getWatcherPool } from "./db/pool.mjs";
 import { processTransferBatch } from "./match/inbound.mjs";
@@ -26,6 +25,7 @@ import {
  */
 export async function runTick(ctx) {
   const tron = await tronHealthCheck();
+  const ethereum = await ethHealthCheck();
   /** @type {Record<string, unknown>} */
   let ingest = {
     mode: "noop",
@@ -39,6 +39,8 @@ export async function runTick(ctx) {
         asset: ctx.config.defaultAsset,
         network: ctx.config.defaultNetwork,
       };
+
+      const chain = await loadChainClient(filter.network);
 
       const openOrders = await listOpenOrdersForMatch(pool, filter);
       const watchedAddresses = [
@@ -55,7 +57,7 @@ export async function runTick(ctx) {
       }
       const matchCandidates = [...byId.values()];
 
-      const polled = await listRecentTransfers({
+      const polled = await chain.listRecentTransfers({
         ...filter,
         watchedAddresses,
       });
@@ -82,7 +84,7 @@ export async function runTick(ctx) {
       const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
       const confirmOutcomes = await processConfirmationBatch({
         orders: awaiting,
-        getConfirmationState: getTransactionConfirmationState,
+        getConfirmationState: chain.getTransactionConfirmationState,
         apply: (args) => applyConfirmationUpdate(pool, args),
       });
 
@@ -126,6 +128,7 @@ export async function runTick(ctx) {
     },
     chain: {
       tron,
+      ethereum,
     },
     ingest,
   };

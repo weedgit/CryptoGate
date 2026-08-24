@@ -85,7 +85,11 @@ importers:
 
   packages/api-spec: {}
 
-  packages/chain-clients: {}
+  packages/chain-clients:
+    dependencies:
+      '@cryptogate/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/domain:
     devDependencies:

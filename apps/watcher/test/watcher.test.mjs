@@ -36,6 +36,7 @@ describe("@cryptogate/watcher m1 loop", () => {
     assert.equal(lines[1].phase, "m1-loop");
     assert.equal(lines[1].tick, 1);
     assert.equal(lines[1].chain.tron.mode, "stub");
+    assert.equal(lines[1].chain.ethereum.mode, "stub");
     assert.equal(lines[1].ingest.mode, "noop");
     assert.equal(lines.at(-1).event, "shutdown");
     assert.equal(lines.at(-1).ticks, 1);

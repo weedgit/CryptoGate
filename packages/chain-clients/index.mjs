@@ -15,3 +15,17 @@ export {
   DEFAULT_REQUIRED_CONFIRMATIONS,
   DEFAULT_TRONGRID_BASE,
 } from "./tron/index.mjs";
+
+export {
+  healthCheck as ethHealthCheck,
+  listRecentTransfers as ethListRecentTransfers,
+  dedupeTransfersByTxHash as ethDedupeTransfersByTxHash,
+  getTransactionConfirmations as ethGetTransactionConfirmations,
+  getTransactionConfirmationState as ethGetTransactionConfirmationState,
+  getEthereumConfig,
+  mapTransferLog,
+  extraWatcherBackoffMs as ethExtraWatcherBackoffMs,
+  isRetryableEthStatus,
+  ethBackoffMs,
+  ERC20_TRANSFER_TOPIC,
+} from "./ethereum/index.mjs";
