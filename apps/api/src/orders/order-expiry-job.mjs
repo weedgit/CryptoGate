@@ -1,6 +1,10 @@
 import { expireDuePaymentOrders } from "./order-expiry.mjs";
 import { activateDuePendingSettlements } from "../settlement/settlement-store.mjs";
 import { activateDuePendingXpubs } from "../xpub/xpub-store.mjs";
+import {
+  cooldownHdPoolForFinalOrders,
+  releaseDueHdPoolAddresses,
+} from "../mode-s/hd-pool-store.mjs";
 
 /**
  * @param {{
@@ -29,6 +33,8 @@ export function startOrderExpiryJob(options = {}) {
     (async () => {
       try {
         await expireDuePaymentOrders();
+        await cooldownHdPoolForFinalOrders();
+        await releaseDueHdPoolAddresses();
         await activateDuePendingSettlements();
         await activateDuePendingXpubs();
       } catch (err) {

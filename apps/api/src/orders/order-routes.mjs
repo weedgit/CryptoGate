@@ -19,6 +19,7 @@ import {
 } from "./order-store.mjs";
 import { toPaymentDetails } from "./order-map.mjs";
 import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
+import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -183,6 +184,20 @@ export async function handleCreatePaymentOrder(req, res) {
             return { kind: "replay", row: raced };
           }
           return { kind: "conflict" };
+        }
+
+        if (
+          assigned.assign.addressSource === "hd_pool" &&
+          assigned.assign.hdIndex != null
+        ) {
+          await bindHdPoolOrder(client, {
+            orgId: scope.orgId,
+            asset: validated.parsed.asset,
+            network: validated.parsed.network,
+            hdIndex: assigned.assign.hdIndex,
+            receiveAddress: assigned.assign.receiveAddress,
+            orderId: inserted.row.id,
+          });
         }
 
         return { kind: "created", row: inserted.row };
