@@ -120,3 +120,48 @@ export const DEFAULT_ASSET_NETWORK: AssetNetwork = {
   asset: AssetCode.USDT,
   network: NetworkId.Tron,
 };
+
+/**
+ * DB column names on `payment_orders` (Andrew migration; watcher reads).
+ * TypeScript and OpenAPI use camelCase; persist these snake_case names.
+ */
+export const PaymentOrderColumn = {
+  matchingMode: "matching_mode",
+  payableAmount: "payable_amount",
+  receiveAddress: "receive_address",
+  addressSource: "address_source",
+  hdIndex: "hd_index",
+  memoOrTag: "memo_or_tag",
+} as const;
+
+export type PaymentOrderColumnName =
+  (typeof PaymentOrderColumn)[keyof typeof PaymentOrderColumn];
+
+/**
+ * Fields written at create from `packages/matching` `assignOnCreate`.
+ * Mode is stored on the order here; changing merchant default must not rewrite open orders.
+ */
+export type PaymentOrderAssignFields = {
+  matchingMode: MatchingMode;
+  payableAmount: Money;
+  receiveAddress: string;
+  addressSource: AddressSource;
+  hdIndex: number | null;
+  memoOrTag: string | null;
+};
+
+/**
+ * Shared payment-order shape (API camelCase).
+ * Receive address is merchant-controlled; platform has no spend keys.
+ */
+export type PaymentOrder = PaymentOrderAssignFields & {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  receivedAmount: Money | null;
+  asset: AssetCode;
+  network: NetworkId;
+  /** ISO-8601 timestamp */
+  expiresAt: string;
+  createdBy?: string;
+};
