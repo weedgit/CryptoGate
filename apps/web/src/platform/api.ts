@@ -223,3 +223,120 @@ export async function listAuditLog(opts?: {
   const data = (await res.json()) as { items: AuditLogEntry[] };
   return data.items ?? [];
 }
+
+export type FeeTierBand = {
+  tier: string;
+  subscriptionAmountUsd: string;
+  volumeFeeMinPercent: string;
+  volumeFeeMaxPercent: string;
+  defaultSignupPercent: string;
+  tierDescription?: string;
+};
+
+export type PlatformFeeTierSettings = {
+  tiers: FeeTierBand[];
+  updatedAt: string;
+};
+
+export type PlatformOrgPolicy = {
+  maxAgentDepth: number;
+};
+
+export type EnterpriseRateApproval = {
+  id: string;
+  orgId: string;
+  merchantName: string;
+  requestedTier: string;
+  requestedVolumeFeePercent: string;
+  status: string;
+  requestedByUserId: string;
+  createdAt: string;
+};
+
+export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
+  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformFeeTierSettings;
+}
+
+export async function updateFeeTierSettings(body: {
+  tiers: FeeTierBand[];
+}): Promise<PlatformFeeTierSettings> {
+  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformFeeTierSettings;
+}
+
+export async function getPlatformOrgPolicy(): Promise<PlatformOrgPolicy> {
+  const res = await fetch(`${API_BASE}/platform/settings/org-policy`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformOrgPolicy;
+}
+
+export async function updatePlatformOrgPolicy(body: {
+  maxAgentDepth: number;
+}): Promise<PlatformOrgPolicy> {
+  const res = await fetch(`${API_BASE}/platform/settings/org-policy`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformOrgPolicy;
+}
+
+export async function listEnterpriseRateApprovals(opts?: {
+  status?: string;
+}): Promise<EnterpriseRateApproval[]> {
+  const q = new URLSearchParams();
+  if (opts?.status) q.set("status", opts.status);
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(
+    `${API_BASE}/platform/enterprise-rate-approvals${suffix}`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: EnterpriseRateApproval[] };
+  return data.items ?? [];
+}
+
+export async function decideEnterpriseRateApproval(
+  approvalId: string,
+  body: { decision: "approve" | "deny"; reason?: string },
+): Promise<EnterpriseRateApproval> {
+  const res = await fetch(
+    `${API_BASE}/platform/enterprise-rate-approvals/${encodeURIComponent(approvalId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as EnterpriseRateApproval;
+}

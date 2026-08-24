@@ -22,6 +22,12 @@ export function sessionCanIssueServiceBill(session: Session): boolean {
   );
 }
 
+export function sessionIsPlatformOwner(session: Session): boolean {
+  return session.memberships.some(
+    (m) => m.orgType === "platform" && m.role === "owner",
+  );
+}
+
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
   if (type === "agent_sub") return "Agent (sub)";

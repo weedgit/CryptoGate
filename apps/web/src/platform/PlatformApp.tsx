@@ -15,6 +15,8 @@ import {
   RequirePlatformPortal,
 } from "./RequirePlatformPortal";
 import { AuditLogPage } from "./AuditLogPage";
+import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
+import { PlatformSettingsPage } from "./PlatformSettingsPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 
@@ -203,6 +205,32 @@ export function PlatformApp() {
             onSignOut={signOut}
           >
             <AuditLogPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings"
+        element={
+          <Shell
+            session={session}
+            title="Platform Settings"
+            crumb="Settings"
+            onSignOut={signOut}
+          >
+            <PlatformSettingsPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/fee-tiers"
+        element={
+          <Shell
+            session={session}
+            title="Fee Tiers"
+            crumb="Settings"
+            onSignOut={signOut}
+          >
+            <FeeTiersSettingsPage session={session} />
           </Shell>
         }
       />

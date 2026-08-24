@@ -21,6 +21,11 @@ const NAV = [
     label: "Audit Log",
     matchPrefix: "/platform/audit",
   },
+  {
+    to: "/platform/settings",
+    label: "Settings",
+    matchPrefix: "/platform/settings",
+  },
 ] as const;
 
 type Props = {
