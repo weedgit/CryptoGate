@@ -83,6 +83,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M3-13 | Andrew | done | Webhook register / list / test | PR #55 |
 | M3-14 | Andrew | done | Webhook delivery worker + retries | PR #57 |
 | M3-16 | Andrew | done | Service bill stubs | PR #59 |
+| M4-11 | Andrew | done | API key CRUD / rotate + migrate 017 | on main |
 | M3-63 | Bruce | done | Mode S matchTransaction by owned address | PR #45 merged |
 | M3-64 | Bruce | done | §2.8 matching acceptance (B/C/D/S) | PR #46 merged |
 | M3-45 | Bruce | done | Watcher/RPC congestion backoff | PR #47 merged |
@@ -121,6 +122,7 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M4-11 | Kevin | done | OpenAPI API key CRUD / rotation freeze | v0.3.1 `doc/M4-11-Api-Keys.md` |
 | M3-gate | Kevin | done | M3 acceptance checklist T02–T08 (CI) | `doc/M3-Acceptance.md` |
 | M4-05 | Kevin | done | Test vs prod environment matrix | `doc/M4-05-Env-Matrix.md` |
+| — | Kevin | done | CI: api-key rules + T07 signing smoke | `doc/examples/api-signing-smoke.mjs` |
 | M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22; CORS unblocked PR #33 |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
@@ -131,9 +133,9 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | Implement M4-11 `/v1/api-keys` | OpenAPI **v0.3.1** + `doc/M4-11-Api-Keys.md`; extend `api_keys` for label/last_used/expires |
-| P2 | Cashier 403 + rotate acceptance | Secret once; revoke stops HMAC; max 10 active |
-| P2 | M3-T07 nonce_replay live smoke | After a provisioned key (CRUD or seed); CI covers unsigned + skew |
+| — | (none blocking Kevin) | M4-11 `/v1/api-keys` on main (migrate 017); next: M4-12 load tests when ready |
+
+CI runs `api-key-rules.test.mjs` + `doc/examples/api-signing-smoke.mjs` (T07 nonce mapping).
 
 Webhook secret rotate = delete + re-register (no new path). Fan-out already on main.
 
@@ -277,7 +279,7 @@ Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institut
 
 | ID | Owner | Status | Task | Notes |
 | --- | --- | --- | --- | --- |
-| M4-11 | Andrew | todo | Implement `/v1/api-keys` + migrate columns | After v0.3.1 on main |
+| M4-11 | Andrew | done | Implement `/v1/api-keys` + migrate columns | migrate 017 on main |
 
 ---
 

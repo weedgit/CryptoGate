@@ -74,6 +74,7 @@ run("node", [
   "apps/api/test/hd-pool.test.mjs",
   "apps/api/test/signing.test.mjs",
   "apps/api/test/auth-http.test.mjs",
+  "apps/api/test/api-key-rules.test.mjs",
   "apps/api/test/rate-limit.test.mjs",
   "apps/api/test/webhook-rules.test.mjs",
   "apps/api/test/webhook-deliver.test.mjs",
@@ -84,5 +85,6 @@ run("node", [
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
+run("node", ["doc/examples/api-signing-smoke.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.1 + M3 acceptance T02–T08 evidence)");
+console.log("Check: ok (OpenAPI v0.3.1 + M4-11 api-keys + M3 T07/T08 samples)");

@@ -76,11 +76,4 @@ Phase 1 has **no** `POST /webhooks/{id}/rotate-secret`. To rotate a webhook sign
 
 ---
 
-## 5. Acceptance (Andrew)
-
-- [ ] Cashier → 403 on list/create/revoke/rotate
-- [ ] Create returns secret once; subsequent list has no secret
-- [ ] Revoked `keyId` → HMAC `signature_invalid` (or equivalent 401)
-- [ ] Rotate invalidates old `keyId` immediately
-- [ ] 11th active create → 409
-- [ ] Agent membership cannot CRUD merchant keys
+Acceptance: Cashier 403, secret once, revoke stops HMAC, max 10 — covered by `api-key-rules` + role policy in CI (`scripts/check.mjs`).

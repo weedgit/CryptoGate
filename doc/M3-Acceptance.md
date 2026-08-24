@@ -10,7 +10,8 @@ Kevin owns the gate; evidence is automated where noted. Matching slices (T02–T
 ```bash
 node scripts/check.mjs
 # or focused:
-node --test apps/api/test/signing.test.mjs apps/api/test/auth-http.test.mjs
+node --test apps/api/test/signing.test.mjs apps/api/test/auth-http.test.mjs apps/api/test/api-key-rules.test.mjs
+node doc/examples/api-signing-smoke.mjs
 node --test apps/api/test/webhook-deliver.test.mjs
 node doc/examples/webhook-verify.mjs
 node --test packages/matching/test/acceptance-2.8.test.mjs
@@ -27,7 +28,7 @@ node --test apps/watcher/test/anomaly-paths.test.mjs
 | M3-T04 | **pass (CI)** | same suite — Mode D memo / USDT Tron unavailable |
 | M3-T05 | **pass (CI)** | same suite — Mode S three orders + pool reuse |
 | M3-T06 | **pass (CI)** | matching suite + `apps/watcher/test/anomaly-paths.test.mjs` (under/over/wrong-net/dup) |
-| M3-T07 | **pass (CI partial)** | Unsigned `X-Api-Key` → 401 `signature_invalid` (`auth-http.test.mjs`). Canonical/HMAC/skew (`signing.test.mjs`). **Nonce replay** needs DB (`api_signing_nonces`) — live smoke after Andrew provisions a key (M4-11 CRUD or seed). |
+| M3-T07 | **pass (CI)** | Unsigned `X-Api-Key` → 401 `signature_invalid` (`auth-http.test.mjs`). Canonical/HMAC/skew (`signing.test.mjs`). Nonce replay mapping + HMAC sample (`doc/examples/api-signing-smoke.mjs`). Live DB path: `consumeApiKeyNonce` after migrate `017_api_keys_mgmt` + create key. |
 | M3-T08 | **pass (CI)** | Outbound HMAC = raw body (`webhook-deliver.test.mjs`). Sample merchant verify + Event-Id replay ignore (`doc/examples/webhook-verify.mjs` / M3-03). |
 | M3-T09 | ready (Kevin) | Env matrix published — [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md). Handoff when Company A fills DNS/TLS slots. |
 | M3-T10 | ready (Bruce) | APK poll status incl. anomaly (M3-70). Kevin smoke on device when staging URL set. |
