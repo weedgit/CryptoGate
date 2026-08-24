@@ -1,7 +1,21 @@
 /**
- * Tron chain client (M3-40 ingest stub). Live RPC when TRON_RPC_URL is set later.
+ * Tron chain client — USDT TRC-20 via TronGrid when TRON_RPC_URL is set (M3-30).
  * No imports from apps/api.
  */
+
+import { getTronRuntimeConfig } from "./config.mjs";
+import {
+  fetchTransactionConfirmations,
+  fetchTrc20TransfersForAddresses,
+} from "./trongrid.mjs";
+
+export { minorToMajor } from "./amount.mjs";
+export { mapTrc20Row } from "./trongrid.mjs";
+export {
+  USDT_TRC20_CONTRACT,
+  DEFAULT_REQUIRED_CONFIRMATIONS,
+  DEFAULT_TRONGRID_BASE,
+} from "./config.mjs";
 
 /** @typedef {{ ok: boolean; network: string; mode: string; rpcConfigured: boolean; asset: string }} TronHealth */
 
@@ -9,12 +23,12 @@
  * @returns {Promise<TronHealth>}
  */
 export async function healthCheck() {
-  const rpcUrl = process.env.TRON_RPC_URL ?? "";
+  const cfg = getTronRuntimeConfig();
   return {
     ok: true,
     network: "tron",
-    mode: "stub",
-    rpcConfigured: rpcUrl.length > 0,
+    mode: cfg.configured ? "trongrid" : "stub",
+    rpcConfigured: cfg.configured,
     asset: "USDT",
   };
 }
@@ -37,25 +51,19 @@ export function dedupeTransfersByTxHash(transfers) {
 
 /**
  * Poll recent USDT transfers to watched addresses.
- * Stub returns [] until TRON_RPC_URL + live client (M3-40).
- * Optional WATCHER_STUB_TRANSFERS JSON array for local smoke tests.
+ * Precedence: WATCHER_STUB_TRANSFERS → TronGrid (TRON_RPC_URL) → empty stub.
  *
  * @param {{
  *   asset?: string,
  *   network?: string,
  *   watchedAddresses?: string[],
+ *   fetch?: typeof fetch,
  * }} [options]
- * @returns {Promise<{
- *   transfers: Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }>,
- *   mode: string,
- *   watchedAddressCount: number,
- * }>}
  */
 export async function listRecentTransfers(options = {}) {
   const watched = (options.watchedAddresses ?? [])
     .map((a) => a.trim())
     .filter(Boolean);
-  const rpcUrl = process.env.TRON_RPC_URL ?? "";
 
   const stubRaw = process.env.WATCHER_STUB_TRANSFERS;
   if (stubRaw) {
@@ -82,7 +90,8 @@ export async function listRecentTransfers(options = {}) {
     }
   }
 
-  if (!rpcUrl) {
+  const cfg = getTronRuntimeConfig();
+  if (!cfg.configured) {
     return {
       transfers: [],
       mode: "stub",
@@ -90,35 +99,69 @@ export async function listRecentTransfers(options = {}) {
     };
   }
 
-  // Live TronGrid / JSON-RPC ingest lands here (M3-40 follow-up).
-  return {
-    transfers: [],
-    mode: "rpc-not-implemented",
-    watchedAddressCount: watched.length,
-  };
+  if (watched.length === 0) {
+    return {
+      transfers: [],
+      mode: "trongrid",
+      watchedAddressCount: 0,
+    };
+  }
+
+  try {
+    const live = await fetchTrc20TransfersForAddresses({
+      watchedAddresses: watched,
+      fetchImpl: options.fetch,
+    });
+    return {
+      transfers: dedupeTransfersByTxHash(live.transfers),
+      mode: live.mode,
+      watchedAddressCount: live.watchedAddressCount,
+    };
+  } catch (err) {
+    return {
+      transfers: [],
+      mode: "trongrid-error",
+      watchedAddressCount: watched.length,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /**
- * Confirmation count for a tx (M3-42). Stub returns 0 until live RPC.
- * Set WATCHER_STUB_CONFIRMATIONS to simulate enough confirms in local tests.
- * @param {{ txHash: string, network?: string }} _args
+ * Confirmation count for a tx (M3-42 / M3-30).
+ * Precedence: WATCHER_STUB_CONFIRMATIONS → TronGrid → 0.
+ * @param {{ txHash: string, network?: string, fetch?: typeof fetch }} args
  * @returns {Promise<number>}
  */
-export async function getTransactionConfirmations(_args) {
+export async function getTransactionConfirmations(args) {
   const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
   if (stub !== undefined && stub !== "") {
     const n = Number.parseInt(stub, 10);
     if (!Number.isNaN(n) && n >= 0) return n;
   }
-  return 0;
+
+  const cfg = getTronRuntimeConfig();
+  if (!cfg.configured || !args?.txHash) return 0;
+
+  try {
+    return await fetchTransactionConfirmations({
+      txHash: args.txHash,
+      fetchImpl: args.fetch,
+    });
+  } catch {
+    return 0;
+  }
 }
 
 export function getTronConfig() {
+  const cfg = getTronRuntimeConfig();
   return {
     network: "tron",
     asset: "USDT",
-    usdtContractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
-    rpcUrl: process.env.TRON_RPC_URL ?? null,
-    requiredConfirmations: 19,
+    usdtContractAddress: cfg.usdtContractAddress,
+    rpcUrl: cfg.configured ? cfg.baseUrl : null,
+    apiKeyConfigured: cfg.apiKey.length > 0,
+    requiredConfirmations: cfg.requiredConfirmations,
+    decimals: cfg.decimals,
   };
 }

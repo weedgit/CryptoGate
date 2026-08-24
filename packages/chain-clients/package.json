@@ -9,7 +9,7 @@
     "./tron": "./tron/index.mjs"
   },
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/chain-clients: tron stub ready')\"",
+    "build": "node -e \"console.log('@cryptogate/chain-clients: tron trongrid ready')\"",
     "typecheck": "node -e \"process.exit(0)\"",
     "test": "node --test test/tron.test.mjs",
     "lint": "node -e \"process.exit(0)\""
