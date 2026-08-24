@@ -124,3 +124,22 @@ export function canChangeSettlementSettings(caller, org) {
   const role = roleOnOrg(caller.memberships, org.id);
   return SETTINGS_ROLES.has(role);
 }
+
+/**
+ * Cashier cannot view settlement. Agent subtree and merchant Viewer may read.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canViewSettlementSettings(caller, org) {
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (caller.platformOperator) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role === "cashier") return false;
+  if (role) return true;
+  // Visible via ancestor (agent or parent merchant). Pure Cashiers must not
+  // read settlement on descendant sites either.
+  return caller.memberships.some((m) => m.role !== "cashier");
+}
