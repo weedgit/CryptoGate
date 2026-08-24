@@ -11,6 +11,7 @@ import {
   handleAssignOrgUserRole,
   handleInviteOrgUser,
 } from "../orgs/membership-routes.mjs";
+import { handleCreatePaymentOrder } from "../orders/order-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -67,6 +68,11 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/orgs") {
     await handleCreateOrg(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/orders") {
+    await handleCreatePaymentOrder(req, res);
     return;
   }
 

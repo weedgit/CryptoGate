@@ -6,6 +6,7 @@ import {
   canCreateOrgUnderParent,
   canCreatePaymentOrder,
   canEnrollMfa,
+  resolveOrderOrgId,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -92,6 +93,34 @@ describe("role policy", () => {
     assert.equal(canCreatePaymentOrder([agentOwner], "m1"), false);
     assert.equal(canCreatePaymentOrder([agentOwner], "a1"), false);
     assert.equal(canCreatePaymentOrder([platformOwner], "m1"), false);
+  });
+
+  it("resolves a single merchant membership or requires orgId", () => {
+    assert.deepEqual(resolveOrderOrgId([merchantCashier], null), {
+      ok: true,
+      orgId: "m1",
+    });
+    assert.equal(resolveOrderOrgId([agentOwner], null).status, 403);
+    assert.equal(
+      resolveOrderOrgId(
+        [
+          merchantCashier,
+          { ...merchantOwner, orgId: "m2", orgType: "merchant_site" },
+        ],
+        null,
+      ).code,
+      "org_required",
+    );
+    assert.deepEqual(
+      resolveOrderOrgId(
+        [
+          merchantCashier,
+          { ...merchantOwner, orgId: "m2", orgType: "merchant_site" },
+        ],
+        "m2",
+      ),
+      { ok: true, orgId: "m2" },
+    );
   });
 
   it("forbids Cashier and agent users from changing settlement settings", () => {

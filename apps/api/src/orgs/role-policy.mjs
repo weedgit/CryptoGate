@@ -44,6 +44,54 @@ export function canCreatePaymentOrder(memberships, merchantOrgId) {
 }
 
 /**
+ * Memberships that may create a payment order.
+ * @param {{ orgId: string, role: string, orgType: string }[]} memberships
+ */
+export function eligibleOrderMemberships(memberships) {
+  return memberships.filter(
+    (m) => MERCHANT_TYPES.has(m.orgType) && ORDER_CREATE_ROLES.has(m.role),
+  );
+}
+
+/**
+ * OpenAPI create body has no orgId; one merchant membership is enough.
+ * Multiple merchant memberships require orgId (accepted until the spec adds it).
+ * @param {{ orgId: string, role: string, orgType: string }[]} memberships
+ * @param {string | null} requestedOrgId
+ * @returns {{ ok: true, orgId: string } | { ok: false, status: number, code: string, message: string }}
+ */
+export function resolveOrderOrgId(memberships, requestedOrgId) {
+  if (requestedOrgId) {
+    if (!canCreatePaymentOrder(memberships, requestedOrgId)) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "Not allowed to create payment orders for this org",
+      };
+    }
+    return { ok: true, orgId: requestedOrgId };
+  }
+
+  const eligible = eligibleOrderMemberships(memberships);
+  if (eligible.length === 1) return { ok: true, orgId: eligible[0].orgId };
+  if (eligible.length === 0) {
+    return {
+      ok: false,
+      status: 403,
+      code: "forbidden",
+      message: "Agent accounts cannot create payment orders",
+    };
+  }
+  return {
+    ok: false,
+    status: 400,
+    code: "org_required",
+    message: "orgId is required when you have multiple merchant memberships",
+  };
+}
+
+/**
  * Cashier cannot change settlement address, xPub, matching mode, or fees.
  * Agent memberships are not enough — caller must be Owner/Admin on that merchant org
  * (or platform Owner for compliance override).
