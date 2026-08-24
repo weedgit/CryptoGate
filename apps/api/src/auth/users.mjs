@@ -68,6 +68,23 @@ export async function findUserByEmail(email) {
   };
 }
 
+/**
+ * @param {string} id
+ * @returns {Promise<{ id: string, email: string } | null>}
+ */
+export async function findUserById(id) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, email
+     FROM users
+     WHERE id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return { id: row.id, email: row.email };
+}
+
 /** Lazy dummy hash so missing-user paths still run scrypt verify. */
 let dummyHashPromise;
 
