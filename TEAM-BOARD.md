@@ -60,7 +60,8 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-45 | Bruce | done | Reject Mode S+C / Mode C wide underpay | PR #21 merged |
 | M2-43 | Bruce | done | Mode S main vs HD assign | PR #23 merged |
 | M3-60 | Bruce | done | Mode B `matchTransaction` | PR #26 merged |
-| M3-61 | Bruce | doing | Mode C exact fingerprint match | `feat-bruce-matching-mode-c-match` |
+| M3-61 | Bruce | done | Mode C exact fingerprint match | PR #29 merged |
+| M3-62 | Bruce | doing | Mode D memo match | `feat-bruce-matching-mode-d-match` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | doing | Confirm M1 scope signed | Requirements + matching + POS in scope |
 | M1-05 | Kevin | todo | Weekly standup + contract-freeze schedule | Tue EOD freeze suggested |

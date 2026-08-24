@@ -10,6 +10,9 @@ import {
   assertMatchingSettings,
   majorToMinor,
   matchModeB,
+  matchModeC,
+  matchModeD,
+  matchModeDForConfig,
   minorToMajor,
   modeSAddressSource,
   pickUniqueMemoOrTag,
@@ -19,7 +22,6 @@ import {
   MODE_C_RESERVED_STATUSES,
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
-  matchModeC,
   matchTransaction,
 } from "../dist/index.js";
 
@@ -583,11 +585,133 @@ describe("@cryptogate/matching Mode B match (M3-60)", () => {
     await assert.rejects(() => matchModeB({ ...baseTx }), /candidates is required/);
   });
 
-  it("Mode D/S match still stub until M3-62+", async () => {
-    const d = await matchTransaction({ ...baseTx, mode: "D", candidates: [] });
-    assert.match(d.reason ?? "", /M3-62/);
+  it("Mode S match still stub until M3-63", async () => {
     const s = await matchTransaction({ ...baseTx, mode: "S", candidates: [] });
     assert.match(s.reason ?? "", /M3-63/);
+  });
+});
+
+describe("@cryptogate/matching Mode D match (M3-62)", () => {
+  const memoConfig = {
+    asset: "USDT",
+    network: "ton",
+    enabled: true,
+    displayNetwork: "TON",
+    contractAddress: null,
+    decimals: 6,
+    minAmount: "0.01",
+    amountStep: "0.01",
+    requiredConfirmations: 1,
+    memoSupported: true,
+  };
+
+  const baseCandidate = {
+    orderId: "ord-d1",
+    payableAmount: "50.00",
+    receiveAddress: "EQMainAddressExample",
+    asset: "USDT",
+    network: "ton",
+    memoOrTag: "CG-idem-1",
+  };
+
+  const baseTx = {
+    mode: "D",
+    toAddress: "EQMainAddressExample",
+    amount: "50.00",
+    asset: "USDT",
+    network: "ton",
+    memoOrTag: "CG-idem-1",
+    txHash: "0xdmemo",
+  };
+
+  it("rejects match on USDT Tron (memoSupported=false)", async () => {
+    const result = await matchModeD({
+      mode: "D",
+      toAddress: "TMainAddressExample",
+      amount: "50.00",
+      asset: "USDT",
+      network: "tron",
+      memoOrTag: "CG-x",
+      txHash: "0x1",
+      candidates: [
+        {
+          orderId: "o1",
+          payableAmount: "50.00",
+          receiveAddress: "TMainAddressExample",
+          asset: "USDT",
+          network: "tron",
+          memoOrTag: "CG-x",
+        },
+      ],
+    });
+    assert.equal(result.status, "pending_payment");
+    assert.equal(result.reason, "mode_d_memo_unsupported_network");
+  });
+
+  it("exact amount + memo → verifying", async () => {
+    const result = await matchModeDForConfig(
+      { ...baseTx, candidates: [baseCandidate] },
+      memoConfig,
+    );
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-d1");
+    assert.equal(result.reason, "mode_d_exact_match");
+  });
+
+  it("missing memo → anomaly (not auto-complete)", async () => {
+    const result = await matchModeDForConfig(
+      { ...baseTx, memoOrTag: "", candidates: [baseCandidate] },
+      memoConfig,
+    );
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_d_memo_missing");
+    assert.deepEqual(result.orderIds, ["ord-d1"]);
+  });
+
+  it("wrong memo → anomaly", async () => {
+    const result = await matchModeDForConfig(
+      { ...baseTx, memoOrTag: "CG-other", candidates: [baseCandidate] },
+      memoConfig,
+    );
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_d_memo_mismatch");
+  });
+
+  it("two orders distinguished by memo", async () => {
+    const candidates = [
+      baseCandidate,
+      {
+        ...baseCandidate,
+        orderId: "ord-d2",
+        memoOrTag: "CG-idem-2",
+      },
+    ];
+    const a = await matchModeDForConfig(
+      { ...baseTx, memoOrTag: "CG-idem-1", candidates },
+      memoConfig,
+    );
+    const b = await matchModeDForConfig(
+      { ...baseTx, memoOrTag: "CG-idem-2", candidates },
+      memoConfig,
+    );
+    assert.equal(a.orderId, "ord-d1");
+    assert.equal(b.orderId, "ord-d2");
+  });
+
+  it("duplicate memo+amount → collision anomaly", async () => {
+    const result = await matchModeDForConfig(
+      {
+        ...baseTx,
+        candidates: [
+          baseCandidate,
+          { ...baseCandidate, orderId: "ord-d2" },
+        ],
+      },
+      memoConfig,
+    );
+    assert.equal(result.status, "payment_anomaly");
+    assert.equal(result.reason, "mode_d_memo_collision");
+    assert.deepEqual(result.orderIds, ["ord-d1", "ord-d2"]);
   });
 });
 

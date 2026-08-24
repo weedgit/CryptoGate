@@ -7,7 +7,7 @@ Package path: `packages/matching`
 | Function / type | Called by | Purpose |
 | --- | --- | --- |
 | `assignOnCreate` | `apps/api` on order create | Assign payable amount + receive address (+ memo) per mode |
-| `matchModeB` / `matchModeC` | watcher / tests | Mode B/C match (also via `matchTransaction`) |
+| `matchModeB` / `matchModeC` / `matchModeD` | watcher / tests | Mode B/C/D match (also via `matchTransaction`) |
 | `MatchCandidateOrder` | watcher | Open-order row shape for match |
 | `assignModeB` / `assignModeC` / `assignModeD` / `assignModeS` | tests / direct | Mode modules (also via router) |
 | `majorToMinor` / `minorToMajor` | tests / callers | Major ↔ minor unit conversion |
@@ -32,7 +32,8 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
 | --- | --- |
 | B | **M3-60 done** — exact match → `verifying`; same-amount collision → `payment_anomaly` (all `orderIds`); under/overpay on sole order → anomaly |
 | C | **M3-61 done** — exact fingerprint match → `verifying`; duplicate fingerprints → anomaly (never FIFO) |
-| D / S | Stub until M3-62 / M3-63 |
+| D | **M3-62 done** — amount + memo; missing/wrong memo → anomaly; unsupported network → no match |
+| S | Stub until M3-63 |
 
 ## Mode B match (`matchModeB` / `matchTransaction` with `mode: "B"`)
 
@@ -52,6 +53,14 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool FREE/IN_USE/COOLDOWN 
 - **2+** same fingerprint (should not happen if assign reserved correctly) → `mode_c_fingerprint_collision` anomaly — never FIFO.
 - Sole order wrong amount → `mode_c_underpay` / `mode_c_overpay`.
 - Guest must pay the exact fingerprint shown on the payment page.
+
+## Mode D match (`matchModeD` / `matchTransaction` with `mode: "D"`)
+
+- Candidates include `memoOrTag`. Tx must include matching `memoOrTag`.
+- Registry `memoSupported=false` (USDT Tron) → `mode_d_memo_unsupported_network` (no auto-match).
+- Exact amount + exact memo → `verifying` / `mode_d_exact_match`.
+- Missing memo → `mode_d_memo_missing` anomaly; wrong memo → `mode_d_memo_mismatch` (never auto-Complete).
+- Duplicate amount+memo → `mode_d_memo_collision` anomaly.
 
 ## Mode B contract (`assignModeB` / `assignOnCreate` with `mode: "B"`)
 
