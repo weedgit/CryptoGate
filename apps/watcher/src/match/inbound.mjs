@@ -151,6 +151,8 @@ export async function processTransferBatch(input) {
       status: matched.result.status,
       reason: matched.result.reason,
       updated: applied.updated,
+      skipped: applied.skipped === true || (applied.updated ?? 0) === 0,
+      alreadyApplied: applied.alreadyApplied === true,
     });
   }
   return outcomes;
