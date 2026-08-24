@@ -111,14 +111,17 @@ export async function disableWebhookEndpoint(webhookId, orgId) {
  *   eventId: string,
  *   eventType: string,
  *   payload: object,
+ *   client?: import("pg").Pool | import("pg").PoolClient,
  * }} input
  */
 export async function enqueueWebhookDelivery(input) {
   const bodyRaw = JSON.stringify(input.payload);
-  const { rows } = await getPool().query(
+  const db = input.client ?? getPool();
+  const { rows } = await db.query(
     `INSERT INTO webhook_deliveries
        (webhook_id, event_id, event_type, payload, body_raw, status, attempt, next_retry_at)
      VALUES ($1, $2, $3, $4::jsonb, $5, 'pending', 1, now())
+     ON CONFLICT (webhook_id, event_id) DO NOTHING
      RETURNING id, event_id, status, attempt, http_status, next_retry_at`,
     [
       input.webhookId,
@@ -128,7 +131,46 @@ export async function enqueueWebhookDelivery(input) {
       bodyRaw,
     ],
   );
-  return rows[0];
+  return rows[0] ?? null;
+}
+
+/**
+ * Claim unprocessed payment-order webhook outbox rows (SKIP LOCKED).
+ * @param {number} [limit]
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function claimPaymentOrderWebhookOutbox(limit = 50, client) {
+  const db = client ?? getPool();
+  const { rows } = await db.query(
+    `WITH due AS (
+       SELECT id
+       FROM payment_order_webhook_outbox
+       WHERE processed_at IS NULL
+       ORDER BY created_at ASC
+       FOR UPDATE SKIP LOCKED
+       LIMIT $1
+     )
+     SELECT o.id, o.order_id, o.org_id, o.event_id, o.event_type,
+            o.order_number, o.order_status, o.created_at
+     FROM payment_order_webhook_outbox o
+     JOIN due ON due.id = o.id`,
+    [limit],
+  );
+  return rows;
+}
+
+/**
+ * @param {string} outboxId
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function markPaymentOrderWebhookOutboxProcessed(outboxId, client) {
+  const db = client ?? getPool();
+  await db.query(
+    `UPDATE payment_order_webhook_outbox
+     SET processed_at = now()
+     WHERE id = $1 AND processed_at IS NULL`,
+    [outboxId],
+  );
 }
 
 /**
