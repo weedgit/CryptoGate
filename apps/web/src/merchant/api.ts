@@ -374,3 +374,164 @@ export async function getServiceBillCheckout(billId: string): Promise<ServiceBil
   if (!res.ok) await parseError(res);
   return (await res.json()) as ServiceBillCheckout;
 }
+
+export type ApiKey = {
+  id: string;
+  keyId: string;
+  label: string;
+  createdAt?: string;
+  lastUsedAt?: string | null;
+  expiresAt?: string | null;
+};
+
+export type ApiKeyCreated = ApiKey & { secret: string };
+
+export type WebhookEndpoint = {
+  id: string;
+  orgId: string;
+  url: string;
+  events: string[];
+  enabled: boolean;
+  createdAt?: string;
+};
+
+export type WebhookCreated = WebhookEndpoint & { signingSecret: string };
+
+export type WebhookDelivery = {
+  id: string;
+  eventType: string;
+  status: string;
+  attempt: number;
+  responseStatus?: number | null;
+  createdAt?: string;
+  deliveredAt?: string | null;
+};
+
+export async function listApiKeys(orgId?: string): Promise<ApiKey[]> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(`${API_BASE}/api-keys${q}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: ApiKey[] };
+  return data.items ?? [];
+}
+
+export async function createApiKey(body: {
+  label: string;
+  expiresAt?: string | null;
+  orgId?: string;
+}): Promise<ApiKeyCreated> {
+  const res = await fetch(`${API_BASE}/api-keys`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ApiKeyCreated;
+}
+
+export async function revokeApiKey(apiKeyId: string, orgId?: string): Promise<void> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(`${API_BASE}/api-keys/${encodeURIComponent(apiKeyId)}${q}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok && res.status !== 204) await parseError(res);
+}
+
+export async function rotateApiKey(
+  apiKeyId: string,
+  body?: { expiresAt?: string | null; orgId?: string },
+): Promise<ApiKeyCreated> {
+  const res = await fetch(`${API_BASE}/api-keys/${encodeURIComponent(apiKeyId)}/rotate`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ApiKeyCreated;
+}
+
+export async function listWebhooks(orgId?: string): Promise<WebhookEndpoint[]> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(`${API_BASE}/webhooks${q}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: WebhookEndpoint[] };
+  return data.items ?? [];
+}
+
+export async function registerWebhook(body: {
+  url: string;
+  events?: string[];
+  orgId?: string;
+}): Promise<WebhookCreated> {
+  const res = await fetch(`${API_BASE}/webhooks`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as WebhookCreated;
+}
+
+export async function deleteWebhook(webhookId: string, orgId?: string): Promise<void> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(`${API_BASE}/webhooks/${encodeURIComponent(webhookId)}${q}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok && res.status !== 204) await parseError(res);
+}
+
+export async function testWebhook(body?: {
+  webhookId?: string;
+  orgId?: string;
+}): Promise<{ queued: number }> {
+  const res = await fetch(`${API_BASE}/webhooks/test`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { queued: number };
+}
+
+export async function listWebhookDeliveries(
+  webhookId: string,
+  orgId?: string,
+): Promise<WebhookDelivery[]> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(
+    `${API_BASE}/webhooks/${encodeURIComponent(webhookId)}/deliveries${q}`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: WebhookDelivery[] };
+  return data.items ?? [];
+}

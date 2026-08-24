@@ -151,3 +151,25 @@ describe("@cryptogate/web merchant D5-D6 service bills", () => {
     assert.doesNotMatch(list, /createOrder|listOrders/);
   });
 });
+
+describe("@cryptogate/web merchant D14 integrations", () => {
+  it("wires integrations route and API helpers", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /IntegrationsPage/);
+    assert.match(app, /\/merchant\/settings\/integrations/);
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listApiKeys/);
+    assert.match(api, /registerWebhook/);
+    assert.match(api, /testWebhook/);
+    assert.match(api, /listWebhookDeliveries/);
+  });
+
+  it("shows secrets once and blocks cashiers via owner portal", () => {
+    const page = readFileSync(join(root, "src/merchant/IntegrationsPage.tsx"), "utf8");
+    assert.match(page, /shown once/i);
+    assert.match(page, /SecretOncePanel/);
+    assert.match(page, /Cashiers cannot view/);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.match(shell, /Integrations/);
+  });
+});

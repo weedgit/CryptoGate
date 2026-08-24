@@ -105,7 +105,8 @@ Current freeze: OpenAPI **v0.3.1** (M4-11 API keys; builds on v0.3.0 signing/web
 | M2-65 | Bruce | done | Orders list + CSV export (D2) | PR #73 merged |
 | M2-66 | Bruce | done | Order detail + on-chain panel (D3) | PR #73 merged |
 | M2-67 | Bruce | done | Cashier web shell (D17) | PR #74 merged |
-| M2-68 | Bruce | doing | Service bills list + checkout (D5–D6) | `feat-bruce-web-merchant-d5-service-bills` |
+| M2-68 | Bruce | done | Service bills list + checkout (D5–D6) | PR #76 merged |
+| M2-69 | Bruce | doing | API keys & webhooks UI (D14) | `feat-bruce-web-merchant-d14-integrations` |
 | M1-34 | Bruce | done | Review Andrew migrations for M3 columns | `doc/M1-34-Payment-Orders-Review.md` |
 | M1-01 | Kevin | blocked | Confirm M1 scope signed | Awaiting client written sign-off (Phase1-Requirement) |
 | M1-05 | Kevin | done | Weekly standup + contract-freeze schedule | Tue EOD freeze; § Contract freeze above |
@@ -158,8 +159,8 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 
 | Priority | Ask | Why |
 | --- | --- | --- |
-| P1 | D14 API keys & webhooks | Wire M4-11 + M3-13 on `/merchant/settings/integrations` |
-| P2 | D10 Reports | Reuse orders CSV patterns |
+| P1 | D10 Reports | Reuse orders CSV patterns on `/merchant/reports` |
+| P2 | D12–D16 settings pages | Org, billing, notifications, team |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
 

@@ -9,6 +9,7 @@ import { MerchantShell } from "./MerchantShell";
 import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
+import { IntegrationsPage } from "./IntegrationsPage";
 import { SettlementPage } from "./SettlementPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
@@ -151,6 +152,21 @@ export function MerchantApp() {
         element={
           <Shell session={session} title="Order Insights" crumb="Orders" onSignOut={signOut}>
             <OrderDetailPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="/merchant/settings/integrations"
+        element={
+          <Shell
+            session={session}
+            title="API Keys & Webhooks"
+            crumb="Integrations"
+            onSignOut={signOut}
+          >
+            <OwnerOnly session={session} area="integrations">
+              <IntegrationsPage session={session} />
+            </OwnerOnly>
           </Shell>
         }
       />
