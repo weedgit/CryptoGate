@@ -28,7 +28,6 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 
 ## Blockers / asks for Kevin
 
-- Optional: `scripts/check.mjs` run `apps/watcher/test` + domain `pnpm build` before matching tsc.
 - Enable a `memoSupported: true` asset/network when Mode D should go live beyond reject-path.
 - `HdPoolState` in OpenAPI if merchant UI exposes pool (M2).
 
@@ -44,7 +43,7 @@ Local only (`doc/` gitignored). Bruce updates this row when starting/finishing t
 | 2026-08-24 | Bruce: M3-61 Mode C matchTransaction (exact fingerprint) |
 | 2026-08-24 | Bruce: M3-60 Mode B matchTransaction (collision → anomaly) |
 | 2026-08-24 | Bruce: M2-43 Mode S assign (main vs HD ports) |
-| 2026-08-24 | Bruce: M2-45 reject Mode S+C / Mode C wide underpay |
+| 2026-08-24 | Bruce: optional check.mjs domain build + watcher tests — addressed in Kevin `feat-kevin-infra-ci-packages` |
 | 2026-08-24 | Bruce: M2-42 Mode D assign (memoSupported gate) |
 | 2026-08-24 | Bruce: M1-34 accept payment_orders; M2-41 Mode C assign |
 | 2026-08-24 | Bruce: M2-40 Mode B assign harden + tests |

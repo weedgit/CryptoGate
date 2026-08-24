@@ -68,12 +68,22 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | PR #7 on `main` |
 | M2-02 | Kevin | done | Domain order fields for matching assign | PR #6 on `main` |
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
-| M2-05 | Kevin | doing | OpenAPI settlement address book | `feat-kevin-api-spec-m2-settlement` v0.2.2 |
-| M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — needs Andrew CORS for live path |
+| M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
+| M2-06 | Kevin | doing | CI package gate + Andrew unblock notes | `feat-kevin-infra-ci-packages` |
+| M2-50 | Kevin | done | Live pay page poll GET /payment | PR #22 — **blocked on Andrew CORS** |
 | M2-51 | Kevin | done | Guest display + wrong-network | PR #25 |
 | M2-52 | Kevin | done | QR + copy + share link | PR #25 |
 | M2-53 | Kevin | done | Mode C exact payable warning | PR #25 |
 | M2-54 | Kevin | done | Hide Mode D when memo unsupported | PR #25 |
+
+### Asks for Andrew (unblock M2 mid-gate)
+
+| Priority | Ask | Why |
+| --- | --- | --- |
+| P0 | CORS: allow `PAYMENT_PAGE_BASE_URL` → API | Live `GET /payment` from guest pay page |
+| P0 | Wire `assignOnCreate` on `POST /v1/orders` (M2-12) | Real address/amount/memo on create |
+| P1 | Settlement PUT: MFA + cool-down (M2-16) | Address change safety; OpenAPI notes pending fields |
+| P1 | xPub registration API (M2-20) | Mode S merchant setup; Kevin will add OpenAPI after |
 
 ---
 
@@ -168,7 +178,7 @@ Open this file on `main` and check **Now**. Pick your next task.
 | M2-02 | Kevin | done | Domain order fields for matching assign | `feat-kevin-domain-order-fields` |
 | M2-03 | Kevin | done | Asset/network registry (USDT + Tron) | `feat-kevin-domain-asset-registry` |
 | M2-04 | Kevin | done | OpenAPI matching-mode settings | PR #27 v0.2.1 |
-| M2-05 | Kevin | doing | OpenAPI settlement address book | `feat-kevin-api-spec-m2-settlement` v0.2.2 |
+| M2-05 | Kevin | done | OpenAPI settlement address book | PR #28 v0.2.2 |
 
 ---
 

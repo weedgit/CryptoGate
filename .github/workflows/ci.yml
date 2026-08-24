@@ -24,8 +24,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Sprint 0 check
+      - name: Contract + package check
         run: pnpm check
 
-      - name: Build
+      - name: Build workspaces
         run: pnpm build
