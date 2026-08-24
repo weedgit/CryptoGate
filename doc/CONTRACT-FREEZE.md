@@ -133,4 +133,4 @@ Additive to v0.3.0. Signing canonical string unchanged.
 
 ## Out of this freeze
 
-M3-02 / M3-03 are published. M4-11 OpenAPI freeze is **v0.3.1** (`doc/M4-11-Api-Keys.md`). Remaining: Andrew implements api-keys routes; live webhook fan-out load tests (M4-12). Second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 / M4-05 env matrix are published. M4-11 OpenAPI freeze is **v0.3.1**. Remaining: Andrew implements api-keys routes; M4-12 load tests; second live network waits on a registry row — see `doc/M3-04-Asset-Networks.md`.

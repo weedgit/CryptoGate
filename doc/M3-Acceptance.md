@@ -29,7 +29,7 @@ node --test apps/watcher/test/anomaly-paths.test.mjs
 | M3-T06 | **pass (CI)** | matching suite + `apps/watcher/test/anomaly-paths.test.mjs` (under/over/wrong-net/dup) |
 | M3-T07 | **pass (CI partial)** | Unsigned `X-Api-Key` → 401 `signature_invalid` (`auth-http.test.mjs`). Canonical/HMAC/skew (`signing.test.mjs`). **Nonce replay** needs DB (`api_signing_nonces`) — live smoke after Andrew provisions a key (M4-11 CRUD or seed). |
 | M3-T08 | **pass (CI)** | Outbound HMAC = raw body (`webhook-deliver.test.mjs`). Sample merchant verify + Event-Id replay ignore (`doc/examples/webhook-verify.mjs` / M3-03). |
-| M3-T09 | todo | Test env handoff to Company A — blocked on deploy matrix (M4-05). |
+| M3-T09 | ready (Kevin) | Env matrix published — [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md). Handoff when Company A fills DNS/TLS slots. |
 | M3-T10 | ready (Bruce) | APK poll status incl. anomaly (M3-70). Kevin smoke on device when staging URL set. |
 
 ## T07 live smoke (optional, after API key exists)
@@ -61,6 +61,6 @@ WEBHOOK_SIGNING_SECRET="<secret-from-POST-/webhooks>" \
 | --- | --- |
 | Matching T02–T06 | **Green in CI** |
 | Signing/webhook T07–T08 | **Green in CI** (T07 nonce replay = live follow-up) |
-| M3 exit | Pending T09 env handoff + optional staging T01/T10 spot-check |
+| M3 exit | Env matrix ready (M4-05). Full exit: Company A DNS fill-in (T09) + optional staging T01/T10 spot-check. |
 
 Do **not** treat browser redirect as payment fulfillment — signed webhooks only.
