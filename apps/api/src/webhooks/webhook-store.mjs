@@ -114,19 +114,76 @@ export async function disableWebhookEndpoint(webhookId, orgId) {
  * }} input
  */
 export async function enqueueWebhookDelivery(input) {
+  const bodyRaw = JSON.stringify(input.payload);
   const { rows } = await getPool().query(
     `INSERT INTO webhook_deliveries
-       (webhook_id, event_id, event_type, payload, status, attempt, next_retry_at)
-     VALUES ($1, $2, $3, $4::jsonb, 'pending', 1, now())
+       (webhook_id, event_id, event_type, payload, body_raw, status, attempt, next_retry_at)
+     VALUES ($1, $2, $3, $4::jsonb, $5, 'pending', 1, now())
      RETURNING id, event_id, status, attempt, http_status, next_retry_at`,
     [
       input.webhookId,
       input.eventId,
       input.eventType,
-      JSON.stringify(input.payload),
+      bodyRaw,
+      bodyRaw,
     ],
   );
   return rows[0];
+}
+
+/**
+ * Claim due pending deliveries (SKIP LOCKED).
+ * @param {number} limit
+ */
+export async function claimPendingWebhookDeliveries(limit = 20) {
+  const { rows } = await getPool().query(
+    `WITH due AS (
+       SELECT d.id
+       FROM webhook_deliveries d
+       JOIN webhook_endpoints e ON e.id = d.webhook_id
+       WHERE d.status = 'pending'
+         AND d.next_retry_at <= now()
+         AND e.enabled = true
+       ORDER BY d.next_retry_at ASC
+       FOR UPDATE OF d SKIP LOCKED
+       LIMIT $1
+     )
+     SELECT d.id, d.webhook_id, d.event_id, d.event_type, d.body_raw, d.attempt,
+            e.url, e.signing_secret
+     FROM webhook_deliveries d
+     JOIN due ON due.id = d.id
+     JOIN webhook_endpoints e ON e.id = d.webhook_id`,
+    [limit],
+  );
+  return rows;
+}
+
+/**
+ * @param {{
+ *   deliveryId: string,
+ *   status: "success" | "pending" | "failed",
+ *   attempt: number,
+ *   httpStatus: number | null,
+ *   nextRetryAt: Date | null,
+ * }} input
+ */
+export async function updateWebhookDeliveryResult(input) {
+  await getPool().query(
+    `UPDATE webhook_deliveries
+     SET status = $2,
+         attempt = $3,
+         http_status = $4,
+         next_retry_at = $5,
+         updated_at = now()
+     WHERE id = $1`,
+    [
+      input.deliveryId,
+      input.status,
+      input.attempt,
+      input.httpStatus,
+      input.nextRetryAt,
+    ],
+  );
 }
 
 /**
