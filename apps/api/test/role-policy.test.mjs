@@ -8,6 +8,8 @@ import {
   canEnrollMfa,
   resolveOrderOrgId,
   canReadPaymentOrder,
+  canExportPaymentOrders,
+  paymentOrderListScope,
   canViewSettlementSettings,
   canChangeMatchingModeSettings,
   canViewMatchingModeSettings,
@@ -277,6 +279,79 @@ describe("role policy", () => {
         order,
       ),
       true,
+    );
+  });
+
+  it("scopes order list to merchant tree; cashiers cannot export", () => {
+    assert.deepEqual(
+      paymentOrderListScope({
+        userId: "u5",
+        platformOperator: true,
+        memberships: [platformOwner],
+      }),
+      { kind: "all" },
+    );
+    assert.deepEqual(
+      paymentOrderListScope({
+        userId: "u4",
+        platformOperator: false,
+        memberships: [agentOwner],
+      }),
+      { kind: "none" },
+    );
+    assert.deepEqual(
+      paymentOrderListScope({
+        userId: "u2",
+        platformOperator: false,
+        memberships: [merchantOwner],
+      }),
+      {
+        kind: "scoped",
+        treeRoots: ["m1"],
+        cashierOrgIds: [],
+        userId: "u2",
+      },
+    );
+    assert.deepEqual(
+      paymentOrderListScope({
+        userId: "u1",
+        platformOperator: false,
+        memberships: [merchantCashier],
+      }),
+      {
+        kind: "scoped",
+        treeRoots: [],
+        cashierOrgIds: ["m1"],
+        userId: "u1",
+      },
+    );
+    assert.equal(
+      canExportPaymentOrders({
+        platformOperator: false,
+        memberships: [merchantOwner],
+      }),
+      true,
+    );
+    assert.equal(
+      canExportPaymentOrders({
+        platformOperator: false,
+        memberships: [merchantViewer],
+      }),
+      true,
+    );
+    assert.equal(
+      canExportPaymentOrders({
+        platformOperator: false,
+        memberships: [merchantCashier],
+      }),
+      false,
+    );
+    assert.equal(
+      canExportPaymentOrders({
+        platformOperator: false,
+        memberships: [agentOwner],
+      }),
+      false,
     );
   });
 });

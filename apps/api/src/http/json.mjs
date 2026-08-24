@@ -22,6 +22,19 @@ export function sendError(res, status, code, message) {
 }
 
 /**
+ * @param {import("node:http").ServerResponse} res
+ * @param {number} status
+ * @param {string} filename
+ * @param {string} body
+ */
+export function sendCsv(res, status, filename, body) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.end(body);
+}
+
+/**
  * @param {import("node:http").IncomingMessage} req
  * @returns {Promise<unknown>}
  */

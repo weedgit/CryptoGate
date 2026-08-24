@@ -16,6 +16,7 @@ import {
   handleGetPaymentOrder,
   handleGetPaymentOrderPayment,
 } from "../orders/order-routes.mjs";
+import { handleListPaymentOrders } from "../orders/order-list-routes.mjs";
 import {
   handleGetSettlement,
   handlePutSettlement,
@@ -88,9 +89,15 @@ export async function handleRequest(req, res) {
     return;
   }
 
-  if (method === "POST" && path === "/v1/orders") {
-    await handleCreatePaymentOrder(req, res);
-    return;
+  if (path === "/v1/orders") {
+    if (method === "POST") {
+      await handleCreatePaymentOrder(req, res);
+      return;
+    }
+    if (method === "GET") {
+      await handleListPaymentOrders(req, res);
+      return;
+    }
   }
 
   const paymentMatch = path.match(/^\/v1\/orders\/([^/]+)\/payment$/);

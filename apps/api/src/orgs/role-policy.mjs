@@ -93,6 +93,10 @@ export function resolveOrderOrgId(memberships, requestedOrgId) {
 
 const ORDER_READ_ROLES = new Set(["owner", "administrator", "viewer"]);
 
+export function isMerchantOrgType(type) {
+  return MERCHANT_TYPES.has(type);
+}
+
 /**
  * Merchant A cannot read Merchant B. Agents have no payment-order access.
  * Cashier may read own orders only.
@@ -109,6 +113,56 @@ export function canReadPaymentOrder(caller, order) {
   if (!m || !MERCHANT_TYPES.has(m.orgType)) return false;
   if (m.role === "cashier") return order.createdBy === caller.userId;
   return ORDER_READ_ROLES.has(m.role);
+}
+
+/**
+ * List/export scope. Agents have no merchant payment-order access.
+ * @param {{
+ *   userId: string,
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @returns {{ kind: "all" } | { kind: "none" } | {
+ *   kind: "scoped",
+ *   treeRoots: string[],
+ *   cashierOrgIds: string[],
+ *   userId: string,
+ * }}
+ */
+export function paymentOrderListScope(caller) {
+  if (caller.platformOperator) return { kind: "all" };
+  /** @type {string[]} */
+  const treeRoots = [];
+  /** @type {string[]} */
+  const cashierOrgIds = [];
+  for (const m of caller.memberships) {
+    if (!MERCHANT_TYPES.has(m.orgType)) continue;
+    if (ORDER_READ_ROLES.has(m.role)) treeRoots.push(m.orgId);
+    else if (m.role === "cashier") cashierOrgIds.push(m.orgId);
+  }
+  if (treeRoots.length === 0 && cashierOrgIds.length === 0) {
+    return { kind: "none" };
+  }
+  return {
+    kind: "scoped",
+    treeRoots,
+    cashierOrgIds,
+    userId: caller.userId,
+  };
+}
+
+/**
+ * CSV export is Owner / Administrator / Viewer (and platform operators). Not Cashier.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgType: string, role: string }[],
+ * }} caller
+ */
+export function canExportPaymentOrders(caller) {
+  if (caller.platformOperator) return true;
+  return caller.memberships.some(
+    (m) => MERCHANT_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
+  );
 }
 
 /**
