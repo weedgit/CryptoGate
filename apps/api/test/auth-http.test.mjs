@@ -102,4 +102,20 @@ describe("auth HTTP (no DB)", () => {
       await close(server);
     }
   });
+
+  it("rejects org list without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const res = await fetch(`${base}/v1/orgs`);
+      assert.equal(res.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
 });

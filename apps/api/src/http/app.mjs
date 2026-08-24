@@ -6,6 +6,7 @@ import {
   handleMfaEnroll,
   handleMfaVerify,
 } from "./auth-routes.mjs";
+import { handleCreateOrg, handleGetOrg, handleListOrgs } from "../orgs/org-routes.mjs";
 import { sendError, sendJson } from "./json.mjs";
 
 /**
@@ -52,6 +53,22 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/auth/mfa/verify") {
     await handleMfaVerify(req, res);
+    return;
+  }
+
+  if (method === "GET" && path === "/v1/orgs") {
+    await handleListOrgs(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/orgs") {
+    await handleCreateOrg(req, res);
+    return;
+  }
+
+  const orgMatch = path.match(/^\/v1\/orgs\/([^/]+)$/);
+  if (method === "GET" && orgMatch) {
+    await handleGetOrg(req, res, decodeURIComponent(orgMatch[1]));
     return;
   }
 

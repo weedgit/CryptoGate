@@ -6,7 +6,6 @@ import {
   createSession,
   DEFAULT_SESSION_TTL_MS,
   extendSessionByToken,
-  findActiveSessionByToken,
   markSessionMfaVerified,
   revokeSessionByToken,
 } from "../auth/sessions.mjs";
@@ -15,6 +14,7 @@ import {
   getSessionToken,
   sessionCookie,
 } from "./cookies.mjs";
+import { requireSession } from "./require-session.mjs";
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
@@ -26,25 +26,6 @@ function cookieMaxAgeSec() {
 
 function setSessionCookie(res, token) {
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec: cookieMaxAgeSec() }));
-}
-
-/**
- * @param {import("node:http").IncomingMessage} req
- * @param {import("node:http").ServerResponse} res
- * @returns {Promise<{ token: string, userId: string } | null>}
- */
-async function requireSession(req, res) {
-  const token = getSessionToken(req.headers.cookie);
-  if (!token) {
-    sendError(res, 401, "unauthenticated", "Not authenticated");
-    return null;
-  }
-  const row = await findActiveSessionByToken(token);
-  if (!row) {
-    sendError(res, 401, "unauthenticated", "Not authenticated");
-    return null;
-  }
-  return { token, userId: row.userId };
 }
 
 /**
