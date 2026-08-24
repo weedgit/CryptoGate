@@ -128,6 +128,8 @@ describe("auth HTTP (no DB)", () => {
     });
     const base = await listen(server);
     try {
+      const list = await fetch(`${base}/v1/orgs/org-1/users`);
+      assert.equal(list.status, 401);
       const res = await fetch(`${base}/v1/orgs/org-1/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

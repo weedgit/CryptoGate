@@ -80,6 +80,17 @@ export function canAssignOrgRole(p) {
 }
 
 /**
+ * List members: platform staff or org Owner/Admin/Viewer. Cashier 403.
+ * @param {string | null} roleOnOrg
+ * @param {boolean} platformOperator
+ */
+export function canListOrgUsers(roleOnOrg, platformOperator) {
+  if (platformOperator) return true;
+  if (!roleOnOrg || roleOnOrg === "cashier") return false;
+  return true;
+}
+
+/**
  * @param {{ existingRole: string, nextRole: string, ownerCount: number }} p
  */
 export function isLastOwnerDemotion(p) {

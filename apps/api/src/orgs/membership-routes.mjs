@@ -4,6 +4,7 @@ import { findOrgById } from "./org-store.mjs";
 import {
   canAssignOrgRole,
   canInviteToOrg,
+  canListOrgUsers,
   isLastOwnerDemotion,
   roleAllowedOnOrg,
   toOrgMembership,
@@ -15,11 +16,40 @@ import {
   findMembership,
   findOrCreateUserByEmail,
   insertMembership,
+  listMembershipsForOrg,
   updateMembershipRole,
 } from "./membership-store.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+
+/**
+ * GET /v1/orgs/{orgId}/users
+ */
+export async function handleListOrgUsers(req, res, orgId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const org = await findOrgById(orgId);
+  if (!org) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+
+  const memberRole = roleOnOrg(caller.memberships, orgId);
+  if (!canListOrgUsers(memberRole, caller.platformOperator)) {
+    sendError(res, 403, "forbidden", "Not allowed to list org members");
+    return;
+  }
+
+  const items = await listMembershipsForOrg(orgId);
+  sendJson(res, 200, { items });
+}
 
 /**
  * POST /v1/orgs/{orgId}/users

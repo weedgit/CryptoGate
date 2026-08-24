@@ -1,8 +1,10 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   assignOrgUserRole,
   inviteOrgUser,
+  listOrgUsers,
+  type OrgMember,
   type Session,
 } from "./api";
 import {
@@ -27,6 +29,10 @@ export function TeamSettingsPage({ session }: Props) {
     [session, orgId],
   );
 
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [membersErr, setMembersErr] = useState<string | null>(null);
+
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("cashier");
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
@@ -38,6 +44,23 @@ export function TeamSettingsPage({ session }: Props) {
   const [roleMsg, setRoleMsg] = useState<string | null>(null);
   const [roleErr, setRoleErr] = useState<string | null>(null);
 
+  const loadMembers = useCallback(async () => {
+    if (!orgId) return;
+    setMembersLoading(true);
+    setMembersErr(null);
+    try {
+      setMembers(await listOrgUsers(orgId));
+    } catch (err) {
+      setMembersErr(err instanceof ApiError ? err.message : "Failed to load members");
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    void loadMembers();
+  }, [loadMembers]);
+
   async function onInvite(e: FormEvent) {
     e.preventDefault();
     if (!orgId || !canManage) return;
@@ -48,6 +71,7 @@ export function TeamSettingsPage({ session }: Props) {
       const m = await inviteOrgUser(orgId, { email: inviteEmail.trim(), role: inviteRole });
       setInviteMsg(`Invited ${inviteEmail.trim()} as ${roleLabel(m.role)} (${m.userId}).`);
       setInviteEmail("");
+      await loadMembers();
     } catch (err) {
       setInviteErr(err instanceof ApiError ? err.message : "Invite failed");
     } finally {
@@ -65,6 +89,7 @@ export function TeamSettingsPage({ session }: Props) {
       const m = await assignOrgUserRole(orgId, roleUserId.trim(), roleNext);
       setRoleMsg(`Updated ${m.userId} to ${roleLabel(m.role)}.`);
       setRoleUserId("");
+      await loadMembers();
     } catch (err) {
       setRoleErr(err instanceof ApiError ? err.message : "Role change failed");
     } finally {
@@ -89,12 +114,33 @@ export function TeamSettingsPage({ session }: Props) {
 
       <div className="panel settings-panel">
         <h2>Members</h2>
-        <p className="muted settings-note">
-          GET /orgs/&#123;id&#125;/users is not on the API yet — member list will appear
-          here when Andrew lands M1-15 list. Use invite below to add members; use user
-          ID from audit or invite response to change roles.
-        </p>
-        <div className="settings-field">
+        {membersLoading ? (
+          <p className="muted">Loading members…</p>
+        ) : membersErr ? (
+          <p className="error">{membersErr}</p>
+        ) : members.length === 0 ? (
+          <p className="muted">No members yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>User ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.userId}>
+                  <td>{m.email}</td>
+                  <td>{roleLabel(m.role)}</td>
+                  <td className="mono">{m.userId}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="settings-field" style={{ marginTop: 16 }}>
           <span className="settings-label">Your role</span>
           <span>{myRole ? roleLabel(myRole) : "—"}</span>
         </div>
@@ -139,7 +185,7 @@ export function TeamSettingsPage({ session }: Props) {
                 required
                 value={roleUserId}
                 onChange={(e) => setRoleUserId(e.target.value)}
-                placeholder="UUID from invite response"
+                placeholder="UUID from member list"
                 autoComplete="off"
               />
             </label>

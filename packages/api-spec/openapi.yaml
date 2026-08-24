@@ -199,6 +199,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
   /orgs/{orgId}/users:
+    get:
+      tags: [orgs]
+      operationId: listOrgUsers
+      summary: List org members
+      description: >
+        Platform operators and org Owner, Administrator, or Viewer may list
+        members. Cashier receives 403.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Org members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrgMember"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
       tags: [orgs]
       operationId: inviteOrgUser
@@ -2188,6 +2224,15 @@ components:
           $ref: "#/components/schemas/UserRole"
         orgType:
           $ref: "#/components/schemas/OrgType"
+    OrgMember:
+      allOf:
+        - $ref: "#/components/schemas/OrgMembership"
+        - type: object
+          required: [email]
+          properties:
+            email:
+              type: string
+              format: email
     CreatePaymentOrderRequest:
       type: object
       required: [amount, asset, network, validitySeconds]

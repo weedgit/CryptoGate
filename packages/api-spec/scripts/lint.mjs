@@ -107,6 +107,8 @@ const required = [
   "/platform/settings/org-policy",
   "getPlatformOrgPolicy",
   "updatePlatformOrgPolicy",
+  "listOrgUsers",
+  "OrgMember",
   "/orgs/{orgId}/commercial",
   "getMerchantCommercial",
   "updateMerchantCommercial",

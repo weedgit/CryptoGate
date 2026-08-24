@@ -69,6 +69,31 @@ export async function countOwners(orgId) {
 }
 
 /**
+ * @param {string} orgId
+ */
+export async function listMembershipsForOrg(orgId) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT m.org_id, m.user_id, m.role, o.type AS org_type, u.email
+     FROM org_memberships m
+     JOIN org_accounts o ON o.id = m.org_id
+     JOIN users u ON u.id = m.user_id
+     WHERE m.org_id = $1
+     ORDER BY m.created_at ASC`,
+    [orgId],
+  );
+  return rows.map((row) => ({
+    ...toOrgMembership({
+      orgId: row.org_id,
+      userId: row.user_id,
+      role: row.role,
+      orgType: row.org_type,
+    }),
+    email: row.email,
+  }));
+}
+
+/**
  * @param {{ orgId: string, userId: string, role: string }} input
  */
 export async function insertMembership(input) {

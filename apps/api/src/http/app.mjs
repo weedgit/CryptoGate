@@ -10,6 +10,7 @@ import { handleCreateOrg, handleGetOrg, handleListOrgs } from "../orgs/org-route
 import {
   handleAssignOrgUserRole,
   handleInviteOrgUser,
+  handleListOrgUsers,
 } from "../orgs/membership-routes.mjs";
 import {
   handleCreatePaymentOrder,
@@ -387,9 +388,16 @@ export async function handleRequest(req, res) {
   }
 
   const inviteMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users$/);
-  if (method === "POST" && inviteMatch) {
-    await handleInviteOrgUser(req, res, decodeURIComponent(inviteMatch[1]));
-    return;
+  if (inviteMatch) {
+    const orgId = decodeURIComponent(inviteMatch[1]);
+    if (method === "GET") {
+      await handleListOrgUsers(req, res, orgId);
+      return;
+    }
+    if (method === "POST") {
+      await handleInviteOrgUser(req, res, orgId);
+      return;
+    }
   }
 
   const orgMatch = path.match(/^\/v1\/orgs\/([^/]+)$/);

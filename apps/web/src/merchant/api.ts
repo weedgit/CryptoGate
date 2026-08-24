@@ -559,6 +559,18 @@ export type OrgMembership = {
   orgType: string;
 };
 
+export type OrgMember = OrgMembership & { email: string };
+
+export async function listOrgUsers(orgId: string): Promise<OrgMember[]> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: OrgMember[] };
+  return data.items ?? [];
+}
+
 export async function listOrgs(): Promise<OrgAccount[]> {
   const res = await fetch(`${API_BASE}/orgs`, {
     credentials: "include",
