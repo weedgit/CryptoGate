@@ -11,6 +11,7 @@ import {
   NetworkId,
   PaymentOrderColumn,
   USDT_TRON,
+  USDT_ETHEREUM,
   ASSET_NETWORK_REGISTRY,
   getAssetNetworkConfig,
   WebhookEventType,
@@ -65,8 +66,12 @@ describe("@cryptogate/domain", () => {
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum),
       undefined,
     );
-    assert.equal(ASSET_NETWORK_REGISTRY.length, 1);
+    assert.equal(ASSET_NETWORK_REGISTRY.length, 2);
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
+    assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_ETHEREUM);
+    assert.equal(USDT_ETHEREUM.enabled, false);
+    assert.equal(USDT_ETHEREUM.requiredConfirmations, 12);
+    assert.equal(USDT_ETHEREUM.displayNetwork, "Ethereum ERC-20");
   });
 
   it("exports payment-order DB columns for matching assign", () => {

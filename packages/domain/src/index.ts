@@ -145,7 +145,27 @@ export const USDT_TRON: AssetNetworkConfig = {
   memoSupported: false,
 };
 
-export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [USDT_TRON];
+/**
+ * M3-32 next pair (Phase1-Project-Plan §VI). Registry row exists for Bruce chain
+ * client work; create-order stays 422 until Kevin sets `enabled: true`.
+ */
+export const USDT_ETHEREUM: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.Ethereum,
+  enabled: false,
+  displayNetwork: "Ethereum ERC-20",
+  contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
+  USDT_TRON,
+  USDT_ETHEREUM,
+];
 
 export function getAssetNetworkConfig(
   asset: AssetCode,

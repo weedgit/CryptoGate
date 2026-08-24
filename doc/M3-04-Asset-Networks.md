@@ -30,15 +30,40 @@ Source row: `USDT_TRON`. Default create-order pair: `DEFAULT_ASSET_NETWORK`.
 
 ---
 
-## Planned (enums only — not enabled)
+## Next (M3-32 — Bruce chain client; not checkout yet)
 
-Do not watch, assign, or show checkout for these until Kevin adds an `enabled: true` registry row (contract, confirmations, `memoSupported`).
+Source row: `USDT_ETHEREUM` in `ASSET_NETWORK_REGISTRY` with **`enabled: false`**.
+
+| Field | Value |
+| --- | --- |
+| Asset | `USDT` |
+| Network id | `ethereum` |
+| Guest label | Ethereum ERC-20 |
+| Contract | `0xdAC17F958D2ee523a2206206994597C13D831ec7` |
+| Decimals | 6 |
+| Min amount | `0.01` |
+| Mode C step | `0.01` |
+| Confirmations | 12 |
+| Mode D | **off** (`memoSupported: false`) |
+
+**Why Ethereum before BSC:** Phase1-Project-Plan §VI lists USDT / Ethereum first after Tron.
+
+**Bruce (M3-32):** implement `packages/chain-clients/ethereum/` ingest against this row; use `USDT_ETHEREUM.requiredConfirmations` — do not hardcode. Matching modes **B, C, S** only (same as Tron).
+
+**Go-live:** Kevin sets `enabled: true` on `USDT_ETHEREUM` only after ingest + watcher smoke on staging (coordinate so create-order does not open before ingest).
+
+**Alternate queue:** USDT / `bnb_smart_chain` (BEP-20) is next after Ethereum unless client reprioritizes.
+
+---
+
+## Planned (enums only — not in registry)
+
+Do not watch, assign, or show checkout for these until Kevin adds a registry row and sets `enabled: true` (contract, confirmations, `memoSupported`).
 
 Network ids must match `NetworkId` / OpenAPI:
 
 | Asset | Network id | Plan §VI name |
 | --- | --- | --- |
-| USDT | `ethereum` | Ethereum |
 | USDT | `bnb_smart_chain` | BNB Smart Chain |
 | USDT | `polygon` | Polygon PoS |
 | USDT | `arbitrum_one` | Arbitrum One |

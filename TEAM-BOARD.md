@@ -63,7 +63,7 @@ Current freeze: OpenAPI **v0.3.2** (audit list + service bill PATCH; builds on v
 | --- | --- | --- |
 | **Andrew** | B4 branch up; confirm stub vs real for commercial step | — |
 | **Bruce** | Merge D5–D6, start D14 | **Done:** merchant web D1–D17 (#67–#83); **M1-32** mode-b test scaffold |
-| **Kevin** | M3-T09 handoff pack ready; chase client for §3 hostname table + M1-01 | [`doc/M3-T09-Company-A-Handoff.md`](doc/M3-T09-Company-A-Handoff.md) |
+| **Kevin** | M3-32 network pick done (**USDT/ethereum**); M3-T09 handoff; chase M1-01 | [`doc/M3-04-Asset-Networks.md`](doc/M3-04-Asset-Networks.md) § Next |
 | **All** | `git pull origin main`; migrate **017** on any env using API keys | Migration `017` required before `/v1/api-keys` routes |
 
 ---
@@ -177,7 +177,7 @@ Webhook secret rotate = delete + re-register (no new path). Fan-out already on m
 | Priority | Ask | Why |
 | --- | --- | --- |
 | — | Merchant web D1–D17 **done** | PRs #67–#83; shell complete on `main` |
-| **P1** | **M3-32 / M4-22** second network | **Ask Kevin first** (ETH ERC-20 USDT? BSC?) — do not start chain client until Kevin adds `enabled: true` in [`doc/M3-04-Asset-Networks.md`](doc/M3-04-Asset-Networks.md) / `ASSET_NETWORK_REGISTRY` |
+| **P1** | **M3-32 / M4-22** USDT **ethereum** ERC-20 | Registry row `USDT_ETHEREUM` on `main` (`enabled: false` until ingest smoke). Branch `feat-bruce-chain-ethereum-ingest`. Kevin flips `enabled: true` after staging sign-off. |
 | **P2** | Web polish when Andrew lands APIs | Team member list, org PATCH, notification prefs — OK to start if org-list API lands before registry row |
 
 Branch example: `feat-bruce-web-merchant-m2-create-order`. Style lock = Institutional Ink (dark). Cashier shell = `d17` only.
