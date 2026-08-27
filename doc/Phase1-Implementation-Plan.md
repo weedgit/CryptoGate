@@ -128,7 +128,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | --- | --- | --- |
 | 5.1 | Company A test env deploy | [M3-T09-Company-A-Handoff.md](M3-T09-Company-A-Handoff.md) |
 | 5.2 | Restore drill execute + sign-off | [M4-T04-Restore-Drill-Report.md](M4-T04-Restore-Drill-Report.md) |
-| 5.3 | M1-T05 prototype walkthrough | [M1-T05-Demo-Script.md](M1-T05-Demo-Script.md) |
+| 5.3 | M1-T05 prototype walkthrough | [M1-T05-Demo-Script.md](M1-T05-Demo-Script.md) — **Done 2026-08-27 local** ([checklist](M1-T05-Prototype-Walkthrough.md)) |
 | 5.4 | M3 acceptance T01/T09/T10 spot-check on staging | [M3-Acceptance.md](M3-Acceptance.md) |
 | 5.5 | M4-T01 functional regression checklist | [Phase1-Requirement.md](Phase1-Requirement.md) §V |
 | 5.6 | M4-T04 CVE: `pnpm audit` + record | M4-T04 §4 |
@@ -214,7 +214,7 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 2 Platform UI | B8/B13/B4/C6 wired | **Done** |
 | 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
-| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE notes 2026-08-27** — Company A hostnames pending |
+| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 walkthrough 2026-08-27** — Company A hostnames pending |
 | 6 X-backlog | Per ID | **Scheduled** |
 | 7 M5 hardware | Reference device | **Blocked** (client) |
 | 8 Design polish | Token sync | **Optional** |

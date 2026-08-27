@@ -66,6 +66,7 @@ const contractSection = document.getElementById("contract-section");
 const mainEl = document.querySelector(".pay");
 const qrEl = document.getElementById("qr");
 const sourceEl = document.getElementById("source-banner");
+const shareBtn = document.getElementById("share-link");
 
 function resolveOrderId() {
   const fromQuery = params.get("id");
@@ -347,6 +348,7 @@ let tickTimer = 0;
 function tick(remaining, state) {
   if (!expiresEl) return;
   window.clearTimeout(tickTimer);
+  window.clearTimeout(window.__cgPayTick);
   if (state === "expired") {
     expiresEl.textContent = "This order has expired";
     return;
@@ -373,6 +375,7 @@ function tick(remaining, state) {
     return;
   }
   tickTimer = window.setTimeout(() => tick(remaining - 1, state), 1000);
+  window.__cgPayTick = tickTimer;
 }
 
 function paintInvalid() {
