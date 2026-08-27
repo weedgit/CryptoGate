@@ -6,11 +6,15 @@
  *   node scripts/e2e-smoke.mjs --check      # A + scripts/check.mjs
  *   E2E_API_BASE=https://api-test.example node scripts/e2e-smoke.mjs --live
  *
+ * Optional machine tier (signed order + webhook listener):
+ *   E2E_API_KEY_ID / E2E_API_SECRET — mint locally via scripts/e2e-mint-api-key.mjs
+ *
  * See doc/X-07-E2E-Smoke.md
  */
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runLiveMachineTier } from "./e2e-live-machine.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
@@ -82,6 +86,28 @@ async function liveSmoke() {
   }
   console.log("e2e live: site setting-overrides 401 without session");
 
+  const unsignedOrder = await fetch(`${base}/v1/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": "e2e-unsigned-probe-key-01",
+    },
+    body: JSON.stringify({
+      amount: "1.00",
+      asset: "USDT",
+      network: "tron",
+      validitySeconds: 600,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (unsignedOrder.status !== 401) {
+    console.error(
+      `live unsigned POST /orders expected 401, got ${unsignedOrder.status}`,
+    );
+    process.exit(1);
+  }
+  console.log("e2e live: unsigned POST /orders 401 without session/key");
+
   const orderId = (process.env.E2E_PAYMENT_ORDER_ID ?? "").trim();
   if (orderId) {
     const payUrl = `${base}/v1/orders/${encodeURIComponent(orderId)}/payment`;
@@ -97,6 +123,8 @@ async function liveSmoke() {
     }
     console.log(`e2e live: guest payment ok (order ${orderId})`);
   }
+
+  await runLiveMachineTier(base);
 }
 
 console.log("e2e tier A: signing + webhook samples");

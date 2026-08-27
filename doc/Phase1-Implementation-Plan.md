@@ -147,7 +147,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | X-03 | Agent commission statements (read-only) | Wave 1 — **Done 2026-08-27** `/agent/commissions` from subtree bills |
 | X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 — **Done 2026-08-27** `setting-overrides` + inherit GET |
 | X-06 | Next network (BSC USDT) | Wave 4 |
-| X-07 | E2E: signed order create + webhook listener tier | Wave 5 |
+| X-07 | E2E: signed order create + webhook listener tier | Wave 5 — **Done 2026-08-27** `e2e-live-machine.mjs` + mint helper |
 
 ---
 
