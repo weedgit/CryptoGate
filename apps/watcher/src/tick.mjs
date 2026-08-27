@@ -4,8 +4,10 @@
  * M3-41: match inbound transfers → payment_orders.
  * M3-42: advance verifying/confirmed → completed when confirmations met.
  * M3-32: ethereum client when DEFAULT_NETWORK=ethereum.
+ * X-06: bnb_smart_chain client when DEFAULT_NETWORK=bnb_smart_chain.
  */
 import { healthCheck as ethHealthCheck } from "@cryptogate/chain-clients/ethereum";
+import { healthCheck as bscHealthCheck } from "@cryptogate/chain-clients/bnb_smart_chain";
 import { healthCheck as tronHealthCheck } from "@cryptogate/chain-clients/tron";
 import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
@@ -27,6 +29,7 @@ import {
 export async function runTick(ctx) {
   const tron = await tronHealthCheck();
   const ethereum = await ethHealthCheck();
+  const bnbSmartChain = await bscHealthCheck();
   /** @type {Record<string, unknown>} */
   let ingest = {
     mode: "noop",
@@ -130,6 +133,7 @@ export async function runTick(ctx) {
     chain: {
       tron,
       ethereum,
+      bnb_smart_chain: bnbSmartChain,
     },
     ingest,
   };

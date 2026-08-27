@@ -23,6 +23,11 @@ const ASSET_NETWORK_UI = {
     contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     memoSupported: false,
   },
+  "USDT:bnb_smart_chain": {
+    displayNetwork: "BNB Smart Chain BEP-20",
+    contractAddress: "0x55d398326f99059fF775485246999027B3197955",
+    memoSupported: false,
+  },
 };
 
 const TERMINAL_STATUSES = new Set([
@@ -129,6 +134,7 @@ function networkLabelFor(asset, network) {
   if (row) return row.displayNetwork;
   if (network === "tron") return "TRON TRC-20";
   if (network === "ethereum") return "Ethereum ERC-20";
+  if (network === "bnb_smart_chain") return "BNB Smart Chain BEP-20";
   return String(network).toUpperCase();
 }
 

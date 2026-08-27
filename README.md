@@ -21,6 +21,7 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 | MFA login + merchant enroll | Wired |
 | USDT/Tron | Live |
 | USDT/Ethereum | Client ready — enable after staging smoke ([`doc/M3-32-Ethereum-Go-Live.md`](doc/M3-32-Ethereum-Go-Live.md)) |
+| USDT/BNB Smart Chain | Client ready (X-06) — still `enabled: false`; enable after Ethereum |
 
 **Your review:** run `node scripts/check.mjs` (without exporting a live `DATABASE_URL`), bring up API + web + payment-page, walk [`doc/M1-T05-Demo-Script.md`](doc/M1-T05-Demo-Script.md). Machine-key E2E: [`doc/X-07-E2E-Smoke.md`](doc/X-07-E2E-Smoke.md).  
 **Blocked on you:** Company A hostnames (M3-T09), pilot merchant (M4-40), reference POS device (M5-01), scope sign-off (M1-01).

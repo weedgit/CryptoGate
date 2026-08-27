@@ -29,3 +29,15 @@ export {
   ethBackoffMs,
   ERC20_TRANSFER_TOPIC,
 } from "./ethereum/index.mjs";
+
+export {
+  healthCheck as bscHealthCheck,
+  listRecentTransfers as bscListRecentTransfers,
+  dedupeTransfersByTxHash as bscDedupeTransfersByTxHash,
+  getTransactionConfirmations as bscGetTransactionConfirmations,
+  getTransactionConfirmationState as bscGetTransactionConfirmationState,
+  getBnbSmartChainConfig,
+  extraWatcherBackoffMs as bscExtraWatcherBackoffMs,
+  isRetryableBscStatus,
+  bscBackoffMs,
+} from "./bnb_smart_chain/index.mjs";

@@ -13,6 +13,7 @@ const demos = [
   ["Payment anomaly", "/?state=anomaly"],
   ["Expired", "/?state=expired"],
   ["USDT Ethereum (UI preview)", "/?network=ethereum&asset=USDT&state=pending"],
+  ["USDT BSC (UI preview)", "/?network=bnb_smart_chain&asset=USDT&state=pending"],
   ["POS wireframe", "/pos/index.html"],
 ];
 

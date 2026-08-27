@@ -33,6 +33,7 @@ export function formatCountdown(iso: string | null | undefined): string | null {
 export function networkLabel(network: string): string {
   if (network === "tron") return "TRC-20";
   if (network === "ethereum") return "ERC-20";
+  if (network === "bnb_smart_chain") return "BEP-20";
   return network.toUpperCase();
 }
 

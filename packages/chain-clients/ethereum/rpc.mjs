@@ -127,17 +127,20 @@ function toHexBlock(n) {
  *   watchedAddresses: string[],
  *   fetchImpl?: typeof fetch,
  *   sleepImpl?: (ms: number) => Promise<void>,
+ *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
+ *   pollMode?: string,
  * }} input
  */
 export async function fetchErc20TransfersForAddresses(input) {
-  const cfg = getEthereumRuntimeConfig();
+  const cfg = input.runtimeConfig ?? getEthereumRuntimeConfig();
+  const pollMode = input.pollMode ?? "eth-rpc";
   if (!cfg.configured) {
     return { transfers: [], mode: "stub", watchedAddressCount: 0 };
   }
 
   const watched = [...new Set(input.watchedAddresses.map((a) => a.trim()).filter(Boolean))];
   if (watched.length === 0) {
-    return { transfers: [], mode: "eth-rpc", watchedAddressCount: 0 };
+    return { transfers: [], mode: pollMode, watchedAddressCount: 0 };
   }
 
   const latestHex = await withEthRetry(
@@ -193,17 +196,22 @@ export async function fetchErc20TransfersForAddresses(input) {
 
   return {
     transfers,
-    mode: "eth-rpc",
+    mode: pollMode,
     watchedAddressCount: watched.length,
   };
 }
 
 /**
- * @param {{ txHash: string, fetchImpl?: typeof fetch, sleepImpl?: (ms: number) => Promise<void> }} input
+ * @param {{
+ *   txHash: string,
+ *   fetchImpl?: typeof fetch,
+ *   sleepImpl?: (ms: number) => Promise<void>,
+ *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
+ * }} input
  * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
  */
 export async function fetchTransactionConfirmationState(input) {
-  const cfg = getEthereumRuntimeConfig();
+  const cfg = input.runtimeConfig ?? getEthereumRuntimeConfig();
   if (!cfg.configured) {
     return { confirmations: 0, presence: "unknown" };
   }

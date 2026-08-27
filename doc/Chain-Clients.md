@@ -2,9 +2,12 @@
 
 Package path: `packages/chain-clients`
 
-One module per network. Sprint 0: folder layout only.
+One module per network. Do not put Tron/ETH/BTC switches in a single watcher file — `apps/watcher` only selects the package by `network` id.
 
-- `tron/` — first live target (USDT on Tron) in M3
-- `evm/` — Ethereum / BSC / Polygon / Arbitrum / Base clients later
+| Module | Network id | Status |
+| --- | --- | --- |
+| `tron/` | `tron` | Live ingest (TronGrid when `TRON_RPC_URL` set) |
+| `ethereum/` | `ethereum` | Client ready — enable after M3-32 staging smoke (`ETH_RPC_URL`) |
+| `bnb_smart_chain/` | `bnb_smart_chain` | Client ready (X-06) — stub until `BSC_RPC_URL`; create-order 422 until registry `enabled: true` |
 
-Do not put Tron/ETH/BTC switches in a single watcher file.
+Shared EVM log polling lives in `ethereum/rpc.mjs` and accepts a parameterized `runtimeConfig` so BSC reuses Transfer-topic decode without a mega network switch. BSC USDT uses **18 decimals** and **15** confirmations from `USDT_BNB_SMART_CHAIN`.

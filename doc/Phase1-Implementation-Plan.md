@@ -146,7 +146,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | X-02 | Service bill **generation** automation (not just manual issue) | Wave 2 — **Done 2026-08-27** `POST /v1/service-bills/generate` + migration **029** |
 | X-03 | Agent commission statements (read-only) | Wave 1 — **Done 2026-08-27** `/agent/commissions` from subtree bills |
 | X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 — **Done 2026-08-27** `setting-overrides` + inherit GET |
-| X-06 | Next network (BSC USDT) | Wave 4 |
+| X-06 | Next network (BSC USDT) | Wave 4 — **Client scaffolded 2026-08-27** (`bnb_smart_chain/`, still `enabled: false`) |
 | X-07 | E2E: signed order create + webhook listener tier | Wave 5 — **Done 2026-08-27** `e2e-live-machine.mjs` + mint helper |
 
 ---
@@ -215,9 +215,9 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
 | 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 walkthrough 2026-08-27** — Company A hostnames pending |
-| 6 X-backlog | Per ID | **X-02/X-03/X-04 2026-08-27** · X-06 pending |
+| 6 X-backlog | Per ID | **X-02/X-03/X-04/X-07 · X-06 client scaffolded** (enable after ETH) |
 | 7 M5 hardware | Reference device | **Blocked** (client) |
-| 8 Design polish | Token sync | **Optional** |
+| 8 Design polish | Token sync | **Done 2026-08-27** |
 
 ### Client blockers (cannot code around)
 

@@ -16,7 +16,7 @@ All fifteen pairs below are **in** `ASSET_NETWORK_REGISTRY`. Checkout and watche
 | --- | --- | --- | --- | --- |
 | USDT | `tron` | TRON TRC-20 | `USDT_TRON` | **Live** |
 | USDT | `ethereum` | Ethereum ERC-20 | `USDT_ETHEREUM` | Catalogued — M3-32 go-live |
-| USDT | `bnb_smart_chain` | BNB Smart Chain BEP-20 | `USDT_BNB_SMART_CHAIN` | Catalogued |
+| USDT | `bnb_smart_chain` | BNB Smart Chain BEP-20 | `USDT_BNB_SMART_CHAIN` | Catalogued — X-06 client ready |
 | USDT | `polygon` | Polygon PoS | `USDT_POLYGON` | Catalogued |
 | USDT | `arbitrum_one` | Arbitrum One | `USDT_ARBITRUM_ONE` | Catalogued |
 | USDT | `solana` | Solana | `USDT_SOLANA` | Catalogued |
@@ -79,6 +79,24 @@ Source row: `USDT_ETHEREUM` with **`enabled: false`**.
 **Go-live:** Kevin sets `enabled: true` on `USDT_ETHEREUM` only after ingest + watcher smoke on staging — see [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 
 **Then queue:** remaining §VI rows in registry order (BSC USDT → … → native TRX), each with its own `packages/chain-clients/{network}/` module before enable.
+
+### X-06 — BNB Smart Chain USDT (scaffolded 2026-08-27)
+
+Source row: `USDT_BNB_SMART_CHAIN` with **`enabled: false`**.
+
+| Field | Value |
+| --- | --- |
+| Asset | `USDT` |
+| Network id | `bnb_smart_chain` |
+| Guest label | BNB Smart Chain BEP-20 |
+| Contract | `0x55d398326f99059fF775485246999027B3197955` |
+| Decimals | **18** (not 6) |
+| Confirmations | 15 |
+| Mode D | **off** |
+
+**Bruce:** `packages/chain-clients/bnb_smart_chain/` + watcher route when `DEFAULT_NETWORK=bnb_smart_chain`. Env: `BSC_RPC_URL` (empty → stub).
+
+**Go-live:** after Ethereum enable; Kevin sets `enabled: true` only after staging smoke — do not skip Ethereum.
 
 ---
 

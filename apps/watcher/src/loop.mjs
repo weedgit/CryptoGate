@@ -1,7 +1,9 @@
 import { extraWatcherBackoffMs as tronExtraBackoff } from "@cryptogate/chain-clients/tron";
 import { extraWatcherBackoffMs as ethExtraBackoff } from "@cryptogate/chain-clients/ethereum";
+import { extraWatcherBackoffMs as bscExtraBackoff } from "@cryptogate/chain-clients/bnb_smart_chain";
 import { loadWatcherConfig } from "./config.mjs";
 import { runTick } from "./tick.mjs";
+
 
 /**
  * Run the watcher loop until `signal` aborts or `--once` completes one tick.
@@ -44,6 +46,7 @@ export async function runWatcherLoop(options = {}) {
     const extraMs = Math.max(
       tronExtraBackoff(payload, config.pollIntervalMs),
       ethExtraBackoff(payload, config.pollIntervalMs),
+      bscExtraBackoff(payload, config.pollIntervalMs),
     );
     if (extraMs > 0) {
       console.log(
