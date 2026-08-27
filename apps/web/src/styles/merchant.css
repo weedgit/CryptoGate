@@ -1,21 +1,4 @@
-:root {
-  --bg: #0b0f14;
-  --surface: #12181f;
-  --sidebar: #0f1319;
-  --border: #1e2a36;
-  --border-strong: #2a3a4a;
-  --teal: #00d4c8;
-  --teal-dim: rgba(0, 212, 200, 0.1);
-  --warn: #ffb703;
-  --anomaly: #ff5a6a;
-  --ok: #2ee59d;
-  --muted: #8a9bb0;
-  --footer: #5a6a7a;
-  --text: #ffffff;
-  --font-display: "Outfit", system-ui, sans-serif;
-  --font-ui: "Geist Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-}
+@import "./tokens.css";
 
 @font-face {
   font-family: "Geist Sans";

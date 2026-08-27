@@ -1,20 +1,4 @@
-:root {
-  --bg: #0b0f14;
-  --surface: #12181f;
-  --border: #1e2a36;
-  --line: #1e2a36;
-  --ink: #ffffff;
-  --text: #ffffff;
-  --muted: #8a9bb0;
-  --footer: #5a6a7a;
-  --teal: #00d4c8;
-  --accent: var(--teal);
-  --warn: #ffb703;
-  --anomaly: #ff5a6a;
-  --font-ui: "Geist Sans", "Outfit", "Segoe UI", sans-serif;
-  --font-display: "Outfit", "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-}
+/* Tokens: /tokens.css (linked before this file) */
 
 @font-face {
   font-family: "Geist Sans";
@@ -173,9 +157,26 @@ body {
   width: 11.25rem;
   height: 11.25rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--bg);
   overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .qr {
+    animation: qr-appear var(--motion-ui) var(--ease-out) both;
+  }
+}
+
+@keyframes qr-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .qr-finder {
@@ -239,6 +240,21 @@ body {
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.75rem;
+  transition: color var(--motion-micro) var(--ease-inout);
+}
+
+.countdown--warn {
+  color: var(--warn);
+}
+
+.countdown--critical {
+  color: var(--anomaly);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .countdown--critical {
+    animation: status-pulse 1.2s var(--ease-inout) infinite;
+  }
 }
 
 .address-block {

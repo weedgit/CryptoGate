@@ -47,3 +47,4 @@ POS: large type, 48dp targets, no settlement / xPub / matching.
 - Payment order rail: teal. Service bill rail: amber. Never merge.
 - Figma file key: `VjnnzGqWIo1q2aLRLdA89p`
 - Guest pay pending node: `29:4197` (`E1-pending-payment`)
+- CSS token map: [`UI-Tokens.md`](UI-Tokens.md) (`apps/web` + `apps/payment-page`)

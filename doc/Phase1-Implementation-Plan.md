@@ -170,10 +170,10 @@ Blocked on [M5-01-Reference-Device.md](M5-01-Reference-Device.md) sign-off.
 
 | # | Task |
 | --- | --- |
-| 8.1 | Sync CSS tokens from Figma `01 — Tokens` into `apps/web` |
-| 8.2 | Payment page motion pass (Figma page 99) — respect `prefers-reduced-motion` |
+| 8.1 | Sync CSS tokens from Figma `01 — Tokens` into `apps/web` — **Done 2026-08-27** (`tokens.css` + [`UI-Tokens.md`](UI-Tokens.md); Figma Variables empty → style lock) |
+| 8.2 | Payment page motion pass (Figma page 99) — respect `prefers-reduced-motion` — **Done 2026-08-27** (QR appear, countdown urgency) |
 | 8.3 | Component library alignment (Figma `02 — Components`) |
-| 8.4 | README refresh (v0.3.3, web implemented) |
+| 8.4 | README refresh (OpenAPI **v0.3.5**, Wave 6 / X-07) — **Done 2026-08-27** |
 
 ---
 

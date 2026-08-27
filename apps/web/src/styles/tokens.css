@@ -1,0 +1,63 @@
+/**
+ * CryptoGate Institutional Ink — canonical CSS tokens
+ *
+ * Sources:
+ * - doc/UI-Style-Lock.md (locked palette + type)
+ * - doc/UI-Figma-Prompt.md motion tokens (120 / 280 / 600ms)
+ * - Figma file VjnnzGqWIo1q2aLRLdA89p (page 00 Design System)
+ *
+ * Figma currently has no published Variables collections; keep this file
+ * aligned with the style lock. Mirror the same values in
+ * apps/payment-page/public/tokens.css when changing colors or motion.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #0b0f14;
+  --surface: #12181f;
+  --sidebar: #0f1319;
+  --border: #1e2a36;
+  --border-strong: #2a3a4a;
+  --glass: rgba(255, 255, 255, 0.1);
+
+  /* Brand + status */
+  --teal: #00d4c8;
+  --teal-dim: rgba(0, 212, 200, 0.1);
+  --accent: var(--teal);
+  --warn: #ffb703;
+  --anomaly: #ff5a6a;
+  --ok: #2ee59d;
+  --muted: #8a9bb0;
+  --footer: #5a6a7a;
+  --text: #ffffff;
+  --ink: #ffffff;
+
+  /* Platform ops accent (not guest-pay teal) */
+  --plat-gold: #f0b429;
+  --plat-gold-bright: #fbbf24;
+  --plat-gold-grad: linear-gradient(135deg, #f59e0b 0%, #fbbf24 55%, #fde68a 100%);
+
+  /* Type */
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-ui: "Geist Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Radius + space (glass cards = 12px per style lock) */
+  --radius-sm: 8px;
+  --radius-card: 12px;
+  --radius-lg: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Motion — Design System / Prompt 6 */
+  --motion-micro: 120ms;
+  --motion-ui: 280ms;
+  --motion-emphasis: 600ms;
+  --motion-page: 800ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.45, 0, 0.55, 1);
+}

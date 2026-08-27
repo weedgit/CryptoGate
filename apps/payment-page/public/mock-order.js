@@ -351,24 +351,34 @@ function tick(remaining, state) {
   window.clearTimeout(window.__cgPayTick);
   if (state === "expired") {
     expiresEl.textContent = "This order has expired";
+    expiresEl.classList.remove("countdown--warn", "countdown--critical");
     return;
   }
   if (state === "completed" || state === "confirmed") {
     expiresEl.textContent = "Payment received";
+    expiresEl.classList.remove("countdown--warn", "countdown--critical");
     return;
   }
   if (state === "verifying") {
     expiresEl.textContent = "Waiting for confirmations";
+    expiresEl.classList.remove("countdown--warn", "countdown--critical");
     return;
   }
   if (state === "anomaly" || state === "failed" || state === "invalid") {
     expiresEl.textContent = "Do not send another payment";
+    expiresEl.classList.remove("countdown--warn", "countdown--critical");
     return;
   }
   const m = Math.floor(remaining / 60);
   const s = String(remaining % 60).padStart(2, "0");
   expiresEl.textContent = `${m}:${s} remaining`;
+  expiresEl.classList.toggle("countdown--critical", remaining > 0 && remaining <= 10);
+  expiresEl.classList.toggle(
+    "countdown--warn",
+    remaining > 10 && remaining <= 60,
+  );
   if (remaining <= 0) {
+    expiresEl.classList.remove("countdown--warn", "countdown--critical");
     expiresEl.textContent = "Expired";
     if (mainEl) mainEl.dataset.state = "expired";
     if (statusEl) statusEl.textContent = "Expired";
