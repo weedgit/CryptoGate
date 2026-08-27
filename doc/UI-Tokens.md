@@ -39,16 +39,20 @@ Figma has **no published Variables collections** yet (queried 2026-08-27). CSS f
 
 Platform ops UI also uses `--plat-gold*` (amber gold) — not guest-pay teal.
 
-## Components (Wave 8.3)
+## Components (Wave 8.3 / 8.5)
 
-Aligned to Figma frame **02 — Components** (`15:4`):
+Aligned to Figma frames **02** (`15:4`) and **03** (`15:442`):
 
 | Primitive | CSS / module |
 | --- | --- |
 | Buttons (primary / secondary / ghost / danger + sizes + loading) | `apps/web/src/styles/components.css` |
 | Status badges + verifying breathe / anomaly pulse | `components.css` + `apps/web/src/shared/StatusBadge.tsx` |
-| Text focus / error | `.field input` / `.cg-input` in `components.css` |
+| Form focus / error | `.field input` / `.cg-input` in `components.css` |
 | Toasts / banners | `.cg-toast*`, `.cg-banner*` |
+| Empty panels | `.cg-empty*` + `shared/EmptyState.tsx` |
+| Table skeletons | `.cg-skel*` + `shared/OrdersTableSkeleton.tsx` |
+| Modal enter | `.modal-backdrop` / `.modal` motion |
+| Confirmation segments | `.conf-block` fill / complete pulse |
 
 Pending payment → `tone-warn`; verifying → `tone-teal`; confirmed/completed → `tone-ok`. Platform shell may still override with gold/pill chrome.
 
