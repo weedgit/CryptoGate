@@ -4,6 +4,7 @@ import {
   nextBillingPeriodStart,
 } from "../platform-settings/fee-tier-rules.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
+import { agentCommissionEffectiveFromToday } from "./agent-commission-rules.mjs";
 
 /**
  * @param {object} body
@@ -102,6 +103,11 @@ export async function validateCommercialOnCreate(tier, volumeFeePercent) {
 }
 
 export { nextBillingPeriodStart };
+
+/** Month start for audit/display when a merchant rate changes immediately. */
+export function merchantCommercialEffectiveFromToday() {
+  return agentCommissionEffectiveFromToday();
+}
 
 function fail(status, code, message) {
   return { ok: false, status, code, message };

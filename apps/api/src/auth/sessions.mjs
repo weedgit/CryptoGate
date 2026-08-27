@@ -32,13 +32,13 @@ export async function createSession(input) {
 
 /**
  * @param {string} token
- * @returns {Promise<{ sessionId: string, userId: string } | null>}
+ * @returns {Promise<{ sessionId: string, userId: string, mfaVerified: boolean } | null>}
  */
 export async function findActiveSessionByToken(token) {
   const tokenHash = hashSessionToken(token);
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, user_id
+    `SELECT id, user_id, mfa_verified_at
      FROM sessions
      WHERE token_hash = $1
        AND revoked_at IS NULL
@@ -47,7 +47,11 @@ export async function findActiveSessionByToken(token) {
   );
   const row = rows[0];
   if (!row) return null;
-  return { sessionId: row.id, userId: row.user_id };
+  return {
+    sessionId: row.id,
+    userId: row.user_id,
+    mfaVerified: row.mfa_verified_at != null,
+  };
 }
 
 /**

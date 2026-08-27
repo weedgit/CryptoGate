@@ -8,6 +8,7 @@ import {
   clientIp,
   isGuestPaymentPath,
   isLoginPath,
+  isRateLimitExemptPath,
   rateLimitDecision,
   rateLimitsPerMinute,
 } from "../src/rate-limit/rate-limit-rules.mjs";
@@ -82,6 +83,12 @@ describe("rate-limit rules (M3-11)", () => {
     assert.equal(isLoginPath("POST", "/v1/auth/login"), true);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1/payment"), true);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1"), false);
+  });
+
+  it("exempts health and session from IP rate limit", () => {
+    assert.equal(isRateLimitExemptPath("GET", "/health"), true);
+    assert.equal(isRateLimitExemptPath("GET", "/v1/auth/session"), true);
+    assert.equal(isRateLimitExemptPath("GET", "/v1/orgs"), false);
   });
 
   it("reads the first X-Forwarded-For hop", () => {

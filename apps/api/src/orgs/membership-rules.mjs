@@ -1,5 +1,7 @@
 export const USER_ROLES = ["owner", "administrator", "viewer", "cashier"];
 
+export const MEMBERSHIP_STATUSES = ["active", "paused"];
+
 const CASHIER_ORG_TYPES = new Set(["merchant", "merchant_site"]);
 const MANAGE_ORG_ROLES = new Set(["owner", "administrator"]);
 
@@ -27,6 +29,14 @@ export function canManageTeam(role) {
  */
 export function canManageOrgTree(role) {
   return MANAGE_ORG_ROLES.has(role);
+}
+
+/**
+ * Pause / resume / remove members: org Owner or platform Owner.
+ * @param {{ platformOwner: boolean, roleOnOrg: string | null }} p
+ */
+export function canManageMembershipLifecycle(p) {
+  return p.platformOwner || canManageTeam(p.roleOnOrg);
 }
 
 /**
@@ -98,7 +108,19 @@ export function isLastOwnerDemotion(p) {
 }
 
 /**
- * @param {{ orgId: string, userId: string, role: string, orgType: string }} row
+ * Block pausing/removing the last active Owner.
+ * @param {{ role: string, status: string, activeOwnerCount: number }} p
+ */
+export function isLastActiveOwnerLifecycleBlock(p) {
+  return (
+    p.role === "owner" &&
+    (p.status ?? "active") === "active" &&
+    p.activeOwnerCount <= 1
+  );
+}
+
+/**
+ * @param {{ orgId: string, userId: string, role: string, orgType: string, status?: string }} row
  */
 export function toOrgMembership(row) {
   return {
@@ -106,5 +128,6 @@ export function toOrgMembership(row) {
     userId: row.userId,
     role: row.role,
     orgType: row.orgType,
+    status: row.status === "paused" ? "paused" : "active",
   };
 }

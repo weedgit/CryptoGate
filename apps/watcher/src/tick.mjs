@@ -10,6 +10,7 @@ import { healthCheck as tronHealthCheck } from "@cryptogate/chain-clients/tron";
 import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
 import { getWatcherPool } from "./db/pool.mjs";
+import { persistTickHeartbeats } from "./health/heartbeat-store.mjs";
 import { processTransferBatch } from "./match/inbound.mjs";
 import {
   applyConfirmationUpdate,
@@ -115,7 +116,7 @@ export async function runTick(ctx) {
     }
   }
 
-  return {
+  const payload = {
     service: "cryptogate-watcher",
     phase: ctx.config.databaseUrl ? "m3-anomaly-paths" : "m1-loop",
     tick: ctx.tick,
@@ -132,4 +133,18 @@ export async function runTick(ctx) {
     },
     ingest,
   };
+
+  if (ctx.config.databaseUrl) {
+    try {
+      await persistTickHeartbeats(getWatcherPool(), payload);
+      payload.heartbeat = { persisted: true };
+    } catch (err) {
+      payload.heartbeat = {
+        persisted: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  return payload;
 }

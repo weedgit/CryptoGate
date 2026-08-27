@@ -4,6 +4,13 @@ import {
   login,
   logout,
   listOrders,
+  listOrgUsers,
+  listOrgMemberEmails,
+  setOrgUserStatus,
+  removeOrgUser,
+  inviteOrgUser,
+  type OrgMember,
+  type InviteOrgUserResult,
   type PaymentOrder,
   type Session,
 } from "../merchant/api";
@@ -12,8 +19,19 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
   "/v1";
 
-export { ApiError, getSession, login, logout, listOrders };
-export type { PaymentOrder, Session };
+export {
+  ApiError,
+  getSession,
+  login,
+  logout,
+  listOrders,
+  listOrgUsers,
+  listOrgMemberEmails,
+  setOrgUserStatus,
+  removeOrgUser,
+  inviteOrgUser,
+};
+export type { PaymentOrder, Session, OrgMember, InviteOrgUserResult };
 
 export type OrgAccount = {
   id: string;
@@ -21,6 +39,11 @@ export type OrgAccount = {
   name: string;
   parentId: string | null;
   structure?: string | null;
+  status?: "active" | "paused";
+  country?: string | null;
+  billingEmail?: string | null;
+  legalName?: string | null;
+  createdAt?: string;
 };
 
 export type ServiceBill = {
@@ -34,20 +57,35 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  paidAt?: string | null;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  createdAt: string;
+  actorUserId: string | null;
+  orgId: string | null;
+  action: string;
+  metadata: Record<string, unknown>;
 };
 
 async function parseError(res: Response): Promise<never> {
   const body = await res.text();
   try {
     const json = JSON.parse(body) as { code?: string; message?: string };
-    throw new ApiError(
-      json.code ?? "http_error",
-      json.message ?? `HTTP ${res.status}`,
-      res.status,
-    );
+    const raw = json.message?.trim() || "";
+    const friendly =
+      res.status >= 500
+        ? "Something went wrong on the server. Please try again."
+        : raw || `Request failed (${res.status})`;
+    throw new ApiError(json.code ?? "http_error", friendly, res.status);
   } catch (e) {
     if (e instanceof ApiError) throw e;
-    throw new ApiError("http_error", body || `HTTP ${res.status}`, res.status);
+    const friendly =
+      res.status >= 500
+        ? "Something went wrong on the server. Please try again."
+        : body?.trim() || `Request failed (${res.status})`;
+    throw new ApiError("http_error", friendly, res.status);
   }
 }
 
@@ -85,6 +123,31 @@ export async function getServiceBill(billId: string): Promise<ServiceBill> {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as ServiceBill;
+}
+
+export async function listAuditLog(opts?: {
+  from?: string;
+  to?: string;
+  actorUserId?: string;
+  orgId?: string;
+  action?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  const q = new URLSearchParams();
+  if (opts?.from) q.set("from", opts.from);
+  if (opts?.to) q.set("to", opts.to);
+  if (opts?.actorUserId) q.set("actorUserId", opts.actorUserId);
+  if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.action) q.set("action", opts.action);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(`${API_BASE}/audit${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: AuditLogEntry[] };
+  return data.items ?? [];
 }
 
 export type MerchantCommercialSettings = {
@@ -159,6 +222,10 @@ export async function createOrg(body: {
   name: string;
   parentId: string;
   structure?: string;
+  country?: string;
+  billingEmail?: string;
+  billingContact?: string;
+  legalName?: string;
   commercial?: { tier: string; volumeFeePercent: string };
 }): Promise<OrgAccount> {
   const res = await fetch(`${API_BASE}/orgs`, {
@@ -172,26 +239,4 @@ export async function createOrg(body: {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
-}
-
-export async function inviteOrgUser(
-  orgId: string,
-  body: { email: string; role: string },
-): Promise<{ orgId: string; userId: string; role: string; orgType: string }> {
-  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    orgId: string;
-    userId: string;
-    role: string;
-    orgType: string;
-  };
 }

@@ -1,42 +1,137 @@
-import type { ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import type { Session } from "./api";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { getOrg, type Session } from "./api";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
-import { sessionIsCashierOnly } from "./org";
+import {
+  AlertsNavIcon,
+  BillsNavIcon,
+  BillingNavIcon,
+  DashboardNavIcon,
+  IntegrationsNavIcon,
+  OrdersNavIcon,
+  OrgNavIcon,
+  ReportsNavIcon,
+  SecurityNavIcon,
+  SettlementNavIcon,
+  SitesNavIcon,
+  TeamNavIcon,
+} from "./NavIcons";
+import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
 
-const OWNER_NAV = [
-  { to: "/merchant", label: "Dashboard", end: true },
-  { to: "/merchant/orders", label: "Orders", matchPrefix: "/merchant/orders" },
-  { to: "/merchant/service-bills", label: "Service Bills" },
-  { to: "/merchant/sites", label: "Sites" },
-  { to: "/merchant/reports", label: "Reports" },
-  {
-    to: "/merchant/settings/settlement",
-    label: "Settlement",
-    matchPrefix: "/merchant/settings/settlement",
-  },
-  {
-    to: "/merchant/settings/integrations",
-    label: "Integrations",
-    matchPrefix: "/merchant/settings/integrations",
-  },
-  { to: "/merchant/settings/organization", label: "Org" },
-  { to: "/merchant/settings/billing", label: "Billing" },
-  { to: "/merchant/settings/security", label: "Security" },
-  { to: "/merchant/settings/notifications", label: "Alerts" },
-  { to: "/merchant/settings/team", label: "Team" },
-] as const;
+type NavItem = {
+  to: string;
+  label: string;
+  end?: boolean;
+  matchPrefix?: string;
+  exclude?: string;
+  Icon: ComponentType<{ className?: string }>;
+};
 
-const CASHIER_NAV = [
-  { to: "/merchant", label: "Dashboard", end: true },
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const OWNER_GROUPS: NavGroup[] = [
   {
-    to: "/merchant/orders",
-    label: "My Orders",
-    matchPrefix: "/merchant/orders",
-    exclude: "/merchant/orders/new",
+    label: "Portal controls",
+    items: [
+      { to: "/merchant", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+      {
+        to: "/merchant/orders",
+        label: "Orders",
+        matchPrefix: "/merchant/orders",
+        Icon: OrdersNavIcon,
+      },
+      {
+        to: "/merchant/service-bills",
+        label: "Service Bills",
+        matchPrefix: "/merchant/service-bills",
+        Icon: BillsNavIcon,
+      },
+      {
+        to: "/merchant/sites",
+        label: "Sites",
+        matchPrefix: "/merchant/sites",
+        Icon: SitesNavIcon,
+      },
+      {
+        to: "/merchant/reports",
+        label: "Reports",
+        matchPrefix: "/merchant/reports",
+        Icon: ReportsNavIcon,
+      },
+      {
+        to: "/merchant/settings/settlement",
+        label: "Settlement",
+        matchPrefix: "/merchant/settings/settlement",
+        Icon: SettlementNavIcon,
+      },
+      {
+        to: "/merchant/settings/organization",
+        label: "Org",
+        matchPrefix: "/merchant/settings/organization",
+        Icon: OrgNavIcon,
+      },
+      {
+        to: "/merchant/settings/team",
+        label: "Team",
+        matchPrefix: "/merchant/settings/team",
+        Icon: TeamNavIcon,
+      },
+    ],
   },
-  { to: "/merchant/orders/new", label: "Create Order" },
-] as const;
+  {
+    label: "Settings",
+    items: [
+      {
+        to: "/merchant/settings/integrations",
+        label: "Integrations",
+        matchPrefix: "/merchant/settings/integrations",
+        Icon: IntegrationsNavIcon,
+      },
+      {
+        to: "/merchant/settings/billing",
+        label: "Billing",
+        matchPrefix: "/merchant/settings/billing",
+        Icon: BillingNavIcon,
+      },
+      {
+        to: "/merchant/settings/security",
+        label: "Security",
+        matchPrefix: "/merchant/settings/security",
+        Icon: SecurityNavIcon,
+      },
+      {
+        to: "/merchant/settings/notifications",
+        label: "Alerts",
+        matchPrefix: "/merchant/settings/notifications",
+        Icon: AlertsNavIcon,
+      },
+    ],
+  },
+];
+
+const CASHIER_GROUPS: NavGroup[] = [
+  {
+    label: "Cashier terminal",
+    items: [
+      { to: "/merchant", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+      {
+        to: "/merchant/orders",
+        label: "My Orders",
+        matchPrefix: "/merchant/orders",
+        exclude: "/merchant/orders/new",
+        Icon: OrdersNavIcon,
+      },
+      {
+        to: "/merchant/orders/new",
+        label: "Create Order",
+        Icon: OrdersNavIcon,
+      },
+    ],
+  },
+];
 
 type Props = {
   session: Session;
@@ -45,7 +140,21 @@ type Props = {
   children: ReactNode;
   onSignOut: () => void;
   showCashierBanner?: boolean;
+  siteLabel?: string | null;
 };
+
+function navItemClass(
+  pathname: string,
+  item: NavItem,
+  isActive: boolean,
+): string {
+  const prefixActive =
+    item.matchPrefix != null &&
+    pathname.startsWith(item.matchPrefix) &&
+    !(item.exclude && pathname.startsWith(item.exclude));
+  const active = isActive || prefixActive;
+  return `nav-item${active ? " active" : ""}`;
+}
 
 export function MerchantShell({
   session,
@@ -54,10 +163,35 @@ export function MerchantShell({
   children,
   onSignOut,
   showCashierBanner = false,
+  siteLabel = null,
 }: Props) {
   const location = useLocation();
   const cashier = sessionIsCashierOnly(session);
-  const nav = cashier ? CASHIER_NAV : OWNER_NAV;
+  const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
+  const merchantId = primaryMerchantOrgId(session);
+  const [resolvedSite, setResolvedSite] = useState<string | null>(siteLabel);
+
+  useEffect(() => {
+    if (siteLabel) {
+      setResolvedSite(siteLabel);
+      return;
+    }
+    if (!merchantId || cashier) {
+      setResolvedSite(null);
+      return;
+    }
+    let cancelled = false;
+    getOrg(merchantId)
+      .then((org) => {
+        if (!cancelled) setResolvedSite(org.name);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedSite(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [siteLabel, merchantId, cashier]);
 
   return (
     <div className="shell">
@@ -71,36 +205,35 @@ export function MerchantShell({
             </span>
           </div>
         </div>
-        <div>
-          <p className="nav-label">{cashier ? "CASHIER TERMINAL" : "PORTAL CONTROLS"}</p>
-          <nav className="nav-list">
-            {nav.map((item) => {
-              const prefix = "matchPrefix" in item ? item.matchPrefix : undefined;
-              const exclude = "exclude" in item ? item.exclude : undefined;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={"end" in item ? item.end : false}
-                  className={({ isActive }) => {
-                    const path = location.pathname;
-                    const prefixActive =
-                      prefix != null &&
-                      path.startsWith(prefix) &&
-                      !(exclude && path.startsWith(exclude));
-                    const active = isActive || prefixActive;
-                    return `nav-item${active ? " active" : ""}`;
-                  }}
-                >
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </nav>
-        </div>
+        <nav className="nav-list" aria-label="Merchant">
+          {groups.map((group) => (
+            <div key={group.label} className="nav-group">
+              <p className="nav-label">{group.label}</p>
+              {group.items.map((item) => {
+                const { Icon } = item;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end ?? false}
+                    className={({ isActive }) =>
+                      navItemClass(location.pathname, item, isActive)
+                    }
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
         <div className="sidebar-foot">
-          <p>SESSION // {session.email}</p>
-          <p>{cashier ? "Cashier Session Active" : "Merchant session"}</p>
+          <p>
+            MERCH_ID //{" "}
+            {merchantId ? merchantId.slice(0, 8).toUpperCase() : "—"}
+          </p>
+          <p>{cashier ? "Cashier session active" : "Enterprise tier active"}</p>
           <p>
             <button type="button" className="sign-out-btn" onClick={onSignOut}>
               Sign out
@@ -112,12 +245,34 @@ export function MerchantShell({
         <header className="topbar">
           <div className="topbar-left">
             <h1>{title}</h1>
+            {!cashier && resolvedSite ? (
+              <div className="site-selector" title={resolvedSite}>
+                <span>{resolvedSite}</span>
+              </div>
+            ) : null}
           </div>
           <div className="topbar-right">
             <span className="net-pill">MAINNET ACTIVE</span>
+            {!cashier ? (
+              <Link
+                to="/merchant/settings/notifications"
+                className="alerts-bell"
+                aria-label="Alerts"
+                title="Alerts"
+              >
+                <span
+                  className="alerts-bell-icon"
+                  style={{
+                    WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
+                    maskImage: "url(/icons/nav/bell-ring.svg)",
+                  }}
+                  aria-hidden
+                />
+              </Link>
+            ) : null}
             <div className="profile">
-              <strong>{session.email}</strong>
-              <span>{cashier ? "Terminal Operator" : "Merchant"}</span>
+              <strong>{session.email.split("@")[0]}</strong>
+              <span>{cashier ? "Terminal Operator" : "Merchant Executive"}</span>
             </div>
           </div>
         </header>

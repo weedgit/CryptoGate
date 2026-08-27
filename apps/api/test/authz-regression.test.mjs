@@ -15,6 +15,7 @@ import {
   canExportPaymentOrders,
   canIssueServiceBill,
   canManageWebhooks,
+  canReadAgentPayout,
   canReadPaymentOrder,
   canViewMatchingModeSettings,
   canViewServiceBill,
@@ -22,6 +23,7 @@ import {
   canViewWebhooks,
   canViewXpubSettings,
   canUpdateServiceBill,
+  canUpdateAgentPayout,
   auditListScope,
   paymentOrderListScope,
   resolveApiKeyOrgId,
@@ -76,8 +78,9 @@ const platformOwner = {
   orgType: "platform",
 };
 
-const orderAByCashier = { orgId: "m-a", createdBy: "u-cashier-a" };
+const agentOrg = { id: "a1", type: "agent" };
 const orderAByOwner = { orgId: "m-a", createdBy: "u-owner-a" };
+const orderAByCashier = { orgId: "m-a", createdBy: "u-cashier-a" };
 const orderB = { orgId: "m-b", createdBy: "u-owner-b" };
 
 function caller(memberships, extras = {}) {
@@ -124,12 +127,29 @@ describe("M4-10 authz regression — Cashier denials", () => {
 describe("M4-10 authz regression — agent bars", () => {
   const a = caller([agentOwner]);
 
-  it("cannot create or list merchant payment orders", () => {
+  it("agent Owner may set payout address; platform operator may not", () => {
+    assert.equal(canUpdateAgentPayout(a, agentOrg), true);
+    assert.equal(canReadAgentPayout(a, agentOrg), true);
+    const p = caller([platformOwner], {
+      platformOperator: true,
+      platformOwner: true,
+    });
+    assert.equal(canUpdateAgentPayout(p, agentOrg), false);
+    assert.equal(canReadAgentPayout(p, agentOrg), true);
+  });
+
+  it("cannot create payment orders; may list/export subtree (watch-only)", () => {
     assert.equal(canCreatePaymentOrder(a.memberships, "m-a"), false);
     assert.equal(resolveOrderOrgId(a.memberships, null).status, 403);
-    assert.equal(paymentOrderListScope(a).kind, "none");
+    assert.deepEqual(paymentOrderListScope(a), {
+      kind: "scoped",
+      treeRoots: ["a1"],
+      cashierOrgIds: [],
+      userId: "u-agent",
+    });
+    // Direct membership check — detail routes also allow subtree via list scope helper
     assert.equal(canReadPaymentOrder(a, orderAByOwner), false);
-    assert.equal(canExportPaymentOrders(a), false);
+    assert.equal(canExportPaymentOrders(a), true);
   });
 
   it("cannot manage merchant webhooks/API keys or change settlement", () => {

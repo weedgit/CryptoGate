@@ -1,13 +1,17 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { getSession, logout, type Session } from "./api";
+import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
+import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
+import { sessionNeedsForcedMfa } from "../auth/mfaSession";
+import { SecuritySettingsPage } from "../auth/SecuritySettingsPage";
 import { AgentsListPage } from "./AgentsListPage";
-import { AgentDetailPage } from "./AgentDetailPage";
+import { ArchitecturePage } from "./ArchitecturePage";
 import { DashboardPage } from "./DashboardPage";
 import { IssueServiceBillPage } from "./IssueServiceBillPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantsListPage } from "./MerchantsListPage";
-import { MerchantDetailPage } from "./MerchantDetailPage";
+import { OnboardMerchantPage } from "./OnboardMerchantPage";
 import { OnboardAgentPage } from "./OnboardAgentPage";
 import { PlatformShell } from "./PlatformShell";
 import {
@@ -15,26 +19,29 @@ import {
   RequirePlatformPortal,
 } from "./RequirePlatformPortal";
 import { AuditLogPage } from "./AuditLogPage";
+import { CompliancePage } from "./CompliancePage";
 import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
+import { PlatformPending } from "./ui/PlatformPending";
+import { NetworkCatalogPage } from "./NetworkCatalogPage";
 import { PlatformSettingsPage } from "./PlatformSettingsPage";
+import { PlatformTeamPage } from "./PlatformTeamPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
+import { SystemHealthPage } from "./SystemHealthPage";
 
 type ShellProps = {
   session: Session;
-  title: string;
-  crumb: string;
+  title?: string;
   children: ReactNode;
   onSignOut: () => void;
 };
 
-function Shell({ session, title, crumb, children, onSignOut }: ShellProps) {
+function Shell({ session, title, children, onSignOut }: ShellProps) {
   return (
     <RequirePlatformPortal session={session}>
       <PlatformShell
         session={session}
         title={title}
-        crumb={crumb}
         onSignOut={onSignOut}
       >
         {children}
@@ -57,7 +64,10 @@ export function PlatformApp() {
   if (booting) {
     return (
       <div className="login-wrap">
-        <p style={{ color: "var(--muted)" }}>Loading…</p>
+        <PlatformPending
+          title="Starting platform"
+          copy="Checking your session."
+        />
       </div>
     );
   }
@@ -72,6 +82,26 @@ export function PlatformApp() {
     );
   }
 
+  if (session.mustChangePassword) {
+    return (
+      <ForceChangePasswordGate
+        session={session}
+        portalLabel="Platform portal"
+        onChanged={setSession}
+      />
+    );
+  }
+
+  if (sessionNeedsForcedMfa(session)) {
+    return (
+      <ForceMfaEnrollmentGate
+        session={session}
+        portalLabel="Platform portal"
+        onEnrolled={setSession}
+      />
+    );
+  }
+
   const signOut = async () => {
     await logout();
     setSession(null);
@@ -82,33 +112,15 @@ export function PlatformApp() {
       <Route
         index
         element={
-          <Shell
-            session={session}
-            title="Platform Dashboard"
-            crumb="Overview"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}>
             <DashboardPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="agents"
-        element={
-          <Shell session={session} title="Agent Accounts" crumb="Agents" onSignOut={signOut}>
-            <AgentsListPage session={session} />
           </Shell>
         }
       />
       <Route
         path="agents/new"
         element={
-          <Shell
-            session={session}
-            title="Onboard Agent"
-            crumb="Agents"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}>
             <RequirePlatformOperator session={session}>
               <OnboardAgentPage />
             </RequirePlatformOperator>
@@ -118,51 +130,61 @@ export function PlatformApp() {
       <Route
         path="agents/:id"
         element={
-          <Shell
-            session={session}
-            title="Agent Detail"
-            crumb="Agents"
-            onSignOut={signOut}
-          >
-            <AgentDetailPage />
+          <Shell session={session} onSignOut={signOut}>
+            <AgentsListPage session={session} />
           </Shell>
         }
       />
       <Route
-        path="merchants"
+        path="agents"
+        element={
+          <Shell session={session} onSignOut={signOut}>
+            <AgentsListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="merchants/new"
         element={
           <Shell
             session={session}
-            title="Merchants"
-            crumb="Merchants"
+            title="Onboard Merchant"
             onSignOut={signOut}
           >
-            <MerchantsListPage />
+            <RequirePlatformOperator session={session}>
+              <OnboardMerchantPage session={session} />
+            </RequirePlatformOperator>
           </Shell>
         }
       />
       <Route
         path="merchants/:id"
         element={
-          <Shell
-            session={session}
-            title="Merchant Detail"
-            crumb="Merchants"
-            onSignOut={signOut}
-          >
-            <MerchantDetailPage />
+          <Shell session={session} onSignOut={signOut}>
+            <MerchantsListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="merchants"
+        element={
+          <Shell session={session} onSignOut={signOut}>
+            <MerchantsListPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="architecture"
+        element={
+          <Shell session={session} onSignOut={signOut}>
+            <ArchitecturePage session={session} />
           </Shell>
         }
       />
       <Route
         path="service-bills"
         element={
-          <Shell
-            session={session}
-            title="Service Bills"
-            crumb="Billing"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}>
             <ServiceBillsListPage session={session} />
           </Shell>
         }
@@ -173,7 +195,6 @@ export function PlatformApp() {
           <Shell
             session={session}
             title="Issue Service Bill"
-            crumb="Billing"
             onSignOut={signOut}
           >
             <RequirePlatformOperator session={session}>
@@ -187,8 +208,7 @@ export function PlatformApp() {
         element={
           <Shell
             session={session}
-            title="Service Bill Detail"
-            crumb="Billing"
+            title="Service Bill Details"
             onSignOut={signOut}
           >
             <ServiceBillDetailPage session={session} />
@@ -198,13 +218,20 @@ export function PlatformApp() {
       <Route
         path="audit"
         element={
+          <Shell session={session} onSignOut={signOut}>
+            <AuditLogPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="compliance"
+        element={
           <Shell
             session={session}
-            title="Audit Log"
-            crumb="Audit"
+            title="Payment anomalies"
             onSignOut={signOut}
           >
-            <AuditLogPage />
+            <CompliancePage />
           </Shell>
         }
       />
@@ -213,11 +240,22 @@ export function PlatformApp() {
         element={
           <Shell
             session={session}
-            title="Platform Settings"
-            crumb="Settings"
+            title="Global Settings"
             onSignOut={signOut}
           >
             <PlatformSettingsPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/security"
+        element={
+          <Shell session={session} title="Security" onSignOut={signOut}>
+            <SecuritySettingsPage
+              session={session}
+              variant="platform"
+              onSessionRefresh={setSession}
+            />
           </Shell>
         }
       />
@@ -226,11 +264,46 @@ export function PlatformApp() {
         element={
           <Shell
             session={session}
-            title="Fee Tiers"
-            crumb="Settings"
+            title="Fee Tiers & Pricing"
             onSignOut={signOut}
           >
             <FeeTiersSettingsPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/networks"
+        element={
+          <Shell
+            session={session}
+            title="Network Catalog"
+            onSignOut={signOut}
+          >
+            <NetworkCatalogPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/team"
+        element={
+          <Shell
+            session={session}
+            title="Platform Team"
+            onSignOut={signOut}
+          >
+            <PlatformTeamPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="ops/health"
+        element={
+          <Shell
+            session={session}
+            title="System Health"
+            onSignOut={signOut}
+          >
+            <SystemHealthPage />
           </Shell>
         }
       />

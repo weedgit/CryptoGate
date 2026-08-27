@@ -5,6 +5,7 @@ import {
   clientIp,
   isGuestPaymentPath,
   isLoginPath,
+  isRateLimitExemptPath,
   rateLimitsPerMinute,
 } from "./rate-limit-rules.mjs";
 
@@ -17,6 +18,8 @@ import {
  * @returns {boolean} true when the response was already sent (429)
  */
 export function applyRateLimits(req, res, route) {
+  if (isRateLimitExemptPath(route.method, route.path)) return false;
+
   const limits = rateLimitsPerMinute();
   const ip = clientIp(req.headers, req.socket?.remoteAddress);
   /** @type {{ key: string, limit: number }[]} */

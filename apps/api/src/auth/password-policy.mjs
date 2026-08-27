@@ -38,3 +38,30 @@ export function validatePassword(password) {
   }
   return { ok: true };
 }
+
+/**
+ * Stricter policy for password reset (A3 UI checklist).
+ * @param {string} password
+ * @returns {{ ok: true } | { ok: false, code: string, message: string }}
+ */
+export function validatePasswordReset(password) {
+  const base = validatePassword(password);
+  if (!base.ok) {
+    return base;
+  }
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
+    return {
+      ok: false,
+      code: "password_needs_mixed_case",
+      message: "Password must include upper and lower case letters",
+    };
+  }
+  if (!/\d/.test(password)) {
+    return {
+      ok: false,
+      code: "password_needs_number",
+      message: "Password must include a number",
+    };
+  }
+  return { ok: true };
+}

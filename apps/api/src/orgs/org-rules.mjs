@@ -7,6 +7,28 @@ import {
 const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 
 /**
+ * Trim + lowercase for sibling name comparison.
+ * @param {unknown} name
+ * @returns {string}
+ */
+export function normalizeOrgName(name) {
+  if (typeof name !== "string") return "";
+  return name.trim().toLowerCase();
+}
+
+/**
+ * True when two display names collide under the same parent
+ * (case-insensitive, trimmed).
+ * @param {string} a
+ * @param {string} b
+ */
+export function orgNamesEqual(a, b) {
+  const na = normalizeOrgName(a);
+  const nb = normalizeOrgName(b);
+  return na.length > 0 && na === nb;
+}
+
+/**
  * Count agent / agent_sub nodes from this org up to (but not including) platform.
  * @param {{ type: string, parent_id: string | null } | null} org
  * @param {(id: string) => { type: string, parent_id: string | null } | null} getById
@@ -25,8 +47,31 @@ export function agentDepthOf(org, getById) {
   return depth;
 }
 
+function parseRegistrationFields(input) {
+  const country =
+    typeof input.country === "string" && input.country.trim()
+      ? input.country.trim()
+      : null;
+  const billingEmailRaw =
+    typeof input.billingEmail === "string"
+      ? input.billingEmail.trim()
+      : typeof input.billingContact === "string"
+        ? input.billingContact.trim()
+        : "";
+  const billingEmail = billingEmailRaw || null;
+  const legalName =
+    typeof input.legalName === "string" && input.legalName.trim()
+      ? input.legalName.trim()
+      : null;
+  return { country, billingEmail, legalName };
+}
+
+function withRegistration(insert, input) {
+  return { ...insert, ...parseRegistrationFields(input ?? {}) };
+}
+
 /**
- * @param {{ type?: unknown, name?: unknown, parentId?: unknown, structure?: unknown }} input
+ * @param {{ type?: unknown, name?: unknown, parentId?: unknown, structure?: unknown, country?: unknown, billingEmail?: unknown, billingContact?: unknown, legalName?: unknown }} input
  * @param {{ parent: object | null, maxAgentDepth: number, agentDepthOfParent: number }} ctx
  * @returns {{ ok: true, insert: object } | { ok: false, status: number, code: string, message: string }}
  */
@@ -57,13 +102,16 @@ export function validateCreateOrg(input, ctx) {
     }
     return {
       ok: true,
-      insert: {
-        type,
-        name,
-        parentId: null,
-        structure: null,
-        maxAgentDepth: DEFAULT_MAX_AGENT_DEPTH,
-      },
+      insert: withRegistration(
+        {
+          type,
+          name,
+          parentId: null,
+          structure: null,
+          maxAgentDepth: DEFAULT_MAX_AGENT_DEPTH,
+        },
+        input,
+      ),
     };
   }
 
@@ -99,13 +147,16 @@ export function validateCreateOrg(input, ctx) {
 
   return {
     ok: true,
-    insert: {
-      type,
-      name,
-      parentId,
-      structure: type === "merchant" ? structure : null,
-      maxAgentDepth: null,
-    },
+    insert: withRegistration(
+      {
+        type,
+        name,
+        parentId,
+        structure: type === "merchant" ? structure : null,
+        maxAgentDepth: null,
+      },
+      input,
+    ),
   };
 }
 

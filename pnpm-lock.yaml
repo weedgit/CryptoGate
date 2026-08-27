@@ -57,6 +57,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cryptogate/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       react:
         specifier: ^18.3.1
         version: 18.3.1

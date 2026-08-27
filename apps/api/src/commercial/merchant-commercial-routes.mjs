@@ -14,7 +14,7 @@ import {
 import {
   findMerchantCommercial,
   insertMerchantCommercial,
-  scheduleMerchantCommercialChange,
+  applyMerchantCommercialImmediate,
   setEnterpriseApprovalPending,
 } from "./merchant-commercial-store.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
@@ -142,10 +142,9 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     return;
   }
 
-  const updated = await scheduleMerchantCommercialChange(orgId, {
+  const updated = await applyMerchantCommercialImmediate(orgId, {
     tier: validated.tier,
     volumeFeePercent: validated.volumeFeePercent,
-    reason: validated.reason,
   });
   await insertAuditEvent({
     actorUserId: caller.userId,

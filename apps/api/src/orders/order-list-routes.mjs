@@ -1,8 +1,12 @@
 import { sendCsv, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
+import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
+import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
+import { findOrgById } from "../orgs/org-store.mjs";
 import {
   canExportPaymentOrders,
   canReadPaymentOrder,
+  isMerchantOrgType,
   paymentOrderListScope,
 } from "../orgs/role-policy.mjs";
 import { paymentOrdersToCsv } from "./order-csv.mjs";
@@ -12,6 +16,25 @@ import {
   orgIdInPaymentOrderFilter,
 } from "./order-list-scope.mjs";
 import { listPaymentOrders, toPaymentOrder } from "./order-store.mjs";
+
+/**
+ * @param {string} agentOrgId
+ * @param {object[]} visible
+ */
+async function merchantOrgIdsInAgentSubtree(agentOrgId, visible) {
+  const org = await findOrgById(agentOrgId);
+  if (!org || (org.type !== "agent" && org.type !== "agent_sub")) {
+    return { ok: false, status: 400, code: "invalid_request", message: "agentOrgId must be an agent org" };
+  }
+  if (!isVisibleOrg(visible, agentOrgId)) {
+    return { ok: false, status: 403, code: "forbidden", message: "Outside merchant scope" };
+  }
+  const subtree = await listOrgsInSubtree([agentOrgId]);
+  const merchantOrgIds = subtree
+    .filter((row) => isMerchantOrgType(row.type))
+    .map((row) => row.id);
+  return { ok: true, merchantOrgIds };
+}
 
 /**
  * GET /v1/orders — list (JSON) or export (format=csv) in merchant scope.
@@ -37,6 +60,42 @@ export async function handleListPaymentOrders(req, res) {
 
   if (parsed.csv && !canExportPaymentOrders(caller)) {
     sendError(res, 403, "forbidden", "Cashiers cannot export payment orders");
+    return;
+  }
+
+  if (parsed.agentOrgId) {
+    const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+    const resolved = await merchantOrgIdsInAgentSubtree(parsed.agentOrgId, visible);
+    if (!resolved.ok) {
+      sendError(res, resolved.status, resolved.code, resolved.message);
+      return;
+    }
+    if (parsed.orgId && !resolved.merchantOrgIds.includes(parsed.orgId)) {
+      sendError(res, 403, "forbidden", "Outside merchant scope");
+      return;
+    }
+    const filter = await expandPaymentOrderReadFilter(scope);
+    const allowedIds =
+      filter.kind === "all"
+        ? resolved.merchantOrgIds
+        : resolved.merchantOrgIds.filter((id) =>
+            orgIdInPaymentOrderFilter(filter, id),
+          );
+    const rows =
+      allowedIds.length === 0
+        ? []
+        : await listPaymentOrders({
+            kind: "filter",
+            treeOrgIds: allowedIds,
+            orgId: parsed.orgId,
+            status: parsed.status,
+            limit: parsed.limit,
+          });
+    if (parsed.csv) {
+      sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(rows));
+      return;
+    }
+    sendJson(res, 200, { items: rows.map(toPaymentOrder) });
     return;
   }
 

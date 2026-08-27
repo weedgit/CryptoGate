@@ -71,6 +71,7 @@ export function toPaymentDetails(row) {
 export function toPaymentOrder(row) {
   /** @type {{
    *   id: string,
+   *   orgId: string,
    *   orderNumber: string,
    *   status: string,
    *   matchingMode: string,
@@ -83,10 +84,12 @@ export function toPaymentOrder(row) {
    *   asset: string,
    *   network: string,
    *   expiresAt: string,
+   *   createdAt: string,
    *   createdBy?: string,
    * }} */
   const order = {
     id: row.id,
+    orgId: row.org_id,
     orderNumber: row.order_number,
     status: row.status,
     matchingMode: row.matching_mode,
@@ -102,6 +105,7 @@ export function toPaymentOrder(row) {
     asset: row.asset,
     network: row.network,
     expiresAt: expiresAtIso(row.expires_at),
+    createdAt: expiresAtIso(row.created_at),
   };
   if (row.created_by) {
     order.createdBy = row.created_by;

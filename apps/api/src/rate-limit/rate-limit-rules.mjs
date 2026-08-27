@@ -76,6 +76,17 @@ export function isGuestPaymentPath(method, path) {
 }
 
 /**
+ * Probes and session bootstrap — excluded from IP rate limit (still auth-gated where required).
+ * @param {string} method
+ * @param {string} path
+ */
+export function isRateLimitExemptPath(method, path) {
+  if (method === "GET" && path === "/health") return true;
+  if (method === "GET" && path === "/v1/auth/session") return true;
+  return false;
+}
+
+/**
  * @param {import("node:http").IncomingHttpHeaders} headers
  */
 export function apiKeyIdFromHeaders(headers) {

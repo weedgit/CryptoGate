@@ -1,19 +1,28 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   createOrg,
+  getPlatformOrgs,
+  invalidatePlatformOrgList,
   inviteOrgUser,
-  listOrgs,
+  listOrgMemberEmails,
   type OrgAccount,
 } from "./api";
+import { PlatformPending } from "./ui/PlatformPending";
 import {
   canCreateAgentUnderParent,
   DEFAULT_MAX_AGENT_DEPTH,
-  MERCHANT_TIER_LABELS,
-  type OnboardAgentCommercialStub,
 } from "./onboardAgent";
+import {
+  registeredEmailConflict,
+  fetchRegisteredEmailIndex,
+  REGISTERED_EMAIL_API_MESSAGE,
+} from "../shared/registeredEmails";
+import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { orgTypeLabel } from "./org";
+import { onboardReturnPath } from "./platformNav";
 
 type AgentKind = "agent" | "agent_sub";
 
@@ -24,36 +33,114 @@ type WizardState = {
   displayName: string;
   billingEmail: string;
   country: string;
-  commercial: OnboardAgentCommercialStub;
+  commissionPercent: string;
   ownerEmail: string;
 };
 
-const STEPS = ["Type", "Details", "Commercial", "Owner", "Review"] as const;
+const STEPS = [
+  { label: "Type", title: "Account Type" },
+  { label: "Details", title: "Legal Entity & Contact Information" },
+  { label: "Commercial", title: "Commercial Terms" },
+  { label: "Owner Invite", title: "Owner Invitation" },
+  { label: "Review", title: "Review & Create" },
+] as const;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type FieldKey = "legalName" | "billingEmail" | "country" | "ownerEmail" | "parentId";
+
+function isValidEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim());
+}
+
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <nav className="b4-wizard__steps" aria-label="Wizard progress">
+      {STEPS.map((s, i) => {
+        const done = i < step;
+        const active = i === step;
+        return (
+          <div
+            key={s.label}
+            className={`b4-wizard__step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
+          >
+            <span className="b4-wizard__step-mark" aria-hidden>
+              {done ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M2 5.2 4.1 7.3 8 3.4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : active ? (
+                <span className="b4-wizard__step-dot" />
+              ) : null}
+            </span>
+            <span className="b4-wizard__step-label">{s.label}</span>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
 
 export function OnboardAgentPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(0);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<WizardState>({
-    kind: "agent",
-    parentId: "",
-    legalName: "",
-    displayName: "",
-    billingEmail: "",
-    country: "",
-    commercial: { commissionPercent: "15", defaultMerchantTier: "mid" },
-    ownerEmail: "",
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
+  const [registeredEmails, setRegisteredEmails] = useState<
+    Map<string, RegisteredEmailRef>
+  >(() => new Map());
+  const dismissToast = useCallback(() => setError(null), []);
+  const cancelTo = useMemo(
+    () => onboardReturnPath(searchParams, "/platform/agents"),
+    [searchParams],
+  );
+  const [form, setForm] = useState<WizardState>(() => {
+    const kindParam = searchParams.get("kind");
+    const parentParam = searchParams.get("parentId")?.trim() ?? "";
+    const kind: AgentKind =
+      kindParam === "agent_sub" && parentParam ? "agent_sub" : "agent";
+    return {
+      kind,
+      parentId: kind === "agent_sub" ? parentParam : "",
+      legalName: "",
+      displayName: "",
+      billingEmail: "",
+      country: "",
+      commissionPercent: "15",
+      ownerEmail: "",
+    };
   });
 
   useEffect(() => {
-    listOrgs()
+    getPlatformOrgs()
       .then(setOrgs)
       .catch(() => setOrgs([]))
       .finally(() => setBooting(false));
   }, []);
+
+  useEffect(() => {
+    if (orgs.length === 0) {
+      setRegisteredEmails(new Map());
+      return;
+    }
+    let cancelled = false;
+    void fetchRegisteredEmailIndex(orgs, listOrgMemberEmails).then((index) => {
+      if (!cancelled) setRegisteredEmails(index);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgs]);
 
   const platformOrg = useMemo(
     () => orgs.find((o) => o.type === "platform") ?? null,
@@ -73,6 +160,11 @@ export function OnboardAgentPage() {
     return form.parentId;
   }, [form.kind, form.parentId, platformOrg]);
 
+  const parentOrg = useMemo(
+    () => (parentId ? orgs.find((o) => o.id === parentId) : null),
+    [orgs, parentId],
+  );
+
   const depthBlocked = useMemo(() => {
     if (!parentId) return false;
     return !canCreateAgentUnderParent(parentId, form.kind, orgs);
@@ -86,23 +178,83 @@ export function OnboardAgentPage() {
 
   function patch<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "legalName" || key === "displayName") {
+      setFieldErrors((prev) => {
+        if (!prev.legalName) return prev;
+        const next = { ...prev };
+        delete next.legalName;
+        return next;
+      });
+    } else if (key in fieldErrors) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key as FieldKey];
+        return next;
+      });
+    }
+    if (error) setError(null);
   }
 
   function validateStep(): string | null {
+    const nextFieldErrors: Partial<Record<FieldKey, string>> = {};
+
     if (step === 0) {
-      if (form.kind === "agent_sub" && !form.parentId) {
-        return "Select a parent agent for a sub-agent account.";
-      }
       if (depthBlocked) {
         return `Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) would be exceeded. Adjust platform settings (B13) or choose a higher parent.`;
       }
+      if (form.kind === "agent_sub" && !form.parentId) {
+        nextFieldErrors.parentId = "Select a parent agent for a sub-agent account.";
+      }
     }
-    if (step === 1 && !apiName) {
-      return "Legal or display name is required.";
+
+    if (step === 1) {
+      if (!apiName) {
+        nextFieldErrors.legalName = "Legal or display name is required.";
+      }
+      const billingEmail = form.billingEmail.trim();
+      if (!billingEmail) {
+        nextFieldErrors.billingEmail = "Billing email is required.";
+      } else if (!isValidEmail(billingEmail)) {
+        nextFieldErrors.billingEmail = "Enter a valid email address.";
+      }
+      if (!form.country.trim()) {
+        nextFieldErrors.country = "Country is required.";
+      }
     }
-    if (step === 3 && !form.ownerEmail.trim()) {
-      return "Owner email is required.";
+
+    if (step === 3) {
+      const ownerEmail = form.ownerEmail.trim();
+      if (!ownerEmail) {
+        nextFieldErrors.ownerEmail = "Owner email is required.";
+      } else if (!isValidEmail(ownerEmail)) {
+        nextFieldErrors.ownerEmail = "Enter a valid email address.";
+      } else {
+        const conflict = registeredEmailConflict(ownerEmail, registeredEmails);
+        if (conflict) nextFieldErrors.ownerEmail = conflict;
+      }
     }
+
+    setFieldErrors(nextFieldErrors);
+    return Object.values(nextFieldErrors)[0] ?? null;
+  }
+
+  function validateSubmit(): string | null {
+    if (!parentId) return "Parent org missing.";
+    if (depthBlocked) {
+      return `Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) would be exceeded. Adjust platform settings (B13) or choose a higher parent.`;
+    }
+    if (!apiName) return "Legal or display name is required.";
+    const billingEmail = form.billingEmail.trim();
+    if (!billingEmail || !isValidEmail(billingEmail)) {
+      return "Enter a valid billing email address.";
+    }
+    if (!form.country.trim()) return "Country is required.";
+    const ownerEmail = form.ownerEmail.trim();
+    if (!ownerEmail || !isValidEmail(ownerEmail)) {
+      return "Enter a valid owner email address.";
+    }
+    const conflict = registeredEmailConflict(ownerEmail, registeredEmails);
+    if (conflict) return conflict;
     return null;
   }
 
@@ -113,41 +265,69 @@ export function OnboardAgentPage() {
       return;
     }
     setError(null);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setFieldErrors({});
+    // Defer so a "Save & Continue" click cannot fall through onto "Create agent account"
+    // when the footer button swaps on the final step.
+    window.setTimeout(() => {
+      setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    }, 0);
   }
 
   function back() {
     setError(null);
+    setFieldErrors({});
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    const msg = validateStep();
-    if (msg || !parentId) {
-      setError(msg ?? "Parent org missing");
+  async function handleCreate() {
+    const msg = validateSubmit();
+    if (msg) {
+      setError(msg);
       return;
     }
+    if (!parentId) return;
     setBusy(true);
     setError(null);
     try {
+      const freshIndex = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
+      setRegisteredEmails(freshIndex);
+      const conflict = registeredEmailConflict(form.ownerEmail, freshIndex);
+      if (conflict) {
+        setFieldErrors({ ownerEmail: conflict });
+        setError(conflict);
+        setStep(3);
+        return;
+      }
+
       const created = await createOrg({
         type: form.kind,
         name: apiName,
         parentId,
+        legalName: form.legalName.trim() || undefined,
+        billingEmail: form.billingEmail.trim(),
+        country: form.country.trim(),
+        commissionPercent: form.commissionPercent.trim() || undefined,
       });
       await inviteOrgUser(created.id, {
         email: form.ownerEmail.trim(),
         role: "owner",
       });
+      invalidatePlatformOrgList();
       navigate(`/platform/agents/${created.id}`, {
-        state: { invitationSent: true, displayName: form.displayName.trim() || apiName },
+        state: {
+          invitationSent: true,
+          displayName: form.displayName.trim() || apiName,
+        },
       });
     } catch (err) {
       if (err instanceof ApiError && err.code === "agent_depth_exceeded") {
         setError(
           `Agent nesting exceeds platform max depth (${DEFAULT_MAX_AGENT_DEPTH}). See fee tier settings (B13).`,
         );
+      } else if (err instanceof ApiError && err.code === "email_taken") {
+        setError(REGISTERED_EMAIL_API_MESSAGE);
+        setFieldErrors({ ownerEmail: REGISTERED_EMAIL_API_MESSAGE });
+        setStep(3);
       } else {
         setError(err instanceof ApiError ? err.message : "Failed to create agent");
       }
@@ -156,233 +336,299 @@ export function OnboardAgentPage() {
     }
   }
 
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (step < STEPS.length - 1) {
+      next();
+      return;
+    }
+    void handleCreate();
+  }
+
   if (booting) {
-    return <p style={{ color: "var(--muted)" }}>Loading org tree…</p>;
+    return (
+      <div className="b4-wizard-page">
+        <PlatformPending
+          title="Loading org tree"
+          copy="Preparing parent options for the new agent."
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="panel wizard-panel">
-      <div className="panel-head">
-        <h2>Onboard agent account</h2>
-        <Link className="btn-secondary" to="/platform/agents">
-          Cancel
-        </Link>
-      </div>
+    <div className="b4-wizard-page">
+      <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+      <div className="b4-wizard-backdrop">
+        <div
+          className="b4-wizard"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="b4-wizard-title"
+        >
+          <header className="b4-wizard__head">
+            <h2 id="b4-wizard-title" className="b4-wizard__title">
+              New Agent
+            </h2>
+            <Link
+              className="b4-wizard__close"
+              to={cancelTo}
+              aria-label="Cancel and return"
+            >
+              ×
+            </Link>
+          </header>
 
-      <ol className="wizard-steps">
-        {STEPS.map((label, i) => (
-          <li key={label} className={i === step ? "active" : i < step ? "done" : ""}>
-            {label}
-          </li>
-        ))}
-      </ol>
+          <StepIndicator step={step} />
 
-      <form className="form-stack" onSubmit={onSubmit}>
-        {step === 0 ? (
-          <>
-            <div className="field">
-              <span className="field-label">Account type</span>
-              <label className="radio-row">
-                <input
-                  type="radio"
-                  checked={form.kind === "agent"}
-                  onChange={() => patch("kind", "agent")}
-                />
-                Agent (top-level under Platform)
-              </label>
-              <label className="radio-row">
-                <input
-                  type="radio"
-                  checked={form.kind === "agent_sub"}
-                  onChange={() => patch("kind", "agent_sub")}
-                />
-                Agent (sub) under parent
-              </label>
+          <form className="b4-wizard__form" onSubmit={onSubmit}>
+            <div className="b4-wizard__body">
+              {step === 0 ? (
+                <>
+                  <div className="b4-field">
+                    <span className="b4-field__label">Account type</span>
+                    <div className="b4-type-options" role="radiogroup" aria-label="Account type">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={form.kind === "agent"}
+                        className={`b4-type-option${form.kind === "agent" ? " is-selected" : ""}`}
+                        onClick={() => patch("kind", "agent")}
+                      >
+                        <span className="b4-type-option__radio" aria-hidden />
+                        <span className="b4-type-option__copy">
+                          <span className="b4-type-option__title">Agent account</span>
+                          <span className="b4-type-option__desc">
+                            Top-level channel partner under Platform
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={form.kind === "agent_sub"}
+                        className={`b4-type-option${form.kind === "agent_sub" ? " is-selected" : ""}`}
+                        onClick={() => patch("kind", "agent_sub")}
+                      >
+                        <span className="b4-type-option__radio" aria-hidden />
+                        <span className="b4-type-option__copy">
+                          <span className="b4-type-option__title">Agent (sub) account</span>
+                          <span className="b4-type-option__desc">
+                            Nested agent account under an existing parent
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  {form.kind === "agent_sub" ? (
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="parent-agent">
+                        Parent agent
+                      </label>
+                      <select
+                        id="parent-agent"
+                        className={`b4-field__control${fieldErrors.parentId ? " is-invalid" : ""}`}
+                        value={form.parentId}
+                        onChange={(e) => patch("parentId", e.target.value)}
+                      >
+                        <option value="">select parent</option>
+                        {agentParents
+                          .filter((o) => o.type !== "platform")
+                          .map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name} ({orgTypeLabel(o.type)})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  ) : null}
+                  {depthBlocked ? (
+                    <p className="b4-wizard__error">
+                      Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached for this parent.{" "}
+                      <Link to="/platform/settings/fee-tiers">Platform fees</Link>
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+
+              {step === 1 ? (
+                <>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="legal-name">
+                      Legal name
+                    </label>
+                    <input
+                      id="legal-name"
+                      className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
+                      value={form.legalName}
+                      onChange={(e) => patch("legalName", e.target.value)}
+                      placeholder="Registered entity name"
+                      autoComplete="organization"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="display-name">
+                      Display name
+                    </label>
+                    <input
+                      id="display-name"
+                      className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
+                      value={form.displayName}
+                      onChange={(e) => patch("displayName", e.target.value)}
+                      placeholder="Portal label (optional)"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="b4-field-row">
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="billing-email">
+                        Billing email
+                      </label>
+                      <input
+                        id="billing-email"
+                        className={`b4-field__control${fieldErrors.billingEmail ? " is-invalid" : ""}`}
+                        type="email"
+                        value={form.billingEmail}
+                        onChange={(e) => patch("billingEmail", e.target.value)}
+                        placeholder="billing@agent.example"
+                        autoComplete="email"
+                      />
+                    </div>
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="country">
+                        Country
+                      </label>
+                      <input
+                        id="country"
+                        className={`b4-field__control${fieldErrors.country ? " is-invalid" : ""}`}
+                        value={form.country}
+                        onChange={(e) => patch("country", e.target.value)}
+                        placeholder="Singapore (SG)"
+                        autoComplete="country-name"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              {step === 2 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="commission">
+                    Commission % on platform fee
+                  </label>
+                  <input
+                    id="commission"
+                    className="b4-field__control"
+                    inputMode="decimal"
+                    value={form.commissionPercent}
+                    onChange={(e) => patch("commissionPercent", e.target.value)}
+                    placeholder="15"
+                    autoFocus
+                  />
+                  <p className="b4-field__hint">
+                    Merchant tier is chosen per merchant when the agent onboard them.
+                  </p>
+                </div>
+              ) : null}
+
+              {step === 3 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="owner-email">
+                    Invite first Owner
+                  </label>
+                  <input
+                    id="owner-email"
+                    className={`b4-field__control${fieldErrors.ownerEmail ? " is-invalid" : ""}`}
+                    type="email"
+                    value={form.ownerEmail}
+                    onChange={(e) => patch("ownerEmail", e.target.value)}
+                    placeholder="owner@agent.example"
+                    autoFocus
+                  />
+                  <p className="b4-field__hint">
+                    An invitation is sent after the agent account is created.
+                  </p>
+                </div>
+              ) : null}
+
+              {step === 4 ? (
+                <dl className="b4-review">
+                  <div className="b4-review__row">
+                    <dt>Type</dt>
+                    <dd>{orgTypeLabel(form.kind)}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Parent</dt>
+                    <dd>{parentOrg?.name ?? parentId ?? "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Legal name</dt>
+                    <dd>{apiName}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Display name</dt>
+                    <dd>{form.displayName.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Billing email</dt>
+                    <dd>{form.billingEmail.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Country</dt>
+                    <dd>{form.country.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Commission</dt>
+                    <dd>{form.commissionPercent}%</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Owner invite</dt>
+                    <dd>{form.ownerEmail.trim()}</dd>
+                  </div>
+                </dl>
+              ) : null}
             </div>
-            {form.kind === "agent_sub" ? (
-              <div className="field">
-                <label htmlFor="parent-agent">Parent agent</label>
-                <select
-                  id="parent-agent"
-                  className="field-control"
-                  value={form.parentId}
-                  onChange={(e) => patch("parentId", e.target.value)}
-                  required
+
+            <footer className="b4-wizard__foot">
+              <div className="b4-wizard__foot-left">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    className="b4-wizard__back"
+                    onClick={back}
+                    disabled={busy}
+                  >
+                    Back
+                  </button>
+                ) : null}
+                <Link className="b4-wizard__cancel" to={cancelTo}>
+                  Cancel
+                </Link>
+              </div>
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={next}
+                  disabled={depthBlocked}
                 >
-                  <option value="">Select parent…</option>
-                  {agentParents
-                    .filter((o) => o.type !== "platform")
-                    .map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name} ({orgTypeLabel(o.type)})
-                      </option>
-                    ))}
-                </select>
-              </div>
-            ) : null}
-            {depthBlocked ? (
-              <p className="error">
-                Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached for this parent.{" "}
-                <Link to="/platform/settings/fee-tiers">Platform settings (B13)</Link>
-              </p>
-            ) : null}
-          </>
-        ) : null}
-
-        {step === 1 ? (
-          <>
-            <div className="field">
-              <label htmlFor="legal-name">Legal name</label>
-              <input
-                id="legal-name"
-                className="field-control"
-                value={form.legalName}
-                onChange={(e) => patch("legalName", e.target.value)}
-                placeholder="Registered entity name"
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="display-name">Display name</label>
-              <input
-                id="display-name"
-                className="field-control"
-                value={form.displayName}
-                onChange={(e) => patch("displayName", e.target.value)}
-                placeholder="Portal label (optional if legal name set)"
-              />
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="billing-email">Billing email</label>
-                <input
-                  id="billing-email"
-                  className="field-control"
-                  type="email"
-                  value={form.billingEmail}
-                  onChange={(e) => patch("billingEmail", e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="country">Country</label>
-                <input
-                  id="country"
-                  className="field-control"
-                  value={form.country}
-                  onChange={(e) => patch("country", e.target.value)}
-                />
-              </div>
-            </div>
-            <p className="stub-note">
-              Stub — billing email and country are collected for B4 UX only. Only{" "}
-              <strong>legal/display name</strong> is sent to <code>POST /v1/orgs</code>{" "}
-              today.
-            </p>
-          </>
-        ) : null}
-
-        {step === 2 ? (
-          <>
-            <div className="banner banner-warn">
-              Commercial step is <strong>stub UI</strong> until Kevin ships X-01 fee
-              tier / commission API (OpenAPI v0.3.2+). Values appear on review but are
-              not persisted.
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="commission">Commission % on platform fee</label>
-                <input
-                  id="commission"
-                  className="field-control"
-                  value={form.commercial.commissionPercent}
-                  onChange={(e) =>
-                    patch("commercial", {
-                      ...form.commercial,
-                      commissionPercent: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="tier">Default merchant tier</label>
-                <select
-                  id="tier"
-                  className="field-control"
-                  value={form.commercial.defaultMerchantTier}
-                  onChange={(e) =>
-                    patch("commercial", {
-                      ...form.commercial,
-                      defaultMerchantTier: e.target.value as OnboardAgentCommercialStub["defaultMerchantTier"],
-                    })
-                  }
+                  Save &amp; Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={() => void handleCreate()}
+                  disabled={busy || depthBlocked}
                 >
-                  <option value="small">Small</option>
-                  <option value="mid">Mid</option>
-                  <option value="enterprise">Enterprise</option>
-                </select>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="field">
-            <label htmlFor="owner-email">Invite first Owner</label>
-            <input
-              id="owner-email"
-              className="field-control"
-              type="email"
-              required
-              value={form.ownerEmail}
-              onChange={(e) => patch("ownerEmail", e.target.value)}
-            />
-            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
-              Real — calls <code>POST /v1/orgs{"{id}"}/users</code> after org create.
-            </p>
-          </div>
-        ) : null}
-
-        {step === 4 ? (
-          <dl className="detail-grid">
-            <dt>Type</dt>
-            <dd>{orgTypeLabel(form.kind)}</dd>
-            <dt>Parent</dt>
-            <dd className="mono">{parentId || "—"}</dd>
-            <dt>Name (API)</dt>
-            <dd>{apiName}</dd>
-            <dt>Billing email</dt>
-            <dd>{form.billingEmail.trim() || "— (stub)"}</dd>
-            <dt>Country</dt>
-            <dd>{form.country.trim() || "— (stub)"}</dd>
-            <dt>Commission</dt>
-            <dd>{form.commercial.commissionPercent}% (stub)</dd>
-            <dt>Default tier</dt>
-            <dd>
-              {MERCHANT_TIER_LABELS[form.commercial.defaultMerchantTier]} (stub)
-            </dd>
-            <dt>Owner invite</dt>
-            <dd>{form.ownerEmail.trim()}</dd>
-          </dl>
-        ) : null}
-
-        {error ? <p className="error">{error}</p> : null}
-
-        <div className="action-row">
-          {step > 0 ? (
-            <button type="button" className="btn-secondary" onClick={back} disabled={busy}>
-              Back
-            </button>
-          ) : null}
-          {step < STEPS.length - 1 ? (
-            <button type="button" className="btn-primary" onClick={next} disabled={depthBlocked}>
-              Next
-            </button>
-          ) : (
-            <button className="btn-primary" type="submit" disabled={busy || depthBlocked}>
-              {busy ? "Creating…" : "Create agent account"}
-            </button>
-          )}
+                  {busy ? "Creating…" : "Create agent account"}
+                </button>
+              )}
+            </footer>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

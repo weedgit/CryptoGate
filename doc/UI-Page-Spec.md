@@ -311,8 +311,9 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 - Search by name, ID, email
 - Filters: status (active/suspended), parent (top-level / under agent X)
 - Table columns: name, type (Agent / Agent (sub)), parent agent, depth level, merchant count, volume (period), status, created date
-- Row actions (O, A): View (B3), Suspend, Edit fee band assignment
-- **+ Onboard agent account** (O, A) → B4
+- Row actions (O, A): View (B3), **Pause** / **Run** (resume), **Delete** (empty agents only), Edit fee band assignment
+- **+ Onboard agent** (O, A) → B4
+- Status column: Active / Paused (`OrgAccount.status`)
 
 **Empty state:** “No agent accounts yet.”
 
@@ -372,7 +373,10 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 
 - Search, filters: agent, tier (Small/Mid/Enterprise), structure (single/multi-location), status
 - Columns: merchant name, agent, tier, structure, volume (period), effective volume fee %, open anomalies, status
-- Row: View (B6), Compliance actions (O, A)
+- Row actions (O, A): View (B6), **Pause** / **Run**, **Delete** (empty merchants only)
+- **+ Onboard merchant** (O, A) → wizard under chosen parent agent
+
+**Empty state:** “No merchant accounts visible.”
 
 ---
 

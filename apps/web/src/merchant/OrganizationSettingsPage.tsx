@@ -89,15 +89,18 @@ export function OrganizationSettingsPage({ session }: Props) {
             label="Parent org"
             value={parent?.name ?? (org.parentId ? truncateAddress(org.parentId, 8, 4) : "—")}
           />
-          <FieldRow label="Billing contact" value="— (API pending)" />
-          <FieldRow label="Timezone" value="— (API pending)" />
-          <FieldRow label="Receipt defaults" value="Address truncation on slips (API pending)" />
+          <FieldRow label="Billing contact" value="Not on org API yet" />
+          <FieldRow label="Timezone" value="Not on org API yet" />
+          <FieldRow
+            label="Receipt defaults"
+            value="Address truncation on slips (not on org API yet)"
+          />
           {!canEdit ? (
             <p className="muted settings-note">Viewer access — read only.</p>
           ) : (
             <p className="muted settings-note">
-              Profile edits will save here when org PATCH is on the API. Structure is
-              read-only per contract.
+              Legal name and structure are read-only here. Billing contact,
+              timezone, and receipt defaults unlock when org PATCH lands.
             </p>
           )}
         </div>

@@ -399,8 +399,8 @@ export function MerchantDetailPage() {
             }}
           >
             <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              Adjust tier or volume fee within platform bands. Effective next billing
-              period; Enterprise outside band queues platform approval.
+              Adjust tier or volume fee within platform bands. Changes apply
+              immediately. Enterprise outside band queues platform approval.
             </p>
             <div className="field">
               <label htmlFor="c-tier">Tier</label>
@@ -442,7 +442,7 @@ export function MerchantDetailPage() {
               />
             </div>
             <button type="submit" className="btn-primary" disabled={commercialBusy}>
-              {commercialBusy ? "Saving…" : "Schedule change"}
+              {commercialBusy ? "Saving…" : "Save changes"}
             </button>
           </form>
         ) : (

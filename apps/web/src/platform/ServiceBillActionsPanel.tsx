@@ -1,5 +1,11 @@
 import { FormEvent, useMemo, useState } from "react";
-import { ApiError, updateServiceBill, type ServiceBill, type Session } from "./api";
+import {
+  ApiError,
+  invalidatePlatformServiceBillsList,
+  updateServiceBill,
+  type ServiceBill,
+  type Session,
+} from "./api";
 import { sessionCanIssueServiceBill } from "./org";
 
 type Props = {
@@ -27,7 +33,9 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
     setBusy(action);
     setError(null);
     try {
-      onUpdated(await fn());
+      const next = await fn();
+      invalidatePlatformServiceBillsList();
+      onUpdated(next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Action failed");
     } finally {
@@ -68,69 +76,88 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
 
   if (!canMarkPaid && !canVoid && !canAdjust) {
     return (
-      <p style={{ color: "var(--muted)", marginTop: 24 }}>
-        No platform actions available for status &ldquo;{bill.status}&rdquo;.
-      </p>
+      <section className="plat-bill-detail__card plat-bill-actions">
+        <h2 className="plat-bill-detail__section-title">Platform actions</h2>
+        <p className="plat-bill-actions__none">
+          No actions available for status &ldquo;{bill.status}&rdquo;.
+        </p>
+      </section>
     );
   }
 
   return (
-    <div className="panel" style={{ marginTop: 24, padding: 24 }}>
-      <h3 style={{ margin: "0 0 16px", fontSize: 16 }}>Platform actions</h3>
-      <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>
-        Off-chain mark paid / void / adjust — separate from merchant payment orders.
+    <section className="plat-bill-detail__card plat-bill-actions">
+      <h2 className="plat-bill-detail__section-title">Platform actions</h2>
+      <p className="plat-bill-actions__lead">
+        Off-chain mark paid, void, or adjust — separate from merchant payment
+        orders.
       </p>
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error plat-bill-actions__error">{error}</p> : null}
 
       {canMarkPaid ? (
-        <form className="form-stack bill-action-form" onSubmit={onMarkPaid}>
-          <p className="field-label">Mark paid</p>
-          <div className="field">
-            <label htmlFor="pay-ref">Payment reference (optional)</label>
+        <form className="plat-bill-actions__block" onSubmit={onMarkPaid}>
+          <p className="plat-bill-actions__block-title">Mark paid</p>
+          <div className="b4-field">
+            <label className="b4-field__label" htmlFor="pay-ref">
+              Payment reference (optional)
+            </label>
             <input
               id="pay-ref"
-              className="field-control"
+              className="b4-field__control"
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
               placeholder="Bank ref or tx note"
               disabled={busy !== null}
             />
           </div>
-          <button type="submit" className="btn-primary" disabled={busy !== null}>
+          <button
+            type="submit"
+            className="plat-bill-actions__primary"
+            disabled={busy !== null}
+          >
             {busy === "mark_paid" ? "Saving…" : "Mark paid"}
           </button>
         </form>
       ) : null}
 
       {canVoid ? (
-        <form className="form-stack bill-action-form" onSubmit={onVoid}>
-          <p className="field-label">Void (issued only)</p>
-          <div className="field">
-            <label htmlFor="void-reason">Reason</label>
+        <form className="plat-bill-actions__block" onSubmit={onVoid}>
+          <p className="plat-bill-actions__block-title">Void bill</p>
+          <div className="b4-field">
+            <label className="b4-field__label" htmlFor="void-reason">
+              Reason
+            </label>
             <input
               id="void-reason"
-              className="field-control"
+              className="b4-field__control"
               required
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
               disabled={busy !== null}
+              placeholder="Required"
             />
           </div>
-          <button type="submit" className="btn-secondary" disabled={busy !== null}>
+          <button
+            type="submit"
+            className="plat-bill-actions__ghost"
+            disabled={busy !== null}
+          >
             {busy === "void" ? "Voiding…" : "Void bill"}
           </button>
         </form>
       ) : null}
 
       {canAdjust ? (
-        <form className="form-stack bill-action-form" onSubmit={onAdjust}>
-          <p className="field-label">Adjust total</p>
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="adj-amt">Adjustment (USD, signed)</label>
+        <form className="plat-bill-actions__block" onSubmit={onAdjust}>
+          <p className="plat-bill-actions__block-title">Adjust total</p>
+          <div className="plat-bill-actions__row">
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="adj-amt">
+                Adjustment (USD)
+              </label>
               <input
                 id="adj-amt"
-                className="field-control"
+                className="b4-field__control"
                 required
                 value={adjustmentAmount}
                 onChange={(e) => setAdjustmentAmount(e.target.value)}
@@ -138,11 +165,13 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
                 disabled={busy !== null}
               />
             </div>
-            <div className="field">
-              <label htmlFor="adj-reason">Reason</label>
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="adj-reason">
+                Reason
+              </label>
               <input
                 id="adj-reason"
-                className="field-control"
+                className="b4-field__control"
                 required
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
@@ -150,11 +179,15 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
               />
             </div>
           </div>
-          <button type="submit" className="btn-secondary" disabled={busy !== null}>
+          <button
+            type="submit"
+            className="plat-bill-actions__ghost"
+            disabled={busy !== null}
+          >
             {busy === "adjust" ? "Adjusting…" : "Apply adjustment"}
           </button>
         </form>
       ) : null}
-    </div>
+    </section>
   );
 }

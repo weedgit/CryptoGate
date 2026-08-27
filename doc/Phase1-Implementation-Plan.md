@@ -31,6 +31,9 @@ Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordi
 | --- | --- | --- |
 | USDT / tron | **enabled** | Live (TronGrid) |
 | USDT / ethereum | `enabled: false` | Client ready — flip after [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md) |
+| Other Plan §VI pairs (13) | `enabled: false` | Catalogued in `ASSET_NETWORK_REGISTRY` — enable after each chain-client smoke |
+
+Full list: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md).
 
 ### Largest code gap
 

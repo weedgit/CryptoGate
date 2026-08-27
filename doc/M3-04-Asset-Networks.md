@@ -8,7 +8,33 @@ Watcher, API, and payment page must take confirmations, decimals, min amount, Mo
 
 ---
 
-## Live (Phase 1)
+## Phase 1 access list (Plan §VI)
+
+All fifteen pairs below are **in** `ASSET_NETWORK_REGISTRY`. Checkout and watcher ingest only for `enabled: true`.
+
+| Asset | Network id | Guest label | Registry | Status |
+| --- | --- | --- | --- | --- |
+| USDT | `tron` | TRON TRC-20 | `USDT_TRON` | **Live** |
+| USDT | `ethereum` | Ethereum ERC-20 | `USDT_ETHEREUM` | Catalogued — M3-32 go-live |
+| USDT | `bnb_smart_chain` | BNB Smart Chain BEP-20 | `USDT_BNB_SMART_CHAIN` | Catalogued |
+| USDT | `polygon` | Polygon PoS | `USDT_POLYGON` | Catalogued |
+| USDT | `arbitrum_one` | Arbitrum One | `USDT_ARBITRUM_ONE` | Catalogued |
+| USDT | `solana` | Solana | `USDT_SOLANA` | Catalogued |
+| USDT | `ton` | TON | `USDT_TON` | Catalogued |
+| USDC | `ethereum` | Ethereum ERC-20 | `USDC_ETHEREUM` | Catalogued |
+| USDC | `polygon` | Polygon PoS | `USDC_POLYGON` | Catalogued |
+| USDC | `arbitrum_one` | Arbitrum One | `USDC_ARBITRUM_ONE` | Catalogued |
+| USDC | `base` | Base | `USDC_BASE` | Catalogued |
+| USDC | `solana` | Solana | `USDC_SOLANA` | Catalogued |
+| BTC | `bitcoin` | Bitcoin | `BTC_BITCOIN` | Catalogued |
+| ETH | `ethereum` | Ethereum | `ETH_ETHEREUM` | Catalogued |
+| TRX | `tron` | Tron (native) | `TRX_TRON` | Catalogued |
+
+Native `TRX` on `tron` is **not** USDT TRC-20 — do not treat them as interchangeable.
+
+---
+
+## Live (enabled)
 
 Source row: `USDT_TRON`. Default create-order pair: `DEFAULT_ASSET_NETWORK`.
 
@@ -30,9 +56,9 @@ Source row: `USDT_TRON`. Default create-order pair: `DEFAULT_ASSET_NETWORK`.
 
 ---
 
-## Next (M3-32 — Bruce chain client; not checkout yet)
+## Next go-live (M3-32 — Bruce chain client)
 
-Source row: `USDT_ETHEREUM` in `ASSET_NETWORK_REGISTRY` with **`enabled: false`**.
+Source row: `USDT_ETHEREUM` with **`enabled: false`**.
 
 | Field | Value |
 | --- | --- |
@@ -52,45 +78,19 @@ Source row: `USDT_ETHEREUM` in `ASSET_NETWORK_REGISTRY` with **`enabled: false`*
 
 **Go-live:** Kevin sets `enabled: true` on `USDT_ETHEREUM` only after ingest + watcher smoke on staging — see [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 
-**Alternate queue:** USDT / `bnb_smart_chain` (BEP-20) is next after Ethereum unless client reprioritizes.
-
----
-
-## Planned (enums only — not in registry)
-
-Do not watch, assign, or show checkout for these until Kevin adds a registry row and sets `enabled: true` (contract, confirmations, `memoSupported`).
-
-Network ids must match `NetworkId` / OpenAPI:
-
-| Asset | Network id | Plan §VI name |
-| --- | --- | --- |
-| USDT | `bnb_smart_chain` | BNB Smart Chain |
-| USDT | `polygon` | Polygon PoS |
-| USDT | `arbitrum_one` | Arbitrum One |
-| USDT | `solana` | Solana |
-| USDT | `ton` | TON |
-| USDC | `ethereum` | Ethereum |
-| USDC | `polygon` | Polygon PoS |
-| USDC | `arbitrum_one` | Arbitrum One |
-| USDC | `base` | Base |
-| USDC | `solana` | Solana |
-| BTC | `bitcoin` | Bitcoin |
-| ETH | `ethereum` | Ethereum |
-| TRX | `tron` | Tron (native) |
-
-Native `TRX` on `tron` is not USDT TRC-20 — do not treat them as interchangeable. `base` is in the enum for USDC-on-Base (§VI); it is not a live USDT network.
+**Then queue:** remaining §VI rows in registry order (BSC USDT → … → native TRX), each with its own `packages/chain-clients/{network}/` module before enable.
 
 ---
 
 ## Wrong-network
 
-Guest copy and cashier QR must name **USDT on TRON TRC-20**. USDT sent on Ethereum/BSC/etc. against a Tron order is a payment anomaly, not Completed.
+Guest copy and cashier QR must name **USDT on TRON TRC-20** for Tron orders. USDT sent on Ethereum/BSC/etc. against a Tron order is a payment anomaly, not Completed.
 
 ---
 
 ## Enabling a later pair
 
-1. Add an `AssetNetworkConfig` with `enabled: true` to `ASSET_NETWORK_REGISTRY`.
+1. Confirm contract / decimals / confirmations on the existing `AssetNetworkConfig` row (or add one if missing).
 2. Bruce: `packages/chain-clients/{network}/` ingest; confirmation count from that row.
 3. Andrew: no OpenAPI bump if `AssetCode` / `NetworkId` already include the strings; still 422 until the registry enables the pair.
-4. Kevin: mark the row **live** in this file.
+4. Kevin: set `enabled: true` and mark the row **Live** in this file.

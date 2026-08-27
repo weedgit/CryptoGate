@@ -32,6 +32,7 @@ function parseLimit(raw, fallback, max) {
  *   csv: boolean,
  *   status: string | null,
  *   orgId: string | null,
+ *   agentOrgId: string | null,
  *   limit: number,
  * } | { ok: false, status: number, code: string, message: string }}
  */
@@ -77,6 +78,18 @@ export function parseListOrdersQuery(searchParams, acceptHeader) {
     };
   }
 
+  const agentOrgRaw = searchParams.get("agentOrgId");
+  const agentOrgId =
+    agentOrgRaw && agentOrgRaw.trim() ? agentOrgRaw.trim() : null;
+  if (agentOrgId && !UUID_RE.test(agentOrgId)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "agentOrgId must be a UUID",
+    };
+  }
+
   const max = csv ? CSV_MAX_LIMIT : JSON_MAX_LIMIT;
   const fallback = csv ? CSV_DEFAULT_LIMIT : JSON_DEFAULT_LIMIT;
   const limit = parseLimit(searchParams.get("limit"), fallback, max);
@@ -89,5 +102,5 @@ export function parseListOrdersQuery(searchParams, acceptHeader) {
     };
   }
 
-  return { ok: true, csv, status, orgId, limit };
+  return { ok: true, csv, status, orgId, agentOrgId, limit };
 }

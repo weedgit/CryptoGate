@@ -229,6 +229,7 @@ Volume fee **follows merchant size**, not one fixed rate for everyone. Platform 
 | **3** | Merchant (site) wallet | **Merchant Owner approval** required. **Platform Owner override** only for compliance, with audit log. |
 | **4** | Agent nesting depth | **Platform Owner** sets **max agent depth** (global). Phase 1 **default: 2** (agent → agent (sub) → merchant). Agents may not create another agent level when depth would exceed the limit; audit log records changes to this setting. |
 | **5** | Team management | **Owner only** may add and remove **Administrator** and **Viewer** on every org account (Platform, agent, merchant, merchant (site)). **Administrator cannot** add or remove team members. All actions logged immutably. |
+| **6** | Sibling org names | Under the same **parent**, child org **display names** must be unique (**trim** + **case-insensitive**). The same name may be reused under a **different** parent. Enforced on create (`duplicate_sibling_name`). |
 
 ## Platform revenue and cost
 

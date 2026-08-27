@@ -106,8 +106,9 @@ export function isMerchantOrgType(type) {
 }
 
 /**
- * Merchant A cannot read Merchant B. Agents have no payment-order access.
- * Cashier may read own orders only.
+ * Merchant A cannot read Merchant B via direct membership alone.
+ * Cashier may read own orders only. Platform staff have global read.
+ * Agent subtree list/detail uses paymentOrderListScope helpers (watch-only).
  * @param {{
  *   userId: string,
  *   platformOperator: boolean,
@@ -124,7 +125,8 @@ export function canReadPaymentOrder(caller, order) {
 }
 
 /**
- * List/export scope. Agents have no merchant payment-order access.
+ * List/export scope. Agent O/A/V may list payment orders under their subtree
+ * (watch-only). They cannot create orders.
  * @param {{
  *   userId: string,
  *   platformOperator: boolean,
@@ -144,9 +146,18 @@ export function paymentOrderListScope(caller) {
   /** @type {string[]} */
   const cashierOrgIds = [];
   for (const m of caller.memberships) {
-    if (!MERCHANT_TYPES.has(m.orgType)) continue;
-    if (ORDER_READ_ROLES.has(m.role)) treeRoots.push(m.orgId);
-    else if (m.role === "cashier") cashierOrgIds.push(m.orgId);
+    if (MERCHANT_TYPES.has(m.orgType)) {
+      if (ORDER_READ_ROLES.has(m.role)) treeRoots.push(m.orgId);
+      else if (m.role === "cashier") cashierOrgIds.push(m.orgId);
+      continue;
+    }
+    // Agent O/A/V: read payment orders for merchants in their subtree (watch-only).
+    if (
+      (m.orgType === "agent" || m.orgType === "agent_sub") &&
+      ORDER_READ_ROLES.has(m.role)
+    ) {
+      treeRoots.push(m.orgId);
+    }
   }
   if (treeRoots.length === 0 && cashierOrgIds.length === 0) {
     return { kind: "none" };
@@ -169,14 +180,26 @@ export function paymentOrderListScope(caller) {
 export function canExportPaymentOrders(caller) {
   if (platformHasGlobalRead(caller)) return true;
   return caller.memberships.some(
-    (m) => MERCHANT_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
+    (m) =>
+      ORDER_READ_ROLES.has(m.role) &&
+      (MERCHANT_TYPES.has(m.orgType) ||
+        m.orgType === "agent" ||
+        m.orgType === "agent_sub"),
   );
+}
+
+/**
+ * Platform Owner or Administrator may apply B7 compliance overrides (logged + MFA).
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canComplianceOverride(caller) {
+  return caller.platformOperator === true;
 }
 
 /**
  * Cashier cannot change settlement address, xPub, matching mode, or fees.
  * Agent memberships are not enough — caller must be Owner/Admin on that merchant org
- * (or platform Owner for compliance override).
+ * (or platform Owner for direct settlement put; Administrators use compliance override).
  * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string }[] }} caller
  * @param {{ id: string, type: string }} org
  */
@@ -460,7 +483,21 @@ export function canReadPlatformOrgPolicy(caller) {
   );
 }
 
-/** Platform staff read enterprise approval queue. */
+/** Bulk member emails for list search and invite validation (one query vs N× listOrgUsers). */
+export function canListOrgMemberEmailsBulk(caller) {
+  if (platformHasGlobalRead(caller)) return true;
+  return caller.memberships.some(
+    (m) =>
+      (m.role === "owner" || m.role === "administrator") &&
+      m.status !== "paused",
+  );
+}
+
+/** @deprecated Use canListOrgMemberEmailsBulk */
+export function canListPlatformOrgMemberEmails(caller) {
+  return canListOrgMemberEmailsBulk(caller);
+}
+
 export function canListEnterpriseApprovals(caller) {
   return caller.memberships.some(
     (m) => m.orgType === "platform" && ORDER_READ_ROLES.has(m.role),
@@ -505,4 +542,72 @@ export function canUpdateMerchantCommercial(caller, org) {
       (m.orgType === "agent" || m.orgType === "agent_sub") &&
       SETTINGS_ROLES.has(m.role),
   );
+}
+
+const AGENT_ORG_TYPES = new Set(["agent", "agent_sub"]);
+
+/**
+ * @param {string} type
+ */
+export function isAgentOrgType(type) {
+  return AGENT_ORG_TYPES.has(type);
+}
+
+/**
+ * Platform staff or agent org Owner/Admin/Viewer may read payout address.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canReadAgentPayout(caller, org) {
+  if (!AGENT_ORG_TYPES.has(org.type)) return false;
+  if (platformHasGlobalRead(caller)) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role === "cashier") return false;
+  return Boolean(role && ORDER_READ_ROLES.has(role));
+}
+
+/**
+ * Agent org Owner/Admin may set payout address (not platform staff).
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canUpdateAgentPayout(caller, org) {
+  if (!AGENT_ORG_TYPES.has(org.type)) return false;
+  const role = roleOnOrg(caller.memberships, org.id);
+  return SETTINGS_ROLES.has(role);
+}
+
+/**
+ * Platform staff or agent org Owner/Admin/Viewer may read commission %.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canReadAgentCommission(caller, org) {
+  if (!AGENT_ORG_TYPES.has(org.type)) return false;
+  if (platformHasGlobalRead(caller)) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  if (role === "cashier") return false;
+  return Boolean(role && ORDER_READ_ROLES.has(role));
+}
+
+/**
+ * Platform Owner/Administrator only — Edit commission rate (B3).
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canUpdateAgentCommission(caller, org) {
+  if (!AGENT_ORG_TYPES.has(org.type)) return false;
+  return caller.platformOperator === true;
 }

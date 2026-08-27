@@ -133,8 +133,24 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
               {(preview?.copyAmount ?? amount) || "—"} {asset}
             </p>
           </div>
+          <div className="preview-meta">
+            <span className="muted">
+              {asset} · {network === "tron" ? "TRC-20" : network.toUpperCase()}
+            </span>
+            <span className="muted">Mode · {modeLabel}</span>
+          </div>
           <div className="qr-slot">
-            {preview?.qrPayload ? "QR ready after create" : "QR after generate"}
+            {preview?.qrPayload ? (
+              <img
+                className="preview-qr-img"
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(preview.qrPayload)}`}
+                alt="Payment QR preview"
+                width={160}
+                height={160}
+              />
+            ) : (
+              "QR after generate"
+            )}
           </div>
           <div>
             <p className="label" style={{ color: "var(--muted)", fontSize: 11, margin: "0 0 4px" }}>

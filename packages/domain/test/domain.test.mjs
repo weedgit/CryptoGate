@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   OrgType,
   UserRole,
+  MembershipStatus,
   OrderStatus,
   MatchingMode,
   AddressSource,
@@ -16,6 +17,7 @@ import {
   USDT_ETHEREUM,
   ASSET_NETWORK_REGISTRY,
   getAssetNetworkConfig,
+  findAssetNetworkRow,
   WebhookEventType,
   ServiceBillStatus,
   ServiceBillUpdateAction,
@@ -37,6 +39,11 @@ describe("@cryptogate/domain", () => {
 
   it("restricts cashier naming to role enum", () => {
     assert.equal(UserRole.Cashier, "cashier");
+  });
+
+  it("exports membership lifecycle statuses", () => {
+    assert.equal(MembershipStatus.Active, "active");
+    assert.equal(MembershipStatus.Paused, "paused");
   });
 
   it("includes payment anomaly status", () => {
@@ -62,9 +69,10 @@ describe("@cryptogate/domain", () => {
     assert.equal(DEFAULT_FEE_TIER_BANDS[0].defaultSignupPercent, "2.0");
     assert.equal(AuditAction.FeeTierPut, "fee_tier_put");
     assert.equal(AuditAction.EnterpriseRateDecide, "enterprise_rate_decide");
+    assert.equal(AuditAction.ComplianceOverride, "compliance_override");
   });
 
-  it("registers USDT Tron with confirmations and no memo (Mode D hidden)", () => {
+  it("registers full Phase 1 §VI catalog; only USDT Tron is live", () => {
     const row = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron);
     assert.ok(row);
     assert.equal(row.displayNetwork, "TRON TRC-20");
@@ -76,12 +84,24 @@ describe("@cryptogate/domain", () => {
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum),
       undefined,
     );
-    assert.equal(ASSET_NETWORK_REGISTRY.length, 2);
+    assert.equal(ASSET_NETWORK_REGISTRY.length, 15);
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_ETHEREUM);
     assert.equal(USDT_ETHEREUM.enabled, false);
     assert.equal(USDT_ETHEREUM.requiredConfirmations, 12);
     assert.equal(USDT_ETHEREUM.displayNetwork, "Ethereum ERC-20");
+    assert.equal(
+      ASSET_NETWORK_REGISTRY.filter((r) => r.enabled).length,
+      1,
+    );
+    assert.equal(
+      findAssetNetworkRow(AssetCode.USDT, NetworkId.Ethereum),
+      USDT_ETHEREUM,
+    );
+    assert.equal(
+      findAssetNetworkRow(AssetCode.BTC, NetworkId.Bitcoin)?.contractAddress,
+      null,
+    );
   });
 
   it("exports payment-order DB columns for matching assign", () => {

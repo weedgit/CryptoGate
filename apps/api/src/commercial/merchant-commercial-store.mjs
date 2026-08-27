@@ -1,5 +1,5 @@
 import { getPool } from "../db/pool.mjs";
-import { nextBillingPeriodStart } from "./merchant-commercial-rules.mjs";
+import { merchantCommercialEffectiveFromToday } from "./merchant-commercial-rules.mjs";
 
 /**
  * @param {string} orgId
@@ -25,7 +25,8 @@ export async function findMerchantCommercial(orgId) {
  * }} input
  */
 export async function insertMerchantCommercial(input) {
-  const effectiveFrom = input.effectiveFrom ?? nextBillingPeriodStart();
+  const effectiveFrom =
+    input.effectiveFrom ?? merchantCommercialEffectiveFromToday();
   const { rows } = await getPool().query(
     `INSERT INTO merchant_commercial (
        org_id, tier, volume_fee_percent, effective_from, enterprise_approval_status
@@ -72,7 +73,7 @@ export async function scheduleMerchantCommercialChange(orgId, change) {
  * @param {{ tier: string, volumeFeePercent: string }} applied
  */
 export async function applyMerchantCommercialImmediate(orgId, applied) {
-  const effectiveFrom = nextBillingPeriodStart();
+  const effectiveFrom = merchantCommercialEffectiveFromToday();
   const { rows } = await getPool().query(
     `UPDATE merchant_commercial
      SET tier = $2,

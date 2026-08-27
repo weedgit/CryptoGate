@@ -8,7 +8,8 @@
  *   node scripts/deploy-wave5.mjs --down          # stop background processes
  *   node scripts/deploy-wave5.mjs --smoke         # health + e2e live
  *   node scripts/deploy-wave5.mjs --restore-drill # pg_dump restore exercise (local)
- *   node scripts/deploy-wave5.mjs --audit         # pnpm audit (M4-T04 §4)
+ *   node scripts/deploy-wave5.mjs --web            # start web dev server (port 5174)
+ *   node scripts/deploy-wave5.mjs --local          # prepare + API + watcher + web + seed
  */
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -29,13 +30,19 @@ const pidFile = join(deployDir, "pids.json");
 const dumpFile = join(deployDir, "restore-drill.dump");
 
 const flags = new Set(process.argv.slice(2));
+const doLocal = flags.has("--local");
 const runAll = flags.size === 0;
-const doPrepare = runAll || flags.has("--prepare");
-const doUp = runAll || flags.has("--up");
+const doPrepare = runAll || flags.has("--prepare") || doLocal;
+const doUp = runAll || flags.has("--up") || doLocal;
 const doDown = flags.has("--down");
-const doSmoke = runAll || flags.has("--smoke");
+const doSmoke = (runAll || flags.has("--smoke")) && !doLocal;
 const doRestore = flags.has("--restore-drill");
 const doAudit = flags.has("--audit");
+const doWeb = flags.has("--web") || doLocal;
+const doSeed = flags.has("--seed") || doLocal;
+
+const webPort = process.env.WEB_PORT || "5174";
+const webOrigin = `http://127.0.0.1:${webPort}`;
 
 const apiPort = process.env.API_PORT || "3000";
 const apiBase =
@@ -80,6 +87,26 @@ function loadEnvFile() {
     if (!process.env[key]) {
       process.env[key] = trimmed.slice(eq + 1).trim();
     }
+  }
+  ensureWebCors();
+}
+
+function ensureWebCors() {
+  const need = [`http://localhost:${webPort}`, `http://127.0.0.1:${webPort}`];
+  const raw = process.env.CORS_ALLOWED_ORIGINS ?? "";
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let changed = false;
+  for (const origin of need) {
+    if (!parts.includes(origin)) {
+      parts.push(origin);
+      changed = true;
+    }
+  }
+  if (changed) {
+    process.env.CORS_ALLOWED_ORIGINS = parts.join(",");
   }
 }
 
@@ -222,6 +249,63 @@ function up() {
   log("up", `watcher pid ${watcherChild.pid} → ${watcherLog}`);
 }
 
+async function waitForWeb() {
+  const url = `${webOrigin}/merchant`;
+  for (let i = 0; i < 30; i++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.ok || res.status === 404) {
+        log("web", `dev server ready (${webOrigin})`);
+        return;
+      }
+    } catch {
+      /* retry */
+    }
+    sleep(500);
+  }
+  console.error("Web dev server did not start — check .deploy/web.log");
+  process.exit(1);
+}
+
+function startWeb() {
+  loadEnvFile();
+  mkdirSync(deployDir, { recursive: true });
+  const pids = readPids() ?? {};
+  if (pids.web && isAlive(pids.web)) {
+    log("web", `already running (pid ${pids.web}) → ${webOrigin}`);
+    return;
+  }
+
+  const webLog = join(deployDir, "web.log");
+  const webOut = openSync(webLog, "a");
+  const webChild = spawn(
+    "npx",
+    ["pnpm@9.15.0", "--filter", "@cryptogate/web", "dev", "--host", "127.0.0.1", "--port", webPort],
+    {
+      cwd: root,
+      env: process.env,
+      detached: true,
+      stdio: ["ignore", webOut, webOut],
+    },
+  );
+  webChild.unref();
+
+  pids.web = webChild.pid;
+  writeFileSync(pidFile, JSON.stringify(pids, null, 2));
+  log("web", `pid ${webChild.pid} → ${webLog}`);
+}
+
+function printLocalUrls() {
+  console.log("\n--- Local review URLs ---");
+  console.log(`Platform   ${webOrigin}/platform`);
+  console.log(`Agent      ${webOrigin}/agent`);
+  console.log(`Merchant   ${webOrigin}/merchant`);
+  console.log(`API health ${apiBase}/health`);
+  console.log("Login: owner@local.cryptogate / LocalReview1! (platform + agent)");
+  console.log("       merchant@local.cryptogate / LocalReview1! (merchant)");
+  console.log("Stop:  node scripts/deploy-wave5.mjs --down\n");
+}
+
 async function smoke() {
   loadEnvFile();
   const healthUrl = `${apiBase}/health`;
@@ -300,11 +384,20 @@ async function main() {
     up();
     await waitForHealth();
   }
+  if (doWeb) {
+    startWeb();
+    await waitForWeb();
+  }
+  if (doSeed) {
+    loadEnvFile();
+    run(process.execPath, [join(root, "scripts/seed-local.mjs")]);
+  }
   if (doSmoke) await smoke();
   if (doRestore) await restoreDrill();
   if (doAudit) audit();
+  if (doLocal || (doWeb && !doSmoke)) printLocalUrls();
 
-  if (!doPrepare && !doUp && !doSmoke && !doRestore && !doAudit) {
+  if (!doPrepare && !doUp && !doSmoke && !doRestore && !doAudit && !doWeb && !doSeed) {
     console.error("Unknown flags");
     process.exit(1);
   }

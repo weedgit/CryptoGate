@@ -1,23 +1,63 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
+import {
+  AgentsNavIcon,
+  DashboardNavIcon,
+  MerchantsNavIcon,
+  SecurityNavIcon,
+  ServiceBillsNavIcon,
+  SignOutNavIcon,
+  TeamNavIcon,
+} from "../platform/NavIcons";
 import { sessionIsAgentViewerOnly } from "./org";
 
-const NAV = [
-  { to: "/agent", label: "Dashboard", end: true },
-  { to: "/agent/merchants", label: "Merchants", matchPrefix: "/agent/merchants" },
-  { to: "/agent/agents", label: "Sub-agents", matchPrefix: "/agent/agents" },
+type NavItem = {
+  to: string;
+  label: string;
+  end?: boolean;
+  matchPrefix?: string;
+  Icon: ComponentType<{ className?: string }>;
+};
+
+const NAV: NavItem[] = [
+  { to: "/agent", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+  {
+    to: "/agent/merchants",
+    label: "Merchants",
+    matchPrefix: "/agent/merchants",
+    Icon: MerchantsNavIcon,
+  },
+  {
+    to: "/agent/agents",
+    label: "Sub-agents",
+    matchPrefix: "/agent/agents",
+    Icon: AgentsNavIcon,
+  },
   {
     to: "/agent/service-bills",
     label: "Service Bills",
     matchPrefix: "/agent/service-bills",
+    Icon: ServiceBillsNavIcon,
   },
-] as const;
+  {
+    to: "/agent/settings/team",
+    label: "Team",
+    matchPrefix: "/agent/settings/team",
+    Icon: TeamNavIcon,
+  },
+  {
+    to: "/agent/settings/security",
+    label: "Security",
+    matchPrefix: "/agent/settings/security",
+    Icon: SecurityNavIcon,
+  },
+];
 
 type Props = {
   session: Session;
-  title: string;
-  crumb: string;
+  title?: string;
+  crumb?: string;
   children: ReactNode;
   onSignOut: () => void;
 };
@@ -33,7 +73,7 @@ export function AgentShell({
   const readOnly = sessionIsAgentViewerOnly(session);
 
   return (
-    <div className="shell agent-shell">
+    <div className="shell agent-shell platform-shell">
       <aside className="sidebar">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
@@ -42,36 +82,39 @@ export function AgentShell({
             <span className="logo-badge">AGENT PORTAL</span>
           </div>
         </div>
-        <div>
-          <p className="nav-label">AGENT CONTROLS</p>
-          <nav className="nav-list">
+        <nav className="nav-list" aria-label="Agent">
+          <div className="nav-group">
+            <p className="nav-label">Agent controls</p>
             {NAV.map((item) => {
-              const prefix = "matchPrefix" in item ? item.matchPrefix : undefined;
+              const { Icon } = item;
               return (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={"end" in item ? item.end : false}
+                  end={item.end ?? false}
                   className={({ isActive }) => {
                     const path = location.pathname;
                     const prefixActive =
-                      prefix != null && path.startsWith(prefix);
+                      item.matchPrefix != null &&
+                      path.startsWith(item.matchPrefix);
                     const active = isActive || prefixActive;
                     return `nav-item${active ? " active" : ""}`;
                   }}
                 >
-                  {item.label}
+                  <Icon />
+                  <span>{item.label}</span>
                 </NavLink>
               );
             })}
-          </nav>
-        </div>
+          </div>
+        </nav>
         <div className="sidebar-foot">
-          <p>SESSION // {session.email}</p>
+          <p>SESSION // {session.email.split("@")[0]}</p>
           <p>{readOnly ? "Viewer (read-only)" : "Agent operator"}</p>
           <p>
             <button type="button" className="sign-out-btn" onClick={onSignOut}>
-              Sign out
+              <SignOutNavIcon className="sign-out-icon" />
+              <span>Sign out</span>
             </button>
           </p>
         </div>
@@ -79,20 +122,23 @@ export function AgentShell({
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
-            <h1>{title}</h1>
+            {title ? <h1>{title}</h1> : null}
           </div>
+          <div className="topbar-center" id="agent-topbar-center" />
           <div className="topbar-right">
             <span className="net-pill">SUBTREE SCOPE</span>
             <div className="profile">
-              <strong>{session.email}</strong>
-              <span>{readOnly ? "Viewer" : "Agent"}</span>
+              <strong>{session.email.split("@")[0]}</strong>
+              <span>{readOnly ? "Viewer" : "Agent Executive"}</span>
             </div>
           </div>
         </header>
         <div className="body">
-          <div className="crumb">
-            Agent Console / <span className="here">{crumb}</span>
-          </div>
+          {crumb ? (
+            <div className="crumb">
+              Agent Console / <span className="here">{crumb}</span>
+            </div>
+          ) : null}
           {readOnly ? (
             <div className="banner banner-warn" style={{ marginBottom: 16 }}>
               Read-only mode — Viewer accounts cannot onboard merchants or change

@@ -44,17 +44,7 @@ export function canCreateAgentUnderParent(
   return nextAgentDepthIfCreated(parentId, orgType, orgs) <= maxDepth;
 }
 
-/** Phase 1 commercial fields — UI-only until X-01 fee tier API (Kevin). */
+/** Phase 1 agent commission — UI-only until X-01 commercial API (Kevin). */
 export type OnboardAgentCommercialStub = {
   commissionPercent: string;
-  defaultMerchantTier: "small" | "mid" | "enterprise";
-};
-
-export const MERCHANT_TIER_LABELS: Record<
-  OnboardAgentCommercialStub["defaultMerchantTier"],
-  string
-> = {
-  small: "Small",
-  mid: "Mid",
-  enterprise: "Enterprise",
 };

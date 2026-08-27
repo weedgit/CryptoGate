@@ -64,6 +64,8 @@ npx pnpm@9.15.0 check
 
 # Wave 5 local deploy (Postgres + migrate + API + watcher + smoke)
 node scripts/deploy-wave5.mjs
+# Full local review (API + web portals + demo logins):
+node scripts/deploy-wave5.mjs --local
 # Stop: node scripts/deploy-wave5.mjs --down
 # Docker stack: docker compose -f docker-compose.deploy.yml up -d
 

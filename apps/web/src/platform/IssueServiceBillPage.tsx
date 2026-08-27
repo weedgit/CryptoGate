@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ApiError, issueServiceBill, listOrgs } from "./api";
+import { ApiError, getPlatformOrgs, invalidatePlatformServiceBillsList, issueServiceBill } from "./api";
+import { PlatformPending } from "./ui/PlatformPending";
 
 function defaultDueAt(): string {
   const d = new Date();
@@ -32,7 +33,7 @@ export function IssueServiceBillPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listOrgs()
+    getPlatformOrgs()
       .then((orgs) =>
         setMerchants(
           orgs
@@ -57,6 +58,7 @@ export function IssueServiceBillPage() {
         volumeFeeAmount,
         dueAt: new Date(dueAt).toISOString(),
       });
+      invalidatePlatformServiceBillsList();
       navigate(`/platform/service-bills/${bill.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to issue bill");
@@ -66,7 +68,12 @@ export function IssueServiceBillPage() {
   }
 
   if (booting) {
-    return <p style={{ color: "var(--muted)" }}>Loading merchants…</p>;
+    return (
+      <PlatformPending
+        title="Loading merchants"
+        copy="Preparing the bill form and merchant list."
+      />
+    );
   }
 
   return (

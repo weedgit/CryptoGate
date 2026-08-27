@@ -1,16 +1,24 @@
 import { getHealthPayload } from "../health-payload.mjs";
 import {
+  handleForgotPassword,
   handleGetSession,
   handleLogin,
   handleLogout,
   handleMfaEnroll,
   handleMfaVerify,
+  handleResetPassword,
+  handleChangePassword,
 } from "./auth-routes.mjs";
-import { handleCreateOrg, handleGetOrg, handleListOrgs } from "../orgs/org-routes.mjs";
+import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
+import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
   handleAssignOrgUserRole,
   handleInviteOrgUser,
   handleListOrgUsers,
+  handleListOrgMemberEmails,
+  handleListPlatformOrgMemberEmails,
+  handleRemoveOrgUser,
+  handleSetOrgUserStatus,
 } from "../orgs/membership-routes.mjs";
 import {
   handleCreatePaymentOrder,
@@ -58,10 +66,23 @@ import {
   handlePutFeeTierSettings,
   handlePutPlatformOrgPolicy,
 } from "../platform-settings/platform-settings-routes.mjs";
+import { handleGetWatcherHealth } from "../ops/watcher-health-routes.mjs";
+import {
+  handleApplyComplianceOverride,
+  handleListComplianceOverrides,
+} from "../compliance/compliance-routes.mjs";
 import {
   handleGetMerchantCommercial,
   handlePutMerchantCommercial,
 } from "../commercial/merchant-commercial-routes.mjs";
+import {
+  handleGetAgentPayout,
+  handlePutAgentPayout,
+} from "../commercial/agent-payout-routes.mjs";
+import {
+  handleGetAgentCommission,
+  handlePutAgentCommission,
+} from "../commercial/agent-commission-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -115,6 +136,21 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/auth/mfa/verify") {
     await handleMfaVerify(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/auth/forgot-password") {
+    await handleForgotPassword(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/auth/reset-password") {
+    await handleResetPassword(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/auth/change-password") {
+    await handleChangePassword(req, res);
     return;
   }
 
@@ -326,6 +362,50 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/platform/watcher-health" && method === "GET") {
+    await handleGetWatcherHealth(req, res);
+    return;
+  }
+
+  const complianceListMatch = path.match(
+    /^\/v1\/platform\/orgs\/([^/]+)\/compliance-overrides$/,
+  );
+  if (method === "GET" && complianceListMatch) {
+    await handleListComplianceOverrides(
+      req,
+      res,
+      decodeURIComponent(complianceListMatch[1]),
+    );
+    return;
+  }
+
+  const complianceApplyMatch = path.match(
+    /^\/v1\/platform\/orgs\/([^/]+)\/compliance-override$/,
+  );
+  if (method === "POST" && complianceApplyMatch) {
+    await handleApplyComplianceOverride(
+      req,
+      res,
+      decodeURIComponent(complianceApplyMatch[1]),
+    );
+    return;
+  }
+
+  if (path === "/v1/org-member-emails" && method === "GET") {
+    await handleListOrgMemberEmails(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/platform/org-member-emails" && method === "GET") {
+    await handleListOrgMemberEmails(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/platform/org-emails" && method === "GET") {
+    await handleListOrgMemberEmails(req, res, url);
+    return;
+  }
+
   const enterpriseApprovalMatch = path.match(
     /^\/v1\/platform\/enterprise-rate-approvals\/([^/]+)$/,
   );
@@ -338,6 +418,12 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  const overviewMatch = path.match(/^\/v1\/orgs\/([^/]+)\/overview$/);
+  if (method === "GET" && overviewMatch) {
+    await handleGetOrgOverview(req, res, decodeURIComponent(overviewMatch[1]));
+    return;
+  }
+
   const commercialMatch = path.match(/^\/v1\/orgs\/([^/]+)\/commercial$/);
   if (commercialMatch) {
     const orgId = decodeURIComponent(commercialMatch[1]);
@@ -347,6 +433,34 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutMerchantCommercial(req, res, orgId);
+      return;
+    }
+  }
+
+  const agentPayoutMatch = path.match(/^\/v1\/orgs\/([^/]+)\/agent-payout$/);
+  if (agentPayoutMatch) {
+    const orgId = decodeURIComponent(agentPayoutMatch[1]);
+    if (method === "GET") {
+      await handleGetAgentPayout(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutAgentPayout(req, res, orgId);
+      return;
+    }
+  }
+
+  const agentCommissionMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/agent-commission$/,
+  );
+  if (agentCommissionMatch) {
+    const orgId = decodeURIComponent(agentCommissionMatch[1]);
+    if (method === "GET") {
+      await handleGetAgentCommission(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutAgentCommission(req, res, orgId);
       return;
     }
   }
@@ -387,6 +501,28 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  const statusMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/status$/);
+  if (method === "PUT" && statusMatch) {
+    await handleSetOrgUserStatus(
+      req,
+      res,
+      decodeURIComponent(statusMatch[1]),
+      decodeURIComponent(statusMatch[2]),
+    );
+    return;
+  }
+
+  const memberMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)$/);
+  if (method === "DELETE" && memberMatch) {
+    await handleRemoveOrgUser(
+      req,
+      res,
+      decodeURIComponent(memberMatch[1]),
+      decodeURIComponent(memberMatch[2]),
+    );
+    return;
+  }
+
   const inviteMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users$/);
   if (inviteMatch) {
     const orgId = decodeURIComponent(inviteMatch[1]);
@@ -400,10 +536,23 @@ export async function handleRequest(req, res) {
     }
   }
 
-  const orgMatch = path.match(/^\/v1\/orgs\/([^/]+)$/);
-  if (method === "GET" && orgMatch) {
-    await handleGetOrg(req, res, decodeURIComponent(orgMatch[1]));
+  const orgStatusMatch = path.match(/^\/v1\/orgs\/([^/]+)\/status$/);
+  if (method === "PUT" && orgStatusMatch) {
+    await handleSetOrgStatus(req, res, decodeURIComponent(orgStatusMatch[1]));
     return;
+  }
+
+  const orgMatch = path.match(/^\/v1\/orgs\/([^/]+)$/);
+  if (orgMatch) {
+    const orgId = decodeURIComponent(orgMatch[1]);
+    if (method === "GET") {
+      await handleGetOrg(req, res, orgId);
+      return;
+    }
+    if (method === "DELETE") {
+      await handleDeleteOrg(req, res, orgId);
+      return;
+    }
   }
 
   sendError(res, 404, "not_found", "Not found");

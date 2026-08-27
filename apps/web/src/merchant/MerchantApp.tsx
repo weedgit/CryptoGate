@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { getSession, logout, type Session } from "./api";
+import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
+import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
+import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { CashierForbiddenPage } from "./CashierForbiddenPage";
 import { CreateOrderPage } from "./CreateOrderPage";
 import { DashboardPage } from "./DashboardPage";
@@ -24,17 +27,6 @@ import { SitesListPage } from "./SitesListPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { sessionIsCashierOnly } from "./org";
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="panel">
-      <h2>{title}</h2>
-      <p style={{ color: "var(--muted)" }}>
-        Shell placeholder — wired in a later merchant task.
-      </p>
-    </div>
-  );
-}
-
 type ShellProps = {
   session: Session;
   title: string;
@@ -42,6 +34,7 @@ type ShellProps = {
   children: ReactNode;
   onSignOut: () => void;
   showCashierBanner?: boolean;
+  siteLabel?: string | null;
 };
 
 function Shell({
@@ -51,6 +44,7 @@ function Shell({
   children,
   onSignOut,
   showCashierBanner = false,
+  siteLabel = null,
 }: ShellProps) {
   return (
     <MerchantShell
@@ -59,6 +53,7 @@ function Shell({
       crumb={crumb}
       onSignOut={onSignOut}
       showCashierBanner={showCashierBanner}
+      siteLabel={siteLabel}
     >
       {children}
     </MerchantShell>
@@ -100,7 +95,7 @@ export function MerchantApp() {
   if (booting) {
     return (
       <div className="login-wrap">
-        <p style={{ color: "var(--muted)" }}>Loading…</p>
+        <p className="login-boot">Loading merchant portal…</p>
       </div>
     );
   }
@@ -111,6 +106,26 @@ export function MerchantApp() {
         onSignedIn={() => {
           getSession().then(setSession).catch(() => setSession(null));
         }}
+      />
+    );
+  }
+
+  if (session.mustChangePassword) {
+    return (
+      <ForceChangePasswordGate
+        session={session}
+        portalLabel="Merchant portal"
+        onChanged={setSession}
+      />
+    );
+  }
+
+  if (sessionNeedsForcedMfa(session)) {
+    return (
+      <ForceMfaEnrollmentGate
+        session={session}
+        portalLabel="Merchant portal"
+        onEnrolled={setSession}
       />
     );
   }
@@ -127,7 +142,7 @@ export function MerchantApp() {
   return (
     <Routes>
       <Route
-        path="/merchant"
+        index
         element={
           <Shell session={session} title={dashTitle} crumb="Overview" onSignOut={signOut}>
             <DashboardPage session={session} />
@@ -135,7 +150,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/orders"
+        path="orders"
         element={
           <Shell session={session} title={ordersTitle} crumb="Payment Orders" onSignOut={signOut}>
             <OrdersListPage session={session} />
@@ -143,7 +158,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/orders/new"
+        path="orders/new"
         element={
           <Shell
             session={session}
@@ -157,7 +172,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/orders/:id"
+        path="orders/:id"
         element={
           <Shell session={session} title="Order Insights" crumb="Orders" onSignOut={signOut}>
             <OrderDetailPage />
@@ -165,7 +180,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/integrations"
+        path="settings/integrations"
         element={
           <Shell
             session={session}
@@ -180,7 +195,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/settlement"
+        path="settings/settlement"
         element={
           <Shell
             session={session}
@@ -195,7 +210,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/organization"
+        path="settings/organization"
         element={
           <Shell session={session} title="Organization" crumb="Settings" onSignOut={signOut}>
             <OwnerOnly session={session} area="organization settings">
@@ -205,7 +220,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/billing"
+        path="settings/billing"
         element={
           <Shell session={session} title="Fee & Billing" crumb="Settings" onSignOut={signOut}>
             <OwnerOnly session={session} area="billing settings">
@@ -215,17 +230,20 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/security"
+        path="settings/security"
         element={
           <Shell session={session} title="Security" crumb="Settings" onSignOut={signOut}>
             <OwnerOnly session={session} area="security settings">
-              <SecuritySettingsPage session={session} />
+              <SecuritySettingsPage
+                session={session}
+                onSessionRefresh={setSession}
+              />
             </OwnerOnly>
           </Shell>
         }
       />
       <Route
-        path="/merchant/settings/notifications"
+        path="settings/notifications"
         element={
           <Shell
             session={session}
@@ -240,7 +258,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/team"
+        path="settings/team"
         element={
           <Shell session={session} title="Team" crumb="Settings" onSignOut={signOut}>
             <OwnerOnly session={session} area="team settings">
@@ -250,7 +268,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/settings/*"
+        path="settings/*"
         element={
           <Shell session={session} title="Settings" crumb="Configuration" onSignOut={signOut}>
             <OwnerOnly session={session} area="settings">
@@ -260,7 +278,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/service-bills"
+        path="service-bills"
         element={
           <Shell session={session} title="Service Bills" crumb="Platform billing" onSignOut={signOut}>
             <OwnerOnly session={session} area="service bills">
@@ -270,7 +288,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/service-bills/:id"
+        path="service-bills/:id"
         element={
           <Shell session={session} title="Service Bill" crumb="Bill detail" onSignOut={signOut}>
             <OwnerOnly session={session} area="service bills">
@@ -280,7 +298,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/sites"
+        path="sites"
         element={
           <Shell session={session} title="Sites" crumb="Locations" onSignOut={signOut}>
             <OwnerOnly session={session} area="sites">
@@ -290,7 +308,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/sites/new"
+        path="sites/new"
         element={
           <Shell session={session} title="Add Site" crumb="Sites" onSignOut={signOut}>
             <OwnerOnly session={session} area="sites">
@@ -300,7 +318,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/sites/:id"
+        path="sites/:id"
         element={
           <Shell session={session} title="Site Detail" crumb="Sites" onSignOut={signOut}>
             <OwnerOnly session={session} area="sites">
@@ -310,7 +328,7 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/reports/*"
+        path="reports/*"
         element={
           <Shell session={session} title="Reports" crumb="Restricted" onSignOut={signOut}>
             <OwnerOnly session={session} area="reports">
@@ -320,18 +338,17 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="/merchant/*"
+        path="*"
         element={
-          <Shell session={session} title="Merchant" crumb="Portal" onSignOut={signOut}>
-            {cashier ? (
+          cashier ? (
+            <Shell session={session} title="Merchant" crumb="Portal" onSignOut={signOut}>
               <CashierForbiddenPage area="this page" />
-            ) : (
-              <Placeholder title="Coming next" />
-            )}
-          </Shell>
+            </Shell>
+          ) : (
+            <Navigate to="/merchant" replace />
+          )
         }
       />
-      <Route path="*" element={<Navigate to="/merchant" replace />} />
     </Routes>
   );
 }

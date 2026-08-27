@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_MAX_AGENT_DEPTH } from "../src/orgs/org-accounts.mjs";
-import { agentDepthOf, validateCreateOrg } from "../src/orgs/org-rules.mjs";
+import { agentDepthOf, normalizeOrgName, orgNamesEqual, validateCreateOrg } from "../src/orgs/org-rules.mjs";
 
 const platform = {
   id: "p1",
@@ -102,5 +102,14 @@ describe("org create rules", () => {
     assert.equal(agentDepthOf(agent, (id) => byId[id] ?? null), 1);
     assert.equal(agentDepthOf(agentSub, (id) => byId[id] ?? null), 2);
     assert.equal(agentDepthOf(platform, (id) => byId[id] ?? null), 0);
+  });
+});
+
+describe("org sibling name normalization", () => {
+  it("trims and lowercases for comparison", () => {
+    assert.equal(normalizeOrgName("  TravelPay  "), "travelpay");
+    assert.equal(orgNamesEqual("TravelPay", " travelpay "), true);
+    assert.equal(orgNamesEqual("TravelPay", "Other"), false);
+    assert.equal(orgNamesEqual("   ", "   "), false);
   });
 });

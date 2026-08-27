@@ -27,6 +27,19 @@ export const UserRole = {
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+/**
+ * Membership lifecycle inside one org account.
+ * Paused members keep the row but lose org access until resumed.
+ * Removed members are deleted from org_memberships (not from users).
+ */
+export const MembershipStatus = {
+  Active: "active",
+  Paused: "paused",
+} as const;
+
+export type MembershipStatus =
+  (typeof MembershipStatus)[keyof typeof MembershipStatus];
+
 /** Payment order lifecycle (Phase1-Project-Plan §V M3). */
 export const OrderStatus = {
   PendingPayment: "pending_payment",
@@ -154,8 +167,8 @@ export type AssetNetwork = {
  * Per asset+network catalog. Confirmations, decimals, and Mode D support
  * come from here — not magic numbers in API, watcher, or payment-page.
  *
- * Phase 1 enabled pair: USDT on Tron. Other AssetCode/NetworkId values stay
- * in enums for later milestones; lookup returns undefined until enabled here.
+ * Phase 1 access list: Phase1-Project-Plan §VI / M3-04. Only rows with
+ * `enabled: true` accept create-order; others are catalogued for staged go-live.
  */
 export type AssetNetworkConfig = {
   asset: AssetCode;
@@ -175,7 +188,7 @@ export type AssetNetworkConfig = {
   memoSupported: boolean;
 };
 
-/** First live M3 target: USDT TRC-20. */
+/** Live Phase 1 pair: USDT TRC-20. */
 export const USDT_TRON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Tron,
@@ -190,8 +203,8 @@ export const USDT_TRON: AssetNetworkConfig = {
 };
 
 /**
- * M3-32 next pair (Phase1-Project-Plan §VI). Registry row exists for Bruce chain
- * client work; create-order stays 422 until Kevin sets `enabled: true`.
+ * Next go-live (M3-32). Registry row exists for Bruce chain client work;
+ * create-order stays 422 until Kevin sets `enabled: true`.
  */
 export const USDT_ETHEREUM: AssetNetworkConfig = {
   asset: AssetCode.USDT,
@@ -206,17 +219,212 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
   memoSupported: false,
 };
 
+export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.BnbSmartChain,
+  enabled: false,
+  displayNetwork: "BNB Smart Chain BEP-20",
+  contractAddress: "0x55d398326f99059fF775485246999027B3197955",
+  decimals: 18,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 15,
+  memoSupported: false,
+};
+
+export const USDT_POLYGON: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.Polygon,
+  enabled: false,
+  displayNetwork: "Polygon PoS",
+  contractAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 64,
+  memoSupported: false,
+};
+
+export const USDT_ARBITRUM_ONE: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.ArbitrumOne,
+  enabled: false,
+  displayNetwork: "Arbitrum One",
+  contractAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+export const USDT_SOLANA: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.Solana,
+  enabled: false,
+  displayNetwork: "Solana",
+  contractAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 32,
+  memoSupported: false,
+};
+
+export const USDT_TON: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.Ton,
+  enabled: false,
+  displayNetwork: "TON",
+  contractAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 5,
+  memoSupported: false,
+};
+
+export const USDC_ETHEREUM: AssetNetworkConfig = {
+  asset: AssetCode.USDC,
+  network: NetworkId.Ethereum,
+  enabled: false,
+  displayNetwork: "Ethereum ERC-20",
+  contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+export const USDC_POLYGON: AssetNetworkConfig = {
+  asset: AssetCode.USDC,
+  network: NetworkId.Polygon,
+  enabled: false,
+  displayNetwork: "Polygon PoS",
+  contractAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 64,
+  memoSupported: false,
+};
+
+export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
+  asset: AssetCode.USDC,
+  network: NetworkId.ArbitrumOne,
+  enabled: false,
+  displayNetwork: "Arbitrum One",
+  contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+export const USDC_BASE: AssetNetworkConfig = {
+  asset: AssetCode.USDC,
+  network: NetworkId.Base,
+  enabled: false,
+  displayNetwork: "Base",
+  contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+export const USDC_SOLANA: AssetNetworkConfig = {
+  asset: AssetCode.USDC,
+  network: NetworkId.Solana,
+  enabled: false,
+  displayNetwork: "Solana",
+  contractAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 32,
+  memoSupported: false,
+};
+
+export const BTC_BITCOIN: AssetNetworkConfig = {
+  asset: AssetCode.BTC,
+  network: NetworkId.Bitcoin,
+  enabled: false,
+  displayNetwork: "Bitcoin",
+  contractAddress: null,
+  decimals: 8,
+  minAmount: "0.0001",
+  amountStep: "0.0001",
+  requiredConfirmations: 3,
+  memoSupported: false,
+};
+
+export const ETH_ETHEREUM: AssetNetworkConfig = {
+  asset: AssetCode.ETH,
+  network: NetworkId.Ethereum,
+  enabled: false,
+  displayNetwork: "Ethereum",
+  contractAddress: null,
+  decimals: 18,
+  minAmount: "0.001",
+  amountStep: "0.001",
+  requiredConfirmations: 12,
+  memoSupported: false,
+};
+
+/** Native TRX — not interchangeable with USDT TRC-20. */
+export const TRX_TRON: AssetNetworkConfig = {
+  asset: AssetCode.TRX,
+  network: NetworkId.Tron,
+  enabled: false,
+  displayNetwork: "Tron (native)",
+  contractAddress: null,
+  decimals: 6,
+  minAmount: "1",
+  amountStep: "1",
+  requiredConfirmations: 19,
+  memoSupported: false,
+};
+
+/** Full Phase 1 §VI catalog. Checkout only for `enabled: true` rows. */
 export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   USDT_TRON,
   USDT_ETHEREUM,
+  USDT_BNB_SMART_CHAIN,
+  USDT_POLYGON,
+  USDT_ARBITRUM_ONE,
+  USDT_SOLANA,
+  USDT_TON,
+  USDC_ETHEREUM,
+  USDC_POLYGON,
+  USDC_ARBITRUM_ONE,
+  USDC_BASE,
+  USDC_SOLANA,
+  BTC_BITCOIN,
+  ETH_ETHEREUM,
+  TRX_TRON,
 ];
 
+/** Enabled pair only — used by create-order and matching. */
 export function getAssetNetworkConfig(
   asset: AssetCode,
   network: NetworkId,
 ): AssetNetworkConfig | undefined {
   return ASSET_NETWORK_REGISTRY.find(
     (row) => row.enabled && row.asset === asset && row.network === network,
+  );
+}
+
+/** Any catalog row (including planned). For UI / chain-client scaffolding. */
+export function findAssetNetworkRow(
+  asset: AssetCode,
+  network: NetworkId,
+): AssetNetworkConfig | undefined {
+  return ASSET_NETWORK_REGISTRY.find(
+    (row) => row.asset === asset && row.network === network,
   );
 }
 
@@ -228,7 +436,7 @@ export function toAssetNetwork(row: AssetNetworkConfig): AssetNetwork {
   };
 }
 
-/** First Sprint 0 / M3 target pair. */
+/** First live Phase 1 pair. */
 export const DEFAULT_ASSET_NETWORK: AssetNetwork = toAssetNetwork(USDT_TRON);
 
 /**
@@ -390,8 +598,13 @@ export const AuditAction = {
   MfaVerifyEnroll: "mfa_verify_enroll",
   MfaVerifyLogin: "mfa_verify_login",
   OrgCreate: "org_create",
+  OrgStatus: "org_status",
+  OrgDelete: "org_delete",
   OrgUserInvite: "org_user_invite",
   OrgUserRole: "org_user_role",
+  OrgUserPause: "org_user_pause",
+  OrgUserResume: "org_user_resume",
+  OrgUserRemove: "org_user_remove",
   SettlementPut: "settlement_put",
   MatchingModePut: "matching_mode_put",
   XpubPut: "xpub_put",
@@ -408,6 +621,7 @@ export const AuditAction = {
   OrgPolicyPut: "org_policy_put",
   MerchantCommercialPut: "merchant_commercial_put",
   EnterpriseRateDecide: "enterprise_rate_decide",
+  ComplianceOverride: "compliance_override",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];

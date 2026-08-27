@@ -5,8 +5,13 @@ export const AUDIT_ACTIONS = {
   mfaVerifyEnroll: "mfa_verify_enroll",
   mfaVerifyLogin: "mfa_verify_login",
   orgCreate: "org_create",
+  orgStatus: "org_status",
+  orgDelete: "org_delete",
   orgUserInvite: "org_user_invite",
   orgUserRole: "org_user_role",
+  orgUserPause: "org_user_pause",
+  orgUserResume: "org_user_resume",
+  orgUserRemove: "org_user_remove",
   settlementPut: "settlement_put",
   matchingModePut: "matching_mode_put",
   xpubPut: "xpub_put",
@@ -22,7 +27,12 @@ export const AUDIT_ACTIONS = {
   feeTierPut: "fee_tier_put",
   orgPolicyPut: "org_policy_put",
   merchantCommercialPut: "merchant_commercial_put",
+  agentPayoutPut: "agent_payout_put",
+  agentCommissionPut: "agent_commission_put",
   enterpriseRateDecide: "enterprise_rate_decide",
+  complianceOverride: "compliance_override",
+  passwordResetRequest: "password_reset_request",
+  passwordResetComplete: "password_reset_complete",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

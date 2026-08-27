@@ -62,6 +62,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      operationId: forgotPassword
+      summary: Request a password-reset email (always opaque success)
+      description: >
+        Always returns 204 unless PASSWORD_RESET_EXPOSE_LINK=true (dev), which
+        may return the reset link in JSON when the email exists. Does not reveal
+        whether the address is registered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              additionalProperties: false
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "204":
+          description: Accepted (email sent or silently ignored)
+        "200":
+          description: Dev-only — reset link exposed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resetPath:
+                    type: string
+                  resetUrl:
+                    type: string
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      operationId: resetPassword
+      summary: Reset password with a one-time token from forgot-password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        "204":
+          description: Password updated
+        "400":
+          description: Invalid request or password policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Invalid or used token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: Token expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/logout:
     post:
       tags: [auth]
@@ -88,6 +169,40 @@ paths:
                 $ref: "#/components/schemas/Session"
         "401":
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/change-password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      summary: Change password while logged in (clears mustChangePassword)
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              additionalProperties: false
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 12
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Not authenticated or wrong current password
           content:
             application/json:
               schema:
@@ -177,6 +292,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/overview:
+    get:
+      tags: [orgs]
+      operationId: getOrgOverview
+      summary: Org detail overview (team, audit, orders, commercial/payout)
+      description: >
+        One round trip for platform org detail cards. Returns team members,
+        recent audit events, scoped payment orders, and merchant commercial or
+        agent payout when the caller may read them.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Overview payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgOverview"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orgs/{orgId}:
     get:
       tags: [orgs]
@@ -194,6 +335,75 @@ paths:
                 $ref: "#/components/schemas/OrgAccount"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orgs]
+      operationId: deleteOrg
+      summary: Delete an empty agent or merchant account
+      description: >
+        Platform Owner or Administrator may delete an agent / agent_sub / merchant
+        org that has no child orgs and no blocking FK dependencies. Prefer pause
+        when historical bills, orders, or keys remain.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Has children or linked records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/status:
+    put:
+      tags: [orgs]
+      operationId: setOrgStatus
+      summary: Pause or resume an agent or merchant account
+      description: >
+        Platform Owner or Administrator may pause (revoke portal access)
+        or resume an agent / agent_sub / merchant org. Child orgs are not
+        auto-paused.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum: [active, paused]
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Optional note stored in audit log when pausing
+      responses:
+        "200":
+          description: Org status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgAccount"
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -251,11 +461,11 @@ paths:
               $ref: "#/components/schemas/InviteUserRequest"
       responses:
         "201":
-          description: Membership created
+          description: Membership created (new users include temporaryPassword + invite link)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrgMembership"
+                $ref: "#/components/schemas/InviteOrgUserResult"
         "403":
           description: Forbidden (e.g. Cashier cannot manage team)
           content:
@@ -291,6 +501,79 @@ paths:
                 $ref: "#/components/schemas/OrgMembership"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/users/{userId}/status:
+    put:
+      tags: [orgs]
+      operationId: setOrgUserStatus
+      summary: Pause or resume an org membership
+      description: >
+        Org Owner or Platform Owner may pause (revoke org access) or resume a
+        member. Cannot pause the last active Owner or yourself. Pausing revokes
+        all sessions for that user so portals reload memberships.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status:
+                  $ref: "#/components/schemas/MembershipStatus"
+      responses:
+        "200":
+          description: Membership status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembership"
+        "403":
+          description: Forbidden (last owner, self, or not Owner)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/users/{userId}:
+    delete:
+      tags: [orgs]
+      operationId: removeOrgUser
+      summary: Remove member from org
+      description: >
+        Org Owner or Platform Owner may delete the membership row. Cannot remove
+        the last active Owner or yourself. Revokes all sessions for that user.
+        Re-add via invite. Does not delete the users row.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "204":
+          description: Membership removed
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Membership not found
           content:
             application/json:
               schema:
@@ -751,6 +1034,12 @@ paths:
             type: string
             format: uuid
           description: Restrict to one org in the caller’s merchant tree
+        - name: agentOrgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Restrict to merchant orgs in the agent subtree (platform/agent portals)
         - name: limit
           in: query
           schema:
@@ -1690,9 +1979,9 @@ paths:
       description: >
         Agent Owner/Administrator for merchants in subtree; Platform
         Owner/Administrator for any merchant. Rate must fall inside the tier band
-        unless tier is Enterprise — then creates a pending approval (see
-        /platform/enterprise-rate-approvals). Merchant roles and Cashier 403.
-        Changes apply to the **next billing period** unless noted in response.
+        unless tier is Enterprise. Changes apply **immediately** to the merchant's
+        effective rate. Enterprise rates outside the band create a pending approval
+        (see /platform/enterprise-rate-approvals). Merchant roles and Cashier 403.
       security:
         - sessionCookie: []
       parameters:
@@ -1718,6 +2007,225 @@ paths:
                 $ref: "#/components/schemas/Error"
         "422":
           description: Rate outside band or invalid tier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/agent-payout:
+    get:
+      tags: [orgs]
+      operationId: getAgentPayoutAddress
+      summary: Agent commission payout address
+      description: >
+        Agent and agent_sub orgs only. Platform staff and agent org
+        Owner/Administrator/Viewer may read. Returns 404 when not configured.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Payout address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPayoutAddress"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or payout not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: updateAgentPayoutAddress
+      summary: Set agent commission payout address
+      description: >
+        Agent org Owner/Administrator only. Watch-only destination for monthly
+        commission payouts — not used for payer on-chain flow.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentPayoutRequest"
+      responses:
+        "200":
+          description: Updated payout address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentPayoutAddress"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid asset/network
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/agent-commission:
+    get:
+      tags: [orgs]
+      operationId: getAgentCommission
+      summary: Agent commission percent of platform fee
+      description: >
+        Agent and agent_sub orgs only. Platform staff and agent org
+        Owner/Administrator/Viewer may read. Defaults to 15% when unset.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Commission settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentCommissionSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: updateAgentCommission
+      summary: Set agent commission percent (applies immediately)
+      description: >
+        Platform Owner/Administrator only. Updates take effect immediately for
+        new commission accruals — not taken from payer on-chain payments.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentCommissionRequest"
+      responses:
+        "200":
+          description: Updated commission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentCommissionSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid percent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /org-member-emails:
+    get:
+      tags: [orgs]
+      operationId: listOrgMemberEmails
+      summary: Bulk member emails for visible orgs (list search and invite validation)
+      description: >
+        Returns member emails grouped by org in one query. Platform staff see all
+        orgs; agent/merchant Owner/Administrator see their authorized subtree.
+        Aliases: /platform/org-member-emails, /platform/org-emails.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: types
+          in: query
+          description: Comma-separated org_accounts.type values to include
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Org member email index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformOrgMemberEmailList"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/org-emails:
+    get:
+      tags: [platform-settings]
+      operationId: listPlatformOrgEmails
+      summary: Alias for listPlatformOrgMemberEmails (bulk org member emails)
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: types
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Org member email index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformOrgMemberEmailList"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/org-member-emails:
+    get:
+      tags: [platform-settings]
+      operationId: listPlatformOrgMemberEmails
+      summary: Bulk member emails for visible orgs (platform list search)
+      description: >
+        Returns member emails grouped by org in one query. Platform Owner,
+        Administrator, or Viewer. Replaces N calls to listOrgUsers when
+        searching agents or merchants by contact email.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: types
+          in: query
+          description: Comma-separated org_accounts.type values to include (e.g. agent,agent_sub)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Org member email index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformOrgMemberEmailList"
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1790,6 +2298,102 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/watcher-health:
+    get:
+      tags: [platform-settings]
+      operationId: getWatcherHealth
+      summary: Latest per-network watcher heartbeats
+      description: >
+        Platform Owner/Administrator/Viewer. Returns last tick summary written by
+        apps/watcher (RPC mode, ingest mode, lag-adjusted health score). Empty
+        items when the watcher has not yet persisted a heartbeat.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Watcher health snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatcherHealthList"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/orgs/{orgId}/compliance-overrides:
+    get:
+      tags: [platform-settings]
+      operationId: listComplianceOverrides
+      summary: List compliance overrides for a merchant (B7 log)
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Override history (newest first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceOverrideList"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Merchant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/orgs/{orgId}/compliance-override:
+    post:
+      tags: [platform-settings]
+      operationId: applyComplianceOverride
+      summary: Apply B7 compliance override (MFA + immutable audit)
+      description: >
+        Platform Owner or Administrator. Requires enrolled MFA. Override types:
+        settlement_address (immediate), matching_mode, suspend_order_create,
+        suspend_merchant (pauses the org). Writes compliance_overrides and audit_log.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceOverrideRequest"
+      responses:
+        "200":
+          description: Override applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceOverrideResult"
+        "401":
+          description: Invalid MFA code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden or MFA not enrolled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Merchant not found
           content:
             application/json:
               schema:
@@ -1899,6 +2503,10 @@ components:
     UserRole:
       type: string
       enum: [owner, administrator, viewer, cashier]
+    MembershipStatus:
+      type: string
+      description: Matches @cryptogate/domain MembershipStatus
+      enum: [active, paused]
     OrderStatus:
       type: string
       enum:
@@ -1962,6 +2570,60 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SettlementAddress"
+    AgentPayoutAddress:
+      type: object
+      required: [orgId, asset, network, address]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        address:
+          type: string
+          description: Watch-only commission payout destination
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateAgentPayoutRequest:
+      type: object
+      required: [asset, network, address]
+      properties:
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        address:
+          type: string
+          minLength: 1
+          description: No whitespace
+    AgentCommissionSettings:
+      type: object
+      required: [orgId, commissionPercent, effectiveFrom]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        commissionPercent:
+          type: string
+          description: Percent of platform fee paid to the agent (rebate)
+          example: "15"
+        effectiveFrom:
+          type: string
+          format: date
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateAgentCommissionRequest:
+      type: object
+      required: [commissionPercent]
+      properties:
+        commissionPercent:
+          type: string
+          description: Applies immediately (0–100)
+          example: "18"
     UpsertSettlementAddressRequest:
       type: object
       required: [asset, network, address, mfaCode]
@@ -2146,20 +2808,28 @@ components:
           maxLength: 8
     Session:
       type: object
-      required: [userId, email, memberships]
+      required: [userId, email, memberships, mustChangePassword, mfaEnrolled]
       properties:
         userId:
           type: string
         email:
           type: string
           format: email
+        mustChangePassword:
+          type: boolean
+          description: When true, portals must block until POST /auth/change-password succeeds
+        mfaEnrolled:
+          type: boolean
+          description: >
+            True when the user completed TOTP MFA enrollment. Owner and
+            Administrator portals must force enrollment when false (A5).
         memberships:
           type: array
           items:
             $ref: "#/components/schemas/OrgMembership"
     OrgAccount:
       type: object
-      required: [id, type, name, parentId]
+      required: [id, type, name, parentId, status]
       properties:
         id:
           type: string
@@ -2170,10 +2840,33 @@ components:
         parentId:
           type: string
           nullable: true
+        status:
+          type: string
+          enum: [active, paused]
+          description: Operational gate for agent portal access
+        orderCreateSuspended:
+          type: boolean
+          description: >
+            When true, POST /orders is blocked by B7 suspend_order_create
+            (merchant account may still be active).
         structure:
           type: string
           enum: [single_location, multi_location]
           description: Merchant accounts only
+        createdAt:
+          type: string
+          format: date-time
+          description: Org account creation time (onboard date)
+        country:
+          type: string
+          description: Country captured at onboard
+        billingEmail:
+          type: string
+          format: email
+          description: Billing contact email captured at onboard
+        legalName:
+          type: string
+          description: Legal entity name when different from display name
     CreateOrgRequest:
       type: object
       required: [type, name, parentId]
@@ -2192,6 +2885,25 @@ components:
           description: >
             Required when type is merchant. Agent assigns tier and volume fee
             within platform band; Enterprise custom rates may enter pending approval.
+        commissionPercent:
+          type: string
+          description: >
+            Optional when type is agent or agent_sub. Percent of platform fee
+            paid to the agent (default 15). Applies immediately.
+        country:
+          type: string
+          description: Country captured at onboard
+        billingEmail:
+          type: string
+          format: email
+          description: Billing contact email captured at onboard
+        billingContact:
+          type: string
+          format: email
+          description: Alias for billingEmail (merchant onboard forms)
+        legalName:
+          type: string
+          description: Legal entity name when different from display name
     MerchantCommercialOnCreate:
       type: object
       required: [tier, volumeFeePercent]
@@ -2212,9 +2924,34 @@ components:
           format: email
         role:
           $ref: "#/components/schemas/UserRole"
+    InviteOrgUserResult:
+      allOf:
+        - $ref: "#/components/schemas/OrgMembership"
+        - type: object
+          properties:
+            temporaryPassword:
+              type: string
+              nullable: true
+              description: Present once when a new user was provisioned; copy for out-of-band share
+            invitePath:
+              type: string
+              nullable: true
+              description: Relative portal path for set-password invite link
+            inviteUrl:
+              type: string
+              format: uri
+              nullable: true
+            emailDelivery:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [stubbed, sent, skipped]
+                mode:
+                  type: string
     OrgMembership:
       type: object
-      required: [orgId, userId, role, orgType]
+      required: [orgId, userId, role, orgType, status]
       properties:
         orgId:
           type: string
@@ -2224,6 +2961,8 @@ components:
           $ref: "#/components/schemas/UserRole"
         orgType:
           $ref: "#/components/schemas/OrgType"
+        status:
+          $ref: "#/components/schemas/MembershipStatus"
     OrgMember:
       allOf:
         - $ref: "#/components/schemas/OrgMembership"
@@ -2233,6 +2972,14 @@ components:
             email:
               type: string
               format: email
+            mfaEnrolled:
+              type: boolean
+              description: True when the user completed MFA enrollment (B15 team table).
+            lastLoginAt:
+              type: string
+              format: date-time
+              nullable: true
+              description: Most recent session create time; null if never signed in.
     CreatePaymentOrderRequest:
       type: object
       required: [amount, asset, network, validitySeconds]
@@ -2263,6 +3010,7 @@ components:
         in @cryptogate/domain. Receive address is merchant-controlled.
       required:
         - id
+        - orgId
         - orderNumber
         - status
         - matchingMode
@@ -2278,6 +3026,9 @@ components:
       properties:
         id:
           type: string
+        orgId:
+          type: string
+          description: Merchant org that owns the payment order
         orderNumber:
           type: string
           example: "CG-2026-0042"
@@ -2851,7 +3602,7 @@ components:
         pendingVolumeFeePercent:
           type: string
           nullable: true
-          description: Scheduled rate for next billing period when a change is queued
+          description: Legacy scheduled rate from prior next-period behavior; new updates apply immediately
         subscriptionAmountUsd:
           type: string
           example: "49.00"
@@ -2933,6 +3684,240 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EnterpriseRateApproval"
+    WatcherHealthStatus:
+      type: string
+      enum: [ok, degraded, down, unknown]
+    WatcherHeartbeat:
+      type: object
+      required:
+        - network
+        - asset
+        - tick
+        - status
+        - healthScore
+        - rpcOk
+        - rpcMode
+        - ingestMode
+        - pollIntervalMs
+        - openOrders
+        - awaitingConfirmations
+        - transfersSeen
+        - tickAt
+        - updatedAt
+        - lagMs
+      properties:
+        network:
+          type: string
+          example: tron
+        asset:
+          type: string
+          example: USDT
+        tick:
+          type: integer
+        status:
+          $ref: "#/components/schemas/WatcherHealthStatus"
+        healthScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        rpcOk:
+          type: boolean
+        rpcMode:
+          type: string
+          description: trongrid | eth-rpc | stub
+        ingestMode:
+          type: string
+          description: match+confirm | noop | error | idle
+        pollIntervalMs:
+          type: integer
+        openOrders:
+          type: integer
+        awaitingConfirmations:
+          type: integer
+        transfersSeen:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+        detail:
+          type: object
+          additionalProperties: true
+        tickAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lagMs:
+          type: integer
+          description: Milliseconds since tickAt (computed on read)
+    WatcherHealthList:
+      type: object
+      required: [items, checkedAt]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WatcherHeartbeat"
+        checkedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          description: Optional operator hint (e.g. missing migration)
+    ComplianceOverrideType:
+      type: string
+      enum:
+        - settlement_address
+        - matching_mode
+        - suspend_order_create
+        - suspend_merchant
+    ComplianceReasonCode:
+      type: string
+      enum:
+        - manual_review
+        - suspicious_activity
+        - sanctions_screening
+        - other
+    ComplianceOverrideRequest:
+      type: object
+      required: [overrideType, reasonCode, notes, mfaCode]
+      additionalProperties: false
+      properties:
+        overrideType:
+          $ref: "#/components/schemas/ComplianceOverrideType"
+        reasonCode:
+          $ref: "#/components/schemas/ComplianceReasonCode"
+        notes:
+          type: string
+          minLength: 8
+          maxLength: 2000
+        ticketId:
+          type: string
+          maxLength: 120
+        mfaCode:
+          type: string
+          minLength: 6
+          maxLength: 8
+        matchingMode:
+          type: string
+          enum: [B, C, D, S]
+          description: Required when overrideType is matching_mode
+        settlement:
+          type: object
+          required: [asset, network, address]
+          additionalProperties: false
+          description: Required when overrideType is settlement_address
+          properties:
+            asset:
+              $ref: "#/components/schemas/AssetCode"
+            network:
+              $ref: "#/components/schemas/NetworkId"
+            address:
+              type: string
+    ComplianceOverride:
+      type: object
+      required:
+        - id
+        - orgId
+        - actorUserId
+        - overrideType
+        - reasonCode
+        - notes
+        - createdAt
+      properties:
+        id:
+          type: string
+        orgId:
+          type: string
+        actorUserId:
+          type: string
+        overrideType:
+          $ref: "#/components/schemas/ComplianceOverrideType"
+        reasonCode:
+          $ref: "#/components/schemas/ComplianceReasonCode"
+        notes:
+          type: string
+        ticketId:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    ComplianceOverrideList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceOverride"
+        softEmpty:
+          type: boolean
+          description: True when migration 028 is not applied yet
+    ComplianceOverrideResult:
+      type: object
+      required: [override]
+      properties:
+        override:
+          $ref: "#/components/schemas/ComplianceOverride"
+        org:
+          $ref: "#/components/schemas/OrgAccount"
+        matchingMode:
+          $ref: "#/components/schemas/MatchingModeSettings"
+        settlement:
+          $ref: "#/components/schemas/SettlementAddress"
+    PlatformOrgMemberEmailRow:
+      type: object
+      required: [orgId, emails]
+      properties:
+        orgId:
+          type: string
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
+        ownerEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Owner-role email when the org has an Owner membership
+    PlatformOrgMemberEmailList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformOrgMemberEmailRow"
+    OrgOverview:
+      type: object
+      required: [team, audit, orders]
+      properties:
+        team:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgMember"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogEntry"
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentOrder"
+        commercial:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/MerchantCommercialSettings"
+        payout:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AgentPayoutAddress"
     DecideEnterpriseRateApprovalRequest:
       type: object
       required: [decision]
@@ -2954,8 +3939,13 @@ components:
         - mfa_verify_enroll
         - mfa_verify_login
         - org_create
+        - org_status
+        - org_delete
         - org_user_invite
         - org_user_role
+        - org_user_pause
+        - org_user_resume
+        - org_user_remove
         - settlement_put
         - matching_mode_put
         - xpub_put
@@ -2972,6 +3962,7 @@ components:
         - org_policy_put
         - merchant_commercial_put
         - enterprise_rate_decide
+        - compliance_override
     AuditLogEntry:
       type: object
       required: [id, action, metadata, createdAt]

@@ -71,19 +71,23 @@ export async function findUserByEmail(email) {
 
 /**
  * @param {string} id
- * @returns {Promise<{ id: string, email: string } | null>}
+ * @returns {Promise<{ id: string, email: string, mfaEnrolled: boolean } | null>}
  */
 export async function findUserById(id) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email
+    `SELECT id, email, mfa_enrolled_at
      FROM users
      WHERE id = $1`,
     [id],
   );
   const row = rows[0];
   if (!row) return null;
-  return { id: row.id, email: row.email };
+  return {
+    id: row.id,
+    email: row.email,
+    mfaEnrolled: Boolean(row.mfa_enrolled_at),
+  };
 }
 
 /**
@@ -131,4 +135,25 @@ export async function authenticateUser(email, password) {
   const ok = await verifyPassword(password, hash);
   if (!user || !ok) return null;
   return { id: user.id, email: user.email, mfaEnrolled: user.mfaEnrolled };
+}
+
+/**
+ * @param {string} userId
+ * @param {string} password
+ */
+export async function updateUserPassword(userId, password) {
+  const policy = validatePassword(password);
+  if (!policy.ok) {
+    const err = new Error(policy.message);
+    err.code = policy.code;
+    throw err;
+  }
+  const passwordHash = await hashPassword(password);
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET password_hash = $2, updated_at = now()
+     WHERE id = $1`,
+    [userId, passwordHash],
+  );
 }

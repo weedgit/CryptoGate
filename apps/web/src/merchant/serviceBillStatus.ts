@@ -16,7 +16,7 @@ export function serviceBillStatusTone(status: string | null | undefined): string
     case "paid":
       return "ok";
     case "issued":
-      return "teal";
+      return "warn";
     case "overdue":
       return "anomaly";
     case "voided":

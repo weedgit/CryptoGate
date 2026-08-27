@@ -5,7 +5,10 @@ import {
   createOrg,
   getFeeTierSettings,
   inviteOrgUser,
+  listOrgMemberEmails,
+  listOrgs,
   type FeeTierBand,
+  type OrgAccount,
   type Session,
 } from "./api";
 import { tierLabel } from "../commercialLabels";
@@ -15,6 +18,14 @@ import {
   type MerchantTier,
 } from "./onboardMerchant";
 import { primaryAgentOrgId } from "./org";
+import {
+  fetchRegisteredEmailIndex,
+  registeredEmailConflict,
+  REGISTERED_EMAIL_API_MESSAGE,
+} from "../shared/registeredEmails";
+import type { RegisteredEmailRef } from "../shared/registeredEmails";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = { session: Session };
 
@@ -38,6 +49,10 @@ export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
   const parentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const [step, setStep] = useState(0);
+  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
+  const [registeredEmails, setRegisteredEmails] = useState<
+    Map<string, RegisteredEmailRef>
+  >(() => new Map());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
@@ -49,6 +64,26 @@ export function OnboardMerchantPage({ session }: Props) {
     commercial: { tier: "mid", volumeFeePercent: "1.2" },
     ownerEmail: "",
   });
+
+  useEffect(() => {
+    listOrgs()
+      .then(setOrgs)
+      .catch(() => setOrgs([]));
+  }, []);
+
+  useEffect(() => {
+    if (orgs.length === 0) {
+      setRegisteredEmails(new Map());
+      return;
+    }
+    let cancelled = false;
+    void fetchRegisteredEmailIndex(orgs, listOrgMemberEmails).then((index) => {
+      if (!cancelled) setRegisteredEmails(index);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgs]);
 
   useEffect(() => {
     getFeeTierSettings()
@@ -85,8 +120,21 @@ export function OnboardMerchantPage({ session }: Props) {
         return `Volume fee must be between ${min}% and ${max}% for ${tierLabel(form.commercial.tier)} tier.`;
       }
     }
-    if (step === 4 && !form.ownerEmail.trim()) return "Owner email is required.";
+    if (step === 4) {
+      const ownerEmail = form.ownerEmail.trim();
+      if (!ownerEmail) return "Owner email is required.";
+      if (!EMAIL_PATTERN.test(ownerEmail)) return "Enter a valid email address.";
+      const conflict = registeredEmailConflict(ownerEmail, registeredEmails);
+      if (conflict) return conflict;
+    }
     return null;
+  }
+
+  function validateOwnerEmail(index = registeredEmails): string | null {
+    const ownerEmail = form.ownerEmail.trim();
+    if (!ownerEmail) return "Owner email is required.";
+    if (!EMAIL_PATTERN.test(ownerEmail)) return "Enter a valid email address.";
+    return registeredEmailConflict(ownerEmail, index);
   }
 
   function next() {
@@ -115,11 +163,22 @@ export function OnboardMerchantPage({ session }: Props) {
     setBusy(true);
     setError(null);
     try {
+      const freshIndex = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
+      setRegisteredEmails(freshIndex);
+      const ownerConflict = validateOwnerEmail(freshIndex);
+      if (ownerConflict) {
+        setError(ownerConflict);
+        setStep(4);
+        return;
+      }
+
       const created = await createOrg({
         type: "merchant",
         name: form.name.trim(),
         parentId,
         structure: form.structure,
+        country: form.country.trim() || undefined,
+        billingEmail: form.billingContact.trim() || undefined,
         commercial: {
           tier: form.commercial.tier,
           volumeFeePercent: form.commercial.volumeFeePercent.trim(),
@@ -136,7 +195,12 @@ export function OnboardMerchantPage({ session }: Props) {
         },
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to create merchant");
+      if (err instanceof ApiError && err.code === "email_taken") {
+        setError(REGISTERED_EMAIL_API_MESSAGE);
+        setStep(4);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Failed to create merchant");
+      }
     } finally {
       setBusy(false);
     }
@@ -216,9 +280,6 @@ export function OnboardMerchantPage({ session }: Props) {
                 />
               </div>
             </div>
-            <p style={{ color: "var(--muted)", fontSize: 13 }}>
-              Country and billing contact are UI-only until org profile API ships.
-            </p>
           </>
         ) : null}
 

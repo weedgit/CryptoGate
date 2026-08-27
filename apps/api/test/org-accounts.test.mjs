@@ -37,8 +37,22 @@ describe("org-accounts mapper", () => {
         type: "platform",
         name: "CryptoGate",
         parentId: null,
+        status: "active",
       },
     );
+  });
+
+  it("maps created_at to createdAt ISO string", () => {
+    const account = toOrgAccount({
+      id: "a1",
+      type: "agent",
+      name: "Load Agent 003",
+      parent_id: "p1",
+      structure: null,
+      status: "active",
+      created_at: new Date("2025-11-15T12:00:00.000Z"),
+    });
+    assert.equal(account.createdAt, "2025-11-15T12:00:00.000Z");
   });
 
   it("includes structure on merchant rows", () => {
@@ -51,5 +65,21 @@ describe("org-accounts mapper", () => {
     });
     assert.equal(account.parentId, "a1");
     assert.equal(account.structure, "single_location");
+  });
+
+  it("maps registration profile fields when present", () => {
+    const account = toOrgAccount({
+      id: "a1",
+      type: "agent",
+      name: "Demo Agent",
+      parent_id: "p1",
+      structure: null,
+      country: "Singapore",
+      billing_email: "billing@example.com",
+      legal_name: "Demo Agent Pte Ltd",
+    });
+    assert.equal(account.country, "Singapore");
+    assert.equal(account.billingEmail, "billing@example.com");
+    assert.equal(account.legalName, "Demo Agent Pte Ltd");
   });
 });

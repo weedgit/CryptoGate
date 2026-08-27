@@ -1,5 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { getSession, logout, type Session } from "./api";
+import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
+import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
+import { sessionNeedsForcedMfa } from "../auth/mfaSession";
+import { SecuritySettingsPage } from "../auth/SecuritySettingsPage";
 import { AgentShell } from "./AgentShell";
 import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
@@ -10,12 +15,12 @@ import { RequireAgentOperator, RequireAgentPortal } from "./RequireAgentPortal";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { SubAgentsListPage } from "./SubAgentsListPage";
-import { getSession, logout, type Session } from "./api";
+import { TeamSettingsPage } from "./TeamSettingsPage";
 
 type ShellProps = {
   session: Session;
-  title: string;
-  crumb: string;
+  title?: string;
+  crumb?: string;
   children: ReactNode;
   onSignOut: () => void;
 };
@@ -64,6 +69,26 @@ export function AgentApp() {
     );
   }
 
+  if (session.mustChangePassword) {
+    return (
+      <ForceChangePasswordGate
+        session={session}
+        portalLabel="Agent portal"
+        onChanged={setSession}
+      />
+    );
+  }
+
+  if (sessionNeedsForcedMfa(session)) {
+    return (
+      <ForceMfaEnrollmentGate
+        session={session}
+        portalLabel="Agent portal"
+        onEnrolled={setSession}
+      />
+    );
+  }
+
   const signOut = async () => {
     await logout();
     setSession(null);
@@ -76,8 +101,6 @@ export function AgentApp() {
         element={
           <Shell
             session={session}
-            title="Agent Dashboard"
-            crumb="Overview"
             onSignOut={signOut}
           >
             <DashboardPage session={session} />
@@ -135,6 +158,36 @@ export function AgentApp() {
             onSignOut={signOut}
           >
             <SubAgentsListPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/team"
+        element={
+          <Shell
+            session={session}
+            title="Team"
+            crumb="Settings"
+            onSignOut={signOut}
+          >
+            <TeamSettingsPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/security"
+        element={
+          <Shell
+            session={session}
+            title="Security"
+            crumb="Settings"
+            onSignOut={signOut}
+          >
+            <SecuritySettingsPage
+              session={session}
+              variant="agent"
+              onSessionRefresh={setSession}
+            />
           </Shell>
         }
       />

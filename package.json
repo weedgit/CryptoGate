@@ -15,7 +15,8 @@
     "e2e": "node ./scripts/e2e-smoke.mjs",
     "e2e:check": "node ./scripts/e2e-smoke.mjs --check",
     "deploy:wave5": "node ./scripts/deploy-wave5.mjs",
-    "deploy:wave5:down": "node ./scripts/deploy-wave5.mjs --down"
+    "deploy:wave5:down": "node ./scripts/deploy-wave5.mjs --down",
+    "deploy:local": "node ./scripts/deploy-wave5.mjs --local"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

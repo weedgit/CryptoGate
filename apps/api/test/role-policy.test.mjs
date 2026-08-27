@@ -297,7 +297,12 @@ describe("role policy", () => {
         platformOperator: false,
         memberships: [agentOwner],
       }),
-      { kind: "none" },
+      {
+        kind: "scoped",
+        treeRoots: ["a1"],
+        cashierOrgIds: [],
+        userId: "u4",
+      },
     );
     assert.deepEqual(
       paymentOrderListScope({
@@ -351,7 +356,7 @@ describe("role policy", () => {
         platformOperator: false,
         memberships: [agentOwner],
       }),
-      false,
+      true,
     );
   });
 });

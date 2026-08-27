@@ -169,6 +169,15 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
       "utf8",
     );
     assert.match(b8, /next billing period/i);
-    assert.match(b8, /Enterprise rate approvals/);
+    assert.match(b8, /Custom merchant rate overrides/i);
+    assert.match(b8, /Platform fees/);
+
+    const settings = readFileSync(
+      join(root, "src/platform/PlatformSettingsPage.tsx"),
+      "utf8",
+    );
+    assert.match(settings, /Max agent hierarchy depth/i);
+    assert.match(settings, /getPlatformOrgPolicy/);
+    assert.match(settings, /Security/);
   });
 });

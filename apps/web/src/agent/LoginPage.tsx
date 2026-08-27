@@ -1,4 +1,4 @@
-import { PortalLoginPage } from "../auth/PortalLoginPage";
+import { UnauthenticatedPortal } from "../auth/UnauthenticatedPortal";
 
 type Props = {
   onSignedIn: () => void;
@@ -6,6 +6,6 @@ type Props = {
 
 export function LoginPage({ onSignedIn }: Props) {
   return (
-    <PortalLoginPage portalLabel="Agent portal sign-in" onSignedIn={onSignedIn} />
+    <UnauthenticatedPortal portalSubtitle="Agent management portal" onSignedIn={onSignedIn} />
   );
 }

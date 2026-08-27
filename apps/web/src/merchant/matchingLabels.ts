@@ -46,6 +46,20 @@ export function matchingModeHint(mode: string | null | undefined): string {
   }
 }
 
+/** Short scope line for platform merchant settlement readout. */
+export function matchingModeScope(mode: string | null | undefined): string {
+  switch (mode) {
+    case "C":
+      return "Merchant receive · unique payable amounts among open orders";
+    case "D":
+      return "Merchant receive · memo or tag on supported networks";
+    case "S":
+      return "Merchant receive · main address, HD pool on same-amount conflict";
+    default:
+      return "Merchant receive · fixed settlement address only";
+  }
+}
+
 export const VALIDITY_OPTIONS = [
   { label: "15 Minutes", seconds: 900 },
   { label: "30 Minutes (Recommended)", seconds: 1800 },

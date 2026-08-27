@@ -6,6 +6,7 @@
  * Usage (from repo root or apps/api):
  *   node apps/api/scripts/migrate.mjs
  *   pnpm --filter @cryptogate/api migrate
+ *   MIGRATE_REPAIR_CHECKSUMS=1 …  # local/dev: update stored checksums when applied files changed
  */
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
@@ -47,6 +48,9 @@ function checksum(sql) {
 }
 
 async function main() {
+  const repairChecksums =
+    process.env.MIGRATE_REPAIR_CHECKSUMS === "1" ||
+    process.env.MIGRATE_REPAIR_CHECKSUMS === "true";
   const client = new pg.Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
   try {
@@ -68,9 +72,18 @@ async function main() {
       const existing = rows[0];
       if (existing) {
         if (existing.checksum !== sum) {
-          throw new Error(
-            `Migration ${id} already applied but file checksum changed`,
+          if (!repairChecksums) {
+            throw new Error(
+              `Migration ${id} already applied but file checksum changed` +
+                ` (set MIGRATE_REPAIR_CHECKSUMS=1 to update stored checksum for local/dev only)`,
+            );
+          }
+          await client.query(
+            "UPDATE schema_migrations SET checksum = $2 WHERE id = $1",
+            [id, sum],
           );
+          console.log(`repair ${id} (checksum updated)`);
+          continue;
         }
         console.log(`skip  ${id}`);
         continue;

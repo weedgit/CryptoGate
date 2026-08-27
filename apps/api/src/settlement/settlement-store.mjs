@@ -124,3 +124,39 @@ export async function upsertSettlementAddress(input, client) {
   );
   return { row: rows[0], kind: "pending" };
 }
+
+/**
+ * B7 compliance: force active settlement address immediately (no cool-down).
+ * @param {{ orgId: string, asset: string, network: string, address: string }} input
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function forceSettlementAddress(input, client) {
+  const existing = await findSettlementAddress(
+    input.orgId,
+    input.asset,
+    input.network,
+    client,
+  );
+
+  if (!existing) {
+    const { rows } = await db(client).query(
+      `INSERT INTO settlement_addresses (org_id, asset, network, address)
+       VALUES ($1, $2, $3, $4)
+       RETURNING ${SETTLEMENT_SELECT}`,
+      [input.orgId, input.asset, input.network, input.address],
+    );
+    return rows[0];
+  }
+
+  const { rows } = await db(client).query(
+    `UPDATE settlement_addresses
+     SET address = $4,
+         pending_address = NULL,
+         pending_activates_at = NULL,
+         updated_at = now()
+     WHERE org_id = $1 AND asset = $2 AND network = $3
+     RETURNING ${SETTLEMENT_SELECT}`,
+    [input.orgId, input.asset, input.network, input.address],
+  );
+  return rows[0];
+}

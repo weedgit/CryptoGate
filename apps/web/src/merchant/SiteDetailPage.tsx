@@ -32,11 +32,9 @@ export function SiteDetailPage() {
   if (!site) return null;
 
   return (
-    <div className="sites-page">
+    <div className="sites-page dash-page">
       <div className="orders-toolbar">
-        <p className="muted" style={{ margin: 0 }}>
-          {orgTypeLabel(site.type)} overview
-        </p>
+        <p className="dash-welcome">{orgTypeLabel(site.type)} overview</p>
         <Link className="btn-ghost btn-inline" to="/merchant/sites">
           All sites
         </Link>
@@ -56,16 +54,26 @@ export function SiteDetailPage() {
         </div>
         <div className="settings-field">
           <span className="settings-label">Settlement / matching</span>
-          <span>Inherit parent (override flow pending)</span>
+          <span>
+            Inherit parent merchant defaults. Site-level override requires Owner
+            approval (X-04) — configure parent settings for now.
+          </span>
+        </div>
+        <div className="settings-field">
+          <span className="settings-label">Structure</span>
+          <span>{site.structure?.replace(/_/g, " ") ?? "—"}</span>
         </div>
       </div>
 
       <div className="orders-actions">
-        <Link className="btn-primary btn-inline" to={`/merchant/reports`}>
-          Site reports
+        <Link className="btn-primary btn-inline" to="/merchant/settings/settlement">
+          Parent settlement
         </Link>
         <Link className="btn-ghost btn-inline" to="/merchant/orders">
           All orders
+        </Link>
+        <Link className="btn-ghost btn-inline" to="/merchant/reports">
+          Reports
         </Link>
       </div>
     </div>

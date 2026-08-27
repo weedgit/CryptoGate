@@ -5,11 +5,20 @@ const API_BASE =
 export type Session = {
   userId: string;
   email: string;
-  memberships: Array<{ orgId: string; orgType?: string | null; role: string }>;
+  mustChangePassword?: boolean;
+  /** True when TOTP enrollment completed; Owner/Admin must enroll when false. */
+  mfaEnrolled?: boolean;
+  memberships: Array<{
+    orgId: string;
+    orgType?: string | null;
+    role: string;
+    status?: "active" | "paused";
+  }>;
 };
 
 export type PaymentOrder = {
   id: string;
+  orgId?: string;
   orderNumber: string;
   status: string;
   matchingMode: string;
@@ -22,6 +31,7 @@ export type PaymentOrder = {
   asset: string;
   network: string;
   expiresAt: string;
+  createdAt?: string;
   createdBy?: string;
 };
 
@@ -62,14 +72,19 @@ async function parseError(res: Response): Promise<never> {
   const body = await res.text();
   try {
     const json = JSON.parse(body) as { code?: string; message?: string };
-    throw new ApiError(
-      json.code ?? "http_error",
-      json.message ?? `HTTP ${res.status}`,
-      res.status,
-    );
+    const raw = json.message?.trim() || "";
+    const friendly =
+      res.status >= 500
+        ? "Something went wrong on the server. Please try again."
+        : raw || `Request failed (${res.status})`;
+    throw new ApiError(json.code ?? "http_error", friendly, res.status);
   } catch (e) {
     if (e instanceof ApiError) throw e;
-    throw new ApiError("http_error", body || `HTTP ${res.status}`, res.status);
+    const friendly =
+      res.status >= 500
+        ? "Something went wrong on the server. Please try again."
+        : body?.trim() || `Request failed (${res.status})`;
+    throw new ApiError("http_error", friendly, res.status);
   }
 }
 
@@ -125,6 +140,36 @@ export async function logout(): Promise<void> {
   }).catch(() => undefined);
 }
 
+/** A2 — always succeeds from the caller's perspective when email is well-formed. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (res.status === 204 || res.ok) {
+    return;
+  }
+  await parseError(res);
+}
+
+export async function resetPasswordWithToken(
+  token: string,
+  password: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/reset-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (res.status === 204) {
+    return;
+  }
+  await parseError(res);
+}
+
 export async function createOrder(input: {
   amount: string;
   asset: string;
@@ -162,11 +207,13 @@ export async function listOrders(opts?: {
   status?: string;
   limit?: number;
   orgId?: string;
+  agentOrgId?: string;
 }): Promise<PaymentOrder[]> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.agentOrgId) q.set("agentOrgId", opts.agentOrgId);
   const suffix = q.toString() ? `?${q}` : "";
   const res = await fetch(`${API_BASE}/orders${suffix}`, {
     credentials: "include",
@@ -566,7 +613,9 @@ export type OrgAccount = {
   type: string;
   name: string;
   parentId: string | null;
+  status?: "active" | "paused";
   structure?: string;
+  createdAt?: string;
 };
 
 export type OrgMembership = {
@@ -574,9 +623,35 @@ export type OrgMembership = {
   userId: string;
   role: string;
   orgType: string;
+  status: "active" | "paused";
 };
 
-export type OrgMember = OrgMembership & { email: string };
+export type OrgMember = OrgMembership & {
+  email: string;
+  /** Present on org user list (B15 / C11 / D16). */
+  mfaEnrolled?: boolean;
+  lastLoginAt?: string | null;
+};
+
+export type OrgMemberEmailRow = {
+  orgId: string;
+  emails: string[];
+};
+
+export async function listOrgMemberEmails(opts?: {
+  types?: string[];
+}): Promise<OrgMemberEmailRow[]> {
+  const q = new URLSearchParams();
+  if (opts?.types?.length) q.set("types", opts.types.join(","));
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await fetch(`${API_BASE}/org-member-emails${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: OrgMemberEmailRow[] };
+  return data.items ?? [];
+}
 
 export async function listOrgUsers(orgId: string): Promise<OrgMember[]> {
   const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
@@ -610,7 +685,7 @@ export async function getOrg(orgId: string): Promise<OrgAccount> {
 export async function inviteOrgUser(
   orgId: string,
   body: { email: string; role: string },
-): Promise<OrgMembership> {
+): Promise<InviteOrgUserResult> {
   const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/users`, {
     method: "POST",
     credentials: "include",
@@ -621,7 +696,31 @@ export async function inviteOrgUser(
     body: JSON.stringify(body),
   });
   if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgMembership;
+  return (await res.json()) as InviteOrgUserResult;
+}
+
+export type InviteOrgUserResult = OrgMembership & {
+  temporaryPassword?: string | null;
+  invitePath?: string | null;
+  inviteUrl?: string | null;
+  emailDelivery?: { status: string; mode: string };
+};
+
+export async function changePassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<Session> {
+  const res = await fetch(`${API_BASE}/auth/change-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as Session;
 }
 
 export async function assignOrgUserRole(
@@ -643,6 +742,39 @@ export async function assignOrgUserRole(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgMembership;
+}
+
+export async function setOrgUserStatus(
+  orgId: string,
+  userId: string,
+  status: "active" | "paused",
+): Promise<OrgMembership> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/status`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgMembership;
+}
+
+export async function removeOrgUser(orgId: string, userId: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok && res.status !== 204) await parseError(res);
 }
 
 export type MerchantCommercialSettings = {

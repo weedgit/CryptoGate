@@ -28,6 +28,28 @@ export function sessionIsPlatformOwner(session: Session): boolean {
   );
 }
 
+/** Display label for the highest platform membership on this session. */
+export function platformRoleLabel(session: Session): string {
+  if (sessionIsPlatformOwner(session)) return "Owner";
+  if (sessionIsPlatformViewerOnly(session)) return "Viewer";
+  return "Administrator";
+}
+
+export type PlatformRoleKey = "owner" | "administrator" | "viewer";
+
+export function platformRoleKey(session: Session): PlatformRoleKey {
+  if (sessionIsPlatformOwner(session)) return "owner";
+  if (sessionIsPlatformViewerOnly(session)) return "viewer";
+  return "administrator";
+}
+
+/** Single-letter mark for role avatar (not a human portrait). */
+export function platformRoleMark(role: PlatformRoleKey): string {
+  if (role === "owner") return "O";
+  if (role === "viewer") return "V";
+  return "A";
+}
+
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
   if (type === "agent_sub") return "Agent (sub)";

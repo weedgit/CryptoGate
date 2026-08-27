@@ -1,3 +1,4 @@
+import { findUserById } from "../auth/users.mjs";
 import { loadCaller, isPlatformOwner } from "../orgs/org-access.mjs";
 import { findMembership } from "../orgs/membership-store.mjs";
 import { isPlatformOperator } from "../orgs/membership-rules.mjs";
@@ -51,6 +52,16 @@ export async function requireCaller(req, res) {
 
   const session = await requireSession(req, res);
   if (!session) return null;
+
+  // Enrolled users must complete TOTP before privileged routes (verify uses requireSession only).
+  if (!session.mfaVerified) {
+    const user = await findUserById(session.userId);
+    if (user?.mfaEnrolled) {
+      sendError(res, 401, "mfa_required", "MFA verification required");
+      return null;
+    }
+  }
+
   const caller = await loadCaller(session.userId);
   return { ...session, ...caller };
 }

@@ -31,6 +31,15 @@ import {
   adjustServiceBill,
 } from "./service-bill-store.mjs";
 
+const SERVICE_BILL_LIST_MAX = 5000;
+
+function parseServiceBillListLimit(raw) {
+  if (raw == null || raw === "") return 100;
+  const n = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n < 1) return 100;
+  return Math.min(n, SERVICE_BILL_LIST_MAX);
+}
+
 /**
  * Expand list scope to merchant org ids the caller may see.
  * @param {{ kind: "all" } | { kind: "none" } | { kind: "scoped", rootIds: string[] }} scope
@@ -83,7 +92,7 @@ export async function handleListServiceBills(req, res, url) {
     orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
     orgId,
     status: statusFilter.status,
-    limit: 100,
+    limit: parseServiceBillListLimit(url.searchParams.get("limit")),
   });
   sendJson(res, 200, { items: rows.map(toServiceBill) });
 }

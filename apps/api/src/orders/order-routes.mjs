@@ -3,6 +3,7 @@ import { OrderStatus } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { resolveOrderOrgId } from "../orgs/role-policy.mjs";
+import { findOrgById } from "../orgs/org-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
   extraCreateOrderKeys,
@@ -90,6 +91,30 @@ export async function handleCreatePaymentOrder(req, res) {
   const scope = resolveOrderOrgId(caller.memberships, validated.parsed.orgId);
   if (!scope.ok) {
     sendError(res, scope.status, scope.code, scope.message);
+    return;
+  }
+
+  const merchantOrg = await findOrgById(scope.orgId);
+  if (!merchantOrg) {
+    sendError(res, 404, "not_found", "Merchant org not found");
+    return;
+  }
+  if (merchantOrg.status === "paused") {
+    sendError(
+      res,
+      403,
+      "org_paused",
+      "Merchant account is paused; payment orders cannot be created",
+    );
+    return;
+  }
+  if (merchantOrg.order_create_suspended === true) {
+    sendError(
+      res,
+      403,
+      "order_create_suspended",
+      "Platform compliance has suspended payment order creation for this merchant",
+    );
     return;
   }
 

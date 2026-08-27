@@ -36,7 +36,7 @@ describe("session cookies", () => {
 describe("session payload", () => {
   it("includes memberships when provided", () => {
     const session = sessionFromUser(
-      { id: "u1", email: "cashier@example.com" },
+      { id: "u1", email: "cashier@example.com", mfaEnrolled: true },
       [
         {
           orgId: "m1",
@@ -47,13 +47,17 @@ describe("session payload", () => {
       ],
     );
     assert.equal(session.memberships[0].role, "cashier");
+    assert.equal(session.mfaEnrolled, true);
+    assert.equal(session.mustChangePassword, false);
   });
 
-  it("defaults memberships to empty", () => {
+  it("defaults memberships and MFA flags", () => {
     const session = sessionFromUser({
       id: "u1",
       email: "cashier@example.com",
     });
     assert.deepEqual(session.memberships, []);
+    assert.equal(session.mfaEnrolled, false);
+    assert.equal(session.mustChangePassword, false);
   });
 });

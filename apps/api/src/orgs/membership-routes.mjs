@@ -1,11 +1,15 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
+import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
 import { findOrgById } from "./org-store.mjs";
 import {
   canAssignOrgRole,
   canInviteToOrg,
   canListOrgUsers,
+  canManageMembershipLifecycle,
+  isLastActiveOwnerLifecycleBlock,
   isLastOwnerDemotion,
+  MEMBERSHIP_STATUSES,
   roleAllowedOnOrg,
   toOrgMembership,
   USER_ROLES,
@@ -13,33 +17,89 @@ import {
 import {
   countOrgMemberships,
   countOwners,
+  deleteMembership,
   findMembership,
-  findOrCreateUserByEmail,
   insertMembership,
+  listMemberEmailsGroupedByOrg,
   listMembershipsForOrg,
+  listMembershipsForUser,
+  provisionUserForInvite,
   updateMembershipRole,
+  updateMembershipStatus,
 } from "./membership-store.mjs";
+import { canListOrgMemberEmailsBulk } from "./role-policy.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { createPasswordResetToken } from "../auth/password-reset-store.mjs";
+import { sendInviteEmail } from "../mail/auth-mail.mjs";
+import {
+  invitePathForToken,
+  inviteUrlForToken,
+  portalSlugForOrgType,
+  webBaseUrl,
+} from "../mail/portal-links.mjs";
+
+/**
+ * Shared org visibility + existence for membership routes.
+ * @returns {Promise<{ org: object } | null>}
+ */
+async function loadVisibleOrg(req, res, orgId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return null;
+
+  const org = await findOrgById(orgId);
+  if (!org) {
+    sendError(res, 404, "not_found", "Org not found");
+    return null;
+  }
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
+    sendError(res, 404, "not_found", "Org not found");
+    return null;
+  }
+  return { caller, org };
+}
+
+/**
+ * GET /v1/org-member-emails?types=agent,agent_sub
+ * GET /v1/platform/org-member-emails (alias)
+ * GET /v1/platform/org-emails (alias)
+ * Bulk member emails for orgs visible to the caller.
+ */
+export async function handleListOrgMemberEmails(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canListOrgMemberEmailsBulk(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to list org member emails");
+    return;
+  }
+
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  const visibleIds = visible.map((row) => row.id);
+  const typesParam = url.searchParams.get("types");
+  const orgTypes =
+    typesParam && typesParam.trim()
+      ? typesParam
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : null;
+
+  const items = await listMemberEmailsGroupedByOrg(visibleIds, orgTypes);
+  sendJson(res, 200, { items });
+}
+
+/** @deprecated Alias for handleListOrgMemberEmails */
+export const handleListPlatformOrgMemberEmails = handleListOrgMemberEmails;
 
 /**
  * GET /v1/orgs/{orgId}/users
  */
 export async function handleListOrgUsers(req, res, orgId) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-
-  const org = await findOrgById(orgId);
-  if (!org) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
-  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
-  if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
 
   const memberRole = roleOnOrg(caller.memberships, orgId);
   if (!canListOrgUsers(memberRole, caller.platformOperator)) {
@@ -47,7 +107,7 @@ export async function handleListOrgUsers(req, res, orgId) {
     return;
   }
 
-  const items = await listMembershipsForOrg(orgId);
+  const items = await listMembershipsForOrg(org.id);
   sendJson(res, 200, { items });
 }
 
@@ -55,19 +115,9 @@ export async function handleListOrgUsers(req, res, orgId) {
  * POST /v1/orgs/{orgId}/users
  */
 export async function handleInviteOrgUser(req, res, orgId) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-
-  const org = await findOrgById(orgId);
-  if (!org) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
-  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
-  if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
 
   let body;
   try {
@@ -107,15 +157,43 @@ export async function handleInviteOrgUser(req, res, orgId) {
     return;
   }
 
-  let user;
+  let provisioned;
   try {
-    user = await findOrCreateUserByEmail(email);
+    provisioned = await provisionUserForInvite(email);
   } catch (err) {
     if (err && err.code === "email_invalid") {
       sendError(res, 400, "email_invalid", err.message);
       return;
     }
     throw err;
+  }
+
+  const user = { id: provisioned.id, email: provisioned.email };
+
+  if (!provisioned.created) {
+    const memberships = await listMembershipsForUser(user.id);
+    if (memberships.some((m) => m.orgId !== orgId)) {
+      sendError(
+        res,
+        409,
+        "email_taken",
+        "This email is already registered on the platform.",
+      );
+      return;
+    }
+  }
+
+  const existing = await findMembership(orgId, user.id, { includePaused: true });
+  if (existing) {
+    sendError(
+      res,
+      400,
+      "membership_exists",
+      existing.status === "paused"
+        ? "User is already a member (paused). Resume instead of inviting again."
+        : "User is already a member of this org",
+    );
+    return;
   }
 
   const inserted = await insertMembership({
@@ -128,42 +206,64 @@ export async function handleInviteOrgUser(req, res, orgId) {
     return;
   }
 
+  /** @type {string | null} */
+  let temporaryPassword = provisioned.temporaryPassword;
+  /** @type {string | null} */
+  let invitePath = null;
+  /** @type {string | null} */
+  let inviteUrl = null;
+  /** @type {{ status: string, mode: string }} */
+  let emailDelivery = { status: "skipped", mode: "none" };
+
+  if (provisioned.created && temporaryPassword) {
+    const rawToken = await createPasswordResetToken(user.id);
+    invitePath = invitePathForToken(org.type, rawToken);
+    inviteUrl = inviteUrlForToken(org.type, rawToken);
+    const loginUrl = `${webBaseUrl()}/${portalSlugForOrgType(org.type)}/login`;
+    const mail = await sendInviteEmail({
+      to: user.email,
+      orgName: org.name ?? org.type,
+      role,
+      temporaryPassword,
+      inviteUrl,
+      loginUrl,
+    });
+    emailDelivery = { status: mail.delivered ? "sent" : "stubbed", mode: mail.mode };
+  }
+
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId,
     action: AUDIT_ACTIONS.orgUserInvite,
-    metadata: { invitedUserId: user.id, role },
+    metadata: {
+      invitedUserId: user.id,
+      role,
+      provisioned: provisioned.created,
+    },
   });
 
-  sendJson(
-    res,
-    201,
-    toOrgMembership({
+  sendJson(res, 201, {
+    ...toOrgMembership({
       orgId,
       userId: user.id,
       role,
       orgType: org.type,
+      status: "active",
     }),
-  );
+    temporaryPassword,
+    invitePath,
+    inviteUrl,
+    emailDelivery,
+  });
 }
 
 /**
  * PUT /v1/orgs/{orgId}/users/{userId}/role
  */
 export async function handleAssignOrgUserRole(req, res, orgId, userId) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-
-  const org = await findOrgById(orgId);
-  if (!org) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
-  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
-  if (!caller.platformOperator && !isVisibleOrg(visible, orgId)) {
-    sendError(res, 404, "not_found", "Org not found");
-    return;
-  }
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
 
   if (
     !canAssignOrgRole({
@@ -189,7 +289,7 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
     return;
   }
 
-  const existing = await findMembership(orgId, userId);
+  const existing = await findMembership(orgId, userId, { includePaused: true });
   if (!existing) {
     sendError(res, 404, "not_found", "Membership not found");
     return;
@@ -222,6 +322,156 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
       userId,
       role,
       orgType: org.type,
+      status: existing.status,
     }),
   );
+}
+
+/**
+ * PUT /v1/orgs/{orgId}/users/{userId}/status
+ */
+export async function handleSetOrgUserStatus(req, res, orgId, userId) {
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
+
+  if (
+    !canManageMembershipLifecycle({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+    })
+  ) {
+    sendError(res, 403, "forbidden", "Only the org Owner may manage team");
+    return;
+  }
+
+  if (caller.userId === userId) {
+    sendError(res, 403, "forbidden", "Cannot change your own membership status");
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const status = typeof body?.status === "string" ? body.status : "";
+  if (!MEMBERSHIP_STATUSES.includes(status)) {
+    sendError(res, 400, "invalid_request", "status must be active or paused");
+    return;
+  }
+
+  const existing = await findMembership(orgId, userId, { includePaused: true });
+  if (!existing) {
+    sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  if (status === "paused") {
+    const owners = await countOwners(orgId);
+    if (
+      isLastActiveOwnerLifecycleBlock({
+        role: existing.role,
+        status: existing.status,
+        activeOwnerCount: owners,
+      })
+    ) {
+      sendError(res, 403, "last_owner", "Cannot pause the last active Owner");
+      return;
+    }
+  }
+
+  if (existing.status === status) {
+    sendJson(
+      res,
+      200,
+      toOrgMembership({
+        orgId,
+        userId,
+        role: existing.role,
+        orgType: org.type,
+        status,
+      }),
+    );
+    return;
+  }
+
+  await updateMembershipStatus(orgId, userId, status);
+  await revokeAllSessionsForUser(userId);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action:
+      status === "paused" ? AUDIT_ACTIONS.orgUserPause : AUDIT_ACTIONS.orgUserResume,
+    metadata: { targetUserId: userId, status },
+  });
+
+  sendJson(
+    res,
+    200,
+    toOrgMembership({
+      orgId,
+      userId,
+      role: existing.role,
+      orgType: org.type,
+      status,
+    }),
+  );
+}
+
+/**
+ * DELETE /v1/orgs/{orgId}/users/{userId}
+ */
+export async function handleRemoveOrgUser(req, res, orgId, userId) {
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller } = loaded;
+
+  if (
+    !canManageMembershipLifecycle({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+    })
+  ) {
+    sendError(res, 403, "forbidden", "Only the org Owner may manage team");
+    return;
+  }
+
+  if (caller.userId === userId) {
+    sendError(res, 403, "forbidden", "Cannot remove yourself from the org");
+    return;
+  }
+
+  const existing = await findMembership(orgId, userId, { includePaused: true });
+  if (!existing) {
+    sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  const owners = await countOwners(orgId);
+  if (
+    isLastActiveOwnerLifecycleBlock({
+      role: existing.role,
+      status: existing.status,
+      activeOwnerCount: owners,
+    })
+  ) {
+    sendError(res, 403, "last_owner", "Cannot remove the last active Owner");
+    return;
+  }
+
+  await deleteMembership(orgId, userId);
+  await revokeAllSessionsForUser(userId);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.orgUserRemove,
+    metadata: { targetUserId: userId, priorRole: existing.role, priorStatus: existing.status },
+  });
+
+  res.writeHead(204);
+  res.end();
 }
