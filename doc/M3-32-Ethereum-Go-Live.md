@@ -33,9 +33,9 @@ Includes `apps/watcher/test/ethereum-tick.test.mjs` — watcher tick with `DEFAU
 
 | # | Check | Pass |
 | --- | --- | --- |
-| 1 | Watcher tick logs ethereum health when `ETH_RPC_URL` set | ☐ |
-| 2 | Create **Tron** order still works (regression) | ☐ |
-| 3 | Create **USDT/ethereum** order returns **201** only after enable — **422 before** | ☐ |
+| 1 | Watcher tick logs ethereum health when `ETH_RPC_URL` set | ☐ staging RPC — **local stub tick 2026-08-27:** `DEFAULT_NETWORK=ethereum` → `chain.ethereum.mode=stub`, heartbeat persisted |
+| 2 | Create **Tron** order still works (regression) | ☑ local 201 |
+| 3 | Create **USDT/ethereum** order returns **201** only after enable — **422 before** | ☑ local 422 `asset_network_disabled` |
 | 4 | After enable: order receives ERC-20 USDT on assigned address (test wallet) | ☐ |
 | 5 | Watcher binds tx → `verifying` → `completed` at **12** confirmations | ☐ |
 | 6 | Wrong-network / underpay → **payment_anomaly** (not Completed) | ☐ |

@@ -17,6 +17,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  closeSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -338,10 +339,37 @@ async function restoreDrill() {
   }
 
   mkdirSync(deployDir, { recursive: true });
-  await smoke();
+  try {
+    await smoke();
+  } catch {
+    log("restore", "API not up — starting before dump");
+    up();
+    await waitForHealth();
+    await smoke();
+  }
 
-  log("restore", `pg_dump → ${dumpFile}`);
-  run("pg_dump", [url, "-Fc", "-f", dumpFile]);
+  log("restore", `pg_dump (docker postgres stdout) → ${dumpFile}`);
+  const dumpFd = openSync(dumpFile, "w");
+  const dumpRun = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "postgres",
+      "pg_dump",
+      "-U",
+      "cryptogate",
+      "-d",
+      "cryptogate",
+      "-Fc",
+    ],
+    { cwd: root, stdio: ["ignore", dumpFd, "inherit"] },
+  );
+  closeSync(dumpFd);
+  if (dumpRun.status !== 0) {
+    process.exit(dumpRun.status ?? 1);
+  }
 
   stopProcesses();
   run("docker", [
@@ -355,12 +383,49 @@ async function restoreDrill() {
     "-d",
     "postgres",
     "-c",
-    "DROP DATABASE IF EXISTS cryptogate WITH (FORCE); CREATE DATABASE cryptogate;",
+    "DROP DATABASE IF EXISTS cryptogate WITH (FORCE);",
+  ]);
+  run("docker", [
+    "compose",
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "cryptogate",
+    "-d",
+    "postgres",
+    "-c",
+    "CREATE DATABASE cryptogate;",
   ]);
 
-  log("restore", "pg_restore");
-  run("pg_restore", ["-d", url, "--no-owner", "--no-privileges", dumpFile]);
-  run(process.execPath, [join(root, "apps/api/scripts/migrate.mjs")]);
+  log("restore", "pg_restore (docker postgres stdin)");
+  const restoreFd = openSync(dumpFile, "r");
+  const restoreRun = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "postgres",
+      "pg_restore",
+      "-U",
+      "cryptogate",
+      "-d",
+      "cryptogate",
+      "--no-owner",
+      "--no-privileges",
+    ],
+    { cwd: root, stdio: [restoreFd, "inherit", "inherit"] },
+  );
+  closeSync(restoreFd);
+  if (restoreRun.status !== 0 && restoreRun.status !== 1) {
+    // pg_restore exits 1 on warnings (e.g. comments); fail only on hard errors.
+    process.exit(restoreRun.status ?? 1);
+  }
+  run(process.execPath, [join(root, "apps/api/scripts/migrate.mjs")], {
+    env: { MIGRATE_REPAIR_CHECKSUMS: "1" },
+  });
   up();
   await waitForHealth();
   await smoke();

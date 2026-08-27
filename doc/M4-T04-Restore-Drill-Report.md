@@ -78,12 +78,21 @@ node scripts/licenses-report.mjs
 
 | Check | Pass | Notes |
 | --- | --- | --- |
-| No **high/critical** npm advisories without accepted risk | ☐ | Fix or document exception |
-| [M4-34](M4-34-Third-Party-Licenses.md) updated if new deps | ☐ | |
+| No **high/critical** npm advisories without accepted risk | ☐ with exceptions | **2026-08-27 local:** 1 high + 5 moderate (below). No prod API/watcher packages. |
+| [M4-34](M4-34-Third-Party-Licenses.md) updated if new deps | ☑ | Regenerated 2026-08-27 (90 packages, no new copyleft) |
 | Android Gradle CVE scan (Cashier APK) | ☐ | Company A / Bruce before prod APK |
 | Postgres / OS patches current on DB host | ☐ | Company A |
 
-**Accepted risk template:** advisory ID, package, why deferred, compensating control, review date.
+**Accepted risk (2026-08-27 local review — revisit at Company A cutover):**
+
+| Advisory | Package | Why deferred | Compensating control | Review |
+| --- | --- | --- | --- | --- |
+| [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) high | `vite@5.4.21` | Fix is Vite ≥6.4.3; Phase 1 web stays on Vite 5 | Windows-only `server.fs.deny` bypass; portals are Linux/macOS Vite **dev**, not a public Vite server | Cutover |
+| [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) moderate | `esbuild@0.21.5` (via Vite) | Transitive; Vite 5 pin | Dev-server only, not production API/watcher | Cutover |
+| [GHSA-4w7w-66w2-5vf9](https://github.com/advisories/GHSA-4w7w-66w2-5vf9) moderate | `vite@5.4.21` | Vite 6 major | Optimized-deps `.map` path traversal on **dev** server | Cutover |
+| [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) moderate | `vite` / launch-editor | Windows NTLM | N/A on Linux operators | Cutover |
+| [GHSA-wrjc-x8rr-h8h6](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6) moderate | `react-router@6.30.6` | v7 is a breaking portal upgrade | Open redirect in `<Link>`/`useNavigate`; app links are first-party routes | Cutover |
+| [GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg) moderate | `react-router@6.30.6` | SSR hydration only | Portals are Vite SPA, no SSR | Cutover |
 
 ---
 
@@ -104,8 +113,8 @@ DATABASE_URL=... node apps/api/scripts/load-m4-12.mjs --http
 
 | Mode | Pass | p95 create (ms) | p95 status (ms) |
 | --- | --- | --- | --- |
-| in-process | ☐ | | |
-| `--db` / `--http` (test) | ☐ | | |
+| in-process | ☑ | ~1 | ~1 |
+| `--db` / `--http` (test) | ☐ | | Company A test |
 
 ---
 
@@ -116,7 +125,8 @@ DATABASE_URL=... node apps/api/scripts/load-m4-12.mjs --http
 | Drill procedure | **Done** — [M4-03](M4-03-Backup-Monitoring.md) §4.1 |
 | Report template (this doc) | **Done** |
 | Executed drill on Company A test | **Pending** — blocked on M3-T09 deploy |
-| CVE review on prod release | **Pending** — run at cutover |
+| Local dry-run (`node scripts/deploy-wave5.mjs --restore-drill`) | **Done 2026-08-27** — docker `pg_dump`/`pg_restore`, health + e2e smoke after restore. Dump at `.deploy/restore-drill.dump` (gitignored). |
+| CVE review on prod release | **Pending** — run at cutover; local npm review recorded in §4 |
 
 ---
 

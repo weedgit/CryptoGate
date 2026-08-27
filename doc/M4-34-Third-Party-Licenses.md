@@ -6,7 +6,7 @@
 Phase 1 npm dependencies for the monorepo (API, watcher, web, payment-page, packages).  
 **Cashier APK** (Gradle) and **managed cloud services** are listed separately — not generated from this script.
 
-**Generated:** 2026-08-24 · **Packages:** 90
+**Generated:** 2026-08-27 · **Packages:** 90
 
 ---
 
