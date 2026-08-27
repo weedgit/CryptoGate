@@ -91,6 +91,9 @@ run("node", [
   "apps/api/test/webhook-deliver.test.mjs",
   "apps/api/test/webhook-fanout.test.mjs",
   "apps/api/test/service-bill-rules.test.mjs",
+  "apps/api/test/generate-rules.test.mjs",
+  "apps/api/test/site-override-rules.test.mjs",
+  "apps/api/test/retention-rules.test.mjs",
   "apps/api/test/authz-regression.test.mjs",
   "apps/api/test/load-m4-12.test.mjs",
 ]);
@@ -101,4 +104,4 @@ run("node", ["doc/examples/api-signing-smoke.mjs"]);
 run("node", ["--test", "apps/web/test/platform-m4-30.test.mjs", "apps/web/test/agent-m4-31.test.mjs", "apps/web/test/merchant-m2-60.test.mjs"]);
 run("node", ["apps/api/scripts/load-m4-12.mjs"]);
 
-console.log("Check: ok (OpenAPI v0.3.3 + fee tiers + M4-12 load smoke + M3 samples)");
+console.log("Check: ok (OpenAPI v0.3.5 + site inherit + M4-12 load smoke + M3 samples)");

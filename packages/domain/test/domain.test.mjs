@@ -29,6 +29,9 @@ import {
   WEBHOOK_RETRY_DELAYS_SECONDS,
   API_KEY_MAX_PER_ORG,
   ApiKeyColumn,
+  SiteOverrideKind,
+  SettingsSource,
+  DEFAULT_ORDER_DELETE_DAYS,
 } from "../dist/index.js";
 
 describe("@cryptogate/domain", () => {
@@ -70,6 +73,8 @@ describe("@cryptogate/domain", () => {
     assert.equal(AuditAction.FeeTierPut, "fee_tier_put");
     assert.equal(AuditAction.EnterpriseRateDecide, "enterprise_rate_decide");
     assert.equal(AuditAction.ComplianceOverride, "compliance_override");
+    assert.equal(AuditAction.SiteOverrideRequest, "site_override_request");
+    assert.equal(AuditAction.SiteOverrideDecide, "site_override_decide");
   });
 
   it("registers full Phase 1 §VI catalog; only USDT Tron is live", () => {
@@ -130,5 +135,8 @@ describe("@cryptogate/domain", () => {
     assert.equal(API_KEY_MAX_PER_ORG, 10);
     assert.equal(ApiKeyColumn.keyId, "key_id");
     assert.equal(ApiKeyColumn.secret, "secret");
+    assert.equal(SiteOverrideKind.MatchingMode, "matching_mode");
+    assert.equal(SettingsSource.Inherit, "inherit");
+    assert.equal(DEFAULT_ORDER_DELETE_DAYS, 90);
   });
 });

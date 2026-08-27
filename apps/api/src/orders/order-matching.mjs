@@ -21,6 +21,9 @@ import {
  * @param {{
  *   client: import("pg").PoolClient,
  *   orgId: string,
+ *   settlementOrgId?: string,
+ *   xpubOrgId?: string,
+ *   walletGroupOrgIds?: string[],
  *   matchingMode: string,
  *   asset: string,
  *   network: string,
@@ -30,8 +33,12 @@ import {
  * }} input
  */
 export async function assignOnOrderCreate(input) {
+  const settlementOrgId = input.settlementOrgId ?? input.orgId;
+  const xpubOrgId = input.xpubOrgId ?? input.orgId;
+  const walletGroupOrgIds = input.walletGroupOrgIds ?? [settlementOrgId];
+
   const settlement = await findSettlementAddress(
-    input.orgId,
+    settlementOrgId,
     input.asset,
     input.network,
     input.client,
@@ -47,7 +54,7 @@ export async function assignOnOrderCreate(input) {
 
   const mainSettlementAddress = settlement.address;
   const xPubConfigured = await hasActiveXpub(
-    input.orgId,
+    xpubOrgId,
     input.asset,
     input.network,
     input.client,
@@ -56,25 +63,28 @@ export async function assignOnOrderCreate(input) {
   const listPayables = (query) =>
     listReservedPayableAmounts(input.client, {
       ...query,
+      merchantIds: walletGroupOrgIds,
       statuses: MODE_C_RESERVED_STATUSES,
     });
   /** @type {import("@cryptogate/matching").ListReservedMemoOrTags} */
   const listMemos = (query) =>
     listReservedMemoOrTags(input.client, {
       ...query,
+      merchantIds: walletGroupOrgIds,
       statuses: MODE_D_RESERVED_STATUSES,
     });
   /** @type {import("@cryptogate/matching").HasModeSSameAmountConflict} */
   const hasConflict = (query) =>
     hasModeSSameAmountConflict(input.client, {
       ...query,
+      merchantIds: walletGroupOrgIds,
       statuses: MODE_S_CONFLICT_STATUSES,
     });
 
   try {
     const result = await assignOnCreate({
       mode: input.matchingMode,
-      merchantId: input.orgId,
+      merchantId: xpubOrgId,
       asset: input.asset,
       network: input.network,
       requestedAmount: input.amount,

@@ -31,6 +31,8 @@ export const AUDIT_ACTIONS = {
   agentCommissionPut: "agent_commission_put",
   enterpriseRateDecide: "enterprise_rate_decide",
   complianceOverride: "compliance_override",
+  siteOverrideRequest: "site_override_request",
+  siteOverrideDecide: "site_override_decide",
   passwordResetRequest: "password_reset_request",
   passwordResetComplete: "password_reset_complete",
 };

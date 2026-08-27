@@ -34,6 +34,7 @@ import {
 } from "../platform/volumeFilter";
 import {
   ApiError,
+  getAgentCommission,
   listAuditLog,
   listOrders,
   listOrgs,
@@ -55,6 +56,8 @@ import {
   sessionCanOnboardMerchant,
   sessionIsAgentViewerOnly,
 } from "./org";
+import { commissionHistoryFromBills } from "../commercial/commissionStatements";
+import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
 
 type Props = { session: Session };
 
@@ -73,6 +76,7 @@ type OverviewStats = {
   fees: number;
   openBills: number;
   overdueMerchants: number;
+  commissionMtd: number;
 };
 
 type MerchantVolumeRow = {
@@ -101,6 +105,7 @@ const EMPTY_STATS: OverviewStats = {
   fees: 0,
   openBills: 0,
   overdueMerchants: 0,
+  commissionMtd: 0,
 };
 
 function isMerchantType(t: string) {
@@ -495,7 +500,8 @@ export function DashboardPage({ session }: Props) {
     const to = parseDateInput(endDate, true);
     const dayKeys = buildDayKeys(from, to);
     try {
-      const [allOrgs, allOrders, allBills, createEvents] = await Promise.all([
+      const [allOrgs, allOrders, allBills, createEvents, commission] =
+        await Promise.all([
         listOrgs(),
         listOrders({ limit: 500 }).catch(() => [] as PaymentOrder[]),
         listServiceBills().catch(() => [] as ServiceBill[]),
@@ -505,6 +511,7 @@ export function DashboardPage({ session }: Props) {
           to: to.toISOString(),
           limit: 200,
         }).catch(() => [] as AuditLogEntry[]),
+        getAgentCommission(agentId).catch(() => null),
       ]);
 
       const subtreeOrgs = orgsInAgentSubtree(agentId, allOrgs);
@@ -530,6 +537,18 @@ export function DashboardPage({ session }: Props) {
         if (isOrgUnderAgent(orgId, agentId, allOrgs, byId)) newMerchants += 1;
       }
 
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const commissionPct =
+        commission?.commissionPercent?.trim() ||
+        DEFAULT_AGENT_COMMISSION_PERCENT;
+      const statements = commissionHistoryFromBills(
+        bills,
+        merchantIds,
+        commissionPct,
+      );
+      const mtdRow =
+        statements.find((r) => r.periodKey === monthKey) ?? statements[0];
+
       setStats({
         merchants: accountSlice(
           merchantRows.filter((m) => m.type === "merchant"),
@@ -546,6 +565,7 @@ export function DashboardPage({ session }: Props) {
         openBills: bills.filter((b) => b.status === "issued" || b.status === "overdue")
           .length,
         overdueMerchants: overdueOrgIds.size,
+        commissionMtd: mtdRow?.commissionAmount ?? 0,
       });
       setOrders(orders);
       setPeriodDayKeys(dayKeys);
@@ -681,15 +701,16 @@ export function DashboardPage({ session }: Props) {
         id: "commission",
         category: "Subtree",
         title: "Commission MTD",
-        help: "Agent commission statements ship with C10 — shown as placeholder until that API lands.",
-        value: "—",
-        compareLabel: "Requires commission API",
-        series: keys.map(() => 0),
+        help: "Rebate from platform fees on subtree service bills. Not taken from payer on-chain payments.",
+        value: fmtMoney(stats.commissionMtd),
+        compareLabel: "C10 statements",
+        series: keys.map(() => stats.commissionMtd),
         seriesLabels: labels,
         seriesMetric: "Commission",
         formatSeriesValue: fmtMoney,
         chartColor: METRIC_CHART_COLORS.fees,
         seriesStatus: "ready",
+        moreHref: "/agent/commissions",
       },
     ];
   }, [chartWindow, dayLabels, periodLabel, series, stats]);

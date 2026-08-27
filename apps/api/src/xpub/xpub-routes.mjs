@@ -17,6 +17,11 @@ import {
 import { listXpubs, upsertXpub } from "./xpub-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import {
+  denySiteWriteWithoutOverride,
+  grantSiteOverrideAfterPlatformWrite,
+  settingsLookupOrgId,
+} from "../sites/site-inherit.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -52,8 +57,14 @@ export async function handleGetXpub(req, res, orgId) {
     return;
   }
 
-  const rows = await listXpubs(orgId);
-  sendJson(res, 200, { items: rows.map(toXpubSettings) });
+  const lookup = await settingsLookupOrgId(loaded.org, "xpub");
+  const rows = await listXpubs(lookup.orgId);
+  sendJson(res, 200, {
+    items: rows.map(toXpubSettings),
+    source: lookup.source,
+    parentOrgId: lookup.parentOrgId,
+    effectiveOrgId: lookup.orgId,
+  });
 }
 
 /**
@@ -65,6 +76,9 @@ export async function handlePutXpub(req, res, orgId) {
 
   if (!canChangeXpubSettings(loaded.caller, loaded.org)) {
     sendError(res, 403, "forbidden", "Not allowed to change xPub");
+    return;
+  }
+  if (await denySiteWriteWithoutOverride(res, loaded.org, "xpub", loaded.caller)) {
     return;
   }
 
@@ -113,5 +127,6 @@ export async function handlePutXpub(req, res, orgId) {
         : null,
     },
   });
+  await grantSiteOverrideAfterPlatformWrite(loaded.org, "xpub", loaded.caller);
   sendJson(res, 200, toXpubSettings(result.row));
 }

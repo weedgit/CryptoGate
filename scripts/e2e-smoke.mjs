@@ -51,6 +51,37 @@ async function liveSmoke() {
   }
   console.log(`e2e live: health ok (${healthUrl})`);
 
+  const genRes = await fetch(`${base}/v1/service-bills/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (genRes.status !== 401) {
+    console.error(
+      `live generate expected 401 unauthenticated, got ${genRes.status}`,
+    );
+    process.exit(1);
+  }
+  console.log("e2e live: generate service bills 401 without session");
+
+  const ovRes = await fetch(`${base}/v1/orgs/00000000-0000-0000-0000-000000000001/setting-overrides`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      settingKind: "matching_mode",
+      payload: { matchingMode: "C" },
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (ovRes.status !== 401) {
+    console.error(
+      `live setting-overrides expected 401 unauthenticated, got ${ovRes.status}`,
+    );
+    process.exit(1);
+  }
+  console.log("e2e live: site setting-overrides 401 without session");
+
   const orderId = (process.env.E2E_PAYMENT_ORDER_ID ?? "").trim();
   if (orderId) {
     const payUrl = `${base}/v1/orders/${encodeURIComponent(orderId)}/payment`;

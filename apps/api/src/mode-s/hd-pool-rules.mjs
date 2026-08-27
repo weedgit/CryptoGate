@@ -46,9 +46,12 @@ export function toHdPoolAddress(row) {
 /**
  * @param {object[]} rows
  */
-export function toHdPoolList(rows) {
+export function toHdPoolList(rows, lookup = {}) {
   return {
     derivationPath: HD_DERIVE_PATH_TEMPLATE,
     items: rows.map(toHdPoolAddress),
+    source: lookup.source ?? "merchant",
+    parentOrgId: lookup.parentOrgId ?? null,
+    effectiveOrgId: lookup.orgId ?? null,
   };
 }

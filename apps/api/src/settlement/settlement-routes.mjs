@@ -20,6 +20,11 @@ import {
 } from "./settlement-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import {
+  denySiteWriteWithoutOverride,
+  grantSiteOverrideAfterPlatformWrite,
+  settingsLookupOrgId,
+} from "../sites/site-inherit.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -55,8 +60,14 @@ export async function handleGetSettlement(req, res, orgId) {
     return;
   }
 
-  const rows = await listSettlementAddresses(orgId);
-  sendJson(res, 200, { items: rows.map(toSettlementAddress) });
+  const lookup = await settingsLookupOrgId(loaded.org, "settlement");
+  const rows = await listSettlementAddresses(lookup.orgId);
+  sendJson(res, 200, {
+    items: rows.map(toSettlementAddress),
+    source: lookup.source,
+    parentOrgId: lookup.parentOrgId,
+    effectiveOrgId: lookup.orgId,
+  });
 }
 
 /**
@@ -68,6 +79,9 @@ export async function handlePutSettlement(req, res, orgId) {
 
   if (!canChangeSettlementSettings(loaded.caller, loaded.org)) {
     sendError(res, 403, "forbidden", "Not allowed to change settlement address");
+    return;
+  }
+  if (await denySiteWriteWithoutOverride(res, loaded.org, "settlement", loaded.caller)) {
     return;
   }
 
@@ -122,5 +136,6 @@ export async function handlePutSettlement(req, res, orgId) {
         : null,
     },
   });
+  await grantSiteOverrideAfterPlatformWrite(loaded.org, "settlement", loaded.caller);
   sendJson(res, 200, toSettlementAddress(result.row));
 }

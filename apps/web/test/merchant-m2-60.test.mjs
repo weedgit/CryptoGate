@@ -244,5 +244,14 @@ describe("@cryptogate/web merchant D7-D9 sites", () => {
     assert.match(create, /multi-location|inherit/i);
     const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
     assert.match(list, /multi_location/);
+    const detail = readFileSync(join(root, "src/merchant/SiteDetailPage.tsx"), "utf8");
+    assert.match(detail, /SiteOverridesPanel/);
+    assert.match(detail, /inherit/i);
+    const panel = readFileSync(
+      join(root, "src/merchant/SiteOverridesPanel.tsx"),
+      "utf8",
+    );
+    assert.match(panel, /requestSiteOverride/);
+    assert.match(panel, /decideSiteOverride/);
   });
 });

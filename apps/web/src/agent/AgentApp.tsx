@@ -7,6 +7,7 @@ import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { SecuritySettingsPage } from "../auth/SecuritySettingsPage";
 import { AgentShell } from "./AgentShell";
+import { CommissionsPage } from "./CommissionsPage";
 import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantDetailPage } from "./MerchantDetailPage";
@@ -178,6 +179,19 @@ export function AgentApp() {
               variant="agent"
               onSessionRefresh={setSession}
             />
+          </Shell>
+        }
+      />
+      <Route
+        path="commissions"
+        element={
+          <Shell
+            session={session}
+            title="Commissions"
+            crumb="Billing"
+            onSignOut={signOut}
+          >
+            <CommissionsPage session={session} />
           </Shell>
         }
       />

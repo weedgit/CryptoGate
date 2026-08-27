@@ -151,17 +151,28 @@ export async function findOrderById(id) {
  *   statuses: readonly string[],
  * }} query
  */
+/**
+ * @param {{ merchantId: string, merchantIds?: string[], asset: string, network: string, receiveAddress: string, statuses: readonly string[] }} query
+ */
+function merchantIdsOf(query) {
+  if (Array.isArray(query.merchantIds) && query.merchantIds.length > 0) {
+    return query.merchantIds;
+  }
+  return [query.merchantId];
+}
+
 export async function listReservedPayableAmounts(client, query) {
+  const ids = merchantIdsOf(query);
   const { rows } = await client.query(
     `SELECT payable_amount
      FROM payment_orders
-     WHERE org_id = $1
+     WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
        AND receive_address = $4
        AND status = ANY($5::text[])`,
     [
-      query.merchantId,
+      ids,
       query.asset,
       query.network,
       query.receiveAddress,
@@ -183,17 +194,18 @@ export async function listReservedPayableAmounts(client, query) {
  * }} query
  */
 export async function listReservedMemoOrTags(client, query) {
+  const ids = merchantIdsOf(query);
   const { rows } = await client.query(
     `SELECT memo_or_tag
      FROM payment_orders
-     WHERE org_id = $1
+     WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
        AND receive_address = $4
        AND memo_or_tag IS NOT NULL
        AND status = ANY($5::text[])`,
     [
-      query.merchantId,
+      ids,
       query.asset,
       query.network,
       query.receiveAddress,
@@ -215,17 +227,18 @@ export async function listReservedMemoOrTags(client, query) {
  * }} query
  */
 export async function hasModeSSameAmountConflict(client, query) {
+  const ids = merchantIdsOf(query);
   const { rows } = await client.query(
     `SELECT 1
      FROM payment_orders
-     WHERE org_id = $1
+     WHERE org_id = ANY($1::uuid[])
        AND asset = $2
        AND network = $3
        AND payable_amount = $4
        AND status = ANY($5::text[])
      LIMIT 1`,
     [
-      query.merchantId,
+      ids,
       query.asset,
       query.network,
       query.payableAmount,

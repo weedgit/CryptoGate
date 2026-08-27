@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ApiError, getOrg, type OrgAccount } from "./api";
+import { ApiError, getOrg, type OrgAccount, type Session } from "./api";
 import { orgTypeLabel, truncateAddress } from "./org";
+import { SiteOverridesPanel } from "./SiteOverridesPanel";
 
-export function SiteDetailPage() {
+export function SiteDetailPage({ session }: { session: Session }) {
   const { id = "" } = useParams();
   const [site, setSite] = useState<OrgAccount | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,8 +56,8 @@ export function SiteDetailPage() {
         <div className="settings-field">
           <span className="settings-label">Settlement / matching</span>
           <span>
-            Inherit parent merchant defaults. Site-level override requires Owner
-            approval (X-04) — configure parent settings for now.
+            Inherit parent merchant defaults until the parent Owner approves a
+            site override (D17).
           </span>
         </div>
         <div className="settings-field">
@@ -64,6 +65,12 @@ export function SiteDetailPage() {
           <span>{site.structure?.replace(/_/g, " ") ?? "—"}</span>
         </div>
       </div>
+
+      <SiteOverridesPanel
+        session={session}
+        siteId={site.id}
+        parentId={site.parentId}
+      />
 
       <div className="orders-actions">
         <Link className="btn-primary btn-inline" to="/merchant/settings/settlement">

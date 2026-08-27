@@ -312,7 +312,7 @@ export function MerchantApp() {
         element={
           <Shell session={session} title="Site Detail" crumb="Sites" onSignOut={signOut}>
             <OwnerOnly session={session} area="sites">
-              <SiteDetailPage />
+              <SiteDetailPage session={session} />
             </OwnerOnly>
           </Shell>
         }

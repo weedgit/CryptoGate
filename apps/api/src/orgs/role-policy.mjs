@@ -234,6 +234,34 @@ export function canChangeMatchingModeSettings(caller, org) {
   return canChangeSettlementSettings(caller, org);
 }
 
+/**
+ * Site Owner / Administrator may request an override; Cashier cannot.
+ * @param {{ memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canRequestSiteOverride(caller, org) {
+  if (org.type !== "merchant_site") return false;
+  const role = roleOnOrg(caller.memberships, org.id);
+  return SETTINGS_ROLES.has(role);
+}
+
+/**
+ * Parent merchant Owner decides. Not site Owner, not parent Administrator, not platform B7.
+ * @param {{ memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} org
+ */
+export function canDecideSiteOverride(caller, org) {
+  if (org.type !== "merchant_site") return false;
+  const parentId = org.parent_id ?? org.parentId ?? null;
+  if (!parentId) return false;
+  return roleOnOrg(caller.memberships, parentId) === "owner";
+}
+
+/** Same visibility as settlement GET (site team, parent, agent subtree). */
+export function canViewSiteOverrides(caller, org) {
+  return canViewSettlementSettings(caller, org);
+}
+
 /** Same bar as settlement: Cashier cannot view matching mode. */
 export function canViewMatchingModeSettings(caller, org) {
   return canViewSettlementSettings(caller, org);

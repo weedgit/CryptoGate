@@ -8,7 +8,7 @@ const raw = readFileSync(specPath, "utf8");
 
 const required = [
   "openapi: 3.0.3",
-  "version: 0.3.3",
+  "version: 0.3.5",
   "/auth/login",
   "/auth/logout",
   "/auth/session",
@@ -44,6 +44,19 @@ const required = [
   "HdPoolAddress",
   "HdPoolList",
   "derivationPath",
+  "/orgs/{orgId}/setting-overrides",
+  "listSiteSettingOverrides",
+  "requestSiteSettingOverride",
+  "decideSiteSettingOverride",
+  "SiteSettingOverride",
+  "override_required",
+  "/orgs/{orgId}/retention",
+  "getOrgRetentionSettings",
+  "putOrgRetentionSettings",
+  "orderDeleteDays",
+  "SettingsSource",
+  "site_override_request",
+  "site_override_decide",
   "PaymentOrderList",
   "format=csv",
   "/orders/{id}/payment",
@@ -90,6 +103,8 @@ const required = [
   "signingSecret",
   "listServiceBills",
   "issueServiceBill",
+  "generateServiceBills",
+  "/service-bills/generate",
   "getServiceBill",
   "getServiceBillCheckout",
   "updateServiceBill",
@@ -194,4 +209,4 @@ if (
   process.exit(1);
 }
 
-console.log("OpenAPI contract freeze v0.3.3: ok");
+console.log("OpenAPI contract freeze v0.3.5: ok");

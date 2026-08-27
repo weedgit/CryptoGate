@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
 import {
   AgentsNavIcon,
+  AuditLogNavIcon,
   DashboardNavIcon,
   MerchantsNavIcon,
   SecurityNavIcon,
@@ -39,6 +40,12 @@ const NAV: NavItem[] = [
     label: "Service Bills",
     matchPrefix: "/agent/service-bills",
     Icon: ServiceBillsNavIcon,
+  },
+  {
+    to: "/agent/commissions",
+    label: "Commissions",
+    matchPrefix: "/agent/commissions",
+    Icon: AuditLogNavIcon,
   },
   {
     to: "/agent/settings/team",

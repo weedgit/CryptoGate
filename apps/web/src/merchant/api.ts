@@ -275,9 +275,35 @@ export function ordersCsvUrl(opts?: {
   return `${API_BASE}/orders?${q}`;
 }
 
+export type SettingsSource = "merchant" | "inherit" | "override";
+
 export type MatchingModeSettings = {
   orgId: string;
   matchingMode: string;
+  source?: SettingsSource;
+  parentOrgId?: string | null;
+  effectiveOrgId?: string;
+};
+
+export type OrgRetentionSettings = {
+  orgId: string;
+  orderDeleteDays: number;
+  source?: SettingsSource;
+  parentOrgId?: string | null;
+  effectiveOrgId?: string;
+};
+
+export type SiteSettingOverride = {
+  id: string;
+  siteOrgId: string;
+  parentOrgId: string;
+  settingKind: "settlement" | "xpub" | "matching_mode" | "order_retention";
+  status: "pending" | "approved" | "denied";
+  payload: Record<string, unknown>;
+  requestedBy?: string;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  createdAt: string;
 };
 
 export type SettlementAddress = {
@@ -404,6 +430,66 @@ export async function listHdPool(orgId: string): Promise<HdPoolList> {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as HdPoolList;
+}
+
+export async function getRetention(orgId: string): Promise<OrgRetentionSettings> {
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/retention`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgRetentionSettings;
+}
+
+export async function listSiteOverrides(orgId: string): Promise<SiteSettingOverride[]> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/setting-overrides`,
+    { credentials: "include", headers: { Accept: "application/json" } },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: SiteSettingOverride[] };
+  return data.items ?? [];
+}
+
+export async function requestSiteOverride(
+  orgId: string,
+  body: { settingKind: SiteSettingOverride["settingKind"]; payload: Record<string, unknown> },
+): Promise<SiteSettingOverride> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/setting-overrides`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as SiteSettingOverride;
+}
+
+export async function decideSiteOverride(
+  orgId: string,
+  overrideId: string,
+  body: { decision: "approve" | "deny"; reason?: string; mfaCode?: string },
+): Promise<SiteSettingOverride> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/setting-overrides/${encodeURIComponent(overrideId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as SiteSettingOverride;
 }
 
 export type ServiceBill = {

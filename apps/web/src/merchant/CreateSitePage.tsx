@@ -151,7 +151,7 @@ export function CreateSitePage({ session }: Props) {
         </label>
         <p className="muted settings-note">
           Wallet, xPub, matching mode, and retention inherit from the parent until
-          override APIs land (D17 site context).
+          the parent merchant Owner approves a site override.
         </p>
         {error ? <p className="error">{error}</p> : null}
         <button type="submit" className="btn-primary" disabled={busy}>

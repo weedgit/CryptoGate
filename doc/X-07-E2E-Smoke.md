@@ -25,6 +25,8 @@ Tier B adds `node scripts/check.mjs` (domain, matching §2.8, API unit tests, wa
 Tier C adds:
 
 - `GET {E2E_API_BASE}/health` — expect 200 + `db: ok`
+- `POST /v1/service-bills/generate` — expect 401 without session
+- `POST /v1/orgs/{id}/setting-overrides` — expect 401 without session
 - Optional `E2E_PAYMENT_ORDER_ID` → `GET /v1/orders/{id}/payment` (public guest path)
 
 ---

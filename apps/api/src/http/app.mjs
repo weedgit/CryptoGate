@@ -38,6 +38,15 @@ import {
 import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
 import {
+  handleDecideSiteOverride,
+  handleListSiteOverrides,
+  handleRequestSiteOverride,
+} from "../sites/site-override-routes.mjs";
+import {
+  handleGetRetention,
+  handlePutRetention,
+} from "../retention/retention-routes.mjs";
+import {
   handleDeleteWebhook,
   handleListWebhookDeliveries,
   handleListWebhooks,
@@ -57,6 +66,7 @@ import {
   handleListServiceBills,
   handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
+import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs";
 import { handleListAuditLog } from "../audit/audit-routes.mjs";
 import {
   handleDecideEnterpriseRateApproval,
@@ -246,6 +256,45 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  const overrideDecideMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/setting-overrides\/([^/]+)$/,
+  );
+  if (overrideDecideMatch && method === "PATCH") {
+    await handleDecideSiteOverride(
+      req,
+      res,
+      decodeURIComponent(overrideDecideMatch[1]),
+      decodeURIComponent(overrideDecideMatch[2]),
+    );
+    return;
+  }
+
+  const overridesMatch = path.match(/^\/v1\/orgs\/([^/]+)\/setting-overrides$/);
+  if (overridesMatch) {
+    const orgId = decodeURIComponent(overridesMatch[1]);
+    if (method === "GET") {
+      await handleListSiteOverrides(req, res, orgId);
+      return;
+    }
+    if (method === "POST") {
+      await handleRequestSiteOverride(req, res, orgId);
+      return;
+    }
+  }
+
+  const retentionMatch = path.match(/^\/v1\/orgs\/([^/]+)\/retention$/);
+  if (retentionMatch) {
+    const orgId = decodeURIComponent(retentionMatch[1]);
+    if (method === "GET") {
+      await handleGetRetention(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutRetention(req, res, orgId);
+      return;
+    }
+  }
+
   if (path === "/v1/api-keys") {
     if (method === "GET") {
       await handleListApiKeys(req, res, url);
@@ -316,6 +365,11 @@ export async function handleRequest(req, res) {
       decodeURIComponent(webhookMatch[1]),
       url,
     );
+    return;
+  }
+
+  if (path === "/v1/service-bills/generate" && method === "POST") {
+    await handleGenerateServiceBills(req, res);
     return;
   }
 

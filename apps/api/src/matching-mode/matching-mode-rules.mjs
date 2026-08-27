@@ -45,9 +45,12 @@ export function validateMatchingModeBody(body) {
  * @param {{ org_id: string, matching_mode: string } | null} row
  * @param {string} orgId
  */
-export function toMatchingModeSettings(row, orgId) {
+export function toMatchingModeSettings(row, orgId, lookup = {}) {
   return {
-    orgId: row?.org_id ?? orgId,
+    orgId,
     matchingMode: row?.matching_mode ?? DEFAULT_MATCHING_MODE,
+    source: lookup.source ?? "merchant",
+    parentOrgId: lookup.parentOrgId ?? null,
+    effectiveOrgId: lookup.orgId ?? orgId,
   };
 }

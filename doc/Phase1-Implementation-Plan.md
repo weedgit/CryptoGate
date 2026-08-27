@@ -1,7 +1,7 @@
 # Phase 1 — Solo implementation plan
 
 **Replaces:** `TEAM-BOARD.md` (removed). **Authority:** [Phase1-Project-Plan.md](Phase1-Project-Plan.md), [Phase1-Requirement.md](Phase1-Requirement.md), [Business-Model.md](Business-Model.md).  
-**Contract:** OpenAPI **v0.3.3** · [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md)  
+**Contract:** OpenAPI **v0.3.5** · [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md)  
 **Design:** [Figma — Design System](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA89p/Untitled?node-id=14-2) (canvas `00 Design System`, node `14:2`) · [UI-Handoff.md](UI-Handoff.md) · [UI-Style-Lock.md](UI-Style-Lock.md)
 
 Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordination. Work top-to-bottom within each wave; do not start a later wave until its **Gate** passes.
@@ -14,8 +14,8 @@ Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordi
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Domain + OpenAPI | v0.3.3 frozen | `packages/domain`, `packages/api-spec` |
-| API (auth, orgs, orders, settlement, xPub, HD pool, keys, webhooks, bills, audit, commercial, compliance) | Implemented | `apps/api`, migrations **001–028** |
+| Domain + OpenAPI | v0.3.5 | `packages/domain`, `packages/api-spec` |
+| API (auth, orgs, orders, settlement, xPub, HD pool, keys, webhooks, bills, audit, commercial, compliance, site inherit) | Implemented | `apps/api`, migrations **001–030** |
 | Matching B/C/D/S | Complete | `packages/matching`, §2.8 CI |
 | Watcher (Tron + Ethereum client + heartbeats) | Complete | `apps/watcher`, `packages/chain-clients`, `GET /v1/platform/watcher-health` |
 | Merchant / agent / platform web | Wired (MFA enroll + step-up, B8/B13, bills) | `apps/web` |
@@ -130,7 +130,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | 5.2 | Restore drill execute + sign-off | [M4-T04-Restore-Drill-Report.md](M4-T04-Restore-Drill-Report.md) |
 | 5.3 | M1-T05 prototype walkthrough | [M1-T05-Demo-Script.md](M1-T05-Demo-Script.md) — **Done 2026-08-27 local** ([checklist](M1-T05-Prototype-Walkthrough.md)) |
 | 5.4 | M3 acceptance T01/T09/T10 spot-check on staging | [M3-Acceptance.md](M3-Acceptance.md) |
-| 5.5 | M4-T01 functional regression checklist | [Phase1-Requirement.md](Phase1-Requirement.md) §V |
+| 5.5 | M4-T01 functional regression checklist | [Phase1-Requirement.md](Phase1-Requirement.md) §V — [M4-T01-Regression-Report.md](M4-T01-Regression-Report.md) |
 | 5.6 | M4-T04 CVE: `pnpm audit` + record | M4-T04 §4 |
 | 5.7 | M4-40 pilot merchant selection | **Client** |
 | 5.8 | M4-T05 pen test | **External** |
@@ -143,9 +143,9 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 
 | ID | Task | After |
 | --- | --- | --- |
-| X-02 | Service bill **generation** automation (not just manual issue) | Wave 2 |
-| X-03 | Agent commission statements (read-only) | Wave 1 |
-| X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 |
+| X-02 | Service bill **generation** automation (not just manual issue) | Wave 2 — **Done 2026-08-27** `POST /v1/service-bills/generate` + migration **029** |
+| X-03 | Agent commission statements (read-only) | Wave 1 — **Done 2026-08-27** `/agent/commissions` from subtree bills |
+| X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 — **Done 2026-08-27** `setting-overrides` + inherit GET |
 | X-06 | Next network (BSC USDT) | Wave 4 |
 | X-07 | E2E: signed order create + webhook listener tier | Wave 5 |
 
@@ -215,7 +215,7 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
 | 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 walkthrough 2026-08-27** — Company A hostnames pending |
-| 6 X-backlog | Per ID | **Scheduled** |
+| 6 X-backlog | Per ID | **X-02/X-03/X-04 2026-08-27** · X-06 pending |
 | 7 M5 hardware | Reference device | **Blocked** (client) |
 | 8 Design polish | Token sync | **Optional** |
 

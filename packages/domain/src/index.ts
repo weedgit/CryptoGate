@@ -622,9 +622,44 @@ export const AuditAction = {
   MerchantCommercialPut: "merchant_commercial_put",
   EnterpriseRateDecide: "enterprise_rate_decide",
   ComplianceOverride: "compliance_override",
+  SiteOverrideRequest: "site_override_request",
+  SiteOverrideDecide: "site_override_decide",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
+
+/** Merchant (site) setting kinds that inherit from the parent until Owner approval. */
+export const SiteOverrideKind = {
+  Settlement: "settlement",
+  Xpub: "xpub",
+  MatchingMode: "matching_mode",
+  OrderRetention: "order_retention",
+} as const;
+
+export type SiteOverrideKind =
+  (typeof SiteOverrideKind)[keyof typeof SiteOverrideKind];
+
+export const SiteOverrideStatus = {
+  Pending: "pending",
+  Approved: "approved",
+  Denied: "denied",
+} as const;
+
+export type SiteOverrideStatus =
+  (typeof SiteOverrideStatus)[keyof typeof SiteOverrideStatus];
+
+/** Where GET settlement / matching / xPub values were resolved from. */
+export const SettingsSource = {
+  Merchant: "merchant",
+  Inherit: "inherit",
+  Override: "override",
+} as const;
+
+export type SettingsSource =
+  (typeof SettingsSource)[keyof typeof SettingsSource];
+
+/** Default order-delete retention when unset (days). */
+export const DEFAULT_ORDER_DELETE_DAYS = 90;
 
 /** DB columns on `audit_log`. */
 export const AuditLogColumn = {

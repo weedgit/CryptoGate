@@ -21,6 +21,7 @@ import {
 import { toOnChainDetails, toPaymentDetails } from "./order-map.mjs";
 import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
+import { resolveSiteInherit } from "../sites/site-inherit.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -117,6 +118,20 @@ export async function handleCreatePaymentOrder(req, res) {
     );
     return;
   }
+  if (merchantOrg.type === "merchant_site" && merchantOrg.parent_id) {
+    const parentOrg = await findOrgById(merchantOrg.parent_id);
+    if (parentOrg?.status === "paused" || parentOrg?.order_create_suspended === true) {
+      sendError(
+        res,
+        403,
+        parentOrg.order_create_suspended ? "order_create_suspended" : "org_paused",
+        parentOrg.order_create_suspended
+          ? "Platform compliance has suspended payment order creation for the parent merchant"
+          : "Parent merchant account is paused; payment orders cannot be created",
+      );
+      return;
+    }
+  }
 
   const bodyHash = hashBody(idempotencyBodyHashPayload(validated.parsed));
   const existingOutside = await findOrderByIdempotency(scope.orgId, idempotencyKey);
@@ -137,8 +152,9 @@ export async function handleCreatePaymentOrder(req, res) {
   /** @type {{ kind: "created", row: object } | { kind: "replay", row: object } | { kind: "error", status: number, code: string, message: string } | { kind: "conflict" }} */
   let outcome;
   try {
+    const inherit = await resolveSiteInherit(merchantOrg);
     outcome = await withCreateOrderLock(
-      scope.orgId,
+      inherit.settlementOrgId,
       validated.parsed.asset,
       validated.parsed.network,
       async (client) => {
@@ -154,10 +170,16 @@ export async function handleCreatePaymentOrder(req, res) {
           return { kind: "replay", row: existing };
         }
 
-        const matchingMode = await getEffectiveMatchingMode(scope.orgId, client);
+        const matchingMode = await getEffectiveMatchingMode(
+          inherit.matchingOrgId,
+          client,
+        );
         const assigned = await assignOnOrderCreate({
           client,
           orgId: scope.orgId,
+          settlementOrgId: inherit.settlementOrgId,
+          xpubOrgId: inherit.xpubOrgId,
+          walletGroupOrgIds: inherit.walletGroupOrgIds,
           matchingMode,
           asset: validated.parsed.asset,
           network: validated.parsed.network,
@@ -216,7 +238,7 @@ export async function handleCreatePaymentOrder(req, res) {
           assigned.assign.hdIndex != null
         ) {
           await bindHdPoolOrder(client, {
-            orgId: scope.orgId,
+            orgId: inherit.xpubOrgId,
             asset: validated.parsed.asset,
             network: validated.parsed.network,
             hdIndex: assigned.assign.hdIndex,

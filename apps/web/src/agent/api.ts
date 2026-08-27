@@ -116,6 +116,20 @@ export async function listServiceBills(opts?: {
   return data.items ?? [];
 }
 
+export async function getAgentCommission(
+  orgId: string,
+): Promise<{ orgId: string; commissionPercent: string }> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { orgId: string; commissionPercent: string };
+}
+
 export async function getServiceBill(billId: string): Promise<ServiceBill> {
   const res = await fetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
     credentials: "include",

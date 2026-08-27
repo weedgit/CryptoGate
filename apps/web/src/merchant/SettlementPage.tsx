@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiError,
   getMatchingMode,
@@ -29,6 +30,7 @@ export function SettlementPage({ session }: Props) {
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState("B");
+  const [modeSource, setModeSource] = useState<string>("merchant");
   const [draftMode, setDraftMode] = useState("B");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
@@ -64,6 +66,7 @@ export function SettlementPage({ session }: Props) {
         listHdPool(orgId),
       ]);
       setMode(m.matchingMode);
+      setModeSource(m.source ?? "merchant");
       setDraftMode(m.matchingMode);
       setAddresses(s);
       setXpubs(x);
@@ -176,6 +179,15 @@ export function SettlementPage({ session }: Props) {
         </div>
       ) : null}
 
+      {modeSource === "inherit" ? (
+        <div className="warn-banner" role="status">
+          <strong>Inheriting parent merchant defaults.</strong> Wallet, matching
+          mode, and xPub come from the parent until the parent Owner approves an
+          override.{" "}
+          <Link to={`/merchant/sites/${orgId}`}>Request override</Link>
+        </div>
+      ) : null}
+
       {error ? <p className="error">{error}</p> : null}
 
       <section className="panel settle-section">
@@ -250,7 +262,7 @@ export function SettlementPage({ session }: Props) {
               spellCheck={false}
             />
           </div>
-          <button className="btn-primary" type="submit" disabled={savingAddr}>
+          <button className="btn-primary" type="submit" disabled={savingAddr || modeSource === "inherit"}>
             {savingAddr ? "Saving…" : "Save settlement address"}
           </button>
         </form>
@@ -282,7 +294,7 @@ export function SettlementPage({ session }: Props) {
         <button
           className="btn-primary"
           type="button"
-          disabled={draftMode === mode || savingMode}
+          disabled={draftMode === mode || savingMode || modeSource === "inherit"}
           onClick={() => setConfirmOpen(true)}
         >
           Save matching mode
@@ -357,7 +369,7 @@ export function SettlementPage({ session }: Props) {
               disabled={savingXpub}
             />
           </div>
-          <button className="btn-primary" type="submit" disabled={savingXpub}>
+          <button className="btn-primary" type="submit" disabled={savingXpub || modeSource === "inherit"}>
             {savingXpub ? "Saving…" : "Save xPub"}
           </button>
         </form>

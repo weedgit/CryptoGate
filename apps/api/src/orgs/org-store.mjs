@@ -162,6 +162,24 @@ export async function countChildOrgs(orgId) {
 }
 
 /**
+ * Direct children of a given type (merchant_site under a merchant).
+ * @param {string} parentId
+ * @param {string} type
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function listChildOrgsByType(parentId, type, client) {
+  const q = client ?? getPool();
+  const { rows } = await q.query(
+    `SELECT ${ORG_COLS}
+     FROM org_accounts
+     WHERE parent_id = $1 AND type = $2
+     ORDER BY name ASC`,
+    [parentId, type],
+  );
+  return rows;
+}
+
+/**
  * Hard-delete agent org when FK allows. Memberships cascade.
  * @param {string} orgId
  */

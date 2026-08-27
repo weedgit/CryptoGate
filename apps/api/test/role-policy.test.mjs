@@ -13,6 +13,8 @@ import {
   canViewSettlementSettings,
   canChangeMatchingModeSettings,
   canViewMatchingModeSettings,
+  canRequestSiteOverride,
+  canDecideSiteOverride,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -357,6 +359,40 @@ describe("role policy", () => {
         memberships: [agentOwner],
       }),
       true,
+    );
+  });
+
+  it("requires parent merchant Owner to decide site overrides", () => {
+    const site = { id: "s1", type: "merchant_site", parent_id: "m1" };
+    const siteOwner = {
+      orgId: "s1",
+      role: "owner",
+      orgType: "merchant_site",
+    };
+    assert.equal(
+      canRequestSiteOverride({ memberships: [siteOwner] }, site),
+      true,
+    );
+    assert.equal(
+      canRequestSiteOverride({ memberships: [merchantCashier] }, site),
+      false,
+    );
+    assert.equal(
+      canDecideSiteOverride({ memberships: [merchantOwner] }, site),
+      true,
+    );
+    assert.equal(
+      canDecideSiteOverride({ memberships: [siteOwner] }, site),
+      false,
+    );
+    assert.equal(
+      canDecideSiteOverride(
+        {
+          memberships: [{ orgId: "m1", role: "administrator", orgType: "merchant" }],
+        },
+        site,
+      ),
+      false,
     );
   });
 });

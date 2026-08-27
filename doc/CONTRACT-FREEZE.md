@@ -144,6 +144,33 @@ Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
 Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.
 
+## v0.3.4 — Service bill generation (X-02)
+
+**Date:** 2026-08-27  
+**OpenAPI:** `0.3.4`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Generate | `POST /v1/service-bills/generate` | Platform only; previous UTC month default; idempotent per org+period |
+| Migration | **029** `service_bills_org_period_active_uidx` | One active bill per merchant period |
+| Cron | `node apps/api/scripts/generate-service-bills.mjs` | Optional `--period YYYY-MM` |
+
+Volume fee uses **completed** payment-order `payable_amount` in the period × merchant `volume_fee_percent`. Subscription from `platform_fee_tiers`. Does not debit payer on-chain amounts.
+
+## v0.3.5 — Merchant (site) inherit + Owner override (X-04)
+
+**Date:** 2026-08-27  
+**OpenAPI:** `0.3.5`
+
+| Artifact | Path | Notes |
+| --- | --- | --- |
+| Overrides | `GET/POST /v1/orgs/{orgId}/setting-overrides` | Site O/A request; parent merchant Owner `PATCH .../{id}` decide |
+| Retention | `GET/PUT /v1/orgs/{orgId}/retention` | Default 90 days; site PUT → `override_required` until approved |
+| GET settings | matching / settlement / xPub / HD pool | Additive `source`: merchant / inherit / override |
+| Domain | `SiteOverrideKind`, `SettingsSource`, `AuditAction.SiteOverride*` | Migration **030** |
+
+Site order create uses parent settlement/xPub/matching until an approved override. Cashier still 403 on settings PUTs.
+
 ## Rules
 
 1. Field or enum change → PR to `packages/api-spec` or `packages/domain` → Kevin reviews → merge → Andrew/Bruce rebase.
@@ -163,4 +190,4 @@ Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.
 
 ## Out of this freeze
 
-M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. **OpenAPI freeze is v0.3.3** (fee tiers + merchant commercial). Andrew implements routes + migration **019**. Prior v0.3.2 (audit + bill PATCH) on main. Second live network — see `doc/M3-04-Asset-Networks.md`.
+M3-02 / M3-03 / M4-05 / M4-32 / M4-01–04 / M4-33 / M4-34 / M4-35 are published. **OpenAPI freeze is v0.3.5** (site inherit). Prior v0.3.4 bill generation remains. Second live network — see `doc/M3-04-Asset-Networks.md`.

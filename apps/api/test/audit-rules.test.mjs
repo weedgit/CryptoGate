@@ -29,6 +29,8 @@ describe("audit metadata sanitizer", () => {
     assert.equal(AUDIT_ACTIONS.login, "login");
     assert.equal(AUDIT_ACTIONS.settlementPut, "settlement_put");
     assert.equal(AUDIT_ACTIONS.matchingModePut, "matching_mode_put");
-    assert.equal(AUDIT_ACTIONS.orgUserInvite, "org_user_invite");
+    assert.equal(AUDIT_ACTIONS.complianceOverride, "compliance_override");
+    assert.equal(AUDIT_ACTIONS.siteOverrideRequest, "site_override_request");
+    assert.equal(AUDIT_ACTIONS.siteOverrideDecide, "site_override_decide");
   });
 });

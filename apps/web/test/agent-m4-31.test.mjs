@@ -48,6 +48,19 @@ describe("@cryptogate/web agent C6 onboard merchant", () => {
   });
 });
 
+describe("@cryptogate/web agent C10 commissions", () => {
+  it("wires read-only commission statements separate from service bills", () => {
+    const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
+    assert.match(app, /commissions/);
+    assert.match(app, /CommissionsPage/);
+    const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
+    assert.match(page, /commissionHistoryFromBills/);
+    assert.match(page, /Read-only/i);
+    assert.doesNotMatch(page, /issueServiceBill/);
+    assert.doesNotMatch(page, /createOrder/);
+  });
+});
+
 describe("@cryptogate/web agent C7 merchant detail", () => {
   it("wires tabbed merchant detail with read-only managed-by-merchant labels", () => {
     const detail = readFileSync(

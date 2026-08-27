@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: CryptoGate Phase 1 API
-  version: 0.3.3
+  version: 0.3.5
   description: >
-    Contract freeze v0.3.3 (platform fee tiers + merchant commercial settings).
-    Builds on v0.3.2 audit + service bill lifecycle. Source of truth for apps/api,
+    Contract freeze v0.3.5 (merchant site inherit + Owner override approval).
+    Builds on v0.3.4 service bill generation. Source of truth for apps/api,
     apps/payment-page, and apps/cashier-apk. Payment orders are watch-only.
     Service bills are a separate rail — never merge with /orders. Enums match
     @cryptogate/domain. Never return spend keys, full xPub, webhook signingSecret,
@@ -931,6 +931,211 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/setting-overrides:
+    get:
+      tags: [orgs]
+      operationId: listSiteSettingOverrides
+      summary: List inherit-override requests for a merchant (site)
+      description: >
+        Merchant (site) defaults inherit parent merchant settlement, xPub, matching
+        mode, and order retention. Site Owner/Administrator request overrides; the
+        parent merchant Owner approves or denies. Cashier 403. GET xPub payloads
+        never include the full xPub string.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Override history for this site
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettingOverrideList"
+        "400":
+          description: Org is not a merchant_site
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [orgs]
+      operationId: requestSiteSettingOverride
+      summary: Request a site-level override (site Owner / Administrator)
+      description: >
+        Creates a pending override. Direct PUT on site settlement / xPub / matching
+        mode / retention returns 403 override_required until the parent merchant
+        Owner approves. Duplicate pending kind returns 409.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestSiteSettingOverride"
+      responses:
+        "201":
+          description: Pending override created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettingOverride"
+        "400":
+          description: Invalid settingKind or payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Pending or already-approved override for this kind
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/setting-overrides/{overrideId}:
+    patch:
+      tags: [orgs]
+      operationId: decideSiteSettingOverride
+      summary: Approve or deny a site override (parent merchant Owner)
+      description: >
+        Approve writes the payload onto the site org (settlement/xPub still require
+        mfaCode). Deny leaves inherit in place. Platform compliance uses B7, not this
+        path.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - name: overrideId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideSiteSettingOverride"
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettingOverride"
+        "400":
+          description: Invalid decision or missing MFA
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated or invalid MFA
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not the parent merchant Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Pending override not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/retention:
+    get:
+      tags: [orgs]
+      operationId: getOrgRetentionSettings
+      summary: Get order-delete retention (sites inherit parent until override)
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Effective retention
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgRetentionSettings"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: putOrgRetentionSettings
+      summary: Set order-delete retention (Owner / Administrator; site needs override)
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrgRetentionRequest"
+      responses:
+        "200":
+          description: Retention saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgRetentionSettings"
+        "403":
+          description: Forbidden or override_required on a site without approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orders:
     post:
       tags: [orders]
@@ -1674,6 +1879,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServiceBill"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /service-bills/generate:
+    post:
+      tags: [service-bills]
+      operationId: generateServiceBills
+      summary: Generate monthly service bills from confirmed volume
+      description: >
+        Platform Owner/Administrator only. Issues one USD service bill per
+        active merchant for the period (subscription + volume fee on completed
+        payment-order volume). Does not debit payer on-chain amounts. Idempotent
+        per org + period (existing non-voided bills are skipped).
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateServiceBillsRequest"
+      responses:
+        "200":
+          description: Generation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateServiceBillsResult"
         "403":
           description: Not a platform operator
           content:
@@ -2530,9 +2766,126 @@ components:
       properties:
         orgId:
           type: string
-          description: Merchant or merchant_site org id
+          description: Merchant or merchant_site org id (the requested org)
         matchingMode:
           $ref: "#/components/schemas/MatchingMode"
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
+          description: Org whose stored matching mode was returned
+    SettingsSource:
+      type: string
+      description: >
+        merchant = parent merchant account. inherit = site using parent defaults.
+        override = site after parent Owner approval.
+      enum: [merchant, inherit, override]
+    SiteOverrideKind:
+      type: string
+      enum: [settlement, xpub, matching_mode, order_retention]
+    SiteOverrideStatus:
+      type: string
+      enum: [pending, approved, denied]
+    SiteSettingOverride:
+      type: object
+      required: [id, siteOrgId, parentOrgId, settingKind, status, payload, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        siteOrgId:
+          type: string
+          format: uuid
+        parentOrgId:
+          type: string
+          format: uuid
+        settingKind:
+          $ref: "#/components/schemas/SiteOverrideKind"
+        status:
+          $ref: "#/components/schemas/SiteOverrideStatus"
+        payload:
+          type: object
+          additionalProperties: true
+          description: Proposed values; xPub GET shape uses xPubConfigured only
+        requestedBy:
+          type: string
+          format: uuid
+        decidedBy:
+          type: string
+          format: uuid
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    SiteSettingOverrideList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteSettingOverride"
+    RequestSiteSettingOverride:
+      type: object
+      required: [settingKind, payload]
+      properties:
+        settingKind:
+          $ref: "#/components/schemas/SiteOverrideKind"
+        payload:
+          type: object
+          additionalProperties: true
+    DecideSiteSettingOverride:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, deny]
+        reason:
+          type: string
+          description: Required when denying
+        mfaCode:
+          type: string
+          minLength: 6
+          maxLength: 8
+          description: Required when approving settlement or xPub
+    OrgRetentionSettings:
+      type: object
+      required: [orgId, orderDeleteDays]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        orderDeleteDays:
+          type: integer
+          minimum: 7
+          maximum: 3650
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
+    UpdateOrgRetentionRequest:
+      type: object
+      required: [orderDeleteDays]
+      properties:
+        orderDeleteDays:
+          type: integer
+          minimum: 7
+          maximum: 3650
     UpdateMatchingModeRequest:
       type: object
       required: [matchingMode]
@@ -2572,6 +2925,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SettlementAddress"
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
     AgentPayoutAddress:
       type: object
       required: [orgId, asset, network, address]
@@ -2674,6 +3036,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/XpubSettings"
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
     UpsertXpubRequest:
       type: object
       required: [asset, network, xPub, mfaCode]
@@ -2735,6 +3106,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HdPoolAddress"
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
     AddressSource:
       type: string
       enum: [main, hd_pool]
@@ -3462,6 +3842,42 @@ components:
         dueAt:
           type: string
           format: date-time
+    GenerateServiceBillsRequest:
+      type: object
+      description: Omit both dates to generate the previous UTC calendar month.
+      properties:
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+    GenerateServiceBillsResult:
+      type: object
+      required: [periodStart, periodEnd, issued, skipped]
+      properties:
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        issued:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBill"
+        skipped:
+          type: array
+          items:
+            type: object
+            required: [orgId, reason]
+            properties:
+              orgId:
+                type: string
+                format: uuid
+              reason:
+                type: string
+                enum: [already_issued, no_commercial, no_fee_tier]
     UpdateServiceBillRequest:
       type: object
       required: [action]
@@ -3965,6 +4381,8 @@ components:
         - merchant_commercial_put
         - enterprise_rate_decide
         - compliance_override
+        - site_override_request
+        - site_override_decide
     AuditLogEntry:
       type: object
       required: [id, action, metadata, createdAt]

@@ -19,6 +19,9 @@ describe("matching mode rules", () => {
     assert.deepEqual(toMatchingModeSettings(null, "org-1"), {
       orgId: "org-1",
       matchingMode: "B",
+      source: "merchant",
+      parentOrgId: null,
+      effectiveOrgId: "org-1",
     });
   });
 

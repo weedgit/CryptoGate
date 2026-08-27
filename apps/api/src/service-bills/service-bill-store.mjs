@@ -136,3 +136,38 @@ export async function adjustServiceBill(id, totalAmount, reason) {
   );
   return rows[0] ?? null;
 }
+
+/**
+ * @param {string} orgId
+ * @param {string} periodStart YYYY-MM-DD
+ */
+export async function findActiveServiceBillForPeriod(orgId, periodStart) {
+  const { rows } = await getPool().query(
+    `SELECT ${BILL_SELECT}
+     FROM service_bills
+     WHERE org_id = $1 AND period_start = $2::date AND status <> 'voided'
+     LIMIT 1`,
+    [orgId, periodStart],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Sum completed order payable amounts in [fromInclusive, toExclusive).
+ * @param {string[]} orgIds
+ * @param {string} fromInclusive ISO timestamptz
+ * @param {string} toExclusive ISO timestamptz
+ */
+export async function sumCompletedPayableVolume(orgIds, fromInclusive, toExclusive) {
+  if (!orgIds.length) return "0";
+  const { rows } = await getPool().query(
+    `SELECT COALESCE(SUM(payable_amount::numeric), 0)::text AS volume
+     FROM payment_orders
+     WHERE org_id = ANY($1::uuid[])
+       AND status = 'completed'
+       AND updated_at >= $2::timestamptz
+       AND updated_at < $3::timestamptz`,
+    [orgIds, fromInclusive, toExclusive],
+  );
+  return rows[0]?.volume ?? "0";
+}

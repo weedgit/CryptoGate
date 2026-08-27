@@ -6,6 +6,7 @@ import { canViewXpubSettings } from "../orgs/role-policy.mjs";
 import { xpubAllowedOnOrgType } from "../xpub/xpub-rules.mjs";
 import { toHdPoolList } from "./hd-pool-rules.mjs";
 import { listHdPoolAddresses } from "./hd-pool-store.mjs";
+import { settingsLookupOrgId } from "../sites/site-inherit.mjs";
 
 /**
  * GET /v1/orgs/{orgId}/hd-pool — watch-only derived addresses (never xPub).
@@ -37,6 +38,7 @@ export async function handleGetHdPool(req, res, orgId) {
     return;
   }
 
-  const rows = await listHdPoolAddresses(orgId);
-  sendJson(res, 200, toHdPoolList(rows));
+  const lookup = await settingsLookupOrgId(org, "xpub");
+  const rows = await listHdPoolAddresses(lookup.orgId);
+  sendJson(res, 200, toHdPoolList(rows, lookup));
 }

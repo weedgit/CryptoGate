@@ -368,6 +368,33 @@ describe("auth HTTP (no DB)", () => {
     }
   });
 
+  it("rejects site setting-overrides and retention without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const list = await fetch(`${base}/v1/orgs/org-1/setting-overrides`);
+      assert.equal(list.status, 401);
+      const post = await fetch(`${base}/v1/orgs/org-1/setting-overrides`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settingKind: "matching_mode",
+          payload: { matchingMode: "C" },
+        }),
+      });
+      assert.equal(post.status, 401);
+      const ret = await fetch(`${base}/v1/orgs/org-1/retention`);
+      assert.equal(ret.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
+
   it("rejects webhooks list and register without session", async () => {
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {
