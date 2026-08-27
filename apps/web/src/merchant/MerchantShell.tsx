@@ -11,11 +11,11 @@ import {
   OrdersNavIcon,
   OrgNavIcon,
   ReportsNavIcon,
-  SecurityNavIcon,
   SettlementNavIcon,
   SitesNavIcon,
   TeamNavIcon,
 } from "./NavIcons";
+import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
 
 type NavItem = {
@@ -97,12 +97,6 @@ const OWNER_GROUPS: NavGroup[] = [
         Icon: BillingNavIcon,
       },
       {
-        to: "/merchant/settings/security",
-        label: "Security",
-        matchPrefix: "/merchant/settings/security",
-        Icon: SecurityNavIcon,
-      },
-      {
         to: "/merchant/settings/notifications",
         label: "Alerts",
         matchPrefix: "/merchant/settings/notifications",
@@ -135,10 +129,10 @@ const CASHIER_GROUPS: NavGroup[] = [
 
 type Props = {
   session: Session;
-  title: string;
   crumb: string;
   children: ReactNode;
   onSignOut: () => void;
+  onSessionRefresh?: (session: Session) => void;
   showCashierBanner?: boolean;
   siteLabel?: string | null;
 };
@@ -158,10 +152,10 @@ function navItemClass(
 
 export function MerchantShell({
   session,
-  title,
   crumb,
   children,
   onSignOut,
+  onSessionRefresh,
   showCashierBanner = false,
   siteLabel = null,
 }: Props) {
@@ -234,17 +228,17 @@ export function MerchantShell({
             {merchantId ? merchantId.slice(0, 8).toUpperCase() : "—"}
           </p>
           <p>{cashier ? "Cashier session active" : "Enterprise tier active"}</p>
-          <p>
-            <button type="button" className="sign-out-btn" onClick={onSignOut}>
-              Sign out
-            </button>
-          </p>
+          <SidebarProfileMenu
+            session={session}
+            variant="merchant"
+            onSignOut={onSignOut}
+            onSessionRefresh={onSessionRefresh}
+          />
         </div>
       </aside>
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
-            <h1>{title}</h1>
             {!cashier && resolvedSite ? (
               <div className="site-selector" title={resolvedSite}>
                 <span>{resolvedSite}</span>

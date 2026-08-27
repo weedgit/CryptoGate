@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   createOrg,
@@ -24,8 +25,18 @@ import {
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
+import { FieldControl } from "../ui/FieldControl";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function agentOnboardReturnPath(
+  searchParams: URLSearchParams,
+  fallback: string,
+): string {
+  const raw = searchParams.get("returnTo")?.trim();
+  if (!raw || !raw.startsWith("/agent/")) return fallback;
+  return raw;
+}
 
 type Props = { session: Session };
 
@@ -38,16 +49,67 @@ type WizardState = {
   ownerEmail: string;
 };
 
-const STEPS = ["Structure", "Details", "Tier", "Volume fee", "Owner", "Review"] as const;
+const STEPS = [
+  { label: "Structure" },
+  { label: "Details" },
+  { label: "Tier" },
+  { label: "Fee" },
+  { label: "Owner" },
+  { label: "Review" },
+] as const;
+
+const STRUCTURE_HINTS: Record<MerchantStructure, string> = {
+  single_location: "One site / merchant account",
+  multi_location: "Parent merchant with site accounts",
+};
 
 function defaultVolumeForTier(tiers: FeeTierBand[], tier: MerchantTier): string {
   const band = tiers.find((t) => t.tier === tier);
   return band?.defaultSignupPercent ?? "1.5";
 }
 
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <nav className="b4-wizard__steps" aria-label="Wizard progress">
+      {STEPS.map((s, i) => {
+        const done = i < step;
+        const active = i === step;
+        return (
+          <div
+            key={s.label}
+            className={`b4-wizard__step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
+          >
+            <span className="b4-wizard__step-mark" aria-hidden>
+              {done ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M2 5.2 4.1 7.3 8 3.4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : active ? (
+                <span className="b4-wizard__step-dot" />
+              ) : null}
+            </span>
+            <span className="b4-wizard__step-label">{s.label}</span>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const parentId = useMemo(() => primaryAgentOrgId(session), [session]);
+  const cancelTo = useMemo(
+    () => agentOnboardReturnPath(searchParams, "/agent/merchants"),
+    [searchParams],
+  );
   const [step, setStep] = useState(0);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [registeredEmails, setRegisteredEmails] = useState<
@@ -64,6 +126,8 @@ export function OnboardMerchantPage({ session }: Props) {
     commercial: { tier: "mid", volumeFeePercent: "1.2" },
     ownerEmail: "",
   });
+
+  const dismissToast = useCallback(() => setError(null), []);
 
   useEffect(() => {
     listOrgs()
@@ -93,7 +157,10 @@ export function OnboardMerchantPage({ session }: Props) {
           ...prev,
           commercial: {
             ...prev.commercial,
-            volumeFeePercent: defaultVolumeForTier(settings.tiers, prev.commercial.tier),
+            volumeFeePercent: defaultVolumeForTier(
+              settings.tiers,
+              prev.commercial.tier,
+            ),
           },
         }));
       })
@@ -152,8 +219,7 @@ export function OnboardMerchantPage({ session }: Props) {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleCreate() {
     if (!parentId) return;
     const msg = validateStep();
     if (msg) {
@@ -206,202 +272,323 @@ export function OnboardMerchantPage({ session }: Props) {
     }
   }
 
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (step < STEPS.length - 1) {
+      next();
+      return;
+    }
+    void handleCreate();
+  }
+
   if (!parentId) {
     return (
-      <div className="panel">
-        <p className="error">Agent org membership required to onboard merchants.</p>
+      <div className="b4-wizard-page">
+        <div className="b4-wizard-backdrop">
+          <div className="b4-wizard" role="dialog" aria-modal="true">
+            <header className="b4-wizard__head">
+              <h2 className="b4-wizard__title">Onboard merchant</h2>
+              <Link className="b4-wizard__close" to={cancelTo} aria-label="Close">
+                ×
+              </Link>
+            </header>
+            <div className="b4-wizard__body">
+              <p className="b4-wizard__error">
+                Agent org membership required to onboard merchants.
+              </p>
+            </div>
+            <footer className="b4-wizard__foot">
+              <Link className="b4-wizard__cancel" to={cancelTo}>
+                Cancel
+              </Link>
+            </footer>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="panel wizard-panel">
-      <div className="panel-head">
-        <h2>Onboard merchant</h2>
-        <Link className="btn-secondary" to="/agent/merchants">
-          Cancel
-        </Link>
-      </div>
+    <div className="b4-wizard-page">
+      <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+      <div className="b4-wizard-backdrop">
+        <div
+          className="b4-wizard"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="b5-agent-wizard-title"
+        >
+          <header className="b4-wizard__head">
+            <h2 id="b5-agent-wizard-title" className="b4-wizard__title">
+              Onboard merchant
+            </h2>
+            <Link
+              className="b4-wizard__close"
+              to={cancelTo}
+              aria-label="Cancel and return"
+            >
+              ×
+            </Link>
+          </header>
 
-      <ol className="wizard-steps">
-        {STEPS.map((label, i) => (
-          <li key={label} className={i === step ? "active" : i < step ? "done" : ""}>
-            {label}
-          </li>
-        ))}
-      </ol>
+          <StepIndicator step={step} />
 
-      <form className="form-stack" onSubmit={onSubmit}>
-        {step === 0 ? (
-          <div className="field">
-            <span className="field-label">Structure</span>
-            {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map((s) => (
-              <label key={s} className="radio-row">
-                <input
-                  type="radio"
-                  checked={form.structure === s}
-                  onChange={() => patch("structure", s)}
-                />
-                {STRUCTURE_LABELS[s]}
-              </label>
-            ))}
-          </div>
-        ) : null}
+          <form className="b4-wizard__form" onSubmit={onSubmit}>
+            <div className="b4-wizard__body">
+              {step === 0 ? (
+                <div className="b4-field">
+                  <span className="b4-field__label">Structure</span>
+                  <div
+                    className="b4-type-options"
+                    role="radiogroup"
+                    aria-label="Merchant structure"
+                  >
+                    {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map(
+                      (s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          role="radio"
+                          aria-checked={form.structure === s}
+                          className={`b4-type-option${form.structure === s ? " is-selected" : ""}`}
+                          onClick={() => patch("structure", s)}
+                        >
+                          <span className="b4-type-option__radio" aria-hidden />
+                          <span className="b4-type-option__copy">
+                            <span className="b4-type-option__title">
+                              {STRUCTURE_LABELS[s]}
+                            </span>
+                            <span className="b4-type-option__desc">
+                              {STRUCTURE_HINTS[s]}
+                            </span>
+                          </span>
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
-        {step === 1 ? (
-          <>
-            <div className="field">
-              <label htmlFor="merchant-name">Business name</label>
-              <input
-                id="merchant-name"
-                className="field-control"
-                required
-                value={form.name}
-                onChange={(e) => patch("name", e.target.value)}
-              />
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="country">Country</label>
-                <input
-                  id="country"
-                  className="field-control"
-                  value={form.country}
-                  onChange={(e) => patch("country", e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="billing">Billing contact</label>
-                <input
-                  id="billing"
-                  className="field-control"
-                  value={form.billingContact}
-                  onChange={(e) => patch("billingContact", e.target.value)}
-                />
-              </div>
-            </div>
-          </>
-        ) : null}
+              {step === 1 ? (
+                <>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="merchant-name">
+                      Business name
+                    </label>
+                    <FieldControl icon="user">
+                      <input
+                        id="merchant-name"
+                        className="b4-field__control"
+                        required
+                        value={form.name}
+                        onChange={(e) => patch("name", e.target.value)}
+                        placeholder="Registered business name"
+                        autoFocus
+                      />
+                    </FieldControl>
+                  </div>
+                  <div className="b4-field-row">
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="country">
+                        Country
+                      </label>
+                      <FieldControl icon="globe">
+                        <input
+                          id="country"
+                          className="b4-field__control"
+                          value={form.country}
+                          onChange={(e) => patch("country", e.target.value)}
+                          placeholder="Singapore (SG)"
+                        />
+                      </FieldControl>
+                    </div>
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="billing">
+                        Billing contact
+                      </label>
+                      <FieldControl icon="mail">
+                        <input
+                          id="billing"
+                          className="b4-field__control"
+                          value={form.billingContact}
+                          onChange={(e) => patch("billingContact", e.target.value)}
+                          placeholder="Name@company.com"
+                        />
+                      </FieldControl>
+                    </div>
+                  </div>
+                </>
+              ) : null}
 
-        {step === 2 ? (
-          <>
-            {form.commercial.tier === "enterprise" ? (
-              <div className="banner banner-warn">
-                Enterprise tier may require platform approval when the volume fee is
-                outside the global band.
-              </div>
-            ) : null}
-            <div className="field">
-              <label htmlFor="tier">Merchant tier</label>
-              <select
-                id="tier"
-                className="field-control"
-                value={form.commercial.tier}
-                onChange={(e) => {
-                  const tier = e.target.value as MerchantTier;
-                  patch("commercial", {
-                    tier,
-                    volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
-                  });
-                }}
-              >
-                {(["small", "mid", "enterprise"] as MerchantTier[]).map((t) => (
-                  <option key={t} value={t}>
-                    {tierLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedBand ? (
-              <p style={{ color: "var(--muted)", fontSize: 13 }}>
-                Band: {selectedBand.volumeFeeMinPercent}% –{" "}
-                {selectedBand.volumeFeeMaxPercent}% · default signup{" "}
-                {selectedBand.defaultSignupPercent}%
-              </p>
-            ) : null}
-          </>
-        ) : null}
+              {step === 2 ? (
+                <>
+                  {form.commercial.tier === "enterprise" ? (
+                    <p className="b4-field__hint">
+                      Enterprise tier may require platform approval when the volume
+                      fee is outside the global band.
+                    </p>
+                  ) : null}
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="tier">
+                      Merchant tier
+                    </label>
+                    <FieldControl icon="user">
+                      <select
+                        id="tier"
+                        className="b4-field__control"
+                        value={form.commercial.tier}
+                        onChange={(e) => {
+                          const tier = e.target.value as MerchantTier;
+                          patch("commercial", {
+                            tier,
+                            volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
+                          });
+                        }}
+                      >
+                        {(["small", "mid", "enterprise"] as MerchantTier[]).map(
+                          (t) => (
+                            <option key={t} value={t}>
+                              {tierLabel(t)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </FieldControl>
+                    {selectedBand ? (
+                      <p className="b4-field__hint">
+                        Band: {selectedBand.volumeFeeMinPercent}% –{" "}
+                        {selectedBand.volumeFeeMaxPercent}% · default signup{" "}
+                        {selectedBand.defaultSignupPercent}%
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
 
-        {step === 3 ? (
-          <>
-            <div className="field">
-              <label htmlFor="volume-fee">Volume fee %</label>
-              <input
-                id="volume-fee"
-                className="field-control"
-                value={form.commercial.volumeFeePercent}
-                onChange={(e) =>
-                  patch("commercial", {
-                    ...form.commercial,
-                    volumeFeePercent: e.target.value,
-                  })
-                }
-              />
-              {selectedBand ? (
-                <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
-                  Allowed {selectedBand.volumeFeeMinPercent}% –{" "}
-                  {selectedBand.volumeFeeMaxPercent}%. Changes apply next billing
-                  period after create.
-                </p>
+              {step === 3 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="volume-fee">
+                    Volume fee %
+                  </label>
+                  <FieldControl icon="user">
+                    <input
+                      id="volume-fee"
+                      className="b4-field__control"
+                      value={form.commercial.volumeFeePercent}
+                      onChange={(e) =>
+                        patch("commercial", {
+                          ...form.commercial,
+                          volumeFeePercent: e.target.value,
+                        })
+                      }
+                      autoFocus
+                    />
+                  </FieldControl>
+                  {selectedBand ? (
+                    <p className="b4-field__hint">
+                      Allowed {selectedBand.volumeFeeMinPercent}% –{" "}
+                      {selectedBand.volumeFeeMaxPercent}%. Changes apply next billing
+                      period after create.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {step === 4 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="owner-email">
+                    Invite merchant Owner
+                  </label>
+                  <FieldControl icon="mail">
+                    <input
+                      id="owner-email"
+                      className="b4-field__control"
+                      type="email"
+                      required
+                      value={form.ownerEmail}
+                      onChange={(e) => patch("ownerEmail", e.target.value)}
+                      placeholder="Name@company.com"
+                      autoFocus
+                    />
+                  </FieldControl>
+                  <p className="b4-field__hint">
+                    An invitation is sent after the merchant account is created.
+                  </p>
+                </div>
+              ) : null}
+
+              {step === 5 ? (
+                <dl className="b4-review">
+                  <div className="b4-review__row">
+                    <dt>Structure</dt>
+                    <dd>{STRUCTURE_LABELS[form.structure]}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Name</dt>
+                    <dd>{form.name.trim()}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Country</dt>
+                    <dd>{form.country.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Billing contact</dt>
+                    <dd>{form.billingContact.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Tier</dt>
+                    <dd>{tierLabel(form.commercial.tier)}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Volume fee</dt>
+                    <dd>{form.commercial.volumeFeePercent}%</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Owner invite</dt>
+                    <dd>{form.ownerEmail.trim()}</dd>
+                  </div>
+                </dl>
               ) : null}
             </div>
-          </>
-        ) : null}
 
-        {step === 4 ? (
-          <div className="field">
-            <label htmlFor="owner-email">Invite merchant Owner</label>
-            <input
-              id="owner-email"
-              className="field-control"
-              type="email"
-              required
-              value={form.ownerEmail}
-              onChange={(e) => patch("ownerEmail", e.target.value)}
-            />
-          </div>
-        ) : null}
-
-        {step === 5 ? (
-          <dl className="detail-grid">
-            <dt>Structure</dt>
-            <dd>{STRUCTURE_LABELS[form.structure]}</dd>
-            <dt>Name</dt>
-            <dd>{form.name.trim()}</dd>
-            <dt>Country</dt>
-            <dd>{form.country.trim() || "—"}</dd>
-            <dt>Billing contact</dt>
-            <dd>{form.billingContact.trim() || "—"}</dd>
-            <dt>Tier</dt>
-            <dd>{tierLabel(form.commercial.tier)}</dd>
-            <dt>Volume fee</dt>
-            <dd>{form.commercial.volumeFeePercent}%</dd>
-            <dt>Owner invite</dt>
-            <dd>{form.ownerEmail.trim()}</dd>
-            <dt>Parent agent</dt>
-            <dd className="mono">{parentId}</dd>
-          </dl>
-        ) : null}
-
-        {error ? <p className="error">{error}</p> : null}
-
-        <div className="action-row">
-          {step > 0 ? (
-            <button type="button" className="btn-secondary" onClick={back} disabled={busy}>
-              Back
-            </button>
-          ) : null}
-          {step < STEPS.length - 1 ? (
-            <button type="button" className="btn-primary" onClick={next}>
-              Next
-            </button>
-          ) : (
-            <button className="btn-primary" type="submit" disabled={busy}>
-              {busy ? "Creating…" : "Create merchant"}
-            </button>
-          )}
+            <footer className="b4-wizard__foot">
+              <div className="b4-wizard__foot-left">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    className="b4-wizard__back"
+                    onClick={back}
+                    disabled={busy}
+                  >
+                    Back
+                  </button>
+                ) : null}
+                <Link className="b4-wizard__cancel" to={cancelTo}>
+                  Cancel
+                </Link>
+              </div>
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={next}
+                >
+                  Save &amp; Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={() => void handleCreate()}
+                  disabled={busy}
+                >
+                  {busy ? "Creating…" : "Create merchant"}
+                </button>
+              )}
+            </footer>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

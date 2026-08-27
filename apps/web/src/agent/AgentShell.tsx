@@ -1,14 +1,13 @@
 import type { ComponentType, ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
+import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import {
   AgentsNavIcon,
   AuditLogNavIcon,
   DashboardNavIcon,
   MerchantsNavIcon,
-  SecurityNavIcon,
   ServiceBillsNavIcon,
-  SignOutNavIcon,
   TeamNavIcon,
 } from "../platform/NavIcons";
 import { sessionIsAgentViewerOnly } from "./org";
@@ -53,28 +52,22 @@ const NAV: NavItem[] = [
     matchPrefix: "/agent/settings/team",
     Icon: TeamNavIcon,
   },
-  {
-    to: "/agent/settings/security",
-    label: "Security",
-    matchPrefix: "/agent/settings/security",
-    Icon: SecurityNavIcon,
-  },
 ];
 
 type Props = {
   session: Session;
-  title?: string;
   crumb?: string;
   children: ReactNode;
   onSignOut: () => void;
+  onSessionRefresh?: (session: Session) => void;
 };
 
 export function AgentShell({
   session,
-  title,
   crumb,
   children,
   onSignOut,
+  onSessionRefresh,
 }: Props) {
   const location = useLocation();
   const readOnly = sessionIsAgentViewerOnly(session);
@@ -118,19 +111,17 @@ export function AgentShell({
         <div className="sidebar-foot">
           <p>SESSION // {session.email.split("@")[0]}</p>
           <p>{readOnly ? "Viewer (read-only)" : "Agent operator"}</p>
-          <p>
-            <button type="button" className="sign-out-btn" onClick={onSignOut}>
-              <SignOutNavIcon className="sign-out-icon" />
-              <span>Sign out</span>
-            </button>
-          </p>
+          <SidebarProfileMenu
+            session={session}
+            variant="agent"
+            onSignOut={onSignOut}
+            onSessionRefresh={onSessionRefresh}
+          />
         </div>
       </aside>
       <div className="main">
         <header className="topbar">
-          <div className="topbar-left">
-            {title ? <h1>{title}</h1> : null}
-          </div>
+          <div className="topbar-left" />
           <div className="topbar-center" id="agent-topbar-center" />
           <div className="topbar-right">
             <span className="net-pill">SUBTREE SCOPE</span>

@@ -624,6 +624,7 @@ export const AuditAction = {
   ComplianceOverride: "compliance_override",
   SiteOverrideRequest: "site_override_request",
   SiteOverrideDecide: "site_override_decide",
+  ProfileUpdate: "profile_update",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];

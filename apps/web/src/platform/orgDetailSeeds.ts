@@ -310,6 +310,7 @@ export type ServiceBillListRow = {
   merchantName: string;
   totalAmount: number | string;
   status: string;
+  dueAt: string;
 };
 
 /** Max service bill rows shown on agent detail. */
@@ -324,6 +325,7 @@ export function mergeServiceBillsWithSeeds(
     orgId: string;
     totalAmount: string;
     status: string;
+    dueAt: string;
   }>,
   _agentId: string,
   merchantNameById: Map<string, string>,
@@ -335,6 +337,7 @@ export function mergeServiceBillsWithSeeds(
     merchantName: merchantNameById.get(b.orgId) ?? b.orgId,
     totalAmount: b.totalAmount,
     status: b.status,
+    dueAt: b.dueAt,
   }));
   return mapped.slice(0, Math.max(target, mapped.length));
 }

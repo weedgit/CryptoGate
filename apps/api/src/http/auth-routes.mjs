@@ -5,6 +5,7 @@ import {
   findUserMfaById,
   normalizeEmail,
   updateUserPassword,
+  updateUserProfile,
 } from "../auth/users.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
 import { sessionFromUser } from "../auth/session-payload.mjs";
@@ -18,12 +19,15 @@ import {
 import { validatePasswordReset } from "../auth/password-policy.mjs";
 import {
   createSession,
-  DEFAULT_SESSION_TTL_MS,
   extendSessionByToken,
   findActiveSessionByToken,
   markSessionMfaVerified,
   revokeSessionByToken,
 } from "../auth/sessions.mjs";
+import {
+  ALLOWED_SESSION_TIMEOUT_MINUTES,
+  DEFAULT_SESSION_TIMEOUT_MINUTES,
+} from "../platform-settings/org-policy-store.mjs";
 import {
   clearSessionCookie,
   getSessionToken,
@@ -42,12 +46,20 @@ import { passwordResetUrl } from "../mail/portal-links.mjs";
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 const INVALID_MFA = "Invalid MFA code";
 
-function cookieMaxAgeSec() {
-  return Math.floor(DEFAULT_SESSION_TTL_MS / 1000);
+function setSessionCookie(res, token, ttlMs) {
+  const maxAgeSec = Math.max(60, Math.floor(ttlMs / 1000));
+  res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec }));
 }
 
-function setSessionCookie(res, token) {
-  res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec: cookieMaxAgeSec() }));
+/**
+ * @param {{ sessionTimeoutMinutes?: number } | null | undefined} user
+ */
+function ttlMsForUser(user) {
+  const mins = Number(user?.sessionTimeoutMinutes);
+  if (ALLOWED_SESSION_TIMEOUT_MINUTES.includes(mins)) {
+    return mins * 60 * 1000;
+  }
+  return DEFAULT_SESSION_TIMEOUT_MINUTES * 60 * 1000;
 }
 
 async function sessionPayload(user) {
@@ -60,6 +72,12 @@ async function sessionPayload(user) {
       mustChangePassword:
         user.mustChangePassword === true || full?.mustChangePassword === true,
       mfaEnrolled: user.mfaEnrolled === true || full?.mfaEnrolled === true,
+      displayName: full?.displayName ?? user.displayName ?? null,
+      locale: full?.locale ?? user.locale ?? "en",
+      timezone: full?.timezone ?? user.timezone ?? "UTC",
+      mfaEnforcement: full?.mfaEnforcement === true,
+      sessionTimeoutMinutes:
+        full?.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
     },
     memberships,
   );
@@ -91,15 +109,17 @@ export async function handleLogin(req, res) {
     return;
   }
 
+  const ttlMs = await ttlMsForUser(await findUserById(user.id));
   const created = await createSession({
     userId: user.id,
+    ttlMs,
     mfaVerified: !user.mfaEnrolled,
   });
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.login,
   });
-  setSessionCookie(res, created.token);
+  setSessionCookie(res, created.token, ttlMs);
   sendJson(res, 200, {
     session: await sessionPayload(user),
     mfaRequired: user.mfaEnrolled,
@@ -141,9 +161,10 @@ export async function handleGetSession(req, res) {
     return;
   }
 
-  await extendSessionByToken(caller.token);
-  setSessionCookie(res, caller.token);
-  sendJson(res, 200, sessionFromUser(user, caller.memberships));
+  const ttlMs = ttlMsForUser(user);
+  await extendSessionByToken(caller.token, { ttlMs });
+  setSessionCookie(res, caller.token, ttlMs);
+  sendJson(res, 200, await sessionPayload(user));
 }
 
 /**
@@ -283,6 +304,121 @@ export async function handleForgotPassword(req, res) {
 
   res.writeHead(204);
   res.end();
+}
+
+const PROFILE_LOCALES = new Set([
+  "en",
+  "zh-CN",
+  "zh-TW",
+  "ja",
+  "ko",
+  "vi",
+  "th",
+]);
+
+function isValidIanaTimezone(tz) {
+  if (typeof tz !== "string" || !tz.trim()) return false;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A10 — update display name, language, timezone, MFA preference, session TTL.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handlePatchProfile(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  /** @type {{
+   *   displayName?: string | null,
+   *   locale?: string,
+   *   timezone?: string,
+   *   mfaEnforcement?: boolean,
+   *   sessionTimeoutMinutes?: number,
+   * }} */
+  const patch = {};
+  if (body?.displayName !== undefined) {
+    if (body.displayName !== null && typeof body.displayName !== "string") {
+      sendError(res, 400, "invalid_request", "displayName must be a string or null");
+      return;
+    }
+    patch.displayName = body.displayName;
+  }
+  if (body?.locale !== undefined) {
+    if (typeof body.locale !== "string" || !PROFILE_LOCALES.has(body.locale)) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        `locale must be one of ${[...PROFILE_LOCALES].join(", ")}`,
+      );
+      return;
+    }
+    patch.locale = body.locale;
+  }
+  if (body?.timezone !== undefined) {
+    if (typeof body.timezone !== "string" || !isValidIanaTimezone(body.timezone)) {
+      sendError(res, 400, "invalid_request", "timezone must be a valid IANA timezone");
+      return;
+    }
+    patch.timezone = body.timezone;
+  }
+  if (body?.mfaEnforcement !== undefined) {
+    if (typeof body.mfaEnforcement !== "boolean") {
+      sendError(res, 400, "invalid_request", "mfaEnforcement must be a boolean");
+      return;
+    }
+    patch.mfaEnforcement = body.mfaEnforcement;
+  }
+  if (body?.sessionTimeoutMinutes !== undefined) {
+    const mins = Number(body.sessionTimeoutMinutes);
+    if (!ALLOWED_SESSION_TIMEOUT_MINUTES.includes(mins)) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        `sessionTimeoutMinutes must be one of ${ALLOWED_SESSION_TIMEOUT_MINUTES.join(", ")}`,
+      );
+      return;
+    }
+    patch.sessionTimeoutMinutes = mins;
+  }
+  if (Object.keys(patch).length === 0) {
+    sendError(res, 400, "invalid_request", "No profile fields to update");
+    return;
+  }
+
+  const updated = await updateUserProfile(auth.userId, patch);
+  if (!updated) {
+    sendError(res, 401, "unauthorized", "Not authenticated");
+    return;
+  }
+  await insertAuditEvent({
+    actorUserId: auth.userId,
+    action: AUDIT_ACTIONS.profileUpdate,
+    metadata: {
+      displayName: updated.displayName,
+      locale: updated.locale,
+      timezone: updated.timezone,
+      mfaEnforcement: updated.mfaEnforcement,
+      sessionTimeoutMinutes: updated.sessionTimeoutMinutes,
+    },
+  });
+  sendJson(res, 200, await sessionPayload(updated));
 }
 
 /**

@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   createOrg,
@@ -23,6 +24,8 @@ import {
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
+import { FieldControl } from "../ui/FieldControl";
+import { SearchableSelect } from "../ui/SearchableSelect";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -42,18 +45,57 @@ type WizardState = {
 };
 
 const STEPS = [
-  "Parent",
-  "Structure",
-  "Details",
-  "Tier",
-  "Volume fee",
-  "Owner",
-  "Review",
+  { label: "Parent" },
+  { label: "Structure" },
+  { label: "Details" },
+  { label: "Tier" },
+  { label: "Fee" },
+  { label: "Owner" },
+  { label: "Review" },
 ] as const;
+
+const STRUCTURE_HINTS: Record<MerchantStructure, string> = {
+  single_location: "One site / merchant account",
+  multi_location: "Parent merchant with site accounts",
+};
 
 function defaultVolumeForTier(tiers: FeeTierBand[], tier: MerchantTier): string {
   const band = tiers.find((t) => t.tier === tier);
   return band?.defaultSignupPercent ?? "1.5";
+}
+
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <nav className="b4-wizard__steps" aria-label="Wizard progress">
+      {STEPS.map((s, i) => {
+        const done = i < step;
+        const active = i === step;
+        return (
+          <div
+            key={s.label}
+            className={`b4-wizard__step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
+          >
+            <span className="b4-wizard__step-mark" aria-hidden>
+              {done ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M2 5.2 4.1 7.3 8 3.4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : active ? (
+                <span className="b4-wizard__step-dot" />
+              ) : null}
+            </span>
+            <span className="b4-wizard__step-label">{s.label}</span>
+          </div>
+        );
+      })}
+    </nav>
+  );
 }
 
 /** Platform B5 add — onboard merchant under a chosen agent. */
@@ -84,6 +126,8 @@ export function OnboardMerchantPage({ session }: Props) {
     commercial: { tier: "mid", volumeFeePercent: "1.2" },
     ownerEmail: "",
   }));
+
+  const dismissToast = useCallback(() => setError(null), []);
 
   useEffect(() => {
     getPlatformOrgs()
@@ -140,6 +184,16 @@ export function OnboardMerchantPage({ session }: Props) {
     [agents, form.parentId],
   );
 
+  const parentOptions = useMemo(
+    () =>
+      agents.map((a) => ({
+        id: a.id,
+        label: a.name,
+        hint: orgTypeLabel(a.type),
+      })),
+    [agents],
+  );
+
   function patch<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -187,8 +241,7 @@ export function OnboardMerchantPage({ session }: Props) {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleCreate() {
     if (!canManage || !form.parentId) return;
     const msg = validateStep();
     if (msg) {
@@ -242,249 +295,385 @@ export function OnboardMerchantPage({ session }: Props) {
     }
   }
 
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (step < STEPS.length - 1) {
+      next();
+      return;
+    }
+    void handleCreate();
+  }
+
   if (!canManage) {
     return (
-      <div className="panel">
-        <p className="error">Platform Owner or Administrator required.</p>
+      <div className="b4-wizard-page">
+        <div className="b4-wizard-backdrop">
+          <div className="b4-wizard" role="dialog" aria-modal="true">
+            <header className="b4-wizard__head">
+              <h2 className="b4-wizard__title">Onboard merchant</h2>
+              <Link className="b4-wizard__close" to={cancelTo} aria-label="Close">
+                ×
+              </Link>
+            </header>
+            <div className="b4-wizard__body">
+              <p className="b4-wizard__error">
+                Platform Owner or Administrator required.
+              </p>
+            </div>
+            <footer className="b4-wizard__foot">
+              <Link className="b4-wizard__cancel" to={cancelTo}>
+                Cancel
+              </Link>
+            </footer>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (booting) {
     return (
-      <PlatformPending
-        title="Loading merchants form"
-        copy="Fetching agents for the parent picker."
-      />
+      <div className="b4-wizard-page">
+        <PlatformPending
+          title="Loading merchants form"
+          copy="Fetching agents for the parent picker."
+        />
+      </div>
     );
   }
 
   if (agents.length === 0) {
     return (
-      <div className="panel">
-        <p className="error">
-          Onboard an agent first — merchants must sit under an agent account.
-        </p>
-        <Link className="btn-primary" to="/platform/agents/new">
-          Onboard agent
-        </Link>
+      <div className="b4-wizard-page">
+        <div className="b4-wizard-backdrop">
+          <div className="b4-wizard" role="dialog" aria-modal="true">
+            <header className="b4-wizard__head">
+              <h2 className="b4-wizard__title">Onboard merchant</h2>
+              <Link className="b4-wizard__close" to={cancelTo} aria-label="Close">
+                ×
+              </Link>
+            </header>
+            <div className="b4-wizard__body">
+              <p className="b4-wizard__error">
+                Onboard an agent first — merchants must sit under an agent account.
+              </p>
+            </div>
+            <footer className="b4-wizard__foot">
+              <Link className="b4-wizard__cancel" to={cancelTo}>
+                Cancel
+              </Link>
+              <Link className="b4-wizard__continue" to="/platform/agents/new">
+                Onboard agent
+              </Link>
+            </footer>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="panel wizard-panel">
-      <div className="panel-head">
-        <h2>Onboard merchant</h2>
-        <Link className="btn-secondary" to={cancelTo}>
-          Cancel
-        </Link>
-      </div>
-
-      <ol className="wizard-steps">
-        {STEPS.map((label, i) => (
-          <li
-            key={label}
-            className={i === step ? "active" : i < step ? "done" : ""}
-          >
-            {label}
-          </li>
-        ))}
-      </ol>
-
-      <form className="form-stack" onSubmit={onSubmit}>
-        {step === 0 ? (
-          <div className="field">
-            <label htmlFor="parent-agent">Parent agent</label>
-            <select
-              id="parent-agent"
-              className="field-control"
-              value={form.parentId}
-              onChange={(e) => patch("parentId", e.target.value)}
-              required
+    <div className="b4-wizard-page">
+      <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+      <div className="b4-wizard-backdrop">
+        <div
+          className="b4-wizard"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="b5-wizard-title"
+        >
+          <header className="b4-wizard__head">
+            <h2 id="b5-wizard-title" className="b4-wizard__title">
+              Onboard merchant
+            </h2>
+            <Link
+              className="b4-wizard__close"
+              to={cancelTo}
+              aria-label="Cancel and return"
             >
-              <option value="">Select agent…</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({orgTypeLabel(a.type)})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+              ×
+            </Link>
+          </header>
 
-        {step === 1 ? (
-          <div className="field">
-            <span className="field-label">Structure</span>
-            {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map((s) => (
-              <label key={s} className="radio-row">
-                <input
-                  type="radio"
-                  checked={form.structure === s}
-                  onChange={() => patch("structure", s)}
-                />
-                {STRUCTURE_LABELS[s]}
-              </label>
-            ))}
-          </div>
-        ) : null}
+          <StepIndicator step={step} />
 
-        {step === 2 ? (
-          <>
-            <div className="field">
-              <label htmlFor="merchant-name">Business name</label>
-              <input
-                id="merchant-name"
-                className="field-control"
-                required
-                value={form.name}
-                onChange={(e) => patch("name", e.target.value)}
-              />
+          <form className="b4-wizard__form" onSubmit={onSubmit}>
+            <div className="b4-wizard__body">
+              {step === 0 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="parent-agent">
+                    Parent agent
+                  </label>
+                  <FieldControl icon="user">
+                    <SearchableSelect
+                      id="parent-agent"
+                      value={form.parentId}
+                      options={parentOptions}
+                      onChange={(id) => patch("parentId", id)}
+                      placeholder="Select agent…"
+                      emptyLabel="Select agent…"
+                    />
+                  </FieldControl>
+                </div>
+              ) : null}
+
+              {step === 1 ? (
+                <div className="b4-field">
+                  <span className="b4-field__label">Structure</span>
+                  <div
+                    className="b4-type-options"
+                    role="radiogroup"
+                    aria-label="Merchant structure"
+                  >
+                    {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map(
+                      (s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          role="radio"
+                          aria-checked={form.structure === s}
+                          className={`b4-type-option${form.structure === s ? " is-selected" : ""}`}
+                          onClick={() => patch("structure", s)}
+                        >
+                          <span className="b4-type-option__radio" aria-hidden />
+                          <span className="b4-type-option__copy">
+                            <span className="b4-type-option__title">
+                              {STRUCTURE_LABELS[s]}
+                            </span>
+                            <span className="b4-type-option__desc">
+                              {STRUCTURE_HINTS[s]}
+                            </span>
+                          </span>
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {step === 2 ? (
+                <>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="merchant-name">
+                      Business name
+                    </label>
+                    <FieldControl icon="user">
+                      <input
+                        id="merchant-name"
+                        className="b4-field__control"
+                        required
+                        value={form.name}
+                        onChange={(e) => patch("name", e.target.value)}
+                        placeholder="Registered business name"
+                        autoFocus
+                      />
+                    </FieldControl>
+                  </div>
+                  <div className="b4-field-row">
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="country">
+                        Country
+                      </label>
+                      <FieldControl icon="globe">
+                        <input
+                          id="country"
+                          className="b4-field__control"
+                          value={form.country}
+                          onChange={(e) => patch("country", e.target.value)}
+                          placeholder="Singapore (SG)"
+                        />
+                      </FieldControl>
+                    </div>
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor="billing">
+                        Billing contact
+                      </label>
+                      <FieldControl icon="mail">
+                        <input
+                          id="billing"
+                          className="b4-field__control"
+                          value={form.billingContact}
+                          onChange={(e) => patch("billingContact", e.target.value)}
+                          placeholder="Name@company.com"
+                        />
+                      </FieldControl>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              {step === 3 ? (
+                <>
+                  {form.commercial.tier === "enterprise" ? (
+                    <p className="b4-field__hint">
+                      Enterprise custom rates outside the band still need Owner
+                      approval.
+                    </p>
+                  ) : null}
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="tier">
+                      Merchant tier
+                    </label>
+                    <FieldControl icon="user">
+                      <select
+                        id="tier"
+                        className="b4-field__control"
+                        value={form.commercial.tier}
+                        onChange={(e) => {
+                          const tier = e.target.value as MerchantTier;
+                          patch("commercial", {
+                            tier,
+                            volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
+                          });
+                        }}
+                      >
+                        {(["small", "mid", "enterprise"] as MerchantTier[]).map(
+                          (t) => (
+                            <option key={t} value={t}>
+                              {tierLabel(t)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </FieldControl>
+                    {selectedBand ? (
+                      <p className="b4-field__hint">
+                        Band: {selectedBand.volumeFeeMinPercent}% –{" "}
+                        {selectedBand.volumeFeeMaxPercent}%
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+
+              {step === 4 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="volume-fee">
+                    Volume fee %
+                  </label>
+                  <FieldControl icon="user">
+                    <input
+                      id="volume-fee"
+                      className="b4-field__control"
+                      inputMode="decimal"
+                      value={form.commercial.volumeFeePercent}
+                      onChange={(e) =>
+                        patch("commercial", {
+                          ...form.commercial,
+                          volumeFeePercent: e.target.value,
+                        })
+                      }
+                      autoFocus
+                    />
+                  </FieldControl>
+                  {selectedBand ? (
+                    <p className="b4-field__hint">
+                      Allowed {selectedBand.volumeFeeMinPercent}% –{" "}
+                      {selectedBand.volumeFeeMaxPercent}% for{" "}
+                      {tierLabel(form.commercial.tier)}.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {step === 5 ? (
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor="owner-email">
+                    Merchant Owner email
+                  </label>
+                  <FieldControl icon="mail">
+                    <input
+                      id="owner-email"
+                      className="b4-field__control"
+                      type="email"
+                      required
+                      value={form.ownerEmail}
+                      onChange={(e) => patch("ownerEmail", e.target.value)}
+                      placeholder="Name@company.com"
+                      autoFocus
+                    />
+                  </FieldControl>
+                  <p className="b4-field__hint">
+                    An invitation is sent after the merchant account is created.
+                  </p>
+                </div>
+              ) : null}
+
+              {step === 6 ? (
+                <dl className="b4-review">
+                  <div className="b4-review__row">
+                    <dt>Parent</dt>
+                    <dd>{parentAgent?.name ?? form.parentId}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Name</dt>
+                    <dd>{form.name.trim()}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Structure</dt>
+                    <dd>{STRUCTURE_LABELS[form.structure]}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Country</dt>
+                    <dd>{form.country.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Billing</dt>
+                    <dd>{form.billingContact.trim() || "—"}</dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Tier / fee</dt>
+                    <dd>
+                      {tierLabel(form.commercial.tier)} ·{" "}
+                      {form.commercial.volumeFeePercent}%
+                    </dd>
+                  </div>
+                  <div className="b4-review__row">
+                    <dt>Owner invite</dt>
+                    <dd>{form.ownerEmail.trim()}</dd>
+                  </div>
+                </dl>
+              ) : null}
             </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="country">Country</label>
-                <input
-                  id="country"
-                  className="field-control"
-                  value={form.country}
-                  onChange={(e) => patch("country", e.target.value)}
-                />
+
+            <footer className="b4-wizard__foot">
+              <div className="b4-wizard__foot-left">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    className="b4-wizard__back"
+                    onClick={back}
+                    disabled={busy}
+                  >
+                    Back
+                  </button>
+                ) : null}
+                <Link className="b4-wizard__cancel" to={cancelTo}>
+                  Cancel
+                </Link>
               </div>
-              <div className="field">
-                <label htmlFor="billing">Billing contact</label>
-                <input
-                  id="billing"
-                  className="field-control"
-                  value={form.billingContact}
-                  onChange={(e) => patch("billingContact", e.target.value)}
-                />
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {step === 3 ? (
-          <>
-            {form.commercial.tier === "enterprise" ? (
-              <div className="banner banner-warn">
-                Enterprise custom rates outside the band still need Owner approval.
-              </div>
-            ) : null}
-            <div className="field">
-              <label htmlFor="tier">Merchant tier</label>
-              <select
-                id="tier"
-                className="field-control"
-                value={form.commercial.tier}
-                onChange={(e) => {
-                  const tier = e.target.value as MerchantTier;
-                  patch("commercial", {
-                    tier,
-                    volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
-                  });
-                }}
-              >
-                {(["small", "mid", "enterprise"] as MerchantTier[]).map((t) => (
-                  <option key={t} value={t}>
-                    {tierLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedBand ? (
-              <p className="muted" style={{ fontSize: 13 }}>
-                Band: {selectedBand.volumeFeeMinPercent}% –{" "}
-                {selectedBand.volumeFeeMaxPercent}%
-              </p>
-            ) : null}
-          </>
-        ) : null}
-
-        {step === 4 ? (
-          <div className="field">
-            <label htmlFor="volume-fee">Volume fee %</label>
-            <input
-              id="volume-fee"
-              className="field-control"
-              inputMode="decimal"
-              value={form.commercial.volumeFeePercent}
-              onChange={(e) =>
-                patch("commercial", {
-                  ...form.commercial,
-                  volumeFeePercent: e.target.value,
-                })
-              }
-            />
-          </div>
-        ) : null}
-
-        {step === 5 ? (
-          <div className="field">
-            <label htmlFor="owner-email">Merchant Owner email</label>
-            <input
-              id="owner-email"
-              type="email"
-              className="field-control"
-              required
-              value={form.ownerEmail}
-              onChange={(e) => patch("ownerEmail", e.target.value)}
-            />
-          </div>
-        ) : null}
-
-        {step === 6 ? (
-          <dl className="review-dl">
-            <div>
-              <dt>Parent</dt>
-              <dd>{parentAgent?.name ?? form.parentId}</dd>
-            </div>
-            <div>
-              <dt>Name</dt>
-              <dd>{form.name}</dd>
-            </div>
-            <div>
-              <dt>Structure</dt>
-              <dd>{STRUCTURE_LABELS[form.structure]}</dd>
-            </div>
-            <div>
-              <dt>Tier / fee</dt>
-              <dd>
-                {tierLabel(form.commercial.tier)} ·{" "}
-                {form.commercial.volumeFeePercent}%
-              </dd>
-            </div>
-            <div>
-              <dt>Owner</dt>
-              <dd>{form.ownerEmail}</dd>
-            </div>
-          </dl>
-        ) : null}
-
-        {error ? <p className="error">{error}</p> : null}
-
-        <div className="action-row">
-          {step > 0 ? (
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={busy}
-              onClick={back}
-            >
-              Back
-            </button>
-          ) : null}
-          {step < STEPS.length - 1 ? (
-            <button type="button" className="btn-primary" onClick={next}>
-              Continue
-            </button>
-          ) : (
-            <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? "Creating…" : "Create merchant"}
-            </button>
-          )}
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={next}
+                >
+                  Save &amp; Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="b4-wizard__continue"
+                  onClick={() => void handleCreate()}
+                  disabled={busy}
+                >
+                  {busy ? "Creating…" : "Create merchant"}
+                </button>
+              )}
+            </footer>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

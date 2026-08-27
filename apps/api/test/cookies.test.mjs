@@ -51,7 +51,7 @@ describe("session payload", () => {
     assert.equal(session.mustChangePassword, false);
   });
 
-  it("defaults memberships and MFA flags", () => {
+  it("defaults memberships and MFA flags (user prefs off)", () => {
     const session = sessionFromUser({
       id: "u1",
       email: "cashier@example.com",
@@ -59,5 +59,19 @@ describe("session payload", () => {
     assert.deepEqual(session.memberships, []);
     assert.equal(session.mfaEnrolled, false);
     assert.equal(session.mustChangePassword, false);
+    assert.equal(session.mfaEnforcement, false);
+    assert.equal(session.sessionTimeoutMinutes, 30);
+  });
+
+  it("accepts user security preference fields", () => {
+    const session = sessionFromUser({
+      id: "u1",
+      email: "owner@example.com",
+      mfaEnrolled: true,
+      mfaEnforcement: true,
+      sessionTimeoutMinutes: 120,
+    });
+    assert.equal(session.mfaEnforcement, true);
+    assert.equal(session.sessionTimeoutMinutes, 120);
   });
 });

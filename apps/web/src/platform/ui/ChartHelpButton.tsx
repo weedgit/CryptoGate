@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 export const VOLUME_CHART_HELP =
   "Total shows platform-wide settled payment-order volume for the selected period. " +
-  "Scroll to zoom the time window; drag to pan; double-click or Reset to show the full period. " +
+  "Use + / − to zoom the time window; drag to pan when zoomed; double-click or Reset to show the full period. " +
   "Asset filters the chart using the network table: click Network (all assets on that chain), " +
   "Asset (that asset on all chains), or a row (one network + asset pair). " +
   "Click the same selection again to clear.";

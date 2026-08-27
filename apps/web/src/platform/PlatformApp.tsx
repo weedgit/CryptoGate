@@ -5,7 +5,6 @@ import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
-import { SecuritySettingsPage } from "../auth/SecuritySettingsPage";
 import { AgentsListPage } from "./AgentsListPage";
 import { ArchitecturePage } from "./ArchitecturePage";
 import { DashboardPage } from "./DashboardPage";
@@ -24,7 +23,6 @@ import { CompliancePage } from "./CompliancePage";
 import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
 import { PlatformPending } from "./ui/PlatformPending";
 import { NetworkCatalogPage } from "./NetworkCatalogPage";
-import { PlatformSettingsPage } from "./PlatformSettingsPage";
 import { PlatformTeamPage } from "./PlatformTeamPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
@@ -32,18 +30,18 @@ import { SystemHealthPage } from "./SystemHealthPage";
 
 type ShellProps = {
   session: Session;
-  title?: string;
   children: ReactNode;
   onSignOut: () => void;
+  onSessionRefresh?: (session: Session) => void;
 };
 
-function Shell({ session, title, children, onSignOut }: ShellProps) {
+function Shell({ session, children, onSignOut, onSessionRefresh }: ShellProps) {
   return (
     <RequirePlatformPortal session={session}>
       <PlatformShell
         session={session}
-        title={title}
         onSignOut={onSignOut}
+        onSessionRefresh={onSessionRefresh}
       >
         {children}
       </PlatformShell>
@@ -102,7 +100,8 @@ export function PlatformApp() {
       <Route
         index
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <DashboardPage session={session} />
           </Shell>
         }
@@ -110,7 +109,8 @@ export function PlatformApp() {
       <Route
         path="agents/new"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <RequirePlatformOperator session={session}>
               <OnboardAgentPage />
             </RequirePlatformOperator>
@@ -120,7 +120,8 @@ export function PlatformApp() {
       <Route
         path="agents/:id"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <AgentsListPage session={session} />
           </Shell>
         }
@@ -128,7 +129,8 @@ export function PlatformApp() {
       <Route
         path="agents"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <AgentsListPage session={session} />
           </Shell>
         }
@@ -136,11 +138,8 @@ export function PlatformApp() {
       <Route
         path="merchants/new"
         element={
-          <Shell
-            session={session}
-            title="Onboard Merchant"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <RequirePlatformOperator session={session}>
               <OnboardMerchantPage session={session} />
             </RequirePlatformOperator>
@@ -150,7 +149,8 @@ export function PlatformApp() {
       <Route
         path="merchants/:id"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <MerchantsListPage session={session} />
           </Shell>
         }
@@ -158,7 +158,8 @@ export function PlatformApp() {
       <Route
         path="merchants"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <MerchantsListPage session={session} />
           </Shell>
         }
@@ -166,7 +167,8 @@ export function PlatformApp() {
       <Route
         path="architecture"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <ArchitecturePage session={session} />
           </Shell>
         }
@@ -174,33 +176,21 @@ export function PlatformApp() {
       <Route
         path="service-bills"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <ServiceBillsListPage session={session} />
           </Shell>
         }
       />
       <Route
         path="service-bills/new"
-        element={
-          <Shell
-            session={session}
-            title="Issue Service Bill"
-            onSignOut={signOut}
-          >
-            <RequirePlatformOperator session={session}>
-              <IssueServiceBillPage />
-            </RequirePlatformOperator>
-          </Shell>
-        }
+        element={<IssueServiceBillPage />}
       />
       <Route
         path="service-bills/:id"
         element={
-          <Shell
-            session={session}
-            title="Service Bill Details"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <ServiceBillDetailPage session={session} />
           </Shell>
         }
@@ -208,7 +198,8 @@ export function PlatformApp() {
       <Route
         path="audit"
         element={
-          <Shell session={session} onSignOut={signOut}>
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <AuditLogPage />
           </Shell>
         }
@@ -216,47 +207,25 @@ export function PlatformApp() {
       <Route
         path="compliance"
         element={
-          <Shell
-            session={session}
-            title="Payment anomalies"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <CompliancePage />
           </Shell>
         }
       />
       <Route
         path="settings"
-        element={
-          <Shell
-            session={session}
-            title="Global Settings"
-            onSignOut={signOut}
-          >
-            <PlatformSettingsPage session={session} />
-          </Shell>
-        }
+        element={<Navigate to="/platform" replace />}
       />
       <Route
         path="settings/security"
-        element={
-          <Shell session={session} title="Security" onSignOut={signOut}>
-            <SecuritySettingsPage
-              session={session}
-              variant="platform"
-              onSessionRefresh={setSession}
-            />
-          </Shell>
-        }
+        element={<Navigate to="/platform" replace />}
       />
       <Route
         path="settings/fee-tiers"
         element={
-          <Shell
-            session={session}
-            title="Fee Tiers & Pricing"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <FeeTiersSettingsPage session={session} />
           </Shell>
         }
@@ -264,11 +233,8 @@ export function PlatformApp() {
       <Route
         path="settings/networks"
         element={
-          <Shell
-            session={session}
-            title="Network Catalog"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <NetworkCatalogPage />
           </Shell>
         }
@@ -276,11 +242,8 @@ export function PlatformApp() {
       <Route
         path="settings/team"
         element={
-          <Shell
-            session={session}
-            title="Platform Team"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <PlatformTeamPage session={session} />
           </Shell>
         }
@@ -288,11 +251,8 @@ export function PlatformApp() {
       <Route
         path="ops/health"
         element={
-          <Shell
-            session={session}
-            title="System Health"
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
             <SystemHealthPage />
           </Shell>
         }

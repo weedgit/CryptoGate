@@ -53,7 +53,7 @@ export function MerchantsListPage({ session }: Props) {
             onChange={(e) => setQuery(e.target.value)}
           />
           {canOnboard ? (
-            <Link className="btn-primary" to="/agent/merchants/new">
+            <Link className="btn-primary btn-inline" to="/agent/merchants/new">
               Onboard merchant
             </Link>
           ) : null}

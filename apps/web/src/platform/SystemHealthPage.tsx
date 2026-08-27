@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -92,6 +93,19 @@ export function SystemHealthPage() {
     return () => window.clearInterval(id);
   }, [load]);
 
+  const enterOnceRef = useRef(false);
+  const [enterMotion, setEnterMotion] = useState(false);
+  useEffect(() => {
+    if (loading || enterOnceRef.current) return;
+    enterOnceRef.current = true;
+    const raf = window.requestAnimationFrame(() => setEnterMotion(true));
+    const clear = window.setTimeout(() => setEnterMotion(false), 900);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(clear);
+    };
+  }, [loading]);
+
   const byNetwork = new Map(
     (watcher?.items ?? []).map((row) => [row.network, row]),
   );
@@ -131,7 +145,9 @@ export function SystemHealthPage() {
   ];
 
   return (
-    <div className="plat-ops-health">
+    <div
+      className={`plat-ops-health${enterMotion ? " is-enter" : ""}`}
+    >
       {topbarActionsSlot
         ? createPortal(
             <div className="plat-ops-health__topbar-actions">

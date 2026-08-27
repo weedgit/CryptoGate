@@ -75,6 +75,7 @@ describe("@cryptogate/domain", () => {
     assert.equal(AuditAction.ComplianceOverride, "compliance_override");
     assert.equal(AuditAction.SiteOverrideRequest, "site_override_request");
     assert.equal(AuditAction.SiteOverrideDecide, "site_override_decide");
+    assert.equal(AuditAction.ProfileUpdate, "profile_update");
   });
 
   it("registers full Phase 1 §VI catalog; only USDT Tron is live", () => {

@@ -5,7 +5,6 @@ import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
-import { SecuritySettingsPage } from "../auth/SecuritySettingsPage";
 import { AgentShell } from "./AgentShell";
 import { CommissionsPage } from "./CommissionsPage";
 import { DashboardPage } from "./DashboardPage";
@@ -21,20 +20,26 @@ import { TeamSettingsPage } from "./TeamSettingsPage";
 
 type ShellProps = {
   session: Session;
-  title?: string;
   crumb?: string;
   children: ReactNode;
   onSignOut: () => void;
+  onSessionRefresh?: (session: Session) => void;
 };
 
-function Shell({ session, title, crumb, children, onSignOut }: ShellProps) {
+function Shell({
+  session,
+  crumb,
+  children,
+  onSignOut,
+  onSessionRefresh,
+}: ShellProps) {
   return (
     <RequireAgentPortal session={session}>
       <AgentShell
         session={session}
-        title={title}
         crumb={crumb}
         onSignOut={onSignOut}
+        onSessionRefresh={onSessionRefresh}
       >
         {children}
       </AgentShell>
@@ -90,10 +95,8 @@ export function AgentApp() {
       <Route
         index
         element={
-          <Shell
-            session={session}
-            onSignOut={signOut}
-          >
+          <Shell session={session} onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <DashboardPage session={session} />
           </Shell>
         }
@@ -101,12 +104,8 @@ export function AgentApp() {
       <Route
         path="merchants"
         element={
-          <Shell
-            session={session}
-            title="Merchants"
-            crumb="Subtree"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Subtree" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <MerchantsListPage session={session} />
           </Shell>
         }
@@ -114,12 +113,8 @@ export function AgentApp() {
       <Route
         path="merchants/new"
         element={
-          <Shell
-            session={session}
-            title="Onboard Merchant"
-            crumb="Merchants"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Merchants" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <RequireAgentOperator session={session}>
               <OnboardMerchantPage session={session} />
             </RequireAgentOperator>
@@ -129,12 +124,8 @@ export function AgentApp() {
       <Route
         path="merchants/:id"
         element={
-          <Shell
-            session={session}
-            title="Merchant Detail"
-            crumb="Merchants"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Merchants" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <MerchantDetailPage />
           </Shell>
         }
@@ -142,12 +133,8 @@ export function AgentApp() {
       <Route
         path="agents"
         element={
-          <Shell
-            session={session}
-            title="Sub-agents"
-            crumb="Agents"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Agents" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <SubAgentsListPage />
           </Shell>
         }
@@ -155,42 +142,21 @@ export function AgentApp() {
       <Route
         path="settings/team"
         element={
-          <Shell
-            session={session}
-            title="Team"
-            crumb="Settings"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Settings" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <TeamSettingsPage session={session} />
           </Shell>
         }
       />
       <Route
         path="settings/security"
-        element={
-          <Shell
-            session={session}
-            title="Security"
-            crumb="Settings"
-            onSignOut={signOut}
-          >
-            <SecuritySettingsPage
-              session={session}
-              variant="agent"
-              onSessionRefresh={setSession}
-            />
-          </Shell>
-        }
+        element={<Navigate to="/agent" replace />}
       />
       <Route
         path="commissions"
         element={
-          <Shell
-            session={session}
-            title="Commissions"
-            crumb="Billing"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Billing" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <CommissionsPage session={session} />
           </Shell>
         }
@@ -198,12 +164,8 @@ export function AgentApp() {
       <Route
         path="service-bills"
         element={
-          <Shell
-            session={session}
-            title="Service Bills"
-            crumb="Billing"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Billing" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <ServiceBillsListPage />
           </Shell>
         }
@@ -211,12 +173,8 @@ export function AgentApp() {
       <Route
         path="service-bills/:id"
         element={
-          <Shell
-            session={session}
-            title="Service Bill"
-            crumb="Billing"
-            onSignOut={signOut}
-          >
+          <Shell session={session} crumb="Billing" onSignOut={signOut}
+            onSessionRefresh={setSession}>
             <ServiceBillDetailPage />
           </Shell>
         }

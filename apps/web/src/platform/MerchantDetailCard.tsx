@@ -44,6 +44,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
+import { formatShortDate } from "./org";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -1169,34 +1170,54 @@ export function MerchantDetailCard({
                   {merchantBills.length === 1 ? "bill" : "bills"}
                 </span>
               </div>
-              <table className="data-table">
+              <table className="data-table plat-bills__embed">
                 <thead>
                   <tr>
                     <th>Bill</th>
                     <th>Total</th>
+                    <th>Due</th>
                     <th>Status</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {merchantBills.map((bill) => (
-                    <tr key={bill.id}>
-                      <td className="mono">{formatBillId(bill.id)}</td>
-                      <td>
-                        <FundAmount amount={bill.totalAmount} />
-                      </td>
-                      <td>
-                        <span
-                          className={`status-badge tone-${serviceBillStatusTone(bill.status)}`}
+                  {merchantBills.map((bill) => {
+                    const overdue = bill.status === "overdue";
+                    return (
+                      <tr key={bill.id}>
+                        <td>
+                          <Link
+                            className="plat-bills__id"
+                            to={`/platform/service-bills/${bill.id}`}
+                          >
+                            {formatBillId(bill.id)}
+                          </Link>
+                        </td>
+                        <td className="plat-bills__amount">
+                          <FundAmount amount={bill.totalAmount} />
+                        </td>
+                        <td
+                          className={
+                            overdue ? "plat-bills__due is-overdue" : "plat-bills__due"
+                          }
                         >
-                          {serviceBillStatusLabel(bill.status)}
-                        </span>
-                      </td>
-                      <td>
-                        <Link to={`/platform/service-bills/${bill.id}`}>View</Link>
-                      </td>
-                    </tr>
-                  ))}
+                          {formatShortDate(bill.dueAt)}
+                        </td>
+                        <td>
+                          <span
+                            className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}${
+                              overdue ? " is-pulse" : ""
+                            }`}
+                          >
+                            {serviceBillStatusLabel(bill.status)}
+                          </span>
+                        </td>
+                        <td>
+                          <Link to={`/platform/service-bills/${bill.id}`}>View</Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </section>

@@ -8,6 +8,7 @@ import {
   handleMfaVerify,
   handleResetPassword,
   handleChangePassword,
+  handlePatchProfile,
 } from "./auth-routes.mjs";
 import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
@@ -136,6 +137,11 @@ export async function handleRequest(req, res) {
 
   if (method === "GET" && path === "/v1/auth/session") {
     await handleGetSession(req, res);
+    return;
+  }
+
+  if (method === "PATCH" && path === "/v1/auth/profile") {
+    await handlePatchProfile(req, res);
     return;
   }
 

@@ -3,29 +3,114 @@ import { findPlatformOrg } from "../orgs/org-store.mjs";
 import { agentDepthOf } from "../orgs/org-rules.mjs";
 import { DEFAULT_MAX_AGENT_DEPTH } from "../orgs/org-accounts.mjs";
 
+export const ALLOWED_SESSION_TIMEOUT_MINUTES = Object.freeze([15, 30, 60, 120]);
+export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
+export const DEFAULT_MFA_ENFORCEMENT = true;
+
 /**
- * @returns {Promise<{ maxAgentDepth: number }>}
+ * @typedef {{
+ *   maxAgentDepth: number,
+ *   mfaEnforcement: boolean,
+ *   sessionTimeoutMinutes: number,
+ * }} PlatformOrgPolicy
+ */
+
+/**
+ * @returns {Promise<PlatformOrgPolicy>}
  */
 export async function getPlatformOrgPolicy() {
-  const platform = await findPlatformOrg();
-  return {
-    maxAgentDepth: platform?.max_agent_depth ?? DEFAULT_MAX_AGENT_DEPTH,
-  };
+  const pool = getPool();
+  try {
+    const { rows } = await pool.query(
+      `SELECT max_agent_depth, mfa_enforcement, session_timeout_minutes
+       FROM org_accounts
+       WHERE type = 'platform'
+       LIMIT 1`,
+    );
+    const row = rows[0];
+    return {
+      maxAgentDepth: row?.max_agent_depth ?? DEFAULT_MAX_AGENT_DEPTH,
+      mfaEnforcement:
+        row?.mfa_enforcement == null
+          ? DEFAULT_MFA_ENFORCEMENT
+          : Boolean(row.mfa_enforcement),
+      sessionTimeoutMinutes:
+        row?.session_timeout_minutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+    };
+  } catch (err) {
+    if (err && err.code === "42703") {
+      const platform = await findPlatformOrg();
+      return {
+        maxAgentDepth: platform?.max_agent_depth ?? DEFAULT_MAX_AGENT_DEPTH,
+        mfaEnforcement: DEFAULT_MFA_ENFORCEMENT,
+        sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+      };
+    }
+    throw err;
+  }
 }
 
 /**
- * @param {number} maxAgentDepth
+ * Sliding session TTL from live platform policy.
+ * @returns {Promise<number>}
  */
-export async function updatePlatformMaxAgentDepth(maxAgentDepth) {
+export async function resolveSessionTtlMs() {
+  const policy = await getPlatformOrgPolicy();
+  return policy.sessionTimeoutMinutes * 60 * 1000;
+}
+
+/**
+ * @param {{
+ *   maxAgentDepth: number,
+ *   mfaEnforcement: boolean,
+ *   sessionTimeoutMinutes: number,
+ * }} input
+ * @returns {Promise<PlatformOrgPolicy>}
+ */
+export async function updatePlatformOrgPolicy(input) {
   const platform = await findPlatformOrg();
   if (!platform) {
     throw new Error("platform org missing");
   }
-  await getPool().query(
-    `UPDATE org_accounts SET max_agent_depth = $2, updated_at = now() WHERE id = $1`,
-    [platform.id, maxAgentDepth],
-  );
-  return { maxAgentDepth };
+  try {
+    await getPool().query(
+      `UPDATE org_accounts
+       SET max_agent_depth = $2,
+           mfa_enforcement = $3,
+           session_timeout_minutes = $4,
+           updated_at = now()
+       WHERE id = $1`,
+      [
+        platform.id,
+        input.maxAgentDepth,
+        input.mfaEnforcement,
+        input.sessionTimeoutMinutes,
+      ],
+    );
+  } catch (err) {
+    if (err && err.code === "42703") {
+      await getPool().query(
+        `UPDATE org_accounts SET max_agent_depth = $2, updated_at = now() WHERE id = $1`,
+        [platform.id, input.maxAgentDepth],
+      );
+    } else {
+      throw err;
+    }
+  }
+  return {
+    maxAgentDepth: input.maxAgentDepth,
+    mfaEnforcement: input.mfaEnforcement,
+    sessionTimeoutMinutes: input.sessionTimeoutMinutes,
+  };
+}
+
+/** @deprecated Use updatePlatformOrgPolicy */
+export async function updatePlatformMaxAgentDepth(maxAgentDepth) {
+  const current = await getPlatformOrgPolicy();
+  return updatePlatformOrgPolicy({
+    ...current,
+    maxAgentDepth,
+  });
 }
 
 /**

@@ -29,7 +29,8 @@ import {
 import {
   getPlatformOrgPolicy,
   maxAgentDepthInTree,
-  updatePlatformMaxAgentDepth,
+  updatePlatformOrgPolicy,
+  ALLOWED_SESSION_TIMEOUT_MINUTES,
 } from "./org-policy-store.mjs";
 
 /**
@@ -115,6 +116,20 @@ export async function handlePutPlatformOrgPolicy(req, res) {
     sendError(res, 400, "invalid_request", "maxAgentDepth must be an integer 0–5");
     return;
   }
+  if (typeof body?.mfaEnforcement !== "boolean") {
+    sendError(res, 400, "invalid_request", "mfaEnforcement must be a boolean");
+    return;
+  }
+  const sessionTimeoutMinutes = Number(body?.sessionTimeoutMinutes);
+  if (!ALLOWED_SESSION_TIMEOUT_MINUTES.includes(sessionTimeoutMinutes)) {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      `sessionTimeoutMinutes must be one of ${ALLOWED_SESSION_TIMEOUT_MINUTES.join(", ")}`,
+    );
+    return;
+  }
   const deepest = await maxAgentDepthInTree();
   if (maxAgentDepth < deepest) {
     sendError(
@@ -125,12 +140,20 @@ export async function handlePutPlatformOrgPolicy(req, res) {
     );
     return;
   }
-  const policy = await updatePlatformMaxAgentDepth(maxAgentDepth);
+  const policy = await updatePlatformOrgPolicy({
+    maxAgentDepth,
+    mfaEnforcement: body.mfaEnforcement,
+    sessionTimeoutMinutes,
+  });
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId: null,
     action: AUDIT_ACTIONS.orgPolicyPut,
-    metadata: { maxAgentDepth },
+    metadata: {
+      maxAgentDepth,
+      mfaEnforcement: policy.mfaEnforcement,
+      sessionTimeoutMinutes: policy.sessionTimeoutMinutes,
+    },
   });
   sendJson(res, 200, policy);
 }

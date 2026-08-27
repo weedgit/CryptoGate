@@ -76,18 +76,99 @@ export async function findUserByEmail(email) {
 export async function findUserById(id) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, mfa_enrolled_at
+    `SELECT id, email, mfa_enrolled_at, display_name, locale, timezone,
+            mfa_enforcement, session_timeout_minutes
      FROM users
      WHERE id = $1`,
     [id],
   );
   const row = rows[0];
   if (!row) return null;
+  return mapUserRow(row);
+}
+
+/**
+ * @param {Record<string, unknown>} row
+ */
+function mapUserRow(row) {
+  const timeout = Number(row.session_timeout_minutes);
   return {
     id: row.id,
     email: row.email,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
+    displayName: row.display_name ?? null,
+    locale: row.locale || "en",
+    timezone: row.timezone || "UTC",
+    mfaEnforcement: Boolean(row.mfa_enforcement),
+    sessionTimeoutMinutes:
+      timeout === 15 || timeout === 30 || timeout === 60 || timeout === 120
+        ? timeout
+        : 30,
   };
+}
+
+/**
+ * Update personal profile + security prefs. Email is not changed here.
+ * @param {string} userId
+ * @param {{
+ *   displayName?: string | null,
+ *   locale?: string,
+ *   timezone?: string,
+ *   mfaEnforcement?: boolean,
+ *   sessionTimeoutMinutes?: number,
+ * }} input
+ */
+export async function updateUserProfile(userId, input) {
+  const current = await findUserById(userId);
+  if (!current) return null;
+
+  let displayName = current.displayName;
+  if (input.displayName !== undefined) {
+    const raw =
+      input.displayName === null ? "" : String(input.displayName).trim();
+    displayName = raw ? raw.slice(0, 120) : null;
+  }
+  const locale =
+    typeof input.locale === "string" && input.locale.trim()
+      ? input.locale.trim().slice(0, 32)
+      : current.locale;
+  const timezone =
+    typeof input.timezone === "string" && input.timezone.trim()
+      ? input.timezone.trim().slice(0, 64)
+      : current.timezone;
+  const mfaEnforcement =
+    typeof input.mfaEnforcement === "boolean"
+      ? input.mfaEnforcement
+      : current.mfaEnforcement;
+  const sessionTimeoutMinutes =
+    typeof input.sessionTimeoutMinutes === "number"
+      ? input.sessionTimeoutMinutes
+      : current.sessionTimeoutMinutes;
+
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET display_name = $2,
+         locale = $3,
+         timezone = $4,
+         mfa_enforcement = $5,
+         session_timeout_minutes = $6,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING id, email, mfa_enrolled_at, display_name, locale, timezone,
+               mfa_enforcement, session_timeout_minutes`,
+    [
+      userId,
+      displayName,
+      locale,
+      timezone,
+      mfaEnforcement,
+      sessionTimeoutMinutes,
+    ],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return mapUserRow(row);
 }
 
 /**

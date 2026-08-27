@@ -248,11 +248,17 @@ export function childTypeCounts(node: PlatformOrgTreeNode): {
   return { agents, merchants, sites, total: node.children.length };
 }
 
-export function orgDetailHref(type: string, id: string): string | null {
+export function orgDetailHref(
+  type: string,
+  id: string,
+  parentId?: string | null,
+): string | null {
   if (type === "platform") return "/platform/settings/team";
   if (type === "agent" || type === "agent_sub") return `/platform/agents/${id}`;
-  if (type === "merchant" || type === "merchant_site") {
-    return `/platform/merchants/${id}`;
+  if (type === "merchant") return `/platform/merchants/${id}`;
+  if (type === "merchant_site") {
+    if (!parentId) return null;
+    return `/platform/merchants/${parentId}?tab=sites`;
   }
   return null;
 }
@@ -260,9 +266,8 @@ export function orgDetailHref(type: string, id: string): string | null {
 export function orgDetailLabel(type: string): string | null {
   if (type === "platform") return "Platform team";
   if (type === "agent" || type === "agent_sub") return "Open agent detail";
-  if (type === "merchant" || type === "merchant_site") {
-    return "Open merchant detail";
-  }
+  if (type === "merchant") return "Open merchant detail";
+  if (type === "merchant_site") return "Open merchant (Sites)";
   return null;
 }
 

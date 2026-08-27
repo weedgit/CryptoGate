@@ -161,7 +161,15 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
 
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /settings\/fee-tiers/);
-    assert.match(app, /PlatformSettingsPage/);
+    assert.match(app, /settings\/security/);
+    assert.match(app, /Navigate to="\/platform"/);
+
+    const shell = readFileSync(
+      join(root, "src/platform/PlatformShell.tsx"),
+      "utf8",
+    );
+    assert.match(shell, /SidebarProfileMenu/);
+    assert.doesNotMatch(shell, /label: "Profile"/);
 
     const b8 = readFileSync(
       join(root, "src/platform/FeeTiersSettingsPage.tsx"),
@@ -171,13 +179,20 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
     assert.match(b8, /Custom merchant rate overrides/i);
     assert.match(b8, /Platform fees/);
 
-    const settings = readFileSync(
-      join(root, "src/platform/PlatformSettingsPage.tsx"),
+    const profile = readFileSync(
+      join(root, "src/auth/SecuritySettingsPage.tsx"),
       "utf8",
     );
-    assert.match(settings, /Max agent hierarchy depth/i);
-    assert.match(settings, /getPlatformOrgPolicy/);
-    assert.match(settings, /Security/);
+    assert.match(profile, /Require two-step verification|mfaEnforcement/);
+    assert.match(profile, /sessionTimeoutMinutes|Session timeout/i);
+    assert.match(profile, /Profile/);
+
+    const menu = readFileSync(
+      join(root, "src/auth/SidebarProfileMenu.tsx"),
+      "utf8",
+    );
+    assert.match(menu, /Setting/);
+    assert.match(menu, /Sign out/);
   });
 
   it("treats 401 mfa_required as step-up, not signed-out", () => {

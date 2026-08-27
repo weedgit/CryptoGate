@@ -255,6 +255,7 @@ export function TeamSettingsPage({ session }: Props) {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 disabled={busy}
+                placeholder="Name@company.com"
               />
             </div>
             <div className="field">

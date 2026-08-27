@@ -15,11 +15,11 @@
   justify-content: center;
   gap: 8px;
   box-sizing: border-box;
-  min-height: var(--control-h);
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
+  min-height: var(--control-h-sm);
+  padding: 0 14px;
+  border-radius: 6px;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;

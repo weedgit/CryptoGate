@@ -5,9 +5,19 @@ const API_BASE =
 export type Session = {
   userId: string;
   email: string;
+  /** Optional display name (A10). */
+  displayName?: string | null;
+  /** UI language preference (A10). */
+  locale?: string;
+  /** IANA timezone (A10). */
+  timezone?: string;
   mustChangePassword?: boolean;
   /** True when TOTP enrollment completed; Owner/Admin must enroll when false. */
   mfaEnrolled?: boolean;
+  /** Live platform org policy — force Owner/Admin enrollment when true. */
+  mfaEnforcement?: boolean;
+  /** Live platform sliding session TTL (minutes). */
+  sessionTimeoutMinutes?: number;
   memberships: Array<{
     orgId: string;
     orgType?: string | null;
@@ -815,6 +825,27 @@ export async function changePassword(body: {
 }): Promise<Session> {
   const res = await fetch(`${API_BASE}/auth/change-password`, {
     method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as Session;
+}
+
+/** A10 — update profile / language / MFA preference / session TTL. */
+export async function updateProfile(body: {
+  displayName?: string | null;
+  locale?: string;
+  timezone?: string;
+  mfaEnforcement?: boolean;
+  sessionTimeoutMinutes?: number;
+}): Promise<Session> {
+  const res = await fetch(`${API_BASE}/auth/profile`, {
+    method: "PATCH",
     credentials: "include",
     headers: {
       Accept: "application/json",

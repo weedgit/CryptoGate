@@ -430,13 +430,6 @@ export function PlatformTeamPage({ session }: Props) {
         )}
       </section>
 
-      {canManage ? (
-        <p className="plat-team__footnote muted">
-          Ownership transfer requires MFA and is not enabled in Phase 1 API —
-          the Owner remains the sole ownership holder until that flow ships.
-        </p>
-      ) : null}
-
       {inviteOpen
         ? createPortal(
             <div
@@ -470,10 +463,6 @@ export function PlatformTeamPage({ session }: Props) {
                   onSubmit={onInvite}
                   noValidate
                 >
-                  <p className="plat-team__invite-lead">
-                    Administrator or Viewer only — cannot create a second Owner
-                    here.
-                  </p>
                   <label className="plat-team__field" htmlFor="plat-team-invite-email">
                     <span>Email</span>
                     <input
@@ -486,7 +475,7 @@ export function PlatformTeamPage({ session }: Props) {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       disabled={busy || Boolean(inviteCreds)}
-                      placeholder="name@company.com"
+                      placeholder="Name@company.com"
                     />
                   </label>
                   <label className="plat-team__field" htmlFor="plat-team-invite-role">

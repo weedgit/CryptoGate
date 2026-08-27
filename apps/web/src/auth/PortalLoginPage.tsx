@@ -373,7 +373,7 @@ export function PortalLoginPage({
               onChange={setForgotEmail}
               type="email"
               icon="mail"
-              placeholder="admin@cryptogate.io"
+              placeholder="Name@company.com"
               disabled={loading}
               autoComplete="email"
               required
@@ -531,7 +531,7 @@ export function PortalLoginPage({
             onChange={setEmail}
             type="email"
             icon="mail"
-            placeholder="admin@cryptogate.io"
+            placeholder="Name@company.com"
             disabled={loading}
             autoComplete="email"
             required

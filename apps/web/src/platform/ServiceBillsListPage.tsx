@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AssetCode } from "@cryptogate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import {
@@ -21,6 +21,8 @@ import { AssetIcon } from "./cryptoIcons";
 import { formatShortDate, sessionCanIssueServiceBill } from "./org";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
+import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
+import { IssueServiceBillModal } from "./IssueServiceBillModal";
 import {
   formatBillId,
   serviceBillStatusLabel,
@@ -31,15 +33,49 @@ import { OrgListPagination } from "./OrgListPagination";
 
 type Props = { session: Session };
 
+type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
+
 const PAGE_SIZE = 15;
+
+const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "unpaid", label: "Unpaid" },
+  { id: "overdue", label: "Overdue" },
+  { id: "paid", label: "Paid" },
+  { id: "voided", label: "Voided" },
+];
 
 function orgNameMap(orgs: { id: string; name: string }[]): Map<string, string> {
   return new Map(orgs.map((o) => [o.id, o.name]));
 }
 
+function matchesStatus(bill: ServiceBill, filter: StatusFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "unpaid":
+      return bill.status === "issued" || bill.status === "overdue";
+    case "overdue":
+      return bill.status === "overdue";
+    case "paid":
+      return bill.status === "paid";
+    case "voided":
+      return bill.status === "voided";
+    default:
+      return true;
+  }
+}
+
 export function ServiceBillsListPage({ session }: Props) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canIssue = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const [issueOpen, setIssueOpen] = useState(
+    () => canIssue && searchParams.get("issue") === "1",
+  );
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [periodFilter, setPeriodFilter] = useState("all");
   const [items, setItems] = useState<ServiceBill[]>(
     () => peekPlatformServiceBills() ?? [],
   );
@@ -60,6 +96,21 @@ export function ServiceBillsListPage({ session }: Props) {
   );
 
   const dismissToast = useCallback(() => setError(null), []);
+
+  const closeIssueModal = useCallback(() => {
+    setIssueOpen(false);
+    if (searchParams.get("issue") === "1") {
+      const next = new URLSearchParams(searchParams);
+      next.delete("issue");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (canIssue && searchParams.get("issue") === "1") {
+      setIssueOpen(true);
+    }
+  }, [canIssue, searchParams]);
 
   useLayoutEffect(() => {
     setTopbarLeadingSlot(document.getElementById("platform-topbar-leading"));
@@ -95,10 +146,20 @@ export function ServiceBillsListPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const periodOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const bill of items) {
+      if (bill.periodStart) set.add(bill.periodStart);
+    }
+    return [...set].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  }, [items]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
     return items.filter((bill) => {
+      if (!matchesStatus(bill, statusFilter)) return false;
+      if (periodFilter !== "all" && bill.periodStart !== periodFilter) return false;
+      if (!q) return true;
       const merchant = (orgNames.get(bill.orgId) ?? bill.orgId).toLowerCase();
       const billId = formatBillId(bill.id).toLowerCase();
       return (
@@ -107,11 +168,11 @@ export function ServiceBillsListPage({ session }: Props) {
         merchant.includes(q)
       );
     });
-  }, [items, orgNames, query]);
+  }, [items, orgNames, query, statusFilter, periodFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [query]);
+  }, [query, statusFilter, periodFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -123,6 +184,15 @@ export function ServiceBillsListPage({ session }: Props) {
     const start = (page - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
+
+  const unpaidCount = useMemo(
+    () => items.filter((b) => b.status === "issued" || b.status === "overdue").length,
+    [items],
+  );
+  const overdueCount = useMemo(
+    () => items.filter((b) => b.status === "overdue").length,
+    [items],
+  );
 
   return (
     <div className="plat-bills">
@@ -174,17 +244,68 @@ export function ServiceBillsListPage({ session }: Props) {
         ? createPortal(
             <div className="org-agents__actions" aria-label="Service bill actions">
               {canIssue ? (
-                <Link
-                  className="btn-primary org-agents__cta"
-                  to="/platform/service-bills/new"
-                >
-                  + Create Bill
-                </Link>
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary org-agents__cta"
+                    onClick={() => setGenerateOpen(true)}
+                  >
+                    Generate period
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary org-agents__cta"
+                    onClick={() => setIssueOpen(true)}
+                  >
+                    + Create Bill
+                  </button>
+                </>
               ) : null}
             </div>,
             topbarActionsSlot,
           )
         : null}
+
+      <div className="plat-bills__toolbar">
+        <div className="org-agents__pills" role="group" aria-label="Status filter">
+          {STATUS_PILLS.map((pill) => {
+            let label = pill.label;
+            if (pill.id === "unpaid" && unpaidCount > 0) {
+              label = `Unpaid (${unpaidCount})`;
+            }
+            if (pill.id === "overdue" && overdueCount > 0) {
+              label = `Overdue (${overdueCount})`;
+            }
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                className={`org-agents__pill${statusFilter === pill.id ? " is-active" : ""}`}
+                aria-pressed={statusFilter === pill.id}
+                onClick={() => setStatusFilter(pill.id)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <label className="plat-bills__period-filter">
+          <span className="sr-only">Billing period</span>
+          <select
+            className="field-control"
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            aria-label="Filter by billing period"
+          >
+            <option value="all">All periods</option>
+            {periodOptions.map((start) => (
+              <option key={start} value={start}>
+                {start}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div className="plat-bills__table-wrap">
         {loading ? (
@@ -199,9 +320,9 @@ export function ServiceBillsListPage({ session }: Props) {
         ) : null}
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">
-            {query.trim()
-              ? "No service bills match this search."
-              : "No service bills yet."}
+            {query.trim() || statusFilter !== "all" || periodFilter !== "all"
+              ? "No service bills match this filter."
+              : "No service bills yet. Use Generate period for the monthly batch."}
           </p>
         ) : null}
         {!loading && filtered.length > 0 ? (
@@ -284,6 +405,22 @@ export function ServiceBillsListPage({ session }: Props) {
           />
         ) : null}
       </div>
+
+      {canIssue ? (
+        <>
+          <IssueServiceBillModal
+            open={issueOpen}
+            onClose={closeIssueModal}
+            onIssued={() => void load()}
+          />
+          <GenerateServiceBillsModal
+            open={generateOpen}
+            orgNames={orgNames}
+            onClose={() => setGenerateOpen(false)}
+            onGenerated={() => void load()}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

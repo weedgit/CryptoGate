@@ -145,7 +145,7 @@ export function CreateSitePage({ session }: Props) {
             type="email"
             value={ownerEmail}
             onChange={(e) => setOwnerEmail(e.target.value)}
-            placeholder="owner@example.com"
+            placeholder="Name@company.com"
             autoComplete="off"
           />
         </label>

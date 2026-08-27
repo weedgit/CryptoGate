@@ -99,13 +99,15 @@ export async function findSiblingByNormalizedName(parentId, name) {
  */
 export async function insertOrgAccount(insert) {
   const pool = getPool();
+  const isPlatform = insert.type === "platform";
   try {
     const { rows } = await pool.query(
       `INSERT INTO org_accounts (
          type, name, parent_id, structure, max_agent_depth,
-         country, billing_email, legal_name
+         country, billing_email, legal_name,
+         mfa_enforcement, session_timeout_minutes
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING ${ORG_COLS}`,
       [
         insert.type,
@@ -116,10 +118,38 @@ export async function insertOrgAccount(insert) {
         insert.country ?? null,
         insert.billingEmail ?? null,
         insert.legalName ?? null,
+        isPlatform ? true : null,
+        isPlatform ? 30 : null,
       ],
     );
     return { ok: true, row: rows[0] };
   } catch (err) {
+    // Pre-031 DBs: retry without security columns.
+    if (err && err.code === "42703") {
+      try {
+        const { rows } = await pool.query(
+          `INSERT INTO org_accounts (
+             type, name, parent_id, structure, max_agent_depth,
+             country, billing_email, legal_name
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING ${ORG_COLS}`,
+          [
+            insert.type,
+            insert.name,
+            insert.parentId,
+            insert.structure,
+            insert.maxAgentDepth,
+            insert.country ?? null,
+            insert.billingEmail ?? null,
+            insert.legalName ?? null,
+          ],
+        );
+        return { ok: true, row: rows[0] };
+      } catch (inner) {
+        err = inner;
+      }
+    }
     if (err && err.code === "23505") {
       if (
         err.constraint === "org_accounts_parent_name_ci_uidx" ||

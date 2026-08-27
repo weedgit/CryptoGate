@@ -60,7 +60,7 @@ type Props = { session: Session };
 
 type PeriodId = "today" | "yesterday" | "7d" | "15d" | "1m" | "2m";
 
-type AccountSlice = { total: number; active: number; idle: number; pause: number };
+type AccountSlice = { total: number; active: number; pause: number };
 
 type OverviewStats = {
   merchants: AccountSlice;
@@ -72,7 +72,10 @@ type OverviewStats = {
   invoicesPaid: number;
   invoicesOverdue: number;
   volume: number;
+  /** Volume fees billed in period (issued / overdue / paid). */
   fees: number;
+  /** Volume fees paid in period. */
+  collected: number;
 };
 
 const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
@@ -114,8 +117,8 @@ function loadOverviewIds(): string[] {
 }
 
 const EMPTY_STATS: OverviewStats = {
-  merchants: { total: 0, active: 0, idle: 0, pause: 0 },
-  agents: { total: 0, active: 0, idle: 0, pause: 0 },
+  merchants: { total: 0, active: 0, pause: 0 },
+  agents: { total: 0, active: 0, pause: 0 },
   newMerchants: 0,
   newAgents: 0,
   newCashiers: 0,
@@ -124,6 +127,7 @@ const EMPTY_STATS: OverviewStats = {
   invoicesOverdue: 0,
   volume: 0,
   fees: 0,
+  collected: 0,
 };
 
 function startOfDay(d: Date): Date {
@@ -265,7 +269,6 @@ function accountSlice(
   const targets = orgs.filter((o) => typePred(o.type));
   let active = 0;
   let pause = 0;
-  let idle = 0;
   for (const org of targets) {
     if (pausedOrgIds.has(org.id)) {
       pause += 1;
@@ -280,9 +283,8 @@ function accountSlice(
       }
     }
     if (hit) active += 1;
-    else idle += 1;
   }
-  return { total: targets.length, active, idle, pause };
+  return { total: targets.length, active, pause };
 }
 
 /** Orgs marked paused on the org row (avoid N+1 membership fetches). */
@@ -445,6 +447,21 @@ function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
   return total;
 }
 
+/** Volume fees billed in period (not void) — accrued platform fees. */
+function feeAccrued(bills: ServiceBill[], from: Date, to: Date): number {
+  let total = 0;
+  for (const b of bills) {
+    if (b.status === "void") continue;
+    if (!inWindow(b.dueAt, from, to) && !inWindow(b.periodStart, from, to)) {
+      continue;
+    }
+    const n = Number(b.volumeFeeAmount);
+    if (Number.isFinite(n)) total += n;
+  }
+  return total;
+}
+
+/** Volume fees paid in period — collected platform fees. */
 function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
   let total = 0;
   for (const b of bills) {
@@ -706,44 +723,28 @@ export function VolumeChart({
     const wrap = wrapRef.current;
     if (!wrap) return;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
       if (lastIndex <= 0) return;
-      const svg = svgRef.current;
-      if (!svg) return;
       const { start, end } = viewRef.current;
-      const span = Math.max(end - start, 1e-6);
+      const isZoomed = start > 0.01 || end < lastIndex - 0.01;
+      if (!isZoomed) return;
 
-      // Trackpad horizontal scroll / shift+wheel → pan when zoomed
+      // Trackpad horizontal scroll / shift+wheel → pan when already zoomed.
+      // Vertical wheel does not zoom (use +/- controls).
       const panDelta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
-      if (panDelta !== 0 && (start > 0.01 || end < lastIndex - 0.01)) {
-        const dIndex = (panDelta / Math.max(plotW, 1)) * span * 0.0025 * plotW;
-        setView(
-          clampViewWindow(start + dIndex, end + dIndex, lastIndex, minSpan),
-        );
-        return;
-      }
+      if (panDelta === 0) return;
 
-      const localX = clientToSvgX(svg, e.clientX, e.clientY);
-      const frac =
-        localX == null
-          ? 0.5
-          : Math.min(1, Math.max(0, (localX - padLeft) / plotW));
-      const focus = start + frac * span;
-      const factor = e.deltaY > 0 ? 1.18 : 1 / 1.18;
+      e.preventDefault();
+      e.stopPropagation();
+      const span = Math.max(end - start, 1e-6);
+      const dIndex = (panDelta / Math.max(plotW, 1)) * span * 0.0025 * plotW;
       setView(
-        clampViewWindow(
-          focus - frac * span * factor,
-          focus + (1 - frac) * span * factor,
-          lastIndex,
-          minSpan,
-        ),
+        clampViewWindow(start + dIndex, end + dIndex, lastIndex, minSpan),
       );
     };
     wrap.addEventListener("wheel", onWheel, { passive: false });
     return () => wrap.removeEventListener("wheel", onWheel);
-  }, [svgRef, lastIndex, minSpan, padLeft, plotW]);
+  }, [lastIndex, minSpan, plotW]);
 
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
   const area =
@@ -899,7 +900,7 @@ export function VolumeChart({
     >
       {showZoomBar && zoomed ? (
         <div className="volume-chart__zoom-bar">
-          <span className="volume-chart__zoom-hint">Scroll zoom · drag pan</span>
+          <span className="volume-chart__zoom-hint">Drag to pan</span>
           <button type="button" className="volume-chart__zoom-reset" onClick={resetView}>
             Reset
           </button>
@@ -911,7 +912,7 @@ export function VolumeChart({
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label="Volume. Scroll to zoom, drag to pan, double-click to reset."
+        aria-label="Volume. Use plus and minus to zoom, drag to pan, double-click to reset."
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -1115,7 +1116,7 @@ function AccountRows({
   return (
     <div className="plat-stat-block">
       <p className="plat-stat-block__title">{title}</p>
-      <div className="plat-stat-quad">
+      <div className="plat-stat-triple">
         <div>
           <span className="plat-stat-k">Total</span>
           <span className="plat-stat-v">{slice.total}</span>
@@ -1123,10 +1124,6 @@ function AccountRows({
         <div>
           <span className="plat-stat-k">Active</span>
           <span className="plat-stat-v">{slice.active}</span>
-        </div>
-        <div>
-          <span className="plat-stat-k">Idle</span>
-          <span className="plat-stat-v">{slice.idle}</span>
         </div>
         <div>
           <span className="plat-stat-k">Pause</span>
@@ -1283,7 +1280,8 @@ export function DashboardPage({ session }: Props) {
         invoicesPaid: invoices.paid,
         invoicesOverdue: invoices.overdue,
         volume: periodVolume(orders, from, to),
-        fees: feeCollected(allBills, from, to),
+        fees: feeAccrued(allBills, from, to),
+        collected: feeCollected(allBills, from, to),
       });
       setOrders(orders);
       setBills(allBills);
@@ -1390,9 +1388,9 @@ export function DashboardPage({ session }: Props) {
         id: "fees",
         category: "Platform",
         title: "Fees",
-        help: "Platform fees collected via service bills.",
+        help: "Platform volume fees billed in the period. Collected is the paid subset.",
         value: money(stats.fees),
-        compareLabel: periodLabel,
+        compareLabel: `${formatMoneyFigure(stats.collected)} collected · ${periodLabel}`,
         series: feeBuckets,
         seriesLabels: labels,
         seriesMetric: "Fees",
@@ -1635,29 +1633,65 @@ export function DashboardPage({ session }: Props) {
           />
         </div>
 
-        <section className="plat-fund-list" aria-label="Funds">
-          <div className="plat-fund-row">
-            <div className="plat-fund-row__meta">
-              <span className="plat-fund-row__label">Total</span>
-              <span className="plat-fund-currency">$</span>
+        <section className="plat-fund-rail" aria-label="Funds">
+          <div className="plat-fund-rail__eyebrow">
+            <span>Funds</span>
+            <CardHelp
+              text={`Period settled volume / billed fees, and fees collected in ${periodLabel}.`}
+            />
+          </div>
+          <div className="plat-fund-rail__primary">
+            <div className="plat-fund-rail__copy">
+              <p className="plat-fund-rail__pair-labels">
+                <span>Total</span>
+                <span aria-hidden>/</span>
+                <span>Fees</span>
+              </p>
+              <span className="plat-fund-rail__hint">
+                Settled volume / billed volume fees
+              </span>
             </div>
-            <p className="plat-fund-row__value">
-              <span className="fund-amount">
-                {stats.volume.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}
+            <p className="plat-fund-rail__pair" aria-label="Total and fees">
+              <span className="plat-fund-rail__total">
+                <span className="plat-fund-rail__currency" aria-hidden>
+                  $
+                </span>
+                <span className="fund-amount">
+                  {stats.volume.toLocaleString(undefined, {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+              </span>
+              <span className="plat-fund-rail__slash" aria-hidden>
+                /
+              </span>
+              <span className="plat-fund-rail__fees">
+                <span className="plat-fund-rail__currency" aria-hidden>
+                  $
+                </span>
+                <span className="fund-amount">
+                  {stats.fees.toLocaleString(undefined, {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
               </span>
             </p>
           </div>
-          <div className="plat-fund-row">
-            <div className="plat-fund-row__meta">
-              <span className="plat-fund-row__label">Fees</span>
-              <span className="plat-fund-currency">$</span>
+          <div className="plat-fund-rail__secondary">
+            <div className="plat-fund-rail__copy">
+              <span className="plat-fund-rail__label">Collected</span>
+              <span className="plat-fund-rail__hint">Paid volume fees</span>
             </div>
-            <p className="plat-fund-row__value">
+            <p className="plat-fund-rail__collected">
+              <span className="plat-fund-rail__currency" aria-hidden>
+                $
+              </span>
               <span className="fund-amount">
-                {stats.fees.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
+                {stats.collected.toLocaleString(undefined, {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
                 })}
               </span>
             </p>

@@ -241,7 +241,7 @@ function OrgTreeDetail({
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const counts = childTypeCounts(node);
-  const detailHref = orgDetailHref(node.type, node.id);
+  const detailHref = orgDetailHref(node.type, node.id, node.parentId);
   const detailLabel = orgDetailLabel(node.type);
   const canAdd = orgCanAddChild(node.type);
   const canSubAgent = canAddSubAgentUnderNode(node, byId);
@@ -460,35 +460,37 @@ function OrgTreeDetail({
         ) : null}
       </div>
 
-      <section className="org-architecture__section org-architecture__section--registration">
-        <h4 className="org-architecture__section-title">Registration</h4>
-        <dl className="org-architecture__meta">
-          {registrationRows.map((row) => {
-            const help = REGISTRATION_HELP[row.label];
-            return (
+      <div className="org-architecture__info-grid">
+        <section className="org-architecture__section org-architecture__section--registration">
+          <h4 className="org-architecture__section-title">Registration</h4>
+          <dl className="org-architecture__meta">
+            {registrationRows.map((row) => {
+              const help = REGISTRATION_HELP[row.label];
+              return (
+                <div key={row.label}>
+                  <dt>
+                    <span>{row.label}</span>
+                    {help ? <MetaHelp text={help} /> : null}
+                  </dt>
+                  <dd>{displayOrDash(row.value)}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+
+        <section className="org-architecture__section">
+          <h4 className="org-architecture__section-title">Details</h4>
+          <dl className="org-architecture__meta">
+            {detailRows.map((row) => (
               <div key={row.label}>
-                <dt>
-                  <span>{row.label}</span>
-                  {help ? <MetaHelp text={help} /> : null}
-                </dt>
+                <dt>{row.label}</dt>
                 <dd>{displayOrDash(row.value)}</dd>
               </div>
-            );
-          })}
-        </dl>
-      </section>
-
-      <section className="org-architecture__section">
-        <h4 className="org-architecture__section-title">Details</h4>
-        <dl className="org-architecture__meta">
-          {detailRows.map((row) => (
-            <div key={row.label}>
-              <dt>{row.label}</dt>
-              <dd>{displayOrDash(row.value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+            ))}
+          </dl>
+        </section>
+      </div>
 
       {detailHref && detailLabel ? (
         <div className="org-architecture__detail-foot">
@@ -807,8 +809,20 @@ export function ArchitecturePage({ session }: { session: Session }) {
     setExpanded(expandedIdsForSelectedBranch(selectedId, forest.byId));
   };
 
+  const enterOnceRef = useRef(false);
+  const [enterMotion, setEnterMotion] = useState(false);
+  useEffect(() => {
+    if (loading || enterOnceRef.current) return;
+    enterOnceRef.current = true;
+    const id = window.requestAnimationFrame(() => setEnterMotion(true));
+    return () => window.cancelAnimationFrame(id);
+  }, [loading]);
+
   return (
-    <div className="org-architecture" ref={pageRef}>
+    <div
+      className={`org-architecture${enterMotion ? " is-enter" : ""}`}
+      ref={pageRef}
+    >
       <AuthToast
         message={toastMessage}
         tone={toastTone}

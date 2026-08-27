@@ -142,6 +142,7 @@ export function NetworkCatalogPage() {
               className={[
                 "plat-network-card",
                 "panel",
+                `plat-network-card--${card.network.replace(/_/g, "-")}`,
                 isMaint ? "plat-network-card--maint" : "",
                 isActive ? "plat-network-card--active" : "",
                 isStaging ? "plat-network-card--staging" : "",

@@ -259,6 +259,36 @@ export async function issueServiceBill(input: {
   return (await res.json()) as ServiceBill;
 }
 
+export type GenerateServiceBillsSkip = {
+  orgId: string;
+  reason: string;
+};
+
+export type GenerateServiceBillsResult = {
+  periodStart: string;
+  periodEnd: string;
+  issued: ServiceBill[];
+  skipped: GenerateServiceBillsSkip[];
+};
+
+/** Platform O/A — batch issue from completed volume + fee tiers (X-02). */
+export async function generateServiceBills(input?: {
+  periodStart?: string;
+  periodEnd?: string;
+}): Promise<GenerateServiceBillsResult> {
+  const res = await fetch(`${API_BASE}/service-bills/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input ?? {}),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as GenerateServiceBillsResult;
+}
+
 export async function createOrg(body: {
   type: string;
   name: string;
@@ -350,6 +380,8 @@ export type PlatformFeeTierSettings = {
 
 export type PlatformOrgPolicy = {
   maxAgentDepth: number;
+  mfaEnforcement: boolean;
+  sessionTimeoutMinutes: number;
 };
 
 export type EnterpriseRateApproval = {
@@ -399,6 +431,8 @@ export async function getPlatformOrgPolicy(): Promise<PlatformOrgPolicy> {
 
 export async function updatePlatformOrgPolicy(body: {
   maxAgentDepth: number;
+  mfaEnforcement: boolean;
+  sessionTimeoutMinutes: number;
 }): Promise<PlatformOrgPolicy> {
   const res = await fetch(`${API_BASE}/platform/settings/org-policy`, {
     method: "PUT",

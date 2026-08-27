@@ -11,6 +11,8 @@ import {
   type OrgAccount,
 } from "./api";
 import { PlatformPending } from "./ui/PlatformPending";
+import { FieldControl } from "../ui/FieldControl";
+import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   canCreateAgentUnderParent,
   DEFAULT_MAX_AGENT_DEPTH,
@@ -425,21 +427,23 @@ export function OnboardAgentPage() {
                       <label className="b4-field__label" htmlFor="parent-agent">
                         Parent agent
                       </label>
-                      <select
-                        id="parent-agent"
-                        className={`b4-field__control${fieldErrors.parentId ? " is-invalid" : ""}`}
-                        value={form.parentId}
-                        onChange={(e) => patch("parentId", e.target.value)}
-                      >
-                        <option value="">select parent</option>
-                        {agentParents
-                          .filter((o) => o.type !== "platform")
-                          .map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name} ({orgTypeLabel(o.type)})
-                            </option>
-                          ))}
-                      </select>
+                      <FieldControl icon="user" invalid={Boolean(fieldErrors.parentId)}>
+                        <SearchableSelect
+                          id="parent-agent"
+                          value={form.parentId}
+                          options={agentParents
+                            .filter((o) => o.type !== "platform")
+                            .map((o) => ({
+                              id: o.id,
+                              label: o.name,
+                              hint: orgTypeLabel(o.type),
+                            }))}
+                          onChange={(id) => patch("parentId", id)}
+                          placeholder="Select parent"
+                          emptyLabel="Select parent"
+                          invalid={Boolean(fieldErrors.parentId)}
+                        />
+                      </FieldControl>
                     </div>
                   ) : null}
                   {depthBlocked ? (
@@ -457,56 +461,64 @@ export function OnboardAgentPage() {
                     <label className="b4-field__label" htmlFor="legal-name">
                       Legal name
                     </label>
-                    <input
-                      id="legal-name"
-                      className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
-                      value={form.legalName}
-                      onChange={(e) => patch("legalName", e.target.value)}
-                      placeholder="Registered entity name"
-                      autoComplete="organization"
-                      autoFocus
-                    />
+                    <FieldControl icon="user" invalid={Boolean(fieldErrors.legalName)}>
+                      <input
+                        id="legal-name"
+                        className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
+                        value={form.legalName}
+                        onChange={(e) => patch("legalName", e.target.value)}
+                        placeholder="Registered entity name"
+                        autoComplete="organization"
+                        autoFocus
+                      />
+                    </FieldControl>
                   </div>
                   <div className="b4-field">
                     <label className="b4-field__label" htmlFor="display-name">
                       Display name
                     </label>
-                    <input
-                      id="display-name"
-                      className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
-                      value={form.displayName}
-                      onChange={(e) => patch("displayName", e.target.value)}
-                      placeholder="Portal label (optional)"
-                      autoComplete="off"
-                    />
+                    <FieldControl icon="user">
+                      <input
+                        id="display-name"
+                        className={`b4-field__control${fieldErrors.legalName ? " is-invalid" : ""}`}
+                        value={form.displayName}
+                        onChange={(e) => patch("displayName", e.target.value)}
+                        placeholder="Portal label (optional)"
+                        autoComplete="off"
+                      />
+                    </FieldControl>
                   </div>
                   <div className="b4-field-row">
                     <div className="b4-field">
                       <label className="b4-field__label" htmlFor="billing-email">
                         Billing email
                       </label>
-                      <input
-                        id="billing-email"
-                        className={`b4-field__control${fieldErrors.billingEmail ? " is-invalid" : ""}`}
-                        type="email"
-                        value={form.billingEmail}
-                        onChange={(e) => patch("billingEmail", e.target.value)}
-                        placeholder="billing@agent.example"
-                        autoComplete="email"
-                      />
+                      <FieldControl icon="mail" invalid={Boolean(fieldErrors.billingEmail)}>
+                        <input
+                          id="billing-email"
+                          className={`b4-field__control${fieldErrors.billingEmail ? " is-invalid" : ""}`}
+                          type="email"
+                          value={form.billingEmail}
+                          onChange={(e) => patch("billingEmail", e.target.value)}
+                          placeholder="Name@company.com"
+                          autoComplete="email"
+                        />
+                      </FieldControl>
                     </div>
                     <div className="b4-field">
                       <label className="b4-field__label" htmlFor="country">
                         Country
                       </label>
-                      <input
-                        id="country"
-                        className={`b4-field__control${fieldErrors.country ? " is-invalid" : ""}`}
-                        value={form.country}
-                        onChange={(e) => patch("country", e.target.value)}
-                        placeholder="Singapore (SG)"
-                        autoComplete="country-name"
-                      />
+                      <FieldControl icon="globe" invalid={Boolean(fieldErrors.country)}>
+                        <input
+                          id="country"
+                          className={`b4-field__control${fieldErrors.country ? " is-invalid" : ""}`}
+                          value={form.country}
+                          onChange={(e) => patch("country", e.target.value)}
+                          placeholder="Singapore (SG)"
+                          autoComplete="country-name"
+                        />
+                      </FieldControl>
                     </div>
                   </div>
                 </>
@@ -517,15 +529,17 @@ export function OnboardAgentPage() {
                   <label className="b4-field__label" htmlFor="commission">
                     Commission % on platform fee
                   </label>
-                  <input
-                    id="commission"
-                    className="b4-field__control"
-                    inputMode="decimal"
-                    value={form.commissionPercent}
-                    onChange={(e) => patch("commissionPercent", e.target.value)}
-                    placeholder="15"
-                    autoFocus
-                  />
+                  <FieldControl icon="user">
+                    <input
+                      id="commission"
+                      className="b4-field__control"
+                      inputMode="decimal"
+                      value={form.commissionPercent}
+                      onChange={(e) => patch("commissionPercent", e.target.value)}
+                      placeholder="15"
+                      autoFocus
+                    />
+                  </FieldControl>
                   <p className="b4-field__hint">
                     Merchant tier is chosen per merchant when the agent onboard them.
                   </p>
@@ -537,15 +551,17 @@ export function OnboardAgentPage() {
                   <label className="b4-field__label" htmlFor="owner-email">
                     Invite first Owner
                   </label>
-                  <input
-                    id="owner-email"
-                    className={`b4-field__control${fieldErrors.ownerEmail ? " is-invalid" : ""}`}
-                    type="email"
-                    value={form.ownerEmail}
-                    onChange={(e) => patch("ownerEmail", e.target.value)}
-                    placeholder="owner@agent.example"
-                    autoFocus
-                  />
+                  <FieldControl icon="mail" invalid={Boolean(fieldErrors.ownerEmail)}>
+                    <input
+                      id="owner-email"
+                      className={`b4-field__control${fieldErrors.ownerEmail ? " is-invalid" : ""}`}
+                      type="email"
+                      value={form.ownerEmail}
+                      onChange={(e) => patch("ownerEmail", e.target.value)}
+                      placeholder="Name@company.com"
+                      autoFocus
+                    />
+                  </FieldControl>
                   <p className="b4-field__hint">
                     An invitation is sent after the agent account is created.
                   </p>

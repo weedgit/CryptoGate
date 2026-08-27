@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -13,11 +14,14 @@ import {
   ApiError,
   deleteOrg,
   getPlatformOrgs,
+  getPlatformServiceBills,
   invalidatePlatformOrgList,
   listPlatformOrgMemberEmails,
   peekPlatformOrgs,
+  peekPlatformServiceBills,
   setOrgStatus,
   type OrgAccount,
+  type ServiceBill,
   type Session,
 } from "./api";
 import { MerchantDetailCard } from "./MerchantDetailCard";
@@ -25,6 +29,9 @@ import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanIssueServiceBill } from "./org";
+import {
+  serviceBillStatusLabel,
+} from "./serviceBillStatus";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import {
   looksLikeEmailQuery,
@@ -35,7 +42,126 @@ type Props = { session: Session };
 
 type StatusFilter = "all" | "active" | "paused";
 
+/** Open / latest service-bill status shown on the merchants list. */
+type MerchantBillStatus = "overdue" | "issued" | "paid";
+
+type SortKey = "name" | "structure" | "parent" | "bill" | "status";
+type SortDir = "asc" | "desc";
+type SortState = { key: SortKey; dir: SortDir };
+
 const PAGE_SIZE = 15;
+
+const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
+  overdue: 0,
+  issued: 1,
+  paid: 2,
+};
+
+function billSortRank(status: MerchantBillStatus | null): number {
+  if (!status) return 3;
+  return BILL_SORT_RANK[status];
+}
+
+/**
+ * Prefer collection risk: overdue → issued → latest paid. Voided ignored.
+ */
+function resolveMerchantBillStatus(
+  bills: ServiceBill[],
+): MerchantBillStatus | null {
+  let hasIssued = false;
+  let hasPaid = false;
+  for (const bill of bills) {
+    if (bill.status === "overdue") return "overdue";
+    if (bill.status === "issued") hasIssued = true;
+    else if (bill.status === "paid") hasPaid = true;
+  }
+  if (hasIssued) return "issued";
+  if (hasPaid) return "paid";
+  return null;
+}
+
+function ArrangeIcon({ dir }: { dir: SortDir | null }) {
+  const showUp = dir === null || dir === "asc";
+  const showDown = dir === null || dir === "desc";
+  return (
+    <span
+      className={`plat-pair-table__arrange${dir ? " is-active" : " is-idle"}`}
+      aria-hidden="true"
+    >
+      {showUp ? (
+        <svg
+          className={`plat-pair-table__arrange-up${dir === "asc" ? " is-on" : ""}`}
+          viewBox="0 0 8 4"
+          aria-hidden="true"
+        >
+          <path
+            d="M1.25 3.25 4 0.75 6.75 3.25"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
+      {showDown ? (
+        <svg
+          className={`plat-pair-table__arrange-down${dir === "desc" ? " is-on" : ""}`}
+          viewBox="0 0 8 4"
+          aria-hidden="true"
+        >
+          <path
+            d="M1.25 0.75 4 3.25 6.75 0.75"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
+    </span>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+  align,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: "end";
+}) {
+  const active = sort.key === sortKey;
+  const ariaSort = active ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
+  return (
+    <th
+      className={[className, active ? "is-sorted" : "", align === "end" ? "is-end" : ""]
+        .filter(Boolean)
+        .join(" ")}
+      aria-sort={ariaSort}
+    >
+      <button
+        type="button"
+        className={`org-agents__sort-btn${active ? " is-active" : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSort(sortKey);
+        }}
+      >
+        <span>{label}</span>
+        <ArrangeIcon dir={active ? sort.dir : null} />
+      </button>
+    </th>
+  );
+}
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -204,12 +330,16 @@ export function MerchantsListPage({ session }: Props) {
   const detailTab = searchParams.get("tab") ?? undefined;
   const canManage = useMemo(() => sessionCanIssueServiceBill(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
+  const [bills, setBills] = useState<ServiceBill[]>(
+    () => peekPlatformServiceBills() ?? [],
+  );
   const [orgEmailsByOrgId, setOrgEmailsByOrgId] = useState<Map<string, string[]>>(
     () => new Map(),
   );
   const [emailIndexLoading, setEmailIndexLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -274,10 +404,18 @@ export function MerchantsListPage({ session }: Props) {
   }, [loading]);
 
   const load = useCallback(async () => {
-    if (peekPlatformOrgs() == null) setLoading(true);
+    const hasCachedOrgs = peekPlatformOrgs() != null;
+    // Paint merchants as soon as orgs are ready; bills only feed Bill column.
+    if (!hasCachedOrgs) setLoading(true);
     setError(null);
     try {
-      setOrgs(await getPlatformOrgs());
+      const orgRows = await getPlatformOrgs();
+      setOrgs(orgRows);
+      setLoading(false);
+      const billRows = await getPlatformServiceBills().catch(
+        () => [] as ServiceBill[],
+      );
+      setBills(billRows);
     } catch (err) {
       const text =
         err instanceof ApiError
@@ -299,6 +437,20 @@ export function MerchantsListPage({ session }: Props) {
     () => orgs.filter((o) => o.type === "merchant"),
     [orgs],
   );
+
+  const billStatusByMerchantId = useMemo(() => {
+    const byOrg = new Map<string, ServiceBill[]>();
+    for (const bill of bills) {
+      const list = byOrg.get(bill.orgId);
+      if (list) list.push(bill);
+      else byOrg.set(bill.orgId, [bill]);
+    }
+    const map = new Map<string, MerchantBillStatus | null>();
+    for (const m of merchants) {
+      map.set(m.id, resolveMerchantBillStatus(byOrg.get(m.id) ?? []));
+    }
+    return map;
+  }, [bills, merchants]);
 
   const merchantIdsKey = useMemo(
     () => merchants.map((m) => m.id).sort().join("|"),
@@ -337,7 +489,7 @@ export function MerchantsListPage({ session }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return merchants.filter((o) => {
+    const rows = merchants.filter((o) => {
       const status = o.status ?? "active";
       if (statusFilter !== "all" && status !== statusFilter) return false;
       if (!q) return true;
@@ -347,11 +499,60 @@ export function MerchantsListPage({ session }: Props) {
       const emails = orgEmailsByOrgId.get(o.id) ?? [];
       return emails.some((email) => email.includes(q));
     });
-  }, [merchants, query, statusFilter, orgEmailsByOrgId]);
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (sort.key === "name") {
+        return dir * a.name.localeCompare(b.name);
+      }
+      if (sort.key === "structure") {
+        const sa = a.structure
+          ? (STRUCTURE_LABELS[a.structure] ?? a.structure)
+          : "";
+        const sb = b.structure
+          ? (STRUCTURE_LABELS[b.structure] ?? b.structure)
+          : "";
+        const byStructure = dir * sa.localeCompare(sb);
+        return byStructure !== 0 ? byStructure : dir * a.name.localeCompare(b.name);
+      }
+      if (sort.key === "parent") {
+        const pa = a.parentId ? (byId.get(a.parentId)?.name ?? a.parentId) : "";
+        const pb = b.parentId ? (byId.get(b.parentId)?.name ?? b.parentId) : "";
+        const byParent = dir * pa.localeCompare(pb);
+        return byParent !== 0 ? byParent : dir * a.name.localeCompare(b.name);
+      }
+      if (sort.key === "bill") {
+        const ba = billSortRank(billStatusByMerchantId.get(a.id) ?? null);
+        const bb = billSortRank(billStatusByMerchantId.get(b.id) ?? null);
+        if (ba !== bb) return dir * (ba - bb);
+        return dir * a.name.localeCompare(b.name);
+      }
+      const sa = a.status ?? "active";
+      const sb = b.status ?? "active";
+      const byStatus = dir * sa.localeCompare(sb);
+      return byStatus !== 0 ? byStatus : dir * a.name.localeCompare(b.name);
+    });
+  }, [
+    merchants,
+    query,
+    statusFilter,
+    sort,
+    byId,
+    billStatusByMerchantId,
+    orgEmailsByOrgId,
+  ]);
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, sort]);
+
+  const onSort = (key: SortKey) => {
+    startTransition(() => {
+      setSort((prev) => {
+        if (prev.key !== key) return { key, dir: "asc" };
+        return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+      });
+    });
+  };
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -601,20 +802,53 @@ export function MerchantsListPage({ session }: Props) {
                     <col className="org-agents__col-name" />
                     <col className="org-agents__col-structure" />
                     <col className="org-agents__col-parent" />
+                    <col className="org-agents__col-bill" />
                     <col className="org-agents__col-status" />
                   </colgroup>
                   <thead>
                     <tr>
                       <th className="org-agents__th-num">#</th>
-                      <th>Merchant name</th>
-                      <th className="org-agents__th-structure">Structure</th>
-                      <th className="org-agents__th-parent">Parent</th>
-                      <th className="org-agents__th-status">Status</th>
+                      <SortHeader
+                        label="Merchant name"
+                        sortKey="name"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <SortHeader
+                        label="Structure"
+                        sortKey="structure"
+                        sort={sort}
+                        onSort={onSort}
+                        className="org-agents__th-structure"
+                      />
+                      <SortHeader
+                        label="Parent"
+                        sortKey="parent"
+                        sort={sort}
+                        onSort={onSort}
+                        className="org-agents__th-parent"
+                      />
+                      <SortHeader
+                        label="Bill"
+                        sortKey="bill"
+                        sort={sort}
+                        onSort={onSort}
+                        className="org-agents__th-bill"
+                      />
+                      <SortHeader
+                        label="Status"
+                        sortKey="status"
+                        sort={sort}
+                        onSort={onSort}
+                        className="org-agents__th-status"
+                        align="end"
+                      />
                     </tr>
                   </thead>
                   <tbody>
                     {paged.map((row, index) => {
                       const status = row.status ?? "active";
+                      const billStatus = billStatusByMerchantId.get(row.id) ?? null;
                       const parent = row.parentId ? byId.get(row.parentId) : null;
                       const isSelected = selectedId === row.id;
                       const rowNum = (page - 1) * PAGE_SIZE + index + 1;
@@ -644,6 +878,25 @@ export function MerchantsListPage({ session }: Props) {
                             >
                               {parent?.name ?? shortId(row.parentId)}
                             </span>
+                          </td>
+                          <td className="org-agents__td-bill">
+                            {billStatus ? (
+                              <span
+                                className={`org-agents__bill is-${billStatus}${
+                                  billStatus === "overdue" ? " is-pulse" : ""
+                                }`}
+                                title="Open / latest service bill"
+                              >
+                                {serviceBillStatusLabel(billStatus)}
+                              </span>
+                            ) : (
+                              <span
+                                className="muted"
+                                title="No service bill issued yet"
+                              >
+                                —
+                              </span>
+                            )}
                           </td>
                           <td className="org-agents__td-status">
                             <span

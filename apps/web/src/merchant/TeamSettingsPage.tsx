@@ -301,6 +301,7 @@ export function TeamSettingsPage({ session }: Props) {
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               autoComplete="off"
+              placeholder="Name@company.com"
             />
           </label>
           <label className="settings-filter">

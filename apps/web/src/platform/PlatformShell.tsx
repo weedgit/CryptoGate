@@ -5,6 +5,7 @@ import {
   type ComponentType,
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
+  type CSSProperties,
 } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
@@ -18,13 +19,11 @@ import {
   MerchantsNavIcon,
   NetworkNavIcon,
   ServiceBillsNavIcon,
-  SettingsNavIcon,
-  SecurityNavIcon,
   FeesNavIcon,
   SidebarCollapseIcon,
-  SignOutNavIcon,
   TeamNavIcon,
 } from "./NavIcons";
+import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { sessionIsPlatformViewerOnly } from "./org";
 import {
   clearPlatformAlert,
@@ -266,22 +265,10 @@ const NAV_GROUPS: NavGroup[] = [
         Icon: TeamNavIcon,
       },
       {
-        to: "/platform/settings/security",
-        label: "Security",
-        matchPrefix: "/platform/settings/security",
-        Icon: SecurityNavIcon,
-      },
-      {
         to: "/platform/settings/fee-tiers",
         label: "Fees",
         matchPrefix: "/platform/settings/fee-tiers",
         Icon: FeesNavIcon,
-      },
-      {
-        to: "/platform/settings",
-        label: "Settings",
-        end: true,
-        Icon: SettingsNavIcon,
       },
       {
         to: "/platform/audit",
@@ -297,9 +284,9 @@ const SIDEBAR_KEY = "cryptogate.platform.sidebarCollapsed";
 
 type Props = {
   session: Session;
-  title?: string;
   children: ReactNode;
   onSignOut: () => void;
+  onSessionRefresh?: (session: Session) => void;
 };
 
 function navItemClass(
@@ -315,9 +302,9 @@ function navItemClass(
 
 export function PlatformShell({
   session,
-  title,
   children,
   onSignOut,
+  onSessionRefresh,
 }: Props) {
   const location = useLocation();
   const readOnly = sessionIsPlatformViewerOnly(session);
@@ -331,6 +318,12 @@ export function PlatformShell({
   const mainRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [shellEnter, setShellEnter] = useState(false);
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setShellEnter(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     try {
@@ -361,9 +354,11 @@ export function PlatformShell({
     e.preventDefault();
   };
 
+  let navDelayIndex = 0;
+
   return (
     <div
-      className={`shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}`}
+      className={`shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}`}
     >
       <aside
         className="sidebar"
@@ -393,11 +388,24 @@ export function PlatformShell({
           </button>
         </div>
         <nav className="nav-list" aria-label="Platform" ref={navRef}>
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS.map((group, groupIndex) => (
             <div key={group.label} className="nav-group">
-              {!collapsed ? <p className="nav-label">{group.label}</p> : null}
+              {!collapsed ? (
+                <p
+                  className="nav-label"
+                  style={
+                    {
+                      "--nav-delay": `${80 + groupIndex * 300}ms`,
+                    } as CSSProperties
+                  }
+                >
+                  {group.label}
+                </p>
+              ) : null}
               {group.items.map((item) => {
                 const { Icon } = item;
+                const delayMs = 120 + navDelayIndex * 38;
+                navDelayIndex += 1;
                 return (
                   <NavLink
                     key={item.to}
@@ -405,6 +413,7 @@ export function PlatformShell({
                     end={item.end ?? false}
                     title={item.label}
                     aria-label={item.label}
+                    style={{ "--nav-delay": `${delayMs}ms` } as CSSProperties}
                     className={({ isActive }) =>
                       navItemClass(location.pathname, item, isActive)
                     }
@@ -418,16 +427,13 @@ export function PlatformShell({
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button
-            type="button"
-            className="sign-out-btn"
-            onClick={onSignOut}
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <SignOutNavIcon className="sign-out-icon" />
-            {!collapsed ? <span>Sign out</span> : null}
-          </button>
+          <SidebarProfileMenu
+            session={session}
+            variant="platform"
+            collapsed={collapsed}
+            onSignOut={onSignOut}
+            onSessionRefresh={onSessionRefresh}
+          />
         </div>
       </aside>
       <div className="main" ref={mainRef}>
@@ -435,7 +441,6 @@ export function PlatformShell({
           <div className="topbar-left">
             <div className="topbar-leading" id="platform-topbar-leading" />
             <TopbarStatusRail />
-            {title ? <h1>{title}</h1> : null}
           </div>
           <div className="topbar-center" id="platform-topbar-center" />
           <div className="topbar-right">

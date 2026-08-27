@@ -175,6 +175,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /auth/profile:
+    patch:
+      tags: [auth]
+      operationId: patchProfile
+      summary: Update profile, language, MFA preference, and session timeout
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                displayName:
+                  type: string
+                  nullable: true
+                  maxLength: 120
+                locale:
+                  type: string
+                  enum: [en, zh-CN, zh-TW, ja, ko, vi, th]
+                timezone:
+                  type: string
+                  description: IANA timezone (e.g. Asia/Singapore)
+                mfaEnforcement:
+                  type: boolean
+                  description: User preference — require TOTP enrollment for this account
+                sessionTimeoutMinutes:
+                  type: integer
+                  enum: [15, 30, 60, 120]
+                  description: User preference — sliding session TTL
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid profile fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/change-password:
     post:
       tags: [auth]
@@ -3190,13 +3241,32 @@ components:
           maxLength: 8
     Session:
       type: object
-      required: [userId, email, memberships, mustChangePassword, mfaEnrolled]
+      required:
+        - userId
+        - email
+        - memberships
+        - mustChangePassword
+        - mfaEnrolled
+        - mfaEnforcement
+        - sessionTimeoutMinutes
       properties:
         userId:
           type: string
         email:
           type: string
           format: email
+        displayName:
+          type: string
+          nullable: true
+          description: Optional display name (A10)
+        locale:
+          type: string
+          description: UI language preference (A10)
+          example: en
+        timezone:
+          type: string
+          description: IANA timezone for date display (A10)
+          example: UTC
         mustChangePassword:
           type: boolean
           description: When true, portals must block until POST /auth/change-password succeeds
@@ -3205,6 +3275,15 @@ components:
           description: >
             True when the user completed TOTP MFA enrollment. Owner and
             Administrator portals must force enrollment when false (A5).
+        mfaEnforcement:
+          type: boolean
+          description: >
+            User preference. When true, Owner/Administrator portals force TOTP
+            enrollment for this account until MFA is enabled.
+        sessionTimeoutMinutes:
+          type: integer
+          enum: [15, 30, 60, 120]
+          description: User preference — sliding session TTL in minutes
         memberships:
           type: array
           items:
@@ -3980,7 +4059,7 @@ components:
             $ref: "#/components/schemas/FeeTierBand"
     PlatformOrgPolicy:
       type: object
-      required: [maxAgentDepth]
+      required: [maxAgentDepth, mfaEnforcement, sessionTimeoutMinutes]
       properties:
         maxAgentDepth:
           type: integer
@@ -3988,15 +4067,29 @@ components:
           maximum: 5
           description: Phase 1 default 2
           example: 2
+        mfaEnforcement:
+          type: boolean
+          description: >
+            When true, Owner/Administrator portals force TOTP enrollment (A5).
+            Privileged actions still require enrolled MFA regardless.
+        sessionTimeoutMinutes:
+          type: integer
+          enum: [15, 30, 60, 120]
+          description: Sliding session TTL applied on login and session refresh
     UpdatePlatformOrgPolicyRequest:
       type: object
-      required: [maxAgentDepth]
+      required: [maxAgentDepth, mfaEnforcement, sessionTimeoutMinutes]
       additionalProperties: false
       properties:
         maxAgentDepth:
           type: integer
           minimum: 0
           maximum: 5
+        mfaEnforcement:
+          type: boolean
+        sessionTimeoutMinutes:
+          type: integer
+          enum: [15, 30, 60, 120]
     MerchantCommercialSettings:
       type: object
       required:

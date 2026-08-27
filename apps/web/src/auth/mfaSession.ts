@@ -8,10 +8,11 @@ export function sessionCanEnrollMfa(session: Session): boolean {
 }
 
 /**
- * Phase 1: Owner and Administrator must enroll MFA (A5 / project plan).
- * Viewers and Cashiers are not forced.
+ * When the user opts into MFA enforcement, Owner/Administrator must enroll.
+ * Default is off (user preference).
  */
 export function sessionNeedsForcedMfa(session: Session): boolean {
+  if (session.mfaEnforcement !== true) return false;
   if (session.mfaEnrolled === true) return false;
   return sessionCanEnrollMfa(session);
 }

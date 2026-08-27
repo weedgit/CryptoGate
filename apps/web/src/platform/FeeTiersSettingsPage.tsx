@@ -273,7 +273,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
               return (
                 <article
                   key={tier.tier}
-                  className={`plat-fee-tier-card${popular ? " plat-fee-tier-card--popular" : ""}`}
+                  className={`plat-fee-tier-card plat-fee-tier-card--${tier.tier}${popular ? " plat-fee-tier-card--popular" : ""}`}
                   style={{ animationDelay: `${index * 60}ms` }}
                 >
                   <header className="plat-fee-tier-card__head">

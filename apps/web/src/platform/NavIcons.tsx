@@ -49,8 +49,9 @@ export function AgentsNavIcon({ className }: IconProps) {
 export function MerchantsNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
-      <path d="M9 11l3 3L22 4" />
-      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      <path d="M3 9 12 3l9 6" />
+      <path d="M5 10v10h14V10" />
+      <path d="M9 20v-6h6v6" />
     </IconShell>
   );
 }
@@ -79,9 +80,9 @@ export function ComplianceNavIcon({ className }: IconProps) {
 export function FeesNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
-      <path d="M3 21h18" />
-      <path d="M5 21V8l7-5 7 5v13" />
-      <path d="M9 21v-6h6v6" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 9.5c-.4-1-1.4-1.5-2.5-1.5h-.2c-1.4 0-2.5.9-2.5 2.2 0 1.2.8 1.8 2.4 2.2l.8.2c1.4.4 2.1.9 2.1 2.1 0 1.3-1.1 2.3-2.6 2.3h-.2c-1.2 0-2.2-.6-2.6-1.6" />
+      <path d="M12 6.5v1.5M12 16v1.5" />
     </IconShell>
   );
 }
@@ -100,15 +101,12 @@ export function ServiceBillsNavIcon({ className }: IconProps) {
 export function NetworkNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v3" />
-      <path d="M12 19v3" />
-      <path d="M4.9 4.9l2.1 2.1" />
-      <path d="M17 17l2.1 2.1" />
-      <path d="M2 12h3" />
-      <path d="M19 12h3" />
-      <path d="M4.9 19.1 7 17" />
-      <path d="M17 7l2.1-2.1" />
+      <circle cx="6" cy="7" r="2" />
+      <circle cx="18" cy="7" r="2" />
+      <circle cx="12" cy="17" r="2" />
+      <path d="M8 7h8" />
+      <path d="M7.2 8.6 10.8 15" />
+      <path d="M16.8 8.6 13.2 15" />
     </IconShell>
   );
 }
@@ -122,7 +120,13 @@ export function HealthNavIcon({ className }: IconProps) {
 }
 
 export function TeamNavIcon({ className }: IconProps) {
-  return <AgentsNavIcon className={className} />;
+  return (
+    <IconShell className={className}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M19 4v4M21 6h-4" />
+    </IconShell>
+  );
 }
 
 export function SettingsNavIcon({ className }: IconProps) {
@@ -144,7 +148,12 @@ export function SecurityNavIcon({ className }: IconProps) {
 }
 
 export function AuditLogNavIcon({ className }: IconProps) {
-  return <ServiceBillsNavIcon className={className} />;
+  return (
+    <IconShell className={className}>
+      <path d="M8 4h9a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z" />
+      <path d="M10 9h6M10 13h6M10 17h3" />
+    </IconShell>
+  );
 }
 
 export function SignOutNavIcon({ className }: IconProps) {

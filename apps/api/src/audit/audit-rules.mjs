@@ -35,6 +35,7 @@ export const AUDIT_ACTIONS = {
   siteOverrideDecide: "site_override_decide",
   passwordResetRequest: "password_reset_request",
   passwordResetComplete: "password_reset_complete",
+  profileUpdate: "profile_update",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

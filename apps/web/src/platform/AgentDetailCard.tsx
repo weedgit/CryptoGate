@@ -22,7 +22,7 @@ import {
   type ServiceBill,
 } from "./api";
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree, subAgentsUnderAgent } from "./agentSubtree";
-import { orgTypeLabel } from "./org";
+import { formatShortDate, orgTypeLabel } from "./org";
 import { FundAmount } from "./FundAmount";
 import {
   buildAgentAccountsForest,
@@ -511,14 +511,18 @@ function AccountDetailPanel({
   ]);
   const detailHref = isSub
     ? `/platform/agents/${node.id}`
-    : isMerchant
+    : node.type === "merchant"
       ? `/platform/merchants/${node.id}`
-      : null;
+      : node.type === "merchant_site" && node.parentId
+        ? `/platform/merchants/${node.parentId}?tab=sites`
+        : null;
   const detailLabel = isSub
     ? "Open agent detail"
     : node.type === "merchant_site"
-      ? "Open site / merchant"
-      : "Open merchant detail";
+      ? "Open merchant (Sites)"
+      : node.type === "merchant"
+        ? "Open merchant detail"
+        : null;
 
   useEffect(() => {
     if (!isSub && !isMerchant) {
@@ -1533,38 +1537,58 @@ export function AgentDetailCard({
                 </div>
               ) : null}
               <div className="b3-agent-detail__table-scroll">
-                <table className="data-table">
+                <table className="data-table plat-bills__embed">
                   <thead>
                     <tr>
                       <th>Bill</th>
                       <th>Merchant</th>
                       <th>Total</th>
+                      <th>Due</th>
                       <th>Status</th>
                       <th />
                     </tr>
                   </thead>
                   <tbody>
-                    {displayBills.map((bill) => (
-                      <tr key={bill.id}>
-                        <td className="mono">{formatBillId(bill.id)}</td>
-                        <td>{bill.merchantName}</td>
-                        <td>
-                          <FundAmount amount={bill.totalAmount} />
-                        </td>
-                        <td>
-                          <span
-                            className={`status-badge tone-${serviceBillStatusTone(bill.status)}`}
+                    {displayBills.map((bill) => {
+                      const overdue = bill.status === "overdue";
+                      return (
+                        <tr key={bill.id}>
+                          <td>
+                            <Link
+                              className="plat-bills__id"
+                              to={`/platform/service-bills/${bill.id}`}
+                            >
+                              {formatBillId(bill.id)}
+                            </Link>
+                          </td>
+                          <td className="plat-bills__merchant">{bill.merchantName}</td>
+                          <td className="plat-bills__amount">
+                            <FundAmount amount={bill.totalAmount} />
+                          </td>
+                          <td
+                            className={
+                              overdue ? "plat-bills__due is-overdue" : "plat-bills__due"
+                            }
                           >
-                            {serviceBillStatusLabel(bill.status)}
-                          </span>
-                        </td>
-                        <td>
-                          <Link to={`/platform/service-bills/${bill.id}`}>
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                            {formatShortDate(bill.dueAt)}
+                          </td>
+                          <td>
+                            <span
+                              className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}${
+                                overdue ? " is-pulse" : ""
+                              }`}
+                            >
+                              {serviceBillStatusLabel(bill.status)}
+                            </span>
+                          </td>
+                          <td>
+                            <Link to={`/platform/service-bills/${bill.id}`}>
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
