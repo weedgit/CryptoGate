@@ -18,6 +18,7 @@ import {
   orderStatusTone,
 } from "./orderStatus";
 import { networkLabel } from "./org";
+import { StatusBadge } from "../shared/StatusBadge";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -112,9 +113,13 @@ export function OrderDetailPage() {
                 <p className="mono muted">ID: #{orderNumber}</p>
               </div>
               <div className="detail-badges">
-                <span className={`status-badge tone-${orderStatusTone(status)}`}>
+                <StatusBadge
+                  tone={orderStatusTone(status)}
+                  live={status === "verifying"}
+                  alarm={status === "payment_anomaly"}
+                >
                   {orderStatusLabel(status)}
-                </span>
+                </StatusBadge>
                 <span className="mode-chip">{matchingModeLabel(mode).toUpperCase()}</span>
               </div>
             </div>

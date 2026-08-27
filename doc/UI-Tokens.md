@@ -25,17 +25,32 @@ Figma has **no published Variables collections** yet (queried 2026-08-27). CSS f
 | `--surface` | `#12181F` | Cards / panels |
 | `--border` | `#1E2A36` | Hairlines |
 | `--teal` / `--accent` | `#00D4C8` | Payment-order rail, primary CTA |
-| `--warn` | `#FFB703` | Service-bill rail, verifying, soft urgency |
-| `--anomaly` | `#FF5A6A` | Payment Anomaly, hard urgency |
-| `--ok` | `#2EE59D` | Success / completed accents |
+| `--teal-hover` / `--teal-pressed` | `#00F1E6` / `#00B2AA` | Button states (Figma 02) |
+| `--warn` | `#FFB703` | Service-bill rail, pending badge, soft urgency |
+| `--anomaly` | `#FF5A6A` | Payment Anomaly, danger button |
+| `--ok` | `#00E676` | Confirmed / completed (Figma 02) |
 | `--muted` / `--footer` | `#8A9BB0` / `#5A6A7A` | Secondary / footer copy |
 | `--radius-card` | `12px` | Glass cards |
+| `--control-h` | `40px` | Default control height (32 / 48 sm/lg) |
 | `--motion-micro` | `120ms` | Icon swap, micro feedback |
 | `--motion-ui` | `280ms` | QR appear, fades, drawers |
 | `--motion-emphasis` | `600ms` | KPI count-up, status morph |
 | `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | Entrances |
 
 Platform ops UI also uses `--plat-gold*` (amber gold) — not guest-pay teal.
+
+## Components (Wave 8.3)
+
+Aligned to Figma frame **02 — Components** (`15:4`):
+
+| Primitive | CSS / module |
+| --- | --- |
+| Buttons (primary / secondary / ghost / danger + sizes + loading) | `apps/web/src/styles/components.css` |
+| Status badges + verifying breathe / anomaly pulse | `components.css` + `apps/web/src/shared/StatusBadge.tsx` |
+| Text focus / error | `.field input` / `.cg-input` in `components.css` |
+| Toasts / banners | `.cg-toast*`, `.cg-banner*` |
+
+Pending payment → `tone-warn`; verifying → `tone-teal`; confirmed/completed → `tone-ok`. Platform shell may still override with gold/pill chrome.
 
 ## Motion + reduced motion
 

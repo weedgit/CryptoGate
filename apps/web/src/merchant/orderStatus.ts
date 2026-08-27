@@ -16,14 +16,16 @@ export function orderStatusLabel(status: string | null | undefined): string {
 }
 
 /** CSS modifier for status badge. */
+/** Figma 02 Status Badges: pending=amber, verifying=teal, done=ok, anomaly/failed=coral. */
 export function orderStatusTone(status: string | null | undefined): string {
   switch (status) {
     case "completed":
     case "confirmed":
       return "ok";
     case "verifying":
-    case "pending_payment":
       return "teal";
+    case "pending_payment":
+      return "warn";
     case "expired":
     case "cancelled":
       return "muted";

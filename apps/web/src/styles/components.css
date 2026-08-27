@@ -1,0 +1,424 @@
+/**
+ * CryptoGate component primitives — Figma 02 — Components
+ * (Buttons, Inputs, Status, Toasts). Imported after merchant.css so
+ * merchant/agent get Institutional Ink; platform-shell overrides still win
+ * where they use higher specificity.
+ */
+
+/* —— Buttons —— */
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-micro) var(--ease-inout),
+    border-color var(--motion-micro) var(--ease-inout),
+    color var(--motion-micro) var(--ease-inout),
+    opacity var(--motion-micro) var(--ease-inout),
+    box-shadow var(--motion-micro) var(--ease-inout);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btn-primary {
+  width: 100%;
+  border: 0;
+  background: var(--teal);
+  color: var(--bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--teal-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--teal-pressed);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary.btn-lg {
+  min-height: var(--control-h-lg);
+  font-size: 16px;
+}
+
+.btn-primary.btn-sm,
+.btn-secondary.btn-sm,
+.btn-ghost.btn-sm,
+.btn-danger.btn-sm {
+  min-height: var(--control-h-sm);
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.btn-secondary {
+  width: auto;
+  border: 1px solid var(--teal);
+  background: transparent;
+  color: var(--teal);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--teal-dim);
+  border-color: var(--teal-hover);
+  color: var(--teal-hover);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: rgba(0, 212, 200, 0.18);
+  border-color: var(--teal-pressed);
+  color: var(--teal-pressed);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  width: auto;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--teal-dim);
+  border-color: transparent;
+}
+
+.btn-ghost:active:not(:disabled) {
+  background: rgba(0, 212, 200, 0.18);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  width: auto;
+  border: 1px solid var(--anomaly);
+  background: transparent;
+  color: var(--anomaly);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--anomaly-dim);
+}
+
+.btn-danger:active:not(:disabled) {
+  background: rgba(255, 90, 106, 0.18);
+}
+
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.btn-icon-only {
+  width: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0;
+}
+
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  /* Spinner uses teal on primary via box trick — draw with border color from bg */
+  border-color: var(--bg) transparent var(--bg) var(--bg);
+  animation: cg-btn-spin 0.7s linear infinite;
+}
+
+.btn-secondary.btn-loading::after,
+.btn-ghost.btn-loading::after,
+.btn-danger.btn-loading::after {
+  border-color: var(--teal) transparent var(--teal) var(--teal);
+}
+
+.btn-danger.btn-loading::after {
+  border-color: var(--anomaly) transparent var(--anomaly) var(--anomaly);
+}
+
+@keyframes cg-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    transition: none;
+  }
+
+  .btn-loading::after {
+    animation: none;
+    border-color: var(--bg);
+    opacity: 0.7;
+  }
+}
+
+/* —— Status badges (order lifecycle) —— */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  width: fit-content;
+  line-height: 1;
+}
+
+.status-badge.tone-ok {
+  background: var(--ok-dim);
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.status-badge.tone-teal {
+  background: var(--teal-dim);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+.status-badge.tone-warn {
+  background: var(--warn-dim);
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.status-badge.tone-anomaly {
+  background: var(--anomaly-dim);
+  color: var(--anomaly);
+  border-color: var(--anomaly);
+}
+
+.status-badge.tone-muted {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  border-color: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .status-badge.tone-teal.is-live {
+    animation: status-badge-breathe 2s var(--ease-inout) infinite;
+  }
+
+  .status-badge.tone-anomaly.is-alarm {
+    animation: status-badge-alarm 0.9s var(--ease-inout) 3;
+  }
+}
+
+@keyframes status-badge-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes status-badge-alarm {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--anomaly-dim);
+  }
+}
+
+/* —— Text fields —— */
+.field input,
+.field select,
+.field textarea,
+.cg-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  transition:
+    border-color var(--motion-micro) var(--ease-inout),
+    box-shadow var(--motion-micro) var(--ease-inout);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.cg-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: var(--focus-ring);
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled,
+.cg-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field.is-error input,
+.field.is-error select,
+.field.is-error textarea,
+.cg-input.is-error {
+  border-color: var(--anomaly);
+}
+
+.field.is-error input:focus,
+.cg-input.is-error:focus {
+  box-shadow: 0 0 0 2px var(--anomaly);
+}
+
+.field-error {
+  margin: 6px 0 0;
+  color: var(--anomaly);
+  font-size: 12px;
+}
+
+/* —— Toasts + banners (Figma 02) —— */
+.cg-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(360px, 100%);
+  min-height: 65px;
+  padding: 14px 16px 14px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+.cg-toast::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: var(--muted);
+}
+
+.cg-toast--ok::before {
+  background: var(--ok);
+}
+
+.cg-toast--error::before,
+.cg-toast--anomaly::before {
+  background: var(--anomaly);
+}
+
+.cg-toast--warn::before {
+  background: var(--warn);
+}
+
+.cg-toast__body {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.cg-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cg-banner--info {
+  background: #14213d;
+  border: 1px solid #389bff;
+  color: var(--text);
+}
+
+.cg-banner--warn {
+  background: var(--warn-dim);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
+.cg-banner--anomaly {
+  background: var(--anomaly-dim);
+  border: 1px solid var(--anomaly);
+  color: var(--text);
+}
+
+/* Align legacy auth toasts to left-accent pattern without breaking placement */
+.auth-toast {
+  border-left-width: 4px;
+}
+
+.auth-toast--ok {
+  border-left-color: var(--ok);
+}
+
+.auth-toast--error {
+  border-left-color: var(--anomaly);
+}

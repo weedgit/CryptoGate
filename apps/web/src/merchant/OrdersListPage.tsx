@@ -14,6 +14,7 @@ import {
   orderStatusTone,
 } from "./orderStatus";
 import { networkLabel, sessionCanExportOrders, sessionIsCashierOnly, truncateAddress } from "./org";
+import { StatusBadge } from "../shared/StatusBadge";
 
 type Filter = "all" | "anomalies";
 
@@ -137,9 +138,13 @@ export function OrdersListPage({ session }: Props) {
               <span className="mono muted">{truncateAddress(o.receiveAddress)}</span>
               <span className="muted">{matchingModeLabel(o.matchingMode)}</span>
               <span>
-                <span className={`status-badge tone-${orderStatusTone(o.status)}`}>
+                <StatusBadge
+                  tone={orderStatusTone(o.status)}
+                  live={o.status === "verifying"}
+                  alarm={o.status === "payment_anomaly"}
+                >
                   {orderStatusLabel(o.status)}
-                </span>
+                </StatusBadge>
               </span>
             </button>
           ))}
