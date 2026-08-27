@@ -15,6 +15,8 @@ import {
 } from "./orderStatus";
 import { networkLabel, sessionCanExportOrders, sessionIsCashierOnly, truncateAddress } from "./org";
 import { StatusBadge } from "../shared/StatusBadge";
+import { EmptyState } from "../shared/EmptyState";
+import { OrdersTableSkeleton } from "../shared/OrdersTableSkeleton";
 
 type Filter = "all" | "anomalies";
 
@@ -97,19 +99,21 @@ export function OrdersListPage({ session }: Props) {
       {error ? <p className="error">{error}</p> : null}
 
       {loading ? (
-        <p className="muted">Loading orders…</p>
+        <OrdersTableSkeleton />
       ) : items.length === 0 ? (
-        <div className="panel empty-orders">
-          <h2>{cashierOnly ? "No orders yet" : "No payment orders yet"}</h2>
-          <p className="muted">
-            {cashierOnly
+        <EmptyState
+          title={cashierOnly ? "No orders yet" : "No payment orders yet"}
+          body={
+            cashierOnly
               ? "Create a payment order to show a QR at the terminal."
-              : "Create a payment order to show a QR and watch the chain."}
-          </p>
-          <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            {cashierOnly ? "Create order" : "Create payment order"}
-          </Link>
-        </div>
+              : "Create a payment order to show a QR and watch the chain."
+          }
+          actions={
+            <Link className="btn-primary btn-inline" to="/merchant/orders/new">
+              {cashierOnly ? "Create order" : "Create payment order"}
+            </Link>
+          }
+        />
       ) : (
         <div className="orders-table" role="table">
           <div className="orders-head" role="row">

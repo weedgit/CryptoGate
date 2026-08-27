@@ -203,7 +203,10 @@ export function OrderDetailPage() {
         <div className="detail-right">
           <div className="panel">
             <h3>Blockchain Confirmations</h3>
-            <div className="conf-blocks" aria-hidden>
+            <div
+              className={`conf-blocks${progress.filled >= progress.total ? " is-complete" : ""}`}
+              aria-hidden
+            >
               {Array.from({ length: progress.total }, (_, i) => (
                 <div
                   key={i}

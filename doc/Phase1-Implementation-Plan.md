@@ -162,7 +162,7 @@ Blocked on [M5-01-Reference-Device.md](M5-01-Reference-Device.md) sign-off.
 | 7.3 | Receipt on Completed (M5-T02) |
 | 7.4 | Reference device retest |
 
-**Fallback (M5-T05):** Generic APK + screen QR accepted until SKU supplied.
+**Fallback (M5-T05):** Generic APK + screen QR accepted until SKU supplied — **scaffold ready** in `apps/cashier-apk` (login → create order → pay QR / poll status; no printer SDK). See [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md).
 
 ---
 
@@ -174,8 +174,22 @@ Blocked on [M5-01-Reference-Device.md](M5-01-Reference-Device.md) sign-off.
 | 8.2 | Payment page motion pass (Figma page 99) — respect `prefers-reduced-motion` — **Done 2026-08-27** (QR appear, countdown urgency) |
 | 8.3 | Component library alignment (Figma `02 — Components`) — **Done 2026-08-27** (`components.css`, StatusBadge, button/input/toast primitives) |
 | 8.4 | README refresh (OpenAPI **v0.3.5**, Wave 6 / X-07) — **Done 2026-08-27** |
+| 8.5 | Figma `03 — Components` (empty, skeleton, modal motion, confirm bars) — **Done 2026-08-27** |
 
 ---
+
+## 3b. Remaining work (client / env blocked)
+
+| Item | Blocker |
+| --- | --- |
+| Wave 4 — enable `USDT_ETHEREUM` | Staging `ETH_RPC_URL` smoke ([M3-32](M3-32-Ethereum-Go-Live.md)) |
+| X-06 — enable `USDT_BNB_SMART_CHAIN` | After Ethereum live |
+| Wave 5 — Company A hostnames / TLS | [M3-T09](M3-T09-Company-A-Handoff.md) §3 |
+| Wave 5 — Pilot merchant | M4-40 |
+| Wave 7 — OEM printer / second screen | [M5-01](M5-01-Reference-Device.md); until then **M5-T05** generic APK + on-screen QR is accepted |
+| M1-01 | Written scope sign-off |
+
+No further Phase 1 product code is required without the above inputs (Wave 8 + X-backlog scaffolding complete).
 
 ## 4. Critical path (shortest path to UAT)
 

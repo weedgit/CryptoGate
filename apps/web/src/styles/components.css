@@ -422,3 +422,259 @@
 .auth-toast--error {
   border-left-color: var(--anomaly);
 }
+
+/* —— Figma 03 — Empty / Skeleton / Modal motion / Confirm —— */
+
+.cg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 28px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.cg-empty__mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--teal-dim);
+  color: var(--teal);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.cg-empty h2,
+.cg-empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cg-empty p,
+.cg-empty__body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 36rem;
+}
+
+.cg-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cg-empty {
+    animation: cg-empty-in var(--motion-emphasis) var(--ease-out) both;
+  }
+
+  .cg-empty__mark {
+    animation: cg-empty-mark var(--motion-emphasis) var(--ease-out) both;
+  }
+
+  .cg-empty__title {
+    animation: cg-empty-line var(--motion-ui) var(--ease-out) both;
+    animation-delay: 60ms;
+  }
+
+  .cg-empty__body {
+    animation: cg-empty-line var(--motion-ui) var(--ease-out) both;
+    animation-delay: 120ms;
+  }
+
+  .cg-empty__actions {
+    animation: cg-empty-line var(--motion-ui) var(--ease-out) both;
+    animation-delay: 200ms;
+  }
+}
+
+@keyframes cg-empty-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cg-empty-mark {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes cg-empty-line {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cg-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.cg-skel__row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr 1.4fr 0.6fr 0.9fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.cg-skel__bar {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.cg-skel__bar--lg {
+  height: 16px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cg-skel__bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.08) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: cg-skel-shimmer 1.2s var(--ease-inout) infinite;
+  }
+}
+
+@keyframes cg-skel-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.modal-backdrop {
+  animation: cg-modal-backdrop-in var(--motion-micro) var(--ease-inout) both;
+}
+
+.modal {
+  animation: cg-modal-in var(--motion-ui) var(--ease-out) both;
+}
+
+@keyframes cg-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cg-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal,
+  .cg-empty,
+  .cg-empty__mark,
+  .cg-empty__title,
+  .cg-empty__body,
+  .cg-empty__actions {
+    animation: none;
+  }
+}
+
+.conf-blocks {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 12px;
+}
+
+.conf-block {
+  flex: 1;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+  position: relative;
+}
+
+.conf-block.filled {
+  background: var(--teal);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .conf-block.filled {
+    animation: cg-conf-fill var(--motion-micro) var(--ease-out) both;
+  }
+
+  .conf-blocks.is-complete .conf-block.filled {
+    animation: cg-conf-pulse var(--motion-ui) var(--ease-inout) 1;
+  }
+}
+
+@keyframes cg-conf-fill {
+  from {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes cg-conf-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.25);
+  }
+}
+
+.orders-table .orders-row {
+  transition: background-color var(--motion-micro) var(--ease-inout),
+    transform var(--motion-micro) var(--ease-inout);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .orders-table .orders-row:hover {
+    transform: translateX(4px);
+  }
+}

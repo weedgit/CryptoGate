@@ -16,12 +16,12 @@ object OrderStatusUi {
 
     fun label(status: String): String =
         when (status) {
-            PENDING -> "Pending payment"
+            PENDING -> "Pending Payment"
             VERIFYING -> "Verifying"
             CONFIRMED -> "Confirmed"
             COMPLETED -> "Completed"
             EXPIRED -> "Expired"
-            ANOMALY -> "Payment anomaly"
+            ANOMALY -> "Payment Anomaly"
             FAILED -> "Failed"
             CANCELLED -> "Cancelled"
             else -> status.replace('_', ' ')
