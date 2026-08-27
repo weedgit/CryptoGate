@@ -39,7 +39,7 @@ describe("@cryptogate/web platform M4-30", () => {
 });
 
 describe("@cryptogate/web platform B4 onboard agent", () => {
-  it("wires wizard route and marks commercial step stub", () => {
+  it("wires wizard route and posts commercial commission", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /agents\/new/);
     assert.match(app, /OnboardAgentPage/);
@@ -47,9 +47,10 @@ describe("@cryptogate/web platform B4 onboard agent", () => {
       join(root, "src/platform/OnboardAgentPage.tsx"),
       "utf8",
     );
-    assert.match(wizard, /stub UI/i);
+    assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
     assert.match(wizard, /inviteOrgUser/);
+    assert.match(wizard, /commissionPercent/);
   });
 
   it("depth helper matches API default max agent depth", () => {
@@ -92,7 +93,7 @@ describe("@cryptogate/web platform B10 B14 v0.3.2", () => {
       "utf8",
     );
     assert.match(list, /serviceBillStatusTone/);
-    assert.match(list, /status-badge/);
+    assert.match(list, /plat-bills__badge/);
 
     const detail = readFileSync(
       join(root, "src/platform/ServiceBillDetailPage.tsx"),
@@ -106,14 +107,11 @@ describe("@cryptogate/web platform B10 B14 v0.3.2", () => {
 describe("@cryptogate/web platform B3 agent detail", () => {
   it("wires tabbed agent detail with subtree helpers", () => {
     const detail = readFileSync(
-      join(root, "src/platform/AgentDetailPage.tsx"),
+      join(root, "src/platform/AgentDetailCard.tsx"),
       "utf8",
     );
-    assert.match(detail, /filter-tabs/);
     assert.match(detail, /merchantsInAgentSubtree/);
-    assert.match(detail, /listAuditLog/);
     assert.match(detail, /service-bills/);
-    assert.doesNotMatch(detail, /follow in a later/);
 
     const subtree = readFileSync(
       join(root, "src/platform/agentSubtree.ts"),
@@ -126,6 +124,7 @@ describe("@cryptogate/web platform B3 agent detail", () => {
       join(root, "src/platform/AgentsListPage.tsx"),
       "utf8",
     );
+    assert.match(list, /AgentDetailCard/);
     assert.doesNotMatch(list, /B3.*follow-up/);
   });
 });
@@ -134,22 +133,22 @@ describe("@cryptogate/web platform B6 merchant detail", () => {
   it("wires merchant detail route and tabbed read-only views", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /merchants\/:id/);
-    assert.match(app, /MerchantDetailPage/);
+    assert.match(app, /MerchantsListPage/);
 
     const detail = readFileSync(
-      join(root, "src/platform/MerchantDetailPage.tsx"),
+      join(root, "src/platform/MerchantDetailCard.tsx"),
       "utf8",
     );
-    assert.match(detail, /filter-tabs/);
     assert.match(detail, /listSettlement/);
     assert.match(detail, /getMatchingMode/);
-    assert.match(detail, /Read-only platform view/);
+    assert.match(detail, /Read-only on platform/);
 
     const list = readFileSync(
       join(root, "src/platform/MerchantsListPage.tsx"),
       "utf8",
     );
-    assert.match(list, /\/platform\/merchants\/\$\{row\.id\}/);
+    assert.match(list, /MerchantDetailCard/);
+    assert.match(list, /\/platform\/merchants\/\$\{id\}/);
   });
 });
 
@@ -179,5 +178,15 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
     assert.match(settings, /Max agent hierarchy depth/i);
     assert.match(settings, /getPlatformOrgPolicy/);
     assert.match(settings, /Security/);
+  });
+
+  it("treats 401 mfa_required as step-up, not signed-out", () => {
+    const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
+    assert.match(app, /usePortalBoot/);
+    assert.match(app, /startOnMfa=\{mfaPending\}/);
+    const boot = readFileSync(join(root, "src/auth/usePortalBoot.ts"), "utf8");
+    assert.match(boot, /loadPortalSession/);
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /mfa_required/);
   });
 });

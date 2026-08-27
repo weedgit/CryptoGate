@@ -4,27 +4,42 @@ import { PortalLoginPage } from "./PortalLoginPage";
 type Props = {
   portalSubtitle: string;
   onSignedIn: () => void;
+  startOnMfa?: boolean;
 };
 
-export function UnauthenticatedPortal({ portalSubtitle, onSignedIn }: Props) {
+export function UnauthenticatedPortal({
+  portalSubtitle,
+  onSignedIn,
+  startOnMfa = false,
+}: Props) {
   return (
     <Routes>
       <Route
         path="forgot-password"
         element={
-          <PortalLoginPage portalSubtitle={portalSubtitle} onSignedIn={onSignedIn} />
+          <PortalLoginPage
+            portalSubtitle={portalSubtitle}
+            onSignedIn={onSignedIn}
+          />
         }
       />
       <Route
         path="reset-password"
         element={
-          <PortalLoginPage portalSubtitle={portalSubtitle} onSignedIn={onSignedIn} />
+          <PortalLoginPage
+            portalSubtitle={portalSubtitle}
+            onSignedIn={onSignedIn}
+          />
         }
       />
       <Route
         path="*"
         element={
-          <PortalLoginPage portalSubtitle={portalSubtitle} onSignedIn={onSignedIn} />
+          <PortalLoginPage
+            portalSubtitle={portalSubtitle}
+            onSignedIn={onSignedIn}
+            startOnMfa={startOnMfa}
+          />
         }
       />
     </Routes>

@@ -133,6 +133,23 @@ export async function getSession(): Promise<Session> {
   return (await res.json()) as Session;
 }
 
+/** Cookie present but TOTP step-up not finished — privileged routes return 401 mfa_required. */
+export type PortalBoot =
+  | { status: "ok"; session: Session }
+  | { status: "mfa_required" }
+  | { status: "none" };
+
+export async function loadPortalSession(): Promise<PortalBoot> {
+  try {
+    return { status: "ok", session: await getSession() };
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "mfa_required") {
+      return { status: "mfa_required" };
+    }
+    return { status: "none" };
+  }
+}
+
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/auth/logout`, {
     method: "POST",

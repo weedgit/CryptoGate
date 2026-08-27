@@ -98,6 +98,7 @@ run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
 run("node", ["doc/examples/api-signing-smoke.mjs"]);
+run("node", ["--test", "apps/web/test/platform-m4-30.test.mjs", "apps/web/test/agent-m4-31.test.mjs", "apps/web/test/merchant-m2-60.test.mjs"]);
 run("node", ["apps/api/scripts/load-m4-12.mjs"]);
 
 console.log("Check: ok (OpenAPI v0.3.3 + fee tiers + M4-12 load smoke + M3 samples)");

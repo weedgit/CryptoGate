@@ -8,36 +8,34 @@ Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordi
 
 ---
 
-## 1. Current state (2026-08-24)
+## 1. Current state (2026-08-27)
 
 ### Done — core rail
 
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Domain + OpenAPI | v0.3.3 frozen | `packages/domain`, `packages/api-spec` |
-| API (auth, orgs, orders, settlement, xPub, HD pool, keys, webhooks, bills, audit) | Implemented | `apps/api`, migrations **001–018** |
+| API (auth, orgs, orders, settlement, xPub, HD pool, keys, webhooks, bills, audit, commercial, compliance) | Implemented | `apps/api`, migrations **001–028** |
 | Matching B/C/D/S | Complete | `packages/matching`, §2.8 CI |
-| Watcher (Tron + Ethereum client) | Complete | `apps/watcher`, `packages/chain-clients` |
-| Merchant web D1–D17 | Complete | `apps/web/src/merchant` |
-| Platform shell (agents, merchants, bills, audit page) | Partial | `apps/web/src/platform` — commercial **stubs** |
-| Agent portal C* | Partial | `apps/web/src/agent` — onboard commercial **stubs** |
+| Watcher (Tron + Ethereum client + heartbeats) | Complete | `apps/watcher`, `packages/chain-clients`, `GET /v1/platform/watcher-health` |
+| Merchant / agent / platform web | Wired (MFA enroll + step-up, B8/B13, bills) | `apps/web` |
 | Guest pay page | Live poll + demo states | `apps/payment-page` |
-| Cashier APK (generic Android) | Login, create, QR, poll | `apps/cashier-apk` |
-| Ops docs + E2E smoke | Done | `doc/M4-*`, `scripts/e2e-smoke.mjs` |
+| Cashier APK (generic Android) | Login, create, QR, poll; MFA blocked to web | `apps/cashier-apk` |
+| Ops docs + E2E smoke | Done | `doc/M4-*`, `scripts/e2e-smoke.mjs`, `scripts/deploy-wave5.mjs` |
 
 ### Live networks
 
 | Pair | Registry | Ingest |
 | --- | --- | --- |
-| USDT / tron | **enabled** | Live (TronGrid) |
+| USDT / tron | **enabled** | Live (TronGrid) or stub locally |
 | USDT / ethereum | `enabled: false` | Client ready — flip after [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md) |
 | Other Plan §VI pairs (13) | `enabled: false` | Catalogued in `ASSET_NETWORK_REGISTRY` — enable after each chain-client smoke |
 
 Full list: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md).
 
-### Largest code gap
+### Next code gap
 
-**OpenAPI v0.3.3 platform/commercial paths have no API implementation** — UI wizards and tier sliders are stub-only. Blocks real agent onboard, B8 fee tiers, and enterprise approval flow.
+**Wave 4:** keep USDT/ethereum **422** until staging RPC smoke; then Kevin enable PR. **Wave 5:** Company A hostnames still pending.
 
 ---
 
@@ -101,7 +99,7 @@ Source: [Design System canvas](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA8
 
 | # | Task | Notes |
 | --- | --- | --- |
-| 3.1 | MFA enroll + verify screens (web) | API exists; portals throw on `mfaRequired` today |
+| 3.1 | MFA enroll + verify screens (web) | Wired; `401 mfa_required` keeps step-up UI (not signed-out) |
 | 3.2 | Session refresh / logout regression | M1-T03 acceptance |
 | 3.3 | Cashier/APK MFA block message | Already present — verify copy |
 

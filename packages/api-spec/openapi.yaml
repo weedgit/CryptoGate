@@ -168,7 +168,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Session"
         "401":
-          description: Not authenticated
+          description: >
+            Not authenticated (`unauthenticated`), or cookie present but TOTP
+            step-up is incomplete (`mfa_required`).
           content:
             application/json:
               schema:

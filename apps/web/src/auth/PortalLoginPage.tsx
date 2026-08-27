@@ -25,6 +25,7 @@ import {
 type Props = {
   portalSubtitle: string;
   onSignedIn: () => void;
+  startOnMfa?: boolean;
 };
 
 type View = "login" | "forgot" | "reset" | "mfa" | "backup";
@@ -32,16 +33,22 @@ type View = "login" | "forgot" | "reset" | "mfa" | "backup";
 const RESEND_SECONDS = 30;
 const SHAKE_MS = 480;
 
-export function PortalLoginPage({ portalSubtitle, onSignedIn }: Props) {
+export function PortalLoginPage({
+  portalSubtitle,
+  onSignedIn,
+  startOnMfa = false,
+}: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resetToken = searchParams.get("token") ?? "";
   const toastDelayRef = useRef<number | null>(null);
 
-  const [view, setView] = useState<View>(() =>
-    location.pathname.endsWith("/reset-password") ? "reset" : "login",
-  );
+  const [view, setView] = useState<View>(() => {
+    if (location.pathname.endsWith("/reset-password")) return "reset";
+    if (startOnMfa) return "mfa";
+    return "login";
+  });
   const [email, setEmail] = useState(() => loadRememberedEmail());
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

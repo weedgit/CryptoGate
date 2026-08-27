@@ -12,6 +12,7 @@ const required = [
   "/auth/login",
   "/auth/logout",
   "/auth/session",
+  "mfa_required",
   "/auth/mfa/enroll",
   "/auth/mfa/verify",
   "/orgs",

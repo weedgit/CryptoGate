@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { getSession, logout, type Session } from "./api";
+import { logout, type Session } from "./api";
+import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
@@ -51,15 +52,8 @@ function Shell({ session, title, children, onSignOut }: ShellProps) {
 }
 
 export function PlatformApp() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [booting, setBooting] = useState(true);
-
-  useEffect(() => {
-    getSession()
-      .then(setSession)
-      .catch(() => setSession(null))
-      .finally(() => setBooting(false));
-  }, []);
+  const { session, setSession, mfaPending, booting, completeSignIn } =
+    usePortalBoot();
 
   if (booting) {
     return (
@@ -74,11 +68,7 @@ export function PlatformApp() {
 
   if (!session) {
     return (
-      <LoginPage
-        onSignedIn={() => {
-          getSession().then(setSession).catch(() => setSession(null));
-        }}
-      />
+      <LoginPage startOnMfa={mfaPending} onSignedIn={completeSignIn} />
     );
   }
 
