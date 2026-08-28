@@ -202,6 +202,82 @@ export async function fetchErc20TransfersForAddresses(input) {
 }
 
 /**
+ * Scan recent blocks for native ETH transfers to watched addresses.
+ * @param {{
+ *   watchedAddresses: string[],
+ *   fetchImpl?: typeof fetch,
+ *   sleepImpl?: (ms: number) => Promise<void>,
+ *   runtimeConfig?: ReturnType<typeof getEthereumRuntimeConfig>,
+ *   pollMode?: string,
+ * }} input
+ */
+export async function fetchNativeEthTransfersForAddresses(input) {
+  const cfg = input.runtimeConfig ?? getEthereumRuntimeConfig();
+  const pollMode = input.pollMode ?? "eth-rpc";
+  if (!cfg.configured) {
+    return { transfers: [], mode: "stub", watchedAddressCount: 0 };
+  }
+
+  const watchedSet = new Set(
+    input.watchedAddresses.map((a) => a.trim().toLowerCase()).filter(Boolean),
+  );
+  if (watchedSet.size === 0) {
+    return { transfers: [], mode: pollMode, watchedAddressCount: 0 };
+  }
+
+  const latestHex = await withEthRetry(
+    () =>
+      jsonRpcCall(cfg.rpcUrl, "eth_blockNumber", [], {
+        fetchImpl: input.fetchImpl,
+        apiKey: cfg.apiKey,
+      }),
+    { sleepImpl: input.sleepImpl },
+  );
+  const latest = Number.parseInt(String(latestHex), 16);
+  if (!Number.isFinite(latest) || latest < 0) {
+    throw new Error("eth_blockNumber returned invalid block");
+  }
+
+  const fromBlock = Math.max(0, latest - cfg.blockLookback);
+  /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string }>} */
+  const transfers = [];
+
+  for (let blockNum = fromBlock; blockNum <= latest; blockNum += 1) {
+    const block = await withEthRetry(
+      () =>
+        jsonRpcCall(cfg.rpcUrl, "eth_getBlockByNumber", [toHexBlock(blockNum), true], {
+          fetchImpl: input.fetchImpl,
+          apiKey: cfg.apiKey,
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+    const txs = Array.isArray(block?.transactions) ? block.transactions : [];
+    for (const tx of txs) {
+      const to = String(tx?.to ?? "").trim().toLowerCase();
+      const valueHex = String(tx?.value ?? "0x0");
+      if (!to || !watchedSet.has(to) || valueHex === "0x0") continue;
+      const txHash = String(tx?.hash ?? "").trim();
+      if (!txHash) continue;
+      let amount;
+      try {
+        amount = minorToMajor(BigInt(valueHex).toString(), cfg.decimals);
+      } catch {
+        continue;
+      }
+      transfers.push({
+        toAddress: to,
+        amount,
+        txHash,
+        asset: cfg.asset,
+        network: cfg.network,
+      });
+    }
+  }
+
+  return { transfers, mode: pollMode, watchedAddressCount: watchedSet.size };
+}
+
+/**
  * @param {{
  *   txHash: string,
  *   fetchImpl?: typeof fetch,

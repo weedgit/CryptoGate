@@ -10,7 +10,7 @@ import {
   handleChangePassword,
   handlePatchProfile,
 } from "./auth-routes.mjs";
-import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
+import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
   handleAssignOrgUserRole,
@@ -52,6 +52,7 @@ import {
   handleListWebhookDeliveries,
   handleListWebhooks,
   handleRegisterWebhook,
+  handleResendWebhookDelivery,
   handleTestWebhook,
 } from "../webhooks/webhook-routes.mjs";
 import {
@@ -94,6 +95,11 @@ import {
   handleGetAgentCommission,
   handlePutAgentCommission,
 } from "../commercial/agent-commission-routes.mjs";
+import {
+  handleListCommissionPayouts,
+  handleMarkCommissionPayoutPaid,
+  handleUpsertCommissionPayout,
+} from "../commercial/commission-payout-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
@@ -350,6 +356,43 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/commission-payouts") {
+    if (method === "GET") {
+      await handleListCommissionPayouts(req, res, url);
+      return;
+    }
+    if (method === "POST") {
+      await handleUpsertCommissionPayout(req, res);
+      return;
+    }
+  }
+
+  const commissionPayoutPaidMatch = path.match(
+    /^\/v1\/commission-payouts\/([^/]+)\/mark-paid$/,
+  );
+  if (method === "POST" && commissionPayoutPaidMatch) {
+    await handleMarkCommissionPayoutPaid(
+      req,
+      res,
+      decodeURIComponent(commissionPayoutPaidMatch[1]),
+    );
+    return;
+  }
+
+  const webhookDeliveryResendMatch = path.match(
+    /^\/v1\/webhooks\/([^/]+)\/deliveries\/([^/]+)\/resend$/,
+  );
+  if (method === "POST" && webhookDeliveryResendMatch) {
+    await handleResendWebhookDelivery(
+      req,
+      res,
+      decodeURIComponent(webhookDeliveryResendMatch[1]),
+      decodeURIComponent(webhookDeliveryResendMatch[2]),
+      url,
+    );
+    return;
+  }
+
   const webhookDeliveriesMatch = path.match(
     /^\/v1\/webhooks\/([^/]+)\/deliveries$/,
   );
@@ -599,6 +642,12 @@ export async function handleRequest(req, res) {
   const orgStatusMatch = path.match(/^\/v1\/orgs\/([^/]+)\/status$/);
   if (method === "PUT" && orgStatusMatch) {
     await handleSetOrgStatus(req, res, decodeURIComponent(orgStatusMatch[1]));
+    return;
+  }
+
+  const orgDeletePreviewMatch = path.match(/^\/v1\/orgs\/([^/]+)\/delete-preview$/);
+  if (method === "GET" && orgDeletePreviewMatch) {
+    await handleGetOrgDeletePreview(req, res, decodeURIComponent(orgDeletePreviewMatch[1]));
     return;
   }
 

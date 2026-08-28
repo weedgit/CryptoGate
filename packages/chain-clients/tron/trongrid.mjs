@@ -121,8 +121,8 @@ export function mapTrc20Row(row, cfg) {
  * }} input
  */
 export async function fetchTrc20TransfersForAddresses(input) {
-  const cfg = getTronRuntimeConfig();
-  if (!cfg.configured) {
+  const cfg = input.runtimeConfig ?? getTronRuntimeConfig();
+  if (!cfg.configured || cfg.nativeAsset) {
     return { transfers: [], mode: "stub", watchedAddressCount: 0 };
   }
 
@@ -135,7 +135,9 @@ export async function fetchTrc20TransfersForAddresses(input) {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions/trc20` +
       `?only_to=true&limit=${limit}` +
-      `&contract_address=${encodeURIComponent(cfg.usdtContractAddress)}`;
+      (cfg.contractAddress
+        ? `&contract_address=${encodeURIComponent(cfg.contractAddress)}`
+        : "");
     const json = await withTronRetry(
       () =>
         trongridFetch(cfg.baseUrl, path, {
@@ -147,10 +149,10 @@ export async function fetchTrc20TransfersForAddresses(input) {
     const rows = Array.isArray(json?.data) ? json.data : [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
-        contractAddress: cfg.usdtContractAddress,
+        contractAddress: cfg.contractAddress,
         decimals: cfg.decimals,
-        asset: "USDT",
-        network: "tron",
+        asset: cfg.asset,
+        network: cfg.network,
       });
       if (mapped) transfers.push(mapped);
     }
@@ -160,6 +162,80 @@ export async function fetchTrc20TransfersForAddresses(input) {
     transfers,
     mode: "trongrid",
     watchedAddressCount: watched.length,
+  };
+}
+
+/**
+ * Native TRX transfers via TronGrid account transactions.
+ * @param {{
+ *   watchedAddresses: string[],
+ *   fetchImpl?: typeof fetch,
+ *   sleepImpl?: (ms: number) => Promise<void>,
+ *   limit?: number,
+ *   runtimeConfig?: ReturnType<typeof getTronRuntimeConfig>,
+ * }} input
+ */
+export async function fetchNativeTrxTransfersForAddresses(input) {
+  const cfg = input.runtimeConfig ?? getTronRuntimeConfig();
+  if (!cfg.configured || !cfg.nativeAsset) {
+    return { transfers: [], mode: "stub", watchedAddressCount: 0 };
+  }
+
+  const watched = new Set(input.watchedAddresses.map((a) => a.trim()).filter(Boolean));
+  const limit = input.limit ?? 50;
+  /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string }>} */
+  const transfers = [];
+
+  for (const address of watched) {
+    const path =
+      `/v1/accounts/${encodeURIComponent(address)}/transactions?only_to=true&limit=${limit}`;
+    const json = await withTronRetry(
+      () =>
+        trongridFetch(cfg.baseUrl, path, {
+          apiKey: cfg.apiKey,
+          fetchImpl: input.fetchImpl,
+        }),
+      { sleepImpl: input.sleepImpl },
+    );
+    const rows = Array.isArray(json?.data) ? json.data : [];
+    for (const row of rows) {
+      const raw = /** @type {Record<string, unknown>} */ (row.raw_data ?? {});
+      const contracts = Array.isArray(raw.contract) ? raw.contract : [];
+      const first = /** @type {Record<string, unknown>} */ (contracts[0] ?? {});
+      if (String(first.type ?? "") !== "TransferContract") continue;
+
+      const value = /** @type {Record<string, unknown>} */ (
+        /** @type {Record<string, unknown>} */ (first.parameter ?? {}).value ?? {}
+      );
+      const amountSun = Number(value.amount);
+      const toAddress = String(row.toAddress ?? value.to_address ?? "").trim();
+      const txHash = String(row.txID ?? row.transaction_id ?? "").trim();
+      if (!toAddress || !watched.has(toAddress) || !Number.isFinite(amountSun) || !txHash) {
+        continue;
+      }
+
+      let amount;
+      try {
+        amount = minorToMajor(String(amountSun), cfg.decimals);
+      } catch {
+        continue;
+      }
+
+      transfers.push({
+        toAddress,
+        amount,
+        txHash,
+        asset: cfg.asset,
+        network: cfg.network,
+        memoOrTag: undefined,
+      });
+    }
+  }
+
+  return {
+    transfers,
+    mode: "trongrid",
+    watchedAddressCount: watched.size,
   };
 }
 

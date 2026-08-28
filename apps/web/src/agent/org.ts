@@ -24,12 +24,10 @@ export function primaryAgentOrgId(session: Session): string | null {
   return agent?.orgId ?? null;
 }
 
-/** Agent Owner/Admin may invite and manage team members (C11). Viewers read-only. */
+/** Agent Owner may invite and manage team members (C11). Admin/Viewer read-only. */
 export function sessionCanManageTeam(session: Session): boolean {
   return session.memberships.some(
-    (m) =>
-      AGENT_TYPES.has(m.orgType ?? "") &&
-      (m.role === "owner" || m.role === "administrator"),
+    (m) => AGENT_TYPES.has(m.orgType ?? "") && m.role === "owner",
   );
 }
 

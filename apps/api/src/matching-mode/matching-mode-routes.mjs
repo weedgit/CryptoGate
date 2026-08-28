@@ -1,4 +1,3 @@
-import { validateMatchingSettings } from "@cryptogate/matching";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
@@ -97,17 +96,10 @@ export async function handlePutMatchingMode(req, res, orgId) {
     return;
   }
 
-  const policy = validateMatchingSettings({
-    mode: validated.parsed.matchingMode,
-  });
-  if (!policy.ok) {
-    sendError(res, 400, policy.code, policy.message);
-    return;
-  }
-
   const row = await upsertMatchingModeSettings({
     orgId,
     matchingMode: validated.parsed.matchingMode,
+    underpayTolerance: validated.parsed.underpayTolerance,
   });
   await grantSiteOverrideAfterPlatformWrite(
     loaded.org,
@@ -118,7 +110,10 @@ export async function handlePutMatchingMode(req, res, orgId) {
     actorUserId: loaded.caller.userId,
     orgId,
     action: AUDIT_ACTIONS.matchingModePut,
-    metadata: { matchingMode: validated.parsed.matchingMode },
+    metadata: {
+      matchingMode: validated.parsed.matchingMode,
+      underpayTolerance: validated.parsed.underpayTolerance,
+    },
   });
   const lookup = await settingsLookupOrgId(loaded.org, "matching_mode");
   sendJson(res, 200, toMatchingModeSettings(row, orgId, lookup));

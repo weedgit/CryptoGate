@@ -11,15 +11,6 @@ import {
 
 type Props = { session: Session };
 
-function FieldRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="settings-field">
-      <span className="settings-label">{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
-
 export function OrganizationSettingsPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canEdit = useMemo(() => sessionCanEditOrgSettings(session), [session]);
@@ -60,51 +51,84 @@ export function OrganizationSettingsPage({ session }: Props) {
   }, [load]);
 
   return (
-    <div className="settings-page">
-      <div className="settings-header">
-        <p className="muted" style={{ margin: 0 }}>
-          Organization profile and structure. Billing and notifications are separate
-          settings pages.
-        </p>
-        <div className="settings-links">
-          <Link className="btn-ghost btn-inline" to="/merchant/settings/billing">
-            Fee & billing
-          </Link>
-          <Link className="btn-ghost btn-inline" to="/merchant/settings/notifications">
-            Notifications
-          </Link>
-        </div>
-      </div>
-
+    <div className="plat-settings plat-settings--merchant">
       {error ? <p className="error">{error}</p> : null}
-      {loading ? (
-        <p className="muted">Loading organization…</p>
-      ) : org ? (
-        <div className="panel settings-panel">
-          <h2>{org.name}</h2>
-          <FieldRow label="Org ID" value={truncateAddress(org.id, 12, 8)} />
-          <FieldRow label="Type" value={orgTypeLabel(org.type)} />
-          <FieldRow label="Structure" value={structureLabel(org.structure)} />
-          <FieldRow
-            label="Parent org"
-            value={parent?.name ?? (org.parentId ? truncateAddress(org.parentId, 8, 4) : "—")}
-          />
-          <FieldRow label="Billing contact" value="Not on org API yet" />
-          <FieldRow label="Timezone" value="Not on org API yet" />
-          <FieldRow
-            label="Receipt defaults"
-            value="Address truncation on slips (not on org API yet)"
-          />
-          {!canEdit ? (
-            <p className="muted settings-note">Viewer access — read only.</p>
-          ) : (
-            <p className="muted settings-note">
-              Legal name and structure are read-only here. Billing contact,
-              timezone, and receipt defaults unlock when org PATCH lands.
+
+      <div className="plat-settings__grid plat-settings__grid--single">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Organization profile</h2>
+            {!canEdit ? (
+              <span className="plat-settings__badge">Viewer · read-only</span>
+            ) : null}
+          </div>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              Organization profile and structure. Billing and notifications are separate
+              settings pages.
             </p>
-          )}
-        </div>
-      ) : null}
+            {loading ? (
+              <p className="muted">Loading organization…</p>
+            ) : org ? (
+              <>
+                <dl className="plat-settings__dl plat-settings__dl--rows">
+                  <div>
+                    <dt>Display name</dt>
+                    <dd>{org.name}</dd>
+                  </div>
+                  <div>
+                    <dt>Org ID</dt>
+                    <dd className="mono">{truncateAddress(org.id, 12, 8)}</dd>
+                  </div>
+                  <div>
+                    <dt>Type</dt>
+                    <dd>{orgTypeLabel(org.type)}</dd>
+                  </div>
+                  <div>
+                    <dt>Structure</dt>
+                    <dd>{structureLabel(org.structure)}</dd>
+                  </div>
+                  <div>
+                    <dt>Parent org</dt>
+                    <dd>
+                      {parent?.name ??
+                        (org.parentId ? truncateAddress(org.parentId, 8, 4) : "—")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Billing contact</dt>
+                    <dd>Not on org API yet</dd>
+                  </div>
+                  <div>
+                    <dt>Timezone</dt>
+                    <dd>Not on org API yet</dd>
+                  </div>
+                  <div>
+                    <dt>Receipt defaults</dt>
+                    <dd>Address truncation on slips (not on org API yet)</dd>
+                  </div>
+                </dl>
+                <p className="plat-settings__card-note">
+                  {canEdit
+                    ? "Legal name and structure are read-only here. Billing contact, timezone, and receipt defaults unlock when org PATCH lands."
+                    : "Viewer access — read only."}
+                </p>
+              </>
+            ) : null}
+            <div className="plat-settings__nav-row">
+              <Link className="plat-settings__nav-link" to="/merchant/settings/billing">
+                Fee & billing
+              </Link>
+              <Link
+                className="plat-settings__nav-link"
+                to="/merchant/settings/notifications"
+              >
+                Notifications
+              </Link>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

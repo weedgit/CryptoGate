@@ -336,8 +336,12 @@ function paint(view) {
     mainEl.dataset.mode = mode;
   }
   if (statusEl) {
-    statusEl.textContent =
+    const base =
       statusCopy[view.status] || statusCopy[state] || statusCopy.pending;
+    statusEl.textContent =
+      state === "anomaly" && view.anomalyReason
+        ? `${base} (${String(view.anomalyReason).replace(/_/g, " ")})`
+        : base;
   }
   if (mainEl) {
     mainEl.dataset.pollState = state;

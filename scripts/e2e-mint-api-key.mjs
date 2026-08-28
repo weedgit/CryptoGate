@@ -39,7 +39,7 @@ function loadEnv() {
 
 async function main() {
   loadEnv();
-  const email = process.env.E2E_MERCHANT_EMAIL ?? "merchant@local.cryptogate";
+  const email = process.env.E2E_MERCHANT_EMAIL ?? "owner.singlemerchant@cryptogate.io";
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT u.id AS user_id, m.org_id

@@ -1,0 +1,192 @@
+/**
+ * Polygon PoS chain client — ERC-20 via JSON-RPC when POLYGON_RPC_URL is set.
+ * Supports enabled registry pairs on polygon (USDT, USDC).
+ * No imports from apps/api.
+ */
+
+import { AssetCode } from "@cryptogate/domain";
+import { getPolygonRuntimeConfig } from "./config.mjs";
+import {
+  fetchErc20TransfersForAddresses,
+  fetchTransactionConfirmationState,
+  mapTransferLog,
+} from "../ethereum/rpc.mjs";
+import { ERC20_TRANSFER_TOPIC } from "../ethereum/config.mjs";
+
+export { minorToMajor } from "../tron/amount.mjs";
+export { mapTransferLog, ERC20_TRANSFER_TOPIC };
+export {
+  extraWatcherBackoffMs,
+  polygonBackoffMs,
+  isRetryablePolygonStatus,
+} from "./backoff.mjs";
+
+/** @typedef {{ ok: boolean, network: string, mode: string, rpcConfigured: boolean, asset: string }} PolygonHealth */
+
+/**
+ * @returns {Promise<PolygonHealth>}
+ */
+export async function healthCheck() {
+  const cfg = getPolygonRuntimeConfig(AssetCode.USDT);
+  return {
+    ok: true,
+    network: "polygon",
+    mode: cfg.configured ? "polygon-rpc" : "stub",
+    rpcConfigured: cfg.configured,
+    asset: cfg.asset,
+  };
+}
+
+/**
+ * @param {Array<{ txHash: string, network?: string }>} transfers
+ */
+export function dedupeTransfersByTxHash(transfers) {
+  const seen = new Set();
+  const out = [];
+  for (const t of transfers) {
+    const key = `${t.network ?? ""}:${t.txHash}`;
+    if (!t.txHash || seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * @param {{
+ *   asset?: string,
+ *   network?: string,
+ *   watchedAddresses?: string[],
+ *   fetch?: typeof fetch,
+ *   sleep?: (ms: number) => Promise<void>,
+ * }} [options]
+ */
+export async function listRecentTransfers(options = {}) {
+  const watched = (options.watchedAddresses ?? [])
+    .map((a) => a.trim())
+    .filter(Boolean);
+  const asset = options.asset ?? AssetCode.USDT;
+
+  const stubRaw = process.env.WATCHER_STUB_TRANSFERS;
+  if (stubRaw) {
+    try {
+      const parsed = JSON.parse(stubRaw);
+      const list = Array.isArray(parsed) ? parsed : [];
+      const filtered =
+        watched.length === 0
+          ? list
+          : list.filter((t) =>
+              watched.some(
+                (w) =>
+                  w.toLowerCase() ===
+                  String(t.toAddress ?? "").trim().toLowerCase(),
+              ),
+            );
+      return {
+        transfers: dedupeTransfersByTxHash(filtered),
+        mode: "stub-env",
+        watchedAddressCount: watched.length,
+      };
+    } catch {
+      return {
+        transfers: [],
+        mode: "stub-env-invalid-json",
+        watchedAddressCount: watched.length,
+      };
+    }
+  }
+
+  const cfg = getPolygonRuntimeConfig(asset);
+  if (!cfg.pairEnabled || !cfg.configured) {
+    return {
+      transfers: [],
+      mode: "stub",
+      watchedAddressCount: watched.length,
+    };
+  }
+
+  if (watched.length === 0) {
+    return {
+      transfers: [],
+      mode: "polygon-rpc",
+      watchedAddressCount: 0,
+    };
+  }
+
+  try {
+    const live = await fetchErc20TransfersForAddresses({
+      watchedAddresses: watched,
+      fetchImpl: options.fetch,
+      sleepImpl: options.sleep,
+      runtimeConfig: cfg,
+      pollMode: "polygon-rpc",
+    });
+    return {
+      transfers: dedupeTransfersByTxHash(live.transfers),
+      mode: live.mode,
+      watchedAddressCount: live.watchedAddressCount,
+    };
+  } catch (err) {
+    return {
+      transfers: [],
+      mode: "polygon-rpc-error",
+      watchedAddressCount: watched.length,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * @param {{ txHash: string, network?: string, asset?: string, fetch?: typeof fetch }} args
+ */
+export async function getTransactionConfirmationState(args) {
+  const stubPresence = process.env.WATCHER_STUB_TX_PRESENCE?.trim();
+  const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
+  if (stub !== undefined && stub !== "") {
+    const n = Number.parseInt(stub, 10);
+    if (!Number.isNaN(n) && n >= 0) {
+      const presence =
+        stubPresence === "missing" || stubPresence === "unknown"
+          ? stubPresence
+          : "confirmed";
+      return { confirmations: n, presence };
+    }
+  }
+  if (stubPresence === "missing" || stubPresence === "unknown") {
+    return { confirmations: 0, presence: stubPresence };
+  }
+
+  const cfg = getPolygonRuntimeConfig(args?.asset ?? AssetCode.USDT);
+  if (!cfg.configured || !args?.txHash) {
+    return { confirmations: 0, presence: "unknown" };
+  }
+
+  return fetchTransactionConfirmationState({
+    txHash: args.txHash,
+    fetchImpl: args.fetch,
+    runtimeConfig: cfg,
+  });
+}
+
+/**
+ * @param {{ txHash: string, network?: string, asset?: string, fetch?: typeof fetch }} args
+ */
+export async function getTransactionConfirmations(args) {
+  const state = await getTransactionConfirmationState(args);
+  return state.confirmations;
+}
+
+export function getPolygonConfig(asset = AssetCode.USDT) {
+  const cfg = getPolygonRuntimeConfig(asset);
+  return {
+    network: cfg.network,
+    asset: cfg.asset,
+    tokenContractAddress: cfg.usdtContractAddress,
+    rpcUrl: cfg.configured ? cfg.rpcUrl : null,
+    apiKeyConfigured: cfg.apiKey.length > 0,
+    requiredConfirmations: cfg.requiredConfirmations,
+    decimals: cfg.decimals,
+    blockLookback: cfg.blockLookback,
+    pairEnabled: cfg.pairEnabled,
+  };
+}

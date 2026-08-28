@@ -13,11 +13,19 @@ describe("agent-payout rules", () => {
     assert.equal(agentPayoutAllowedOnOrgType("merchant"), false);
   });
 
-  it("validates address body", () => {
+  it("validates address body requires MFA", () => {
+    const missing = validateAgentPayoutBody({
+      asset: "USDT",
+      network: "tron",
+      address: "TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2",
+    });
+    assert.equal(missing.ok, false);
+
     const ok = validateAgentPayoutBody({
       asset: "USDT",
       network: "tron",
       address: "TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2",
+      mfaCode: "123456",
     });
     assert.equal(ok.ok, true);
   });

@@ -8,6 +8,12 @@
  */
 import { healthCheck as ethHealthCheck } from "@cryptogate/chain-clients/ethereum";
 import { healthCheck as bscHealthCheck } from "@cryptogate/chain-clients/bnb_smart_chain";
+import { healthCheck as polygonHealthCheck } from "@cryptogate/chain-clients/polygon";
+import { healthCheck as arbitrumHealthCheck } from "@cryptogate/chain-clients/arbitrum_one";
+import { healthCheck as baseHealthCheck } from "@cryptogate/chain-clients/base";
+import { healthCheck as solanaHealthCheck } from "@cryptogate/chain-clients/solana";
+import { healthCheck as tonHealthCheck } from "@cryptogate/chain-clients/ton";
+import { healthCheck as bitcoinHealthCheck } from "@cryptogate/chain-clients/bitcoin";
 import { healthCheck as tronHealthCheck } from "@cryptogate/chain-clients/tron";
 import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
@@ -30,6 +36,12 @@ export async function runTick(ctx) {
   const tron = await tronHealthCheck();
   const ethereum = await ethHealthCheck();
   const bnbSmartChain = await bscHealthCheck();
+  const polygon = await polygonHealthCheck();
+  const arbitrumOne = await arbitrumHealthCheck();
+  const base = await baseHealthCheck();
+  const solana = await solanaHealthCheck();
+  const ton = await tonHealthCheck();
+  const bitcoin = await bitcoinHealthCheck();
   /** @type {Record<string, unknown>} */
   let ingest = {
     mode: "noop",
@@ -134,6 +146,12 @@ export async function runTick(ctx) {
       tron,
       ethereum,
       bnb_smart_chain: bnbSmartChain,
+      polygon,
+      arbitrum_one: arbitrumOne,
+      base,
+      solana,
+      ton,
+      bitcoin,
     },
     ingest,
   };

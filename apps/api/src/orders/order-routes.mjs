@@ -19,7 +19,10 @@ import {
   withCreateOrderLock,
 } from "./order-store.mjs";
 import { toOnChainDetails, toPaymentDetails } from "./order-map.mjs";
-import { getEffectiveMatchingMode } from "../matching-mode/matching-mode-store.mjs";
+import {
+  getEffectiveMatchingMode,
+  getEffectiveUnderpayTolerance,
+} from "../matching-mode/matching-mode-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 import { resolveSiteInherit } from "../sites/site-inherit.mjs";
 
@@ -174,6 +177,10 @@ export async function handleCreatePaymentOrder(req, res) {
           inherit.matchingOrgId,
           client,
         );
+        const underpayTolerance =
+          matchingMode === "B"
+            ? await getEffectiveUnderpayTolerance(inherit.matchingOrgId, client)
+            : "0";
         const assigned = await assignOnOrderCreate({
           client,
           orgId: scope.orgId,
@@ -217,6 +224,7 @@ export async function handleCreatePaymentOrder(req, res) {
             idempotencyKey,
             idempotencyBodyHash: bodyHash,
             merchantMetadata: validated.parsed.merchantMetadata,
+            underpayTolerance,
           },
           client,
         );

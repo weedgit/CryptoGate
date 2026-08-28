@@ -1615,6 +1615,25 @@ export function AgentDetailCard({
             <h3 className="b3-card__heading b3-agent-detail__section-heading">
               Statement history
             </h3>
+            <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>
+              {org.type === "agent_sub" ? (
+                <>
+                  Platform does not pay agent (sub) accounts directly. The parent
+                  agent settles this org. Full platform → top-level agent history:{" "}
+                  <Link to="/platform/commissions">Commissions</Link>.
+                </>
+              ) : (
+                <>
+                  Platform → agent payout history (QR slips + mark paid):{" "}
+                  <Link to={`/platform/commissions?payee=${encodeURIComponent(org.id)}`}>
+                    Open in Commissions
+                  </Link>
+                  . Per-agent statements also list below; agent detail:{" "}
+                  <Link to={`/platform/agents/${org.id}`}>Agents → {org.name}</Link>
+                  .
+                </>
+              )}
+            </p>
             {commissionHistory.length === 0 ? (
               <AgentTabEmpty
                 icon="commission"

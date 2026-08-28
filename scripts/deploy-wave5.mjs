@@ -302,8 +302,8 @@ function printLocalUrls() {
   console.log(`Agent      ${webOrigin}/agent`);
   console.log(`Merchant   ${webOrigin}/merchant`);
   console.log(`API health ${apiBase}/health`);
-  console.log("Login: owner@local.cryptogate / LocalReview1! (platform + agent)");
-  console.log("       merchant@local.cryptogate / LocalReview1! (merchant)");
+  console.log("Login: admin.platform@cryptogate.io / User123456!1 (platform + agent)");
+  console.log("       owner.singlemerchant@cryptogate.io / User123456!1 (merchant)");
   console.log("Stop:  node scripts/deploy-wave5.mjs --down\n");
 }
 

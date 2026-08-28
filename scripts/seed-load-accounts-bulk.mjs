@@ -103,9 +103,11 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("owner@local.cryptogate");
+  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
   if (!platformOwner) {
-    throw new Error("Missing owner@local.cryptogate — run seed-local first.");
+    throw new Error(
+      "Missing admin.platform@cryptogate.io — run seed-local first.",
+    );
   }
 
   const { rows: marker } = await pool.query(

@@ -40,7 +40,7 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 
 14. Tiered pricing by merchant size (Small / Mid / Enterprise): subscription plus volume fee band; default small-tier ceiling **2%**; see [Business-Model.md](Business-Model.md).
 15. Platform Owner sets global tiers, subscription amounts, min/max volume fee bands, and **max agent nesting depth** (Phase 1 default **2**); Platform Owner/Administrator may onboard agents and manage service bills; agent-account administrators assign merchant rate **within band**; Enterprise custom rates require **Platform Owner** approval; fee changes apply to the **next billing period**.
-16. **Agent commission (default):** paid by the platform as a rebate from collected platform fees; optional merchant-paid agent fee only under signed enterprise contracts.
+16. **Agent commission:** Platform pays **top-level agents only** as a rebate from collected platform fees (Option A). Agents pay their **agent (sub)** accounts. Merchants do not pay a separate agent fee. Payouts use a **payout slip** (QR + payment link to the payee’s payout address); every statement and payment is saved in history.
 
 **Core account functions**
 

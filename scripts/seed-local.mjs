@@ -1,8 +1,31 @@
 #!/usr/bin/env node
 /**
  * Idempotent local review seed — platform + agent + merchant + login users.
+ *
+ * Password (all accounts): User123456!1 (12+ chars — API policy; base: User123456!)
+ *
+ * Platform:
+ *   admin.platform@cryptogate.io          — Owner (+ Demo Agent owner)
+ *   administrator.platform@cryptogate.io  — Administrator
+ *   viewer.platform@cryptogate.io         — Viewer
+ *
+ * Agent (Demo Agent):
+ *   administrator.agent@cryptogate.io     — Administrator
+ *
+ * Single-location (Demo Merchant):
+ *   owner.singlemerchant@cryptogate.io        — Owner
+ *   administrator.singlemerchant@cryptogate.io — Administrator
+ *   cashier1@cryptogate.io                    — Cashier
+ *
+ * Multi-location (Demo Retail Group):
+ *   owner.multmerchant@cryptogate.io        — Owner (parent + sites)
+ *   administrator.multmerchant@cryptogate.io — Administrator (parent)
+ *   viewer.multmerchant@cryptogate.io       — Viewer (parent)
+ *   cashier2@cryptogate.io                  — Cashier (Downtown Store site)
+ *
  * Usage: node scripts/seed-local.mjs
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,21 +36,79 @@ import { bootstrapMerchantCommercial } from "../apps/api/src/commercial/merchant
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 
+/** Shared with load seeds — keep in sync when renaming accounts. */
+export const SEED_PASSWORD = "User123456!1";
+export const SEED_PLATFORM_OWNER_EMAIL = "admin.platform@cryptogate.io";
+
+const SEED_EMAIL = {
+  platformOwner: SEED_PLATFORM_OWNER_EMAIL,
+  platformAdministrator: "administrator.platform@cryptogate.io",
+  platformViewer: "viewer.platform@cryptogate.io",
+  agentAdministrator: "administrator.agent@cryptogate.io",
+  singleMerchantOwner: "owner.singlemerchant@cryptogate.io",
+  singleMerchantAdministrator: "administrator.singlemerchant@cryptogate.io",
+  multiMerchantOwner: "owner.multmerchant@cryptogate.io",
+  multiMerchantAdministrator: "administrator.multmerchant@cryptogate.io",
+  multiMerchantViewer: "viewer.multmerchant@cryptogate.io",
+  cashierSingle: "cashier1@cryptogate.io",
+  cashierMultiSite: "cashier2@cryptogate.io",
+};
+
 const USERS = [
   {
-    email: "owner@local.cryptogate",
-    password: "LocalReview1!",
-    label: "Platform + Agent Owner",
+    email: SEED_EMAIL.platformOwner,
+    password: SEED_PASSWORD,
+    label: "Platform Owner (+ Agent Owner)",
   },
   {
-    email: "merchant@local.cryptogate",
-    password: "LocalReview1!",
-    label: "Merchant Owner",
+    email: SEED_EMAIL.platformAdministrator,
+    password: SEED_PASSWORD,
+    label: "Platform Administrator",
   },
   {
-    email: "cashier@local.cryptogate",
-    password: "LocalReview1!",
-    label: "Merchant Cashier",
+    email: SEED_EMAIL.platformViewer,
+    password: SEED_PASSWORD,
+    label: "Platform Viewer",
+  },
+  {
+    email: SEED_EMAIL.agentAdministrator,
+    password: SEED_PASSWORD,
+    label: "Agent Administrator (Demo Agent)",
+  },
+  {
+    email: SEED_EMAIL.singleMerchantOwner,
+    password: SEED_PASSWORD,
+    label: "Single-location Merchant Owner",
+  },
+  {
+    email: SEED_EMAIL.singleMerchantAdministrator,
+    password: SEED_PASSWORD,
+    label: "Single-location Merchant Administrator",
+  },
+  {
+    email: SEED_EMAIL.multiMerchantOwner,
+    password: SEED_PASSWORD,
+    label: "Multi-location Merchant Owner",
+  },
+  {
+    email: SEED_EMAIL.multiMerchantAdministrator,
+    password: SEED_PASSWORD,
+    label: "Multi-location Merchant Administrator",
+  },
+  {
+    email: SEED_EMAIL.multiMerchantViewer,
+    password: SEED_PASSWORD,
+    label: "Multi-location Merchant Viewer",
+  },
+  {
+    email: SEED_EMAIL.cashierSingle,
+    password: SEED_PASSWORD,
+    label: "Cashier — Demo Merchant",
+  },
+  {
+    email: SEED_EMAIL.cashierMultiSite,
+    password: SEED_PASSWORD,
+    label: "Cashier — Downtown Store (multi)",
   },
 ];
 
@@ -80,11 +161,386 @@ async function ensureMembership(orgId, userId, role) {
   }
 }
 
+async function ensureDisplayName(userId, displayName) {
+  const pool = (await import("../apps/api/src/db/pool.mjs")).getPool();
+  await pool.query(
+    `UPDATE users SET display_name = $2 WHERE id = $1 AND (display_name IS NULL OR display_name = '')`,
+    [userId, displayName],
+  );
+}
+
+function fakeAddress(seed) {
+  const hex = createHash("sha256").update(String(seed)).digest("hex");
+  return `T${hex.slice(0, 33)}`;
+}
+
+function daysAgo(days, hours = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(d.getHours() - hours);
+  return d;
+}
+
+/**
+ * Demo Merchant portal fixtures — matching, settlement, cashier payment orders.
+ * @param {import("pg").Pool} pool
+ */
+const MULTI_MERCHANT_NAME = "Demo Retail Group";
+const MULTI_MERCHANT_SITES = [
+  "Downtown Store",
+  "Airport Kiosk",
+  "Marina Branch",
+];
+
+/**
+ * Multi-location merchant — parent org + site children + sample site-scoped orders.
+ * @param {import("pg").Pool} pool
+ */
+async function seedMultiLocationMerchant(pool, {
+  agentId,
+  siteCashierUserId,
+  platformOwnerId,
+}) {
+  const { rows: merchants } = await pool.query(
+    `SELECT id, structure FROM org_accounts
+     WHERE type = 'merchant' AND name = $1 LIMIT 1`,
+    [MULTI_MERCHANT_NAME],
+  );
+  let merchantId = merchants[0]?.id;
+  if (!merchantId) {
+    const created = await insertOrgAccount({
+      type: "merchant",
+      name: MULTI_MERCHANT_NAME,
+      parentId: agentId,
+      structure: "multi_location",
+      maxAgentDepth: null,
+    });
+    if (!created.ok) throw new Error("could not create multi-location merchant");
+    merchantId = created.row.id;
+    await bootstrapMerchantCommercial({
+      orgId: merchantId,
+      tier: "mid",
+      volumeFeePercent: "1.2",
+      actorUserId: platformOwnerId,
+    });
+  } else if (merchants[0].structure !== "multi_location") {
+    await pool.query(
+      `UPDATE org_accounts SET structure = 'multi_location', updated_at = now()
+       WHERE id = $1 AND structure IS DISTINCT FROM 'multi_location'`,
+      [merchantId],
+    );
+  }
+
+  await pool.query(
+    `UPDATE org_accounts
+     SET billing_email = COALESCE(NULLIF(billing_email, ''), 'billing@demo-retail.local'),
+         country = COALESCE(NULLIF(country, ''), 'SG'),
+         updated_at = now()
+     WHERE id = $1`,
+    [merchantId],
+  );
+
+  await pool.query(
+    `INSERT INTO merchant_matching_settings (org_id, matching_mode)
+     VALUES ($1, 'B')
+     ON CONFLICT (org_id) DO NOTHING`,
+    [merchantId],
+  );
+
+  const settlementAddr = fakeAddress(`demo-retail-settlement-${merchantId}`);
+  await pool.query(
+    `INSERT INTO settlement_addresses (org_id, asset, network, address)
+     VALUES ($1, 'USDT', 'tron', $2)
+     ON CONFLICT (org_id, asset, network) DO NOTHING`,
+    [merchantId, settlementAddr],
+  );
+
+  /** @type {Map<string, string>} site name → org id */
+  const siteIds = new Map();
+  for (const siteName of MULTI_MERCHANT_SITES) {
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM org_accounts
+       WHERE type = 'merchant_site' AND parent_id = $1 AND name = $2 LIMIT 1`,
+      [merchantId, siteName],
+    );
+    if (existing[0]?.id) {
+      siteIds.set(siteName, existing[0].id);
+      continue;
+    }
+    const site = await insertOrgAccount({
+      type: "merchant_site",
+      name: siteName,
+      parentId: merchantId,
+      structure: null,
+      maxAgentDepth: null,
+    });
+    if (!site.ok && site.code !== "duplicate_sibling_name") {
+      throw new Error(`site ${siteName}: ${site.code ?? "unknown"}`);
+    }
+    if (site.ok) siteIds.set(siteName, site.row.id);
+  }
+
+  const downtownId = siteIds.get("Downtown Store");
+  if (downtownId) {
+    await ensureMembership(downtownId, siteCashierUserId, "cashier");
+  }
+
+  const orderPlans = [
+    { orgKey: "parent", status: "completed", amount: "310.00", days: 2, n: 0 },
+    { orgKey: "parent", status: "pending_payment", amount: "55.00", days: 0, n: 1 },
+    {
+      orgKey: "Downtown Store",
+      status: "completed",
+      amount: "89.50",
+      days: 1,
+      n: 2,
+    },
+    {
+      orgKey: "Downtown Store",
+      status: "verifying",
+      amount: "120.00",
+      days: 0,
+      n: 3,
+    },
+    {
+      orgKey: "Airport Kiosk",
+      status: "completed",
+      amount: "44.00",
+      days: 4,
+      n: 4,
+    },
+    {
+      orgKey: "Marina Branch",
+      status: "expired",
+      amount: "72.25",
+      days: 10,
+      n: 5,
+    },
+  ];
+
+  for (const plan of orderPlans) {
+    const orgId =
+      plan.orgKey === "parent" ? merchantId : siteIds.get(plan.orgKey);
+    if (!orgId) continue;
+
+    const idem = `demo-multi-${orgId}-${plan.n}`;
+    const { rows: dup } = await pool.query(
+      `SELECT 1 FROM payment_orders WHERE org_id = $1 AND idempotency_key = $2 LIMIT 1`,
+      [orgId, idem],
+    );
+    if (dup.length) continue;
+
+    const bodyHash = createHash("sha256").update(idem).digest("hex");
+    const createdAt = daysAgo(plan.days, plan.n);
+    const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
+    const address = fakeAddress(`${orgId}-multi-order-${plan.n}`);
+    const isCompleted = plan.status === "completed";
+    const isVerifying = plan.status === "verifying";
+
+    await pool.query(
+      `INSERT INTO payment_orders (
+         org_id, created_by, order_number, status, matching_mode,
+         payable_amount, receive_address, address_source, hd_index, memo_or_tag,
+         asset, network, expires_at, required_confirmations,
+         idempotency_key, idempotency_body_hash, merchant_metadata,
+         created_at, updated_at,
+         received_amount, tx_hash, confirmations
+       ) VALUES (
+         $1, $2,
+         'CG-MULTI-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
+         $3, 'B', $4, $5, 'main', NULL, NULL,
+         'USDT', 'tron', $6, 19,
+         $7, $8, $9::jsonb,
+         $10, $10,
+         $11, $12, $13
+       )`,
+      [
+        orgId,
+        siteCashierUserId,
+        plan.status,
+        plan.amount,
+        address,
+        expiresAt.toISOString(),
+        idem,
+        bodyHash,
+        JSON.stringify({
+          seed: "demo-multi",
+          site: plan.orgKey === "parent" ? null : plan.orgKey,
+        }),
+        createdAt.toISOString(),
+        isCompleted || isVerifying ? plan.amount : null,
+        isCompleted || isVerifying
+          ? `0x${createHash("sha256").update(idem).digest("hex")}`
+          : null,
+        isCompleted ? 19 : isVerifying ? 3 : 0,
+      ],
+    );
+  }
+
+  return merchantId;
+}
+
+async function seedDemoMerchantPortal(pool, {
+  merchantId,
+  cashierUserId,
+  cashierEmail,
+  platformOwnerId,
+}) {
+  await pool.query(
+    `UPDATE org_accounts
+     SET billing_email = COALESCE(NULLIF(billing_email, ''), 'billing@demo-merchant.local'),
+         country = COALESCE(NULLIF(country, ''), 'SG'),
+         updated_at = now()
+     WHERE id = $1`,
+    [merchantId],
+  );
+
+  await pool.query(
+    `INSERT INTO merchant_matching_settings (org_id, matching_mode)
+     VALUES ($1, 'B')
+     ON CONFLICT (org_id) DO UPDATE
+       SET matching_mode = EXCLUDED.matching_mode,
+           updated_at = now()
+     WHERE merchant_matching_settings.matching_mode IS DISTINCT FROM EXCLUDED.matching_mode`,
+    [merchantId],
+  );
+
+  const settlementAddr = fakeAddress(`demo-merchant-settlement-${merchantId}`);
+  await pool.query(
+    `INSERT INTO settlement_addresses (org_id, asset, network, address)
+     VALUES ($1, 'USDT', 'tron', $2)
+     ON CONFLICT (org_id, asset, network) DO NOTHING`,
+    [merchantId, settlementAddr],
+  );
+
+  const orderPlans = [
+    { status: "pending_payment", amount: "42.50", days: 0, n: 0 },
+    { status: "verifying", amount: "88.00", days: 1, n: 1 },
+    { status: "completed", amount: "125.75", days: 3, n: 2 },
+    { status: "completed", amount: "256.00", days: 7, n: 3 },
+    { status: "expired", amount: "19.99", days: 14, n: 4 },
+    { status: "payment_anomaly", amount: "60.00", days: 2, n: 5 },
+  ];
+
+  for (const plan of orderPlans) {
+    const idem = `demo-order-${merchantId}-${plan.n}`;
+    const { rows: dup } = await pool.query(
+      `SELECT 1 FROM payment_orders WHERE org_id = $1 AND idempotency_key = $2 LIMIT 1`,
+      [merchantId, idem],
+    );
+    if (dup.length) continue;
+
+    const bodyHash = createHash("sha256").update(idem).digest("hex");
+    const createdAt = daysAgo(plan.days, plan.n);
+    const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
+    const address = fakeAddress(`${merchantId}-order-${plan.n}`);
+    const isCompleted = plan.status === "completed";
+    const isVerifying = plan.status === "verifying";
+    const isAnomaly = plan.status === "payment_anomaly";
+
+    await pool.query(
+      `INSERT INTO payment_orders (
+         org_id, created_by, order_number, status, matching_mode,
+         payable_amount, receive_address, address_source, hd_index, memo_or_tag,
+         asset, network, expires_at, required_confirmations,
+         idempotency_key, idempotency_body_hash, merchant_metadata,
+         created_at, updated_at,
+         received_amount, tx_hash, confirmations
+       ) VALUES (
+         $1, $2,
+         'CG-DEMO-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
+         $3, 'B', $4, $5, 'main', NULL, NULL,
+         'USDT', 'tron', $6, 19,
+         $7, $8, '{"seed":"demo-merchant"}'::jsonb,
+         $9, $9,
+         $10, $11, $12
+       )`,
+      [
+        merchantId,
+        cashierUserId,
+        plan.status,
+        plan.amount,
+        address,
+        expiresAt.toISOString(),
+        idem,
+        bodyHash,
+        createdAt.toISOString(),
+        isCompleted || isVerifying || isAnomaly ? plan.amount : null,
+        isCompleted || isVerifying || isAnomaly
+          ? `0x${createHash("sha256").update(idem).digest("hex")}`
+          : null,
+        isCompleted ? 19 : isVerifying ? 3 : 0,
+      ],
+    );
+  }
+
+  const { rows: auditDup } = await pool.query(
+    `SELECT 1 FROM audit_log
+     WHERE org_id = $1 AND action = 'org_user_invite'
+       AND metadata->>'email' = $2
+     LIMIT 1`,
+    [merchantId, cashierEmail],
+  );
+  if (auditDup.length === 0) {
+    await pool.query(
+      `INSERT INTO audit_log (actor_user_id, org_id, action, metadata)
+       VALUES ($1, $2, 'org_user_invite', $3::jsonb)`,
+      [
+        platformOwnerId,
+        merchantId,
+        JSON.stringify({
+          email: cashierEmail,
+          role: "cashier",
+          seed: "demo-merchant",
+        }),
+      ],
+    );
+  }
+}
+
 async function main() {
   loadEnv();
-  const platformOwner = await ensureUser(USERS[0].email, USERS[0].password);
-  const merchantOwner = await ensureUser(USERS[1].email, USERS[1].password);
-  const cashier = await ensureUser(USERS[2].email, USERS[2].password);
+  const platformOwner = await ensureUser(
+    SEED_EMAIL.platformOwner,
+    SEED_PASSWORD,
+  );
+  const platformViewer = await ensureUser(
+    SEED_EMAIL.platformViewer,
+    SEED_PASSWORD,
+  );
+  const platformAdministrator = await ensureUser(
+    SEED_EMAIL.platformAdministrator,
+    SEED_PASSWORD,
+  );
+  const agentAdministrator = await ensureUser(
+    SEED_EMAIL.agentAdministrator,
+    SEED_PASSWORD,
+  );
+  const merchantOwner = await ensureUser(
+    SEED_EMAIL.singleMerchantOwner,
+    SEED_PASSWORD,
+  );
+  const merchantAdministrator = await ensureUser(
+    SEED_EMAIL.singleMerchantAdministrator,
+    SEED_PASSWORD,
+  );
+  const cashier = await ensureUser(SEED_EMAIL.cashierSingle, SEED_PASSWORD);
+  const multiMerchantOwner = await ensureUser(
+    SEED_EMAIL.multiMerchantOwner,
+    SEED_PASSWORD,
+  );
+  const multiMerchantAdministrator = await ensureUser(
+    SEED_EMAIL.multiMerchantAdministrator,
+    SEED_PASSWORD,
+  );
+  const multiMerchantViewer = await ensureUser(
+    SEED_EMAIL.multiMerchantViewer,
+    SEED_PASSWORD,
+  );
+  const siteCashier = await ensureUser(
+    SEED_EMAIL.cashierMultiSite,
+    SEED_PASSWORD,
+  );
 
   let platform = await findPlatformOrg();
   if (!platform) {
@@ -99,6 +555,8 @@ async function main() {
     platform = created.row;
   }
   await ensureMembership(platform.id, platformOwner.id, "owner");
+  await ensureMembership(platform.id, platformAdministrator.id, "administrator");
+  await ensureMembership(platform.id, platformViewer.id, "viewer");
 
   const pool = (await import("../apps/api/src/db/pool.mjs")).getPool();
   const { rows: agents } = await pool.query(
@@ -117,6 +575,24 @@ async function main() {
     agentId = created.row.id;
   }
   await ensureMembership(agentId, platformOwner.id, "owner");
+  await ensureMembership(agentId, agentAdministrator.id, "administrator");
+
+  const { rows: subAgents } = await pool.query(
+    `SELECT id FROM org_accounts WHERE type = 'agent_sub' AND name = 'Demo Sub-Agent' LIMIT 1`,
+  );
+  let subAgentId = subAgents[0]?.id;
+  if (!subAgentId) {
+    const created = await insertOrgAccount({
+      type: "agent_sub",
+      name: "Demo Sub-Agent",
+      parentId: agentId,
+      structure: null,
+      maxAgentDepth: null,
+    });
+    if (!created.ok) throw new Error("could not create sub-agent org");
+    subAgentId = created.row.id;
+  }
+  await ensureMembership(subAgentId, platformOwner.id, "owner");
 
   const { rows: merchants } = await pool.query(
     `SELECT id FROM org_accounts WHERE type = 'merchant' AND name = 'Demo Merchant' LIMIT 1`,
@@ -140,18 +616,205 @@ async function main() {
     });
   }
   await ensureMembership(merchantId, merchantOwner.id, "owner");
+  await ensureMembership(merchantId, merchantAdministrator.id, "administrator");
   await ensureMembership(merchantId, cashier.id, "cashier");
+  await ensureDisplayName(merchantOwner.id, "Single Merchant Owner");
+  await ensureDisplayName(merchantAdministrator.id, "Single Merchant Admin");
+  await ensureDisplayName(cashier.id, "Cashier One");
+  await ensureDisplayName(platformAdministrator.id, "Platform Administrator");
+  await ensureDisplayName(agentAdministrator.id, "Agent Administrator");
 
-  console.log("Local seed ready:\n");
-  for (const u of USERS) {
-    console.log(`  ${u.label}`);
-    console.log(`    email:    ${u.email}`);
-    console.log(`    password: ${u.password}\n`);
+  await seedDemoMerchantPortal(pool, {
+    merchantId,
+    cashierUserId: cashier.id,
+    cashierEmail: SEED_EMAIL.cashierSingle,
+    platformOwnerId: platformOwner.id,
+  });
+
+  const multiMerchantId = await seedMultiLocationMerchant(pool, {
+    agentId,
+    siteCashierUserId: siteCashier.id,
+    platformOwnerId: platformOwner.id,
+  });
+  await ensureMembership(multiMerchantId, multiMerchantOwner.id, "owner");
+  await ensureMembership(
+    multiMerchantId,
+    multiMerchantAdministrator.id,
+    "administrator",
+  );
+  await ensureMembership(multiMerchantId, multiMerchantViewer.id, "viewer");
+  await ensureDisplayName(multiMerchantOwner.id, "Multi Merchant Owner");
+  await ensureDisplayName(
+    multiMerchantAdministrator.id,
+    "Multi Merchant Admin",
+  );
+  await ensureDisplayName(multiMerchantViewer.id, "Multi Merchant Viewer");
+  await ensureDisplayName(siteCashier.id, "Cashier Two");
+
+  const { rows: subMerchants } = await pool.query(
+    `SELECT id FROM org_accounts WHERE type = 'merchant' AND name = 'Demo Sub Merchant' LIMIT 1`,
+  );
+  let subMerchantId = subMerchants[0]?.id;
+  if (!subMerchantId) {
+    const created = await insertOrgAccount({
+      type: "merchant",
+      name: "Demo Sub Merchant",
+      parentId: subAgentId,
+      structure: "single_location",
+      maxAgentDepth: null,
+    });
+    if (!created.ok) throw new Error("could not create sub-merchant org");
+    subMerchantId = created.row.id;
+    await bootstrapMerchantCommercial({
+      orgId: subMerchantId,
+      tier: "small",
+      volumeFeePercent: "1.8",
+      actorUserId: platformOwner.id,
+    });
   }
-  console.log("Portals (web dev server):");
+
+  // Commission % + payout addresses for agent / sub-agent commission UI tests.
+  const effectiveFrom = new Date();
+  effectiveFrom.setUTCDate(1);
+  const effectiveFromDate = effectiveFrom.toISOString().slice(0, 10);
+  for (const [orgId, pct] of [
+    [agentId, "15"],
+    [subAgentId, "10"],
+  ]) {
+    await pool.query(
+      `INSERT INTO agent_commission (org_id, commission_percent, effective_from)
+       VALUES ($1, $2, $3::date)
+       ON CONFLICT (org_id) DO UPDATE
+         SET commission_percent = EXCLUDED.commission_percent,
+             updated_at = now()`,
+      [orgId, pct, effectiveFromDate],
+    );
+    await pool.query(
+      `INSERT INTO agent_payout_addresses (org_id, asset, network, address)
+       VALUES ($1, 'USDT', 'tron', $2)
+       ON CONFLICT (org_id) DO NOTHING`,
+      [
+        orgId,
+        orgId === agentId ? "TDemoAgentPayoutSeed0001" : "TDemoSubAgentPaySeed01",
+      ],
+    );
+  }
+
+  // Paid volume fees for commission statement math (prefix demo-bill-).
+  const demoBillMerchants = [
+    { id: merchantId, fee: "100.00", sub: "49.00" },
+    { id: subMerchantId, fee: "50.00", sub: "29.00" },
+  ];
+  for (const row of demoBillMerchants) {
+    for (const plan of [
+      { monthsBack: 0, status: "paid", feeKey: "fee" },
+      { monthsBack: 1, status: "paid", feeKey: "fee" },
+      { monthsBack: 2, status: "issued", feeKey: "fee", feeOverride: "12.00" },
+    ]) {
+      const end = new Date();
+      end.setUTCMonth(end.getUTCMonth() - plan.monthsBack);
+      end.setUTCDate(28);
+      const start = new Date(end);
+      start.setUTCDate(1);
+      const periodStart = start.toISOString().slice(0, 10);
+      const ref = `demo-bill-${row.id.slice(0, 8)}-${plan.monthsBack}-${plan.status}`;
+      const { rows: dup } = await pool.query(
+        `SELECT 1 FROM service_bills
+         WHERE payment_reference = $1
+            OR (org_id = $2 AND period_start = $3::date AND status <> 'voided')
+         LIMIT 1`,
+        [ref, row.id, periodStart],
+      );
+      if (dup.length) continue;
+      const due = new Date(end);
+      due.setUTCDate(due.getUTCDate() + 14);
+      const paidAt =
+        plan.status === "paid"
+          ? new Date(end.getTime() + 2 * 24 * 60 * 60 * 1000)
+          : null;
+      const fee = plan.feeOverride ?? row[plan.feeKey];
+      const sub = row.sub;
+      const total = (Number(sub) + Number(fee)).toFixed(2);
+      await pool.query(
+        `INSERT INTO service_bills (
+           org_id, period_start, period_end,
+           subscription_amount, volume_fee_amount, total_amount,
+           currency, status, due_at, paid_at, payment_reference,
+           created_at, updated_at
+         ) VALUES (
+           $1, $2::date, $3::date,
+           $4, $5, $6,
+           'USD', $7, $8, $9, $10,
+           now(), now()
+         )`,
+        [
+          row.id,
+          periodStart,
+          end.toISOString().slice(0, 10),
+          sub,
+          fee,
+          total,
+          plan.status,
+          due.toISOString(),
+          paidAt ? paidAt.toISOString() : null,
+          ref,
+        ],
+      );
+    }
+  }
+
+  console.log(`  Password (all): ${SEED_PASSWORD}\n`);
+  console.log(
+    "  Portal        Role            Email                              Org",
+  );
+  console.log(
+    "  ------------  --------------  ---------------------------------  -------------------",
+  );
+  const rows = [
+    ["Platform", "Owner", SEED_EMAIL.platformOwner, "CryptoGate Local"],
+    [
+      "Platform",
+      "Administrator",
+      SEED_EMAIL.platformAdministrator,
+      "CryptoGate Local",
+    ],
+    ["Platform", "Viewer", SEED_EMAIL.platformViewer, "CryptoGate Local"],
+    ["Agent", "Owner*", SEED_EMAIL.platformOwner, "Demo Agent"],
+    ["Agent", "Administrator", SEED_EMAIL.agentAdministrator, "Demo Agent"],
+    ["Merchant", "Owner", SEED_EMAIL.singleMerchantOwner, "Demo Merchant"],
+    [
+      "Merchant",
+      "Administrator",
+      SEED_EMAIL.singleMerchantAdministrator,
+      "Demo Merchant",
+    ],
+    ["Merchant", "Cashier", SEED_EMAIL.cashierSingle, "Demo Merchant"],
+    ["Merchant", "Owner", SEED_EMAIL.multiMerchantOwner, "Demo Retail Group"],
+    [
+      "Merchant",
+      "Administrator",
+      SEED_EMAIL.multiMerchantAdministrator,
+      "Demo Retail Group",
+    ],
+    ["Merchant", "Viewer", SEED_EMAIL.multiMerchantViewer, "Demo Retail Group"],
+    [
+      "Merchant",
+      "Cashier",
+      SEED_EMAIL.cashierMultiSite,
+      "Downtown Store (site)",
+    ],
+  ];
+  for (const [portal, role, email, org] of rows) {
+    console.log(
+      `  ${portal.padEnd(12)}  ${role.padEnd(14)}  ${email.padEnd(33)}  ${org}`,
+    );
+  }
+  console.log("\n  * admin.platform also owns Demo Agent / Demo Sub-Agent");
+  console.log("\nPortals (web dev server):");
   console.log("  Platform  http://127.0.0.1:5174/platform");
   console.log("  Agent     http://127.0.0.1:5174/agent");
   console.log("  Merchant  http://127.0.0.1:5174/merchant");
+  console.log("\nOptional: node scripts/seed-load-platform-logic.mjs");
   console.log("\nAPI health: http://127.0.0.1:3000/health");
 }
 

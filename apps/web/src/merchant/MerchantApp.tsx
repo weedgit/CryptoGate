@@ -6,6 +6,7 @@ import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { CashierForbiddenPage } from "./CashierForbiddenPage";
+import { NetworksPage } from "./NetworksPage";
 import { CreateOrderPage } from "./CreateOrderPage";
 import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
@@ -29,31 +30,25 @@ import { sessionIsCashierOnly } from "./org";
 
 type ShellProps = {
   session: Session;
-  crumb: string;
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
   showCashierBanner?: boolean;
-  siteLabel?: string | null;
 };
 
 function Shell({
   session,
-  crumb,
   children,
   onSignOut,
   onSessionRefresh,
   showCashierBanner = false,
-  siteLabel = null,
 }: ShellProps) {
   return (
     <MerchantShell
       session={session}
-      crumb={crumb}
       onSignOut={onSignOut}
       onSessionRefresh={onSessionRefresh}
       showCashierBanner={showCashierBanner}
-      siteLabel={siteLabel}
     >
       {children}
     </MerchantShell>
@@ -130,7 +125,7 @@ export function MerchantApp() {
       <Route
         index
         element={
-          <Shell session={session} crumb="Overview" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <DashboardPage session={session} />
           </Shell>
@@ -139,7 +134,7 @@ export function MerchantApp() {
       <Route
         path="orders"
         element={
-          <Shell session={session} crumb="Payment Orders" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OrdersListPage session={session} />
           </Shell>
@@ -150,7 +145,7 @@ export function MerchantApp() {
         element={
           <Shell
             session={session}
-            crumb="Generate Invoice Flow"
+           
             onSignOut={signOut}
             onSessionRefresh={setSession}
             showCashierBanner={cashier}
@@ -162,7 +157,7 @@ export function MerchantApp() {
       <Route
         path="orders/:id"
         element={
-          <Shell session={session} crumb="Orders" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OrderDetailPage />
           </Shell>
@@ -173,7 +168,7 @@ export function MerchantApp() {
         element={
           <Shell
             session={session}
-            crumb="Integrations"
+           
             onSignOut={signOut}
             onSessionRefresh={setSession}
           >
@@ -188,7 +183,7 @@ export function MerchantApp() {
         element={
           <Shell
             session={session}
-            crumb="HD Pool & Routing Config"
+           
             onSignOut={signOut}
             onSessionRefresh={setSession}
           >
@@ -201,7 +196,7 @@ export function MerchantApp() {
       <Route
         path="settings/organization"
         element={
-          <Shell session={session} crumb="Settings" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="organization settings">
               <OrganizationSettingsPage session={session} />
@@ -212,7 +207,7 @@ export function MerchantApp() {
       <Route
         path="settings/billing"
         element={
-          <Shell session={session} crumb="Settings" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="billing settings">
               <BillingSettingsPage session={session} />
@@ -229,7 +224,7 @@ export function MerchantApp() {
         element={
           <Shell
             session={session}
-            crumb="Settings"
+           
             onSignOut={signOut}
             onSessionRefresh={setSession}
           >
@@ -242,7 +237,7 @@ export function MerchantApp() {
       <Route
         path="settings/team"
         element={
-          <Shell session={session} crumb="Settings" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="team settings">
               <TeamSettingsPage session={session} />
@@ -251,9 +246,19 @@ export function MerchantApp() {
         }
       />
       <Route
+        path="networks"
+        element={
+          <Shell session={session} onSignOut={signOut} onSessionRefresh={setSession}>
+            <OwnerOnly session={session} area="network catalog">
+              <NetworksPage />
+            </OwnerOnly>
+          </Shell>
+        }
+      />
+      <Route
         path="settings/*"
         element={
-          <Shell session={session} crumb="Configuration" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="settings">
               <Navigate to="/merchant/settings/organization" replace />
@@ -264,7 +269,7 @@ export function MerchantApp() {
       <Route
         path="service-bills"
         element={
-          <Shell session={session} crumb="Platform billing" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="service bills">
               <ServiceBillsListPage session={session} />
@@ -275,7 +280,7 @@ export function MerchantApp() {
       <Route
         path="service-bills/:id"
         element={
-          <Shell session={session} crumb="Bill detail" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="service bills">
               <ServiceBillDetailPage session={session} />
@@ -286,7 +291,7 @@ export function MerchantApp() {
       <Route
         path="sites"
         element={
-          <Shell session={session} crumb="Locations" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="sites">
               <SitesListPage session={session} />
@@ -297,7 +302,7 @@ export function MerchantApp() {
       <Route
         path="sites/new"
         element={
-          <Shell session={session} crumb="Sites" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="sites">
               <CreateSitePage session={session} />
@@ -308,7 +313,7 @@ export function MerchantApp() {
       <Route
         path="sites/:id"
         element={
-          <Shell session={session} crumb="Sites" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="sites">
               <SiteDetailPage session={session} />
@@ -319,7 +324,7 @@ export function MerchantApp() {
       <Route
         path="reports/*"
         element={
-          <Shell session={session} crumb="Restricted" onSignOut={signOut}
+          <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="reports">
               <ReportsPage session={session} />
@@ -331,7 +336,7 @@ export function MerchantApp() {
         path="*"
         element={
           cashier ? (
-            <Shell session={session} crumb="Portal" onSignOut={signOut}
+            <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
               <CashierForbiddenPage area="this page" />
             </Shell>

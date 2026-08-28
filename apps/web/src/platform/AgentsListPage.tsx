@@ -12,7 +12,6 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
-  deleteOrg,
   getPlatformOrgs,
   getPlatformServiceBills,
   invalidatePlatformOrgList,
@@ -31,6 +30,8 @@ import { OrgListPagination } from "./OrgListPagination";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
+import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
+import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
   mergeCommissionHistory,
@@ -328,6 +329,31 @@ export function AgentsListPage({ session }: Props) {
     setToastTone("error");
     setError(text);
   }, []);
+
+  const {
+    deleteTarget,
+    deletePreview,
+    deletePreviewLoading,
+    deleteError,
+    deleteBusy,
+    openDelete,
+    closeDelete,
+    confirmDelete,
+  } = useOrgDeleteModal({
+    canManage,
+    onDeleted: async () => {
+      invalidatePlatformOrgList();
+      try {
+        const next = await getPlatformOrgs();
+        setOrgs(next);
+        if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
+      } catch {
+        /* ignore refresh errors */
+      }
+    },
+    showOk,
+  });
+
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
@@ -612,37 +638,6 @@ export function AgentsListPage({ session }: Props) {
     else setSuspendTarget(null);
   }
 
-  async function onDelete(row: OrgAccount) {
-    if (!canManage) return;
-    if (
-      !window.confirm(
-        `Delete agent “${row.name}”? This cannot be undone. Pause instead if the agent has history.`,
-      )
-    ) {
-      return;
-    }
-    setBusyId(row.id);
-    setMsg(null);
-    setError(null);
-    try {
-      await deleteOrg(row.id);
-      invalidatePlatformOrgList();
-      setOrgs((prev) => prev.filter((o) => o.id !== row.id));
-      showOk(`Deleted ${row.name}.`);
-      if (selectedId === row.id) clearSelection();
-    } catch (err) {
-      showErr(
-        err instanceof ApiError
-          ? err.code === "rate_limited"
-            ? "Too many requests — wait a moment and retry."
-            : err.message
-          : "Delete failed",
-      );
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   const searchingByEmail =
     !loading &&
     looksLikeEmailQuery(query) &&
@@ -909,7 +904,7 @@ export function AgentsListPage({ session }: Props) {
               invitationSent={inviteState.invitationSent === true}
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
-              onDelete={() => void onDelete(selected)}
+              onDelete={() => openDelete(selected)}
             />
           ) : (
             <div className="org-split__empty b3-empty" aria-label="No agent selected">
@@ -946,6 +941,19 @@ export function AgentsListPage({ session }: Props) {
             }
           }}
           onConfirm={(reason) => void confirmSuspend(reason)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <OrgDeleteConfirmModal
+          orgId={deleteTarget.id}
+          orgName={deleteTarget.name}
+          busy={deleteBusy}
+          error={deleteError}
+          preview={deletePreview}
+          previewLoading={deletePreviewLoading}
+          onClose={closeDelete}
+          onConfirm={() => void confirmDelete()}
         />
       ) : null}
     </div>

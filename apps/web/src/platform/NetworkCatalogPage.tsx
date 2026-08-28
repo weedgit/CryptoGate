@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  ASSET_NETWORK_REGISTRY,
+  listAssetNetworkRegistry,
   NetworkId,
   type AssetNetworkConfig,
 } from "@cryptogate/domain";
@@ -29,7 +29,7 @@ function shortContract(addr: string | null): string {
 /** One card per chain — primary pair prefers live, then USDT, then first. */
 function buildNetworkCards(): NetworkCard[] {
   const byNet = new Map<string, AssetNetworkConfig[]>();
-  for (const row of ASSET_NETWORK_REGISTRY) {
+  for (const row of listAssetNetworkRegistry()) {
     const list = byNet.get(row.network) ?? [];
     list.push(row);
     byNet.set(row.network, list);
@@ -265,10 +265,11 @@ export function NetworkCatalogPage() {
       </div>
 
       <p className="plat-network-catalog__note muted">
-        Phase 1 §VI catalog — only LIVE pairs accept create-order. Catalog status shows
-        how many asset pairs are enabled on each network (not live watcher ingest).
-        Maintenance toggle is UI preview until the ops API persists schedule + merchant
-        banner.
+        Catalog respects CRYPTOGATE_CHAIN_ENV / VITE_CRYPTOGATE_CHAIN_ENV — mainnet
+        (product default) hides testnet pairs; testnet shows local Nile only.
+        Only LIVE pairs accept create-order. Catalog status shows how many asset pairs
+        are enabled on each network (not live watcher ingest). Maintenance toggle is UI
+        preview until the ops API persists schedule + merchant banner.
       </p>
     </div>
   );

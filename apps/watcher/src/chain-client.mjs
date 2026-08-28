@@ -10,6 +10,24 @@ export function chainClientForNetwork(network) {
   if (network === "bnb_smart_chain") {
     return import("@cryptogate/chain-clients/bnb_smart_chain");
   }
+  if (network === "polygon") {
+    return import("@cryptogate/chain-clients/polygon");
+  }
+  if (network === "arbitrum_one") {
+    return import("@cryptogate/chain-clients/arbitrum_one");
+  }
+  if (network === "base") {
+    return import("@cryptogate/chain-clients/base");
+  }
+  if (network === "solana") {
+    return import("@cryptogate/chain-clients/solana");
+  }
+  if (network === "ton") {
+    return import("@cryptogate/chain-clients/ton");
+  }
+  if (network === "bitcoin") {
+    return import("@cryptogate/chain-clients/bitcoin");
+  }
   return import("@cryptogate/chain-clients/tron");
 }
 

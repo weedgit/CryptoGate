@@ -198,13 +198,39 @@ export async function setOrgStatus(
   return (await res.json()) as OrgAccount;
 }
 
-export async function deleteOrg(orgId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
+export async function deleteOrg(
+  orgId: string,
+  opts?: { cascade?: boolean },
+): Promise<void> {
+  const q = opts?.cascade ? "?cascade=1" : "";
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
     method: "DELETE",
     credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!res.ok) await parseError(res);
+}
+
+export type OrgDeletePreview = {
+  rootOrgId: string;
+  orgCount: number;
+  childOrgCount: number;
+  memberCount: number;
+  orderCount: number;
+  billCount: number;
+  orgs: Array<{ id: string; type: string; name: string; depth: number }>;
+};
+
+export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgDeletePreview;
 }
 
 /** Platform agent detail needs the full load-test bill set (not the API default 100). */
@@ -553,6 +579,8 @@ export type AgentPayoutAddress = {
   asset: string;
   network: string;
   address: string;
+  pendingAddress?: string | null;
+  pendingActivatesAt?: string | null;
   updatedAt?: string;
 };
 
@@ -580,7 +608,7 @@ export async function getAgentPayout(
 
 export async function putAgentPayout(
   orgId: string,
-  body: { asset: string; network: string; address: string },
+  body: { asset: string; network: string; address: string; mfaCode: string },
 ): Promise<AgentPayoutAddress> {
   const res = await fetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { PortalAccessGate } from "../auth/PortalAccessGate";
 import type { Session } from "./api";
 import { sessionIsPlatformStaff } from "./org";
 
@@ -11,18 +12,15 @@ type Props = {
 export function RequirePlatformPortal({ session, children }: Props) {
   if (!sessionIsPlatformStaff(session)) {
     return (
-      <div className="login-wrap">
-        <div className="login-card">
-          <h1>Platform access required</h1>
-          <p style={{ color: "var(--muted)" }}>
-            This portal is for platform Owner, Administrator, or Viewer accounts
-            only.
-          </p>
-          <p>
-            <a href="/merchant">Go to merchant portal</a>
-          </p>
-        </div>
-      </div>
+      <PortalAccessGate
+        title="Platform access required"
+        description="Your account is signed in, but it is not a platform staff membership. Use the portal that matches your org role."
+        roles={["Platform Owner", "Platform Administrator", "Platform Viewer"]}
+        links={[
+          { to: "/merchant", label: "Open merchant portal", primary: true },
+          { to: "/agent", label: "Open agent portal" },
+        ]}
+      />
     );
   }
   return <>{children}</>;

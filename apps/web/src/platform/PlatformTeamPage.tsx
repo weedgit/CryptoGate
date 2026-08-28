@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
+import { SearchableSelect } from "../ui/SearchableSelect";
 import { sessionIsPlatformOwner } from "./org";
 import { PlatformPending } from "./ui/PlatformPending";
 import {
@@ -35,11 +36,13 @@ function roleLabel(role: string): string {
   return role;
 }
 
+const ROLE_OPTIONS = INVITE_ROLES.map((r) => ({
+  id: r,
+  label: roleLabel(r),
+}));
+
 function roleBadgeText(role: string): string {
-  if (role === "owner") return "OWNER";
-  if (role === "administrator") return "ADMIN";
-  if (role === "viewer") return "VIEWER";
-  return role.toUpperCase();
+  return roleLabel(role);
 }
 
 function displayNameFromEmail(email: string): string {
@@ -300,8 +303,10 @@ export function PlatformTeamPage({ session }: Props) {
                   <th>Email</th>
                   <th>Role</th>
                   <th>MFA Status</th>
-                  <th>Last Login</th>
-                  {canManage ? <th>Actions</th> : null}
+                  <th>Last login</th>
+                  {canManage ? (
+                    <th className="plat-team__th-actions">Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -341,21 +346,19 @@ export function PlatformTeamPage({ session }: Props) {
                       <td className="plat-team__email">{m.email}</td>
                       <td>
                         {canManage && m.role !== "owner" && status === "active" ? (
-                          <select
-                            className="plat-team__role-select"
-                            value={m.role}
-                            disabled={busy}
-                            aria-label={`Role for ${m.email}`}
-                            onChange={(e) =>
-                              void onRoleChange(m.userId, e.target.value)
-                            }
-                          >
-                            {INVITE_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {roleLabel(r)}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="plat-team__role-picker">
+                            <SearchableSelect
+                              value={m.role}
+                              options={ROLE_OPTIONS}
+                              onChange={(role) =>
+                                void onRoleChange(m.userId, role)
+                              }
+                              disabled={busy}
+                              allowEmpty={false}
+                              placeholder="Role"
+                              ariaLabel={`Role for ${m.email}`}
+                            />
+                          </div>
                         ) : (
                           <span className={`plat-team__role tone-${roleTone}`}>
                             {roleBadgeText(m.role)}
@@ -367,22 +370,27 @@ export function PlatformTeamPage({ session }: Props) {
                           className={`plat-team__mfa${
                             m.mfaEnrolled ? " is-on" : " is-pending"
                           }`}
+                          aria-label={
+                            m.mfaEnrolled
+                              ? "Multi-factor authentication enabled"
+                              : "Multi-factor authentication pending"
+                          }
                         >
                           <span className="plat-team__mfa-dot" aria-hidden />
-                          {m.mfaEnrolled ? "MFA ENABLED" : "MFA PENDING"}
+                          {m.mfaEnrolled ? "Enabled" : "Pending"}
                         </span>
                       </td>
                       <td className="plat-team__login">
                         {formatRelativeLogin(m.lastLoginAt)}
                       </td>
                       {canManage ? (
-                        <td>
+                        <td className="plat-team__td-actions">
                           {!isSelf ? (
                             <div className="plat-team__actions">
                               {paused ? (
                                 <button
                                   type="button"
-                                  className="plat-team__action"
+                                  className="btn-secondary plat-team__action"
                                   disabled={busy}
                                   onClick={() =>
                                     void onSetStatus(m.userId, "active")
@@ -393,7 +401,7 @@ export function PlatformTeamPage({ session }: Props) {
                               ) : (
                                 <button
                                   type="button"
-                                  className="plat-team__action"
+                                  className="btn-secondary plat-team__action"
                                   disabled={busy}
                                   onClick={() =>
                                     void onSetStatus(m.userId, "paused")
@@ -404,7 +412,7 @@ export function PlatformTeamPage({ session }: Props) {
                               )}
                               <button
                                 type="button"
-                                className="plat-team__action is-danger"
+                                className="btn-ghost plat-team__action is-danger"
                                 disabled={busy}
                                 onClick={() =>
                                   setRemoveTarget({
@@ -480,19 +488,16 @@ export function PlatformTeamPage({ session }: Props) {
                   </label>
                   <label className="plat-team__field" htmlFor="plat-team-invite-role">
                     <span>Role</span>
-                    <select
+                    <SearchableSelect
                       id="plat-team-invite-role"
-                      className="plat-team__input plat-team__select"
                       value={inviteRole}
-                      onChange={(e) => setInviteRole(e.target.value)}
+                      options={ROLE_OPTIONS}
+                      onChange={setInviteRole}
                       disabled={busy || Boolean(inviteCreds)}
-                    >
-                      {INVITE_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {roleLabel(r)}
-                        </option>
-                      ))}
-                    </select>
+                      allowEmpty={false}
+                      placeholder="Role"
+                      ariaLabel="Invite role"
+                    />
                   </label>
                   {inviteCreds ? (
                     <div className="plat-team__creds">

@@ -95,13 +95,15 @@ function agentDetailHref(type: string, id: string): string | null {
   if (type === "merchant" || type === "merchant_site") {
     return `/agent/merchants/${id}`;
   }
-  if (type === "agent" || type === "agent_sub") return "/agent/agents";
+  if (type === "agent_sub") return `/agent/agents/${id}`;
+  if (type === "agent") return "/agent/agents";
   return null;
 }
 
 function agentDetailLabel(type: string): string | null {
-  if (type === "merchant" || type === "merchant_site") return "Open merchant detail";
-  if (type === "agent" || type === "agent_sub") return "Open sub-agents";
+  if (type === "merchant" || type === "merchant_site") return "Open merchant";
+  if (type === "agent_sub") return "Open sub-agent";
+  if (type === "agent") return "Open sub-agents";
   return null;
 }
 
@@ -336,9 +338,14 @@ function OrgTreeDetail({
                         type="button"
                         role="menuitem"
                         className="org-architecture__add-option"
-                        disabled
+                        onClick={() => {
+                          setAddMenuOpen(false);
+                          navigate(
+                            `/agent/agents/new?parentId=${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent("/agent/architecture")}`,
+                          );
+                        }}
                       >
-                        Sub-agent (soon)
+                        Sub-agent
                       </button>
                     ) : null}
                     <button
@@ -535,7 +542,9 @@ export function ArchitecturePage({ session }: { session: Session }) {
         >),
       ]);
       const scoped = orgsInAgentSubtree(agentId, orgs);
-      const nextForest = buildPlatformOrgForest(scoped);
+      const nextForest = buildPlatformOrgForest(scoped, {
+        expectedRootIds: new Set([agentId]),
+      });
       setForest(nextForest);
       setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
       setExpanded(defaultExpandedIds(nextForest.roots));

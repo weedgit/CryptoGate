@@ -132,7 +132,24 @@ export async function matchExactPayable(
       );
     }
     const payableMinor = majorToMinor(payable, config.decimals);
+    const tolRaw =
+      (order.underpayTolerance ?? input.underpayTolerance ?? "0").trim() ||
+      "0";
+    if (!AMOUNT_RE.test(tolRaw)) {
+      throw new Error(
+        `underpayTolerance must be a non-negative major-unit decimal string (order ${order.orderId})`,
+      );
+    }
+    const tolMinor = majorToMinor(tolRaw, config.decimals);
+    const allowUnderpayTol = expectedMode === "B" && tolMinor > 0n;
+
     if (payableMinor === receivedMinor) {
+      exact.push(order);
+    } else if (
+      allowUnderpayTol &&
+      receivedMinor < payableMinor &&
+      payableMinor - receivedMinor <= tolMinor
+    ) {
       exact.push(order);
     } else {
       amountMismatches.push(order);

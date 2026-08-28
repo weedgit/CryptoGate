@@ -24,7 +24,7 @@ describe("@cryptogate/chain-clients/ethereum stub", () => {
     const cfg = getEthereumConfig();
     assert.equal(cfg.network, "ethereum");
     assert.equal(cfg.asset, "USDT");
-    assert.equal(cfg.usdtContractAddress, USDT_ETHEREUM.contractAddress);
+    assert.equal(cfg.tokenContractAddress ?? cfg.usdtContractAddress, USDT_ETHEREUM.contractAddress);
     assert.equal(cfg.requiredConfirmations, USDT_ETHEREUM.requiredConfirmations);
     assert.equal(cfg.decimals, USDT_ETHEREUM.decimals);
     assert.notEqual(cfg.requiredConfirmations, 19);

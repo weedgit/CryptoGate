@@ -133,7 +133,7 @@ export function ServiceBillDetailPage({ session }: Props) {
             <h2>Service Bill</h2>
             <p className="mono muted">{formatBillId(bill.id)}</p>
           </div>
-          <span className={`status-badge tone-${serviceBillStatusTone(bill.status)}`}>
+          <span className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}`}>
             {serviceBillStatusLabel(bill.status)}
           </span>
         </div>

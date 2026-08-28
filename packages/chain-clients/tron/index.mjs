@@ -1,10 +1,12 @@
 /**
- * Tron chain client — USDT TRC-20 via TronGrid when TRON_RPC_URL is set (M3-30).
+ * Tron chain client — TRC-20 + native TRX via TronGrid when TRON_RPC_URL is set.
  * No imports from apps/api.
  */
 
+import { AssetCode } from "@cryptogate/domain";
 import { getTronRuntimeConfig } from "./config.mjs";
 import {
+  fetchNativeTrxTransfersForAddresses,
   fetchTransactionConfirmationState,
   fetchTrc20TransfersForAddresses,
 } from "./trongrid.mjs";
@@ -19,30 +21,25 @@ export {
 } from "./backoff.mjs";
 export {
   USDT_TRC20_CONTRACT,
+  USDT_TRC20_NILE_CONTRACT,
   DEFAULT_REQUIRED_CONFIRMATIONS,
   DEFAULT_TRONGRID_BASE,
+  DEFAULT_TRONGRID_NILE_BASE,
 } from "./config.mjs";
 
 /** @typedef {{ ok: boolean; network: string; mode: string; rpcConfigured: boolean; asset: string }} TronHealth */
 
-/**
- * @returns {Promise<TronHealth>}
- */
 export async function healthCheck() {
-  const cfg = getTronRuntimeConfig();
+  const cfg = getTronRuntimeConfig(AssetCode.USDT);
   return {
     ok: true,
-    network: "tron",
+    network: cfg.network,
     mode: cfg.configured ? "trongrid" : "stub",
     rpcConfigured: cfg.configured,
-    asset: "USDT",
+    asset: cfg.asset,
   };
 }
 
-/**
- * Dedupe inbound transfers by network+txHash (M3-40).
- * @param {Array<{ txHash: string, network?: string }>} transfers
- */
 export function dedupeTransfersByTxHash(transfers) {
   const seen = new Set();
   const out = [];
@@ -55,22 +52,12 @@ export function dedupeTransfersByTxHash(transfers) {
   return out;
 }
 
-/**
- * Poll recent USDT transfers to watched addresses.
- * Precedence: WATCHER_STUB_TRANSFERS → TronGrid (TRON_RPC_URL) → empty stub.
- *
- * @param {{
- *   asset?: string,
- *   network?: string,
- *   watchedAddresses?: string[],
- *   fetch?: typeof fetch,
- *   sleep?: (ms: number) => Promise<void>,
- * }} [options]
- */
 export async function listRecentTransfers(options = {}) {
   const watched = (options.watchedAddresses ?? [])
     .map((a) => a.trim())
     .filter(Boolean);
+  const asset = options.asset ?? AssetCode.USDT;
+  const networkHint = options.network;
 
   const stubRaw = process.env.WATCHER_STUB_TRANSFERS;
   if (stubRaw) {
@@ -97,8 +84,8 @@ export async function listRecentTransfers(options = {}) {
     }
   }
 
-  const cfg = getTronRuntimeConfig();
-  if (!cfg.configured) {
+  const cfg = getTronRuntimeConfig(asset, networkHint);
+  if (!cfg.pairEnabled || !cfg.configured) {
     return {
       transfers: [],
       mode: "stub",
@@ -115,11 +102,19 @@ export async function listRecentTransfers(options = {}) {
   }
 
   try {
-    const live = await fetchTrc20TransfersForAddresses({
-      watchedAddresses: watched,
-      fetchImpl: options.fetch,
-      sleepImpl: options.sleep,
-    });
+    const live = cfg.nativeAsset
+      ? await fetchNativeTrxTransfersForAddresses({
+          watchedAddresses: watched,
+          fetchImpl: options.fetch,
+          sleepImpl: options.sleep,
+          runtimeConfig: cfg,
+        })
+      : await fetchTrc20TransfersForAddresses({
+          watchedAddresses: watched,
+          fetchImpl: options.fetch,
+          sleepImpl: options.sleep,
+          runtimeConfig: cfg,
+        });
     return {
       transfers: dedupeTransfersByTxHash(live.transfers),
       mode: live.mode,
@@ -135,12 +130,6 @@ export async function listRecentTransfers(options = {}) {
   }
 }
 
-/**
- * Confirmation observation for a tx (M3-42 / M3-30 / M4-21).
- * Precedence: WATCHER_STUB_CONFIRMATIONS (+ optional WATCHER_STUB_TX_PRESENCE) → TronGrid → unknown.
- * @param {{ txHash: string, network?: string, fetch?: typeof fetch }} args
- * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
- */
 export async function getTransactionConfirmationState(args) {
   const stubPresence = process.env.WATCHER_STUB_TX_PRESENCE?.trim();
   const stub = process.env.WATCHER_STUB_CONFIRMATIONS;
@@ -158,7 +147,7 @@ export async function getTransactionConfirmationState(args) {
     return { confirmations: 0, presence: stubPresence };
   }
 
-  const cfg = getTronRuntimeConfig();
+  const cfg = getTronRuntimeConfig(args?.asset ?? AssetCode.USDT, args?.network);
   if (!cfg.configured || !args?.txHash) {
     return { confirmations: 0, presence: "unknown" };
   }
@@ -169,25 +158,23 @@ export async function getTransactionConfirmationState(args) {
   });
 }
 
-/**
- * Confirmation count for a tx (M3-42 / M3-30).
- * @param {{ txHash: string, network?: string, fetch?: typeof fetch }} args
- * @returns {Promise<number>}
- */
 export async function getTransactionConfirmations(args) {
   const state = await getTransactionConfirmationState(args);
   return state.confirmations;
 }
 
-export function getTronConfig() {
-  const cfg = getTronRuntimeConfig();
+export function getTronConfig(asset = AssetCode.USDT, networkHint) {
+  const cfg = getTronRuntimeConfig(asset, networkHint);
   return {
-    network: "tron",
-    asset: "USDT",
-    usdtContractAddress: cfg.usdtContractAddress,
+    network: cfg.network,
+    asset: cfg.asset,
+    contractAddress: cfg.contractAddress,
     rpcUrl: cfg.configured ? cfg.baseUrl : null,
     apiKeyConfigured: cfg.apiKey.length > 0,
     requiredConfirmations: cfg.requiredConfirmations,
     decimals: cfg.decimals,
+    pairEnabled: cfg.pairEnabled,
+    nativeAsset: cfg.nativeAsset,
+    chainEnv: cfg.chainEnv,
   };
 }

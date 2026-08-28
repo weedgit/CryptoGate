@@ -6,7 +6,8 @@ const ORDER_SELECT = `
   payable_amount, received_amount, receive_address, address_source,
   hd_index, memo_or_tag, asset, network, expires_at, tx_hash,
   confirmations, required_confirmations, idempotency_key,
-  idempotency_body_hash, merchant_metadata, created_at, updated_at
+  idempotency_body_hash, merchant_metadata, underpay_tolerance,
+  anomaly_reason, created_at, updated_at
 `;
 
 /**
@@ -130,7 +131,8 @@ export async function findOrderById(id) {
             o.payable_amount, o.received_amount, o.receive_address, o.address_source,
             o.hd_index, o.memo_or_tag, o.asset, o.network, o.expires_at, o.tx_hash,
             o.confirmations, o.required_confirmations, o.idempotency_key,
-            o.idempotency_body_hash, o.merchant_metadata, o.created_at, o.updated_at,
+            o.idempotency_body_hash, o.merchant_metadata, o.underpay_tolerance,
+            o.anomaly_reason, o.created_at, o.updated_at,
             org.name AS org_name
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
@@ -276,12 +278,13 @@ export async function insertPaymentOrder(input, client) {
          org_id, created_by, order_number, status, matching_mode,
          payable_amount, receive_address, address_source, hd_index, memo_or_tag,
          asset, network, expires_at, required_confirmations,
-         idempotency_key, idempotency_body_hash, merchant_metadata
+         idempotency_key, idempotency_body_hash, merchant_metadata,
+         underpay_tolerance
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
-         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -301,6 +304,7 @@ export async function insertPaymentOrder(input, client) {
         input.idempotencyKey,
         input.idempotencyBodyHash,
         input.merchantMetadata,
+        input.underpayTolerance ?? "0",
       ],
     );
     return { ok: true, row: rows[0] };

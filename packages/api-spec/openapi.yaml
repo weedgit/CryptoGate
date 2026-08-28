@@ -395,11 +395,13 @@ paths:
     delete:
       tags: [orgs]
       operationId: deleteOrg
-      summary: Delete an empty agent or merchant account
+      summary: Delete an empty agent, merchant, or merchant (site) account
       description: >
         Platform Owner or Administrator may delete an agent / agent_sub / merchant
-        org that has no child orgs and no blocking FK dependencies. Prefer pause
-        when historical bills, orders, or keys remain.
+        org that has no child orgs and no blocking FK dependencies. Parent merchant
+        Owner or Administrator may delete an empty merchant (site) under that parent.
+        Pass query `cascade=1` to delete the full subtree including members, orders,
+        bills, API keys, and webhooks (deepest children first).
       security:
         - sessionCookie: []
       parameters:
@@ -415,6 +417,24 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Has children or linked records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/delete-preview:
+    get:
+      tags: [orgs]
+      operationId: getOrgDeletePreview
+      summary: Preview cascade delete impact for an org subtree
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Delete impact summary
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1870,6 +1890,164 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /webhooks/{webhookId}/deliveries/{deliveryId}/resend:
+    post:
+      tags: [webhooks]
+      operationId: resendWebhookDelivery
+      summary: Resend a webhook delivery
+      description: >
+        Clones a failed or success delivery as a new pending row with the same
+        body and event id. Replay uses a new delivery id. See
+        doc/Webhook-Verification.md.
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/webhookId"
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      responses:
+        "202":
+          description: Resend queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Delivery not in a resendable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /commission-payouts:
+    get:
+      tags: [orgs]
+      operationId: listCommissionPayouts
+      summary: List commission payout slips
+      description: Platform → agent and agent → sub payout history (Decision 1b).
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: payer
+          in: query
+          schema:
+            type: string
+            enum: [platform, agent]
+        - name: payeeOrgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: payerOrgId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Payout list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommissionPayout"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [orgs]
+      operationId: upsertCommissionPayout
+      summary: Prepare / upsert a commission payout slip
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCommissionPayoutRequest"
+      responses:
+        "200":
+          description: Upserted slip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPayout"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /commission-payouts/{payoutId}/mark-paid:
+    post:
+      tags: [orgs]
+      operationId: markCommissionPayoutPaid
+      summary: Mark a commission payout as paid
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: payoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [txRef]
+              properties:
+                txRef:
+                  type: string
+      responses:
+        "200":
+          description: Updated slip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPayout"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /service-bills:
     get:
       tags: [service-bills]
@@ -2820,6 +2998,12 @@ components:
           description: Merchant or merchant_site org id (the requested org)
         matchingMode:
           $ref: "#/components/schemas/MatchingMode"
+        underpayTolerance:
+          type: string
+          description: >
+            Non-negative major-unit decimal string. Mode B underpay allowance;
+            same-amount collisions still become Payment Anomaly.
+          example: "0"
         source:
           $ref: "#/components/schemas/SettingsSource"
         parentOrgId:
@@ -2943,6 +3127,9 @@ components:
       properties:
         matchingMode:
           $ref: "#/components/schemas/MatchingMode"
+        underpayTolerance:
+          type: string
+          description: Non-negative major-unit decimal string (Mode B)
     SettlementAddress:
       type: object
       required: [orgId, asset, network, address, status]
@@ -2998,13 +3185,21 @@ components:
           $ref: "#/components/schemas/NetworkId"
         address:
           type: string
-          description: Watch-only commission payout destination
+          description: Watch-only commission payout destination (active)
+        pendingAddress:
+          type: string
+          nullable: true
+          description: Next address; ignored until pendingActivatesAt
+        pendingActivatesAt:
+          type: string
+          format: date-time
+          nullable: true
         updatedAt:
           type: string
           format: date-time
     UpdateAgentPayoutRequest:
       type: object
-      required: [asset, network, address]
+      required: [asset, network, address, mfaCode]
       properties:
         asset:
           $ref: "#/components/schemas/AssetCode"
@@ -3014,6 +3209,11 @@ components:
           type: string
           minLength: 1
           description: No whitespace
+        mfaCode:
+          type: string
+          minLength: 6
+          maxLength: 8
+          description: Required to change agent payout address
     AgentCommissionSettings:
       type: object
       required: [orgId, commissionPercent, effectiveFrom]
@@ -3039,6 +3239,118 @@ components:
           type: string
           description: Applies immediately (0–100)
           example: "18"
+    CommissionPayout:
+      type: object
+      required:
+        - id
+        - payeeOrgId
+        - payeeName
+        - payer
+        - periodKey
+        - periodLabel
+        - platformFeeCollected
+        - commissionPercent
+        - commissionAmount
+        - payoutStatus
+        - paymentLink
+      properties:
+        id:
+          type: string
+        payeeOrgId:
+          type: string
+          format: uuid
+        payeeName:
+          type: string
+        payer:
+          type: string
+          enum: [platform, agent]
+        payerOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        periodKey:
+          type: string
+        periodLabel:
+          type: string
+        platformFeeCollected:
+          type: number
+        commissionPercent:
+          type: string
+        commissionAmount:
+          type: number
+        payoutStatus:
+          type: string
+          enum: [ready, paid]
+        payoutAddress:
+          type: string
+          nullable: true
+        asset:
+          type: string
+          nullable: true
+        network:
+          type: string
+          nullable: true
+        paymentLink:
+          type: string
+        txRef:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    UpsertCommissionPayoutRequest:
+      type: object
+      required:
+        - payeeOrgId
+        - payeeName
+        - payer
+        - periodKey
+        - periodLabel
+        - platformFeeCollected
+        - commissionPercent
+        - commissionAmount
+        - paymentLink
+      properties:
+        payeeOrgId:
+          type: string
+          format: uuid
+        payeeName:
+          type: string
+        payer:
+          type: string
+          enum: [platform, agent]
+        payerOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        periodKey:
+          type: string
+        periodLabel:
+          type: string
+        platformFeeCollected:
+          type: number
+        commissionPercent:
+          type: string
+        commissionAmount:
+          type: number
+        payoutAddress:
+          type: string
+          nullable: true
+        asset:
+          type: string
+          nullable: true
+        network:
+          type: string
+          nullable: true
+        paymentLink:
+          type: string
     UpsertSettlementAddressRequest:
       type: object
       required: [asset, network, address, mfaCode]
@@ -3177,6 +3489,7 @@ components:
       enum:
         - ethereum
         - tron
+        - tron_nile
         - bnb_smart_chain
         - polygon
         - arbitrum_one
@@ -3184,6 +3497,9 @@ components:
         - ton
         - base
         - bitcoin
+      description: >
+        Network id for payment orders. `tron_nile` is local/staging testnet only
+        (CRYPTOGATE_CHAIN_ENV=testnet); never expose in production product builds.
     Money:
       type: object
       required: [amount, currency]
@@ -3524,6 +3840,12 @@ components:
           format: date-time
         createdBy:
           type: string
+        anomalyReason:
+          type: string
+          nullable: true
+          description: >
+            Set when status is payment_anomaly (e.g. mode_b_same_amount_collision,
+            mode_b_underpay, wrong_network). Null otherwise.
     PaymentOrderList:
       type: object
       required: [items]
@@ -3590,6 +3912,10 @@ components:
         wrongNetworkWarning:
           type: string
           example: "Send only USDT on TRON TRC-20. Wrong network may result in lost funds."
+        anomalyReason:
+          type: string
+          nullable: true
+          description: Present when status is payment_anomaly
         payExactAmountWarning:
           type: string
           nullable: true

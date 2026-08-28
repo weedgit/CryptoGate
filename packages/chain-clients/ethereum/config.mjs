@@ -1,9 +1,9 @@
 /**
- * Ethereum JSON-RPC runtime config (M3-32).
- * Contract + confirmations from @cryptogate/domain USDT_ETHEREUM — not hardcoded.
+ * Ethereum JSON-RPC runtime config.
+ * Contract + confirmations from @cryptogate/domain for the requested asset.
  */
 
-import { USDT_ETHEREUM } from "@cryptogate/domain";
+import { AssetCode, NetworkId, getAssetNetworkConfig } from "@cryptogate/domain";
 
 /** keccak256("Transfer(address,address,uint256)") */
 export const ERC20_TRANSFER_TOPIC =
@@ -17,31 +17,22 @@ function readInt(name, fallback) {
   return n;
 }
 
-/**
- * @returns {{
- *   rpcUrl: string,
- *   apiKey: string,
- *   usdtContractAddress: string,
- *   decimals: number,
- *   requiredConfirmations: number,
- *   asset: string,
- *   network: string,
- *   blockLookback: number,
- *   configured: boolean,
- * }}
- */
-export function getEthereumRuntimeConfig() {
+/** @param {string} [asset] */
+export function getEthereumRuntimeConfig(asset = AssetCode.USDT) {
   const raw = (process.env.ETH_RPC_URL ?? "").trim();
   const rpcUrl = raw.replace(/\/+$/, "");
+  const row = getAssetNetworkConfig(asset, NetworkId.Ethereum);
   return {
     rpcUrl,
     apiKey: (process.env.ETH_API_KEY ?? "").trim(),
-    usdtContractAddress: USDT_ETHEREUM.contractAddress,
-    decimals: USDT_ETHEREUM.decimals,
-    requiredConfirmations: USDT_ETHEREUM.requiredConfirmations,
-    asset: USDT_ETHEREUM.asset,
-    network: USDT_ETHEREUM.network,
+    usdtContractAddress: row?.contractAddress ?? "",
+    decimals: row?.decimals ?? 18,
+    requiredConfirmations: row?.requiredConfirmations ?? 12,
+    asset: row?.asset ?? asset,
+    network: NetworkId.Ethereum,
     blockLookback: readInt("ETH_BLOCK_LOOKBACK", 2000),
     configured: rpcUrl.length > 0,
+    pairEnabled: Boolean(row),
+    nativeAsset: row != null && row.contractAddress == null,
   };
 }

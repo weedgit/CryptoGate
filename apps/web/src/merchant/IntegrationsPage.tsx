@@ -57,18 +57,22 @@ function SecretOncePanel({
     }
   }
   return (
-    <div className="secret-once panel" role="alert">
-      <h3>{title}</h3>
-      <p className="muted">{hint}</p>
-      <div className="addr-box addr-copy-row">
-        <span className="mono">{secret}</span>
-        <button type="button" className="btn-ghost btn-tiny" onClick={copy}>
-          {copied ? "Copied" : "Copy"}
+    <div className="secret-once plat-settings__card plat-settings__card--warn" role="alert">
+      <div className="plat-settings__card-head">
+        <h3 className="plat-settings__card-title">{title}</h3>
+      </div>
+      <div className="plat-settings__card-body">
+        <p className="plat-settings__card-copy">{hint}</p>
+        <div className="addr-box addr-copy-row">
+          <span className="mono">{secret}</span>
+          <button type="button" className="btn-ghost btn-tiny" onClick={copy}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <button type="button" className="btn-primary plat-settings__submit" onClick={onDismiss}>
+          I have stored this secret
         </button>
       </div>
-      <button type="button" className="btn-primary" onClick={onDismiss}>
-        I have stored this secret
-      </button>
     </div>
   );
 }
@@ -174,18 +178,24 @@ export function IntegrationsPage({ session }: Props) {
 
   if (!canView) {
     return (
-      <div className="panel">
-        <p className="muted">Cashiers cannot view API keys or webhooks.</p>
+      <div className="plat-settings plat-settings--merchant">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              Cashiers cannot view API keys or webhooks.
+            </p>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="integrations-page">
-      <div className="bills-banner" role="note">
+    <div className="plat-settings plat-settings--merchant integrations-page">
+      <p className="plat-settings__notice" role="note">
         Machine API keys and signed webhooks for order status — separate from guest payment
         pages. Secrets are shown once on create.
-      </div>
+      </p>
 
       {secretOnce ? (
         <SecretOncePanel
@@ -199,10 +209,15 @@ export function IntegrationsPage({ session }: Props) {
       {error ? <p className="error">{error}</p> : null}
       {loading ? <p className="muted">Loading integrations…</p> : null}
 
-      <div className="integrations-grid">
-        <section className="panel">
-          <h2>API keys</h2>
-          <p className="muted">HMAC signing for server-to-server calls. Max 10 active keys.</p>
+      <div className="plat-settings__grid integrations-grid">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">API keys</h2>
+          </div>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              HMAC signing for server-to-server calls. Max 10 active keys.
+            </p>
           {keys.length === 0 ? (
             <p className="muted">No active API keys.</p>
           ) : (
@@ -269,31 +284,43 @@ export function IntegrationsPage({ session }: Props) {
             </div>
           )}
           {canManage ? (
-            <form className="settle-form" onSubmit={onCreateKey}>
-              <div className="field">
-                <label htmlFor="key-label">New key label</label>
+            <form className="plat-settings__payout-form" onSubmit={onCreateKey}>
+              <label className="plat-settings__field" htmlFor="key-label">
+                New key label
                 <input
                   id="key-label"
-                  className="field-control"
+                  className="plat-settings__input"
                   value={keyLabel}
                   onChange={(e) => setKeyLabel(e.target.value)}
                   maxLength={64}
                   required
                   disabled={busy}
                 />
-              </div>
-              <button className="btn-primary" type="submit" disabled={busy || !keyLabel.trim()}>
+              </label>
+              <button
+                className="btn-primary plat-settings__submit"
+                type="submit"
+                disabled={busy || !keyLabel.trim()}
+              >
                 Create API key
               </button>
             </form>
           ) : (
-            <p className="muted">Viewer access — create/revoke requires Owner or Administrator.</p>
+            <p className="plat-settings__card-note">
+              Viewer access — create/revoke requires Owner or Administrator.
+            </p>
           )}
+          </div>
         </section>
 
-        <section className="panel">
-          <h2>Webhooks</h2>
-          <p className="muted">HTTPS callbacks for payment order events. Max 5 endpoints.</p>
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Webhooks</h2>
+          </div>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              HTTPS callbacks for payment order events. Max 5 endpoints.
+            </p>
           {hooks.length === 0 ? (
             <p className="muted">No webhook endpoints registered.</p>
           ) : (
@@ -366,31 +393,35 @@ export function IntegrationsPage({ session }: Props) {
               ))}
             </div>
           )}
-          {testMsg ? <p className="muted">{testMsg}</p> : null}
+          {testMsg ? <p className="plat-settings__card-note">{testMsg}</p> : null}
           {canManage ? (
-            <form className="settle-form" onSubmit={onRegisterHook}>
-              <div className="field">
-                <label htmlFor="hook-url">Callback URL (HTTPS)</label>
+            <form className="plat-settings__payout-form" onSubmit={onRegisterHook}>
+              <label className="plat-settings__field" htmlFor="hook-url">
+                Callback URL (HTTPS)
                 <input
                   id="hook-url"
-                  className="field-control"
+                  className="plat-settings__input"
                   value={hookUrl}
                   onChange={(e) => setHookUrl(e.target.value)}
                   required
                   disabled={busy}
                 />
-              </div>
-              <button className="btn-primary" type="submit" disabled={busy}>
+              </label>
+              <button className="btn-primary plat-settings__submit" type="submit" disabled={busy}>
                 Register webhook
               </button>
             </form>
           ) : null}
+          </div>
         </section>
       </div>
 
       {selectedHook ? (
-        <section className="panel">
-          <h3>Delivery log</h3>
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h3 className="plat-settings__card-title">Delivery log</h3>
+          </div>
+          <div className="plat-settings__card-body">
           {deliveries.length === 0 ? (
             <p className="muted">No deliveries yet for this endpoint.</p>
           ) : (
@@ -413,6 +444,7 @@ export function IntegrationsPage({ session }: Props) {
               ))}
             </div>
           )}
+          </div>
         </section>
       ) : null}
     </div>

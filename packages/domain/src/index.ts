@@ -144,6 +144,8 @@ export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
 export const NetworkId = {
   Ethereum: "ethereum",
   Tron: "tron",
+  /** Local/staging only — filtered out when CRYPTOGATE_CHAIN_ENV=mainnet */
+  TronNile: "tron_nile",
   BnbSmartChain: "bnb_smart_chain",
   Polygon: "polygon",
   ArbitrumOne: "arbitrum_one",
@@ -154,6 +156,55 @@ export const NetworkId = {
 } as const;
 
 export type NetworkId = (typeof NetworkId)[keyof typeof NetworkId];
+
+/**
+ * Deployment chain surface. Production must stay `mainnet` so testnet pairs
+ * never appear in API or portal UI.
+ */
+export const ChainEnvironment = {
+  Mainnet: "mainnet",
+  Testnet: "testnet",
+} as const;
+
+export type ChainEnvironment =
+  (typeof ChainEnvironment)[keyof typeof ChainEnvironment];
+
+function readChainEnvRaw(): string {
+  const g = globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const fromProcess =
+    g.process?.env?.CRYPTOGATE_CHAIN_ENV ??
+    g.process?.env?.VITE_CRYPTOGATE_CHAIN_ENV;
+  if (fromProcess) return fromProcess.trim().toLowerCase();
+  try {
+    const meta = import.meta as { env?: Record<string, string | undefined> };
+    const fromVite = meta.env?.VITE_CRYPTOGATE_CHAIN_ENV;
+    if (fromVite) return fromVite.trim().toLowerCase();
+  } catch {
+    /* non-module / non-vite runtime */
+  }
+  return "";
+}
+
+/**
+ * Active chain environment. Default `mainnet` (product / production).
+ * Set `CRYPTOGATE_CHAIN_ENV=testnet` (API/watcher) or
+ * `VITE_CRYPTOGATE_CHAIN_ENV=testnet` (web) for local Nile testing only.
+ */
+export function resolveChainEnvironment(
+  override?: string | null,
+): ChainEnvironment {
+  const raw = (override ?? readChainEnvRaw()).trim().toLowerCase();
+  if (raw === ChainEnvironment.Testnet || raw === "dev" || raw === "development") {
+    return ChainEnvironment.Testnet;
+  }
+  return ChainEnvironment.Mainnet;
+}
+
+export function isTestnetEnvironment(env?: string | null): boolean {
+  return resolveChainEnvironment(env) === ChainEnvironment.Testnet;
+}
 
 /** Asset + network pair (e.g. USDT on Tron). */
 export type AssetNetwork = {
@@ -169,11 +220,15 @@ export type AssetNetwork = {
  *
  * Phase 1 access list: Phase1-Project-Plan §VI / M3-04. Only rows with
  * `enabled: true` accept create-order; others are catalogued for staged go-live.
+ * Rows with `chainEnv: testnet` are visible only when resolveChainEnvironment()
+ * is testnet — never in production product builds.
  */
 export type AssetNetworkConfig = {
   asset: AssetCode;
   network: NetworkId;
   enabled: boolean;
+  /** mainnet = product; testnet = local/staging only */
+  chainEnv: ChainEnvironment;
   /** Guest/cashier label, e.g. TRON TRC-20 */
   displayNetwork: string;
   /** Token contract; null for native assets */
@@ -188,11 +243,12 @@ export type AssetNetworkConfig = {
   memoSupported: boolean;
 };
 
-/** Live Phase 1 pair: USDT TRC-20. */
+/** Live Phase 1 pair: USDT TRC-20 (mainnet). */
 export const USDT_TRON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Tron,
   enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "TRON TRC-20",
   contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
   decimals: 6,
@@ -203,13 +259,32 @@ export const USDT_TRON: AssetNetworkConfig = {
 };
 
 /**
- * Next go-live (M3-32). Registry row exists for Bruce chain client work;
- * create-order stays 422 until Kevin sets `enabled: true`.
+ * Local/staging only — USDT on Tron Nile testnet.
+ * Visible when CRYPTOGATE_CHAIN_ENV=testnet; never in product (mainnet) deploys.
+ * Contract: official Nile USDT (override with TRON_USDT_CONTRACT if needed).
+ */
+export const USDT_TRON_NILE: AssetNetworkConfig = {
+  asset: AssetCode.USDT,
+  network: NetworkId.TronNile,
+  enabled: true,
+  chainEnv: ChainEnvironment.Testnet,
+  displayNetwork: "TRON Nile (testnet)",
+  contractAddress: "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf",
+  decimals: 6,
+  minAmount: "0.01",
+  amountStep: "0.01",
+  requiredConfirmations: 19,
+  memoSupported: false,
+};
+
+/**
+ * Live (M3-32). Chain client + watcher ingest when ETH_RPC_URL is set.
  */
 export const USDT_ETHEREUM: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Ethereum,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Ethereum ERC-20",
   contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   decimals: 6,
@@ -222,7 +297,8 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
 export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.BnbSmartChain,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "BNB Smart Chain BEP-20",
   contractAddress: "0x55d398326f99059fF775485246999027B3197955",
   decimals: 18,
@@ -235,7 +311,8 @@ export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
 export const USDT_POLYGON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Polygon,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Polygon PoS",
   contractAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
   decimals: 6,
@@ -248,7 +325,8 @@ export const USDT_POLYGON: AssetNetworkConfig = {
 export const USDT_ARBITRUM_ONE: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.ArbitrumOne,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Arbitrum One",
   contractAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
   decimals: 6,
@@ -261,7 +339,8 @@ export const USDT_ARBITRUM_ONE: AssetNetworkConfig = {
 export const USDT_SOLANA: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Solana,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Solana",
   contractAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
   decimals: 6,
@@ -274,7 +353,8 @@ export const USDT_SOLANA: AssetNetworkConfig = {
 export const USDT_TON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Ton,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "TON",
   contractAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
   decimals: 6,
@@ -287,7 +367,8 @@ export const USDT_TON: AssetNetworkConfig = {
 export const USDC_ETHEREUM: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Ethereum,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Ethereum ERC-20",
   contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   decimals: 6,
@@ -300,7 +381,8 @@ export const USDC_ETHEREUM: AssetNetworkConfig = {
 export const USDC_POLYGON: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Polygon,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Polygon PoS",
   contractAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
   decimals: 6,
@@ -313,7 +395,8 @@ export const USDC_POLYGON: AssetNetworkConfig = {
 export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.ArbitrumOne,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Arbitrum One",
   contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
   decimals: 6,
@@ -326,7 +409,8 @@ export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
 export const USDC_BASE: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Base,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Base",
   contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   decimals: 6,
@@ -339,7 +423,8 @@ export const USDC_BASE: AssetNetworkConfig = {
 export const USDC_SOLANA: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Solana,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Solana",
   contractAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   decimals: 6,
@@ -352,7 +437,8 @@ export const USDC_SOLANA: AssetNetworkConfig = {
 export const BTC_BITCOIN: AssetNetworkConfig = {
   asset: AssetCode.BTC,
   network: NetworkId.Bitcoin,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Bitcoin",
   contractAddress: null,
   decimals: 8,
@@ -365,7 +451,8 @@ export const BTC_BITCOIN: AssetNetworkConfig = {
 export const ETH_ETHEREUM: AssetNetworkConfig = {
   asset: AssetCode.ETH,
   network: NetworkId.Ethereum,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Ethereum",
   contractAddress: null,
   decimals: 18,
@@ -379,7 +466,8 @@ export const ETH_ETHEREUM: AssetNetworkConfig = {
 export const TRX_TRON: AssetNetworkConfig = {
   asset: AssetCode.TRX,
   network: NetworkId.Tron,
-  enabled: false,
+  enabled: true,
+  chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Tron (native)",
   contractAddress: null,
   decimals: 6,
@@ -389,9 +477,14 @@ export const TRX_TRON: AssetNetworkConfig = {
   memoSupported: false,
 };
 
-/** Full Phase 1 §VI catalog. Checkout only for `enabled: true` rows. */
+/**
+ * Full Phase 1 §VI catalog plus thin local testnet rows.
+ * Prefer `listAssetNetworkRegistry()` / `getAssetNetworkConfig()` so testnet
+ * rows are hidden when chain env is mainnet.
+ */
 export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   USDT_TRON,
+  USDT_TRON_NILE,
   USDT_ETHEREUM,
   USDT_BNB_SMART_CHAIN,
   USDT_POLYGON,
@@ -408,24 +501,39 @@ export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   TRX_TRON,
 ];
 
-/** Enabled pair only — used by create-order and matching. */
+/** Catalog rows visible for the active (or overridden) chain environment. */
+export function listAssetNetworkRegistry(
+  env?: string | null,
+): readonly AssetNetworkConfig[] {
+  const active = resolveChainEnvironment(env);
+  return ASSET_NETWORK_REGISTRY.filter((row) => row.chainEnv === active);
+}
+
+/** Enabled pair only — used by create-order and matching. Env-gated. */
 export function getAssetNetworkConfig(
   asset: AssetCode,
   network: NetworkId,
+  env?: string | null,
 ): AssetNetworkConfig | undefined {
-  return ASSET_NETWORK_REGISTRY.find(
+  return listAssetNetworkRegistry(env).find(
     (row) => row.enabled && row.asset === asset && row.network === network,
   );
 }
 
-/** Any catalog row (including planned). For UI / chain-client scaffolding. */
+/** Any catalog row for the active env (including disabled). */
 export function findAssetNetworkRow(
   asset: AssetCode,
   network: NetworkId,
+  env?: string | null,
 ): AssetNetworkConfig | undefined {
-  return ASSET_NETWORK_REGISTRY.find(
+  return listAssetNetworkRegistry(env).find(
     (row) => row.asset === asset && row.network === network,
   );
+}
+
+/** True when network id is a Tron family chain (mainnet or Nile). */
+export function isTronFamilyNetwork(network: string): boolean {
+  return network === NetworkId.Tron || network === NetworkId.TronNile;
 }
 
 export function toAssetNetwork(row: AssetNetworkConfig): AssetNetwork {
@@ -459,6 +567,7 @@ export const PaymentOrderColumn = {
   addressSource: "address_source",
   hdIndex: "hd_index",
   memoOrTag: "memo_or_tag",
+  anomalyReason: "anomaly_reason",
 } as const;
 
 export type PaymentOrderColumnName =

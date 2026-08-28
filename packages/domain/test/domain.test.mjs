@@ -14,10 +14,14 @@ import {
   NetworkId,
   PaymentOrderColumn,
   USDT_TRON,
+  USDT_TRON_NILE,
   USDT_ETHEREUM,
   ASSET_NETWORK_REGISTRY,
   getAssetNetworkConfig,
   findAssetNetworkRow,
+  listAssetNetworkRegistry,
+  resolveChainEnvironment,
+  ChainEnvironment,
   WebhookEventType,
   ServiceBillStatus,
   ServiceBillUpdateAction,
@@ -78,36 +82,61 @@ describe("@cryptogate/domain", () => {
     assert.equal(AuditAction.ProfileUpdate, "profile_update");
   });
 
-  it("registers full Phase 1 §VI catalog; only USDT Tron is live", () => {
-    const row = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron);
+  it("registers Phase 1 catalog; mainnet env hides Nile testnet", () => {
+    assert.equal(resolveChainEnvironment("mainnet"), ChainEnvironment.Mainnet);
+    const row = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron, "mainnet");
     assert.ok(row);
     assert.equal(row.displayNetwork, "TRON TRC-20");
     assert.equal(row.decimals, 6);
     assert.equal(row.requiredConfirmations, 19);
     assert.equal(row.memoSupported, false);
     assert.equal(row.minAmount, "0.01");
+    assert.equal(row.chainEnv, ChainEnvironment.Mainnet);
     assert.equal(
-      getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum),
+      getAssetNetworkConfig(AssetCode.USDT, NetworkId.TronNile, "mainnet"),
       undefined,
     );
-    assert.equal(ASSET_NETWORK_REGISTRY.length, 15);
+    assert.equal(listAssetNetworkRegistry("mainnet").length, 15);
+    assert.equal(ASSET_NETWORK_REGISTRY.length, 16);
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
-    assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_ETHEREUM);
-    assert.equal(USDT_ETHEREUM.enabled, false);
-    assert.equal(USDT_ETHEREUM.requiredConfirmations, 12);
-    assert.equal(USDT_ETHEREUM.displayNetwork, "Ethereum ERC-20");
+    assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
+    assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);
     assert.equal(
-      ASSET_NETWORK_REGISTRY.filter((r) => r.enabled).length,
-      1,
+      USDT_TRON_NILE.contractAddress,
+      "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf",
     );
+    const eth = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Ethereum, "mainnet");
+    assert.ok(eth);
+    assert.equal(eth.enabled, true);
+    assert.equal(eth.requiredConfirmations, 12);
+    assert.equal(USDT_ETHEREUM.enabled, true);
     assert.equal(
-      findAssetNetworkRow(AssetCode.USDT, NetworkId.Ethereum),
+      findAssetNetworkRow(AssetCode.USDT, NetworkId.Ethereum, "mainnet"),
       USDT_ETHEREUM,
     );
     assert.equal(
-      findAssetNetworkRow(AssetCode.BTC, NetworkId.Bitcoin)?.contractAddress,
+      findAssetNetworkRow(AssetCode.BTC, NetworkId.Bitcoin, "mainnet")
+        ?.contractAddress,
       null,
     );
+  });
+
+  it("exposes USDT Nile only when chain env is testnet", () => {
+    assert.equal(resolveChainEnvironment("testnet"), ChainEnvironment.Testnet);
+    assert.equal(resolveChainEnvironment("development"), ChainEnvironment.Testnet);
+    const nile = getAssetNetworkConfig(
+      AssetCode.USDT,
+      NetworkId.TronNile,
+      "testnet",
+    );
+    assert.ok(nile);
+    assert.equal(nile, USDT_TRON_NILE);
+    assert.equal(
+      getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron, "testnet"),
+      undefined,
+    );
+    assert.equal(listAssetNetworkRegistry("testnet").length, 1);
+    assert.equal(listAssetNetworkRegistry("testnet")[0], USDT_TRON_NILE);
   });
 
   it("exports payment-order DB columns for matching assign", () => {

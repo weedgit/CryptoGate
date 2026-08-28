@@ -23,6 +23,8 @@ import {
   disableWebhookEndpoint,
   enqueueWebhookDelivery,
   findWebhookById,
+  findWebhookDelivery,
+  cloneWebhookDeliveryForResend,
   insertWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
@@ -265,4 +267,65 @@ export async function handleListWebhookDeliveries(req, res, webhookId, url) {
   }
   const rows = await listWebhookDeliveries(webhookId);
   sendJson(res, 200, { items: rows.map(toWebhookDelivery) });
+}
+
+/**
+ * POST /v1/webhooks/{webhookId}/deliveries/{deliveryId}/resend
+ * Clones a failed or success delivery as a new pending row (same body, new delivery id).
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} webhookId
+ * @param {string} deliveryId
+ * @param {URL} url
+ */
+export async function handleResendWebhookDelivery(
+  req,
+  res,
+  webhookId,
+  deliveryId,
+  url,
+) {
+  const loaded = await loadWebhookMerchant(req, res, "manage", queryOrgId(url));
+  if (!loaded) return;
+
+  const endpoint = await findWebhookById(webhookId);
+  if (!endpoint || !endpoint.enabled || endpoint.org_id !== loaded.org.id) {
+    sendError(res, 404, "not_found", "Webhook not found");
+    return;
+  }
+
+  const source = await findWebhookDelivery(webhookId, deliveryId);
+  if (!source) {
+    sendError(res, 404, "not_found", "Delivery not found");
+    return;
+  }
+  if (source.status !== "failed" && source.status !== "success") {
+    sendError(
+      res,
+      409,
+      "invalid_state",
+      "Only failed or success deliveries can be resent",
+    );
+    return;
+  }
+
+  const row = await cloneWebhookDeliveryForResend(source);
+  if (!row) {
+    sendError(res, 500, "internal_error", "Failed to enqueue resend");
+    return;
+  }
+
+  await insertAuditEvent({
+    actorUserId: loaded.caller.userId,
+    orgId: loaded.org.id,
+    action: AUDIT_ACTIONS.webhookResend,
+    metadata: {
+      webhookId,
+      sourceDeliveryId: deliveryId,
+      resendDeliveryId: row.id,
+      eventId: row.event_id,
+    },
+  });
+
+  sendJson(res, 202, toWebhookDelivery(row));
 }

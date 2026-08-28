@@ -40,6 +40,21 @@ export function canCreateOrgUnderParent(caller, parentRole) {
 }
 
 /**
+ * Parent merchant Owner/Admin may delete an empty merchant (site) org.
+ * Platform operators use the general org delete path.
+ * @param {{ platformOperator: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ type: string, parent_id?: string | null }} siteOrg
+ */
+export function canDeleteMerchantSite(caller, siteOrg) {
+  if (siteOrg.type !== "merchant_site") return false;
+  if (caller.platformOperator) return true;
+  const parentId = siteOrg.parent_id ?? null;
+  if (!parentId) return false;
+  const parentRole = roleOnOrg(caller.memberships, parentId);
+  return canManageOrgTree(parentRole);
+}
+
+/**
  * Agent-account users cannot create merchant payment orders.
  * Viewer cannot create. Cashier / Owner / Admin on merchant or site can.
  * @param {{ orgId: string, role: string, orgType: string }[]} memberships
@@ -594,7 +609,13 @@ export function canReadAgentPayout(caller, org) {
   if (platformHasGlobalRead(caller)) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
-  return Boolean(role && ORDER_READ_ROLES.has(role));
+  if (role && ORDER_READ_ROLES.has(role)) return true;
+  // Parent agent O/A/V may read a visible descendant’s payout (for cascade slips).
+  // Route already gates org visibility via listVisibleOrgs.
+  return caller.memberships.some(
+    (m) =>
+      AGENT_ORG_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
+  );
 }
 
 /**
@@ -624,7 +645,12 @@ export function canReadAgentCommission(caller, org) {
   if (platformHasGlobalRead(caller)) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
-  return Boolean(role && ORDER_READ_ROLES.has(role));
+  if (role && ORDER_READ_ROLES.has(role)) return true;
+  // Parent agent O/A/V may read a visible descendant’s commission rate.
+  return caller.memberships.some(
+    (m) =>
+      AGENT_ORG_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
+  );
 }
 
 /**
@@ -638,4 +664,41 @@ export function canReadAgentCommission(caller, org) {
 export function canUpdateAgentCommission(caller, org) {
   if (!AGENT_ORG_TYPES.has(org.type)) return false;
   return caller.platformOperator === true;
+}
+
+/**
+ * Platform staff or agent O/A/V may list commission payout slips.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgType: string, role: string }[],
+ * }} caller
+ */
+export function canReadCommissionPayouts(caller) {
+  if (platformHasGlobalRead(caller)) return true;
+  return caller.memberships.some(
+    (m) =>
+      AGENT_ORG_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
+  );
+}
+
+/**
+ * Platform-wide commission payout history (including cascade).
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgType: string, role: string }[],
+ * }} caller
+ */
+export function canReadAllCommissionPayouts(caller) {
+  return platformHasGlobalRead(caller);
+}
+
+/**
+ * Parent agent Owner/Admin may prepare / mark agent→sub payouts.
+ * @param {{ memberships: { orgId: string, role: string }[] }} caller
+ * @param {string} payerOrgId
+ */
+export function canManageAgentCommissionPayout(caller, payerOrgId) {
+  if (!payerOrgId) return false;
+  const role = roleOnOrg(caller.memberships, payerOrgId);
+  return SETTINGS_ROLES.has(role);
 }

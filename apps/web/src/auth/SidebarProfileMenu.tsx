@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import type { Session } from "../merchant/api";
 import { roleLabel } from "../merchant/org";
 import { platformRoleLabel } from "../platform/org";
-import { SettingsNavIcon, SignOutNavIcon } from "../platform/NavIcons";
+import { ProfileNavIcon, SignOutNavIcon } from "../platform/NavIcons";
 import { SecuritySettingsPage } from "./SecuritySettingsPage";
 
 type Props = {
@@ -160,6 +160,9 @@ export function SidebarProfileMenu({
     e.stopPropagation();
   }
 
+  const profileMenuLabel = "Profile";
+  const ProfileMenuIcon = ProfileNavIcon;
+
   const ariaLabel = `${identity.name}, ${identity.role}, ${identity.email}`;
 
   return (
@@ -203,8 +206,8 @@ export function SidebarProfileMenu({
                 className="sidebar-profile__menu-item"
                 onClick={openSettings}
               >
-                <SettingsNavIcon className="sidebar-profile__menu-icon" />
-                Setting
+                <ProfileMenuIcon className="sidebar-profile__menu-icon" />
+                {profileMenuLabel}
               </button>
               <button
                 type="button"
@@ -236,7 +239,7 @@ export function SidebarProfileMenu({
               >
                 <header className="profile-settings-modal__head">
                   <div className="profile-settings-modal__head-copy">
-                    <h3 id={dialogTitleId}>Setting</h3>
+                    <h3 id={dialogTitleId}>{profileMenuLabel}</h3>
                     <p>Account, MFA, and session preferences for this user.</p>
                   </div>
                   <button

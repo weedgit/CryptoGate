@@ -45,7 +45,8 @@ export async function listOpenOrdersForMatch(db, filter) {
 
   const { rows } = await db.query(
     `SELECT id, matching_mode, payable_amount, receive_address, asset, network,
-            memo_or_tag, expires_at, status, required_confirmations
+            memo_or_tag, expires_at, status, required_confirmations,
+            COALESCE(underpay_tolerance, '0') AS underpay_tolerance
      FROM payment_orders
      WHERE asset = $1
        AND network = $2
@@ -79,6 +80,7 @@ export async function listOpenOrdersForMatch(db, filter) {
         : row.expires_at,
     status: row.status,
     requiredConfirmations: row.required_confirmations,
+    underpayTolerance: row.underpay_tolerance ?? "0",
   }));
 }
 
@@ -217,6 +219,10 @@ export async function applyMatchResult(db, input) {
     const { rowCount } = await db.query(
       `UPDATE payment_orders
        SET status = $1,
+           anomaly_reason = CASE
+             WHEN $1 = 'payment_anomaly' THEN $6
+             ELSE NULL
+           END,
            received_amount = CASE
              WHEN $1 = 'verifying' THEN $2
              ELSE received_amount
@@ -236,6 +242,7 @@ export async function applyMatchResult(db, input) {
         transfer.txHash,
         toWrite,
         WATCHER_MATCH_APPLY_STATUSES,
+        result.reason ?? null,
       ],
     );
 
@@ -323,11 +330,17 @@ export async function applyConfirmationUpdate(db, input) {
       `UPDATE payment_orders
        SET confirmations = $1,
            status = 'payment_anomaly',
+           anomaly_reason = COALESCE($4, anomaly_reason),
            updated_at = now()
        WHERE id = $2::uuid
          AND status = ANY($3::text[])
          AND tx_hash IS NOT NULL`,
-      [input.confirmations, input.orderId, WATCHER_CONFIRM_STATUSES],
+      [
+        input.confirmations,
+        input.orderId,
+        WATCHER_CONFIRM_STATUSES,
+        decision.reason ?? "reorg",
+      ],
     );
     return {
       updated: rowCount ?? 0,

@@ -7,7 +7,12 @@ import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
   canBootstrapPlatform,
   canCreateOrgUnderParent,
+  canDeleteMerchantSite,
 } from "./role-policy.mjs";
+import {
+  deleteOrgCascade,
+  summarizeOrgDeleteImpact,
+} from "./org-delete.mjs";
 import {
   agentDepthOfParent,
   countChildOrgs,
@@ -32,6 +37,72 @@ import {
 } from "../commercial/agent-commission-rules.mjs";
 
 const MANAGEABLE_ORG_TYPES = new Set(["agent", "agent_sub", "merchant"]);
+
+function wantsCascadeDelete(req) {
+  try {
+    const url = new URL(req.url ?? "/", "http://local");
+    const v = url.searchParams.get("cascade");
+    return v === "1" || v === "true";
+  } catch {
+    return false;
+  }
+}
+
+async function assertMayDeleteOrg(caller, row, orgId, res) {
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  if (!isVisibleOrg(visible, orgId)) {
+    sendError(res, 404, "not_found", "Org not found");
+    return false;
+  }
+  if (row.type === "platform") {
+    sendError(res, 400, "invalid_request", "Platform org cannot be deleted");
+    return false;
+  }
+  if (row.type === "merchant_site") {
+    if (!canDeleteMerchantSite(caller, row)) {
+      sendError(
+        res,
+        403,
+        "forbidden",
+        "Parent merchant Owner or Administrator required",
+      );
+      return false;
+    }
+    return true;
+  }
+  if (!caller.platformOperator) {
+    sendError(res, 403, "forbidden", "Platform Owner or Administrator required");
+    return false;
+  }
+  if (!MANAGEABLE_ORG_TYPES.has(row.type)) {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "Only agent or merchant accounts can be deleted here",
+    );
+    return false;
+  }
+  return true;
+}
+
+/**
+ * GET /v1/orgs/{orgId}/delete-preview
+ */
+export async function handleGetOrgDeletePreview(req, res, orgId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const row = await findOrgById(orgId);
+  if (!row) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+  if (!(await assertMayDeleteOrg(caller, row, orgId, res))) return;
+
+  const summary = await summarizeOrgDeleteImpact(orgId);
+  sendJson(res, 200, summary);
+}
 
 /**
  * GET /v1/orgs
@@ -129,29 +200,55 @@ export async function handleSetOrgStatus(req, res, orgId) {
 }
 
 /**
- * DELETE /v1/orgs/{orgId} — Platform Owner/Admin remove empty agent/merchant org.
+ * DELETE /v1/orgs/{orgId}?cascade=1
+ * - cascade=1: delete subtree, members, orders, bills, and keys (deepest children first)
+ * - default: single org only when empty (no children, no blocking FK rows)
  */
 export async function handleDeleteOrg(req, res, orgId) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
-
-  if (!caller.platformOperator) {
-    sendError(res, 403, "forbidden", "Platform Owner or Administrator required");
-    return;
-  }
 
   const row = await findOrgById(orgId);
   if (!row) {
     sendError(res, 404, "not_found", "Org not found");
     return;
   }
-  if (!MANAGEABLE_ORG_TYPES.has(row.type)) {
-    sendError(
-      res,
-      400,
-      "invalid_request",
-      "Only agent or merchant accounts can be deleted here",
-    );
+  if (!(await assertMayDeleteOrg(caller, row, orgId, res))) return;
+
+  const cascade = wantsCascadeDelete(req);
+
+  if (cascade) {
+    try {
+      const { deletedOrgIds, summary } = await deleteOrgCascade(orgId);
+      if (deletedOrgIds.length === 0) {
+        sendError(res, 404, "not_found", "Org not found");
+        return;
+      }
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId,
+        action: AUDIT_ACTIONS.orgDelete,
+        metadata: {
+          type: row.type,
+          name: row.name,
+          parentId: row.parent_id ?? null,
+          cascade: true,
+          deletedOrgIds,
+          orgCount: summary.orgCount,
+          memberCount: summary.memberCount,
+          orderCount: summary.orderCount,
+          billCount: summary.billCount,
+        },
+      });
+      res.writeHead(204);
+      res.end();
+    } catch (err) {
+      if (err?.code === "has_dependencies") {
+        sendError(res, 409, "has_dependencies", err.message);
+        return;
+      }
+      throw err;
+    }
     return;
   }
 
@@ -162,8 +259,10 @@ export async function handleDeleteOrg(req, res, orgId) {
       409,
       "has_children",
       row.type === "merchant"
-        ? "Remove merchant sites before deleting this merchant"
-        : "Remove or reassign child agents and merchants before deleting this agent",
+        ? "Remove merchant sites first, or delete with ?cascade=1"
+        : row.type === "merchant_site"
+          ? "Remove child orgs before deleting this site"
+          : "Remove child orgs first, or delete with ?cascade=1",
     );
     return;
   }
@@ -175,7 +274,9 @@ export async function handleDeleteOrg(req, res, orgId) {
         res,
         409,
         "has_dependencies",
-        "Account still has linked records (orders, bills, or keys). Pause instead.",
+        row.type === "merchant_site"
+          ? "Site still has linked records. Delete with cascade or remove them first."
+          : "Account still has linked records. Delete with cascade or pause instead.",
       );
       return;
     }
@@ -187,7 +288,7 @@ export async function handleDeleteOrg(req, res, orgId) {
     actorUserId: caller.userId,
     orgId,
     action: AUDIT_ACTIONS.orgDelete,
-    metadata: { type: row.type, name: row.name },
+    metadata: { type: row.type, name: row.name, parentId: row.parent_id ?? null },
   });
 
   res.writeHead(204);

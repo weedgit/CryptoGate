@@ -47,68 +47,63 @@ export function BillingSettingsPage({ session }: Props) {
   }, [orgId]);
 
   return (
-    <div className="settings-page">
-      <div className="settings-header">
-        <p className="muted" style={{ margin: 0 }}>
-          Platform fee tier and volume rate — display only. Changes come from your agent
-          or CryptoGate platform, not from this portal.
-        </p>
-        {canPay ? (
-          <Link className="btn-primary btn-inline" to="/merchant/service-bills">
-            View service bills
-          </Link>
-        ) : null}
-      </div>
-
+    <div className="plat-settings plat-settings--merchant">
       {error ? <p className="error">{error}</p> : null}
 
-      <div className="panel settings-panel">
-        <h2>Current plan</h2>
-        <div className="settings-field">
-          <span className="settings-label">Tier</span>
-          <span>{commercial ? tierLabel(commercial.tier) : "Loading…"}</span>
-        </div>
-        <div className="settings-field">
-          <span className="settings-label">Volume fee</span>
-          <span>
-            {commercial
-              ? `${commercial.volumeFeePercent}% (not deducted from payer on-chain)`
-              : "—"}
-          </span>
-        </div>
-        <div className="settings-field">
-          <span className="settings-label">Next period rate</span>
-          <span>
-            {commercial?.pendingVolumeFeePercent
-              ? `${commercial.pendingVolumeFeePercent}%`
-              : "—"}
-          </span>
-        </div>
-        <div className="settings-field">
-          <span className="settings-label">Subscription</span>
-          <span>
-            {commercial ? `$${commercial.subscriptionAmountUsd} / month` : "—"}
-          </span>
-        </div>
-        <div className="settings-field">
-          <span className="settings-label">Agent</span>
-          <span>{agentName}</span>
-        </div>
-        {commercial?.enterpriseApprovalStatus === "pending" ? (
-          <div className="alert-card tone-anomaly" style={{ marginTop: 16 }}>
-            <strong>PENDING APPROVAL</strong>
-            <p>Custom Enterprise rate awaits platform Owner review.</p>
+      <div className="plat-settings__grid plat-settings__grid--single">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Current plan</h2>
+            {canPay ? (
+              <Link className="btn-primary btn-inline btn-tiny" to="/merchant/service-bills">
+                View service bills
+              </Link>
+            ) : null}
           </div>
-        ) : null}
-      </div>
-
-      <div className="alert-card tone-teal">
-        <strong>SERVICE BILLS</strong>
-        <p>
-          Customer crypto payments go to your wallet. Service bills pay for CryptoGate
-          software separately — see{" "}
-          <Link to="/merchant/service-bills">Service Bills</Link>.
-        </p>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              Platform fee tier and volume rate — display only. Changes come from your
+              agent or CryptoGate platform, not from this portal.
+            </p>
+            <dl className="plat-settings__dl plat-settings__dl--rows">
+              <div>
+                <dt>Tier</dt>
+                <dd>{commercial ? tierLabel(commercial.tier) : "Loading…"}</dd>
+              </div>
+              <div>
+                <dt>Volume fee</dt>
+                <dd>
+                  {commercial
+                    ? `${commercial.volumeFeePercent}% (not deducted from payer on-chain)`
+                    : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>Next period rate</dt>
+                <dd>
+                  {commercial?.pendingVolumeFeePercent
+                    ? `${commercial.pendingVolumeFeePercent}%`
+                    : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>Subscription</dt>
+                <dd>
+                  {commercial ? `$${commercial.subscriptionAmountUsd} / month` : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>Agent</dt>
+                <dd>{agentName}</dd>
+              </div>
+            </dl>
+            {commercial?.enterpriseApprovalStatus === "pending" ? (
+              <p className="plat-settings__notice" role="status">
+                Custom Enterprise rate awaits platform Owner review.
+              </p>
+            ) : null}
+          </div>
+        </section>
       </div>
     </div>
   );

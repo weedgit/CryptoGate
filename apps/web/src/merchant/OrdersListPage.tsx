@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ApiError,
@@ -30,6 +31,12 @@ export function OrdersListPage({ session }: Props) {
   const [items, setItems] = useState<PaymentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topbarActionsSlot, setTopbarActionsSlot] =
+    useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,36 +70,40 @@ export function OrdersListPage({ session }: Props) {
 
   return (
     <div className="orders-page">
+      {topbarActionsSlot
+        ? createPortal(
+            <div className="org-agents__actions" aria-label="Order actions">
+              {canExport ? (
+                <button type="button" className="btn-ghost" onClick={onExport}>
+                  Export CSV
+                </button>
+              ) : null}
+              <Link className="btn-primary btn-inline" to="/merchant/orders/new">
+                + {cashierOnly ? "Create Order" : "New Payment Request"}
+              </Link>
+            </div>,
+            topbarActionsSlot,
+          )
+        : null}
+
       <div className="orders-toolbar">
-        <div className="filter-tabs" role="tablist">
+        <div className="org-agents__pills" role="group" aria-label="Order filter">
           <button
             type="button"
-            role="tab"
-            className={`filter-tab${filter === "all" ? " active" : ""}`}
-            aria-selected={filter === "all"}
+            className={`org-agents__pill${filter === "all" ? " is-active" : ""}`}
+            aria-pressed={filter === "all"}
             onClick={() => setFilter("all")}
           >
             All
           </button>
           <button
             type="button"
-            role="tab"
-            className={`filter-tab${filter === "anomalies" ? " active" : ""}`}
-            aria-selected={filter === "anomalies"}
+            className={`org-agents__pill${filter === "anomalies" ? " is-active" : ""}`}
+            aria-pressed={filter === "anomalies"}
             onClick={() => setFilter("anomalies")}
           >
             Anomalies
           </button>
-        </div>
-        <div className="orders-actions">
-          {canExport ? (
-            <button type="button" className="btn-ghost" onClick={onExport}>
-              Export CSV
-            </button>
-          ) : null}
-          <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            + {cashierOnly ? "Create Order" : "New Payment Request"}
-          </Link>
         </div>
       </div>
 

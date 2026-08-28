@@ -191,7 +191,7 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
       join(root, "src/auth/SidebarProfileMenu.tsx"),
       "utf8",
     );
-    assert.match(menu, /Setting/);
+    assert.match(menu, /Profile/);
     assert.match(menu, /Sign out/);
   });
 

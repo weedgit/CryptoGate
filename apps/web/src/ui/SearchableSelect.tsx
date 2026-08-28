@@ -26,6 +26,8 @@ type Props = {
   allowEmpty?: boolean;
   emptyLabel?: string;
   invalid?: boolean;
+  /** Accessible name when no visible label is wired via `htmlFor`. */
+  ariaLabel?: string;
 };
 
 type MenuPos = { top: number; left: number; width: number; maxHeight: number };
@@ -43,6 +45,7 @@ export function SearchableSelect({
   allowEmpty = true,
   emptyLabel,
   invalid = false,
+  ariaLabel,
 }: Props) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -69,6 +72,8 @@ export function SearchableSelect({
       return hay.includes(q);
     });
   }, [options, query]);
+
+  const showSearch = options.length > 5;
 
   const updatePos = () => {
     const el = triggerRef.current;
@@ -153,6 +158,7 @@ export function SearchableSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        aria-label={ariaLabel}
         onClick={() => {
           if (disabled) return;
           setOpen((v) => !v);
@@ -175,18 +181,20 @@ export function SearchableSelect({
               style={menuStyle}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="searchable-select__search">
-                <input
-                  ref={searchRef}
-                  type="search"
-                  className="searchable-select__search-input"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search…"
-                  aria-label="Search options"
-                  autoComplete="off"
-                />
-              </div>
+              {showSearch ? (
+                <div className="searchable-select__search">
+                  <input
+                    ref={searchRef}
+                    type="search"
+                    className="searchable-select__search-input"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search…"
+                    aria-label="Search options"
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
               <div className="searchable-select__list">
                 {allowEmpty ? (
                   <button

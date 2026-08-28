@@ -138,6 +138,16 @@ export function SettingsNavIcon({ className }: IconProps) {
   );
 }
 
+/** User silhouette — profile menu (Platform / Agent). */
+export function ProfileNavIcon({ className }: IconProps) {
+  return (
+    <IconShell className={className}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </IconShell>
+  );
+}
+
 export function SecurityNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>

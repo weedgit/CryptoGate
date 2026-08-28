@@ -424,6 +424,20 @@ describe("M3-64 §2.8 / M3-T06 underpay overpay wrong-network duplicate-hash", (
     assert.equal(over.reason, "mode_b_overpay");
   });
 
+  it("Mode B underpay within locked tolerance still matches", async () => {
+    const result = await matchTransaction({
+      mode: "B",
+      toAddress: MAIN,
+      amount: "49.99",
+      ...USDT_TRON,
+      txHash: "0xtol",
+      candidates: [candidate("ord-tol", MAIN, "50.00", { underpayTolerance: "0.01" })],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-tol");
+    assert.equal(result.reason, "mode_b_exact_match");
+  });
+
   it("wrong network does not bind (unmatched)", async () => {
     const result = await matchTransaction({
       mode: "B",

@@ -1,16 +1,24 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, CSSProperties, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import {
   AgentsNavIcon,
-  AuditLogNavIcon,
+  ArchitectureNavIcon,
   DashboardNavIcon,
+  FeesNavIcon,
   MerchantsNavIcon,
   ServiceBillsNavIcon,
+  SettingsNavIcon,
+  SidebarCollapseIcon,
   TeamNavIcon,
 } from "../platform/NavIcons";
+import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
+import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import { sessionIsAgentViewerOnly } from "./org";
+
+const SIDEBAR_KEY = "cryptogate.agent.sidebarCollapsed";
 
 type NavItem = {
   to: string;
@@ -22,6 +30,12 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { to: "/agent", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+  {
+    to: "/agent/architecture",
+    label: "Architecture",
+    matchPrefix: "/agent/architecture",
+    Icon: ArchitectureNavIcon,
+  },
   {
     to: "/agent/merchants",
     label: "Merchants",
@@ -44,7 +58,7 @@ const NAV: NavItem[] = [
     to: "/agent/commissions",
     label: "Commissions",
     matchPrefix: "/agent/commissions",
-    Icon: AuditLogNavIcon,
+    Icon: FeesNavIcon,
   },
   {
     to: "/agent/settings/team",
@@ -52,11 +66,16 @@ const NAV: NavItem[] = [
     matchPrefix: "/agent/settings/team",
     Icon: TeamNavIcon,
   },
+  {
+    to: "/agent/settings",
+    label: "Settings",
+    end: true,
+    Icon: SettingsNavIcon,
+  },
 ];
 
 type Props = {
   session: Session;
-  crumb?: string;
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
@@ -64,34 +83,86 @@ type Props = {
 
 export function AgentShell({
   session,
-  crumb,
   children,
   onSignOut,
   onSessionRefresh,
 }: Props) {
   const location = useLocation();
   const readOnly = sessionIsAgentViewerOnly(session);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [shellEnter, setShellEnter] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setShellEnter(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
 
   return (
-    <div className="shell agent-shell platform-shell">
-      <aside className="sidebar">
+    <div
+      className={`shell agent-shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}`}
+    >
+      <aside className="sidebar" aria-label="Agent navigation">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
-          <div>
-            <p className="logo-title">CryptoGate</p>
-            <span className="logo-badge">AGENT PORTAL</span>
-          </div>
+          {!collapsed ? (
+            <div className="logo-copy">
+              <p className="logo-title">CryptoGate</p>
+              <span className="logo-badge">AGENT PORTAL</span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            <SidebarCollapseIcon
+              className="sidebar-toggle-icon"
+              expanded={!collapsed}
+            />
+          </button>
         </div>
         <nav className="nav-list" aria-label="Agent">
           <div className="nav-group">
-            <p className="nav-label">Agent controls</p>
-            {NAV.map((item) => {
+            {!collapsed ? (
+              <p
+                className="nav-label"
+                style={{ ["--nav-delay" as string]: "120ms" } as CSSProperties}
+              >
+                Agent controls
+              </p>
+            ) : null}
+            {NAV.map((item, index) => {
               const { Icon } = item;
               return (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   end={item.end ?? false}
+                  title={item.label}
+                  aria-label={item.label}
+                  style={
+                    {
+                      ["--nav-delay" as string]: `${160 + index * 45}ms`,
+                    } as CSSProperties
+                  }
                   className={({ isActive }) => {
                     const path = location.pathname;
                     const prefixActive =
@@ -102,18 +173,17 @@ export function AgentShell({
                   }}
                 >
                   <Icon />
-                  <span>{item.label}</span>
+                  {!collapsed ? <span>{item.label}</span> : null}
                 </NavLink>
               );
             })}
           </div>
         </nav>
         <div className="sidebar-foot">
-          <p>SESSION // {session.email.split("@")[0]}</p>
-          <p>{readOnly ? "Viewer (read-only)" : "Agent operator"}</p>
           <SidebarProfileMenu
             session={session}
             variant="agent"
+            collapsed={collapsed}
             onSignOut={onSignOut}
             onSessionRefresh={onSessionRefresh}
           />
@@ -121,22 +191,34 @@ export function AgentShell({
       </aside>
       <div className="main">
         <header className="topbar">
-          <div className="topbar-left" />
+          <div className="topbar-left">
+            <ServerConnectionStatus />
+          </div>
           <div className="topbar-center" id="agent-topbar-center" />
           <div className="topbar-right">
-            <span className="net-pill">SUBTREE SCOPE</span>
-            <div className="profile">
-              <strong>{session.email.split("@")[0]}</strong>
-              <span>{readOnly ? "Viewer" : "Agent Executive"}</span>
-            </div>
+            <div className="topbar-actions" id="agent-topbar-actions" />
+            <button
+              type="button"
+              className={`alerts-bell${alertsOpen ? " is-open" : ""}`}
+              aria-label="Open alerts"
+              aria-expanded={alertsOpen}
+              aria-controls="alerts-drawer-title"
+              title="Alerts"
+              onClick={() => setAlertsOpen(true)}
+            >
+              <span
+                className="alerts-bell-icon"
+                style={{
+                  WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
+                  maskImage: "url(/icons/nav/bell-ring.svg)",
+                }}
+                aria-hidden
+              />
+              <span className="alerts-bell-dot" aria-hidden />
+            </button>
           </div>
         </header>
         <div className="body">
-          {crumb ? (
-            <div className="crumb">
-              Agent Console / <span className="here">{crumb}</span>
-            </div>
-          ) : null}
           {readOnly ? (
             <div className="banner banner-warn" style={{ marginBottom: 16 }}>
               Read-only mode — Viewer accounts cannot onboard merchants or change
@@ -146,6 +228,8 @@ export function AgentShell({
           {children}
         </div>
       </div>
+
+      <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </div>
   );
 }

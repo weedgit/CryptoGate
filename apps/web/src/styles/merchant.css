@@ -246,10 +246,155 @@ select {
   align-items: center;
 }
 
+.merchant-shell.platform-shell .topbar {
+  display: grid;
+}
+
+.portal-access-gate-wrap {
+  background: #070a10;
+}
+
+.portal-access-gate {
+  width: min(480px, 100%);
+}
+
+.portal-access-gate__card {
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.portal-access-gate__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.portal-access-gate__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.08);
+  border: 1px solid rgba(0, 212, 200, 0.14);
+}
+
+.portal-access-gate__title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.portal-access-gate__copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.portal-access-gate__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.portal-access-gate__role-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.portal-access-gate__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.portal-access-gate__btn {
+  width: 100%;
+  text-decoration: none;
+}
+
+.alert-summary-toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 96;
+  pointer-events: none;
+}
+
+.alert-summary-toast {
+  pointer-events: auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+.alert-summary-toast__open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px 12px 14px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alert-summary-toast__hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.alert-summary-toast__dismiss {
+  align-self: stretch;
+  width: 36px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.alert-summary-toast__dismiss:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .alerts-bell {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   border-radius: 6px;
@@ -257,6 +402,7 @@ select {
   border: 0;
   color: var(--muted);
   cursor: pointer;
+  overflow: visible;
   transition: color 160ms ease;
 }
 
@@ -267,8 +413,8 @@ select {
 }
 
 .alerts-bell-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: block;
   background-color: currentColor;
   -webkit-mask-size: contain;
@@ -281,13 +427,14 @@ select {
 
 .alerts-bell-dot {
   position: absolute;
-  top: 6px;
-  right: 8px;
+  top: 3px;
+  right: 4px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--anomaly);
-  box-shadow: 0 0 0 2px var(--sidebar);
+  box-shadow: 0 0 0 2px rgba(14, 17, 23, 0.92);
+  pointer-events: none;
 }
 
 /* Right-rail alerts drawer */
@@ -564,6 +711,17 @@ select {
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+.net-pill.merchant-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.net-pill.merchant-conn.is-warn {
+  background: rgba(251, 146, 60, 0.12);
+  color: var(--warn);
 }
 
 .profile-lockup {
@@ -2525,6 +2683,10 @@ select {
   gap: 16px;
 }
 
+.orders-toolbar--end {
+  justify-content: flex-end;
+}
+
 .orders-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2917,6 +3079,20 @@ select {
 .sites-row {
   text-decoration: none;
   color: inherit;
+}
+
+.merchant-site-danger {
+  border-color: rgba(255, 107, 107, 0.35);
+}
+
+.merchant-site-danger__btn {
+  color: var(--anomaly);
+  border-color: rgba(255, 107, 107, 0.45);
+}
+
+.merchant-site-danger__btn:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 107, 107, 0.18);
 }
 
 .settings-page {
@@ -3794,15 +3970,15 @@ select {
 
 .platform-shell .topbar {
   position: sticky;
-  top: 4px;
+  top: 8px;
   z-index: 40;
   flex-shrink: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  margin: 4px 50px 0;
-  padding: 4px 14px;
+  margin: 8px 50px 0;
+  padding: 7px 16px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   background: rgba(14, 17, 23, 0.08);
@@ -3810,6 +3986,7 @@ select {
   -webkit-backdrop-filter: blur(22px) saturate(1.2);
   box-shadow: none;
   min-height: 0;
+  overflow: visible;
 }
 
 .platform-shell .topbar-center {
@@ -3862,6 +4039,13 @@ select {
 }
 
 .platform-shell .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shell .topbar-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4314,11 +4498,25 @@ select {
   color: #7b8794;
 }
 
-.profile-settings-modal__close {
+.profile-settings-modal__close,
+.b3-commission-modal-backdrop .profile-settings-modal__close.b3-commission-modal__close {
   margin-top: -2px;
-  font-size: 32px;
-  padding: 0 6px;
-  line-height: 0.85;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 28px;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.profile-settings-modal__close:hover:not(:disabled),
+.b3-commission-modal-backdrop
+  .profile-settings-modal__close.b3-commission-modal__close:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .profile-settings-modal__body {
@@ -6311,7 +6509,9 @@ select {
 }
 
 .platform-shell .orders-head {
-  background: rgba(255, 255, 255, 0.03);
+  background: #141820;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
 }
 
 .platform-shell .orders-row:hover {
@@ -6923,6 +7123,10 @@ select {
   animation: dash-rise-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-fund-rail {
+  overflow: visible;
+}
+
 .platform-shell .dash-page.plat-dash .plat-overview-grid > *:nth-child(1) {
   animation-delay: 40ms;
 }
@@ -6985,6 +7189,227 @@ select {
 }
 .platform-shell .dash-page.plat-dash .dash-split > *:nth-child(2) {
   animation-delay: 300ms;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants {
+  margin-top: 18px;
+  padding: 16px 18px 18px;
+  animation: dash-rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 340ms;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__meta {
+  margin: 0;
+  font-size: 12px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__head-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__all {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #00d4c8);
+  text-decoration: none;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__all:hover {
+  text-decoration: underline;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.platform-shell .plat-commissions__topbar-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.platform-shell .plat-commissions__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.platform-shell .plat-commissions__eyebrow {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.platform-shell .plat-commissions__rate {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.platform-shell .plat-commissions__history-title {
+  margin: 28px 0 8px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.platform-shell .plat-commissions__row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.platform-shell .plat-commissions__addr code {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.platform-shell .plat-commissions-slip {
+  max-width: 560px;
+  width: min(560px, 94vw);
+}
+
+.platform-shell .plat-commissions-slip__qr {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+
+.platform-shell .plat-commissions-slip__qr img {
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
+
+.platform-shell .plat-commissions-slip__address {
+  display: block;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text);
+}
+
+.platform-shell .plat-commissions-slip__tx {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.platform-shell .plat-settings__dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.platform-shell .plat-settings__dl > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.platform-shell .plat-settings__dl dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.platform-shell .plat-settings__dl dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.platform-shell .plat-settings__pref-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.platform-shell .plat-settings__pref-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-shell .org-agents__col-tier,
+.platform-shell .org-agents__col-fee {
+  width: 88px;
+}
+
+.platform-shell .org-agents__col-volume {
+  width: 110px;
+}
+
+@media (max-width: 900px) {
+  .platform-shell .plat-commissions__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__empty {
+  margin: 8px 0 4px;
+  font-size: 13px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__table {
+  margin: 0;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants .org-agents__table-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants .org-agents__table-wrap {
+  max-height: min(420px, 52vh);
+  overflow: auto;
 }
 
 .platform-shell .dash-page.plat-dash .overview-charts__head {
@@ -8353,6 +8778,78 @@ select {
   padding-bottom: 0;
 }
 
+.platform-shell .plat-commission-card {
+  justify-content: space-between;
+  overflow: visible;
+}
+
+.platform-shell .plat-dash .plat-commission-card.panel {
+  overflow: visible;
+}
+
+.platform-shell .plat-commission-hero {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  min-height: auto;
+  padding: 2px 0;
+  text-align: center;
+  overflow: visible;
+}
+
+.platform-shell .plat-commission-hero__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--footer);
+  text-align: center;
+}
+
+.platform-shell .plat-commission-hero__value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  line-height: 1.15;
+  overflow: visible;
+}
+
+.platform-shell .plat-commission-hero__num {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: clamp(72px, 11vw, 108px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  padding: 0.02em 0;
+  color: #34d399;
+  text-shadow: 0 0 28px rgba(52, 211, 153, 0.45);
+}
+
+.platform-shell .plat-commission-hero__pct {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5.8vw, 54px);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: rgba(52, 211, 153, 0.82);
+}
+
+.platform-shell .plat-commission-hero__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--footer);
+  text-align: center;
+}
+
 .platform-shell .plat-stat-k {
   display: block;
   font-size: 11px;
@@ -8382,7 +8879,9 @@ select {
   justify-content: center;
   gap: 0;
   margin: 0;
-  padding: 22px 0 22px 2px;
+  /* Extra end padding: display figures with background-clip:text + negative
+     letter-spacing paint past the content box and get sliced otherwise. */
+  padding: 22px 14px 22px 2px;
   min-width: 0;
   min-height: 100%;
   height: auto;
@@ -8391,6 +8890,7 @@ select {
   border: 0;
   box-shadow: none;
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .platform-shell .plat-fund-rail__eyebrow {
@@ -8417,14 +8917,15 @@ select {
   column-gap: 14px;
   width: 100%;
   min-width: 0;
+  overflow: visible;
 }
 
 .platform-shell .plat-fund-rail__primary {
-  padding: 0 0 6px;
+  padding: 8px 0 10px;
 }
 
 .platform-shell .plat-fund-rail__secondary {
-  padding: 14px 0 8px;
+  padding: 18px 0 14px;
   border-top: 1px solid rgba(251, 191, 36, 0.14);
   border-bottom: 1px solid rgba(251, 191, 36, 0.14);
 }
@@ -8446,9 +8947,12 @@ select {
   flex-wrap: nowrap;
   gap: 10px;
   margin: 0;
-  line-height: 0.92;
+  line-height: 1.15;
   max-width: 100%;
   justify-self: end;
+  overflow: visible;
+  padding-block: 0.12em;
+  padding-inline-end: 0.06em;
 }
 
 .platform-shell .plat-fund-rail__total,
@@ -8459,14 +8963,21 @@ select {
   gap: 5px;
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
   color: var(--plat-gold-bright, #fbbf24);
   background-image: var(--plat-gold-grad);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   white-space: nowrap;
+  overflow: visible;
+  /* Keep last digit inside the clipped gradient paint box */
+  padding-block: 0.08em;
+  padding-inline: 0.04em 0.14em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .platform-shell .plat-fund-rail__total {
@@ -8546,6 +9057,14 @@ select {
   background-image: inherit;
   -webkit-background-clip: text;
   background-clip: text;
+  overflow: visible;
+}
+
+.platform-shell .plat-fund-rail__total .fund-amount,
+.platform-shell .plat-fund-rail__fees .fund-amount,
+.platform-shell .plat-fund-rail__collected .fund-amount {
+  /* Nested clip spans need end pad or the last glyph vanishes */
+  padding-inline-end: 0.1em;
 }
 
 .platform-shell .plat-fund-rail__currency {
@@ -13668,6 +14187,41 @@ select {
   filter: brightness(1.08);
 }
 
+.org-delete-modal__impact {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.org-delete-modal__children {
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.org-delete-modal__children ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.org-delete-modal__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.org-delete-modal__confirm {
+  background: #dc2626;
+  color: #fff;
+}
+
+.org-delete-modal__confirm:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 .platform-shell .b3-profile__link-btn {
   border: none;
   background: none;
@@ -14502,6 +15056,12 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 12px 16px;
+}
+
+.platform-shell .plat-bills__hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .platform-shell .plat-bills__period-filter {
@@ -15808,6 +16368,25 @@ select {
   min-width: 0;
 }
 
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form .btn-primary {
+  justify-self: start;
+  margin-top: 4px;
+}
+
 :is(.platform-shell, .profile-settings-modal) .plat-settings__card {
   display: flex;
   flex-direction: column;
@@ -16402,6 +16981,284 @@ select {
   }
 }
 
+/* C12 — Agent settings (agent detail / team chrome) */
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) {
+  gap: 18px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__head--agent {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__badge {
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__grid {
+  gap: 18px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__grid--single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 640px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__col {
+  gap: 18px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl--rows {
+  gap: 0;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl--rows > div {
+  grid-template-columns: minmax(120px, 38%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl--rows > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl--rows > div:first-child {
+  padding-top: 0;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl dd {
+  font-size: 14px;
+  color: #f1f5f9;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__dl dd.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__metric-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #34d399;
+  text-shadow: 0 0 24px rgba(52, 211, 153, 0.28);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__metric-pct {
+  font-size: 20px;
+  font-weight: 650;
+  color: rgba(52, 211, 153, 0.78);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__metric-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #34d399;
+  text-decoration: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link::after {
+  content: "→";
+  font-size: 14px;
+  line-height: 1;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link:hover {
+  color: #6ee7b7;
+  text-decoration: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde68a;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__notice code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: #fef3c7;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__payout-form {
+  gap: 14px;
+  margin-top: 0;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field {
+  display: grid;
+  gap: 6px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__input {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger:focus,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger:focus-visible,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__input:focus {
+  outline: none;
+  border-color: rgba(52, 211, 153, 0.45);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.12);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__submit {
+  justify-self: start;
+  min-height: 36px;
+  margin-top: 2px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__pref-list {
+  margin: 0;
+  gap: 10px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__pref-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__pref-list input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #34d399;
+}
+
 /* B4 — Onboard agent wizard (Figma b4-onboard-agent-wizard) */
 .platform-shell .b4-wizard-page {
   position: fixed;
@@ -16985,7 +17842,7 @@ select {
 }
 
 /* B15 — Platform team (Figma b15-platform-team) */
-.platform-shell .plat-team {
+:is(.platform-shell, .shell) .plat-team {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -16993,7 +17850,7 @@ select {
   flex: 1 1 auto;
 }
 
-.platform-shell .plat-team__invite-cta {
+:is(.platform-shell, .shell) .plat-team__invite-cta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -17006,24 +17863,24 @@ select {
   box-shadow: none;
 }
 
-.platform-shell .plat-team__invite-cta-plus {
+:is(.platform-shell, .shell) .plat-team__invite-cta-plus {
   font-size: 15px;
   line-height: 1;
   font-weight: 700;
 }
 
-.platform-shell .plat-team__banner {
+:is(.platform-shell, .shell) .plat-team__banner {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px 12px;
   align-items: start;
-  padding: 12px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 183, 3, 0.45);
-  background: rgba(255, 183, 3, 0.1);
+  padding: 14px 16px;
+  border-radius: var(--radius-card, 12px);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.06);
 }
 
-.platform-shell .plat-team__banner-label {
+:is(.platform-shell, .shell) .plat-team__banner-label {
   margin-top: 1px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -17037,127 +17894,156 @@ select {
   white-space: nowrap;
 }
 
-.platform-shell .plat-team__banner p {
+:is(.platform-shell, .shell) .plat-team__banner p {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
   color: #cbd5e1;
 }
 
-.platform-shell .plat-team__card {
-  border-radius: 12px;
-  background: #12181f;
-  border: 1px solid #1e2a36;
+:is(.platform-shell, .shell) .plat-team__card {
+  border-radius: var(--radius-card, 12px);
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   overflow: hidden;
   min-width: 0;
-  padding: 8px 8px 4px;
+  padding: 0;
 }
 
-.platform-shell .plat-team__card-head {
+:is(.platform-shell, .shell) .plat-team__card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 16px 8px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.platform-shell .plat-team__card-head h2 {
+:is(.platform-shell, .shell) .plat-team__card-head h2 {
   margin: 0 0 4px;
-  font-size: 16px;
+  font-family: var(--font-display);
+  font-size: 17px;
   font-weight: 650;
-  letter-spacing: -0.01em;
-  color: #f1f5f9;
+  letter-spacing: -0.02em;
+  color: var(--text, #f8fafc);
 }
 
-.platform-shell .plat-team__card-copy {
+:is(.platform-shell, .shell) .plat-team__card-copy {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
 }
 
-.platform-shell .plat-team__count {
+:is(.platform-shell, .shell) .plat-team__count {
   flex-shrink: 0;
   margin-top: 2px;
-  padding: 3px 9px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #8a9bb0;
-  background: rgba(30, 42, 54, 0.8);
-  border: 1px solid #1e2a36;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-.platform-shell .plat-team__empty {
+:is(.platform-shell, .shell) .plat-team__empty {
   margin: 0;
   padding: 28px 20px;
   color: var(--muted);
   font-size: 13px;
 }
 
-.platform-shell .plat-team__table-wrap {
+:is(.platform-shell, .shell) .plat-team__table-wrap {
   overflow-x: auto;
-  padding: 0 8px 8px;
+  padding: 0;
 }
 
-.platform-shell .plat-team__table {
+:is(.platform-shell, .shell) .plat-team__table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
+  font-size: 14px;
 }
 
-.platform-shell .plat-team__table th,
-.platform-shell .plat-team__table td {
-  padding: 12px 10px;
+:is(.platform-shell, .shell) .plat-team__table th,
+:is(.platform-shell, .shell) .plat-team__table td {
+  padding: 14px 16px;
   text-align: left;
   vertical-align: middle;
-  border-bottom: 1px solid #1e2a36;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.platform-shell .plat-team__table th {
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  color: #8a9bb0;
-  background: transparent;
+:is(.platform-shell, .shell) .plat-team__table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #94a3b8;
+  background: #121821;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.platform-shell .plat-team__table th:nth-child(1),
-.platform-shell .plat-team__table td:nth-child(1) {
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(1),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(1) {
   width: 22%;
+  padding-left: 20px;
 }
 
-.platform-shell .plat-team__table th:nth-child(2),
-.platform-shell .plat-team__table td:nth-child(2) {
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(2),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(2) {
   width: 26%;
 }
 
-.platform-shell .plat-team__table th:nth-child(3),
-.platform-shell .plat-team__table td:nth-child(3) {
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(3),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(3) {
   width: 12%;
 }
 
-.platform-shell .plat-team__table th:nth-child(4),
-.platform-shell .plat-team__table td:nth-child(4) {
-  width: 16%;
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(4),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(4) {
+  width: 14%;
 }
 
-.platform-shell .plat-team__table tbody tr {
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(5),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(5) {
+  width: 14%;
+}
+
+:is(.platform-shell, .shell) .plat-team__th-actions,
+:is(.platform-shell, .shell) .plat-team__td-actions {
+  width: 12%;
+  text-align: right;
+  padding-right: 20px;
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr {
   animation: plat-team-row-in 280ms ease both;
-  transition: transform 160ms ease;
+  transition: background-color 160ms ease;
 }
 
-.platform-shell .plat-team__table tbody tr:last-child td {
+:is(.platform-shell, .shell) .plat-team__table tbody tr:nth-child(odd) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.platform-shell .plat-team__table tbody tr:hover {
-  transform: scale(1.01);
-}
-
-.platform-shell .plat-team__table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+:is(.platform-shell, .shell) .plat-team__table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 @keyframes plat-team-row-in {
@@ -17172,208 +18058,253 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .platform-shell .plat-team__table tbody tr {
+  :is(.platform-shell, .shell) .plat-team__table tbody tr {
     animation: none;
   }
-
-  .platform-shell .plat-team__table tbody tr:hover {
-    transform: none;
-  }
 }
 
-.platform-shell .plat-team__member {
+:is(.platform-shell, .shell) .plat-team__member {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
-.platform-shell .plat-team__avatar {
+:is(.platform-shell, .shell) .plat-team__avatar {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #0b0f14;
-  background: #00d4c8;
-  border: 0;
-}
-
-.platform-shell .plat-team__name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
   font-size: 12px;
   font-weight: 650;
-  color: #fff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.platform-shell .plat-team__you,
-.platform-shell .plat-team__paused-tag {
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.platform-shell .plat-team__you {
-  color: #94a3b8;
+  color: #e2e8f0;
   background: rgba(148, 163, 184, 0.12);
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
-.platform-shell .plat-team__paused-tag {
-  color: #ffb703;
-  background: rgba(255, 183, 3, 0.1);
-  border: 1px solid rgba(255, 183, 3, 0.28);
-}
-
-.platform-shell .plat-team__email {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px;
-  color: #8a9bb0;
+:is(.platform-shell, .shell) .plat-team__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #f8fafc);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.platform-shell .plat-team__role {
+:is(.platform-shell, .shell) .plat-team__you,
+:is(.platform-shell, .shell) .plat-team__paused-tag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:is(.platform-shell, .shell) .plat-team__you {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+:is(.platform-shell, .shell) .plat-team__paused-tag {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+
+:is(.platform-shell, .shell) .plat-team__email {
+  font-size: 13px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.platform-shell, .shell) .plat-team__role {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  border: 0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
 }
 
-.platform-shell .plat-team__role.tone-owner {
-  color: #00d4c8;
-  background: rgba(0, 212, 200, 0.1);
+:is(.platform-shell, .shell) .plat-team__role.tone-owner {
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.18);
 }
 
-.platform-shell .plat-team__role.tone-admin {
-  color: #2ee59d;
-  background: rgba(46, 229, 157, 0.1);
+:is(.platform-shell, .shell) .plat-team__role.tone-admin {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.18);
 }
 
-.platform-shell .plat-team__role.tone-viewer {
-  color: #8a9bb0;
-  background: #1e2a36;
+:is(.platform-shell, .shell) .plat-team__role.tone-viewer {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.16);
 }
 
-.platform-shell .plat-team__role-select {
+:is(.platform-shell, .shell) .plat-team__role.tone-cashier {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.18);
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker {
+  max-width: 132px;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 28px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background:
+    rgba(255, 255, 255, 0.04)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  color: var(--text, #f8fafc);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus,
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus-visible {
+  outline: none;
+  border-color: rgba(52, 211, 153, 0.45);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.12);
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__caret {
+  display: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-select {
   width: 100%;
-  max-width: 120px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: 1px solid #2a3a4a;
-  background: #0b0f14;
-  color: #e2e8f0;
-  font-size: 12px;
+  max-width: 132px;
+  min-height: 32px;
+  padding: 6px 28px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background:
+    rgba(255, 255, 255, 0.04)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  color: var(--text, #f8fafc);
+  font-size: 13px;
+  font-weight: 500;
+  appearance: none;
+  cursor: pointer;
 }
 
-.platform-shell .plat-team__mfa {
+:is(.platform-shell, .shell) .plat-team__role-select:focus {
+  outline: none;
+  border-color: rgba(52, 211, 153, 0.45);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.12);
+}
+
+:is(.platform-shell, .shell) .plat-team__mfa {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 650;
-  color: #ffb703;
-  background: rgba(255, 183, 3, 0.1);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
-.platform-shell .plat-team__mfa.is-on {
-  color: #2ee59d;
-  background: rgba(46, 229, 157, 0.1);
+:is(.platform-shell, .shell) .plat-team__mfa.is-on {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.2);
 }
 
-.platform-shell .plat-team__mfa-dot {
+:is(.platform-shell, .shell) .plat-team__mfa-dot {
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: currentColor;
   flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
 }
 
-.platform-shell .plat-team__login {
-  font-family: var(--font-mono, ui-monospace, monospace);
+:is(.platform-shell, .shell) .plat-team__login {
   font-size: 13px;
-  color: #5a6a7a;
+  color: #64748b;
   white-space: nowrap;
 }
 
-.platform-shell .plat-team__actions {
+:is(.platform-shell, .shell) .plat-team__actions {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
-.platform-shell .plat-team__actions-empty {
-  color: var(--muted);
+:is(.platform-shell, .shell) .plat-team__actions-empty {
+  color: #64748b;
   font-size: 13px;
 }
 
-.platform-shell .plat-team__action {
-  padding: 5px 9px;
-  border-radius: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.06);
-  color: #cbd5e1;
-  font-size: 11.5px;
+:is(.platform-shell, .shell) .plat-team__action {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
 }
 
-.platform-shell .plat-team__action:hover:not(:disabled) {
-  border-color: rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.12);
-  color: #f1f5f9;
-}
-
-.platform-shell .plat-team__action.is-danger {
+:is(.platform-shell, .shell) .plat-team__action.is-danger {
   border-color: rgba(248, 113, 113, 0.28);
   color: #fecaca;
   background: rgba(248, 113, 113, 0.06);
 }
 
-.platform-shell .plat-team__action.is-danger:hover:not(:disabled) {
+:is(.platform-shell, .shell) .plat-team__action.is-danger:hover:not(:disabled) {
   border-color: rgba(248, 113, 113, 0.45);
   background: rgba(248, 113, 113, 0.12);
+  color: #fee2e2;
 }
 
-.platform-shell .plat-team__action:disabled {
+:is(.platform-shell, .shell) .plat-team__action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.platform-shell .plat-team__invite-form {
+:is(.platform-shell, .shell) .plat-team__invite-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.platform-shell .plat-team__field {
+:is(.platform-shell, .shell) .plat-team__field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.platform-shell .plat-team__field > span {
+:is(.platform-shell, .shell) .plat-team__field > span {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -17381,7 +18312,7 @@ select {
   color: var(--muted);
 }
 
-.platform-shell .plat-team__input {
+:is(.platform-shell, .shell) .plat-team__input {
   width: 100%;
   padding: 10px 12px;
   border-radius: 6px;
@@ -17391,18 +18322,18 @@ select {
   font-size: 13px;
 }
 
-.platform-shell .plat-team__input:focus {
+:is(.platform-shell, .shell) .plat-team__input:focus {
   outline: none;
   border-color: rgba(0, 212, 200, 0.65);
   box-shadow: 0 0 0 3px rgba(0, 212, 200, 0.12);
 }
 
-.platform-shell .plat-team__creds {
+:is(.platform-shell, .shell) .plat-team__creds {
   margin-top: 4px;
 }
 
-.platform-shell .plat-team__creds .panel,
-.platform-shell .plat-team__creds .settings-panel {
+:is(.platform-shell, .shell) .plat-team__creds .panel,
+:is(.platform-shell, .shell) .plat-team__creds .settings-panel {
   margin: 0;
   background: rgba(8, 12, 20, 0.65);
   border: 1px solid rgba(148, 163, 184, 0.12);
@@ -17567,7 +18498,7 @@ select {
 }
 
 @media (max-width: 720px) {
-  .platform-shell .plat-team__table {
+  :is(.platform-shell, .shell) .plat-team__table {
     table-layout: auto;
   }
 }
@@ -19350,4 +20281,372 @@ select {
 .platform-shell .b3-agent-detail__override {
   border-color: #ff5a6a;
   color: #ff5a6a;
+}
+
+/* Merchant portal — embedded access gate + settings nav */
+.merchant-access-gate {
+  display: flex;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.merchant-access-gate .portal-access-gate__card {
+  width: min(520px, 100%);
+}
+
+.plat-settings.plat-settings--merchant .plat-settings__grid--single {
+  max-width: 720px;
+}
+
+.plat-settings.plat-settings--merchant .plat-settings__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plat-settings.plat-settings--merchant .plat-settings__nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+/* Merchant list pages — filter pills match agent/platform */
+.merchant-shell.platform-shell .orders-toolbar .org-agents__pills {
+  flex-wrap: wrap;
+}
+
+.merchant-shell.platform-shell .cg-empty {
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-card, 12px);
+}
+
+.merchant-shell.platform-shell .bills-detail-page .bills-banner,
+.merchant-shell.platform-shell .plat-bills__hint {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.merchant-dash-overdue {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.platform-shell .dash-page.plat-dash .merchant-dash-orders {
+  margin-top: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  animation: dash-rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 340ms;
+}
+
+.platform-shell .dash-page.plat-dash .merchant-dash-orders .plat-dash-merchants__head {
+  padding-bottom: 14px;
+  margin-bottom: 0;
+}
+
+.platform-shell .merchant-dash-orders__table.orders-table {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.platform-shell .merchant-dash-orders__table .orders-head {
+  background: #141820;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-block: 10px;
+  padding-inline: 0;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-dash-orders__table .orders-row {
+  padding-inline: 0;
+  border-top-color: rgba(148, 163, 184, 0.08);
+}
+
+.platform-shell .merchant-dash-orders__table .orders-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Merchant service bills — align with platform list chrome */
+.platform-shell .plat-bills__currency {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.platform-shell .plat-bills__period-sep {
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.platform-shell .plat-bills__th-action,
+.platform-shell .plat-bills__td-action {
+  width: 72px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.08);
+  color: #6ee7b7;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.platform-shell .plat-bills__pay:hover {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.42);
+  color: #a7f3d0;
+  text-decoration: none;
+}
+
+.platform-shell .plat-bills__action-dash {
+  display: inline-block;
+  min-width: 44px;
+  text-align: center;
+}
+
+/* Merchant settlement — plat-settings cards */
+.plat-settlement.plat-settings {
+  gap: 16px;
+}
+
+.plat-settlement .plat-settings__grid--single {
+  max-width: 760px;
+}
+
+.plat-settlement__table-wrap.plat-bills__table-wrap {
+  margin-bottom: 4px;
+}
+
+.plat-settlement__form-title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  color: #f1f5f9;
+}
+
+.plat-settlement__form-note {
+  padding-top: 0;
+  border-top: 0;
+  margin-top: -6px;
+}
+
+.plat-settlement__field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .plat-settlement__field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.plat-settlement__modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .plat-settlement__modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.plat-settlement__mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.plat-settlement__mode strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.plat-settlement__mode span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.plat-settlement__mode em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+.plat-settlement__mode:hover:not(:disabled) {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plat-settlement__mode.is-selected {
+  border-color: rgba(52, 211, 153, 0.32);
+  background: rgba(52, 211, 153, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.plat-settlement__mode:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.plat-settlement__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+
+.plat-settlement__chips-empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.plat-settlement__chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #cbd5e1;
+}
+
+.plat-settlement__chip--free {
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.plat-settlement__chip--in_use {
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.28);
+  background: rgba(94, 234, 212, 0.08);
+}
+
+.plat-settlement__chip--cooldown {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.plat-settlement__confirm {
+  width: min(440px, 100%);
+}
+
+.plat-settlement__confirm .b3-commission-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.plat-settlement .plat-settings__card-head .b3-settlement__mode-pill {
+  margin-left: auto;
+}
+
+/* Merchant network catalog (NetworksPage) */
+.merchant-networks__chains h2,
+.merchant-networks__table-wrap h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+
+.merchant-networks__chain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.merchant-networks__chain-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.merchant-networks__chain-card h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.merchant-networks__chain-card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.merchant-networks__chain-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.merchant-networks__chain-card .status-badge {
+  margin-left: auto;
+}
+
+.merchant-networks__table-wrap {
+  margin-top: 16px;
+}
+
+.merchant-networks__net-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.merchant-networks__table .mono {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
 }

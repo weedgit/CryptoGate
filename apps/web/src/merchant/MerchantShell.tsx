@@ -1,6 +1,7 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
-import { getOrg, type Session } from "./api";
+import { type ComponentType, type ReactNode, useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
+import { AlertSummaryToast } from "../shared/AlertSummaryToast";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
 import {
   AlertsNavIcon,
@@ -16,7 +17,17 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
+import {
+  initMerchantAlertReads,
+  merchantAlertsSource,
+  merchantAlertsToastKey,
+  merchantAlertsToastMessage,
+  refreshMerchantAlerts,
+  subscribeMerchantAlerts,
+} from "./merchantAlerts";
 import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
+import type { Session } from "./api";
 
 type NavItem = {
   to: string;
@@ -60,6 +71,12 @@ const OWNER_GROUPS: NavGroup[] = [
         label: "Reports",
         matchPrefix: "/merchant/reports",
         Icon: ReportsNavIcon,
+      },
+      {
+        to: "/merchant/networks",
+        label: "Networks",
+        matchPrefix: "/merchant/networks",
+        Icon: IntegrationsNavIcon,
       },
       {
         to: "/merchant/settings/settlement",
@@ -129,12 +146,10 @@ const CASHIER_GROUPS: NavGroup[] = [
 
 type Props = {
   session: Session;
-  crumb: string;
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
   showCashierBanner?: boolean;
-  siteLabel?: string | null;
 };
 
 function navItemClass(
@@ -152,50 +167,63 @@ function navItemClass(
 
 export function MerchantShell({
   session,
-  crumb,
   children,
   onSignOut,
   onSessionRefresh,
   showCashierBanner = false,
-  siteLabel = null,
 }: Props) {
   const location = useLocation();
   const cashier = sessionIsCashierOnly(session);
   const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
   const merchantId = primaryMerchantOrgId(session);
-  const [resolvedSite, setResolvedSite] = useState<string | null>(siteLabel);
+  const [shellEnter, setShellEnter] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [alertToast, setAlertToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (siteLabel) {
-      setResolvedSite(siteLabel);
-      return;
-    }
-    if (!merchantId || cashier) {
-      setResolvedSite(null);
-      return;
-    }
+    const id = window.requestAnimationFrame(() => setShellEnter(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    initMerchantAlertReads(session.email);
+    return subscribeMerchantAlerts((items) => {
+      setUnreadAlerts(items.filter((a) => a.unread).length);
+    });
+  }, [session.email]);
+
+  useEffect(() => {
     let cancelled = false;
-    getOrg(merchantId)
-      .then((org) => {
-        if (!cancelled) setResolvedSite(org.name);
-      })
-      .catch(() => {
-        if (!cancelled) setResolvedSite(null);
-      });
+
+    const run = async () => {
+      const { urgentUnread } = await refreshMerchantAlerts(session);
+      if (cancelled || urgentUnread <= 0) return;
+      const toastKey = merchantAlertsToastKey(session.email);
+      if (sessionStorage.getItem(toastKey)) return;
+      sessionStorage.setItem(toastKey, "1");
+      setAlertToast(merchantAlertsToastMessage(urgentUnread));
+    };
+
+    void run();
+    const interval = window.setInterval(() => void run(), 60_000);
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
-  }, [siteLabel, merchantId, cashier]);
+  }, [cashier, merchantId, session]);
 
   return (
-    <div className="shell">
+    <div
+      className={`shell merchant-shell platform-shell${shellEnter ? " is-enter" : ""}`}
+    >
       <aside className="sidebar">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
           <div>
             <p className="logo-title">CryptoGate</p>
             <span className="logo-badge">
-              {cashier ? "CASHIER PORTAL" : "OWNER PORTAL"}
+              {cashier ? "Cashier" : "Merchant"}
             </span>
           </div>
         </div>
@@ -239,46 +267,52 @@ export function MerchantShell({
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
-            {!cashier && resolvedSite ? (
-              <div className="site-selector" title={resolvedSite}>
-                <span>{resolvedSite}</span>
-              </div>
-            ) : null}
+            <ServerConnectionStatus />
           </div>
+          <div className="topbar-center" id="merchant-topbar-center" />
           <div className="topbar-right">
-            <span className="net-pill">MAINNET ACTIVE</span>
-            {!cashier ? (
-              <Link
-                to="/merchant/settings/notifications"
-                className="alerts-bell"
-                aria-label="Alerts"
-                title="Alerts"
-              >
-                <span
-                  className="alerts-bell-icon"
-                  style={{
-                    WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
-                    maskImage: "url(/icons/nav/bell-ring.svg)",
-                  }}
-                  aria-hidden
-                />
-              </Link>
-            ) : null}
-            <div className="profile">
-              <strong>{session.email.split("@")[0]}</strong>
-              <span>{cashier ? "Terminal Operator" : "Merchant Executive"}</span>
-            </div>
+            <div className="topbar-actions" id="merchant-topbar-actions" />
+            <button
+              type="button"
+              className={`alerts-bell${alertsOpen ? " is-open" : ""}${unreadAlerts > 0 ? " has-unread" : ""}`}
+              aria-label="Open alerts"
+              aria-expanded={alertsOpen}
+              aria-controls="alerts-drawer-title"
+              title="Alerts"
+              onClick={() => setAlertsOpen(true)}
+            >
+              <span
+                className="alerts-bell-icon"
+                style={{
+                  WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
+                  maskImage: "url(/icons/nav/bell-ring.svg)",
+                }}
+                aria-hidden
+              />
+              {unreadAlerts > 0 ? (
+                <span className="alerts-bell-dot" aria-hidden />
+              ) : null}
+            </button>
           </div>
         </header>
         <div className="body">
-          <div className="crumb">
-            {cashier ? "Cashier Terminal" : "Merchant Terminal"} /{" "}
-            <span className="here">{crumb}</span>
-          </div>
           {cashier && showCashierBanner ? <CashierRestrictedBanner /> : null}
           {children}
         </div>
       </div>
+      <AlertsDrawer
+        open={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        source={merchantAlertsSource}
+      />
+      <AlertSummaryToast
+        message={alertToast}
+        onOpen={() => {
+          setAlertToast(null);
+          setAlertsOpen(true);
+        }}
+        onDismiss={() => setAlertToast(null)}
+      />
     </div>
   );
 }

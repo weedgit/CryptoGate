@@ -8,8 +8,11 @@ import {
   canReadAgentPayout,
   canUpdateAgentPayout,
 } from "../orgs/role-policy.mjs";
+import { findUserMfaById } from "../auth/users.mjs";
+import { verifyTotp } from "../auth/totp.mjs";
 import {
   agentPayoutAllowedOnOrgType,
+  agentPayoutCooldownMs,
   toAgentPayoutAddress,
   validateAgentPayoutBody,
 } from "./agent-payout-rules.mjs";
@@ -66,7 +69,7 @@ export async function handleGetAgentPayout(req, res, orgId) {
 }
 
 /**
- * PUT /v1/orgs/{orgId}/agent-payout
+ * PUT /v1/orgs/{orgId}/agent-payout — MFA + cool-down (same bar as settlement).
  */
 export async function handlePutAgentPayout(req, res, orgId) {
   const loaded = await loadVisibleAgentOrg(req, res, orgId);
@@ -91,11 +94,27 @@ export async function handlePutAgentPayout(req, res, orgId) {
     return;
   }
 
-  const row = await upsertAgentPayoutAddress({
+  const user = await findUserMfaById(loaded.caller.userId);
+  if (!user?.mfaEnrolled || !user.mfaSecret) {
+    sendError(
+      res,
+      403,
+      "mfa_required",
+      "MFA enrollment is required to change agent payout address",
+    );
+    return;
+  }
+  if (!verifyTotp(user.mfaSecret, validated.parsed.mfaCode)) {
+    sendError(res, 401, "invalid_mfa", "Invalid MFA code");
+    return;
+  }
+
+  const result = await upsertAgentPayoutAddress({
     orgId,
     asset: validated.parsed.asset,
     network: validated.parsed.network,
     address: validated.parsed.address,
+    cooldownMs: agentPayoutCooldownMs(),
   });
 
   await insertAuditEvent({
@@ -106,8 +125,12 @@ export async function handlePutAgentPayout(req, res, orgId) {
       asset: validated.parsed.asset,
       network: validated.parsed.network,
       address: validated.parsed.address,
+      kind: result.kind,
+      pendingActivatesAt: result.row.pending_activates_at
+        ? new Date(result.row.pending_activates_at).toISOString()
+        : null,
     },
   });
 
-  sendJson(res, 200, toAgentPayoutAddress(row));
+  sendJson(res, 200, toAgentPayoutAddress(result.row));
 }

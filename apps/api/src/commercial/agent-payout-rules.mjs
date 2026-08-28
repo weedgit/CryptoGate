@@ -2,6 +2,9 @@ import { getAssetNetworkConfig } from "@cryptogate/domain";
 
 const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 
+/** Default 24h — same bar as settlement; override with AGENT_PAYOUT_COOLDOWN_MS. */
+export const DEFAULT_AGENT_PAYOUT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
 /**
  * @param {string} orgType
  */
@@ -10,13 +13,23 @@ export function agentPayoutAllowedOnOrgType(orgType) {
 }
 
 /**
+ * @returns {number}
+ */
+export function agentPayoutCooldownMs() {
+  const raw = Number(process.env.AGENT_PAYOUT_COOLDOWN_MS);
+  if (Number.isFinite(raw) && raw >= 0) return raw;
+  return DEFAULT_AGENT_PAYOUT_COOLDOWN_MS;
+}
+
+/**
  * @param {unknown} body
- * @returns {{ ok: true, parsed: { asset: string, network: string, address: string } } | { ok: false, status: number, code: string, message: string }}
+ * @returns {{ ok: true, parsed: { asset: string, network: string, address: string, mfaCode: string } } | { ok: false, status: number, code: string, message: string }}
  */
 export function validateAgentPayoutBody(body) {
   const asset = typeof body?.asset === "string" ? body.asset.trim() : "";
   const network = typeof body?.network === "string" ? body.network.trim() : "";
   const address = typeof body?.address === "string" ? body.address.trim() : "";
+  const mfaCode = typeof body?.mfaCode === "string" ? body.mfaCode.trim() : "";
 
   if (!asset || !network || !address) {
     return {
@@ -34,6 +47,14 @@ export function validateAgentPayoutBody(body) {
       message: "Address must not contain whitespace",
     };
   }
+  if (mfaCode.length < 6 || mfaCode.length > 8) {
+    return {
+      ok: false,
+      status: 400,
+      code: "mfa_required",
+      message: "mfaCode is required to change agent payout address",
+    };
+  }
 
   const config = getAssetNetworkConfig(asset, network);
   if (!config) {
@@ -45,7 +66,7 @@ export function validateAgentPayoutBody(body) {
     };
   }
 
-  return { ok: true, parsed: { asset, network, address } };
+  return { ok: true, parsed: { asset, network, address, mfaCode } };
 }
 
 /**
@@ -54,6 +75,8 @@ export function validateAgentPayoutBody(body) {
  *   asset: string,
  *   network: string,
  *   address: string,
+ *   pending_address?: string | null,
+ *   pending_activates_at?: Date | string | null,
  *   updated_at?: Date | string,
  * }} row
  */
@@ -63,6 +86,10 @@ export function toAgentPayoutAddress(row) {
     asset: row.asset,
     network: row.network,
     address: row.address,
+    pendingAddress: row.pending_address ?? null,
+    pendingActivatesAt: row.pending_activates_at
+      ? new Date(row.pending_activates_at).toISOString()
+      : null,
     updatedAt:
       row.updated_at instanceof Date
         ? row.updated_at.toISOString()

@@ -96,6 +96,7 @@ export async function matchInboundTransfer(input) {
       network: o.network,
       memoOrTag: o.memoOrTag,
       expiresAt: o.expiresAt,
+      underpayTolerance: o.underpayTolerance ?? "0",
     }));
 
     const result = await matchFn({

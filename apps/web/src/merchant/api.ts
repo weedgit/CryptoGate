@@ -43,6 +43,8 @@ export type PaymentOrder = {
   expiresAt: string;
   createdAt?: string;
   createdBy?: string;
+  /** Present when status is payment_anomaly (match / reorg reason code). */
+  anomalyReason?: string | null;
 };
 
 export type OnChainDetails = {
@@ -290,6 +292,7 @@ export type SettingsSource = "merchant" | "inherit" | "override";
 export type MatchingModeSettings = {
   orgId: string;
   matchingMode: string;
+  underpayTolerance?: string;
   source?: SettingsSource;
   parentOrgId?: string | null;
   effectiveOrgId?: string;
@@ -365,7 +368,14 @@ export async function getMatchingMode(orgId: string): Promise<MatchingModeSettin
 export async function putMatchingMode(
   orgId: string,
   matchingMode: string,
+  opts?: { underpayTolerance?: string },
 ): Promise<MatchingModeSettings> {
+  const body: { matchingMode: string; underpayTolerance?: string } = {
+    matchingMode,
+  };
+  if (opts?.underpayTolerance != null) {
+    body.underpayTolerance = opts.underpayTolerance;
+  }
   const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/matching-mode`, {
     method: "PUT",
     credentials: "include",
@@ -373,7 +383,7 @@ export async function putMatchingMode(
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ matchingMode }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as MatchingModeSettings;
@@ -954,4 +964,39 @@ export async function createOrg(body: {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
+}
+
+export async function deleteOrg(
+  orgId: string,
+  opts?: { cascade?: boolean },
+): Promise<void> {
+  const q = opts?.cascade ? "?cascade=1" : "";
+  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok && res.status !== 204) await parseError(res);
+}
+
+export type OrgDeletePreview = {
+  rootOrgId: string;
+  orgCount: number;
+  childOrgCount: number;
+  memberCount: number;
+  orderCount: number;
+  billCount: number;
+  orgs: Array<{ id: string; type: string; name: string; depth: number }>;
+};
+
+export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgDeletePreview;
 }

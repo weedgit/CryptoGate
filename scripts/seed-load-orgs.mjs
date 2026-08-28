@@ -196,10 +196,10 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("owner@local.cryptogate");
+  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
   if (!platformOwner) {
     throw new Error(
-      "Missing owner@local.cryptogate — run `node scripts/seed-local.mjs` first.",
+      "Missing admin.platform@cryptogate.io — run `node scripts/seed-local.mjs` first.",
     );
   }
 
@@ -387,7 +387,7 @@ async function main() {
   console.log(`  Cashiers:    ${COUNT}  (${cashierEmail(1)} … ${cashierEmail(COUNT)})`);
   console.log(`  Cashier pw:  ${CASHIER_PASSWORD}`);
   console.log("  History:     payment orders + org_create audit (backdated)");
-  console.log("\nPlatform login: owner@local.cryptogate / LocalReview1!");
+  console.log("\nPlatform login: admin.platform@cryptogate.io / User123456!1");
 }
 
 main()

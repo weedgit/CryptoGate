@@ -12,7 +12,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
-  deleteOrg,
   getPlatformOrgs,
   getPlatformServiceBills,
   invalidatePlatformOrgList,
@@ -33,6 +32,8 @@ import {
   serviceBillStatusLabel,
 } from "./serviceBillStatus";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
+import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
+import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
@@ -364,6 +365,30 @@ export function MerchantsListPage({ session }: Props) {
     setError(text);
   }, []);
 
+  const {
+    deleteTarget,
+    deletePreview,
+    deletePreviewLoading,
+    deleteError,
+    deleteBusy,
+    openDelete,
+    closeDelete,
+    confirmDelete,
+  } = useOrgDeleteModal({
+    canManage,
+    onDeleted: async () => {
+      invalidatePlatformOrgList();
+      try {
+        const next = await getPlatformOrgs();
+        setOrgs(next);
+        if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
+      } catch {
+        /* ignore */
+      }
+    },
+    showOk,
+  });
+
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
@@ -641,37 +666,6 @@ export function MerchantsListPage({ session }: Props) {
     else setSuspendTarget(null);
   }
 
-  async function onDelete(row: OrgAccount) {
-    if (!canManage) return;
-    if (
-      !window.confirm(
-        `Delete merchant “${row.name}”? This cannot be undone. Pause instead if the merchant has history.`,
-      )
-    ) {
-      return;
-    }
-    setBusyId(row.id);
-    setMsg(null);
-    setError(null);
-    try {
-      await deleteOrg(row.id);
-      invalidatePlatformOrgList();
-      setOrgs((prev) => prev.filter((o) => o.id !== row.id));
-      showOk(`Deleted ${row.name}.`);
-      if (selectedId === row.id) clearSelection();
-    } catch (err) {
-      showErr(
-        err instanceof ApiError
-          ? err.code === "rate_limited"
-            ? "Too many requests — wait a moment and retry."
-            : err.message
-          : "Delete failed",
-      );
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   const searchingByEmail =
     !loading &&
     looksLikeEmailQuery(query) &&
@@ -942,7 +936,7 @@ export function MerchantsListPage({ session }: Props) {
               }
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
-              onDelete={() => void onDelete(selected)}
+              onDelete={() => openDelete(selected)}
               onOrgPatched={(next) => {
                 setOrgs((prev) =>
                   prev.map((o) => (o.id === next.id ? { ...o, ...next } : o)),
@@ -984,6 +978,19 @@ export function MerchantsListPage({ session }: Props) {
             }
           }}
           onConfirm={(reason) => void confirmSuspend(reason)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <OrgDeleteConfirmModal
+          orgId={deleteTarget.id}
+          orgName={deleteTarget.name}
+          busy={deleteBusy}
+          error={deleteError}
+          preview={deletePreview}
+          previewLoading={deletePreviewLoading}
+          onClose={closeDelete}
+          onConfirm={() => void confirmDelete()}
         />
       ) : null}
     </div>

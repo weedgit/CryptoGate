@@ -53,16 +53,13 @@ export function SitesListPage({ session }: Props) {
 
   return (
     <div className="sites-page">
-      <div className="orders-toolbar">
-        <p className="muted" style={{ margin: 0 }}>
-          Merchant (site) accounts under your parent merchant org.
-        </p>
-        {canManage && multiLocation ? (
+      {canManage && multiLocation ? (
+        <div className="orders-toolbar">
           <Link className="btn-primary btn-inline" to="/merchant/sites/new">
             + Add site
           </Link>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error ? <p className="error">{error}</p> : null}
       {loading ? (
@@ -94,7 +91,7 @@ export function SitesListPage({ session }: Props) {
           <div className="orders-head" role="row">
             <span>SITE</span>
             <span>ORG ID</span>
-            <span>INHERIT</span>
+            <span>STATUS</span>
             <span />
           </div>
           {sites.map((site) => (
@@ -106,7 +103,9 @@ export function SitesListPage({ session }: Props) {
             >
               <span className="order-id">{site.name}</span>
               <span className="mono muted">{truncateAddress(site.id, 8, 6)}</span>
-              <span className="muted">Parent defaults</span>
+              <span className={site.status === "paused" ? "tone-warn" : "muted"}>
+                {site.status === "paused" ? "Paused" : "Active"}
+              </span>
               <span className="muted">View →</span>
             </Link>
           ))}

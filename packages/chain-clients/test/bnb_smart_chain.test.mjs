@@ -26,7 +26,7 @@ describe("@cryptogate/chain-clients/bnb_smart_chain stub", () => {
     assert.equal(cfg.usdtContractAddress, USDT_BNB_SMART_CHAIN.contractAddress);
     assert.equal(cfg.requiredConfirmations, USDT_BNB_SMART_CHAIN.requiredConfirmations);
     assert.equal(cfg.decimals, 18);
-    assert.equal(USDT_BNB_SMART_CHAIN.enabled, false);
+    assert.equal(USDT_BNB_SMART_CHAIN.enabled, true);
     assert.notEqual(cfg.requiredConfirmations, 19);
     assert.notEqual(cfg.decimals, 6);
   });

@@ -97,7 +97,7 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
 describe("@cryptogate/web merchant D17 cashier shell", () => {
   it("limits nav and guards owner-only routes for cashiers", () => {
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
-    assert.match(shell, /CASHIER PORTAL/);
+    assert.match(shell, /Cashier/);
     assert.match(shell, /Cashier terminal/);
     assert.match(shell, /CASHIER_GROUPS/);
     assert.match(shell, /My Orders/);
@@ -239,6 +239,7 @@ describe("@cryptogate/web merchant D7-D9 sites", () => {
   it("creates merchant_site via org API", () => {
     const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
     assert.match(api, /createOrg/);
+    assert.match(api, /deleteOrg/);
     const create = readFileSync(join(root, "src/merchant/CreateSitePage.tsx"), "utf8");
     assert.match(create, /merchant_site/);
     assert.match(create, /multi-location|inherit/i);
@@ -246,7 +247,8 @@ describe("@cryptogate/web merchant D7-D9 sites", () => {
     assert.match(list, /multi_location/);
     const detail = readFileSync(join(root, "src/merchant/SiteDetailPage.tsx"), "utf8");
     assert.match(detail, /SiteOverridesPanel/);
-    assert.match(detail, /inherit/i);
+    assert.match(detail, /deleteOrg/);
+    assert.match(detail, /Delete site/);
     const panel = readFileSync(
       join(root, "src/merchant/SiteOverridesPanel.tsx"),
       "utf8",

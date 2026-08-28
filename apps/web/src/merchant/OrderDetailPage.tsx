@@ -14,6 +14,7 @@ import {
   confirmationProgress,
   formatExpiryRemaining,
   formatShortTime,
+  anomalyReasonLabel,
   orderStatusLabel,
   orderStatusTone,
 } from "./orderStatus";
@@ -192,8 +193,11 @@ export function OrderDetailPage() {
             <div className="anomaly-panel" role="alert">
               <p className="anomaly-title">System Anomaly Flagged</p>
               <p>
+                {order.anomalyReason
+                  ? `Reason: ${anomalyReasonLabel(order.anomalyReason) ?? order.anomalyReason}. `
+                  : ""}
                 {received != null
-                  ? `Amount or match mismatch — expected ${amount} ${asset}, received ${received} ${asset}. Reconcile manually; there is no Mark paid action.`
+                  ? `Expected ${amount} ${asset}, received ${received} ${asset}. Reconcile manually; there is no Mark paid action.`
                   : "Payment anomaly on this order. Reconcile manually with support; there is no Mark paid action."}
               </p>
             </div>

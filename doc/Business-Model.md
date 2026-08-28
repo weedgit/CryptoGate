@@ -212,19 +212,35 @@ Volume fee **follows merchant size**, not one fixed rate for everyone. Platform 
 
 ## Agent commission (Decision 1)
 
-**Default: Platform pays agent (Option A).**
+**Locked: Platform pays agent (Option A), cascade for nesting.**
 
-- Merchant account receives **one service bill**: subscription + volume fee.
-- Agent commission = agreed **percentage of platform fee collected** paid **by CryptoGate to the agent account** monthly.
+- Merchant account receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
+- **Platform pays top-level agents only** (agent whose parent is Platform): commission = agreed **% of platform fee collected** on that agent’s **full subtree** (merchants under the agent and under agent (sub) accounts). **Collected** = volume fees on **paid** service bills only (not issued/overdue).
+- **Agent pays agent (sub) accounts** from the parent agent’s own funds (not from platform treasury). Same pattern: statement → payout slip (QR + payment link to **sub-agent payout address**) → pay → save history. Platform may view cascade payout history read-only.
 - Agent never receives a share of payer on-chain payments.
+- Merchants do **not** pay a separate agent fee.
 
-**Optional (Option B — enterprise contract only):** merchant pays an additional agent service fee for local onboarding/support; must be explicit in contract.
+### Payout slips (QR + payment link)
+
+Commission payouts reuse the familiar checkout pattern, but the **receiver is the payee’s payout address** (not the platform billing wallet):
+
+| Step | Merchant service bill | Platform → agent | Agent → sub-agent |
+| --- | --- | --- | --- |
+| Statement ready | Bill issued | Monthly commission ready | Sub-agent share ready |
+| Slip | QR + link → platform wallet | QR + link → **agent payout address** | QR + link → **sub-agent payout address** |
+| Who pays | Merchant | Platform treasury / ops | Parent agent |
+| History | Service bill paid | Platform commission payout record | Agent sub-payout record (platform may view read-only) |
+
+Both sides keep an immutable history (statement + paidAt + tx/ref) in the API.
+
+Agent payout address changes require **MFA** and a **cool-down** (same bar as merchant settlement), with audit log.
 
 ## Locked product decisions (Phase 1)
 
 | # | Topic | Decision |
 | --- | --- | --- |
-| **1** | Agent commission payer | **Default: Platform pays agent** (rebate from platform fee). Merchant-paid agent fee allowed only on signed enterprise contracts. |
+| **1** | Agent commission payer | **Platform pays top-level agents** (rebate from platform fee collected). **Agents pay their agent (sub) accounts.** No merchant-paid agent fee. |
+| **1b** | Cascade payout | Platform does **not** pay agent (sub) accounts directly. Subtree fees roll into the top-level agent statement; parent agent settles subs. |
 | **2** | Fee tiers | **Tiered by merchant size** (Small / Mid / Enterprise). Platform Owner sets tiers and bands; agent assigns rate within band; **Enterprise custom rates require Platform Owner approval**. |
 | **3** | Merchant (site) wallet | **Merchant Owner approval** required. **Platform Owner override** only for compliance, with audit log. |
 | **4** | Agent nesting depth | **Platform Owner** sets **max agent depth** (global). Phase 1 **default: 2** (agent → agent (sub) → merchant). Agents may not create another agent level when depth would exceed the limit; audit log records changes to this setting. |

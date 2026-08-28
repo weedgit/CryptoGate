@@ -15,6 +15,7 @@ import {
   canViewMatchingModeSettings,
   canRequestSiteOverride,
   canDecideSiteOverride,
+  canDeleteMerchantSite,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -392,6 +393,38 @@ describe("role policy", () => {
         },
         site,
       ),
+      false,
+    );
+  });
+
+  it("allows parent merchant Owner/Admin to delete empty merchant sites", () => {
+    const site = { id: "s1", type: "merchant_site", parent_id: "m1" };
+    const platformOp = { platformOperator: true, memberships: [] };
+    assert.equal(canDeleteMerchantSite(platformOp, site), true);
+    assert.equal(
+      canDeleteMerchantSite({ platformOperator: false, memberships: [merchantOwner] }, site),
+      true,
+    );
+    assert.equal(
+      canDeleteMerchantSite(
+        {
+          platformOperator: false,
+          memberships: [{ orgId: "m1", role: "administrator", orgType: "merchant" }],
+        },
+        site,
+      ),
+      true,
+    );
+    assert.equal(
+      canDeleteMerchantSite({ platformOperator: false, memberships: [merchantViewer] }, site),
+      false,
+    );
+    assert.equal(
+      canDeleteMerchantSite({ platformOperator: false, memberships: [merchantCashier] }, site),
+      false,
+    );
+    assert.equal(
+      canDeleteMerchantSite(platformOp, { id: "m1", type: "merchant", parent_id: "a1" }),
       false,
     );
   });

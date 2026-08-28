@@ -43,6 +43,7 @@ const ACTION_LABEL: Record<string, string> = {
   xpub_put: "xPub updated",
   webhook_register: "Webhook registered",
   webhook_delete: "Webhook deleted",
+  webhook_resend: "Webhook delivery resent",
   service_bill_issue: "Service bill issued",
   service_bill_mark_paid: "Bill marked paid",
   service_bill_void: "Bill voided",
@@ -56,6 +57,8 @@ const ACTION_LABEL: Record<string, string> = {
   enterprise_rate_decide: "Enterprise rate decided",
   agent_payout_put: "Agent payout updated",
   agent_commission_put: "Agent commission updated",
+  commission_payout_upsert: "Commission payout prepared",
+  commission_payout_mark_paid: "Commission payout marked paid",
   password_reset_request: "Password reset requested",
   password_reset_complete: "Password reset completed",
 };

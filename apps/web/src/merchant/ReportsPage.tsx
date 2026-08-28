@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ApiError,
   listOrders,
@@ -68,6 +69,12 @@ export function ReportsPage({ session }: Props) {
   const [items, setItems] = useState<PaymentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topbarActionsSlot, setTopbarActionsSlot] =
+    useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,18 +151,14 @@ export function ReportsPage({ session }: Props) {
 
   return (
     <div className="reports-page">
-      <div className="orders-toolbar">
-        <p className="muted" style={{ margin: 0 }}>
-          Payment order volume and export — separate from service bills.
-        </p>
-        {canExport ? (
-          <div className="orders-actions">
+      {canExport && topbarActionsSlot
+        ? createPortal(
             <button type="button" className="btn-primary" onClick={onExport}>
               Export CSV
-            </button>
-          </div>
-        ) : null}
-      </div>
+            </button>,
+            topbarActionsSlot,
+          )
+        : null}
 
       <div className="reports-filters panel">
         <div className="reports-filter-row">

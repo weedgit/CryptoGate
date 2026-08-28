@@ -8,10 +8,16 @@
     ".": "./index.mjs",
     "./tron": "./tron/index.mjs",
     "./ethereum": "./ethereum/index.mjs",
-    "./bnb_smart_chain": "./bnb_smart_chain/index.mjs"
+    "./bnb_smart_chain": "./bnb_smart_chain/index.mjs",
+    "./polygon": "./polygon/index.mjs",
+    "./arbitrum_one": "./arbitrum_one/index.mjs",
+    "./base": "./base/index.mjs",
+    "./solana": "./solana/index.mjs",
+    "./ton": "./ton/index.mjs",
+    "./bitcoin": "./bitcoin/index.mjs"
   },
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/chain-clients: tron + ethereum + bnb_smart_chain ready')\"",
+    "build": "node -e \"console.log('@cryptogate/chain-clients: all Phase 1 networks ready')\"",
     "typecheck": "node -e \"process.exit(0)\"",
     "test": "pnpm --filter @cryptogate/domain build && node --test test/*.test.mjs",
     "lint": "node -e \"process.exit(0)\""

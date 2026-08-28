@@ -26,6 +26,7 @@ import {
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
+import { SearchableSelect } from "../ui/SearchableSelect";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -170,6 +171,21 @@ export function OnboardMerchantPage({ session }: Props) {
   const selectedBand = useMemo(
     () => feeTiers.find((t) => t.tier === form.commercial.tier) ?? null,
     [feeTiers, form.commercial.tier],
+  );
+
+  const tierOptions = useMemo(
+    () =>
+      (["small", "mid", "enterprise"] as MerchantTier[]).map((t) => {
+        const band = feeTiers.find((b) => b.tier === t);
+        return {
+          id: t,
+          label: tierLabel(t),
+          hint: band
+            ? `${band.volumeFeeMinPercent}–${band.volumeFeeMaxPercent}%`
+            : undefined,
+        };
+      }),
+    [feeTiers],
   );
 
   function patch<K extends keyof WizardState>(key: K, value: WizardState[K]) {
@@ -432,27 +448,24 @@ export function OnboardMerchantPage({ session }: Props) {
                     <label className="b4-field__label" htmlFor="tier">
                       Merchant tier
                     </label>
-                    <FieldControl icon="user">
-                      <select
+                    <FieldControl>
+                      <SearchableSelect
                         id="tier"
-                        className="b4-field__control"
                         value={form.commercial.tier}
-                        onChange={(e) => {
-                          const tier = e.target.value as MerchantTier;
+                        options={tierOptions}
+                        allowEmpty={false}
+                        placeholder="Select tier…"
+                        onChange={(id) => {
+                          const tier = id as MerchantTier;
                           patch("commercial", {
                             tier,
-                            volumeFeePercent: defaultVolumeForTier(feeTiers, tier),
+                            volumeFeePercent: defaultVolumeForTier(
+                              feeTiers,
+                              tier,
+                            ),
                           });
                         }}
-                      >
-                        {(["small", "mid", "enterprise"] as MerchantTier[]).map(
-                          (t) => (
-                            <option key={t} value={t}>
-                              {tierLabel(t)}
-                            </option>
-                          ),
-                        )}
-                      </select>
+                      />
                     </FieldControl>
                     {selectedBand ? (
                       <p className="b4-field__hint">

@@ -1,6 +1,6 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import {
-  ASSET_NETWORK_REGISTRY,
+  listAssetNetworkRegistry,
   NetworkId,
   type AssetCode,
   type AssetNetworkConfig,
@@ -16,6 +16,7 @@ import {
 const NETWORK_SHORT_LABEL: Record<string, string> = {
   [NetworkId.Ethereum]: "Ethereum",
   [NetworkId.Tron]: "Tron",
+  [NetworkId.TronNile]: "Tron Nile",
   [NetworkId.BnbSmartChain]: "BNB Smart Chain",
   [NetworkId.Polygon]: "Polygon PoS",
   [NetworkId.ArbitrumOne]: "Arbitrum One",
@@ -183,7 +184,7 @@ export function AssetNetworkTables({
   const selectable = Boolean(onSelect);
 
   const rows = useMemo(
-    () => sortRows(ASSET_NETWORK_REGISTRY, sort),
+    () => sortRows(listAssetNetworkRegistry(), sort),
     [sort],
   );
 

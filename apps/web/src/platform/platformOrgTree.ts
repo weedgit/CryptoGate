@@ -47,9 +47,11 @@ function compareByName(a: { name: string }, b: { name: string }): number {
 /** Full platform org hierarchy from a flat org list — no extra API calls. */
 export function buildPlatformOrgForest(
   orgs: ReadonlyArray<OrgAccount>,
+  options?: { expectedRootIds?: ReadonlySet<string> },
 ): PlatformOrgForest {
   const byIdOrg = new Map(orgs.map((o) => [o.id, o]));
   const childrenRaw = new Map<string, OrgAccount[]>();
+  const expectedRoots = options?.expectedRootIds;
 
   for (const o of orgs) {
     if (!o.parentId) continue;
@@ -95,7 +97,15 @@ export function buildPlatformOrgForest(
 
   for (const o of orgs) {
     if (!o.parentId || !byIdOrg.has(o.parentId)) {
-      if (o.parentId && !byIdOrg.has(o.parentId)) orphanCount += 1;
+      // Parent missing from this list — only flag as orphan when it is not an
+      // intentional scoped root (e.g. agent subtree excludes Platform parent).
+      if (
+        o.parentId &&
+        !byIdOrg.has(o.parentId) &&
+        !expectedRoots?.has(o.id)
+      ) {
+        orphanCount += 1;
+      }
       roots.push(buildNode(o));
     }
   }

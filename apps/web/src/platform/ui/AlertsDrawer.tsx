@@ -14,6 +14,8 @@ export type AlertItem = {
   href?: string;
   hrefLabel?: string;
   unread?: boolean;
+  /** When true, surfaces in login summary toast (Tier A). Default false. */
+  urgent?: boolean;
   tone?: "info" | "warn" | "ok" | "anomaly";
 };
 
@@ -25,21 +27,36 @@ const FILTERS: { id: AlertCategory; label: string }[] = [
   { id: "system", label: "System" },
 ];
 
+export type AlertsSource = {
+  list: () => AlertItem[];
+  subscribe: (listener: (items: AlertItem[]) => void) => () => void;
+  markRead?: (id: string) => void;
+  markAllRead?: () => void;
+};
+
+const platformAlertsSource: AlertsSource = {
+  list: listLivePlatformAlerts,
+  subscribe: subscribePlatformAlerts,
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
+  source?: AlertsSource;
 };
 
 /**
- * Right-rail alerts drawer (UI-Page-Spec A9) for platform portal.
+ * Right-rail alerts drawer (UI-Page-Spec A9) for platform, agent, and merchant portals.
  */
-export function AlertsDrawer({ open, onClose }: Props) {
+export function AlertsDrawer({ open, onClose, source = platformAlertsSource }: Props) {
   const [filter, setFilter] = useState<AlertCategory>("all");
-  const [items, setItems] = useState<AlertItem[]>(() => listLivePlatformAlerts());
+  const [items, setItems] = useState<AlertItem[]>(() => source.list());
+  const managesUnread = source.markRead != null;
 
   useEffect(() => {
-    return subscribePlatformAlerts((live) => {
+    return source.subscribe((live) => {
       setItems((prev) => {
+        if (managesUnread) return live;
         const liveIds = new Set(live.map((l) => l.id));
         const keptMeta = prev.filter((a) => liveIds.has(a.id));
         return live.map((l) => {
@@ -48,7 +65,7 @@ export function AlertsDrawer({ open, onClose }: Props) {
         });
       });
     });
-  }, []);
+  }, [source, managesUnread]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,13 +90,16 @@ export function AlertsDrawer({ open, onClose }: Props) {
   const unreadCount = items.filter((a) => a.unread).length;
 
   const markAllRead = () => {
-    setItems((prev) => prev.map((a) => ({ ...a, unread: false })));
+    if (source.markAllRead) source.markAllRead();
+    else setItems((prev) => prev.map((a) => ({ ...a, unread: false })));
   };
 
   const markRead = (id: string) => {
-    setItems((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, unread: false } : a)),
-    );
+    if (source.markRead) source.markRead(id);
+    else
+      setItems((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, unread: false } : a)),
+      );
   };
 
   if (!open) return null;

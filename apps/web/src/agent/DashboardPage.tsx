@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { AssetNetworkTables } from "../platform/AssetNetworkTables";
 import {
@@ -20,9 +20,7 @@ import {
   ChartMaximizeButton,
   ChartMaximizeOverlay,
 } from "../platform/ui/ChartMaximize";
-import { OverviewTable, type OverviewChartCard } from "../platform/ui/OverviewTable";
 import { VolumeScopeToggle } from "../platform/ui/VolumeScopeToggle";
-import { METRIC_CHART_COLORS } from "../platform/ui/chartColors";
 import {
   chartTitleFromFilter,
   isSameSelection,
@@ -32,34 +30,42 @@ import {
   type VolumeScope,
   type VolumeSelection,
 } from "../platform/volumeFilter";
+import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
 import {
   ApiError,
   getAgentCommission,
-  listAuditLog,
   listOrders,
   listOrgs,
   listServiceBills,
-  type AuditLogEntry,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
   type Session,
 } from "./api";
 import {
-  isOrgUnderAgent,
   merchantsInAgentSubtree,
   orgsInAgentSubtree,
   subAgentsInAgentSubtree,
 } from "./agentSubtree";
-import {
-  primaryAgentOrgId,
-  sessionCanOnboardMerchant,
-  sessionIsAgentViewerOnly,
-} from "./org";
+import { primaryAgentOrgId } from "./org";
 import { commissionHistoryFromBills } from "../commercial/commissionStatements";
 import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
 
 type Props = { session: Session };
+
+type MerchantBillStatus = "overdue" | "issued" | "paid";
+
+type MerchantDashRow = {
+  id: string;
+  name: string;
+  parentName: string;
+  onboardedLabel: string;
+  onboardedAt: number;
+  status: "active" | "paused";
+  billStatus: MerchantBillStatus | null;
+  volume: number;
+  feesPaid: number;
+};
 
 type PeriodId = "today" | "yesterday" | "7d" | "15d" | "1m" | "2m";
 
@@ -68,21 +74,14 @@ type AccountSlice = { total: number; active: number; idle: number; pause: number
 type OverviewStats = {
   merchants: AccountSlice;
   subAgents: AccountSlice;
-  newMerchants: number;
   invoicesIssued: number;
   invoicesPaid: number;
   invoicesOverdue: number;
   volume: number;
   fees: number;
-  openBills: number;
   overdueMerchants: number;
   commissionMtd: number;
-};
-
-type MerchantVolumeRow = {
-  orgId: string;
-  name: string;
-  volume: number;
+  commissionPercent: string;
 };
 
 const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
@@ -97,20 +96,15 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
 const EMPTY_STATS: OverviewStats = {
   merchants: { total: 0, active: 0, idle: 0, pause: 0 },
   subAgents: { total: 0, active: 0, idle: 0, pause: 0 },
-  newMerchants: 0,
   invoicesIssued: 0,
   invoicesPaid: 0,
   invoicesOverdue: 0,
   volume: 0,
   fees: 0,
-  openBills: 0,
   overdueMerchants: 0,
   commissionMtd: 0,
+  commissionPercent: DEFAULT_AGENT_COMMISSION_PERCENT,
 };
-
-function isMerchantType(t: string) {
-  return t === "merchant" || t === "merchant_site";
-}
 
 function isSettledOrder(status: string) {
   return status === "completed" || status === "confirmed";
@@ -246,11 +240,43 @@ function accountSlice(
 }
 
 function formatMoneyFigure(n: number): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatUsd(n: number): string {
   return `$${formatMoneyFigure(n)}`;
+}
+
+function formatOnboarded(iso?: string): { label: string; at: number } {
+  if (!iso) return { label: "—", at: 0 };
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return { label: "—", at: 0 };
+  return {
+    label: new Date(t).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    at: t,
+  };
+}
+
+function resolveMerchantBillStatus(
+  bills: ServiceBill[],
+): MerchantBillStatus | null {
+  let hasIssued = false;
+  let hasPaid = false;
+  for (const bill of bills) {
+    if (bill.status === "overdue") return "overdue";
+    if (bill.status === "issued") hasIssued = true;
+    else if (bill.status === "paid") hasPaid = true;
+  }
+  if (hasIssued) return "issued";
+  if (hasPaid) return "paid";
+  return null;
 }
 
 function periodVolume(
@@ -274,11 +300,13 @@ function volumeSeries(
   orders: PaymentOrder[],
   days: string[],
   filter: VolumeChartFilter = { scope: "all" },
+  orgScope: Set<string> | null = null,
 ): number[] {
   const map = new Map(days.map((d) => [d, 0]));
   for (const o of orders) {
     if (!isSettledOrder(o.status)) continue;
     if (!matchesVolumeFilter(o, filter)) continue;
+    if (orgScope && (!o.orgId || !orgScope.has(o.orgId))) continue;
     const key = dayKey(o.expiresAt);
     if (!key || !map.has(key)) continue;
     const n = Number(o.payableAmount.amount);
@@ -315,37 +343,6 @@ function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
   return { issued, paid, overdue };
 }
 
-function topMerchantsByVolume(
-  merchants: OrgAccount[],
-  orders: PaymentOrder[],
-  from: Date,
-  to: Date,
-  limit = 8,
-): MerchantVolumeRow[] {
-  const byId = new Map(merchants.map((m) => [m.id, m]));
-  const parents = merchants.filter((m) => m.type === "merchant");
-  const clean = new Map<string, number>();
-  for (const o of orders) {
-    if (!isSettledOrder(o.status) || !o.orgId) continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    let id = o.orgId;
-    const org = byId.get(id);
-    if (org?.type === "merchant_site" && org.parentId) id = org.parentId;
-    if (!parents.some((p) => p.id === id)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (!Number.isFinite(n)) continue;
-    clean.set(id, (clean.get(id) ?? 0) + n);
-  }
-  return parents
-    .map((m) => ({
-      orgId: m.id,
-      name: m.name,
-      volume: clean.get(m.id) ?? 0,
-    }))
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, limit);
-}
-
 function CardHelp({ text }: { text: string }) {
   return (
     <span className="plat-card-help">
@@ -369,7 +366,7 @@ function AccountRows({
   return (
     <div className="plat-stat-block">
       <p className="plat-stat-block__title">{title}</p>
-      <div className="plat-stat-quad">
+      <div className="plat-stat-triple">
         <div>
           <span className="plat-stat-k">Total</span>
           <span className="plat-stat-v">{slice.total}</span>
@@ -377,10 +374,6 @@ function AccountRows({
         <div>
           <span className="plat-stat-k">Active</span>
           <span className="plat-stat-v">{slice.active}</span>
-        </div>
-        <div>
-          <span className="plat-stat-k">Idle</span>
-          <span className="plat-stat-v">{slice.idle}</span>
         </div>
         <div>
           <span className="plat-stat-k">Pause</span>
@@ -409,8 +402,6 @@ function MetricLines({
 }
 
 export function DashboardPage({ session }: Props) {
-  const isViewer = useMemo(() => sessionIsAgentViewerOnly(session), [session]);
-  const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
 
   const [period, setPeriod] = useState<PeriodId | "custom">("7d");
@@ -423,8 +414,9 @@ export function DashboardPage({ session }: Props) {
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [bills, setBills] = useState<ServiceBill[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [periodDayKeys, setPeriodDayKeys] = useState<string[]>([]);
-  const [topMerchants, setTopMerchants] = useState<MerchantVolumeRow[]>([]);
   const [volumeScope, setVolumeScope] = useState<VolumeScope>("total");
   const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(null);
   const [volumeMaximized, setVolumeMaximized] = useState(false);
@@ -435,6 +427,7 @@ export function DashboardPage({ session }: Props) {
   const chartPanelRef = useRef<HTMLDivElement>(null);
   const healthCardRef = useRef<HTMLDivElement>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  const navigate = useNavigate();
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("agent-topbar-center"));
@@ -500,17 +493,10 @@ export function DashboardPage({ session }: Props) {
     const to = parseDateInput(endDate, true);
     const dayKeys = buildDayKeys(from, to);
     try {
-      const [allOrgs, allOrders, allBills, createEvents, commission] =
-        await Promise.all([
+      const [allOrgs, allOrders, allBills, commission] = await Promise.all([
         listOrgs(),
         listOrders({ limit: 500 }).catch(() => [] as PaymentOrder[]),
         listServiceBills().catch(() => [] as ServiceBill[]),
-        listAuditLog({
-          action: "org_create",
-          from: from.toISOString(),
-          to: to.toISOString(),
-          limit: 200,
-        }).catch(() => [] as AuditLogEntry[]),
         getAgentCommission(agentId).catch(() => null),
       ]);
 
@@ -527,16 +513,6 @@ export function DashboardPage({ session }: Props) {
       const overdueOrgIds = new Set(
         bills.filter((b) => b.status === "overdue").map((b) => b.orgId),
       );
-      let newMerchants = 0;
-      const byId = new Map(allOrgs.map((o) => [o.id, o]));
-      for (const e of createEvents) {
-        if (!inWindow(e.createdAt, from, to)) continue;
-        const type = String(e.metadata.type ?? "");
-        const orgId = e.orgId;
-        if (!isMerchantType(type) || !orgId) continue;
-        if (isOrgUnderAgent(orgId, agentId, allOrgs, byId)) newMerchants += 1;
-      }
-
       const monthKey = new Date().toISOString().slice(0, 7);
       const commissionPct =
         commission?.commissionPercent?.trim() ||
@@ -556,20 +532,19 @@ export function DashboardPage({ session }: Props) {
           children,
         ),
         subAgents: accountSlice(subAgentRows, leaves, children),
-        newMerchants,
         invoicesIssued: invoices.issued,
         invoicesPaid: invoices.paid,
         invoicesOverdue: invoices.overdue,
         volume: periodVolume(orders, from, to),
         fees: feeCollected(bills, from, to),
-        openBills: bills.filter((b) => b.status === "issued" || b.status === "overdue")
-          .length,
         overdueMerchants: overdueOrgIds.size,
         commissionMtd: mtdRow?.commissionAmount ?? 0,
+        commissionPercent: commissionPct,
       });
       setOrders(orders);
+      setBills(bills);
+      setOrgs(subtreeOrgs);
       setPeriodDayKeys(dayKeys);
-      setTopMerchants(topMerchantsByVolume(merchantRows, orders, from, to));
     } catch (err) {
       const text =
         err instanceof ApiError
@@ -632,88 +607,59 @@ export function DashboardPage({ session }: Props) {
     };
   }, [orders, chartWindow, volumeFilter]);
 
-  const metricCards: OverviewChartCard[] = useMemo(() => {
-    const { keys } = chartWindow;
-    const labels = keys.length ? keys : dayLabels;
-    const money = (n: number) => (
-      <span className="fund-amount">
-        {formatMoneyFigure(n)}
-        <span className="plat-fund-currency">$</span>
-      </span>
-    );
-    const fmtMoney = (n: number) => `$${formatMoneyFigure(n)}`;
-    const fmtCount = (n: number) =>
-      Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const feeBuckets =
-      stats.volume > 0
-        ? series.map((v) => (v / Math.max(stats.volume, 1)) * stats.fees)
-        : keys.map(() => 0);
+  const merchantRows = useMemo((): MerchantDashRow[] => {
+    const { from, to } = chartWindow;
+    const children = buildChildrenMap(orgs);
+    const byId = new Map(orgs.map((o) => [o.id, o]));
+    const billsByOrg = new Map<string, ServiceBill[]>();
+    for (const bill of bills) {
+      const list = billsByOrg.get(bill.orgId);
+      if (list) list.push(bill);
+      else billsByOrg.set(bill.orgId, [bill]);
+    }
 
-    return [
-      {
-        id: "invoices",
-        category: "Subtree",
-        title: "Service bills",
-        help: "Service bills issued / paid in the selected period for merchants in your subtree.",
-        value: stats.invoicesIssued,
-        compareLabel: `${stats.invoicesPaid} paid · ${stats.invoicesOverdue} overdue`,
-        series: keys.map(() => stats.invoicesIssued),
-        seriesLabels: labels,
-        seriesMetric: "Bills",
-        formatSeriesValue: fmtCount,
-        chartColor: METRIC_CHART_COLORS.invoices,
-        seriesStatus: "ready",
-        moreHref: "/agent/service-bills",
-      },
-      {
-        id: "fees",
-        category: "Subtree",
-        title: "Platform fees",
-        help: "Volume fees collected via paid service bills (not agent commission).",
-        value: money(stats.fees),
-        compareLabel: periodLabel,
-        series: feeBuckets,
-        seriesLabels: labels,
-        seriesMetric: "Fees",
-        formatSeriesValue: fmtMoney,
-        chartColor: METRIC_CHART_COLORS.fees,
-        seriesStatus: "ready",
-        moreHref: "/agent/service-bills",
-      },
-      {
-        id: "merchants",
-        category: "Subtree",
-        title: "Merchants",
-        help: "Merchant accounts in your channel subtree.",
-        value: stats.merchants.total,
-        compareLabel: `${stats.subAgents.total} agent (sub) · ${stats.newMerchants} new`,
-        series: keys.map((_, i) =>
-          Math.max(stats.merchants.total - (keys.length - 1 - i), 0),
-        ),
-        seriesLabels: labels,
-        seriesMetric: "Merchants",
-        formatSeriesValue: fmtCount,
-        chartColor: METRIC_CHART_COLORS.accounts,
-        seriesStatus: "ready",
-        moreHref: "/agent/merchants",
-      },
-      {
-        id: "commission",
-        category: "Subtree",
-        title: "Commission MTD",
-        help: "Rebate from platform fees on subtree service bills. Not taken from payer on-chain payments.",
-        value: fmtMoney(stats.commissionMtd),
-        compareLabel: "C10 statements",
-        series: keys.map(() => stats.commissionMtd),
-        seriesLabels: labels,
-        seriesMetric: "Commission",
-        formatSeriesValue: fmtMoney,
-        chartColor: METRIC_CHART_COLORS.fees,
-        seriesStatus: "ready",
-        moreHref: "/agent/commissions",
-      },
-    ];
-  }, [chartWindow, dayLabels, periodLabel, series, stats]);
+    const merchants = orgs.filter((o) => o.type === "merchant");
+    const rows: MerchantDashRow[] = merchants.map((m) => {
+      const scope = subtreeIds(m.id, children);
+      let volume = 0;
+      for (const o of orders) {
+        if (!isSettledOrder(o.status) || !o.orgId || !scope.has(o.orgId)) {
+          continue;
+        }
+        if (!inWindow(o.expiresAt, from, to)) continue;
+        const n = Number(o.payableAmount.amount);
+        if (Number.isFinite(n)) volume += n;
+      }
+
+      let feesPaid = 0;
+      const merchantBills = billsByOrg.get(m.id) ?? [];
+      for (const b of merchantBills) {
+        if (b.status !== "paid") continue;
+        if (!inWindow(b.paidAt ?? b.dueAt, from, to)) continue;
+        const n = Number(b.totalAmount);
+        if (Number.isFinite(n)) feesPaid += n;
+      }
+
+      const parent = m.parentId ? byId.get(m.parentId) : null;
+      const onboarded = formatOnboarded(m.createdAt);
+      return {
+        id: m.id,
+        name: m.name,
+        parentName: parent?.name ?? "—",
+        onboardedLabel: onboarded.label,
+        onboardedAt: onboarded.at,
+        status: m.status === "paused" ? "paused" : "active",
+        billStatus: resolveMerchantBillStatus(merchantBills),
+        volume,
+        feesPaid,
+      };
+    });
+
+    return rows.sort((a, b) => {
+      if (b.onboardedAt !== a.onboardedAt) return b.onboardedAt - a.onboardedAt;
+      return a.name.localeCompare(b.name);
+    });
+  }, [orgs, orders, bills, chartWindow]);
 
   if (loading) {
     return <p className="muted">Loading agent overview…</p>;
@@ -722,10 +668,15 @@ export function DashboardPage({ session }: Props) {
   return (
     <div className="dash-page plat-dash">
       <AuthToast message={error} tone="error" onDismiss={dismissError} />
-      {isViewer ? (
-        <div className="alert-card tone-info">
-          <strong>READ-ONLY</strong>
-          <p>Viewer role — mutate actions are hidden.</p>
+
+      {stats.overdueMerchants > 0 ? (
+        <div className="plat-dash-actions" aria-label="Quick actions">
+          <Link
+            className="btn-ghost"
+            to="/agent/service-bills?status=overdue"
+          >
+            Overdue bills ({stats.overdueMerchants})
+          </Link>
         </div>
       ) : null}
 
@@ -788,37 +739,10 @@ export function DashboardPage({ session }: Props) {
         <div className="panel plat-overview-card glass-tone-blue">
           <div className="plat-overview-card__head">
             <h2>Accounts</h2>
-            <CardHelp text="Merchants and agent (sub) accounts in your subtree: totals, payment activity, idle, and paused." />
+            <CardHelp text="Merchants and agent (sub) accounts in your subtree: totals, payment activity, and paused." />
           </div>
           <AccountRows title="Merchants" slice={stats.merchants} />
           <AccountRows title="Agent (sub)" slice={stats.subAgents} />
-        </div>
-
-        <div className="panel plat-overview-card glass-tone-emerald">
-          <div className="plat-overview-card__head">
-            <h2>Alerts</h2>
-            <CardHelp text={`Subtree signals for ${periodLabel}.`} />
-          </div>
-          <MetricLines
-            rows={[
-              { label: "New merchants", value: stats.newMerchants },
-              { label: "Open bills", value: stats.openBills },
-              { label: "Overdue merchants", value: stats.overdueMerchants },
-            ]}
-          />
-          <div className="action-row" style={{ marginTop: 14 }}>
-            {canOnboard ? (
-              <Link className="btn-secondary btn-inline" to="/agent/merchants/new">
-                Onboard merchant
-              </Link>
-            ) : null}
-            <Link
-              className="btn-ghost btn-inline"
-              to="/agent/service-bills?status=overdue"
-            >
-              Overdue bills
-            </Link>
-          </div>
         </div>
 
         <div className="panel plat-overview-card glass-tone-amber">
@@ -837,40 +761,91 @@ export function DashboardPage({ session }: Props) {
           />
         </div>
 
-        <section className="plat-fund-list" aria-label="Funds">
-          <div className="plat-fund-row">
-            <div className="plat-fund-row__meta">
-              <span className="plat-fund-row__label">Volume</span>
-              <span className="plat-fund-currency">$</span>
+        <div className="panel plat-overview-card glass-tone-emerald plat-commission-card">
+          <div className="plat-overview-card__head">
+            <h2>Commission</h2>
+            <CardHelp text="Your agreed commission rate on platform fees collected from your subtree." />
+          </div>
+          <div
+            className="plat-commission-hero"
+            aria-label={`Your commission rate: ${stats.commissionPercent} percent`}
+          >
+            <p className="plat-commission-hero__eyebrow">Your rate</p>
+            <p className="plat-commission-hero__value">
+              <span className="plat-commission-hero__num">
+                {stats.commissionPercent}
+              </span>
+              <span className="plat-commission-hero__pct" aria-hidden>
+                %
+              </span>
+            </p>
+            <p className="plat-commission-hero__hint">
+              Platform fee collected
+            </p>
+          </div>
+        </div>
+
+        <section className="plat-fund-rail" aria-label="Funds">
+          <div className="plat-fund-rail__eyebrow">
+            <span>Funds</span>
+            <CardHelp
+              text={`Period settled volume / billed fees, and commission MTD for ${periodLabel}.`}
+            />
+          </div>
+          <div className="plat-fund-rail__primary">
+            <div className="plat-fund-rail__copy">
+              <p className="plat-fund-rail__pair-labels">
+                <span>Volume</span>
+                <span aria-hidden>/</span>
+                <span>Fees</span>
+              </p>
+              <span className="plat-fund-rail__hint">
+                Settled volume / billed volume fees
+              </span>
             </div>
-            <p className="plat-fund-row__value">
-              <span className="fund-amount">
-                {stats.volume.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}
+            <p className="plat-fund-rail__pair" aria-label="Volume and fees">
+              <span className="plat-fund-rail__total">
+                <span className="plat-fund-rail__currency" aria-hidden>
+                  $
+                </span>
+                <span className="fund-amount">
+                  {stats.volume.toLocaleString(undefined, {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+              </span>
+              <span className="plat-fund-rail__slash" aria-hidden>
+                /
+              </span>
+              <span className="plat-fund-rail__fees">
+                <span className="plat-fund-rail__currency" aria-hidden>
+                  $
+                </span>
+                <span className="fund-amount">
+                  {stats.fees.toLocaleString(undefined, {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
               </span>
             </p>
           </div>
-          <div className="plat-fund-row">
-            <div className="plat-fund-row__meta">
-              <span className="plat-fund-row__label">Fees</span>
-              <span className="plat-fund-currency">$</span>
+          <div className="plat-fund-rail__secondary">
+            <div className="plat-fund-rail__copy">
+              <span className="plat-fund-rail__label">Commission</span>
+              <span className="plat-fund-rail__hint">Rebate MTD</span>
             </div>
-            <p className="plat-fund-row__value">
+            <p className="plat-fund-rail__collected">
+              <span className="plat-fund-rail__currency" aria-hidden>
+                $
+              </span>
               <span className="fund-amount">
-                {stats.fees.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
+                {stats.commissionMtd.toLocaleString(undefined, {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
                 })}
               </span>
-            </p>
-          </div>
-          <div className="plat-fund-row">
-            <div className="plat-fund-row__meta">
-              <span className="plat-fund-row__label">Commission</span>
-              <span className="plat-fund-currency">$</span>
-            </div>
-            <p className="plat-fund-row__value">
-              <span className="fund-amount">—</span>
             </p>
           </div>
         </section>
@@ -959,34 +934,6 @@ export function DashboardPage({ session }: Props) {
               onSelect={onVolumeSelect}
             />
           </div>
-          <div className="agent-top-merchants" style={{ marginTop: 16 }}>
-            <div className="plat-overview-card__head">
-              <h2 style={{ fontSize: 14, margin: 0 }}>Top merchants</h2>
-              <CardHelp text={`Settled subtree volume by merchant in ${periodLabel}.`} />
-            </div>
-            {topMerchants.length === 0 ? (
-              <p className="muted" style={{ marginTop: 10, fontSize: 13 }}>
-                No settled volume in this period.
-              </p>
-            ) : (
-              <ul className="plat-metric-lines" style={{ marginTop: 10 }}>
-                {topMerchants.map((row) => (
-                  <li key={row.orgId} className="plat-metric-line">
-                    <Link
-                      className="plat-metric-line__label"
-                      to={`/agent/merchants/${row.orgId}`}
-                      style={{ color: "inherit", textDecoration: "none" }}
-                    >
-                      {row.name}
-                    </Link>
-                    <span className="plat-metric-line__value">
-                      {formatUsd(row.volume)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1066,7 +1013,111 @@ export function DashboardPage({ session }: Props) {
         />
       </ChartMaximizeOverlay>
 
-      <OverviewTable title="Metrics" cards={metricCards} />
+      <section className="panel glass-tone-slate plat-dash-merchants">
+        <div className="plat-dash-merchants__head">
+          <div className="plat-overview-card__head">
+            <h2>Merchants</h2>
+            <CardHelp text="Subtree merchants: onboard date, bill status, and period volume / platform fees paid (commission base)." />
+          </div>
+          <div className="plat-dash-merchants__head-meta">
+            <p className="plat-dash-merchants__meta muted">
+              {merchantRows.length}{" "}
+              {merchantRows.length === 1 ? "merchant" : "merchants"} ·{" "}
+              {periodLabel}
+            </p>
+            <Link className="plat-dash-merchants__all" to="/agent/merchants">
+              View all
+            </Link>
+          </div>
+        </div>
+
+        {merchantRows.length === 0 ? (
+          <p className="muted plat-dash-merchants__empty">
+            No merchants in your subtree yet.
+          </p>
+        ) : (
+          <div className="org-agents plat-dash-merchants__table">
+            <div className="org-agents__table-panel">
+              <div
+                className="org-agents__table-wrap"
+                role="grid"
+                aria-label="Merchants"
+              >
+                <table className="org-agents__table org-agents__table--compact">
+                  <thead>
+                    <tr>
+                      <th className="org-agents__th-num">#</th>
+                      <th>Merchant</th>
+                      <th>Onboarded</th>
+                      <th>Parent</th>
+                      <th>Volume</th>
+                      <th>Fees paid</th>
+                      <th>Bill</th>
+                      <th className="org-agents__th-status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {merchantRows.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className="org-agents__row"
+                        onClick={() => navigate(`/agent/merchants/${row.id}`)}
+                        style={{
+                          animationDelay: `${Math.min(index, 40) * 40}ms`,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <td className="org-agents__idx">{index + 1}</td>
+                        <td>
+                          <span className="org-agents__name">{row.name}</span>
+                        </td>
+                        <td>
+                          <span className="muted">{row.onboardedLabel}</span>
+                        </td>
+                        <td className="org-agents__td-parent">
+                          <span className="org-agents__parent" title={row.parentName}>
+                            {row.parentName}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="fund-amount">{formatUsd(row.volume)}</span>
+                        </td>
+                        <td>
+                          <span className="fund-amount">
+                            {formatUsd(row.feesPaid)}
+                          </span>
+                        </td>
+                        <td className="org-agents__td-bill">
+                          {row.billStatus ? (
+                            <span
+                              className={`org-agents__bill is-${row.billStatus}${
+                                row.billStatus === "overdue" ? " is-pulse" : ""
+                              }`}
+                            >
+                              {serviceBillStatusLabel(row.billStatus)}
+                            </span>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td className="org-agents__td-status">
+                          <span
+                            className={`org-agents__status${
+                              row.status === "paused" ? " is-paused" : " is-active"
+                            }`}
+                          >
+                            {row.status === "paused" ? "Paused" : "Active"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

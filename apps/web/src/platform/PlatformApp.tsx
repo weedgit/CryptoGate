@@ -27,6 +27,7 @@ import { PlatformTeamPage } from "./PlatformTeamPage";
 import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { SystemHealthPage } from "./SystemHealthPage";
+import { PlatformCommissionsPage } from "./PlatformCommissionsPage";
 
 type ShellProps = {
   session: Session;
@@ -192,6 +193,15 @@ export function PlatformApp() {
           <Shell session={session} onSignOut={signOut}
           onSessionRefresh={setSession}>
             <ServiceBillDetailPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="commissions"
+        element={
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
+            <PlatformCommissionsPage session={session} />
           </Shell>
         }
       />

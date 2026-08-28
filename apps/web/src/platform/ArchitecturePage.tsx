@@ -5,7 +5,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
-  deleteOrg,
   listPlatformOrgMemberEmails,
   setOrgStatus,
   type Session,
@@ -14,6 +13,8 @@ import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
 import { withReturnTo } from "./platformNav";
 import { getPlatformOrgs, invalidatePlatformOrgList, peekPlatformOrgs } from "./platformOrgList";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
+import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
+import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { PlatformPending } from "./ui/PlatformPending";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { formatOnboardDate } from "./orgDetailSeeds";
@@ -628,6 +629,21 @@ export function ArchitecturePage({ session }: { session: Session }) {
     );
   }, []);
 
+  const {
+    deleteTarget,
+    deletePreview,
+    deletePreviewLoading,
+    deleteError,
+    deleteBusy,
+    openDelete,
+    closeDelete,
+    confirmDelete,
+  } = useOrgDeleteModal({
+    canManage,
+    onDeleted: refreshForest,
+    showOk,
+  });
+
   const onSetStatus = useCallback(
     async (
       node: PlatformOrgTreeNode,
@@ -672,42 +688,6 @@ export function ArchitecturePage({ session }: { session: Session }) {
       else setSuspendTarget(null);
     },
     [onSetStatus, suspendTarget],
-  );
-
-  const onDeleteSelected = useCallback(
-    async (node: PlatformOrgTreeNode) => {
-      if (!canManage || node.type === "platform") return;
-      const kind =
-        node.type === "agent" || node.type === "agent_sub"
-          ? "agent"
-          : node.type === "merchant" || node.type === "merchant_site"
-            ? "merchant"
-            : "org";
-      if (
-        !window.confirm(
-          `Delete ${kind} “${node.name}”? This cannot be undone. Suspend instead if the account has history.`,
-        )
-      ) {
-        return;
-      }
-      setBusy(true);
-      try {
-        await deleteOrg(node.id);
-        await refreshForest();
-        showOk(`Deleted ${node.name}.`);
-      } catch (err) {
-        showErr(
-          err instanceof ApiError
-            ? err.code === "rate_limited"
-              ? "Too many requests — wait a moment and retry."
-              : err.message
-            : "Delete failed",
-        );
-      } finally {
-        setBusy(false);
-      }
-    },
-    [canManage, refreshForest, showErr, showOk],
   );
 
   const filteredRoots = useMemo(
@@ -1050,7 +1030,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
                   busy={busy}
                   onSuspend={() => setSuspendTarget(selectedNode)}
                   onRun={() => void onSetStatus(selectedNode, "active")}
-                  onDelete={() => void onDeleteSelected(selectedNode)}
+                  onDelete={() => openDelete(selectedNode)}
                 />
               ) : (
                 <div className="org-architecture__detail-empty">
@@ -1075,6 +1055,19 @@ export function ArchitecturePage({ session }: { session: Session }) {
             }
           }}
           onConfirm={(reason) => void confirmSuspend(reason)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <OrgDeleteConfirmModal
+          orgId={deleteTarget.id}
+          orgName={deleteTarget.name}
+          busy={deleteBusy}
+          error={deleteError}
+          preview={deletePreview}
+          previewLoading={deletePreviewLoading}
+          onClose={closeDelete}
+          onConfirm={() => void confirmDelete()}
         />
       ) : null}
     </div>

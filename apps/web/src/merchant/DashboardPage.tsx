@@ -1,179 +1,151 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  VolumeChart,
+  type VolumeChartZoomApi,
+} from "../platform/DashboardPage";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import {
+  ChartMaximizeButton,
+  ChartMaximizeOverlay,
+} from "../platform/ui/ChartMaximize";
 import {
   ApiError,
-  getOrg,
   listOrders,
   listServiceBills,
-  listSettlement,
   type PaymentOrder,
   type ServiceBill,
   type Session,
 } from "./api";
+import { matchingModeLabel } from "./matchingLabels";
 import {
   formatShortTime,
   orderStatusLabel,
   orderStatusTone,
 } from "./orderStatus";
-import { networkLabel, primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
+import {
+  networkLabel,
+  primaryMerchantOrgId,
+  sessionIsCashierOnly,
+  truncateAddress,
+} from "./org";
+import { StatusBadge } from "../shared/StatusBadge";
+import {
+  buildDayKeys,
+  DASHBOARD_PERIOD_OPTIONS,
+  dayKeyFromIso,
+  inWindow,
+  parseDateInput,
+  periodLabel,
+  periodWindow,
+  toDateInputValue,
+  type DashboardPeriodId,
+} from "../shared/dashboardPeriod";
 
 type Props = { session: Session };
 
-type AlertItem = {
-  key: string;
-  tone: "teal" | "anomaly" | "warn" | "info" | "ok";
-  title: string;
-  body: string;
-};
-
-function dayKey(iso: string): string | null {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return null;
-  return new Date(t).toISOString().slice(0, 10);
+function formatUsd(n: number): string {
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
-function volumeSeries(orders: PaymentOrder[]): number[] {
-  const days: string[] = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
-  }
-  const map = new Map(days.map((d) => [d, 0]));
+function volumeChartData(
+  orders: PaymentOrder[],
+  keys: string[],
+  from: Date,
+  to: Date,
+): {
+  series: number[];
+  dayLabels: string[];
+  chartPeriodTotal: number;
+} {
+  const map = new Map(keys.map((day) => [day, 0]));
+  let chartPeriodTotal = 0;
   for (const o of orders) {
     if (o.status !== "completed" && o.status !== "confirmed") continue;
-    const key = dayKey(o.expiresAt);
+    if (!inWindow(o.expiresAt, from, to)) continue;
+    const key = dayKeyFromIso(o.expiresAt);
     if (!key || !map.has(key)) continue;
     const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) map.set(key, (map.get(key) ?? 0) + n);
+    if (Number.isFinite(n)) {
+      map.set(key, (map.get(key) ?? 0) + n);
+      chartPeriodTotal += n;
+    }
   }
-  return days.map((d) => map.get(d) ?? 0);
-}
-
-function VolumeChart({ values }: { values: number[] }) {
-  const w = 680;
-  const h = 140;
-  const max = Math.max(...values, 1);
-  const pts = values.map((v, i) => {
-    const x = values.length === 1 ? 0 : (i / (values.length - 1)) * (w - 12) + 6;
-    const y = h - 20 - (v / max) * (h - 40);
-    return { x, y, v };
-  });
-  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-
-  return (
-    <svg
-      className="volume-chart"
-      viewBox={`0 0 ${w} ${h}`}
-      role="img"
-      aria-label="7-day volume chart"
-    >
-      {[10, 65, 120].map((y) => (
-        <line
-          key={y}
-          x1="0"
-          x2={w}
-          y1={y}
-          y2={y}
-          stroke="var(--border)"
-          strokeDasharray="4 6"
-        />
-      ))}
-      <path d={d} fill="none" stroke="var(--teal)" strokeWidth="2.5" />
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="4" fill="var(--teal)" />
-      ))}
-    </svg>
-  );
+  return {
+    series: keys.map((day) => map.get(day) ?? 0),
+    dayLabels: keys,
+    chartPeriodTotal,
+  };
 }
 
 export function DashboardPage({ session }: Props) {
+  const navigate = useNavigate();
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
   const [items, setItems] = useState<PaymentOrder[]>([]);
   const [bills, setBills] = useState<ServiceBill[]>([]);
-  const [orgName, setOrgName] = useState<string | null>(null);
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [period, setPeriod] = useState<DashboardPeriodId | "custom">("7d");
+  const [startDate, setStartDate] = useState(() =>
+    toDateInputValue(periodWindow("7d").from),
+  );
+  const [endDate, setEndDate] = useState(() =>
+    toDateInputValue(periodWindow("7d").to),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  const [volumeZoomed, setVolumeZoomed] = useState(false);
+  const [volumeMaximized, setVolumeMaximized] = useState(false);
+  const [volumeFsZoomed, setVolumeFsZoomed] = useState(false);
+  const volumeZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
+  const volumeFsZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
+
+  useLayoutEffect(() => {
+    setTopbarSlot(document.getElementById("merchant-topbar-center"));
+  }, []);
+
+  const onPeriodSelect = useCallback((id: DashboardPeriodId) => {
+    const { from, to } = periodWindow(id);
+    setPeriod(id);
+    setStartDate(toDateInputValue(from));
+    setEndDate(toDateInputValue(to));
+  }, []);
+
+  const onStartDateChange = useCallback((value: string) => {
+    if (!value) return;
+    setPeriod("custom");
+    setStartDate(value);
+    setEndDate((prev) => (prev && value > prev ? value : prev));
+  }, []);
+
+  const onEndDateChange = useCallback((value: string) => {
+    if (!value) return;
+    setPeriod("custom");
+    setEndDate(value);
+    setStartDate((prev) => (prev && value < prev ? value : prev));
+  }, []);
+
+  const overdueBill = useMemo(
+    () => bills.find((b) => b.status === "overdue") ?? null,
+    [bills],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const orders = await listOrders({ limit: 100 });
+      const orders = await listOrders({ limit: 500 });
       setItems(orders);
 
-      const nextAlerts: AlertItem[] = [];
       if (orgId && !cashierOnly) {
-        try {
-          const org = await getOrg(orgId);
-          setOrgName(org.name);
-        } catch {
-          setOrgName(null);
-        }
-        try {
-          const settlement = await listSettlement(orgId);
-          const pending = settlement.find((s) => s.status === "pending_cool_down");
-          if (pending?.pendingActivatesAt) {
-            nextAlerts.push({
-              key: "cooldown",
-              tone: "teal",
-              title: "COOL-DOWN",
-              body: `Settlement address cool-down active until ${formatShortTime(pending.pendingActivatesAt)}`,
-            });
-          }
-        } catch {
-          /* ignore */
-        }
         try {
           const billList = await listServiceBills();
           setBills(billList);
-          const overdue = billList.find(
-            (b) => b.status === "overdue" || b.status === "issued",
-          );
-          if (overdue) {
-            nextAlerts.push({
-              key: "bill",
-              tone: "warn",
-              title: "BILL",
-              body: `${overdue.status === "overdue" ? "Overdue" : "Open"} service bill · ${overdue.totalAmount} ${overdue.currency}`,
-            });
-          }
         } catch {
           setBills([]);
         }
       }
-
-      const anomaly = orders.find((o) => o.status === "payment_anomaly");
-      if (anomaly) {
-        nextAlerts.push({
-          key: "anomaly",
-          tone: "anomaly",
-          title: "ANOMALY",
-          body: `Payment anomaly on Order #${anomaly.orderNumber}`,
-        });
-      }
-
-      nextAlerts.push({
-        key: "network",
-        tone: "info",
-        title: "NETWORK",
-        body: "USDT / TRC-20 live · Ethereum staging enable pending",
-      });
-
-      if (nextAlerts.length === 1 && nextAlerts[0].key === "network" && !anomaly) {
-        nextAlerts.unshift({
-          key: "orders-ok",
-          tone: "ok",
-          title: "ORDERS",
-          body: "No open payment anomalies in the latest list.",
-        });
-      }
-
-      setAlerts(nextAlerts.slice(0, 4));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load dashboard");
     } finally {
@@ -185,15 +157,26 @@ export function DashboardPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const chartWindow = useMemo(() => {
+    const from = parseDateInput(startDate, false);
+    const to = parseDateInput(endDate, true);
+    const keys = buildDayKeys(from, to);
+    return { from, to, keys };
+  }, [startDate, endDate]);
+
+  const periodOrders = useMemo(
+    () =>
+      items.filter((o) =>
+        inWindow(o.expiresAt, chartWindow.from, chartWindow.to),
+      ),
+    [items, chartWindow],
+  );
+
+  const activePeriodLabel = periodLabel(period, startDate, endDate);
+
   const kpis = useMemo(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const startMs = start.getTime();
-    const today = items.filter((o) => {
-      const t = Date.parse(o.expiresAt);
-      return Number.isFinite(t) && t >= startMs;
-    }).length;
-    const completed = items.filter(
+    const ordersInPeriod = periodOrders.length;
+    const completed = periodOrders.filter(
       (o) => o.status === "completed" || o.status === "confirmed",
     );
     let volume = 0;
@@ -201,35 +184,36 @@ export function DashboardPage({ session }: Props) {
       const n = Number(o.payableAmount.amount);
       if (Number.isFinite(n)) volume += n;
     }
-    const pending = items.filter(
+    const pending = periodOrders.filter(
       (o) => o.status === "pending_payment" || o.status === "verifying",
     ).length;
     const openBills = bills.filter(
       (b) => b.status === "issued" || b.status === "overdue",
     ).length;
     return {
-      ordersToday: today || items.length,
-      volumeMtd: volume,
+      ordersInPeriod,
+      volume,
       pending,
       openBills,
     };
-  }, [items, bills]);
+  }, [periodOrders, bills]);
 
-  const series = useMemo(() => volumeSeries(items), [items]);
-  const recent = items.slice(0, 8);
+  const { series, dayLabels, chartPeriodTotal } = useMemo(
+    () =>
+      volumeChartData(
+        items,
+        chartWindow.keys,
+        chartWindow.from,
+        chartWindow.to,
+      ),
+    [items, chartWindow],
+  );
+  const recent = periodOrders.slice(0, 8);
+  const chartTitle = "Volume (USDT)";
 
   return (
-    <div className="dash-page">
-      <div className="orders-toolbar">
-        <div>
-          <p className="dash-welcome">
-            {cashierOnly
-              ? "Your open and recent payment orders"
-              : orgName
-                ? `Welcome, ${orgName}`
-                : "Live order health from merchant scope"}
-          </p>
-        </div>
+    <div className="dash-page plat-dash">
+      <div className="orders-toolbar orders-toolbar--end">
         <div className="orders-actions">
           <Link className="btn-primary btn-inline" to="/merchant/orders/new">
             <span
@@ -256,94 +240,308 @@ export function DashboardPage({ session }: Props) {
 
       {error ? <p className="error">{error}</p> : null}
 
-      {alerts.length > 0 ? (
-        <div className="alert-strip">
-          {alerts.map((a) => (
-            <div key={a.key} className={`alert-card tone-${a.tone}`}>
-              <strong>{a.title}</strong>
-              <p>{a.body}</p>
-            </div>
-          ))}
+      {topbarSlot
+        ? createPortal(
+            <div
+              className="plat-period-controls plat-period-controls--topbar"
+              aria-label="Period"
+            >
+              <div
+                className="plat-period-pills plat-period-pills--topbar"
+                role="group"
+                aria-label="Quick periods"
+              >
+                {DASHBOARD_PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
+                    onClick={() => onPeriodSelect(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="plat-period-dates plat-period-dates--topbar"
+                aria-label="Date range"
+              >
+                <label className="plat-period-date">
+                  <span className="plat-period-date__label">Start</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => onStartDateChange(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                  />
+                </label>
+                <span className="plat-period-dates__sep" aria-hidden="true">
+                  –
+                </span>
+                <label className="plat-period-date">
+                  <span className="plat-period-date__label">End</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => onEndDateChange(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                  />
+                </label>
+              </div>
+            </div>,
+            topbarSlot,
+          )
+        : null}
+
+      {!cashierOnly && overdueBill ? (
+        <div className="cg-banner cg-banner--warn merchant-dash-overdue" role="status">
+          <span>
+            Service bill overdue — {overdueBill.totalAmount} {overdueBill.currency}. Pay
+            promptly to avoid account restriction.
+          </span>
+          <Link className="alerts-drawer__link" to={`/merchant/service-bills/${overdueBill.id}`}>
+            Pay bill
+          </Link>
         </div>
       ) : null}
 
       {loading ? (
         <p className="muted">Loading KPIs…</p>
       ) : (
-        <div className="kpi-row">
-          <div className="kpi-card">
-            <p className="kpi-label">ORDERS TODAY</p>
-            <p className="kpi-value">{kpis.ordersToday}</p>
-            <p className="muted">Stable throughput</p>
+        <div className="plat-overview-grid">
+          <div className="panel plat-overview-card glass-tone-blue">
+            <p className="kpi-label">ORDERS</p>
+            <p className="kpi-value">{kpis.ordersInPeriod}</p>
+            <p className="muted">{activePeriodLabel}</p>
           </div>
-          <div className="kpi-card">
-            <p className="kpi-label">VOLUME (MTD)</p>
-            <p className="kpi-value">{kpis.volumeMtd.toLocaleString()} USDT</p>
-            <p className="muted">Confirmed / completed in list</p>
+          <div className="panel plat-overview-card glass-tone-emerald">
+            <p className="kpi-label">VOLUME</p>
+            <p className="kpi-value">{kpis.volume.toLocaleString()} USDT</p>
+            <p className="muted">Confirmed / completed · {activePeriodLabel}</p>
           </div>
-          <div className="kpi-card">
+          <div className="panel plat-overview-card glass-tone-amber">
             <p className="kpi-label">PENDING</p>
             <p className="kpi-value">{kpis.pending}</p>
-            <p className="muted">Pending payment + verifying</p>
+            <p className="muted">In period · awaiting payment / chain</p>
           </div>
-          <div className="kpi-card">
+          <div className="panel plat-overview-card glass-tone-violet">
             <p className="kpi-label">
               {cashierOnly ? "ANOMALIES" : "OPEN SERVICE BILLS"}
             </p>
             <p className="kpi-value">
               {cashierOnly
-                ? items.filter((o) => o.status === "payment_anomaly").length
+                ? periodOrders.filter((o) => o.status === "payment_anomaly")
+                    .length
                 : kpis.openBills}
             </p>
             <p className="muted">
-              {cashierOnly ? "Needs manual reconcile" : "Amber system"}
+              {cashierOnly ? activePeriodLabel : "Amber system"}
             </p>
           </div>
         </div>
       )}
 
-      <div className="dash-split">
-        <div className="panel dash-chart-panel">
-          <h2>7-Day Volume (USDT)</h2>
-          {loading ? (
-            <p className="muted">Loading chart…</p>
-          ) : (
-            <VolumeChart values={series} />
-          )}
-        </div>
-        <div className="panel dash-feed-panel">
-          <div className="detail-header">
-            <h2>Live feed</h2>
-            <Link to="/merchant/orders" style={{ color: "var(--teal)", fontSize: 13 }}>
-              All orders →
-            </Link>
-          </div>
-          {recent.length === 0 ? (
-            <p className="muted">
-              {cashierOnly
-                ? "No orders yet. Create one to issue a QR."
-                : "No payment orders yet."}
-            </p>
-          ) : (
-            <div className="feed-list">
-              {recent.map((o) => (
-                <Link
-                  key={o.id}
-                  className="feed-item"
-                  to={`/merchant/orders/${o.id}`}
-                >
-                  <strong className={`feed-title tone-${orderStatusTone(o.status)}`}>
-                    #{o.orderNumber} · {orderStatusLabel(o.status)}
-                  </strong>
-                  <span className="muted">
-                    {o.payableAmount.amount} {o.asset} · {networkLabel(o.network)}
-                  </span>
-                </Link>
-              ))}
+      <div className="panel dash-chart-panel glass-tone-slate">
+        <div className="dash-chart-panel__head">
+          <div className="dash-chart-panel__title-row">
+            <div className="dash-chart-panel__filters">
+              <div className="dash-chart-panel__title-row-inner">
+                <h2>{chartTitle}</h2>
+              </div>
             </div>
-          )}
+            <div className="dash-chart-panel__title-main">
+              <p
+                className="dash-chart-panel__period-total"
+                aria-label="Period total volume"
+              >
+                <span className="dash-chart-panel__period-value">
+                  {loading ? "—" : formatUsd(chartPeriodTotal)}
+                </span>
+              </p>
+            </div>
+            <div className="dash-chart-panel__tools">
+              <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
+                {volumeZoomed ? (
+                  <button
+                    type="button"
+                    className="volume-chart__zoom-reset"
+                    onClick={() => volumeZoomApiRef.current?.reset()}
+                  >
+                    Reset
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="volume-chart__zoom-btn"
+                  aria-label="Zoom out"
+                  title="Zoom out"
+                  onClick={() => volumeZoomApiRef.current?.zoomOut()}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className="volume-chart__zoom-btn"
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                  onClick={() => volumeZoomApiRef.current?.zoomIn()}
+                >
+                  +
+                </button>
+              </div>
+              <ChartHelpButton label="Volume chart help" />
+              <ChartMaximizeButton
+                label="Maximize volume chart"
+                onClick={() => setVolumeMaximized(true)}
+              />
+            </div>
+          </div>
         </div>
+        {loading ? (
+          <p className="muted plat-chart-note">Loading chart…</p>
+        ) : (
+          <VolumeChart
+            values={series}
+            labels={dayLabels}
+            showZoomBar={false}
+            onZoomedChange={setVolumeZoomed}
+            zoomApiRef={volumeZoomApiRef}
+          />
+        )}
       </div>
+
+      <ChartMaximizeOverlay
+        open={volumeMaximized}
+        title={chartTitle}
+        onClose={() => setVolumeMaximized(false)}
+        header={
+          <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
+            <div className="dash-chart-panel__filters">
+              <div className="dash-chart-panel__title-row-inner">
+                <h2>{chartTitle}</h2>
+              </div>
+            </div>
+            <div className="dash-chart-panel__title-main">
+              <p
+                className="dash-chart-panel__period-total"
+                aria-label="Period total volume"
+              >
+                <span className="dash-chart-panel__period-value">
+                  {formatUsd(chartPeriodTotal)}
+                </span>
+              </p>
+            </div>
+            <div className="dash-chart-panel__tools">
+              <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
+                {volumeFsZoomed ? (
+                  <button
+                    type="button"
+                    className="volume-chart__zoom-reset"
+                    onClick={() => volumeFsZoomApiRef.current?.reset()}
+                  >
+                    Reset
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="volume-chart__zoom-btn"
+                  aria-label="Zoom out"
+                  title="Zoom out"
+                  onClick={() => volumeFsZoomApiRef.current?.zoomOut()}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className="volume-chart__zoom-btn"
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                  onClick={() => volumeFsZoomApiRef.current?.zoomIn()}
+                >
+                  +
+                </button>
+              </div>
+              <ChartHelpButton label="Volume chart help" />
+              <button
+                type="button"
+                className="chart-maximize-overlay__close"
+                aria-label="Close fullscreen chart"
+                onClick={() => setVolumeMaximized(false)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <VolumeChart
+          values={series}
+          labels={dayLabels}
+          size="fullscreen"
+          showZoomBar={false}
+          onZoomedChange={setVolumeFsZoomed}
+          zoomApiRef={volumeFsZoomApiRef}
+        />
+      </ChartMaximizeOverlay>
+
+      <section className="merchant-dash-orders">
+        <div className="plat-dash-merchants__head">
+          <h2>Recent payment orders</h2>
+          <Link className="plat-dash-merchants__all" to="/merchant/orders">
+            View all
+          </Link>
+        </div>
+        {loading ? (
+          <p className="muted plat-dash-merchants__empty">Loading orders…</p>
+        ) : recent.length === 0 ? (
+          <p className="muted plat-dash-merchants__empty">
+            {cashierOnly
+              ? "No orders yet. Create one to issue a QR."
+              : "No payment orders yet."}
+          </p>
+        ) : (
+          <div className="orders-table merchant-dash-orders__table" role="table">
+            <div className="orders-head" role="row">
+              <span>ORDER</span>
+              <span>EXPIRES</span>
+              <span>AMOUNT</span>
+              <span>NETWORK</span>
+              <span>ADDRESS</span>
+              <span>MODE</span>
+              <span>STATUS</span>
+            </div>
+            {recent.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                className="orders-row"
+                role="row"
+                onClick={() => navigate(`/merchant/orders/${o.id}`)}
+              >
+                <span className="mono">{o.orderNumber}</span>
+                <span className="muted">exp {formatShortTime(o.expiresAt)}</span>
+                <span>
+                  {o.payableAmount.amount} {o.asset}
+                </span>
+                <span>{networkLabel(o.network)}</span>
+                <span className="mono muted">{truncateAddress(o.receiveAddress)}</span>
+                <span className="muted">{matchingModeLabel(o.matchingMode)}</span>
+                <span>
+                  <StatusBadge
+                    tone={orderStatusTone(o.status)}
+                    live={o.status === "verifying"}
+                    alarm={o.status === "payment_anomaly"}
+                  >
+                    {orderStatusLabel(o.status)}
+                  </StatusBadge>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

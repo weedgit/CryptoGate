@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ApiError,
   createOrder,
@@ -11,6 +11,14 @@ import {
   matchingModeLabel,
   VALIDITY_OPTIONS,
 } from "./matchingLabels";
+import {
+  defaultLivePair,
+  displayNetworkForPair,
+  isLivePair,
+  pairSelectLabel,
+  pairsForAsset,
+  uniqueAssetsFromRegistry,
+} from "../shared/assetNetworks";
 
 type Props = {
   /** Merchant default matching mode (read-only on create). */
@@ -19,13 +27,19 @@ type Props = {
 
 export function CreateOrderPage({ matchingMode = "B" }: Props) {
   const navigate = useNavigate();
+  const initial = defaultLivePair();
   const [amount, setAmount] = useState("245.00");
-  const [asset] = useState("USDT");
-  const [network, setNetwork] = useState("tron");
+  const [asset, setAsset] = useState(initial.asset);
+  const [network, setNetwork] = useState(initial.network);
   const [validitySeconds, setValiditySeconds] = useState(1800);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PaymentDetails | null>(null);
+
+  const assets = useMemo(() => uniqueAssetsFromRegistry(), []);
+  const networkOptions = useMemo(() => pairsForAsset(asset), [asset]);
+  const selectedLive = isLivePair(asset, network);
+  const guestLabel = displayNetworkForPair(asset, network);
 
   const modeLabel = matchingModeLabel(matchingMode);
   const modeHint = matchingModeHint(matchingMode);
@@ -36,8 +50,19 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
     [validitySeconds],
   );
 
+  function onAssetChange(nextAsset: string) {
+    setAsset(nextAsset);
+    const pairs = pairsForAsset(nextAsset);
+    const live = pairs.find((p) => p.enabled) ?? pairs[0];
+    if (live) setNetwork(live.network);
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!selectedLive) {
+      setError("This asset and network pair is not live yet. Choose a live pair.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -83,6 +108,22 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
         </div>
         <div className="field-row">
           <div className="field">
+            <label htmlFor="asset">ASSET</label>
+            <select
+              id="asset"
+              className="field-control"
+              value={asset}
+              onChange={(e) => onAssetChange(e.target.value)}
+              disabled={loading}
+            >
+              {assets.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
             <label htmlFor="network">SETTLEMENT PROTOCOL</label>
             <select
               id="network"
@@ -91,9 +132,15 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
               onChange={(e) => setNetwork(e.target.value)}
               disabled={loading}
             >
-              <option value="tron">TRC-20 (TRON)</option>
+              {networkOptions.map((row) => (
+                <option key={row.network} value={row.network} disabled={!row.enabled}>
+                  {pairSelectLabel(row)}
+                </option>
+              ))}
             </select>
           </div>
+        </div>
+        <div className="field-row">
           <div className="field">
             <label htmlFor="validity">EXPIRE TIME WINDOW</label>
             <select
@@ -111,12 +158,22 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
             </select>
           </div>
         </div>
+        {!selectedLive ? (
+          <p className="muted">
+            This pair is catalogued for a future release.{" "}
+            <Link to="/merchant/networks">View all networks</Link>.
+          </p>
+        ) : null}
         <div className="mode-card">
           <h3>Active Mode: {modeLabel}</h3>
           <p>{modeHint}</p>
         </div>
         {error ? <p className="error">{error}</p> : null}
-        <button className="btn-primary" type="submit" disabled={loading || !amount.trim()}>
+        <button
+          className="btn-primary"
+          type="submit"
+          disabled={loading || !amount.trim() || !selectedLive}
+        >
           {loading ? "Creating…" : "GENERATE INVOICE"}
         </button>
       </form>
@@ -135,7 +192,7 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
           </div>
           <div className="preview-meta">
             <span className="muted">
-              {asset} · {network === "tron" ? "TRC-20" : network.toUpperCase()}
+              {asset} · {guestLabel}
             </span>
             <span className="muted">Mode · {modeLabel}</span>
           </div>
@@ -154,7 +211,7 @@ export function CreateOrderPage({ matchingMode = "B" }: Props) {
           </div>
           <div>
             <p className="label" style={{ color: "var(--muted)", fontSize: 11, margin: "0 0 4px" }}>
-              PAYMENT ADDRESS ({asset} {network.toUpperCase()})
+              PAYMENT ADDRESS ({asset} · {guestLabel})
             </p>
             <div className="addr-box">
               {preview?.receiveAddress ?? "Address assigned on create"}

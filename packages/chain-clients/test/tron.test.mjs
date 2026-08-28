@@ -24,9 +24,15 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     const cfg = getTronConfig();
     assert.equal(cfg.network, "tron");
     assert.equal(cfg.asset, "USDT");
-    assert.equal(cfg.usdtContractAddress, USDT_TRC20_CONTRACT);
+    assert.equal(cfg.contractAddress ?? cfg.usdtContractAddress, USDT_TRC20_CONTRACT);
     assert.equal(cfg.requiredConfirmations, 19);
     assert.equal(cfg.decimals, 6);
+  });
+
+  it("getTronConfig resolves Nile contract when network is tron_nile", () => {
+    const cfg = getTronConfig("USDT", "tron_nile");
+    assert.equal(cfg.network, "tron_nile");
+    assert.equal(cfg.contractAddress, "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf");
   });
 
   it("listRecentTransfers returns empty stub with watched count", async () => {

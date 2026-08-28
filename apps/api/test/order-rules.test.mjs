@@ -29,16 +29,74 @@ describe("order create rules", () => {
     assert.equal(r.parsed.config.requiredConfirmations, 19);
   });
 
-  it("rejects disabled asset/network with 422", () => {
+  it("rejects unknown asset/network with 422", () => {
     const r = validateCreateOrderBody({
       amount: "10.00",
       asset: "USDT",
-      network: "ethereum",
+      network: "bitcoin",
       validitySeconds: 900,
     });
     assert.equal(r.ok, false);
     assert.equal(r.status, 422);
     assert.equal(r.code, "asset_network_disabled");
+  });
+
+  it("accepts live USDT on Ethereum", () => {
+    const r = validateCreateOrderBody({
+      amount: "0.01",
+      asset: "USDT",
+      network: "ethereum",
+      validitySeconds: 900,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.parsed.config.requiredConfirmations, 12);
+  });
+
+  it("accepts live BTC on Bitcoin", () => {
+    const r = validateCreateOrderBody({
+      amount: "0.0001",
+      asset: "BTC",
+      network: "bitcoin",
+      validitySeconds: 900,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.parsed.config.requiredConfirmations, 3);
+  });
+
+  it("rejects tron_nile when chain env is mainnet (product default)", () => {
+    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
+    process.env.CRYPTOGATE_CHAIN_ENV = "mainnet";
+    try {
+      const r = validateCreateOrderBody({
+        amount: "1.00",
+        asset: "USDT",
+        network: "tron_nile",
+        validitySeconds: 900,
+      });
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "asset_network_disabled");
+    } finally {
+      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
+      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+    }
+  });
+
+  it("accepts tron_nile when CRYPTOGATE_CHAIN_ENV=testnet", () => {
+    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
+    process.env.CRYPTOGATE_CHAIN_ENV = "testnet";
+    try {
+      const r = validateCreateOrderBody({
+        amount: "0.01",
+        asset: "USDT",
+        network: "tron_nile",
+        validitySeconds: 900,
+      });
+      assert.equal(r.ok, true);
+      assert.equal(r.parsed.config.displayNetwork, "TRON Nile (testnet)");
+    } finally {
+      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
+      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+    }
   });
 
   it("rejects short validity and over-decimal amounts", () => {

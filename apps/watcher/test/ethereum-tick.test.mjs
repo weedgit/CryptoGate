@@ -68,7 +68,7 @@ describe("@cryptogate/watcher ethereum ingest smoke (M3-32)", () => {
 
   it("registry confirmations for ethereum are 12 (not hardcoded 19)", () => {
     assert.equal(USDT_ETHEREUM.requiredConfirmations, 12);
-    assert.equal(USDT_ETHEREUM.enabled, false);
+    assert.equal(USDT_ETHEREUM.enabled, true);
     assert.equal(USDT_ETHEREUM.network, "ethereum");
   });
 });

@@ -95,6 +95,11 @@ export type MatchCandidateOrder = {
   memoOrTag?: string | null;
   /** ISO-8601; if in the past, order is excluded from successful match (late → anomaly if sole candidate) */
   expiresAt?: string;
+  /**
+   * Mode B: major-unit underpay tolerance locked at order create.
+   * Prefer this over MatchInput.underpayTolerance when both set.
+   */
+  underpayTolerance?: string;
 };
 
 export type MatchInput = {
@@ -113,6 +118,11 @@ export type MatchInput = {
   candidates?: readonly MatchCandidateOrder[];
   /** Optional clock for expiry checks (tests). Default Date.now(). */
   nowMs?: number;
+  /**
+   * Mode B only: major-unit underpay tolerance. Amounts short by at most this
+   * still match. Mode C must keep this 0 / unused (fingerprints stay exact).
+   */
+  underpayTolerance?: string;
 };
 
 export type MatchResult = {

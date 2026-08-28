@@ -47,16 +47,36 @@ describe("settlement rules", () => {
     assert.equal(r.code, "invalid_address");
   });
 
-  it("rejects disabled asset/network with 422", () => {
+  it("rejects unknown asset/network with 422", () => {
     const r = validateSettlementBody({
       asset: "USDT",
-      network: "ethereum",
-      address: "0xabc",
+      network: "bitcoin",
+      address: "bc1qexample",
       mfaCode: "123456",
     });
     assert.equal(r.ok, false);
     assert.equal(r.status, 422);
     assert.equal(r.code, "asset_network_disabled");
+  });
+
+  it("accepts live USDT on Ethereum settlement", () => {
+    const r = validateSettlementBody({
+      asset: "USDT",
+      network: "ethereum",
+      address: "0xabc1234567890123456789012345678901234",
+      mfaCode: "123456",
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it("accepts live USDC on Polygon settlement", () => {
+    const r = validateSettlementBody({
+      asset: "USDC",
+      network: "polygon",
+      address: "0xabc1234567890123456789012345678901234",
+      mfaCode: "123456",
+    });
+    assert.equal(r.ok, true);
   });
 
   it("maps pending cool-down onto the API shape", () => {

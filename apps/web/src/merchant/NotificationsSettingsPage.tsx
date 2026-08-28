@@ -17,31 +17,36 @@ export function NotificationsSettingsPage({ session }: Props) {
   const canEdit = sessionCanEditOrgSettings(session);
 
   return (
-    <div className="settings-page">
-      <div className="settings-header">
-        <p className="muted" style={{ margin: 0 }}>
-          Email and in-app alerts for privileged and payment events.
-        </p>
-      </div>
-
-      {!canEdit ? (
-        <p className="muted">Viewer access — preferences are read-only when available.</p>
-      ) : null}
-
-      <div className="panel settings-panel">
-        <h2>Notification preferences</h2>
-        <p className="muted settings-note">
-          Preference storage is not on the API yet. Toggles below show Phase 1 scope;
-          saving will enable when Andrew lands notification prefs endpoints.
-        </p>
-        <div className="notification-list">
-          {NOTIFICATION_ROWS.map((label) => (
-            <label key={label} className="notification-row">
-              <span>{label}</span>
-              <input type="checkbox" disabled defaultChecked />
-            </label>
-          ))}
-        </div>
+    <div className="plat-settings plat-settings--merchant">
+      <div className="plat-settings__grid plat-settings__grid--single">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Notification preferences</h2>
+            {!canEdit ? (
+              <span className="plat-settings__badge">Viewer · read-only</span>
+            ) : null}
+          </div>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              Choose email and in-app delivery per event type. The alerts bell (A9) shows
+              operational items that need attention; preferences here control outbound
+              email when the notification API ships.
+            </p>
+            <ul className="plat-settings__pref-list" aria-disabled>
+              {NOTIFICATION_ROWS.map((label) => (
+                <li key={label}>
+                  <label>
+                    <input type="checkbox" disabled defaultChecked readOnly />
+                    {label}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="plat-settings__card-note">
+              Saving will enable when notification preference endpoints land.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );

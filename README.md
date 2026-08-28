@@ -80,7 +80,7 @@ npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
 # → /pos/                  (cashier POS wireframes)
 ```
 
-Demo logins (local seed): `owner@local.cryptogate` / `merchant@local.cryptogate` / `cashier@local.cryptogate` — password `LocalReview1!`. Portals: http://127.0.0.1:5174/{platform,agent,merchant}
+Demo logins: run `node scripts/seed-local.mjs` — password `User123456!1` for all accounts. See seed script header for full role/org matrix (`admin.platform@cryptogate.io`, `administrator.*@cryptogate.io`, `owner.*`, `viewer.*`, `cashier1`/`cashier2`). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 
 ## Invariants
 

@@ -10,6 +10,23 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+const ANOMALY_REASON_LABELS: Record<string, string> = {
+  mode_b_same_amount_collision: "same-amount collision (Mode B)",
+  mode_s_same_amount_collision: "same-amount collision (Mode S)",
+  underpay: "underpayment",
+  overpay: "overpayment",
+  wrong_network: "wrong network",
+  duplicate_payment: "duplicate payment",
+  delayed_arrival: "delayed arrival",
+};
+
+/** Human-readable payment anomaly cause for alerts and order detail. */
+export function anomalyReasonLabel(reason: string | null | undefined): string | null {
+  if (!reason?.trim()) return null;
+  const key = reason.trim().toLowerCase();
+  return ANOMALY_REASON_LABELS[key] ?? key.replace(/_/g, " ");
+}
+
 export function orderStatusLabel(status: string | null | undefined): string {
   if (!status) return "—";
   return ORDER_STATUS_LABELS[status] ?? status;

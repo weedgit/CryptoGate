@@ -67,10 +67,10 @@ describe("@cryptogate/watcher bnb_smart_chain ingest smoke (X-06)", () => {
     assert.equal(tick.ingest.mode, "noop");
   });
 
-  it("registry confirmations for BSC are 15 and decimals 18 (enabled false)", () => {
+  it("registry confirmations for BSC are 15 and decimals 18 (live)", () => {
     assert.equal(USDT_BNB_SMART_CHAIN.requiredConfirmations, 15);
     assert.equal(USDT_BNB_SMART_CHAIN.decimals, 18);
-    assert.equal(USDT_BNB_SMART_CHAIN.enabled, false);
+    assert.equal(USDT_BNB_SMART_CHAIN.enabled, true);
     assert.equal(USDT_BNB_SMART_CHAIN.network, "bnb_smart_chain");
   });
 });

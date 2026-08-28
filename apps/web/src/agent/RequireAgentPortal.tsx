@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { PortalAccessGate } from "../auth/PortalAccessGate";
 import type { Session } from "./api";
 import { sessionIsAgentStaff } from "./org";
 
@@ -11,18 +12,15 @@ type Props = {
 export function RequireAgentPortal({ session, children }: Props) {
   if (!sessionIsAgentStaff(session)) {
     return (
-      <div className="login-wrap">
-        <div className="login-card">
-          <h1>Agent access required</h1>
-          <p style={{ color: "var(--muted)" }}>
-            This portal is for agent Owner, Administrator, or Viewer accounts
-            only. Agents do not create payment orders.
-          </p>
-          <p>
-            <a href="/merchant">Go to merchant portal</a>
-          </p>
-        </div>
-      </div>
+      <PortalAccessGate
+        title="Agent access required"
+        description="Your account is signed in, but it is not an agent staff membership. Agents do not create payment orders — use the merchant portal for checkout."
+        roles={["Agent Owner", "Agent Administrator", "Agent Viewer"]}
+        links={[
+          { to: "/merchant", label: "Open merchant portal", primary: true },
+          { to: "/platform", label: "Open platform portal" },
+        ]}
+      />
     );
   }
   return <>{children}</>;

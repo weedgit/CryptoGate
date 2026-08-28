@@ -97,8 +97,12 @@ export function AssetIcon({ asset }: { asset: string }) {
 export function NetworkIcon({ network }: { network: string }) {
   switch (network) {
     case NetworkId.Tron:
+    case NetworkId.TronNile:
       return (
-        <IconShell bg="#ff060a" title="Tron">
+        <IconShell
+          bg="#ff060a"
+          title={network === NetworkId.TronNile ? "Tron Nile" : "Tron"}
+        >
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
             <path
               d="M5.5 6.5 L18.5 6.8 L12.2 18.5 Z"

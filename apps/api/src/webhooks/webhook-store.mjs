@@ -117,11 +117,20 @@ export async function disableWebhookEndpoint(webhookId, orgId) {
 export async function enqueueWebhookDelivery(input) {
   const bodyRaw = JSON.stringify(input.payload);
   const db = input.client ?? getPool();
+  const existing = await db.query(
+    `SELECT id, event_id, status, attempt, http_status, next_retry_at
+     FROM webhook_deliveries
+     WHERE webhook_id = $1 AND event_id = $2
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [input.webhookId, input.eventId],
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
   const { rows } = await db.query(
     `INSERT INTO webhook_deliveries
        (webhook_id, event_id, event_type, payload, body_raw, status, attempt, next_retry_at)
      VALUES ($1, $2, $3, $4::jsonb, $5, 'pending', 1, now())
-     ON CONFLICT (webhook_id, event_id) DO NOTHING
      RETURNING id, event_id, status, attempt, http_status, next_retry_at`,
     [
       input.webhookId,
@@ -226,6 +235,57 @@ export async function updateWebhookDeliveryResult(input) {
       input.nextRetryAt,
     ],
   );
+}
+
+/**
+ * @param {string} webhookId
+ * @param {string} deliveryId
+ */
+export async function findWebhookDelivery(webhookId, deliveryId) {
+  const { rows } = await getPool().query(
+    `SELECT id, webhook_id, event_id, event_type, payload, body_raw,
+            status, attempt, http_status, next_retry_at, created_at
+     FROM webhook_deliveries
+     WHERE id = $1 AND webhook_id = $2`,
+    [deliveryId, webhookId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Clone a terminal delivery as a new pending row (manual resend).
+ * Same event_id + body; new delivery id for X-CryptoGate-Delivery-Id.
+ * @param {{
+ *   webhook_id: string,
+ *   event_id: string,
+ *   event_type: string,
+ *   payload: object | string,
+ *   body_raw?: string | null,
+ * }} source
+ */
+export async function cloneWebhookDeliveryForResend(source) {
+  const bodyRaw =
+    typeof source.body_raw === "string" && source.body_raw.length > 0
+      ? source.body_raw
+      : JSON.stringify(source.payload);
+  const payloadJson =
+    typeof source.payload === "string"
+      ? source.payload
+      : JSON.stringify(source.payload);
+  const { rows } = await getPool().query(
+    `INSERT INTO webhook_deliveries
+       (webhook_id, event_id, event_type, payload, body_raw, status, attempt, next_retry_at)
+     VALUES ($1, $2, $3, $4::jsonb, $5, 'pending', 1, now())
+     RETURNING id, event_id, status, attempt, http_status, next_retry_at`,
+    [
+      source.webhook_id,
+      source.event_id,
+      source.event_type,
+      payloadJson,
+      bodyRaw,
+    ],
+  );
+  return rows[0] ?? null;
 }
 
 /**

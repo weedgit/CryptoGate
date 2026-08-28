@@ -241,6 +241,12 @@ const NAV_GROUPS: NavGroup[] = [
         matchPrefix: "/platform/service-bills",
         Icon: ServiceBillsNavIcon,
       },
+      {
+        to: "/platform/commissions",
+        label: "Commissions",
+        matchPrefix: "/platform/commissions",
+        Icon: FeesNavIcon,
+      },
     ],
   },
   {

@@ -25,7 +25,11 @@ const MONTH_LABELS = [
   "Dec",
 ] as const;
 
-/** Build commission statements from live service bills in the agent subtree. */
+/**
+ * Build commission statements from live service bills in the agent subtree.
+ * Fee base = **paid** volume fees only (“platform fee collected”).
+ * Statement payout status never means commission paid — that comes from payout slips.
+ */
 export function commissionHistoryFromBills(
   bills: ReadonlyArray<{
     orgId: string;
@@ -41,15 +45,21 @@ export function commissionHistoryFromBills(
 
   const byPeriod = new Map<
     string,
-    { fee: number; hasPaid: boolean; hasOpen: boolean }
+    { feeCollected: number; hasPaid: boolean; hasOpen: boolean }
   >();
   for (const b of scoped) {
     const key = b.periodStart.slice(0, 7);
     const fee = Number(b.volumeFeeAmount);
     if (!Number.isFinite(fee)) continue;
-    const cur = byPeriod.get(key) ?? { fee: 0, hasPaid: false, hasOpen: false };
-    cur.fee += fee;
-    if (b.status === "paid") cur.hasPaid = true;
+    const cur = byPeriod.get(key) ?? {
+      feeCollected: 0,
+      hasPaid: false,
+      hasOpen: false,
+    };
+    if (b.status === "paid") {
+      cur.feeCollected += fee;
+      cur.hasPaid = true;
+    }
     if (b.status === "issued" || b.status === "overdue") cur.hasOpen = true;
     byPeriod.set(key, cur);
   }
@@ -61,12 +71,13 @@ export function commissionHistoryFromBills(
       const [y, m] = key.split("-");
       const monthIdx = Number(m) - 1;
       const mon = MONTH_LABELS[monthIdx] ?? m ?? "—";
-      const platformFeeCollected = Math.round(agg.fee * 100) / 100;
+      const platformFeeCollected = Math.round(agg.feeCollected * 100) / 100;
       const commissionAmount =
         Math.round(platformFeeCollected * (bps / 10_000) * 100) / 100;
+      // pending = bills still open; scheduled = fees collected, await payout slip
       let payoutStatus: AgentPayoutStatus = "scheduled";
-      if (agg.hasPaid && !agg.hasOpen) payoutStatus = "paid";
-      else if (agg.hasOpen) payoutStatus = "pending";
+      if (agg.hasOpen) payoutStatus = "pending";
+      else if (!agg.hasPaid) payoutStatus = "scheduled";
       return {
         id: `live-commission-${key}`,
         periodKey: key,

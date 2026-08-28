@@ -15,6 +15,7 @@ import {
   canExportPaymentOrders,
   canIssueServiceBill,
   canManageWebhooks,
+  canReadAgentCommission,
   canReadAgentPayout,
   canReadPaymentOrder,
   canViewMatchingModeSettings,
@@ -136,6 +137,13 @@ describe("M4-10 authz regression — agent bars", () => {
     });
     assert.equal(canUpdateAgentPayout(p, agentOrg), false);
     assert.equal(canReadAgentPayout(p, agentOrg), true);
+  });
+
+  it("parent agent may read sub-agent payout and commission (cascade slips)", () => {
+    const subOrg = { id: "a1-sub", type: "agent_sub" };
+    assert.equal(canReadAgentPayout(a, subOrg), true);
+    assert.equal(canReadAgentCommission(a, subOrg), true);
+    assert.equal(canUpdateAgentPayout(a, subOrg), false);
   });
 
   it("cannot create payment orders; may list/export subtree (watch-only)", () => {

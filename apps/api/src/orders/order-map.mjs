@@ -53,6 +53,7 @@ export function toPaymentDetails(row) {
     memoOrTag: row.memo_or_tag ?? null,
     expiresAt: expiresAtIso(row.expires_at),
     wrongNetworkWarning: `Send only ${row.asset} on ${display}. Wrong network may result in lost funds.`,
+    anomalyReason: row.anomaly_reason ?? null,
   };
   if (row.matching_mode === "C") {
     details.payExactAmountWarning =
@@ -86,6 +87,7 @@ export function toPaymentOrder(row) {
    *   expiresAt: string,
    *   createdAt: string,
    *   createdBy?: string,
+   *   anomalyReason?: string | null,
    * }} */
   const order = {
     id: row.id,
@@ -106,6 +108,7 @@ export function toPaymentOrder(row) {
     network: row.network,
     expiresAt: expiresAtIso(row.expires_at),
     createdAt: expiresAtIso(row.created_at),
+    anomalyReason: row.anomaly_reason ?? null,
   };
   if (row.created_by) {
     order.createdBy = row.created_by;

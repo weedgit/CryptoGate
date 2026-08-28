@@ -9,6 +9,7 @@ import {
   setOrgUserStatus,
   removeOrgUser,
   inviteOrgUser,
+  assignOrgUserRole,
   type OrgMember,
   type InviteOrgUserResult,
   type PaymentOrder,
@@ -30,6 +31,7 @@ export {
   setOrgUserStatus,
   removeOrgUser,
   inviteOrgUser,
+  assignOrgUserRole,
 };
 export type { PaymentOrder, Session, OrgMember, InviteOrgUserResult };
 
@@ -58,6 +60,8 @@ export type ServiceBill = {
   status: string;
   dueAt: string;
   paidAt?: string | null;
+  voidedAt?: string | null;
+  lastAdjustmentReason?: string | null;
 };
 
 export type AuditLogEntry = {
@@ -128,6 +132,51 @@ export async function getAgentCommission(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as { orgId: string; commissionPercent: string };
+}
+
+export type AgentPayoutAddress = {
+  orgId: string;
+  asset: string;
+  network: string;
+  address: string;
+  pendingAddress?: string | null;
+  pendingActivatesAt?: string | null;
+  updatedAt?: string;
+};
+
+export async function getAgentPayout(
+  orgId: string,
+): Promise<AgentPayoutAddress | null> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as AgentPayoutAddress;
+}
+
+export async function putAgentPayout(
+  orgId: string,
+  body: { asset: string; network: string; address: string; mfaCode: string },
+): Promise<AgentPayoutAddress> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as AgentPayoutAddress;
 }
 
 export async function getServiceBill(billId: string): Promise<ServiceBill> {
@@ -241,6 +290,7 @@ export async function createOrg(body: {
   billingContact?: string;
   legalName?: string;
   commercial?: { tier: string; volumeFeePercent: string };
+  commissionPercent?: string;
 }): Promise<OrgAccount> {
   const res = await fetch(`${API_BASE}/orgs`, {
     method: "POST",

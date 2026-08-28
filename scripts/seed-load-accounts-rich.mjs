@@ -307,10 +307,10 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("owner@local.cryptogate");
+  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
   if (!platformOwner) {
     throw new Error(
-      "Missing owner@local.cryptogate — run `node scripts/seed-local.mjs` first.",
+      "Missing admin.platform@cryptogate.io — run `node scripts/seed-local.mjs` first.",
     );
   }
 
