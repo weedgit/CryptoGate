@@ -19,6 +19,8 @@
   --teal-pressed: #00b2aa;
   --teal-dim: rgba(0, 212, 200, 0.12);
   --accent: var(--teal);
+  --plat-gold: #f0b429;
+  --plat-gold-bright: #fbbf24;
   --warn: #ffb703;
   --anomaly: #ff5a6a;
   --ok: #00e676;
