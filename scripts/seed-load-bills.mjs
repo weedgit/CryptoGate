@@ -228,7 +228,7 @@ async function main() {
   console.log(`  Merchants:     ${merchants.length}`);
   console.log(`  Service bills: ${inserted}`);
   console.log(`  Paid fee sum:  ~$${money(paidFees)} (volume fees on paid bills)`);
-  console.log("  Status mix:    paid / issued / overdue (backdated for 7d–2m windows)");
+  console.log("  Status mix:    paid / issued / overdue (backdated for 7d–1m windows)");
 }
 
 main()

@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
                     var loading by remember { mutableStateOf(false) }
                     var screen by remember { mutableStateOf(PosScreen.Home) }
                     var amount by remember { mutableStateOf("") }
+                    var merchantReference by remember { mutableStateOf("") }
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
                     var watchingOrderId by remember { mutableStateOf<String?>(null) }
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 error = null
                                 amount = ""
+                                merchantReference = ""
                                 screen = PosScreen.Create
                             },
                             onSignOut = {
@@ -142,11 +144,13 @@ class MainActivity : ComponentActivity() {
                         )
                         PosScreen.Create -> CreateOrderScreen(
                             amount = amount,
+                            merchantReference = merchantReference,
                             validitySeconds = validitySeconds,
                             error = error,
                             loading = loading,
                             online = online,
                             onAmountChange = { amount = it; error = null },
+                            onMerchantReferenceChange = { merchantReference = it; error = null },
                             onValidityChange = { validitySeconds = it },
                             onSubmit = {
                                 scope.launch {
@@ -161,6 +165,8 @@ class MainActivity : ComponentActivity() {
                                         val order = app.api.createOrder(
                                             amount = amount.trim(),
                                             validitySeconds = validitySeconds,
+                                            merchantReference = merchantReference.trim()
+                                                .ifEmpty { null },
                                         )
                                         payment = app.api.getPaymentDetails(order.id)
                                         watchingOrderId = order.id
@@ -184,10 +190,12 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 OrderPayScreen(
                                     details = details,
+                                    merchantReference = merchantReference.trim().ifEmpty { null },
                                     onDone = {
                                         payment = null
                                         watchingOrderId = null
                                         amount = ""
+                                        merchantReference = ""
                                         error = null
                                         screen = PosScreen.Home
                                     },
