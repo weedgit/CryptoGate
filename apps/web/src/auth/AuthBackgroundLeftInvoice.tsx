@@ -12,9 +12,9 @@ const STATUSES: OrderStatus[] = ["pending", "verifying", "completed"];
 const ROWS = [
   { label: "Order ID", value: "PO-8F2A-0194" },
   { label: "Amount", value: "1.2500 USDT" },
-  { label: "Network", value: "TRON (TRC-20)" },
+  { label: "Network", value: "TRON TRC-20" },
   { label: "Receive", value: "TXk9…4mP2" },
-  { label: "Confirmations", value: "8 / 12" },
+  { label: "Confirmations", value: "19 / 19" },
 ];
 
 const STATUS_LABEL: Record<OrderStatus, string> = {

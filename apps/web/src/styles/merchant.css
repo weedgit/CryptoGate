@@ -1551,6 +1551,10 @@ select {
   gap: 0;
 }
 
+.login-brand-slot {
+  margin-bottom: 24px;
+}
+
 .login-column--wide,
 .login-wrap--wide .login-stage {
   width: min(480px, 100%);
@@ -1698,6 +1702,11 @@ select {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+}
+
+.login-logo-mark-svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .login-brand-name {
@@ -2368,12 +2377,12 @@ select {
 .login-footer {
   margin-top: 24px;
   text-align: center;
-  color: #8a7a62;
-  font-size: 14px;
+  color: var(--footer);
+  font-size: 13px;
 }
 
 .login-footer a {
-  color: var(--login-gold-bright);
+  color: var(--muted);
   text-decoration: none;
   transition:
     color 180ms ease,
@@ -2381,7 +2390,7 @@ select {
 }
 
 .login-footer a:hover {
-  color: #e0c888;
+  color: var(--login-gold-bright, var(--teal));
   text-decoration: underline;
   text-underline-offset: 2px;
   text-shadow: 0 0 12px rgba(0, 212, 200, 0.35);

@@ -21,6 +21,48 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 | `apps/payment-page` | Payer (no login) |
 | Service bill checkout | Merchant payer of platform fees (linked from portal) |
 | `apps/cashier-apk` | Cashier on POS device |
+| `apps/web` — `/` marketing | Public advertise / broadcast entry (pre-auth) |
+| `apps/web` — `/login` | Portal picker (Merchant / Agent / Platform) |
+
+---
+
+## Part M0 — Public marketing (pre-auth)
+
+### M0. Marketing landing
+
+| | |
+| --- | --- |
+| **Route** | `/` |
+| **Access** | Public (no session) |
+
+**Content**
+
+- Brand (gate mark + CryptoGate) · Product anchor · **Sign in** CTA
+- Hero: watch-only / merchant-controlled positioning; USDT Tron live rail
+- Glass **payment order** mock (TRC-20, 19 confirmations, **Completed** — never “Paid”)
+- Product pillars: watch-only · honest order state · counter / POS
+- Audience pills (hotels, travel, retail, sites, agents)
+- Soft ink + grid background — **not** the portal login radar scene
+- Footer: support contact
+
+**Out of scope on this page**
+
+- Settlement / xPub / matching settings
+- Live chain telemetry claimed as production metrics
+- Guest payment checkout (that is `apps/payment-page`)
+
+### M0b. Sign-in hub
+
+| | |
+| --- | --- |
+| **Route** | `/login` |
+| **Access** | Public (pre-auth) |
+
+**Content**
+
+- Choose portal: Merchant · Agent · Platform → existing portal login (`/merchant`, `/agent`, `/platform`)
+- Back link to `/`
+- Note: guest pay links do not require sign-in
 
 ---
 
@@ -30,7 +72,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 | | |
 | --- | --- |
-| **Route** | `/login` |
+| **Route** | `/merchant`, `/agent`, or `/platform` (unauthenticated) — entry also via `/login` hub |
 | **Access** | All users (pre-auth) |
 
 **Content**
