@@ -15,13 +15,17 @@ describe("@cryptogate/web merchant M2-60", () => {
     assert.match(labels, /Standard/);
     assert.match(labels, /Amount fingerprint/);
     assert.match(labels, /Smart address/);
-    const page = readFileSync(
-      join(root, "src/merchant/CreateOrderPage.tsx"),
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /orders\/new/);
+    assert.match(app, /MerchantOrdersRoutes/);
+    assert.match(app, /showCreateModal/);
+    const modal = readFileSync(
+      join(root, "src/merchant/CreateOrderModal.tsx"),
       "utf8",
     );
-    assert.match(page, /GENERATE INVOICE/);
-    assert.match(page, /createOrder/);
-    assert.doesNotMatch(page, /Mark paid/i);
+    assert.match(modal, /CREATE PAYMENT ORDER/);
+    assert.match(modal, /createOrder/);
+    assert.doesNotMatch(modal, /Mark paid/i);
   });
 
   it("ignores pink animation sticky from Figma", () => {
@@ -90,7 +94,9 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
       "utf8",
     );
     assert.doesNotMatch(detail, /<button[^>]*>[^<]*Mark paid/i);
-    assert.match(detail, /anomaly-panel/);
+    assert.match(detail, /order-detail-anomaly/);
+    assert.match(detail, /Resolve anomaly/);
+    assert.match(detail, /resolveOrderAnomaly/);
   });
 });
 
@@ -148,9 +154,16 @@ describe("@cryptogate/web merchant D5-D6 service bills", () => {
       join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
-    assert.match(list, /Customer payments go to your wallet[\s\S]*separately/);
+    assert.match(list, /Platform SaaS invoices/);
     assert.match(list, /listServiceBills/);
     assert.doesNotMatch(list, /createOrder|listOrders/);
+    const detail = readFileSync(
+      join(root, "src/merchant/ServiceBillDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /ServiceBillInvoiceFace/);
+    assert.match(detail, /platform billing/);
+    assert.match(detail, /getServiceBillCheckout/);
   });
 });
 
@@ -187,9 +200,9 @@ describe("@cryptogate/web merchant D10 reports", () => {
 
   it("shows volume breakdown and separate from service bills", () => {
     const page = readFileSync(join(root, "src/merchant/ReportsPage.tsx"), "utf8");
-    assert.match(page, /Completed volume|COMPLETED VOLUME/i);
-    assert.match(page, /separate from service bills/i);
-    assert.match(page, /matching_mode/);
+    assert.match(page, /COMPLETED VOLUME/);
+    assert.match(page, /sumCompletedVolume|completedVolume/);
+    assert.match(page, /matchingMode/);
     assert.match(page, /ordersCsvUrl/);
     assert.doesNotMatch(page, /Mark paid/i);
     assert.doesNotMatch(page, /listServiceBills/);
@@ -216,7 +229,7 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
     assert.match(api, /inviteOrgUser/);
     assert.match(api, /assignOrgUserRole/);
     const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
-    assert.match(team, /Only the Owner manages team/i);
+    assert.match(team, /Only the Owner can add or remove team members/i);
     assert.match(team, /inviteOrgUser/);
     const billing = readFileSync(
       join(root, "src/merchant/BillingSettingsPage.tsx"),

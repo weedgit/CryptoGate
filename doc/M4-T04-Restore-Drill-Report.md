@@ -16,7 +16,7 @@ Copy to the drill ticket and tick during the window.
 | --- | --- | --- | --- |
 | 1 | Announce drill; confirm **test** env only | ☐ | |
 | 2 | Baseline `GET {API}/health` → `db: ok` | ☐ | |
-| 3 | Record latest migration: `SELECT id FROM schema_migrations ORDER BY applied_at DESC LIMIT 1` | ☐ | Expect through **018** (+ **019** when X-01 lands) |
+| 3 | Record latest migration: `SELECT id FROM schema_migrations ORDER BY applied_at DESC LIMIT 1` | ☐ | Expect through **041** on current `main` |
 | 4 | Note open order count + pending webhooks ([monitoring-queries.sql](examples/monitoring-queries.sql)) | ☐ | |
 | 5 | Backup: provider snapshot **or** `pg_dump` ([M4-03](M4-03-Backup-Monitoring.md) §2.2) | ☐ | |
 | 6 | **Stop** API + watcher | ☐ | |

@@ -23,12 +23,20 @@ describe("@cryptogate/web agent M4-31", () => {
     );
     assert.match(list, /Read-only/i);
     assert.doesNotMatch(list, /issueServiceBill/);
+    const detail = readFileSync(
+      join(root, "src/agent/ServiceBillDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /ServiceBillInvoiceFace/);
+    assert.match(detail, /Agent accounts cannot issue/);
+    assert.doesNotMatch(detail, /issueServiceBill|markServiceBillPaid/);
   });
 
   it("does not expose payment order creation", () => {
     const agent = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
     assert.doesNotMatch(agent, /createOrder/);
     assert.doesNotMatch(agent, /CreateOrderPage/);
+    assert.doesNotMatch(agent, /CreateOrderModal/);
   });
 });
 
@@ -55,7 +63,9 @@ describe("@cryptogate/web agent C10 commissions", () => {
     assert.match(app, /CommissionsPage/);
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
     assert.match(page, /commissionHistoryFromBills/);
-    assert.match(page, /Read-only/i);
+    assert.match(page, /listAgentCommissions/);
+    assert.match(page, /View service bills/);
+    assert.match(page, /subtree service bills/);
     assert.doesNotMatch(page, /issueServiceBill/);
     assert.doesNotMatch(page, /createOrder/);
   });

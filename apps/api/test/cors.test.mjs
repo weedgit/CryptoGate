@@ -43,6 +43,8 @@ describe("CORS", () => {
   });
 
   it("sets ACAO on allowed Origin for GET /health", async () => {
+    const prevDb = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {
         res.writeHead(500);
@@ -59,6 +61,8 @@ describe("CORS", () => {
       assert.equal(res.headers.get("access-control-allow-credentials"), "true");
     } finally {
       await close(server);
+      if (prevDb === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = prevDb;
     }
   });
 

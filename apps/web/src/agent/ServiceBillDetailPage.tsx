@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { FundAmount } from "../platform/FundAmount";
+import {
+  platformBillingPayToFallback,
+  platformInvoiceSeller,
+  ServiceBillInvoiceFace,
+} from "../billing/ServiceBillInvoiceFace";
 import {
   formatBillId,
   serviceBillStatusLabel,
@@ -12,6 +16,7 @@ import {
   ApiError,
   getServiceBill,
   listOrgs,
+  type OrgAccount,
   type ServiceBill,
 } from "./api";
 import { formatShortDate } from "./org";
@@ -94,11 +99,12 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
   return steps;
 }
 
-/** Agent service bill detail — platform chrome, read-only (no mark paid / void). */
+/** Agent service bill detail — shared invoice face, read-only (no mark paid / void). */
 export function ServiceBillDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const invoiceRef = useRef<HTMLElement | null>(null);
   const [bill, setBill] = useState<ServiceBill | null>(null);
-  const [merchantName, setMerchantName] = useState<string | null>(null);
+  const [merchant, setMerchant] = useState<OrgAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +115,7 @@ export function ServiceBillDetailPage() {
     try {
       const [row, orgs] = await Promise.all([getServiceBill(id), listOrgs()]);
       setBill(row);
-      setMerchantName(orgs.find((o) => o.id === row.orgId)?.name ?? null);
+      setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load bill");
     } finally {
@@ -159,10 +165,8 @@ export function ServiceBillDetailPage() {
     );
   }
 
-  const lineItems = [
-    { label: "Subscription", amount: bill.subscriptionAmount },
-    { label: "Volume fee", amount: bill.volumeFeeAmount },
-  ];
+  const seller = platformInvoiceSeller();
+  const payTo = platformBillingPayToFallback();
 
   return (
     <div className="plat-bill-detail">
@@ -171,13 +175,13 @@ export function ServiceBillDetailPage() {
           <h1 className="plat-bill-detail__id">{title}</h1>
           <span
             className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}${
-              bill.status === "overdue" ? " is-pulse" : ""
+              bill.status === "overdue" || duePast ? " is-pulse" : ""
             }`}
           >
             {serviceBillStatusLabel(bill.status)}
           </span>
           <span className="plat-bill-detail__merchant">
-            Merchant: {merchantName ?? bill.orgId}
+            Merchant: {merchant?.name ?? bill.orgId}
           </span>
         </div>
         <Link className="plat-bill-detail__back-btn" to="/agent/service-bills">
@@ -187,97 +191,46 @@ export function ServiceBillDetailPage() {
 
       <div className="plat-bill-detail__split">
         <div className="plat-bill-detail__main">
-          <section className="plat-bill-detail__card plat-bill-detail__summary">
-            <div className="plat-bill-detail__stat">
-              <p className="plat-bill-detail__stat-label">Total amount</p>
-              <p className="plat-bill-detail__stat-value plat-bill-detail__stat-value--lg">
-                <FundAmount amount={bill.totalAmount} />
-              </p>
-            </div>
-            <div className="plat-bill-detail__stat">
-              <p className="plat-bill-detail__stat-label">Due date</p>
-              <p
-                className={`plat-bill-detail__stat-value${
-                  duePast ? " is-overdue" : ""
-                }`}
+          <ServiceBillInvoiceFace
+            bill={bill}
+            buyer={{
+              name: merchant?.name ?? bill.orgId,
+              legalName: merchant?.legalName,
+              billingEmail: merchant?.billingEmail,
+              country: merchant?.country,
+              orgId: bill.orgId,
+            }}
+            seller={seller}
+            remittance={
+              payTo
+                ? {
+                    payTo,
+                    instructions:
+                      "Merchants settle via service-bill checkout. Agent accounts are read-only on this rail.",
+                  }
+                : {
+                    instructions:
+                      "Pay-to appears on merchant checkout. Agent accounts cannot issue or mark bills paid.",
+                  }
+            }
+            statusBadge={
+              <span
+                className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}`}
               >
-                {formatShortDate(bill.dueAt)}
-                {duePast ? " (past)" : ""}
-              </p>
-            </div>
-            <div className="plat-bill-detail__stat">
-              <p className="plat-bill-detail__stat-label">Billing period</p>
-              <p className="plat-bill-detail__stat-value">
-                {formatShortDate(bill.periodStart)} →{" "}
-                {formatShortDate(bill.periodEnd)}
-              </p>
-            </div>
-            <div className="plat-bill-detail__stat">
-              <p className="plat-bill-detail__stat-label">Merchant</p>
-              <p className="plat-bill-detail__stat-value">
-                {merchantName ?? bill.orgId}
-              </p>
-            </div>
-          </section>
-
-          <section className="plat-bill-detail__card">
-            <h2 className="plat-bill-detail__section-title">Line items</h2>
-            <table className="plat-bill-detail__lines">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((row) => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
-                    <td className="plat-bill-detail__line-amt">
-                      <FundAmount amount={row.amount} />
-                    </td>
-                  </tr>
-                ))}
-                {bill.lastAdjustmentReason ? (
-                  <tr>
-                    <td>
-                      Adjustment
-                      <span className="plat-bill-detail__line-note">
-                        {bill.lastAdjustmentReason}
-                      </span>
-                    </td>
-                    <td className="plat-bill-detail__line-amt muted">—</td>
-                  </tr>
-                ) : null}
-                <tr className="plat-bill-detail__lines-total">
-                  <td>Total</td>
-                  <td className="plat-bill-detail__line-amt">
-                    <FundAmount amount={bill.totalAmount} />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          <section className="plat-bill-detail__card">
-            <h2 className="plat-bill-detail__section-title">Payment history</h2>
-            {bill.paidAt ? (
-              <div className="plat-bill-detail__pay-row">
-                <div>
-                  <p className="plat-bill-detail__pay-title">Marked paid</p>
-                  <p className="plat-bill-detail__pay-meta">
-                    {formatShortDate(bill.paidAt)}
-                  </p>
-                </div>
-                <p className="plat-bill-detail__pay-amt">
-                  <FundAmount amount={bill.totalAmount} />
-                </p>
-              </div>
-            ) : (
-              <div className="plat-bill-detail__empty">No payments received</div>
-            )}
-          </section>
-
+                {serviceBillStatusLabel(bill.status)}
+              </span>
+            }
+            toolbar={
+              <button
+                type="button"
+                className="sb-invoice__print-btn"
+                onClick={() => window.print()}
+              >
+                Print invoice
+              </button>
+            }
+            invoiceRef={invoiceRef}
+          />
           <p className="plat-bill-detail__footnote">
             Merchants pay via service-bill checkout — not the guest payment page.
             Agent accounts cannot issue, adjust, or mark bills paid.

@@ -51,8 +51,8 @@ export function AgentSettingsPage({ session }: Props) {
 
   const [org, setOrg] = useState<OrgAccount | null>(null);
   const [payout, setPayout] = useState<AgentPayoutAddress | null>(null);
-  const [asset, setAsset] = useState(defaultLivePair().asset);
-  const [network, setNetwork] = useState(defaultLivePair().network);
+  const [asset, setAsset] = useState<string>(defaultLivePair().asset);
+  const [network, setNetwork] = useState<string>(defaultLivePair().network);
   const [address, setAddress] = useState("");
   const [pendingMfa, setPendingMfa] = useState<PendingPayout | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);

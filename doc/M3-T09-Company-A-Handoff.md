@@ -63,7 +63,7 @@ Phase 1 source is ready for deployment to your **test/staging** cloud account. C
 3. TronGrid (or private Tron) endpoint + API key for **test**
 4. Confirmation that managed Postgres backups are enabled on test ([M4-03](M4-03-Backup-Monitoring.md))
 
-**After you reply**, we schedule a deploy window: migrate DB (through **018**; **019** when X-01 fee-tier API lands), start API + watcher, run smoke (health, sample order, webhook test). Staging Cashier APK install: [M5-08](M5-08-Cashier-Apk-Install.md).
+**After you reply**, we schedule a deploy window: migrate DB (through **041** on current `main`), start API + watcher, run smoke (health, sample order, webhook test). Staging Cashier APK install: [M5-08](M5-08-Cashier-Apk-Install.md).
 
 Regards,  
 [Kevin / Company B]
@@ -122,7 +122,7 @@ Repeat per [M4-01](M4-01-Deploy-Runbook.md) §5 on **test** only.
 | --- | --- | --- |
 | 1 | Inject secrets; **never** commit `.env` | |
 | 2 | `pnpm install --frozen-lockfile && pnpm build && pnpm check` | CI green |
-| 3 | `pnpm --filter @cryptogate/api migrate` (≥ **018**) | no error |
+| 3 | `pnpm --filter @cryptogate/api migrate` (through **041**) | no error |
 | 4 | Start **API** then **watcher** (two units) | |
 | 5 | Publish pay page + web static assets behind HTTPS | |
 | 6 | `GET {API}/health` | 200, `db: ok` |

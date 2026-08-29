@@ -5,7 +5,7 @@
 
 Phase 1 Postgres schema for CryptoGate. Watcher reads/writes **payment order** chain columns; it does **not** run migrations.
 
-**Latest migration:** `018_service_bill_lifecycle_audit.sql` (run `pnpm --filter @cryptogate/api migrate` before deploy).
+**Latest migration:** `041_payment_order_anomaly_resolution.sql` (run `pnpm --filter @cryptogate/api migrate` before deploy). Invoice / billing / commissions batch work also added **037–040**.
 
 **018 before 017 on fresh env:** migrations apply in filename order; **017** then **018** on existing DBs that already ran through 017.
 

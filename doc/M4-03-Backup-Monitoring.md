@@ -98,7 +98,7 @@ Run **at least once** in the **test** environment before prod go-live. Record el
 | Step | Action |
 | --- | --- |
 | 1 | Announce drill window; no prod impact |
-| 2 | Capture baseline: `GET {API}/health` → `db: ok`; note max migration file (e.g. `018_*`; **019** when X-01 API lands) |
+| 2 | Capture baseline: `GET {API}/health` → `db: ok`; note max migration file (through `041_*` on current `main`) |
 | 3 | Create backup: provider snapshot **or** `pg_dump` (§2.2) |
 | 4 | **Stop** API and watcher (`systemd stop` or scale to 0) |
 | 5 | Restore to a **new** test DB instance **or** in-place per provider runbook |

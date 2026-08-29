@@ -86,8 +86,8 @@ export function SettlementPage({ session }: Props) {
   const [derivePath, setDerivePath] = useState("0/{index}");
 
   const initialPair = defaultLivePair();
-  const [addrAsset, setAddrAsset] = useState(initialPair.asset);
-  const [addrNetwork, setAddrNetwork] = useState(initialPair.network);
+  const [addrAsset, setAddrAsset] = useState<string>(initialPair.asset);
+  const [addrNetwork, setAddrNetwork] = useState<string>(initialPair.network);
   const [addrValue, setAddrValue] = useState("");
   const [savingAddr, setSavingAddr] = useState(false);
 

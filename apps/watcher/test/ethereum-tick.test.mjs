@@ -1,46 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { USDT_ETHEREUM } from "@cryptogate/domain";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-
-/**
- * @param {Record<string, string | undefined>} envOverrides
- */
-function runWatcherOnce(envOverrides = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn("node", ["./src/main.mjs"], {
-      cwd: root,
-      env: {
-        ...process.env,
-        WATCHER_POLL_INTERVAL_MS: "100",
-        ...envOverrides,
-      },
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => {
-      stdout += d;
-    });
-    child.stderr.on("data", (d) => {
-      stderr += d;
-    });
-    child.on("close", (code) => {
-      resolve({ code, stdout, stderr });
-    });
-    child.on("error", reject);
-  });
-}
+import { runWatcherOnce } from "./run-watcher-once.mjs";
 
 describe("@cryptogate/watcher ethereum ingest smoke (M3-32)", () => {
   it("default network tron still reports ethereum health stub", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "tron",
-      ETH_RPC_URL: undefined,
-      TRON_RPC_URL: undefined,
     });
     assert.equal(code, 0, stderr);
     const tick = JSON.parse(stdout.trim().split("\n")[1]);
@@ -55,7 +21,6 @@ describe("@cryptogate/watcher ethereum ingest smoke (M3-32)", () => {
       DEFAULT_NETWORK: "ethereum",
       DEFAULT_ASSET: "USDT",
       ETH_RPC_URL: "https://eth-staging.example/rpc",
-      TRON_RPC_URL: undefined,
     });
     assert.equal(code, 0, stderr);
     const tick = JSON.parse(stdout.trim().split("\n")[1]);

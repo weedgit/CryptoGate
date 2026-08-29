@@ -191,6 +191,8 @@ Blocked on [M5-01-Reference-Device.md](M5-01-Reference-Device.md) sign-off.
 
 No further Phase 1 product code is required without the above inputs (Wave 8 + X-backlog scaffolding complete).
 
+**Landed on `main` (2026-08-30):** service-bill invoice snapshots + adjustment amount, platform billing wallet (B11), batch agent commission / payout APIs, portal alerts bell, merchant order modal + bill QR rail, payment-page states, watcher/matching harden — migrations through **041**.
+
 ## 4. Critical path (shortest path to UAT)
 
 ```mermaid
@@ -228,7 +230,7 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 2 Platform UI | B8/B13/B4/C6 wired | **Done** |
 | 3 MFA UX | Enroll + login | **Done** |
 | 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
-| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 walkthrough 2026-08-27** — Company A hostnames pending |
+| 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 + invoice/commissions 2026-08-30** — Company A hostnames pending |
 | 6 X-backlog | Per ID | **X-02/X-03/X-04/X-07 · X-06 client scaffolded** (enable after ETH) |
 | 7 M5 hardware | Reference device | **Blocked** (client) |
 | 8 Design polish | Token sync | **Done 2026-08-27** |

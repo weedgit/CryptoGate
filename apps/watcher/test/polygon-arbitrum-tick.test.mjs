@@ -1,46 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { USDT_POLYGON, USDT_ARBITRUM_ONE } from "@cryptogate/domain";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-
-/**
- * @param {Record<string, string | undefined>} envOverrides
- */
-function runWatcherOnce(envOverrides = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn("node", ["./src/main.mjs"], {
-      cwd: root,
-      env: {
-        ...process.env,
-        WATCHER_POLL_INTERVAL_MS: "100",
-        ...envOverrides,
-      },
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => {
-      stdout += d;
-    });
-    child.stderr.on("data", (d) => {
-      stderr += d;
-    });
-    child.on("close", (code) => {
-      resolve({ code, stdout, stderr });
-    });
-    child.on("error", reject);
-  });
-}
+import { runWatcherOnce } from "./run-watcher-once.mjs";
 
 describe("@cryptogate/watcher polygon ingest smoke", () => {
   it("default tron tick reports polygon health stub", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "tron",
-      POLYGON_RPC_URL: undefined,
-      ARBITRUM_RPC_URL: undefined,
     });
     assert.equal(code, 0, stderr);
     const tick = JSON.parse(stdout.trim().split("\n")[1]);
@@ -53,7 +19,6 @@ describe("@cryptogate/watcher polygon ingest smoke", () => {
       DEFAULT_NETWORK: "polygon",
       DEFAULT_ASSET: "USDT",
       POLYGON_RPC_URL: "https://polygon-staging.example/rpc",
-      TRON_RPC_URL: undefined,
     });
     assert.equal(code, 0, stderr);
     const tick = JSON.parse(stdout.trim().split("\n")[1]);
@@ -76,7 +41,6 @@ describe("@cryptogate/watcher arbitrum_one ingest smoke", () => {
       DEFAULT_NETWORK: "arbitrum_one",
       DEFAULT_ASSET: "USDT",
       ARBITRUM_RPC_URL: "https://arb-staging.example/rpc",
-      TRON_RPC_URL: undefined,
     });
     assert.equal(code, 0, stderr);
     const tick = JSON.parse(stdout.trim().split("\n")[1]);

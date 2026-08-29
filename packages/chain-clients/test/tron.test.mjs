@@ -11,7 +11,57 @@ import {
   USDT_TRC20_CONTRACT,
 } from "../tron/index.mjs";
 
+/** Keys that leak from a developer `.env` and break hermetic stub / mainnet mocks. */
+const TRON_TEST_ENV_KEYS = [
+  "TRON_RPC_URL",
+  "TRON_API_KEY",
+  "TRON_USDT_CONTRACT",
+  "CRYPTOGATE_CHAIN_ENV",
+  "VITE_CRYPTOGATE_CHAIN_ENV",
+  "WATCHER_STUB_TRANSFERS",
+  "WATCHER_STUB_CONFIRMATIONS",
+  "WATCHER_STUB_TX_PRESENCE",
+];
+
+/**
+ * @param {Record<string, string | undefined>} patch
+ * @returns {() => void} restore
+ */
+function withEnv(patch) {
+  /** @type {Record<string, string | undefined>} */
+  const prev = {};
+  for (const key of Object.keys(patch)) {
+    prev[key] = process.env[key];
+    const next = patch[key];
+    if (next === undefined) delete process.env[key];
+    else process.env[key] = next;
+  }
+  return () => {
+    for (const [key, value] of Object.entries(prev)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+}
+
+function clearTronTestEnv() {
+  /** @type {Record<string, string | undefined>} */
+  const patch = {};
+  for (const key of TRON_TEST_ENV_KEYS) patch[key] = undefined;
+  return withEnv(patch);
+}
+
 describe("@cryptogate/chain-clients/tron stub", () => {
+  let restore = () => {};
+
+  before(() => {
+    restore = clearTronTestEnv();
+  });
+
+  after(() => {
+    restore();
+  });
+
   it("healthCheck returns stub mode without TRON_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "tron");
@@ -100,27 +150,23 @@ describe("@cryptogate/chain-clients/tron amount + map", () => {
 });
 
 describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
-  const prevUrl = process.env.TRON_RPC_URL;
-  const prevKey = process.env.TRON_API_KEY;
-  const prevStubTx = process.env.WATCHER_STUB_TRANSFERS;
-  const prevStubConf = process.env.WATCHER_STUB_CONFIRMATIONS;
+  let restore = () => {};
 
   before(() => {
-    process.env.TRON_RPC_URL = "https://api.trongrid.io";
-    process.env.TRON_API_KEY = "test-key";
-    delete process.env.WATCHER_STUB_TRANSFERS;
-    delete process.env.WATCHER_STUB_CONFIRMATIONS;
+    restore = withEnv({
+      TRON_RPC_URL: "https://api.trongrid.io",
+      TRON_API_KEY: "test-key",
+      CRYPTOGATE_CHAIN_ENV: undefined,
+      VITE_CRYPTOGATE_CHAIN_ENV: undefined,
+      TRON_USDT_CONTRACT: undefined,
+      WATCHER_STUB_TRANSFERS: undefined,
+      WATCHER_STUB_CONFIRMATIONS: undefined,
+      WATCHER_STUB_TX_PRESENCE: undefined,
+    });
   });
 
   after(() => {
-    if (prevUrl === undefined) delete process.env.TRON_RPC_URL;
-    else process.env.TRON_RPC_URL = prevUrl;
-    if (prevKey === undefined) delete process.env.TRON_API_KEY;
-    else process.env.TRON_API_KEY = prevKey;
-    if (prevStubTx === undefined) delete process.env.WATCHER_STUB_TRANSFERS;
-    else process.env.WATCHER_STUB_TRANSFERS = prevStubTx;
-    if (prevStubConf === undefined) delete process.env.WATCHER_STUB_CONFIRMATIONS;
-    else process.env.WATCHER_STUB_CONFIRMATIONS = prevStubConf;
+    restore();
   });
 
   it("healthCheck reports trongrid when URL set", async () => {
@@ -168,6 +214,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
 
     const result = await listRecentTransfers({
       watchedAddresses: ["TWatched"],
+      network: "tron",
       fetch: /** @type {typeof fetch} */ (fetchMock),
     });
 
@@ -214,7 +261,12 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     const { getTransactionConfirmationState } = await import("../tron/index.mjs");
     const fetchMock = async (url) => {
       if (String(url).includes("gettransactioninfobyid")) {
-        return { ok: true, async json() { return {}; } };
+        return {
+          ok: true,
+          async json() {
+            return {};
+          },
+        };
       }
       throw new Error("unexpected " + url);
     };
@@ -249,10 +301,13 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
   });
 
   it("retries 429 then succeeds", async () => {
-    const prevUrl = process.env.TRON_RPC_URL;
-    const prevStub = process.env.WATCHER_STUB_TRANSFERS;
-    process.env.TRON_RPC_URL = "https://api.trongrid.io";
-    delete process.env.WATCHER_STUB_TRANSFERS;
+    const restore = withEnv({
+      TRON_RPC_URL: "https://api.trongrid.io",
+      CRYPTOGATE_CHAIN_ENV: undefined,
+      VITE_CRYPTOGATE_CHAIN_ENV: undefined,
+      TRON_USDT_CONTRACT: undefined,
+      WATCHER_STUB_TRANSFERS: undefined,
+    });
     let calls = 0;
     const fetchMock = async () => {
       calls += 1;
@@ -285,6 +340,7 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
     try {
       const result = await listRecentTransfers({
         watchedAddresses: ["TWatched"],
+        network: "tron",
         fetch: /** @type {typeof fetch} */ (fetchMock),
         sleep: async () => {},
       });
@@ -292,10 +348,7 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
       assert.equal(result.mode, "trongrid");
       assert.equal(result.transfers[0].txHash, "retry-ok");
     } finally {
-      if (prevUrl === undefined) delete process.env.TRON_RPC_URL;
-      else process.env.TRON_RPC_URL = prevUrl;
-      if (prevStub === undefined) delete process.env.WATCHER_STUB_TRANSFERS;
-      else process.env.WATCHER_STUB_TRANSFERS = prevStub;
+      restore();
     }
   });
 });

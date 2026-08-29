@@ -69,6 +69,7 @@ describe("@cryptogate/chain-clients/ethereum map + rpc (mocked)", () => {
     );
     assert.deepEqual(mapped, {
       toAddress: to,
+      fromAddress: "0x1111111111111111111111111111111111111111",
       amount: "1",
       txHash: "0xabc123",
       asset: "USDT",
