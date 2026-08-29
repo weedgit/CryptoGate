@@ -121,7 +121,7 @@ describe("@cryptogate/domain", () => {
     );
   });
 
-  it("exposes USDT Nile only when chain env is testnet", () => {
+  it("exposes Nile plus mainnet pairs when chain env is testnet", () => {
     assert.equal(resolveChainEnvironment("testnet"), ChainEnvironment.Testnet);
     assert.equal(resolveChainEnvironment("development"), ChainEnvironment.Testnet);
     const nile = getAssetNetworkConfig(
@@ -133,10 +133,12 @@ describe("@cryptogate/domain", () => {
     assert.equal(nile, USDT_TRON_NILE);
     assert.equal(
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron, "testnet"),
-      undefined,
+      USDT_TRON,
     );
-    assert.equal(listAssetNetworkRegistry("testnet").length, 1);
-    assert.equal(listAssetNetworkRegistry("testnet")[0], USDT_TRON_NILE);
+    const testnetRows = listAssetNetworkRegistry("testnet");
+    assert.equal(testnetRows.length, ASSET_NETWORK_REGISTRY.length);
+    assert.ok(testnetRows.includes(USDT_TRON_NILE));
+    assert.ok(testnetRows.includes(USDT_TRON));
   });
 
   it("exports payment-order DB columns for matching assign", () => {
