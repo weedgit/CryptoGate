@@ -32,6 +32,16 @@ export const MODE_D_RESERVED_STATUSES = [
   OrderStatus.PaymentAnomaly,
 ] as const;
 
+/**
+ * Live Mode D tickets that block creating another order with the same memo.
+ * Anomaly rows stay reserved for matching but do not hard-block create forever.
+ */
+export const MODE_D_CREATE_BLOCK_STATUSES = [
+  OrderStatus.PendingPayment,
+  OrderStatus.Verifying,
+  OrderStatus.Confirmed,
+] as const;
+
 export const MODE_D_MAX_MEMO_ATTEMPTS = 10_000;
 /** Typical memo / destination-tag safe length (conservative). */
 export const MODE_D_MAX_MEMO_LENGTH = 28;

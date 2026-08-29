@@ -65,6 +65,7 @@ describe("@cryptogate/chain-clients/tron amount + map", () => {
       {
         transaction_id: "abcd",
         to: "TRecv",
+        from: "TFrom",
         value: "1000000",
         token_info: {
           address: USDT_TRC20_CONTRACT,
@@ -75,6 +76,7 @@ describe("@cryptogate/chain-clients/tron amount + map", () => {
     );
     assert.deepEqual(mapped, {
       toAddress: "TRecv",
+      fromAddress: "TFrom",
       amount: "1",
       txHash: "abcd",
       asset: "USDT",
@@ -141,6 +143,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
               {
                 transaction_id: "tx1",
                 to: "TWatched",
+                from: "TPayer",
                 value: "50000000",
                 token_info: {
                   address: USDT_TRC20_CONTRACT,
@@ -150,6 +153,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
               {
                 transaction_id: "tx1",
                 to: "TWatched",
+                from: "TPayer",
                 value: "50000000",
                 token_info: {
                   address: USDT_TRC20_CONTRACT,
@@ -172,6 +176,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     assert.equal(result.transfers.length, 1);
     assert.equal(result.transfers[0].amount, "50");
     assert.equal(result.transfers[0].txHash, "tx1");
+    assert.equal(result.transfers[0].fromAddress, "TPayer");
     assert.match(urls[0], /\/v1\/accounts\/TWatched\/transactions\/trc20/);
     assert.match(urls[0], /contract_address=/);
   });
