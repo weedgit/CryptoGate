@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { AuthToast } from "../../auth/AuthToast";
 
 export type FeedbackCategory = "bug" | "idea" | "other";
 
@@ -67,105 +68,109 @@ export function FeedbackModal({ open, email, onClose }: Props) {
       list.unshift(entry);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 50)));
       setSent(true);
-      setError(null);
     } catch {
       setError("Could not save feedback on this device. Try again.");
     }
   };
 
   return createPortal(
-    <div className="feedback-modal" role="presentation" onClick={onClose}>
-      <div
-        className="feedback-modal__panel panel glass-tone-slate"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="feedback-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="feedback-modal__head">
-          <h2 id="feedback-modal-title">Send feedback</h2>
-          <button
-            type="button"
-            className="feedback-modal__close"
-            aria-label="Close feedback"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
+    <>
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <div className="feedback-modal" role="presentation" onClick={onClose}>
+        <div
+          className="feedback-modal__panel panel glass-tone-slate"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="feedback-modal__head">
+            <h2 id="feedback-modal-title">Send feedback</h2>
+            <button
+              type="button"
+              className="feedback-modal__close"
+              aria-label="Close feedback"
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </header>
 
-        {sent ? (
-          <div className="feedback-modal__body">
-            <p className="feedback-modal__thanks">
-              Thanks — your feedback was saved. We use it to improve CryptoGate.
-            </p>
-            <div className="feedback-modal__foot">
-              <button
-                type="button"
-                className="feedback-modal__primary"
-                onClick={onClose}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="feedback-modal__body">
-            <p className="muted feedback-modal__lead">
-              Report a bug, share an idea, or tell us what slowed you down.
-            </p>
-
-            <div className="feedback-modal__cats" role="radiogroup" aria-label="Feedback type">
-              {CATEGORIES.map((c) => (
+          {sent ? (
+            <div className="feedback-modal__body">
+              <p className="feedback-modal__thanks">
+                Thanks — your feedback was saved. We use it to improve CryptoGate.
+              </p>
+              <div className="feedback-modal__foot">
                 <button
-                  key={c.id}
                   type="button"
-                  role="radio"
-                  aria-checked={category === c.id}
-                  className={`feedback-modal__cat${category === c.id ? " is-on" : ""}`}
-                  onClick={() => setCategory(c.id)}
+                  className="feedback-modal__primary"
+                  onClick={onClose}
                 >
-                  {c.label}
+                  Done
                 </button>
-              ))}
+              </div>
             </div>
+          ) : (
+            <div className="feedback-modal__body">
+              <p className="muted feedback-modal__lead">
+                Report a bug, share an idea, or tell us what slowed you down.
+              </p>
 
-            <label className="feedback-modal__field">
-              <span>Message</span>
-              <textarea
-                value={message}
-                rows={5}
-                placeholder="What happened? What did you expect?"
-                onChange={(e) => setMessage(e.target.value)}
-              />
-            </label>
-
-            <p className="feedback-modal__meta muted">
-              Sending as <strong>{email}</strong>
-            </p>
-
-            {error ? <p className="error">{error}</p> : null}
-
-            <div className="feedback-modal__foot">
-              <button
-                type="button"
-                className="feedback-modal__cancel"
-                onClick={onClose}
+              <div
+                className="feedback-modal__cats"
+                role="radiogroup"
+                aria-label="Feedback type"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="feedback-modal__primary"
-                onClick={submit}
-              >
-                Send feedback
-              </button>
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={category === c.id}
+                    className={`feedback-modal__cat${category === c.id ? " is-on" : ""}`}
+                    onClick={() => setCategory(c.id)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              <label className="feedback-modal__field">
+                <span>Message</span>
+                <textarea
+                  value={message}
+                  rows={5}
+                  placeholder="What happened? What did you expect?"
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+              </label>
+
+              <p className="feedback-modal__meta muted">
+                Sending as <strong>{email}</strong>
+              </p>
+
+              <div className="feedback-modal__foot">
+                <button
+                  type="button"
+                  className="feedback-modal__cancel"
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="feedback-modal__primary"
+                  onClick={submit}
+                >
+                  Send feedback
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }

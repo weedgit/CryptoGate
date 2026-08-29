@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError, enrollMfa, verifyMfa } from "../merchant/api";
 import { AuthLayout } from "./AuthLayout";
+import { AuthToast } from "./AuthToast";
 import { CopyIcon } from "./LoginIcons";
 import { MfaCodeInput } from "./MfaCodeInput";
 import { formatManualSecret } from "./passwordPolicy";
@@ -87,6 +88,7 @@ export function MfaEnrollmentWizard({
 
   return (
     <AuthLayout wide footer={false}>
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div className="login-brand login-brand--compact">
         <div className="login-logo-mark login-logo-mark--compact" aria-hidden>
           CG
@@ -99,7 +101,6 @@ export function MfaEnrollmentWizard({
           <p style={{ color: "var(--muted)", margin: 0 }}>
             {loading ? "Preparing authenticator setup…" : "Unable to start enrollment."}
           </p>
-          {error ? <p className="error">{error}</p> : null}
           {!loading && cancelable ? (
             <button type="button" className="login-submit" onClick={onCancel}>
               Back
@@ -183,8 +184,6 @@ export function MfaEnrollmentWizard({
             }}
             disabled={loading}
           />
-
-          {error ? <p className="error login-error--center">{error}</p> : null}
 
           <div className="mfa-enroll-actions">
             <button type="button" className="login-btn-secondary" onClick={() => setStep("scan")}>

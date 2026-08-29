@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getMerchantCommercial,
@@ -191,14 +192,24 @@ export function MerchantDetailPage() {
   if (error || !org) {
     return (
       <div className="panel">
-        <p className="error">{error ?? "Merchant not found"}</p>
-        <Link to="/agent/merchants">Back to merchants</Link>
+        <AuthToast
+          message={error ?? "Merchant not found"}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
+        <p className="muted">Could not load this merchant.</p>
+        <Link to="/agent/merchants">← Back to merchants</Link>
       </div>
     );
   }
 
   return (
     <div className="panel">
+      <AuthToast
+        message={tabError}
+        tone="error"
+        onDismiss={() => setTabError(null)}
+      />
       <div className="panel-head">
         <h2>{org.name}</h2>
         <Link className="btn-secondary" to="/agent/merchants">
@@ -231,8 +242,6 @@ export function MerchantDetailPage() {
           </button>
         ))}
       </div>
-
-      {tabError ? <p className="error">{tabError}</p> : null}
 
       {tab === "overview" ? (
         <>

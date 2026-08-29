@@ -21,6 +21,7 @@ import {
 import { AuditLogPage } from "./AuditLogPage";
 import { CompliancePage } from "./CompliancePage";
 import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
+import { BillingWalletSettingsPage } from "./BillingWalletSettingsPage";
 import { PlatformPending } from "./ui/PlatformPending";
 import { NetworkCatalogPage } from "./NetworkCatalogPage";
 import { PlatformTeamPage } from "./PlatformTeamPage";
@@ -237,6 +238,15 @@ export function PlatformApp() {
           <Shell session={session} onSignOut={signOut}
           onSessionRefresh={setSession}>
             <FeeTiersSettingsPage session={session} />
+          </Shell>
+        }
+      />
+      <Route
+        path="settings/billing-wallet"
+        element={
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
+            <BillingWalletSettingsPage session={session} />
           </Shell>
         }
       />

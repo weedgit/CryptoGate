@@ -35,7 +35,7 @@ type Props = { session: Session };
 
 type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },

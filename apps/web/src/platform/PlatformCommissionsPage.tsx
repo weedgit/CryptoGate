@@ -21,8 +21,8 @@ import {
 import { merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import {
   ApiError,
-  getAgentCommission,
-  getAgentPayout,
+  listAgentCommissions,
+  listAgentPayoutAddresses,
   getPlatformOrgs,
   getPlatformServiceBills,
   type OrgAccount,
@@ -101,59 +101,56 @@ export function PlatformCommissionsPage({ session }: Props) {
   }, []);
 
   const refreshPayouts = useCallback(async () => {
-    const [platformRows, agentRows] = await Promise.all([
-      listCommissionPayouts({ payer: "platform" }),
-      listCommissionPayouts({ payer: "agent" }),
-    ]);
-    setPlatformPayouts(platformRows);
-    setCascadePayouts(agentRows);
+    const all = await listCommissionPayouts();
+    setPlatformPayouts(all.filter((p) => p.payer === "platform"));
+    setCascadePayouts(all.filter((p) => p.payer === "agent"));
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [orgRows, billRows] = await Promise.all([
-        getPlatformOrgs(),
-        getPlatformServiceBills(),
-      ]);
+      const [orgRows, billRows, commissions, payoutAddrs, payoutRows] =
+        await Promise.all([
+          getPlatformOrgs(),
+          getPlatformServiceBills(),
+          listAgentCommissions(),
+          listAgentPayoutAddresses(),
+          listCommissionPayouts(),
+        ]);
       setOrgs(orgRows);
       setBills(billRows);
 
-      const byId = new Map(orgRows.map((o) => [o.id, o]));
-      const tops = orgRows.filter((o) => isTopLevelAgent(o, byId));
       const pctMap = new Map<string, string>();
+      for (const c of commissions) {
+        pctMap.set(
+          c.orgId,
+          c.commissionPercent?.trim() || DEFAULT_AGENT_COMMISSION_PERCENT,
+        );
+      }
+      setPercentByAgent(pctMap);
+
       const addrMap = new Map<
         string,
         { address: string; asset: string; network: string }
       >();
-      await Promise.all(
-        tops.map(async (agent) => {
-          const [commission, payout] = await Promise.all([
-            getAgentCommission(agent.id).catch(() => null),
-            getAgentPayout(agent.id).catch(() => null),
-          ]);
-          pctMap.set(
-            agent.id,
-            commission?.commissionPercent?.trim() ||
-              DEFAULT_AGENT_COMMISSION_PERCENT,
-          );
-          if (payout?.address) {
-            addrMap.set(agent.id, {
-              address: payout.address,
-              asset: payout.asset,
-              network: payout.network,
-            });
-          }
-        }),
-      );
-      setPercentByAgent(pctMap);
+      for (const payout of payoutAddrs) {
+        if (!payout.address) continue;
+        addrMap.set(payout.orgId, {
+          address: payout.address,
+          asset: payout.asset,
+          network: payout.network,
+        });
+      }
       setPayoutAddressByAgent(addrMap);
-      await refreshPayouts();
+      setPlatformPayouts(payoutRows.filter((p) => p.payer === "platform"));
+      setCascadePayouts(payoutRows.filter((p) => p.payer === "agent"));
     } catch (err) {
       setError(
         err instanceof ApiError
-          ? err.message
+          ? err.code === "rate_limited"
+            ? "Too many requests — wait a moment and retry."
+            : err.message
           : err instanceof Error
             ? err.message
             : "Failed to load commission history",
@@ -161,7 +158,7 @@ export function PlatformCommissionsPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [refreshPayouts]);
+  }, []);
 
   useEffect(() => {
     void load();

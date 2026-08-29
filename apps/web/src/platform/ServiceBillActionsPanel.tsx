@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   invalidatePlatformServiceBillsList,
@@ -87,12 +88,12 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
 
   return (
     <section className="plat-bill-detail__card plat-bill-actions">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <h2 className="plat-bill-detail__section-title">Platform actions</h2>
       <p className="plat-bill-actions__lead">
         Off-chain mark paid, void, or adjust — separate from merchant payment
         orders.
       </p>
-      {error ? <p className="error plat-bill-actions__error">{error}</p> : null}
 
       {canMarkPaid ? (
         <form className="plat-bill-actions__block" onSubmit={onMarkPaid}>

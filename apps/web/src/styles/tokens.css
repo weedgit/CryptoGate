@@ -43,6 +43,11 @@
   --control-h-sm: 32px;
   --focus-ring: 0 0 0 2px var(--teal);
 
+  /* Select caret — custom chevron inset from right edge */
+  --select-chevron-inset: 14px;
+  --select-chevron-padding-end: 36px;
+  --select-chevron-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A9BB0' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
   /* Platform ops accent (not guest-pay teal) */
   --plat-gold: #f0b429;
   --plat-gold-bright: #fbbf24;

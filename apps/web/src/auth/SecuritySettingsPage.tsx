@@ -6,6 +6,7 @@ import {
   type Session,
 } from "../merchant/api";
 import { FieldControl } from "../ui/FieldControl";
+import { AuthToast } from "./AuthToast";
 import { MfaEnrollmentWizard } from "./MfaEnrollmentWizard";
 import { sessionCanEnrollMfa } from "./mfaSession";
 import {
@@ -112,6 +113,11 @@ function ProfileForm({
   if (variant === "platform") {
     return (
       <form className="plat-settings__card profile-settings-card" onSubmit={onSubmit}>
+        <AuthToast
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
         <div className="plat-settings__card-head">
           <h3 className="plat-settings__card-title">Account</h3>
         </div>
@@ -184,7 +190,6 @@ function ProfileForm({
             </FieldControl>
           </label>
         </div>
-        {error ? <p className="error">{error}</p> : null}
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
         <div className="profile-settings-card__actions">
           <button
@@ -201,6 +206,11 @@ function ProfileForm({
 
   return (
     <form className="panel settings-panel" onSubmit={onSubmit}>
+      <AuthToast
+        message={error}
+        tone="error"
+        onDismiss={() => setError(null)}
+      />
       <h2>Profile</h2>
       <p className="muted">
         Display name and regional preferences for this account.
@@ -251,7 +261,6 @@ function ProfileForm({
           ))}
         </select>
       </label>
-      {error ? <p className="error">{error}</p> : null}
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <button type="submit" className="btn-primary" disabled={busy || !dirty}>
         {busy ? "Saving…" : "Save profile"}
@@ -381,6 +390,11 @@ function ChangePasswordForm({
         className="plat-settings__card profile-settings-card plat-settings__card--wide"
         onSubmit={onSubmit}
       >
+        <AuthToast
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
         <div className="plat-settings__card-head">
           <h3 className="plat-settings__card-title">Change password</h3>
         </div>
@@ -444,7 +458,6 @@ function ChangePasswordForm({
           </label>
           {passwordPolicyMeter}
         </div>
-        {error ? <p className="error">{error}</p> : null}
         {ok ? (
           <p className="plat-settings__flash" role="status">
             {ok}
@@ -465,6 +478,11 @@ function ChangePasswordForm({
 
   return (
     <form className="panel settings-panel" onSubmit={onSubmit}>
+      <AuthToast
+        message={error}
+        tone="error"
+        onDismiss={() => setError(null)}
+      />
       <h2>Change password</h2>
       <label className="field">
         <span>Current password</span>
@@ -500,7 +518,6 @@ function ChangePasswordForm({
           autoComplete="new-password"
         />
       </label>
-      {error ? <p className="error">{error}</p> : null}
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <button type="submit" className="btn-primary" disabled={busy || !canSubmit}>
         {busy ? "Saving…" : "Change password"}
@@ -676,6 +693,11 @@ function SecurityPrefsForm({
   if (variant === "platform") {
     return (
       <section className="plat-settings__card profile-settings-card">
+        <AuthToast
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
         <div className="plat-settings__card-head">
           <h3 className="plat-settings__card-title">Sign-in &amp; session</h3>
         </div>
@@ -757,7 +779,6 @@ function SecurityPrefsForm({
             </span>
           </div>
         </div>
-        {error ? <p className="error">{error}</p> : null}
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
         <div className="profile-settings-card__actions">
           <button
@@ -775,6 +796,11 @@ function SecurityPrefsForm({
 
   return (
     <div className="panel settings-panel">
+      <AuthToast
+        message={error}
+        tone="error"
+        onDismiss={() => setError(null)}
+      />
       <h2>Sign-in &amp; session</h2>
       <p className="muted">Personal preferences for this account only.</p>
       <label className="field" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -827,7 +853,6 @@ function SecurityPrefsForm({
           Start MFA enrollment
         </button>
       )}
-      {error ? <p className="error">{error}</p> : null}
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <button
         type="button"

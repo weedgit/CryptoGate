@@ -42,6 +42,27 @@ export function clearPlatformAlert(id: string): void {
   emit();
 }
 
+export function markPlatformAlertRead(id: string): void {
+  const i = LIVE_ALERTS.findIndex((a) => a.id === id);
+  if (i < 0 || !LIVE_ALERTS[i].unread) return;
+  LIVE_ALERTS[i] = { ...LIVE_ALERTS[i], unread: false };
+  emit();
+}
+
+export function markAllPlatformAlertsRead(): void {
+  let changed = false;
+  for (let i = 0; i < LIVE_ALERTS.length; i++) {
+    if (!LIVE_ALERTS[i].unread) continue;
+    LIVE_ALERTS[i] = { ...LIVE_ALERTS[i], unread: false };
+    changed = true;
+  }
+  if (changed) emit();
+}
+
+export function countUnreadPlatformAlerts(): number {
+  return LIVE_ALERTS.filter((a) => a.unread).length;
+}
+
 export function relativeAlertTime(): string {
   return "Just now";
 }

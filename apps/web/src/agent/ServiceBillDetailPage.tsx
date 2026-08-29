@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import {
   formatBillId,
@@ -145,7 +146,12 @@ export function ServiceBillDetailPage() {
   if (error || !bill) {
     return (
       <div className="plat-bill-detail">
-        <p className="error">{error ?? "Bill not found"}</p>
+        <AuthToast
+          message={error ?? "Bill not found"}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
+        <p className="muted">Could not load this service bill.</p>
         <Link className="plat-bill-detail__back" to="/agent/service-bills">
           ← Back to bills
         </Link>

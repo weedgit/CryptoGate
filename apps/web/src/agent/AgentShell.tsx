@@ -14,7 +14,17 @@ import {
   SidebarCollapseIcon,
   TeamNavIcon,
 } from "../platform/NavIcons";
-import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
+import { AlertsDrawer, platformAlertsSource } from "../platform/ui/AlertsDrawer";
+import {
+  countUnreadPlatformAlerts,
+  subscribePlatformAlerts,
+} from "../platform/platformAlerts";
+import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import {
+  fetchPlatformHealth,
+  syncPlatformHealthAlerts,
+} from "../shared/platformHealthAlerts";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import { sessionIsAgentViewerOnly } from "./org";
 
@@ -98,10 +108,32 @@ export function AgentShell({
   });
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setUnreadAlerts(countUnreadPlatformAlerts());
+    sync();
+    return subscribePlatformAlerts(sync);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadHealth = async () => {
+      const next = await fetchPlatformHealth();
+      if (cancelled) return;
+      syncPlatformHealthAlerts(next);
+    };
+    void loadHealth();
+    const id = window.setInterval(() => void loadHealth(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
 
   useEffect(() => {
@@ -197,27 +229,17 @@ export function AgentShell({
           <div className="topbar-center" id="agent-topbar-center" />
           <div className="topbar-right">
             <div className="topbar-actions" id="agent-topbar-actions" />
-            <button
-              type="button"
-              className={`alerts-bell${alertsOpen ? " is-open" : ""}`}
-              aria-label="Open alerts"
-              aria-expanded={alertsOpen}
-              aria-controls="alerts-drawer-title"
-              title="Alerts"
-              onClick={() => setAlertsOpen(true)}
-            >
-              <span
-                className="alerts-bell-icon"
-                style={{
-                  WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
-                  maskImage: "url(/icons/nav/bell-ring.svg)",
-                }}
-                aria-hidden
-              />
-              <span className="alerts-bell-dot" aria-hidden />
-            </button>
+            <AlertsBellButton
+              open={alertsOpen}
+              unreadCount={unreadAlerts}
+              onOpen={() => setAlertsOpen(true)}
+            />
           </div>
         </header>
+        <UnresolvedAlertsBanner
+          source={platformAlertsSource}
+          onOpenAlerts={() => setAlertsOpen(true)}
+        />
         <div className="body">
           {readOnly ? (
             <div className="banner banner-warn" style={{ marginBottom: 16 }}>
@@ -229,7 +251,11 @@ export function AgentShell({
         </div>
       </div>
 
-      <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      <AlertsDrawer
+        open={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        source={platformAlertsSource}
+      />
     </div>
   );
 }

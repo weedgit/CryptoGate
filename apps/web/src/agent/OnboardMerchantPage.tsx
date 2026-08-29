@@ -131,6 +131,12 @@ export function OnboardMerchantPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   useEffect(() => {
+    if (!parentId) {
+      setError((prev) => prev ?? "Agent org membership required to onboard merchants.");
+    }
+  }, [parentId]);
+
+  useEffect(() => {
     listOrgs()
       .then(setOrgs)
       .catch(() => setOrgs([]));
@@ -300,6 +306,7 @@ export function OnboardMerchantPage({ session }: Props) {
   if (!parentId) {
     return (
       <div className="b4-wizard-page">
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
           <div className="b4-wizard" role="dialog" aria-modal="true">
             <header className="b4-wizard__head">
@@ -309,7 +316,7 @@ export function OnboardMerchantPage({ session }: Props) {
               </Link>
             </header>
             <div className="b4-wizard__body">
-              <p className="b4-wizard__error">
+              <p className="muted">
                 Agent org membership required to onboard merchants.
               </p>
             </div>

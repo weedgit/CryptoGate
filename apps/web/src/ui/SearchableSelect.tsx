@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -13,6 +14,8 @@ export type SearchableSelectOption = {
   id: string;
   label: string;
   hint?: string;
+  /** Optional leading mark (e.g. asset / network icon). */
+  icon?: ReactNode;
 };
 
 type Props = {
@@ -28,6 +31,8 @@ type Props = {
   invalid?: boolean;
   /** Accessible name when no visible label is wired via `htmlFor`. */
   ariaLabel?: string;
+  /** When true, option icons appear in the menu only — not in the closed trigger. */
+  hideTriggerIcon?: boolean;
 };
 
 type MenuPos = { top: number; left: number; width: number; maxHeight: number };
@@ -46,6 +51,7 @@ export function SearchableSelect({
   emptyLabel,
   invalid = false,
   ariaLabel,
+  hideTriggerIcon = false,
 }: Props) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -167,7 +173,10 @@ export function SearchableSelect({
         <span
           className={`searchable-select__value${selected ? "" : " is-placeholder"}`}
         >
-          {triggerLabel}
+          {selected?.icon && !hideTriggerIcon ? (
+            <span className="searchable-select__value-icon">{selected.icon}</span>
+          ) : null}
+          <span className="searchable-select__value-text">{triggerLabel}</span>
         </span>
         <span className="searchable-select__caret" aria-hidden />
       </button>
@@ -221,14 +230,21 @@ export function SearchableSelect({
                         className={`searchable-select__option${on ? " is-on" : ""}`}
                         onClick={() => pick(opt.id)}
                       >
-                        <span className="searchable-select__option-label">
-                          {opt.label}
-                        </span>
-                        {opt.hint ? (
-                          <span className="searchable-select__option-hint">
-                            {opt.hint}
+                        {opt.icon ? (
+                          <span className="searchable-select__option-icon">
+                            {opt.icon}
                           </span>
                         ) : null}
+                        <span className="searchable-select__option-copy">
+                          <span className="searchable-select__option-label">
+                            {opt.label}
+                          </span>
+                          {opt.hint ? (
+                            <span className="searchable-select__option-hint">
+                              {opt.hint}
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
                     );
                   })

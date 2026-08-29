@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getPlatformOrgPolicy,
@@ -125,6 +126,14 @@ export function PlatformSettingsPage({ session }: Props) {
 
   return (
     <form className="plat-settings" onSubmit={onSave}>
+      <AuthToast
+        message={error ?? message}
+        tone={error ? "error" : "ok"}
+        onDismiss={() => {
+          setError(null);
+          setMessage(null);
+        }}
+      />
       <header className="plat-settings__head">
         {canEdit ? (
           <button
@@ -139,10 +148,6 @@ export function PlatformSettingsPage({ session }: Props) {
         )}
       </header>
 
-      {error ? <p className="error plat-settings__flash">{error}</p> : null}
-      {message ? (
-        <p className="banner banner-ok plat-settings__flash">{message}</p>
-      ) : null}
       {dirty && canEdit ? (
         <p className="plat-settings__dirty" role="status">
           Unsaved changes

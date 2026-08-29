@@ -59,9 +59,15 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  tier?: string | null;
+  volumeFeePercent?: string | null;
+  billedVolumeUsd?: string | null;
   paidAt?: string | null;
   voidedAt?: string | null;
   lastAdjustmentReason?: string | null;
+  lastAdjustmentAmount?: string | null;
+  paymentReference?: string | null;
+  createdAt?: string | null;
 };
 
 export type AuditLogEntry = {
@@ -134,6 +140,20 @@ export async function getAgentCommission(
   return (await res.json()) as { orgId: string; commissionPercent: string };
 }
 
+export async function listAgentCommissions(): Promise<
+  { orgId: string; commissionPercent: string }[]
+> {
+  const res = await fetch(`${API_BASE}/agent-commissions`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as {
+    items: { orgId: string; commissionPercent: string }[];
+  };
+  return data.items ?? [];
+}
+
 export type AgentPayoutAddress = {
   orgId: string;
   asset: string;
@@ -157,6 +177,16 @@ export async function getAgentPayout(
   if (res.status === 404) return null;
   if (!res.ok) await parseError(res);
   return (await res.json()) as AgentPayoutAddress;
+}
+
+export async function listAgentPayoutAddresses(): Promise<AgentPayoutAddress[]> {
+  const res = await fetch(`${API_BASE}/agent-payout-addresses`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: AgentPayoutAddress[] };
+  return data.items ?? [];
 }
 
 export async function putAgentPayout(
