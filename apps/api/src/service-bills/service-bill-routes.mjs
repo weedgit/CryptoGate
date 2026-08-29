@@ -3,6 +3,7 @@ import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
+import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
 import {
   canCheckoutServiceBill,
   canIssueServiceBill,
@@ -13,6 +14,7 @@ import {
 } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { resolvePlatformBillingPayTo } from "../platform-settings/billing-wallet-store.mjs";
 import {
   parseServiceBillStatusFilter,
   toServiceBill,
@@ -22,6 +24,7 @@ import {
   validateUpdateServiceBillBody,
   applyUsdAdjustment,
 } from "./service-bill-rules.mjs";
+import { roundUsd } from "./generate-rules.mjs";
 import {
   findServiceBillById,
   insertServiceBill,
@@ -29,6 +32,7 @@ import {
   markServiceBillPaid,
   voidServiceBill,
   adjustServiceBill,
+  sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 
 const SERVICE_BILL_LIST_MAX = 5000;
@@ -131,6 +135,38 @@ export async function handleIssueServiceBill(req, res) {
     return;
   }
 
+  let tier = validated.tier;
+  let volumeFeePercent = validated.volumeFeePercent;
+  let billedVolumeUsd = validated.billedVolumeUsd;
+
+  if (!tier || !volumeFeePercent || billedVolumeUsd == null) {
+    const commercial = await findMerchantCommercial(validated.orgId);
+    if (commercial) {
+      tier = tier ?? commercial.tier ?? null;
+      volumeFeePercent =
+        volumeFeePercent ??
+        (commercial.volume_fee_percent != null
+          ? String(commercial.volume_fee_percent)
+          : null);
+    }
+    if (billedVolumeUsd == null) {
+      const subtree = await listOrgsInSubtree([validated.orgId]);
+      const volumeOrgIds = subtree
+        .filter((r) => r.type === "merchant" || r.type === "merchant_site")
+        .map((r) => r.id);
+      const inclusiveStartIso = `${validated.periodStart}T00:00:00.000Z`;
+      const end = new Date(`${validated.periodEnd}T00:00:00.000Z`);
+      end.setUTCDate(end.getUTCDate() + 1);
+      const exclusiveEndIso = end.toISOString();
+      const volumeRaw = await sumCompletedPayableVolume(
+        volumeOrgIds,
+        inclusiveStartIso,
+        exclusiveEndIso,
+      );
+      billedVolumeUsd = roundUsd(volumeRaw);
+    }
+  }
+
   const row = await insertServiceBill({
     orgId: validated.orgId,
     periodStart: validated.periodStart,
@@ -140,13 +176,22 @@ export async function handleIssueServiceBill(req, res) {
     totalAmount: validated.totalAmount,
     dueAt: validated.dueAt,
     status: ServiceBillStatus.Issued,
+    tier,
+    volumeFeePercent,
+    billedVolumeUsd,
   });
 
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId: validated.orgId,
     action: AUDIT_ACTIONS.serviceBillIssue,
-    metadata: { billId: row.id, totalAmount: row.total_amount },
+    metadata: {
+      billId: row.id,
+      totalAmount: row.total_amount,
+      tier: tier ?? null,
+      volumeFeePercent: volumeFeePercent ?? null,
+      billedVolumeUsd: billedVolumeUsd ?? null,
+    },
   });
 
   sendJson(res, 201, toServiceBill(row));
@@ -225,7 +270,12 @@ export async function handleGetServiceBill(req, res, billId) {
 export async function handleGetServiceBillCheckout(req, res, billId) {
   const loaded = await loadReadableBill(req, res, billId, "checkout");
   if (!loaded) return;
-  sendJson(res, 200, toServiceBillCheckout(loaded.row));
+  const payTo = await resolvePlatformBillingPayTo();
+  sendJson(
+    res,
+    200,
+    toServiceBillCheckout(loaded.row, payTo ? { payTo } : {}),
+  );
 }
 
 /**
@@ -294,7 +344,12 @@ export async function handleUpdateServiceBill(req, res, billId) {
       sendError(res, 400, "invalid_request", "Invalid adjustmentAmount");
       return;
     }
-    updated = await adjustServiceBill(billId, nextTotal, validated.reason);
+    updated = await adjustServiceBill(
+      billId,
+      nextTotal,
+      validated.reason,
+      validated.adjustmentAmount,
+    );
     if (updated) {
       await insertAuditEvent({
         actorUserId: caller.userId,

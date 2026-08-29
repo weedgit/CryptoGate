@@ -5,10 +5,17 @@ const ORDER_SELECT = `
   id, org_id, created_by, order_number, status, matching_mode,
   payable_amount, received_amount, receive_address, address_source,
   hd_index, memo_or_tag, asset, network, expires_at, tx_hash,
+  from_address, confirmed_at,
   confirmations, required_confirmations, idempotency_key,
   idempotency_body_hash, merchant_metadata, underpay_tolerance,
-  anomaly_reason, created_at, updated_at
+  anomaly_reason, anomaly_resolution_note, anomaly_resolved_at,
+  created_at, updated_at
 `;
+
+/** Same columns with `o.` prefix for joins to org_accounts / users. */
+const ORDER_SELECT_O = ORDER_SELECT.split(",")
+  .map((col) => `o.${col.trim()}`)
+  .join(",\n            ");
 
 /**
  * @param {import("pg").Pool | import("pg").PoolClient | null | undefined} client
@@ -86,7 +93,7 @@ export async function listPaymentOrders(query) {
     const parts = [];
     if (query.treeOrgIds && query.treeOrgIds.length > 0) {
       params.push(query.treeOrgIds);
-      parts.push(`org_id = ANY($${params.length}::uuid[])`);
+      parts.push(`o.org_id = ANY($${params.length}::uuid[])`);
     }
     if (query.cashierOrgIds && query.cashierOrgIds.length > 0) {
       params.push(query.cashierOrgIds);
@@ -94,7 +101,7 @@ export async function listPaymentOrders(query) {
       params.push(query.createdBy);
       const userIdx = params.length;
       parts.push(
-        `(org_id = ANY($${orgIdx}::uuid[]) AND created_by = $${userIdx})`,
+        `(o.org_id = ANY($${orgIdx}::uuid[]) AND o.created_by = $${userIdx})`,
       );
     }
     if (parts.length === 0) return [];
@@ -103,19 +110,23 @@ export async function listPaymentOrders(query) {
 
   if (query.orgId) {
     params.push(query.orgId);
-    where.push(`org_id = $${params.length}::uuid`);
+    where.push(`o.org_id = $${params.length}::uuid`);
   }
   if (query.status) {
     params.push(query.status);
-    where.push(`status = $${params.length}`);
+    where.push(`o.status = $${params.length}`);
   }
 
   params.push(query.limit);
   const { rows } = await db().query(
-    `SELECT ${ORDER_SELECT}
-     FROM payment_orders
+    `SELECT ${ORDER_SELECT_O},
+            org.name AS org_name,
+            creator.email AS creator_email
+     FROM payment_orders o
+     JOIN org_accounts org ON org.id = o.org_id
+     LEFT JOIN users creator ON creator.id = o.created_by
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY created_at DESC
+     ORDER BY o.created_at DESC
      LIMIT $${params.length}`,
     params,
   );
@@ -127,15 +138,12 @@ export async function listPaymentOrders(query) {
  */
 export async function findOrderById(id) {
   const { rows } = await db().query(
-    `SELECT o.id, o.org_id, o.created_by, o.order_number, o.status, o.matching_mode,
-            o.payable_amount, o.received_amount, o.receive_address, o.address_source,
-            o.hd_index, o.memo_or_tag, o.asset, o.network, o.expires_at, o.tx_hash,
-            o.confirmations, o.required_confirmations, o.idempotency_key,
-            o.idempotency_body_hash, o.merchant_metadata, o.underpay_tolerance,
-            o.anomaly_reason, o.created_at, o.updated_at,
-            org.name AS org_name
+    `SELECT ${ORDER_SELECT_O},
+            org.name AS org_name,
+            creator.email AS creator_email
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
+     LEFT JOIN users creator ON creator.id = o.created_by
      WHERE o.id = $1`,
     [id],
   );
@@ -215,6 +223,63 @@ export async function listReservedMemoOrTags(client, query) {
     ],
   );
   return rows.map((row) => row.memo_or_tag);
+}
+
+/**
+ * Mode B create lock — earliest open order on this main address + payable amount.
+ * @param {import("pg").Pool | import("pg").PoolClient} client
+ * @param {{
+ *   merchantId: string,
+ *   merchantIds?: string[],
+ *   asset: string,
+ *   network: string,
+ *   receiveAddress: string,
+ *   payableAmount: string,
+ *   statuses: readonly string[],
+ * }} query
+ */
+export async function findModeBSameAmountCreateConflict(client, query) {
+  const ids = merchantIdsOf(query);
+  const { rows } = await client.query(
+    `SELECT o.id, o.order_number, o.status, o.payable_amount::text AS payable_amount,
+            o.asset, o.network, o.receive_address, o.created_at, o.created_by,
+            creator.email AS created_by_email
+     FROM payment_orders o
+     LEFT JOIN users creator ON creator.id = o.created_by
+     WHERE o.org_id = ANY($1::uuid[])
+       AND o.asset = $2
+       AND o.network = $3
+       AND o.receive_address = $4
+       AND o.payable_amount::numeric = $5::numeric
+       AND o.status = ANY($6::text[])
+     ORDER BY o.created_at ASC
+     LIMIT 1`,
+    [
+      ids,
+      query.asset,
+      query.network,
+      query.receiveAddress,
+      query.payableAmount,
+      [...query.statuses],
+    ],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status,
+    payableAmount: row.payable_amount,
+    asset: row.asset,
+    network: row.network,
+    receiveAddress: row.receive_address,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
+    createdBy: row.created_by ?? null,
+    createdByEmail: row.created_by_email ?? null,
+  };
 }
 
 /**
@@ -317,6 +382,106 @@ export async function insertPaymentOrder(input, client) {
     }
     throw err;
   }
+}
+
+/**
+ * Cancel a pending payment order (frees Mode B amount / Mode D memo slot).
+ * @param {string} orderId
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function cancelPendingPaymentOrder(orderId, client) {
+  const { rows } = await db(client).query(
+    `UPDATE payment_orders
+     SET status = 'cancelled',
+         updated_at = now()
+     WHERE id = $1::uuid
+       AND status = 'pending_payment'
+     RETURNING ${ORDER_SELECT}`,
+    [orderId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Close a payment anomaly after staff reconcile (note required by route).
+ * Status → cancelled; anomaly_reason kept for invoice/audit.
+ * @param {string} orderId
+ * @param {string} note
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function resolvePaymentAnomaly(orderId, note, client) {
+  const { rows } = await db(client).query(
+    `UPDATE payment_orders
+     SET status = 'cancelled',
+         anomaly_resolution_note = $2,
+         anomaly_resolved_at = now(),
+         updated_at = now()
+     WHERE id = $1::uuid
+       AND status = 'payment_anomaly'
+     RETURNING ${ORDER_SELECT}`,
+    [orderId, note],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Mode D create lock — open order already holding this memo on the main address.
+ * @param {import("pg").Pool | import("pg").PoolClient} client
+ * @param {{
+ *   merchantId: string,
+ *   merchantIds?: string[],
+ *   asset: string,
+ *   network: string,
+ *   receiveAddress: string,
+ *   memoOrTag: string,
+ *   statuses: readonly string[],
+ * }} query
+ */
+export async function findModeDSameMemoCreateConflict(client, query) {
+  const memo = String(query.memoOrTag ?? "").trim();
+  if (!memo) return null;
+  const ids = merchantIdsOf(query);
+  const { rows } = await client.query(
+    `SELECT o.id, o.order_number, o.status, o.payable_amount::text AS payable_amount,
+            o.asset, o.network, o.receive_address, o.memo_or_tag, o.created_at,
+            o.created_by, creator.email AS created_by_email
+     FROM payment_orders o
+     LEFT JOIN users creator ON creator.id = o.created_by
+     WHERE o.org_id = ANY($1::uuid[])
+       AND o.asset = $2
+       AND o.network = $3
+       AND o.receive_address = $4
+       AND o.memo_or_tag = $5
+       AND o.status = ANY($6::text[])
+     ORDER BY o.created_at ASC
+     LIMIT 1`,
+    [
+      ids,
+      query.asset,
+      query.network,
+      query.receiveAddress,
+      memo,
+      [...query.statuses],
+    ],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status,
+    payableAmount: row.payable_amount,
+    asset: row.asset,
+    network: row.network,
+    receiveAddress: row.receive_address,
+    memoOrTag: row.memo_or_tag,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
+    createdBy: row.created_by ?? null,
+    createdByEmail: row.created_by_email ?? null,
+  };
 }
 
 export { toPaymentOrder };

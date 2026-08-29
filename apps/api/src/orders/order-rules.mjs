@@ -6,6 +6,7 @@ const ALLOWED_KEYS = new Set([
   "network",
   "validitySeconds",
   "merchantMetadata",
+  "merchantReference",
   "orgId",
 ]);
 
@@ -106,6 +107,30 @@ export function validateCreateOrderBody(body) {
     };
   }
 
+  const merchantReference =
+    typeof body?.merchantReference === "string" ? body.merchantReference.trim() : "";
+  if (merchantReference.length > 200) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "merchantReference must be at most 200 characters",
+    };
+  }
+
+  /** @type {Record<string, unknown> | null} */
+  let merchantMetadata = null;
+  if (
+    body.merchantMetadata &&
+    typeof body.merchantMetadata === "object" &&
+    !Array.isArray(body.merchantMetadata)
+  ) {
+    merchantMetadata = { ...body.merchantMetadata };
+  }
+  if (merchantReference) {
+    merchantMetadata = { ...(merchantMetadata ?? {}), reference: merchantReference };
+  }
+
   return {
     ok: true,
     parsed: {
@@ -114,10 +139,8 @@ export function validateCreateOrderBody(body) {
       network,
       validitySeconds,
       orgId,
-      merchantMetadata:
-        body.merchantMetadata && typeof body.merchantMetadata === "object"
-          ? body.merchantMetadata
-          : null,
+      merchantReference: merchantReference || null,
+      merchantMetadata,
       config,
     },
   };
@@ -154,6 +177,7 @@ export function idempotencyBodyHashPayload(parsed) {
     network: parsed.network,
     validitySeconds: parsed.validitySeconds,
     orgId: parsed.orgId,
+    merchantReference: parsed.merchantReference ?? null,
     merchantMetadata: parsed.merchantMetadata,
   });
 }

@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { OrderStatus } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { resolveOrderOrgId } from "../orgs/role-policy.mjs";
+import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
+import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
   extraCreateOrderKeys,
@@ -12,9 +13,11 @@ import {
 } from "./order-rules.mjs";
 import { assignOnOrderCreate } from "./order-matching.mjs";
 import {
+  cancelPendingPaymentOrder,
   findOrderById,
   findOrderByIdempotency,
   insertPaymentOrder,
+  resolvePaymentAnomaly,
   toPaymentOrder,
   withCreateOrderLock,
 } from "./order-store.mjs";
@@ -152,7 +155,7 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
-  /** @type {{ kind: "created", row: object } | { kind: "replay", row: object } | { kind: "error", status: number, code: string, message: string } | { kind: "conflict" }} */
+  /** @type {{ kind: "created", row: object } | { kind: "replay", row: object } | { kind: "error", status: number, code: string, message: string, details?: unknown } | { kind: "conflict" }} */
   let outcome;
   try {
     const inherit = await resolveSiteInherit(merchantOrg);
@@ -200,6 +203,7 @@ export async function handleCreatePaymentOrder(req, res) {
             status: assigned.status,
             code: assigned.code,
             message: assigned.message,
+            details: assigned.details,
           };
         }
 
@@ -258,13 +262,16 @@ export async function handleCreatePaymentOrder(req, res) {
         return { kind: "created", row: inserted.row };
       },
     );
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV !== "test") {
+      console.error("create payment order failed", err);
+    }
     sendError(res, 500, "internal_error", "Could not create payment order");
     return;
   }
 
   if (outcome.kind === "error") {
-    sendError(res, outcome.status, outcome.code, outcome.message);
+    sendError(res, outcome.status, outcome.code, outcome.message, outcome.details);
     return;
   }
   if (outcome.kind === "conflict") {
@@ -316,6 +323,181 @@ async function loadReadablePaymentOrder(req, res, orderId) {
 export async function handleGetPaymentOrder(req, res, orderId) {
   const row = await loadReadablePaymentOrder(req, res, orderId);
   if (!row) return;
+  sendJson(res, 200, toPaymentOrder(row));
+}
+
+/**
+ * POST /v1/orders/{id}/cancel — pending only. O/A any on org; Cashier own.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleCancelPaymentOrder(req, res, orderId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  let note = null;
+  try {
+    const body = await readJsonBody(req);
+    if (body && typeof body === "object" && "note" in body) {
+      const raw = /** @type {{ note?: unknown }} */ (body).note;
+      if (raw != null && typeof raw !== "string") {
+        sendError(res, 400, "invalid_request", "note must be a string");
+        return;
+      }
+      note = typeof raw === "string" ? raw.trim().slice(0, 500) || null : null;
+    }
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const existing = await findOrderById(orderId);
+  if (!existing) {
+    sendError(res, 404, "not_found", "Order not found");
+    return;
+  }
+  if (
+    !(await callerCanReadPaymentOrder(caller, {
+      orgId: existing.org_id,
+      createdBy: existing.created_by,
+    }))
+  ) {
+    sendError(res, 403, "forbidden", "Outside merchant scope");
+    return;
+  }
+  if (
+    !canCancelPaymentOrder(caller, {
+      orgId: existing.org_id,
+      createdBy: existing.created_by,
+      status: existing.status,
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      existing.status !== "pending_payment"
+        ? "Only pending payment orders can be cancelled"
+        : "Cashiers can cancel only their own pending orders; ask Owner or Administrator",
+    );
+    return;
+  }
+
+  const row = await cancelPendingPaymentOrder(orderId);
+  if (!row) {
+    sendError(
+      res,
+      409,
+      "order_not_cancellable",
+      "Order is no longer pending payment",
+    );
+    return;
+  }
+
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: row.org_id,
+    action: "payment_order.cancelled",
+    metadata: {
+      orderId: row.id,
+      orderNumber: row.order_number,
+      ...(note ? { note } : {}),
+    },
+  });
+
+  sendJson(res, 200, toPaymentOrder(row));
+}
+
+/**
+ * POST /v1/orders/{id}/resolve-anomaly — required note; closes anomaly (→ cancelled).
+ * Never Mark paid. O/A any on org; Cashier own only.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} orderId
+ */
+export async function handleResolvePaymentAnomaly(req, res, orderId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  let note = "";
+  try {
+    const body = await readJsonBody(req);
+    if (!body || typeof body !== "object") {
+      sendError(res, 400, "invalid_request", "Request body must be a JSON object");
+      return;
+    }
+    const raw = /** @type {{ note?: unknown }} */ (body).note;
+    if (typeof raw !== "string" || !raw.trim()) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        "note is required — briefly record what you checked (amount, tx, customer)",
+      );
+      return;
+    }
+    note = raw.trim().slice(0, 1000);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const existing = await findOrderById(orderId);
+  if (!existing) {
+    sendError(res, 404, "not_found", "Order not found");
+    return;
+  }
+  if (
+    !(await callerCanReadPaymentOrder(caller, {
+      orgId: existing.org_id,
+      createdBy: existing.created_by,
+    }))
+  ) {
+    sendError(res, 403, "forbidden", "Outside merchant scope");
+    return;
+  }
+  if (
+    !canResolvePaymentAnomaly(caller, {
+      orgId: existing.org_id,
+      createdBy: existing.created_by,
+      status: existing.status,
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      existing.status !== "payment_anomaly"
+        ? "Only payment anomalies can be resolved this way"
+        : "Cashiers can resolve only their own anomalies; ask Owner or Administrator",
+    );
+    return;
+  }
+
+  const row = await resolvePaymentAnomaly(orderId, note);
+  if (!row) {
+    sendError(
+      res,
+      409,
+      "order_not_resolvable",
+      "Order is no longer a payment anomaly",
+    );
+    return;
+  }
+
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: row.org_id,
+    action: "payment_order.anomaly_resolved",
+    metadata: {
+      orderId: row.id,
+      orderNumber: row.order_number,
+      anomalyReason: row.anomaly_reason ?? null,
+      note,
+    },
+  });
+
   sendJson(res, 200, toPaymentOrder(row));
 }
 

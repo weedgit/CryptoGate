@@ -17,8 +17,11 @@ export function sendJson(res, status, body) {
  * @param {string} code
  * @param {string} message
  */
-export function sendError(res, status, code, message) {
-  sendJson(res, status, { code, message });
+export function sendError(res, status, code, message, details) {
+  /** @type {{ code: string, message: string, details?: unknown }} */
+  const body = { code, message };
+  if (details !== undefined) body.details = details;
+  sendJson(res, status, body);
 }
 
 /**

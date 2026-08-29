@@ -23,6 +23,8 @@ import {
 } from "../orgs/membership-routes.mjs";
 import {
   handleCreatePaymentOrder,
+  handleCancelPaymentOrder,
+  handleResolvePaymentAnomaly,
   handleGetPaymentOrder,
   handleGetPaymentOrderOnChain,
   handleGetPaymentOrderPayment,
@@ -72,9 +74,11 @@ import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs
 import { handleListAuditLog } from "../audit/audit-routes.mjs";
 import {
   handleDecideEnterpriseRateApproval,
+  handleGetBillingWalletSettings,
   handleGetFeeTierSettings,
   handleGetPlatformOrgPolicy,
   handleListEnterpriseRateApprovals,
+  handlePutBillingWalletSettings,
   handlePutFeeTierSettings,
   handlePutPlatformOrgPolicy,
 } from "../platform-settings/platform-settings-routes.mjs";
@@ -89,10 +93,12 @@ import {
 } from "../commercial/merchant-commercial-routes.mjs";
 import {
   handleGetAgentPayout,
+  handleListAgentPayoutAddresses,
   handlePutAgentPayout,
 } from "../commercial/agent-payout-routes.mjs";
 import {
   handleGetAgentCommission,
+  handleListAgentCommissions,
   handlePutAgentCommission,
 } from "../commercial/agent-commission-routes.mjs";
 import {
@@ -213,6 +219,28 @@ export async function handleRequest(req, res) {
       req,
       res,
       decodeURIComponent(onChainMatch[1]),
+    );
+    return;
+  }
+
+  const orderCancelMatch = path.match(/^\/v1\/orders\/([^/]+)\/cancel$/);
+  if (method === "POST" && orderCancelMatch) {
+    await handleCancelPaymentOrder(
+      req,
+      res,
+      decodeURIComponent(orderCancelMatch[1]),
+    );
+    return;
+  }
+
+  const orderResolveAnomalyMatch = path.match(
+    /^\/v1\/orders\/([^/]+)\/resolve-anomaly$/,
+  );
+  if (method === "POST" && orderResolveAnomalyMatch) {
+    await handleResolvePaymentAnomaly(
+      req,
+      res,
+      decodeURIComponent(orderResolveAnomalyMatch[1]),
     );
     return;
   }
@@ -367,6 +395,16 @@ export async function handleRequest(req, res) {
     }
   }
 
+  if (method === "GET" && path === "/v1/agent-commissions") {
+    await handleListAgentCommissions(req, res);
+    return;
+  }
+
+  if (method === "GET" && path === "/v1/agent-payout-addresses") {
+    await handleListAgentPayoutAddresses(req, res);
+    return;
+  }
+
   const commissionPayoutPaidMatch = path.match(
     /^\/v1\/commission-payouts\/([^/]+)\/mark-paid$/,
   );
@@ -456,6 +494,17 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutPlatformOrgPolicy(req, res);
+      return;
+    }
+  }
+
+  if (path === "/v1/platform/settings/billing-wallet") {
+    if (method === "GET") {
+      await handleGetBillingWalletSettings(req, res);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutBillingWalletSettings(req, res);
       return;
     }
   }
