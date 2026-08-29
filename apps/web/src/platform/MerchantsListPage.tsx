@@ -50,7 +50,7 @@ type SortKey = "name" | "structure" | "parent" | "bill" | "status";
 type SortDir = "asc" | "desc";
 type SortState = { key: SortKey; dir: SortDir };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
   overdue: 0,

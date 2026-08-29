@@ -236,9 +236,12 @@ export function PlatformTeamPage({ session }: Props) {
   return (
     <div className="plat-team">
       <AuthToast
-        message={toast?.message ?? null}
-        tone={toast?.tone ?? "ok"}
-        onDismiss={dismissToast}
+        message={toast?.message ?? error}
+        tone={toast?.tone ?? "error"}
+        onDismiss={() => {
+          dismissToast();
+          setError(null);
+        }}
       />
 
       {canManage && topbarActionsSlot
@@ -267,8 +270,6 @@ export function PlatformTeamPage({ session }: Props) {
           </p>
         </div>
       ) : null}
-
-      {error ? <p className="error">{error}</p> : null}
 
       <section className="plat-team__card">
         <header className="plat-team__card-head">

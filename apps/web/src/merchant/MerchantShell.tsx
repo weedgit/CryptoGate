@@ -2,6 +2,8 @@ import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertSummaryToast } from "../shared/AlertSummaryToast";
+import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
 import {
   AlertsNavIcon,
@@ -19,6 +21,7 @@ import {
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import {
+  countUnreadMerchantAlerts,
   initMerchantAlertReads,
   merchantAlertsSource,
   merchantAlertsToastKey,
@@ -178,8 +181,8 @@ export function MerchantShell({
   const merchantId = primaryMerchantOrgId(session);
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [alertToast, setAlertToast] = useState<string | null>(null);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -188,9 +191,12 @@ export function MerchantShell({
 
   useEffect(() => {
     initMerchantAlertReads(session.email);
-    return subscribeMerchantAlerts((items) => {
-      setUnreadAlerts(items.filter((a) => a.unread).length);
-    });
+  }, [session.email]);
+
+  useEffect(() => {
+    const sync = () => setUnreadAlerts(countUnreadMerchantAlerts());
+    sync();
+    return subscribeMerchantAlerts(sync);
   }, [session.email]);
 
   useEffect(() => {
@@ -212,6 +218,11 @@ export function MerchantShell({
       window.clearInterval(interval);
     };
   }, [cashier, merchantId, session]);
+
+  useEffect(() => {
+    if (!alertsOpen) return;
+    void refreshMerchantAlerts(session);
+  }, [alertsOpen, session]);
 
   return (
     <div
@@ -272,29 +283,17 @@ export function MerchantShell({
           <div className="topbar-center" id="merchant-topbar-center" />
           <div className="topbar-right">
             <div className="topbar-actions" id="merchant-topbar-actions" />
-            <button
-              type="button"
-              className={`alerts-bell${alertsOpen ? " is-open" : ""}${unreadAlerts > 0 ? " has-unread" : ""}`}
-              aria-label="Open alerts"
-              aria-expanded={alertsOpen}
-              aria-controls="alerts-drawer-title"
-              title="Alerts"
-              onClick={() => setAlertsOpen(true)}
-            >
-              <span
-                className="alerts-bell-icon"
-                style={{
-                  WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
-                  maskImage: "url(/icons/nav/bell-ring.svg)",
-                }}
-                aria-hidden
-              />
-              {unreadAlerts > 0 ? (
-                <span className="alerts-bell-dot" aria-hidden />
-              ) : null}
-            </button>
+            <AlertsBellButton
+              open={alertsOpen}
+              unreadCount={unreadAlerts}
+              onOpen={() => setAlertsOpen(true)}
+            />
           </div>
         </header>
+        <UnresolvedAlertsBanner
+          source={merchantAlertsSource}
+          onOpenAlerts={() => setAlertsOpen(true)}
+        />
         <div className="body">
           {cashier && showCashierBanner ? <CashierRestrictedBanner /> : null}
           {children}

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import {
-  listAssetNetworkRegistry,
   NetworkId,
   type AssetNetworkConfig,
 } from "@cryptogate/domain";
 import { NetworkIcon } from "./cryptoIcons";
+import { visibleRegistry } from "../shared/assetNetworks";
 
 type CardStatus = "active" | "maint" | "staging" | "catalogued";
 
@@ -29,7 +29,7 @@ function shortContract(addr: string | null): string {
 /** One card per chain — primary pair prefers live, then USDT, then first. */
 function buildNetworkCards(): NetworkCard[] {
   const byNet = new Map<string, AssetNetworkConfig[]>();
-  for (const row of listAssetNetworkRegistry()) {
+  for (const row of visibleRegistry()) {
     const list = byNet.get(row.network) ?? [];
     list.push(row);
     byNet.set(row.network, list);

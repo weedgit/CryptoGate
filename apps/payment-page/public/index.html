@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Outfit:wght@400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/tokens.css" />
@@ -16,75 +16,150 @@
   <body>
     <main class="pay" data-node-id="29:4197">
       <p id="source-banner" class="source-banner" hidden></p>
-      <header class="merchant">
-        <p class="trusted">
-          <img class="icon-sm" src="/icons/shield-check.svg" alt="" width="12" height="12" />
-          Trusted merchant
-        </p>
-        <h1 class="merchant-name" id="merchant">Hotel Marrakech — Casablanca</h1>
-      </header>
+      <p class="trusted">
+        <img class="icon-sm" src="/icons/shield-check.svg" alt="" width="12" height="12" />
+        Trusted merchant
+      </p>
 
       <section class="amount-block" aria-labelledby="amount">
         <p class="label" id="amount-label">Total payable</p>
         <div class="amount-row">
-          <p class="amount" id="amount">245.00 USDT</p>
+          <span class="amount-asset-mark" id="asset-mark" aria-hidden="true"></span>
+          <p class="amount fund-amount" id="amount">
+            <span class="amount__value" id="amount-value">245.00</span>
+            <span class="amount__asset" id="amount-asset">USDT</span>
+          </p>
           <button
             type="button"
-            class="icon-btn"
+            class="icon-btn icon-btn--copy icon-btn--copy-amount"
             data-copy="amount-copy"
             aria-label="Copy amount"
           >
-            <img src="/icons/copy.svg" alt="" width="16" height="16" />
+            <svg class="icon-btn__icon icon-btn__icon--copy" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2.66624 10.6669C1.93285 10.6669 1.3328 10.0668 1.3328 9.33344V2.66624C1.3328 1.93285 1.93285 1.3328 2.66624 1.3328H9.33344C10.0668 1.3328 10.6669 1.93285 10.6669 2.66624M6.66656 5.33312H13.3338C14.0702 5.33312 14.6672 5.93012 14.6672 6.66656V13.3338C14.6672 14.0702 14.0702 14.6672 13.3338 14.6672H6.66656C5.93012 14.6672 5.33312 14.0702 5.33312 13.3338V6.66656C5.33312 5.93012 5.93012 5.33312 6.66656 5.33312Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            </svg>
+            <svg class="icon-btn__icon icon-btn__icon--check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden>
+              <path d="M3.2 8.4 L6.6 11.8 L12.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </button>
           <code id="amount-copy" class="sr-only" hidden>245.00</code>
         </div>
-        <p class="network-pill" id="network">TRON TRC-20</p>
+        <p class="network-pill" id="network-pill">
+          <span class="network-pill__mark" id="network-mark" aria-hidden="true"></span>
+          <span id="network">TRON TRC-20</span>
+        </p>
       </section>
 
       <section class="qr-block">
-        <div class="qr" id="qr" role="img" aria-label="Payment QR code">
-          <div class="qr-finder qr-tl"></div>
-          <div class="qr-finder qr-tr"></div>
-          <div class="qr-finder qr-bl"></div>
-          <div class="qr-scan" aria-hidden="true"></div>
-        </div>
-        <p class="countdown" id="expires">28:42 remaining</p>
-      </section>
-
-      <section class="address-block">
-        <p class="label">Recipient address</p>
-        <div class="address-row">
-          <code id="address">TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2</code>
-          <button type="button" class="icon-btn" data-copy="address" aria-label="Copy address">
-            <img src="/icons/copy.svg" alt="" width="16" height="16" />
+        <div
+          class="qr-mode"
+          id="qr-mode"
+          role="group"
+          aria-label="QR code content"
+        >
+          <button
+            type="button"
+            class="qr-mode__btn"
+            data-qr-mode="with_amount"
+            aria-pressed="false"
+          >
+            With amount
+          </button>
+          <button
+            type="button"
+            class="qr-mode__btn is-active"
+            data-qr-mode="address_only"
+            aria-pressed="true"
+          >
+            Address only
           </button>
         </div>
-        <div id="contract-section">
-          <p class="label">Token contract</p>
+        <div class="qr-shell">
+          <div class="qr" id="qr" role="img" aria-label="Payment QR code">
+            <div class="qr-placeholder" aria-hidden="true">
+              <div class="qr-finder qr-tl"></div>
+              <div class="qr-finder qr-tr"></div>
+              <div class="qr-finder qr-bl"></div>
+              <div class="qr-scan"></div>
+            </div>
+            <span class="qr-mark" id="qr-mark" hidden aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <section class="address-block">
+          <p class="label">Recipient address</p>
           <div class="address-row">
-            <code id="contract">TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t</code>
-            <button type="button" class="icon-btn" data-copy="contract" aria-label="Copy contract">
-              <img src="/icons/copy.svg" alt="" width="16" height="16" />
+            <span class="address-row__mark" id="address-mark" aria-hidden="true"></span>
+            <code id="address">TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2</code>
+            <button type="button" class="icon-btn icon-btn--copy icon-btn--copy-address" data-copy="address" aria-label="Copy address">
+              <svg class="icon-btn__icon icon-btn__icon--copy" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M2.66624 10.6669C1.93285 10.6669 1.3328 10.0668 1.3328 9.33344V2.66624C1.3328 1.93285 1.93285 1.3328 2.66624 1.3328H9.33344C10.0668 1.3328 10.6669 1.93285 10.6669 2.66624M6.66656 5.33312H13.3338C14.0702 5.33312 14.6672 5.93012 14.6672 6.66656V13.3338C14.6672 14.0702 14.0702 14.6672 13.3338 14.6672H6.66656C5.93012 14.6672 5.33312 14.0702 5.33312 13.3338V6.66656C5.33312 5.93012 5.93012 5.33312 6.66656 5.33312Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+              </svg>
+              <svg class="icon-btn__icon icon-btn__icon--check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden>
+                <path d="M3.2 8.4 L6.6 11.8 L12.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </button>
           </div>
+        </section>
+
+        <section class="status-panel" aria-live="polite">
+          <div class="status-panel__badge">
+            <span class="status-panel__dot" aria-hidden="true"></span>
+            <span class="status" id="status">Pending Payment</span>
+          </div>
+        </section>
+        <div class="timer-card" id="timer-card">
+          <p class="timer-card__label" id="timer-label">Time remaining</p>
+          <p class="countdown" id="expires">28:42</p>
         </div>
       </section>
 
-      <p class="warn-net" role="status">
-        <img class="icon-sm" src="/icons/alert-triangle.svg" alt="" width="16" height="16" />
-        <span id="net-warn">Send ONLY on TRON TRC-20 network.</span>
-      </p>
       <p class="warn-exact" id="exact-warn" hidden>
         Pay exactly the amount shown. Do not round or edit in your wallet.
       </p>
       <p class="memo-warn" id="memo-warn" hidden></p>
-      <p class="custody">
-        Payment goes directly to the merchant’s wallet. CryptoGate is
-        <strong> watch-only</strong> — it watches the chain and does not hold
-        these funds.
-      </p>
-      <p class="status" id="status" aria-live="polite">Pending Payment</p>
-      <p class="order-ref">Order <span id="order-ref">#CG-2026-0847</span></p>
+
+      <section class="pay-progress" id="pay-progress" aria-label="Payment progress">
+        <div class="pay-progress__confirm">
+          <div class="pay-progress__confirm-head">
+            <span class="label">Blockchain confirmations</span>
+            <span class="pay-progress__confirm-count" id="confirm-count">0 / —</span>
+          </div>
+          <div
+            class="pay-confirm-track"
+            id="confirm-track"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuenow="0"
+            aria-valuemax="1"
+            aria-label="Block confirmations"
+          ></div>
+          <p class="pay-progress__confirm-note" id="confirm-note">Awaiting payment</p>
+        </div>
+
+        <ol class="pay-flow" id="pay-flow">
+          <li data-step="0">
+            <span class="pay-flow__node" aria-hidden="true"></span>
+            <span class="pay-flow__label">Created</span>
+          </li>
+          <li data-step="1">
+            <span class="pay-flow__node" aria-hidden="true"></span>
+            <span class="pay-flow__label">Detected</span>
+          </li>
+          <li data-step="2">
+            <span class="pay-flow__node" aria-hidden="true"></span>
+            <span class="pay-flow__label">Verifying</span>
+          </li>
+          <li data-step="3">
+            <span class="pay-flow__node" aria-hidden="true"></span>
+            <span class="pay-flow__label">Confirmed</span>
+          </li>
+        </ol>
+      </section>
+
+      <div class="status-block">
+        <p class="order-ref">Order <span id="order-ref">#CG-2026-0847</span></p>
+      </div>
       <div class="share-row">
         <button type="button" class="share-btn" id="share-link">
           Share payment link
@@ -97,8 +172,8 @@
         <strong>CryptoGate</strong>
       </footer>
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
     <script src="/config.js"></script>
-    <script src="/mock-order.js"></script>
+    <script src="/vendor/qrcode.js"></script>
+    <script src="/mock-order.js" defer></script>
   </body>
 </html>

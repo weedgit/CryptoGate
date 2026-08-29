@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   listOrgUsers,
@@ -126,6 +127,11 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
 
   return (
     <div className="b3-agent-detail">
+      <AuthToast
+        message={tabError}
+        tone="error"
+        onDismiss={() => setTabError(null)}
+      />
       <div className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
           <div className="b3-agent-detail__avatar" aria-hidden>
@@ -166,8 +172,6 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
       </div>
 
       <div className="b3-agent-detail__body">
-        {tabError ? <p className="error">{tabError}</p> : null}
-
         {tab === "overview" ? (
           <>
             <div className="b3-agent-detail__kpis">

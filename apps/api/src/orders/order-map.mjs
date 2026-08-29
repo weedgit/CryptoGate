@@ -1,5 +1,20 @@
 import { getAssetNetworkConfig } from "@cryptogate/domain";
 
+/**
+ * Merchant "for what" reference stored in merchant_metadata.reference.
+ * @param {unknown} metadata
+ * @returns {string | null}
+ */
+export function merchantReferenceFromMetadata(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const ref = /** @type {{ reference?: unknown }} */ (metadata).reference;
+  if (typeof ref !== "string") return null;
+  const trimmed = ref.trim();
+  return trimmed || null;
+}
+
 function expiresAtIso(value) {
   return value instanceof Date ? value.toISOString() : String(value);
 }
@@ -13,10 +28,11 @@ function paymentPageBaseUrl() {
 }
 
 /**
- * Guest QR URI — not a chain RPC URL.
+ * Address-hint URI for wallets that parse `network:address?amount&asset`.
+ * Not the primary POS QR — see {@link qrPayloadForOrder}.
  * @param {{ receiveAddress: string, amount: string, asset: string, network: string }} p
  */
-export function qrPayloadForOrder(p) {
+export function walletUriForOrder(p) {
   const q = new URLSearchParams({
     amount: p.amount,
     asset: p.asset,
@@ -26,19 +42,38 @@ export function qrPayloadForOrder(p) {
 }
 
 /**
+ * Guest/POS QR payload — HTTPS payment page (camera opens amount + asset).
+ * Not a chain RPC URL.
+ * @param {{ paymentPageUrl: string }} p
+ */
+export function qrPayloadForOrder(p) {
+  return p.paymentPageUrl;
+}
+
+/**
  * OpenAPI PaymentDetails. No keys, xPub, fees, or session.
  * @param {object} row — payment_orders row plus org_name
  */
 export function toPaymentDetails(row) {
   const config = getAssetNetworkConfig(row.asset, row.network);
   const display = config?.displayNetwork ?? `${row.network} ${row.asset}`;
+  const requiredFromRow = Number(row.required_confirmations);
+  const requiredConfirmations =
+    Number.isFinite(requiredFromRow) && requiredFromRow > 0
+      ? requiredFromRow
+      : (config?.requiredConfirmations ?? 1);
+  const confFromRow = Number(row.confirmations);
+  const confirmations =
+    Number.isFinite(confFromRow) && confFromRow >= 0 ? confFromRow : 0;
+  const paymentPageUrl = `${paymentPageBaseUrl()}/pay/${row.id}`;
   const details = {
     orderNumber: row.order_number,
     status: row.status,
     merchantName: row.org_name,
     matchingMode: row.matching_mode,
-    paymentPageUrl: `${paymentPageBaseUrl()}/pay/${row.id}`,
-    qrPayload: qrPayloadForOrder({
+    paymentPageUrl,
+    qrPayload: qrPayloadForOrder({ paymentPageUrl }),
+    walletUri: walletUriForOrder({
       receiveAddress: row.receive_address,
       amount: row.payable_amount,
       asset: row.asset,
@@ -53,6 +88,11 @@ export function toPaymentDetails(row) {
     memoOrTag: row.memo_or_tag ?? null,
     expiresAt: expiresAtIso(row.expires_at),
     wrongNetworkWarning: `Send only ${row.asset} on ${display}. Wrong network may result in lost funds.`,
+    confirmations,
+    requiredConfirmations,
+    txHash: row.tx_hash ?? null,
+    createdAt: row.created_at ? expiresAtIso(row.created_at) : null,
+    confirmedAt: row.confirmed_at ? expiresAtIso(row.confirmed_at) : null,
     anomalyReason: row.anomaly_reason ?? null,
   };
   if (row.matching_mode === "C") {
@@ -109,9 +149,23 @@ export function toPaymentOrder(row) {
     expiresAt: expiresAtIso(row.expires_at),
     createdAt: expiresAtIso(row.created_at),
     anomalyReason: row.anomaly_reason ?? null,
+    anomalyResolutionNote: row.anomaly_resolution_note ?? null,
+    anomalyResolvedAt: row.anomaly_resolved_at
+      ? expiresAtIso(row.anomaly_resolved_at)
+      : null,
   };
   if (row.created_by) {
     order.createdBy = row.created_by;
+  }
+  if (row.org_name) {
+    order.orgName = row.org_name;
+  }
+  if (row.creator_email) {
+    order.createdByEmail = row.creator_email;
+  }
+  const merchantReference = merchantReferenceFromMetadata(row.merchant_metadata);
+  if (merchantReference) {
+    order.merchantReference = merchantReference;
   }
   return order;
 }

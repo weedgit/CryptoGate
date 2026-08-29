@@ -10,6 +10,7 @@ import {
   type OrgDeletePreview,
   type Session,
 } from "./api";
+import { AuthToast } from "../auth/AuthToast";
 import { orgTypeLabel, sessionCanManageSites, truncateAddress } from "./org";
 import { SiteOverridesPanel } from "./SiteOverridesPanel";
 
@@ -86,7 +87,21 @@ export function SiteDetailPage({ session }: { session: Session }) {
   }
 
   if (loading) return <p className="muted">Loading site…</p>;
-  if (error) return <p className="error">{error}</p>;
+  if (error && !site) {
+    return (
+      <div className="sites-page dash-page">
+        <AuthToast
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
+        <p className="muted">Could not load this site.</p>
+        <Link className="btn-ghost btn-inline" to="/merchant/sites">
+          ← Back to sites
+        </Link>
+      </div>
+    );
+  }
   if (!site) return null;
 
   return (

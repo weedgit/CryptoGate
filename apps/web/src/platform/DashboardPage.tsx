@@ -58,7 +58,7 @@ import {
 
 type Props = { session: Session };
 
-type PeriodId = "today" | "yesterday" | "7d" | "15d" | "1m" | "2m";
+type PeriodId = "today" | "7d" | "1m";
 
 type AccountSlice = { total: number; active: number; pause: number };
 
@@ -80,11 +80,8 @@ type OverviewStats = {
 
 const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "today", label: "Today" },
-  { id: "yesterday", label: "Yesterday" },
   { id: "7d", label: "7d" },
-  { id: "15d", label: "15d" },
   { id: "1m", label: "1m" },
-  { id: "2m", label: "2m" },
 ];
 
 const OVERVIEW_STORAGE_KEY = "cryptogate.platform.overviewCharts.v2";
@@ -169,25 +166,14 @@ function buildDayKeys(from: Date, to: Date): string[] {
 function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] } {
   const now = new Date();
   let from = startOfDay(now);
-  let to = endOfDay(now);
+  const to = endOfDay(now);
 
-  if (id === "yesterday") {
-    const y = new Date(now);
-    y.setDate(y.getDate() - 1);
-    from = startOfDay(y);
-    to = endOfDay(y);
-  } else if (id === "7d") {
+  if (id === "7d") {
     from = startOfDay(now);
     from.setDate(from.getDate() - 6);
-  } else if (id === "15d") {
-    from = startOfDay(now);
-    from.setDate(from.getDate() - 14);
   } else if (id === "1m") {
     from = startOfDay(now);
     from.setDate(from.getDate() - 29);
-  } else if (id === "2m") {
-    from = startOfDay(now);
-    from.setDate(from.getDate() - 59);
   }
 
   return { from, to, dayKeys: buildDayKeys(from, to) };

@@ -77,9 +77,15 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  tier?: string | null;
+  volumeFeePercent?: string | null;
+  billedVolumeUsd?: string | null;
   paidAt?: string | null;
   voidedAt?: string | null;
   lastAdjustmentReason?: string | null;
+  lastAdjustmentAmount?: string | null;
+  paymentReference?: string | null;
+  createdAt?: string | null;
 };
 
 export type AuditLogEntry = {
@@ -473,6 +479,40 @@ export async function updatePlatformOrgPolicy(body: {
   return (await res.json()) as PlatformOrgPolicy;
 }
 
+export type PlatformBillingWalletSettings = {
+  sellerName: string;
+  sellerEmail: string | null;
+  payTo: string | null;
+  updatedAt: string;
+};
+
+export async function getBillingWalletSettings(): Promise<PlatformBillingWalletSettings> {
+  const res = await fetch(`${API_BASE}/platform/settings/billing-wallet`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformBillingWalletSettings;
+}
+
+export async function updateBillingWalletSettings(body: {
+  sellerName: string;
+  sellerEmail?: string | null;
+  payTo?: string | null;
+}): Promise<PlatformBillingWalletSettings> {
+  const res = await fetch(`${API_BASE}/platform/settings/billing-wallet`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformBillingWalletSettings;
+}
+
 export async function listEnterpriseRateApprovals(opts?: {
   status?: string;
 }): Promise<EnterpriseRateApproval[]> {
@@ -606,6 +646,17 @@ export async function getAgentPayout(
   return (await res.json()) as AgentPayoutAddress;
 }
 
+/** Batch list — commissions board (avoids N× getAgentPayout). */
+export async function listAgentPayoutAddresses(): Promise<AgentPayoutAddress[]> {
+  const res = await fetch(`${API_BASE}/agent-payout-addresses`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: AgentPayoutAddress[] };
+  return data.items ?? [];
+}
+
 export async function putAgentPayout(
   orgId: string,
   body: { asset: string; network: string; address: string; mfaCode: string },
@@ -638,6 +689,17 @@ export async function getAgentCommission(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as AgentCommissionSettings;
+}
+
+/** Batch list — commissions board (avoids N× getAgentCommission). */
+export async function listAgentCommissions(): Promise<AgentCommissionSettings[]> {
+  const res = await fetch(`${API_BASE}/agent-commissions`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: AgentCommissionSettings[] };
+  return data.items ?? [];
 }
 
 export async function putAgentCommission(

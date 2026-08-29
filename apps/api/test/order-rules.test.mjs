@@ -99,6 +99,49 @@ describe("order create rules", () => {
     }
   });
 
+  it("accepts mainnet tron when CRYPTOGATE_CHAIN_ENV=testnet (union catalog)", () => {
+    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
+    process.env.CRYPTOGATE_CHAIN_ENV = "testnet";
+    try {
+      const r = validateCreateOrderBody({
+        amount: "0.01",
+        asset: "USDT",
+        network: "tron",
+        validitySeconds: 900,
+      });
+      assert.equal(r.ok, true);
+      assert.equal(r.parsed.config.displayNetwork, "TRON TRC-20");
+    } finally {
+      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
+      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+    }
+  });
+
+  it("accepts merchantReference and merges into metadata", () => {
+    const r = validateCreateOrderBody({
+      amount: "10.00",
+      asset: "USDT",
+      network: "tron",
+      validitySeconds: 900,
+      merchantReference: "PO-8842 / Table 12",
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      assert.equal(r.parsed.merchantReference, "PO-8842 / Table 12");
+      assert.deepEqual(r.parsed.merchantMetadata, {
+        reference: "PO-8842 / Table 12",
+      });
+    }
+    const bad = validateCreateOrderBody({
+      amount: "10.00",
+      asset: "USDT",
+      network: "tron",
+      validitySeconds: 900,
+      merchantReference: "x".repeat(201),
+    });
+    assert.equal(bad.ok, false);
+  });
+
   it("rejects short validity and over-decimal amounts", () => {
     assert.equal(
       validateCreateOrderBody({

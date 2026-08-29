@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { listLivePlatformAlerts, subscribePlatformAlerts } from "../platformAlerts";
+import { listLivePlatformAlerts, subscribePlatformAlerts, markAllPlatformAlertsRead, markPlatformAlertRead } from "../platformAlerts";
 
 export type AlertCategory = "all" | "payments" | "billing" | "security" | "system";
 
@@ -17,6 +17,16 @@ export type AlertItem = {
   /** When true, surfaces in login summary toast (Tier A). Default false. */
   urgent?: boolean;
   tone?: "info" | "warn" | "ok" | "anomaly";
+  /**
+   * Still an open condition (banner). Default true.
+   * Set false for informational notices that do not need action (e.g. decided site overrides).
+   */
+  unresolved?: boolean;
+  /**
+   * Current user can clear or act on this alert. Default true.
+   * False for Viewer / wait-only cool-downs — escalate to Owner or wait.
+   */
+  actionable?: boolean;
 };
 
 const FILTERS: { id: AlertCategory; label: string }[] = [
@@ -37,7 +47,11 @@ export type AlertsSource = {
 const platformAlertsSource: AlertsSource = {
   list: listLivePlatformAlerts,
   subscribe: subscribePlatformAlerts,
+  markRead: markPlatformAlertRead,
+  markAllRead: markAllPlatformAlertsRead,
 };
+
+export { platformAlertsSource };
 
 type Props = {
   open: boolean;

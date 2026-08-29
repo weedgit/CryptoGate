@@ -3,14 +3,48 @@ import { getPool } from "../db/pool.mjs";
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
   total_amount, currency, status, due_at, paid_at, voided_at,
+  last_adjustment_reason, last_adjustment_amount, payment_reference, created_at, updated_at,
+  tier, volume_fee_percent, billed_volume_usd
+`;
+
+const BILL_SELECT_LEGACY = `
+  id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
+  total_amount, currency, status, due_at, paid_at, voided_at,
   last_adjustment_reason, payment_reference, created_at, updated_at
 `;
+
+/**
+ * @param {string} sql
+ * @param {unknown[]} [params]
+ */
+async function queryBills(sql, params = []) {
+  try {
+    return await getPool().query(sql, params);
+  } catch (err) {
+    if (err && err.code === "42703") {
+      if (sql.includes("last_adjustment_amount")) {
+        const stripped = sql
+          .replace(/,\s*last_adjustment_amount/g, "")
+          .replace(/last_adjustment_amount\s*=\s*\$\d+,?\s*/g, "");
+        try {
+          return await getPool().query(stripped, params);
+        } catch (inner) {
+          if (!(inner && inner.code === "42703")) throw inner;
+        }
+      }
+      if (sql.includes("tier")) {
+        return getPool().query(sql.replace(BILL_SELECT, BILL_SELECT_LEGACY), params);
+      }
+    }
+    throw err;
+  }
+}
 
 /**
  * @param {string} id
  */
 export async function findServiceBillById(id) {
-  const { rows } = await getPool().query(
+  const { rows } = await queryBills(
     `SELECT ${BILL_SELECT} FROM service_bills WHERE id = $1`,
     [id],
   );
@@ -47,7 +81,7 @@ export async function listServiceBills(query) {
 
   const limit = query.limit ?? 100;
   params.push(limit);
-  const { rows } = await getPool().query(
+  const { rows } = await queryBills(
     `SELECT ${BILL_SELECT}
      FROM service_bills
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -68,27 +102,50 @@ export async function listServiceBills(query) {
  *   totalAmount: string,
  *   dueAt: string,
  *   status: string,
+ *   tier?: string | null,
+ *   volumeFeePercent?: string | null,
+ *   billedVolumeUsd?: string | null,
  * }} input
  */
 export async function insertServiceBill(input) {
-  const { rows } = await getPool().query(
-    `INSERT INTO service_bills (
-       org_id, period_start, period_end, subscription_amount, volume_fee_amount,
-       total_amount, currency, status, due_at
-     ) VALUES ($1, $2::date, $3::date, $4, $5, $6, 'USD', $7, $8::timestamptz)
-     RETURNING ${BILL_SELECT}`,
-    [
-      input.orgId,
-      input.periodStart,
-      input.periodEnd,
-      input.subscriptionAmount,
-      input.volumeFeeAmount,
-      input.totalAmount,
-      input.status,
-      input.dueAt,
-    ],
-  );
-  return rows[0];
+  const values = [
+    input.orgId,
+    input.periodStart,
+    input.periodEnd,
+    input.subscriptionAmount,
+    input.volumeFeeAmount,
+    input.totalAmount,
+    input.status,
+    input.dueAt,
+    input.tier ?? null,
+    input.volumeFeePercent ?? null,
+    input.billedVolumeUsd ?? null,
+  ];
+  try {
+    const { rows } = await getPool().query(
+      `INSERT INTO service_bills (
+         org_id, period_start, period_end, subscription_amount, volume_fee_amount,
+         total_amount, currency, status, due_at,
+         tier, volume_fee_percent, billed_volume_usd
+       ) VALUES ($1, $2::date, $3::date, $4, $5, $6, 'USD', $7, $8::timestamptz, $9, $10, $11)
+       RETURNING ${BILL_SELECT}`,
+      values,
+    );
+    return rows[0];
+  } catch (err) {
+    if (err && err.code === "42703") {
+      const { rows } = await getPool().query(
+        `INSERT INTO service_bills (
+           org_id, period_start, period_end, subscription_amount, volume_fee_amount,
+           total_amount, currency, status, due_at
+         ) VALUES ($1, $2::date, $3::date, $4, $5, $6, 'USD', $7, $8::timestamptz)
+         RETURNING ${BILL_SELECT_LEGACY}`,
+        values.slice(0, 8),
+      );
+      return rows[0];
+    }
+    throw err;
+  }
 }
 
 /**
@@ -96,7 +153,7 @@ export async function insertServiceBill(input) {
  * @param {string | null} paymentReference
  */
 export async function markServiceBillPaid(id, paymentReference) {
-  const { rows } = await getPool().query(
+  const { rows } = await queryBills(
     `UPDATE service_bills
      SET status = 'paid', paid_at = now(), payment_reference = $2, updated_at = now()
      WHERE id = $1 AND status IN ('issued', 'overdue')
@@ -111,7 +168,7 @@ export async function markServiceBillPaid(id, paymentReference) {
  * @param {string} reason
  */
 export async function voidServiceBill(id, _reason) {
-  const { rows } = await getPool().query(
+  const { rows } = await queryBills(
     `UPDATE service_bills
      SET status = 'voided', voided_at = now(), updated_at = now()
      WHERE id = $1 AND status = 'issued'
@@ -125,14 +182,18 @@ export async function voidServiceBill(id, _reason) {
  * @param {string} id
  * @param {string} totalAmount
  * @param {string} reason
+ * @param {string} adjustmentAmount signed USD delta
  */
-export async function adjustServiceBill(id, totalAmount, reason) {
-  const { rows } = await getPool().query(
+export async function adjustServiceBill(id, totalAmount, reason, adjustmentAmount) {
+  const { rows } = await queryBills(
     `UPDATE service_bills
-     SET total_amount = $2, last_adjustment_reason = $3, updated_at = now()
+     SET total_amount = $2,
+         last_adjustment_reason = $3,
+         last_adjustment_amount = $4,
+         updated_at = now()
      WHERE id = $1 AND status IN ('issued', 'overdue')
      RETURNING ${BILL_SELECT}`,
-    [id, totalAmount, reason],
+    [id, totalAmount, reason, adjustmentAmount],
   );
   return rows[0] ?? null;
 }
@@ -142,7 +203,7 @@ export async function adjustServiceBill(id, totalAmount, reason) {
  * @param {string} periodStart YYYY-MM-DD
  */
 export async function findActiveServiceBillForPeriod(orgId, periodStart) {
-  const { rows } = await getPool().query(
+  const { rows } = await queryBills(
     `SELECT ${BILL_SELECT}
      FROM service_bills
      WHERE org_id = $1 AND period_start = $2::date AND status <> 'voided'

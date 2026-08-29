@@ -122,7 +122,7 @@ Demo (no id):
 - Mode D demo on supported net: `?mode=D&memo=CG-0847&memoSupported=1`
 - Create: `/create-order.html`
 
-Guest page shows amount/asset/network/contract/address/expiry, wrong-network warning, QR, copy amount/address/contract, share link. Mode C uses “Exact payable” + exact-amount warning. Mode D memo only when `memoSupported` (mirrors `packages/domain` for USDT+tron).
+Guest page shows amount/asset/network/contract/address/expiry, wrong-network warning, QR (HTTPS pay page), copy amount/address/contract, share link. Mode C uses “Exact payable” + exact-amount warning. Mode D memo only when `memoSupported` (mirrors `packages/domain` for USDT+tron).
 
 ## Branch (Kevin)
 

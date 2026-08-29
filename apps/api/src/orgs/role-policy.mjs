@@ -140,6 +140,44 @@ export function canReadPaymentOrder(caller, order) {
 }
 
 /**
+ * Cancel pending payment orders. Owner/Admin: any order on their merchant org.
+ * Cashier: own orders only. Viewer: never. Not verifying/completed (may have chain tx).
+ * @param {{
+ *   userId: string,
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ orgId: string, createdBy: string, status: string }} order
+ */
+export function canCancelPaymentOrder(caller, order) {
+  if (order.status !== "pending_payment") return false;
+  if (caller.platformOperator === true) return true;
+  const m = caller.memberships.find((row) => row.orgId === order.orgId);
+  if (!m || !MERCHANT_TYPES.has(m.orgType)) return false;
+  if (m.role === "cashier") return order.createdBy === caller.userId;
+  return m.role === "owner" || m.role === "administrator";
+}
+
+/**
+ * Resolve payment anomaly after manual reconcile (required note — never Mark paid).
+ * Same role bar as cancel: O/A any on org; Cashier own only.
+ * @param {{
+ *   userId: string,
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ orgId: string, createdBy: string, status: string }} order
+ */
+export function canResolvePaymentAnomaly(caller, order) {
+  if (order.status !== "payment_anomaly") return false;
+  if (caller.platformOperator === true) return true;
+  const m = caller.memberships.find((row) => row.orgId === order.orgId);
+  if (!m || !MERCHANT_TYPES.has(m.orgType)) return false;
+  if (m.role === "cashier") return order.createdBy === caller.userId;
+  return m.role === "owner" || m.role === "administrator";
+}
+
+/**
  * List/export scope. Agent O/A/V may list payment orders under their subtree
  * (watch-only). They cannot create orders.
  * @param {{

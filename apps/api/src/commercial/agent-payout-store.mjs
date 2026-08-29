@@ -34,6 +34,23 @@ export async function findAgentPayoutAddress(orgId) {
 }
 
 /**
+ * Batch read for commissions boards (avoids N× GET /orgs/{id}/agent-payout).
+ * @param {string[]} orgIds
+ */
+export async function listAgentPayoutAddressesByOrgIds(orgIds) {
+  if (!orgIds.length) return [];
+  await applyDueAgentPayoutAddresses();
+  const { rows } = await getPool().query(
+    `SELECT ${SELECT}
+     FROM agent_payout_addresses
+     WHERE org_id = ANY($1::uuid[])
+     ORDER BY org_id ASC`,
+    [orgIds],
+  );
+  return rows;
+}
+
+/**
  * First set activates immediately; changes go pending until cool-down.
  * @param {{
  *   orgId: string,

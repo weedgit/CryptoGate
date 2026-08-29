@@ -1,3 +1,5 @@
+import { merchantReferenceFromMetadata } from "./order-map.mjs";
+
 function iso(value) {
   if (value == null) return "";
   return value instanceof Date ? value.toISOString() : String(value);
@@ -18,9 +20,13 @@ export function csvCell(value) {
 export const ORDER_CSV_HEADERS = [
   "id",
   "order_number",
+  "org_id",
+  "org_name",
+  "merchant_reference",
   "status",
   "matching_mode",
   "payable_amount",
+  "received_amount",
   "receive_address",
   "address_source",
   "hd_index",
@@ -30,6 +36,7 @@ export const ORDER_CSV_HEADERS = [
   "expires_at",
   "created_at",
   "created_by",
+  "created_by_email",
 ];
 
 /**
@@ -40,9 +47,13 @@ export function paymentOrderCsvFields(row) {
   return [
     row.id,
     row.order_number,
+    row.org_id,
+    row.org_name ?? "",
+    merchantReferenceFromMetadata(row.merchant_metadata) ?? "",
     row.status,
     row.matching_mode,
     row.payable_amount,
+    row.received_amount ?? "",
     row.receive_address,
     row.address_source,
     row.hd_index == null ? "" : String(row.hd_index),
@@ -52,6 +63,7 @@ export function paymentOrderCsvFields(row) {
     iso(row.expires_at),
     iso(row.created_at),
     row.created_by ?? "",
+    row.creator_email ?? "",
   ];
 }
 

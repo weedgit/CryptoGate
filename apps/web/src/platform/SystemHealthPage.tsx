@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import {
   getWatcherHealth,
@@ -148,6 +149,7 @@ export function SystemHealthPage() {
     <div
       className={`plat-ops-health${enterMotion ? " is-enter" : ""}`}
     >
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       {topbarActionsSlot
         ? createPortal(
             <div className="plat-ops-health__topbar-actions">
@@ -163,12 +165,6 @@ export function SystemHealthPage() {
             topbarActionsSlot,
           )
         : null}
-
-      {error ? (
-        <div className="plat-ops-health__error" role="alert">
-          {error}
-        </div>
-      ) : null}
 
       <div className="plat-ops-health__kpis">
         <div className="plat-ops-health__kpi">

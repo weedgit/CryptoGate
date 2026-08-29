@@ -47,7 +47,7 @@ type SortKey = "name" | "type" | "parent" | "merchants" | "payout" | "status";
 type SortDir = "asc" | "desc";
 type SortState = { key: SortKey; dir: SortDir };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 const PAYOUT_SORT_RANK: Record<"paid" | "pending" | "scheduled", number> = {
   paid: 0,

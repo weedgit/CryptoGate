@@ -74,8 +74,9 @@ export async function generateServiceBillsForPeriod(input = {}) {
       inclusiveStartIso,
       exclusiveEndIso,
     );
+    const billedVolumeUsd = roundUsd(volumeRaw);
     const volumeFeeAmount = volumeFeeUsd(
-      roundUsd(volumeRaw),
+      billedVolumeUsd,
       commercial.volume_fee_percent,
     );
     const subscriptionAmount = roundUsd(band.subscription_amount_usd);
@@ -90,6 +91,9 @@ export async function generateServiceBillsForPeriod(input = {}) {
       totalAmount,
       dueAt,
       status: ServiceBillStatus.Issued,
+      tier: commercial.tier,
+      volumeFeePercent: String(commercial.volume_fee_percent),
+      billedVolumeUsd,
     });
     issued.push(row);
   }

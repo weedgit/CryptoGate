@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { ApiError, changePassword, type Session } from "../merchant/api";
+import { AuthToast } from "./AuthToast";
 import { evaluatePasswordPolicy, passwordPolicyLabel } from "./passwordPolicy";
 
 type Props = {
@@ -41,6 +42,7 @@ export function ForceChangePasswordGate({ session, portalLabel, onChanged }: Pro
 
   return (
     <div className="login-wrap">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <form className="login-card" onSubmit={onSubmit}>
         <h1>Change password</h1>
         <p className="muted">
@@ -76,7 +78,6 @@ export function ForceChangePasswordGate({ session, portalLabel, onChanged }: Pro
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </label>
-        {error ? <p className="error">{error}</p> : null}
         <button type="submit" className="btn-primary" disabled={loading}>
           {loading ? "Saving…" : "Save password"}
         </button>

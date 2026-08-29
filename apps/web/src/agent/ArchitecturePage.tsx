@@ -678,11 +678,13 @@ export function ArchitecturePage({ session }: { session: Session }) {
       ref={pageRef}
     >
       <AuthToast
-        message={toastMessage}
+        message={toastMessage ?? error}
         tone="error"
-        onDismiss={dismissToast}
+        onDismiss={() => {
+          dismissToast();
+          setError(null);
+        }}
       />
-      {error ? <p className="error">{error}</p> : null}
 
       {topbarSlot
         ? createPortal(

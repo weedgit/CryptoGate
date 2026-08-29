@@ -17,6 +17,22 @@ export async function findAgentCommission(orgId) {
 }
 
 /**
+ * Batch read for commissions boards (avoids N× GET /orgs/{id}/agent-commission).
+ * @param {string[]} orgIds
+ */
+export async function listAgentCommissionsByOrgIds(orgIds) {
+  if (!orgIds.length) return [];
+  const { rows } = await getPool().query(
+    `SELECT org_id, commission_percent, effective_from, created_at, updated_at
+     FROM agent_commission
+     WHERE org_id = ANY($1::uuid[])
+     ORDER BY org_id ASC`,
+    [orgIds],
+  );
+  return rows;
+}
+
+/**
  * @param {{ orgId: string, commissionPercent?: string, effectiveFrom?: string }} input
  */
 export async function upsertAgentCommission(input) {

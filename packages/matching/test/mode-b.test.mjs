@@ -10,6 +10,7 @@ import {
   majorToMinor,
   matchModeB,
   matchTransaction,
+  MODE_B_CREATE_BLOCK_STATUSES,
 } from "../dist/index.js";
 
 const baseAssign = {
@@ -38,6 +39,13 @@ const baseTx = {
 };
 
 describe("@cryptogate/matching mode-b assign (M1-32 / M2-40)", () => {
+  it("exports create-block statuses for open same-amount lock", () => {
+    assert.deepEqual([...MODE_B_CREATE_BLOCK_STATUSES], [
+      "pending_payment",
+      "verifying",
+      "confirmed",
+    ]);
+  });
   it("assigns main settlement address and payable = requested amount", async () => {
     const result = await assignModeB({ ...baseAssign, mode: "B" });
     assert.equal(result.receiveAddress, "TMainAddressExample");
