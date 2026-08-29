@@ -94,6 +94,15 @@ export function mapTransferLog(log, cfg) {
   if (!/^[0-9a-f]{40}$/.test(toHex)) return null;
   const toAddress = `0x${toHex}`;
 
+  const fromTopic = topics[1];
+  let fromAddress;
+  if (typeof fromTopic === "string") {
+    const fromHex = fromTopic.replace(/^0x/, "").slice(-40).toLowerCase();
+    if (/^[0-9a-f]{40}$/.test(fromHex)) {
+      fromAddress = `0x${fromHex}`;
+    }
+  }
+
   const txHash = String(log.transactionHash ?? "").trim();
   const data = String(log.data ?? "").trim();
   if (!txHash || !data) return null;
@@ -110,6 +119,7 @@ export function mapTransferLog(log, cfg) {
 
   return {
     toAddress,
+    fromAddress,
     amount,
     txHash,
     asset: cfg.asset ?? "USDT",

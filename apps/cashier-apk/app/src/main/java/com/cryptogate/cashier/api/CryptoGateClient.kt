@@ -101,6 +101,7 @@ class CryptoGateClient(
         asset: String = OrderDefaults.ASSET,
         network: String = OrderDefaults.NETWORK,
         validitySeconds: Int = OrderDefaults.VALIDITY_SECONDS,
+        merchantReference: String? = null,
         idempotencyKey: String = newIdempotencyKey(),
     ): PaymentOrder =
         withContext(Dispatchers.IO) {
@@ -108,8 +109,13 @@ class CryptoGateClient(
             val req = Request.Builder()
                 .url(config.url("/orders"))
                 .post(
-                    JsonParsers.createOrderRequestJson(amount, asset, network, validitySeconds)
-                        .toRequestBody(jsonMedia),
+                    JsonParsers.createOrderRequestJson(
+                        amount,
+                        asset,
+                        network,
+                        validitySeconds,
+                        merchantReference,
+                    ).toRequestBody(jsonMedia),
                 )
                 .header("Accept", "application/json")
                 .header("Cookie", cookieHeader(token))
