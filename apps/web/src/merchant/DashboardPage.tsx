@@ -1,15 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  VolumeChart,
-  type VolumeChartZoomApi,
-} from "../platform/DashboardPage";
-import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
-import {
-  ChartMaximizeButton,
-  ChartMaximizeOverlay,
-} from "../platform/ui/ChartMaximize";
 import {
   ApiError,
   listOrders,
@@ -30,11 +21,10 @@ import {
   sessionIsCashierOnly,
   truncateAddress,
 } from "./org";
+import { AuthToast } from "../auth/AuthToast";
 import { StatusBadge } from "../shared/StatusBadge";
 import {
-  buildDayKeys,
   DASHBOARD_PERIOD_OPTIONS,
-  dayKeyFromIso,
   inWindow,
   parseDateInput,
   periodLabel,
@@ -44,40 +34,6 @@ import {
 } from "../shared/dashboardPeriod";
 
 type Props = { session: Session };
-
-function formatUsd(n: number): string {
-  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-}
-
-function volumeChartData(
-  orders: PaymentOrder[],
-  keys: string[],
-  from: Date,
-  to: Date,
-): {
-  series: number[];
-  dayLabels: string[];
-  chartPeriodTotal: number;
-} {
-  const map = new Map(keys.map((day) => [day, 0]));
-  let chartPeriodTotal = 0;
-  for (const o of orders) {
-    if (o.status !== "completed" && o.status !== "confirmed") continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    const key = dayKeyFromIso(o.expiresAt);
-    if (!key || !map.has(key)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) {
-      map.set(key, (map.get(key) ?? 0) + n);
-      chartPeriodTotal += n;
-    }
-  }
-  return {
-    series: keys.map((day) => map.get(day) ?? 0),
-    dayLabels: keys,
-    chartPeriodTotal,
-  };
-}
 
 export function DashboardPage({ session }: Props) {
   const navigate = useNavigate();
@@ -95,14 +51,13 @@ export function DashboardPage({ session }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const [volumeZoomed, setVolumeZoomed] = useState(false);
-  const [volumeMaximized, setVolumeMaximized] = useState(false);
-  const [volumeFsZoomed, setVolumeFsZoomed] = useState(false);
-  const volumeZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
-  const volumeFsZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
+  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
+    null,
+  );
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("merchant-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
   }, []);
 
   const onPeriodSelect = useCallback((id: DashboardPeriodId) => {
@@ -125,11 +80,6 @@ export function DashboardPage({ session }: Props) {
     setEndDate(value);
     setStartDate((prev) => (prev && value < prev ? value : prev));
   }, []);
-
-  const overdueBill = useMemo(
-    () => bills.find((b) => b.status === "overdue") ?? null,
-    [bills],
-  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,8 +110,7 @@ export function DashboardPage({ session }: Props) {
   const chartWindow = useMemo(() => {
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
-    const keys = buildDayKeys(from, to);
-    return { from, to, keys };
+    return { from, to };
   }, [startDate, endDate]);
 
   const periodOrders = useMemo(
@@ -198,47 +147,37 @@ export function DashboardPage({ session }: Props) {
     };
   }, [periodOrders, bills]);
 
-  const { series, dayLabels, chartPeriodTotal } = useMemo(
-    () =>
-      volumeChartData(
-        items,
-        chartWindow.keys,
-        chartWindow.from,
-        chartWindow.to,
-      ),
-    [items, chartWindow],
-  );
   const recent = periodOrders.slice(0, 8);
-  const chartTitle = "Volume (USDT)";
 
   return (
     <div className="dash-page plat-dash">
-      <div className="orders-toolbar orders-toolbar--end">
-        <div className="orders-actions">
-          <Link className="btn-primary btn-inline" to="/merchant/orders/new">
-            <span
-              className="btn-icon"
-              style={{
-                WebkitMaskImage: "url(/icons/nav/plus.svg)",
-                maskImage: "url(/icons/nav/plus.svg)",
-              }}
-              aria-hidden
-            />
-            {cashierOnly ? "Create Order" : "Create Payment Order"}
-          </Link>
-          {!cashierOnly ? (
-            <Link className="btn-ghost btn-inline" to="/merchant/service-bills">
-              Service Bills
-            </Link>
-          ) : (
-            <Link className="btn-ghost btn-inline" to="/merchant/orders">
-              My orders
-            </Link>
-          )}
-        </div>
-      </div>
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
-      {error ? <p className="error">{error}</p> : null}
+      {topbarActionsSlot
+        ? createPortal(
+            <div
+              className="org-agents__actions plat-orders-topbar__actions"
+              aria-label="Dashboard actions"
+            >
+              {!cashierOnly ? (
+                <Link
+                  className="btn-ghost btn-inline"
+                  to="/merchant/service-bills"
+                >
+                  Service Bills
+                </Link>
+              ) : (
+                <Link className="btn-ghost btn-inline" to="/merchant/orders">
+                  My orders
+                </Link>
+              )}
+              <Link className="btn-primary btn-inline" to="/merchant/orders/new">
+                + {cashierOnly ? "Create Order" : "Create Payment Order"}
+              </Link>
+            </div>,
+            topbarActionsSlot,
+          )
+        : null}
 
       {topbarSlot
         ? createPortal(
@@ -295,18 +234,6 @@ export function DashboardPage({ session }: Props) {
           )
         : null}
 
-      {!cashierOnly && overdueBill ? (
-        <div className="cg-banner cg-banner--warn merchant-dash-overdue" role="status">
-          <span>
-            Service bill overdue — {overdueBill.totalAmount} {overdueBill.currency}. Pay
-            promptly to avoid account restriction.
-          </span>
-          <Link className="alerts-drawer__link" to={`/merchant/service-bills/${overdueBill.id}`}>
-            Pay bill
-          </Link>
-        </div>
-      ) : null}
-
       {loading ? (
         <p className="muted">Loading KPIs…</p>
       ) : (
@@ -342,149 +269,6 @@ export function DashboardPage({ session }: Props) {
           </div>
         </div>
       )}
-
-      <div className="panel dash-chart-panel glass-tone-slate">
-        <div className="dash-chart-panel__head">
-          <div className="dash-chart-panel__title-row">
-            <div className="dash-chart-panel__filters">
-              <div className="dash-chart-panel__title-row-inner">
-                <h2>{chartTitle}</h2>
-              </div>
-            </div>
-            <div className="dash-chart-panel__title-main">
-              <p
-                className="dash-chart-panel__period-total"
-                aria-label="Period total volume"
-              >
-                <span className="dash-chart-panel__period-value">
-                  {loading ? "—" : formatUsd(chartPeriodTotal)}
-                </span>
-              </p>
-            </div>
-            <div className="dash-chart-panel__tools">
-              <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
-                {volumeZoomed ? (
-                  <button
-                    type="button"
-                    className="volume-chart__zoom-reset"
-                    onClick={() => volumeZoomApiRef.current?.reset()}
-                  >
-                    Reset
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="volume-chart__zoom-btn"
-                  aria-label="Zoom out"
-                  title="Zoom out"
-                  onClick={() => volumeZoomApiRef.current?.zoomOut()}
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  className="volume-chart__zoom-btn"
-                  aria-label="Zoom in"
-                  title="Zoom in"
-                  onClick={() => volumeZoomApiRef.current?.zoomIn()}
-                >
-                  +
-                </button>
-              </div>
-              <ChartHelpButton label="Volume chart help" />
-              <ChartMaximizeButton
-                label="Maximize volume chart"
-                onClick={() => setVolumeMaximized(true)}
-              />
-            </div>
-          </div>
-        </div>
-        {loading ? (
-          <p className="muted plat-chart-note">Loading chart…</p>
-        ) : (
-          <VolumeChart
-            values={series}
-            labels={dayLabels}
-            showZoomBar={false}
-            onZoomedChange={setVolumeZoomed}
-            zoomApiRef={volumeZoomApiRef}
-          />
-        )}
-      </div>
-
-      <ChartMaximizeOverlay
-        open={volumeMaximized}
-        title={chartTitle}
-        onClose={() => setVolumeMaximized(false)}
-        header={
-          <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
-            <div className="dash-chart-panel__filters">
-              <div className="dash-chart-panel__title-row-inner">
-                <h2>{chartTitle}</h2>
-              </div>
-            </div>
-            <div className="dash-chart-panel__title-main">
-              <p
-                className="dash-chart-panel__period-total"
-                aria-label="Period total volume"
-              >
-                <span className="dash-chart-panel__period-value">
-                  {formatUsd(chartPeriodTotal)}
-                </span>
-              </p>
-            </div>
-            <div className="dash-chart-panel__tools">
-              <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
-                {volumeFsZoomed ? (
-                  <button
-                    type="button"
-                    className="volume-chart__zoom-reset"
-                    onClick={() => volumeFsZoomApiRef.current?.reset()}
-                  >
-                    Reset
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="volume-chart__zoom-btn"
-                  aria-label="Zoom out"
-                  title="Zoom out"
-                  onClick={() => volumeFsZoomApiRef.current?.zoomOut()}
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  className="volume-chart__zoom-btn"
-                  aria-label="Zoom in"
-                  title="Zoom in"
-                  onClick={() => volumeFsZoomApiRef.current?.zoomIn()}
-                >
-                  +
-                </button>
-              </div>
-              <ChartHelpButton label="Volume chart help" />
-              <button
-                type="button"
-                className="chart-maximize-overlay__close"
-                aria-label="Close fullscreen chart"
-                onClick={() => setVolumeMaximized(false)}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        }
-      >
-        <VolumeChart
-          values={series}
-          labels={dayLabels}
-          size="fullscreen"
-          showZoomBar={false}
-          onZoomedChange={setVolumeFsZoomed}
-          zoomApiRef={volumeFsZoomApiRef}
-        />
-      </ChartMaximizeOverlay>
 
       <section className="merchant-dash-orders">
         <div className="plat-dash-merchants__head">
@@ -530,11 +314,11 @@ export function DashboardPage({ session }: Props) {
                 <span className="muted">{matchingModeLabel(o.matchingMode)}</span>
                 <span>
                   <StatusBadge
-                    tone={orderStatusTone(o.status)}
+                    tone={orderStatusTone(o.status, o)}
                     live={o.status === "verifying"}
                     alarm={o.status === "payment_anomaly"}
                   >
-                    {orderStatusLabel(o.status)}
+                    {orderStatusLabel(o.status, o)}
                   </StatusBadge>
                 </span>
               </button>

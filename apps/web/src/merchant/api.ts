@@ -29,6 +29,7 @@ export type Session = {
 export type PaymentOrder = {
   id: string;
   orgId?: string;
+  orgName?: string | null;
   orderNumber: string;
   status: string;
   matchingMode: string;
@@ -43,8 +44,13 @@ export type PaymentOrder = {
   expiresAt: string;
   createdAt?: string;
   createdBy?: string;
+  createdByEmail?: string | null;
+  merchantReference?: string | null;
   /** Present when status is payment_anomaly (match / reorg reason code). */
   anomalyReason?: string | null;
+  /** Staff note after resolve; order status is cancelled. */
+  anomalyResolutionNote?: string | null;
+  anomalyResolvedAt?: string | null;
 };
 
 export type OnChainDetails = {
@@ -62,12 +68,21 @@ export type PaymentDetails = {
   matchingMode: string;
   paymentPageUrl: string;
   qrPayload: string;
+  /** Optional `network:address?…` hint; POS QR uses qrPayload (HTTPS pay page). */
+  walletUri?: string;
   receiveAddress: string;
   payableAmount: { amount: string; currency: string };
   copyAmount: string;
   asset: string;
   network: string;
   expiresAt: string;
+  confirmations?: number;
+  requiredConfirmations?: number;
+  txHash?: string | null;
+  createdAt?: string | null;
+  confirmedAt?: string | null;
+  anomalyReason?: string | null;
+  merchantName?: string;
 };
 
 export class ApiError extends Error {
@@ -75,6 +90,7 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public httpStatus: number,
+    public details?: unknown,
   ) {
     super(message);
   }
@@ -83,13 +99,22 @@ export class ApiError extends Error {
 async function parseError(res: Response): Promise<never> {
   const body = await res.text();
   try {
-    const json = JSON.parse(body) as { code?: string; message?: string };
+    const json = JSON.parse(body) as {
+      code?: string;
+      message?: string;
+      details?: unknown;
+    };
     const raw = json.message?.trim() || "";
     const friendly =
       res.status >= 500
         ? "Something went wrong on the server. Please try again."
         : raw || `Request failed (${res.status})`;
-    throw new ApiError(json.code ?? "http_error", friendly, res.status);
+    throw new ApiError(
+      json.code ?? "http_error",
+      friendly,
+      res.status,
+      json.details,
+    );
   } catch (e) {
     if (e instanceof ApiError) throw e;
     const friendly =
@@ -204,6 +229,7 @@ export async function createOrder(input: {
   asset: string;
   network: string;
   validitySeconds: number;
+  merchantReference?: string;
 }): Promise<PaymentOrder> {
   const res = await fetch(`${API_BASE}/orders`, {
     method: "POST",
@@ -218,6 +244,13 @@ export async function createOrder(input: {
       asset: input.asset,
       network: input.network,
       validitySeconds: input.validitySeconds,
+      ...(input.merchantReference?.trim()
+        ? {
+            merchantMetadata: {
+              reference: input.merchantReference.trim().slice(0, 200),
+            },
+          }
+        : {}),
     }),
   });
   if (!res.ok) await parseError(res);
@@ -258,6 +291,48 @@ export async function getOrder(orderId: string): Promise<PaymentOrder> {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PaymentOrder;
+}
+
+/** Cancel pending payment order. O/A any on org; Cashier own only. */
+export async function cancelOrder(
+  orderId: string,
+  body?: { note?: string },
+): Promise<PaymentOrder> {
+  const res = await fetch(
+    `${API_BASE}/orders/${encodeURIComponent(orderId)}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body?.note?.trim() ? { note: body.note.trim() } : {}),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PaymentOrder;
+}
+
+/** Resolve payment anomaly after manual reconcile. Required note. Never Mark paid. */
+export async function resolveOrderAnomaly(
+  orderId: string,
+  note: string,
+): Promise<PaymentOrder> {
+  const res = await fetch(
+    `${API_BASE}/orders/${encodeURIComponent(orderId)}/resolve-anomaly`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ note: note.trim() }),
+    },
+  );
   if (!res.ok) await parseError(res);
   return (await res.json()) as PaymentOrder;
 }
@@ -523,6 +598,15 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  tier?: string | null;
+  volumeFeePercent?: string | null;
+  billedVolumeUsd?: string | null;
+  paidAt?: string | null;
+  voidedAt?: string | null;
+  lastAdjustmentReason?: string | null;
+  lastAdjustmentAmount?: string | null;
+  paymentReference?: string | null;
+  createdAt?: string | null;
 };
 
 export type ServiceBillCheckout = {
@@ -738,6 +822,9 @@ export type OrgAccount = {
   parentId: string | null;
   status?: "active" | "paused";
   structure?: string;
+  country?: string | null;
+  billingEmail?: string | null;
+  legalName?: string | null;
   createdAt?: string;
 };
 

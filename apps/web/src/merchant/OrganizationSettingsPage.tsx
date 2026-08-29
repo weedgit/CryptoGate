@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import { ApiError, getOrg, type OrgAccount, type Session } from "./api";
 import {
   orgTypeLabel,
@@ -52,7 +53,7 @@ export function OrganizationSettingsPage({ session }: Props) {
 
   return (
     <div className="plat-settings plat-settings--merchant">
-      {error ? <p className="error">{error}</p> : null}
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       <div className="plat-settings__grid plat-settings__grid--single">
         <section className="plat-settings__card">

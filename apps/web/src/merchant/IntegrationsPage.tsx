@@ -17,6 +17,7 @@ import {
   type WebhookDelivery,
   type WebhookEndpoint,
 } from "./api";
+import { AuthToast } from "../auth/AuthToast";
 import { formatShortTime } from "./orderStatus";
 import {
   primaryMerchantOrgId,
@@ -192,6 +193,7 @@ export function IntegrationsPage({ session }: Props) {
 
   return (
     <div className="plat-settings plat-settings--merchant integrations-page">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <p className="plat-settings__notice" role="note">
         Machine API keys and signed webhooks for order status — separate from guest payment
         pages. Secrets are shown once on create.
@@ -206,7 +208,6 @@ export function IntegrationsPage({ session }: Props) {
         />
       ) : null}
 
-      {error ? <p className="error">{error}</p> : null}
       {loading ? <p className="muted">Loading integrations…</p> : null}
 
       <div className="plat-settings__grid integrations-grid">

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   createOrg,
@@ -119,6 +120,7 @@ export function CreateSitePage({ session }: Props) {
 
   return (
     <div className="sites-page">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div className="orders-toolbar">
         <p className="muted" style={{ margin: 0 }}>
           New merchant (site) under your multi-location parent.
@@ -153,7 +155,6 @@ export function CreateSitePage({ session }: Props) {
           Wallet, xPub, matching mode, and retention inherit from the parent until
           the parent merchant Owner approves a site override.
         </p>
-        {error ? <p className="error">{error}</p> : null}
         <button type="submit" className="btn-primary" disabled={busy}>
           Create site
         </button>
