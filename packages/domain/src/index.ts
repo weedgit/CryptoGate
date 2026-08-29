@@ -260,7 +260,8 @@ export const USDT_TRON: AssetNetworkConfig = {
 
 /**
  * Local/staging only — USDT on Tron Nile testnet.
- * Visible when CRYPTOGATE_CHAIN_ENV=testnet; never in product (mainnet) deploys.
+ * Visible when CRYPTOGATE_CHAIN_ENV=testnet (alongside mainnet pairs);
+ * never when env is mainnet (product / production).
  * Contract: official Nile USDT (override with TRON_USDT_CONTRACT if needed).
  */
 export const USDT_TRON_NILE: AssetNetworkConfig = {
@@ -501,12 +502,26 @@ export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   TRX_TRON,
 ];
 
-/** Catalog rows visible for the active (or overridden) chain environment. */
+/**
+ * Catalog rows visible for the active (or overridden) chain environment.
+ *
+ * - `mainnet` → mainnet pairs only (product / production; Nile never appears)
+ * - `testnet` → mainnet **and** testnet pairs (local/staging can exercise both)
+ */
 export function listAssetNetworkRegistry(
   env?: string | null,
 ): readonly AssetNetworkConfig[] {
   const active = resolveChainEnvironment(env);
-  return ASSET_NETWORK_REGISTRY.filter((row) => row.chainEnv === active);
+  if (active === ChainEnvironment.Testnet) {
+    return ASSET_NETWORK_REGISTRY.filter(
+      (row) =>
+        row.chainEnv === ChainEnvironment.Testnet ||
+        row.chainEnv === ChainEnvironment.Mainnet,
+    );
+  }
+  return ASSET_NETWORK_REGISTRY.filter(
+    (row) => row.chainEnv === ChainEnvironment.Mainnet,
+  );
 }
 
 /** Enabled pair only — used by create-order and matching. Env-gated. */
@@ -568,6 +583,8 @@ export const PaymentOrderColumn = {
   hdIndex: "hd_index",
   memoOrTag: "memo_or_tag",
   anomalyReason: "anomaly_reason",
+  anomalyResolutionNote: "anomaly_resolution_note",
+  anomalyResolvedAt: "anomaly_resolved_at",
 } as const;
 
 export type PaymentOrderColumnName =
@@ -599,7 +616,15 @@ export type PaymentOrder = PaymentOrderAssignFields & {
   network: NetworkId;
   /** ISO-8601 timestamp */
   expiresAt: string;
+  /** ISO-8601 timestamp */
+  createdAt?: string;
   createdBy?: string;
+  /** Cashier / staff email when list/detail joins users */
+  createdByEmail?: string | null;
+  /** Merchant site or parent org display name */
+  orgName?: string | null;
+  /** Merchant PO / table / purpose reference (merchant_metadata.reference) */
+  merchantReference?: string | null;
 };
 
 /** Outbound merchant webhook names (OpenAPI WebhookEventType). */
@@ -658,6 +683,12 @@ export const ServiceBillColumn = {
   currency: "currency",
   status: "status",
   dueAt: "due_at",
+  tier: "tier",
+  volumeFeePercent: "volume_fee_percent",
+  billedVolumeUsd: "billed_volume_usd",
+  paymentReference: "payment_reference",
+  lastAdjustmentAmount: "last_adjustment_amount",
+  createdAt: "created_at",
 } as const;
 
 export type ServiceBillColumnName =
@@ -666,6 +697,7 @@ export type ServiceBillColumnName =
 /**
  * Platform SaaS invoice (subscription + volume fee). Funds go to the
  * platform billing wallet — never deducted from the payer's on-chain payment.
+ * Tier / rate / billed volume are frozen at issue (invoice snapshot).
  */
 export type ServiceBill = {
   id: string;
@@ -678,12 +710,24 @@ export type ServiceBill = {
   currency: BillingCurrency;
   status: ServiceBillStatus;
   dueAt: string;
+  /** Fee tier at issue (`small` / `mid` / `enterprise`). */
+  tier?: string | null;
+  /** Effective volume fee % at issue. */
+  volumeFeePercent?: string | null;
+  /** Confirmed completed volume (USD) used for the volume fee line. */
+  billedVolumeUsd?: string | null;
   /** Set when status becomes paid (v0.3.2). */
   paidAt?: string | null;
   /** Set when status becomes voided (v0.3.2). */
   voidedAt?: string | null;
   /** Last platform adjustment note (v0.3.2). */
   lastAdjustmentReason?: string | null;
+  /** Last signed USD adjustment delta applied to total. */
+  lastAdjustmentAmount?: string | null;
+  /** Off-chain / remittance reference when marked paid. */
+  paymentReference?: string | null;
+  /** Issue timestamp. */
+  createdAt?: string | null;
 };
 
 /** Platform-only service bill lifecycle updates (v0.3.2). */
@@ -728,6 +772,7 @@ export const AuditAction = {
   ApiKeyRotate: "api_key_rotate",
   FeeTierPut: "fee_tier_put",
   OrgPolicyPut: "org_policy_put",
+  BillingWalletPut: "billing_wallet_put",
   MerchantCommercialPut: "merchant_commercial_put",
   EnterpriseRateDecide: "enterprise_rate_decide",
   ComplianceOverride: "compliance_override",

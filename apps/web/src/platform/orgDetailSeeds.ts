@@ -370,6 +370,7 @@ export type AccountTreeNode = {
   type: string;
   status: string;
   structure?: string | null;
+  parentId?: string | null;
   parentName?: string;
   merchantsManaged?: number;
   children: AccountTreeNode[];
@@ -465,6 +466,7 @@ export function buildAgentAccountsForest(input: {
         type: site.type,
         status: site.status,
         structure: null,
+        parentId: merchantId,
         parentName: merchantName,
         children: [],
       });
@@ -478,6 +480,7 @@ export function buildAgentAccountsForest(input: {
       type: m.type,
       status: m.status,
       structure: m.structure ?? null,
+      parentId: m.parentId ?? null,
       parentName: m.parentName,
       children: [],
     };

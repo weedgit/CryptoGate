@@ -1219,6 +1219,13 @@ paths:
         and memoOrTag come from packages/matching assignOnCreate. Mode S same-amount
         conflicts claim or derive from the HD pool under the create lock.
 
+        Mode B (Standard): a second open order with the same payable amount on the
+        main settlement address is rejected with 409 `mode_b_amount_in_use` (details
+        include the blocking order). Staff must finish/cancel the first order, change
+        amount, or Owner switches to Amount fingerprint / Smart address. Mode D:
+        assigned memo already held by an open order → 409 `mode_d_memo_in_use`.
+        Match-time same-amount / memo collision → Payment Anomaly remains as a safety net.
+
         Agent-account users receive 403. Cashiers may create orders but cannot set
         matching mode, settlement address, xPub, or fees (those endpoints are 403).
         Volume fee is not deducted from the on-chain payable amount.
@@ -1262,7 +1269,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Idempotency-Key reused with a different body
+          description: >
+            Idempotency-Key reused with a different body, matching exhausted,
+            or Mode B same-amount create lock (`mode_b_amount_in_use` with
+            `details.blockingOrder`).
           content:
             application/json:
               schema:
@@ -1389,6 +1399,137 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Outside merchant scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders/{id}/cancel:
+    post:
+      tags: [orders]
+      operationId: cancelPaymentOrder
+      summary: Cancel a pending payment order
+      description: >
+        Sets status to `cancelled` when the order is still `pending_payment`.
+        Owner/Administrator may cancel any pending order on their merchant org;
+        Cashier may cancel only their own. Verifying/completed orders cannot be
+        cancelled (chain may already show a tx). Frees Mode B amount / Mode D
+        memo create locks so another cashier can Continue.
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+                  description: Optional audit note
+      responses:
+        "200":
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Outside scope, or cashier cancelling another user's order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order is no longer pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders/{id}/resolve-anomaly:
+    post:
+      tags: [orders]
+      operationId: resolvePaymentAnomaly
+      summary: Resolve a payment anomaly after manual reconcile
+      description: >
+        Closes a `payment_anomaly` order after staff reconcile. Requires a note.
+        Sets status to `cancelled` while preserving `anomalyReason` for invoice/audit;
+        stores `anomalyResolutionNote` and `anomalyResolvedAt`. Never marks the order
+        paid. Owner/Administrator: any anomaly on their merchant org; Cashier: own only.
+        Resolved rows leave the anomaly list and urgent alerts (no longer `payment_anomaly`).
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+        - $ref: "#/components/parameters/apiTimestamp"
+        - $ref: "#/components/parameters/apiNonce"
+        - $ref: "#/components/parameters/apiSignature"
+      security:
+        - sessionCookie: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: >
+                    Brief record of what was checked (customer, amount, tx) — required for audit
+      responses:
+        "200":
+          description: Anomaly resolved (order cancelled with resolution note)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
+        "400":
+          description: Missing or invalid note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Outside scope, or cashier resolving another user's order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order is no longer a payment anomaly
           content:
             application/json:
               schema:
@@ -2006,6 +2147,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /agent-commissions:
+    get:
+      tags: [orgs]
+      operationId: listAgentCommissions
+      summary: List agent commission percents (batch)
+      description: >
+        Returns commission settings for all agent/agent_sub orgs visible to the
+        caller. Used by platform and agent commission boards to avoid N+1
+        per-org GETs. Orgs without a stored row are omitted — clients apply the
+        default percent (15).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Commission list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentCommissionSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /agent-payout-addresses:
+    get:
+      tags: [orgs]
+      operationId: listAgentPayoutAddresses
+      summary: List agent commission payout addresses (batch)
+      description: >
+        Returns configured payout addresses for visible agent/agent_sub orgs.
+        Orgs without an address are omitted (same as per-org 404).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Payout address list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentPayoutAddress"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /commission-payouts/{payoutId}/mark-paid:
     post:
       tags: [orgs]
@@ -2401,6 +2602,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlatformOrgPolicy"
+        "403":
+          description: Not Platform Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/settings/billing-wallet:
+    get:
+      tags: [platform-settings]
+      operationId: getBillingWalletSettings
+      summary: Read platform billing wallet / invoice seller identity (B11-lite)
+      description: >
+        Platform Owner/Administrator/Viewer. Remittance `payTo` for service-bill
+        checkout and invoice face. Not merchant settlement.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Billing wallet settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformBillingWalletSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [platform-settings]
+      operationId: updateBillingWalletSettings
+      summary: Update billing wallet / seller identity (Platform Owner only)
+      description: >
+        Updates invoice seller name/email and service-bill remittance destination.
+        Logged as billing_wallet_put. Does not affect merchant settlement addresses.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformBillingWalletSettingsRequest"
+      responses:
+        "200":
+          description: Updated billing wallet settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformBillingWalletSettings"
         "403":
           description: Not Platform Owner
           content:
@@ -3518,7 +3770,14 @@ components:
           type: string
         message:
           type: string
-    LoginRequest:
+        details:
+          type: object
+          additionalProperties: true
+          description: >
+            Optional structured context. For `mode_b_amount_in_use` /
+            `mode_d_memo_in_use` (409 on POST /orders), includes `blockingOrder`
+            with id, orderNumber, status, payableAmount, asset, network,
+            createdAt, createdByEmail, createdByLabel (and memoOrTag for Mode D).    LoginRequest:
       type: object
       required: [email, password]
       properties:
@@ -3777,6 +4036,12 @@ components:
           type: integer
           minimum: 60
           example: 900
+        merchantReference:
+          type: string
+          maxLength: 200
+          description: >
+            Optional merchant PO, table, or invoice reference ("for what").
+            Stored in merchant_metadata.reference; included in CSV export.
         merchantMetadata:
           type: object
           additionalProperties: true
@@ -3838,14 +4103,38 @@ components:
         expiresAt:
           type: string
           format: date-time
+        createdAt:
+          type: string
+          format: date-time
         createdBy:
           type: string
+        createdByEmail:
+          type: string
+          format: email
+          nullable: true
+        orgName:
+          type: string
+          nullable: true
+          description: Merchant or merchant (site) org display name
+        merchantReference:
+          type: string
+          nullable: true
+          description: Merchant PO / purpose reference at create
         anomalyReason:
           type: string
           nullable: true
           description: >
             Set when status is payment_anomaly (e.g. mode_b_same_amount_collision,
-            mode_b_underpay, wrong_network). Null otherwise.
+            mode_b_underpay, wrong_network). Kept after resolve for invoice/audit.
+        anomalyResolutionNote:
+          type: string
+          nullable: true
+          description: Staff note when anomaly was resolved (manual reconcile).
+        anomalyResolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When staff resolved the anomaly (order then cancelled).
     PaymentOrderList:
       type: object
       required: [items]
@@ -3887,7 +4176,15 @@ components:
           format: uri
         qrPayload:
           type: string
-          description: Network URI encoded in the QR (not a chain RPC URL)
+          description: >
+            Payload encoded in the guest/POS QR. Phase 1 uses the HTTPS payment
+            page URL so a phone camera opens amount, asset, network, and address.
+            Not a chain RPC URL.
+        walletUri:
+          type: string
+          description: >
+            Optional network URI hint (`{network}:{address}?amount&asset`) for
+            wallets that parse it. Prefer qrPayload (pay page) for camera scan.
         receiveAddress:
           type: string
         payableAmount:
@@ -3912,6 +4209,27 @@ components:
         wrongNetworkWarning:
           type: string
           example: "Send only USDT on TRON TRC-20. Wrong network may result in lost funds."
+        confirmations:
+          type: integer
+          minimum: 0
+          description: Watcher confirmation count (guest progress UI)
+        requiredConfirmations:
+          type: integer
+          minimum: 1
+          description: Network-required confirmations for this order
+        txHash:
+          type: string
+          nullable: true
+          description: Bound tx hash when detected (no explorer secrets)
+        createdAt:
+          type: string
+          format: date-time
+          description: Order create time for guest timeline
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when watcher marks confirmations complete
         anomalyReason:
           type: string
           nullable: true
@@ -4175,7 +4493,9 @@ components:
         - currency
         - status
         - dueAt
-      description: Platform SaaS invoice — not a payment order
+      description: >
+        Platform SaaS invoice — not a payment order. Tier, volume fee %, and
+        billed volume are frozen at issue for accountant-stable math.
       properties:
         id:
           type: string
@@ -4205,6 +4525,21 @@ components:
         dueAt:
           type: string
           format: date-time
+        tier:
+          type: string
+          nullable: true
+          enum: [small, mid, enterprise]
+          description: Fee tier snapshot at issue
+        volumeFeePercent:
+          type: string
+          nullable: true
+          description: Effective volume fee percent snapshot at issue
+          example: "1.20"
+        billedVolumeUsd:
+          type: string
+          nullable: true
+          description: Confirmed completed payment-order volume used for the fee line
+          example: "1000.00"
         paidAt:
           type: string
           format: date-time
@@ -4219,6 +4554,20 @@ components:
           type: string
           nullable: true
           description: Most recent platform adjustment note (v0.3.2)
+        lastAdjustmentAmount:
+          type: string
+          nullable: true
+          description: Signed USD delta last applied to totalAmount (e.g. "-10.00")
+          example: "-10.00"
+        paymentReference:
+          type: string
+          nullable: true
+          description: Remittance / off-chain reference when marked paid
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Issue timestamp
     ServiceBillList:
       type: object
       required: [items]
@@ -4247,6 +4596,16 @@ components:
         dueAt:
           type: string
           format: date-time
+        tier:
+          type: string
+          enum: [small, mid, enterprise]
+          description: Optional; resolved from merchant commercial at issue when omitted
+        volumeFeePercent:
+          type: string
+          description: Optional snapshot; resolved from commercial when omitted
+        billedVolumeUsd:
+          type: string
+          description: Optional snapshot; computed from completed volume when omitted
     GenerateServiceBillsRequest:
       type: object
       description: Omit both dates to generate the previous UTC calendar month.
@@ -4402,6 +4761,46 @@ components:
           type: integer
           enum: [15, 30, 60, 120]
           description: Sliding session TTL applied on login and session refresh
+    PlatformBillingWalletSettings:
+      type: object
+      required: [sellerName, sellerEmail, payTo, updatedAt]
+      description: >
+        B11-lite platform invoice seller + service-bill remittance destination.
+        Distinct from merchant settlement addresses.
+      properties:
+        sellerName:
+          type: string
+          example: CryptoGate
+        sellerEmail:
+          type: string
+          format: email
+          nullable: true
+        payTo:
+          type: string
+          nullable: true
+          description: >
+            Wallet address or remittance instruction for merchant→platform
+            service-bill payments. Checkout prefers this over PLATFORM_BILLING_PAY_TO.
+        updatedAt:
+          type: string
+          format: date-time
+    UpdatePlatformBillingWalletSettingsRequest:
+      type: object
+      required: [sellerName]
+      additionalProperties: false
+      properties:
+        sellerName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        sellerEmail:
+          type: string
+          format: email
+          nullable: true
+        payTo:
+          type: string
+          maxLength: 500
+          nullable: true
     UpdatePlatformOrgPolicyRequest:
       type: object
       required: [maxAgentDepth, mfaEnforcement, sessionTimeoutMinutes]
@@ -4797,6 +5196,7 @@ components:
         - api_key_rotate
         - fee_tier_put
         - org_policy_put
+        - billing_wallet_put
         - merchant_commercial_put
         - enterprise_rate_decide
         - compliance_override

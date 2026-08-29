@@ -52,11 +52,18 @@ export function matchWriteNeeded(row, result, transfer) {
   const sameTx = existingTx === txHash;
   const sameAmount =
     (row.receivedAmount ?? "").trim() === transfer.amount.trim();
+  const missingReceived = !(row.receivedAmount ?? "").trim();
 
   if (sameStatus && sameTx) {
-    if (result.status !== "verifying" || sameAmount) {
-      return { write: false, reason: "already_applied" };
+    // Allow rewrite to fill received_amount when verifying amount drifted,
+    // or when anomaly/verifying rows never persisted the inbound amount.
+    if (result.status === "verifying" && !sameAmount) {
+      return { write: true, reason: "apply" };
     }
+    if (missingReceived && transfer.amount.trim()) {
+      return { write: true, reason: "backfill_received_amount" };
+    }
+    return { write: false, reason: "already_applied" };
   }
 
   return { write: true, reason: "apply" };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getFeeTierSettings,
@@ -872,6 +873,14 @@ export function MerchantDetailCard({
 
   return (
     <aside className="b3-agent-detail" aria-label="Merchant detail">
+      <AuthToast
+        message={tabError ?? commercialError}
+        tone="error"
+        onDismiss={() => {
+          setTabError(null);
+          setCommercialError(null);
+        }}
+      />
       <header className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
           <div className="b3-agent-detail__avatar" aria-hidden>
@@ -960,8 +969,6 @@ export function MerchantDetailCard({
       </div>
 
       <div className="b3-agent-detail__body">
-        {tabError ? <p className="error">{tabError}</p> : null}
-
         {tab === "overview" ? (
           <>
             <div className="b3-agent-detail__kpis b3-agent-detail__kpis--3">
@@ -1356,9 +1363,6 @@ export function MerchantDetailCard({
                       placeholder="e.g. agent request, tier upgrade, promotional rate"
                     />
                   </label>
-                  {commercialError ? (
-                    <p className="b3-commission-modal__error">{commercialError}</p>
-                  ) : null}
                 </div>
                 <footer className="b3-commission-modal__foot">
                   <button

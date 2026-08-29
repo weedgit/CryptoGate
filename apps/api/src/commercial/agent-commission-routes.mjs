@@ -6,6 +6,7 @@ import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import {
   canReadAgentCommission,
+  canReadCommissionPayouts,
   canUpdateAgentCommission,
 } from "../orgs/role-policy.mjs";
 import {
@@ -16,6 +17,7 @@ import {
 import {
   ensureAgentCommission,
   findAgentCommission,
+  listAgentCommissionsByOrgIds,
   upsertAgentCommission,
 } from "./agent-commission-store.mjs";
 
@@ -44,6 +46,30 @@ async function loadVisibleAgentOrg(req, res, orgId) {
     return null;
   }
   return { caller, org };
+}
+
+/**
+ * GET /v1/agent-commissions — all visible agent/agent_sub commission rows.
+ * Missing orgs are omitted; clients apply the default percent.
+ */
+export async function handleListAgentCommissions(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  if (!canReadCommissionPayouts(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to list agent commissions");
+    return;
+  }
+
+  const visible = await listVisibleOrgs(
+    caller.platformOperator,
+    caller.memberships,
+  );
+  const agentOrgIds = visible
+    .filter((o) => agentCommissionAllowedOnOrgType(o.type))
+    .map((o) => o.id);
+  const rows = await listAgentCommissionsByOrgIds(agentOrgIds);
+  sendJson(res, 200, { items: rows.map(toAgentCommissionSettings) });
 }
 
 /**

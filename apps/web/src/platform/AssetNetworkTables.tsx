@@ -1,11 +1,11 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import {
-  listAssetNetworkRegistry,
   NetworkId,
   type AssetCode,
   type AssetNetworkConfig,
 } from "@cryptogate/domain";
 import { NetworkIcon } from "./cryptoIcons";
+import { visibleRegistry } from "../shared/assetNetworks";
 import {
   rowHighlight,
   type VolumeScope,
@@ -184,7 +184,7 @@ export function AssetNetworkTables({
   const selectable = Boolean(onSelect);
 
   const rows = useMemo(
-    () => sortRows(listAssetNetworkRegistry(), sort),
+    () => sortRows([...visibleRegistry()], sort),
     [sort],
   );
 

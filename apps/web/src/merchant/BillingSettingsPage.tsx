@@ -7,6 +7,7 @@ import {
   type MerchantCommercialSettings,
   type Session,
 } from "./api";
+import { AuthToast } from "../auth/AuthToast";
 import { tierLabel } from "../commercialLabels";
 import { primaryMerchantOrgId, sessionCanCheckoutServiceBill } from "./org";
 
@@ -48,7 +49,7 @@ export function BillingSettingsPage({ session }: Props) {
 
   return (
     <div className="plat-settings plat-settings--merchant">
-      {error ? <p className="error">{error}</p> : null}
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       <div className="plat-settings__grid plat-settings__grid--single">
         <section className="plat-settings__card">

@@ -32,6 +32,11 @@ import {
   updatePlatformOrgPolicy,
   ALLOWED_SESSION_TIMEOUT_MINUTES,
 } from "./org-policy-store.mjs";
+import { validateUpdateBillingWalletBody } from "./billing-wallet-rules.mjs";
+import {
+  getPlatformBillingSettings,
+  updatePlatformBillingSettings,
+} from "./billing-wallet-store.mjs";
 
 /**
  * GET /v1/platform/settings/fee-tiers
@@ -242,6 +247,60 @@ export async function handleDecideEnterpriseRateApproval(req, res, approvalId) {
     metadata: { approvalId, decision, reason: reason || null },
   });
   sendJson(res, 200, toEnterpriseRateApproval({ ...updated, merchant_name: existing.merchant_name }));
+}
+
+/**
+ * GET /v1/platform/settings/billing-wallet
+ */
+export async function handleGetBillingWalletSettings(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canReadPlatformOrgPolicy(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to read billing wallet settings");
+    return;
+  }
+  const settings = await getPlatformBillingSettings();
+  sendJson(res, 200, settings);
+}
+
+/**
+ * PUT /v1/platform/settings/billing-wallet
+ */
+export async function handlePutBillingWalletSettings(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canUpdatePlatformOwnerSettings(caller)) {
+    sendError(res, 403, "forbidden", "Only platform Owner may update billing wallet");
+    return;
+  }
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+  const validated = validateUpdateBillingWalletBody(body);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+  const settings = await updatePlatformBillingSettings({
+    sellerName: validated.sellerName,
+    sellerEmail: validated.sellerEmail,
+    payTo: validated.payTo,
+  });
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: null,
+    action: AUDIT_ACTIONS.billingWalletPut,
+    metadata: {
+      sellerName: settings.sellerName,
+      hasSellerEmail: Boolean(settings.sellerEmail),
+      hasPayTo: Boolean(settings.payTo),
+    },
+  });
+  sendJson(res, 200, settings);
 }
 
 export { toFeeTierBand };

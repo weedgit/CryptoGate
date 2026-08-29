@@ -38,11 +38,13 @@ private val validityChoices = listOf(
 @Composable
 fun CreateOrderScreen(
     amount: String,
+    merchantReference: String,
     validitySeconds: Int,
     error: String?,
     loading: Boolean,
     online: Boolean,
     onAmountChange: (String) -> Unit,
+    onMerchantReferenceChange: (String) -> Unit,
     onValidityChange: (Int) -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
@@ -84,6 +86,16 @@ fun CreateOrderScreen(
             enabled = !loading && online,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             supportingText = { Text("Major units, e.g. 50.00") },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = merchantReference,
+            onValueChange = { if (it.length <= 200) onMerchantReferenceChange(it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Reference (optional)") },
+            singleLine = true,
+            enabled = !loading && online,
+            supportingText = { Text("PO, table, check # — for accountants") },
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text("Validity", style = MaterialTheme.typography.labelLarge)

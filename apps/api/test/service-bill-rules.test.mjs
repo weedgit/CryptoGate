@@ -66,7 +66,7 @@ describe("service-bill rules (M3-16)", () => {
     }
   });
 
-  it("maps bill rows to OpenAPI shape", () => {
+  it("maps bill rows to OpenAPI shape including invoice snapshot", () => {
     const bill = toServiceBill({
       id: "b1",
       org_id: "o1",
@@ -78,9 +78,18 @@ describe("service-bill rules (M3-16)", () => {
       currency: "USD",
       status: "issued",
       due_at: new Date("2026-09-15T00:00:00.000Z"),
+      tier: "mid",
+      volume_fee_percent: "1.20",
+      billed_volume_usd: "1041.67",
+      payment_reference: null,
+      created_at: new Date("2026-09-01T12:00:00.000Z"),
     });
     assert.equal(bill.periodStart, "2026-08-01");
     assert.equal(bill.status, "issued");
+    assert.equal(bill.tier, "mid");
+    assert.equal(bill.volumeFeePercent, "1.20");
+    assert.equal(bill.billedVolumeUsd, "1041.67");
+    assert.equal(bill.createdAt, "2026-09-01T12:00:00.000Z");
   });
 
   it("parses status filter", () => {

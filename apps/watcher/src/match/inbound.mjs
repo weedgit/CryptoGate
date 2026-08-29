@@ -13,6 +13,7 @@ import { classifyWrongNetworkOrAsset } from "./classify.mjs";
  *   network: string,
  *   txHash: string,
  *   memoOrTag?: string,
+ *   fromAddress?: string,
  * }} InboundTransfer
  */
 

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   generateServiceBills,
@@ -125,7 +126,9 @@ export function GenerateServiceBillsModal({
     : {};
 
   return createPortal(
-    <div
+    <>
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <div
       className="b3-commission-modal-backdrop plat-issue-bill-modal-backdrop"
       role="presentation"
       onClick={() => {
@@ -176,8 +179,6 @@ export function GenerateServiceBillsModal({
               Period {formatShortDate(bounds.start)} → {formatShortDate(bounds.end)}
             </p>
           ) : null}
-
-          {error ? <p className="error">{error}</p> : null}
 
           {result ? (
             <div className="plat-generate-bills-modal__result">
@@ -248,7 +249,8 @@ export function GenerateServiceBillsModal({
           </div>
         </form>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 }

@@ -9,12 +9,12 @@ export const MATCHING_MODE_CARDS = [
   {
     mode: "B",
     label: MATCHING_LABELS.B,
-    blurb: "Simple 1-to-1 routing on the main settlement address.",
+    blurb: "One open ticket per amount on the main address; second create is blocked until the first clears.",
   },
   {
     mode: "C",
     label: MATCHING_LABELS.C,
-    blurb: "Unique payable amounts (fingerprints) among open orders.",
+    blurb: "Unique payable amounts (fingerprints) among open orders — best for concurrent same-amount cashiers.",
   },
   {
     mode: "D",
@@ -24,13 +24,22 @@ export const MATCHING_MODE_CARDS = [
   {
     mode: "S",
     label: MATCHING_LABELS.S,
-    blurb: "Main address unless same-amount conflict; then HD pool from xPub.",
+    blurb: "Main address unless same-amount conflict; then HD pool from xPub — also fits concurrent same amounts.",
   },
 ] as const;
 
 export function matchingModeLabel(mode: string | null | undefined): string {
   if (!mode) return MATCHING_LABELS.B;
   return MATCHING_LABELS[mode] ?? mode;
+}
+
+/** One-line summary for the create-order form (merchant-facing, no internal jargon). */
+export function matchingModeCreateSummary(
+  mode: string | null | undefined,
+): string {
+  const key = mode && MATCHING_LABELS[mode] ? mode : "B";
+  const card = MATCHING_MODE_CARDS.find((c) => c.mode === key);
+  return card?.blurb ?? MATCHING_MODE_CARDS[0].blurb;
 }
 
 export function matchingModeHint(mode: string | null | undefined): string {
@@ -42,7 +51,7 @@ export function matchingModeHint(mode: string | null | undefined): string {
     case "S":
       return "Uses the main settlement address unless a same-amount conflict requires an HD pool address.";
     default:
-      return "Fixed settlement address. Same-amount collisions become Payment Anomaly — never auto-completed.";
+      return "Only one open order per amount on the main address. A second create is blocked until the first finishes or is cancelled; residual match collisions still become Payment Anomaly — never auto-completed.";
   }
 }
 

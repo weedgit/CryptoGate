@@ -25,12 +25,17 @@ import {
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { sessionIsPlatformViewerOnly } from "./org";
+import { AlertsDrawer, platformAlertsSource } from "./ui/AlertsDrawer";
 import {
-  clearPlatformAlert,
-  relativeAlertTime,
-  upsertPlatformAlert,
+  countUnreadPlatformAlerts,
+  subscribePlatformAlerts,
 } from "./platformAlerts";
-import { AlertsDrawer } from "./ui/AlertsDrawer";
+import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import {
+  fetchPlatformHealth,
+  syncPlatformHealthAlerts,
+} from "../shared/platformHealthAlerts";
 
 function TopbarStatusPill({
   label,
@@ -65,101 +70,13 @@ function TopbarStatusRail() {
   useEffect(() => {
     let cancelled = false;
     const loadHealth = async () => {
-      try {
-        const base =
-          (import.meta.env.VITE_API_ORIGIN as string | undefined)?.replace(
-            /\/$/,
-            "",
-          ) || "";
-        const res = await fetch(`${base}/health`, {
-          headers: { Accept: "application/json" },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const payload = (await res.json()) as { status?: string; db?: string };
-        if (cancelled) return;
-        const next = {
-          api: payload.status === "ok",
-          database: payload.db === "ok",
-          webhook: payload.status === "ok",
-        };
-        setHealth(next);
-
-        if (next.api && next.database && next.webhook) {
-          clearPlatformAlert("sys-api");
-          clearPlatformAlert("sys-database");
-          clearPlatformAlert("sys-webhook");
-        } else {
-          if (!next.api) {
-            upsertPlatformAlert({
-              id: "sys-api",
-              category: "system",
-              title: "API unreachable",
-              body: "Platform API health check failed. Session calls may also fail until the API recovers.",
-              at: relativeAlertTime(),
-              href: "/platform/ops/health",
-              hrefLabel: "System health",
-              unread: true,
-              tone: "anomaly",
-            });
-          } else {
-            clearPlatformAlert("sys-api");
-          }
-          if (!next.database) {
-            upsertPlatformAlert({
-              id: "sys-database",
-              category: "system",
-              title: "Database unhealthy",
-              body: "Postgres health check failed. Reads and writes may be interrupted.",
-              at: relativeAlertTime(),
-              href: "/platform/ops/health",
-              hrefLabel: "System health",
-              unread: true,
-              tone: "anomaly",
-            });
-          } else {
-            clearPlatformAlert("sys-database");
-          }
-          if (!next.webhook) {
-            upsertPlatformAlert({
-              id: "sys-webhook",
-              category: "system",
-              title: "Webhook path degraded",
-              body: "Webhook worker health follows API status. Merchant signed deliveries may lag.",
-              at: relativeAlertTime(),
-              href: "/platform/ops/health",
-              hrefLabel: "System health",
-              unread: true,
-              tone: "warn",
-            });
-          } else {
-            clearPlatformAlert("sys-webhook");
-          }
-        }
-      } catch {
-        if (cancelled) return;
+      const next = await fetchPlatformHealth();
+      if (cancelled) return;
+      syncPlatformHealthAlerts(next);
+      if (next === "unreachable") {
         setHealth({ api: false, database: false, webhook: false });
-        upsertPlatformAlert({
-          id: "sys-api",
-          category: "system",
-          title: "API / network unreachable",
-          body: "Could not reach the platform health endpoint. Check API process and network connectivity.",
-          at: relativeAlertTime(),
-          href: "/platform/ops/health",
-          hrefLabel: "System health",
-          unread: true,
-          tone: "anomaly",
-        });
-        upsertPlatformAlert({
-          id: "sys-database",
-          category: "system",
-          title: "Database status unknown",
-          body: "Health probe failed before DB status could be confirmed.",
-          at: relativeAlertTime(),
-          href: "/platform/ops/health",
-          hrefLabel: "System health",
-          unread: true,
-          tone: "warn",
-        });
+      } else {
+        setHealth(next);
       }
     };
     void loadHealth();
@@ -277,6 +194,12 @@ const NAV_GROUPS: NavGroup[] = [
         Icon: FeesNavIcon,
       },
       {
+        to: "/platform/settings/billing-wallet",
+        label: "Billing",
+        matchPrefix: "/platform/settings/billing-wallet",
+        Icon: ServiceBillsNavIcon,
+      },
+      {
         to: "/platform/audit",
         label: "Audit",
         matchPrefix: "/platform/audit",
@@ -325,10 +248,17 @@ export function PlatformShell({
   const navRef = useRef<HTMLElement | null>(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [shellEnter, setShellEnter] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setUnreadAlerts(countUnreadPlatformAlerts());
+    sync();
+    return subscribePlatformAlerts(sync);
   }, []);
 
   useEffect(() => {
@@ -451,27 +381,17 @@ export function PlatformShell({
           <div className="topbar-center" id="platform-topbar-center" />
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
-            <button
-              type="button"
-              className={`alerts-bell${alertsOpen ? " is-open" : ""}`}
-              aria-label="Open alerts"
-              aria-expanded={alertsOpen}
-              aria-controls="alerts-drawer-title"
-              title="Alerts"
-              onClick={() => setAlertsOpen(true)}
-            >
-              <span
-                className="alerts-bell-icon"
-                style={{
-                  WebkitMaskImage: "url(/icons/nav/bell-ring.svg)",
-                  maskImage: "url(/icons/nav/bell-ring.svg)",
-                }}
-                aria-hidden
-              />
-              <span className="alerts-bell-dot" aria-hidden />
-            </button>
+            <AlertsBellButton
+              open={alertsOpen}
+              unreadCount={unreadAlerts}
+              onOpen={() => setAlertsOpen(true)}
+            />
           </div>
         </header>
+        <UnresolvedAlertsBanner
+          source={platformAlertsSource}
+          onOpenAlerts={() => setAlertsOpen(true)}
+        />
         <div className="body">
           {readOnly ? (
             <div className="banner banner-warn" style={{ marginBottom: 16 }}>
@@ -483,7 +403,11 @@ export function PlatformShell({
         </div>
       </div>
 
-      <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      <AlertsDrawer
+        open={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        source={platformAlertsSource}
+      />
     </div>
   );
 }

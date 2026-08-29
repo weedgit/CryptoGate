@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getPlatformOrgs,
@@ -102,7 +103,9 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
   if (!open) return null;
 
   return createPortal(
-    <div
+    <>
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <div
       className="b3-commission-modal-backdrop plat-issue-bill-modal-backdrop"
       role="presentation"
       onClick={() => {
@@ -240,8 +243,6 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
               </div>
             </section>
 
-            {error ? <p className="error plat-issue-bill__error">{error}</p> : null}
-
             <div className="plat-issue-bill__actions">
               <button
                 type="button"
@@ -262,7 +263,8 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
           </form>
         )}
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 }

@@ -130,6 +130,21 @@ export function OnboardMerchantPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   useEffect(() => {
+    if (!canManage) {
+      setError((prev) => prev ?? "Platform Owner or Administrator required.");
+      return;
+    }
+    if (booting) return;
+    if (agents.length === 0) {
+      setError(
+        (prev) =>
+          prev ??
+          "Onboard an agent first — merchants must sit under an agent account.",
+      );
+    }
+  }, [canManage, booting, agents.length]);
+
+  useEffect(() => {
     getPlatformOrgs()
       .then((rows) => {
         setOrgs(rows);
@@ -322,6 +337,7 @@ export function OnboardMerchantPage({ session }: Props) {
   if (!canManage) {
     return (
       <div className="b4-wizard-page">
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
           <div className="b4-wizard" role="dialog" aria-modal="true">
             <header className="b4-wizard__head">
@@ -331,9 +347,7 @@ export function OnboardMerchantPage({ session }: Props) {
               </Link>
             </header>
             <div className="b4-wizard__body">
-              <p className="b4-wizard__error">
-                Platform Owner or Administrator required.
-              </p>
+              <p className="muted">Platform Owner or Administrator required.</p>
             </div>
             <footer className="b4-wizard__foot">
               <Link className="b4-wizard__cancel" to={cancelTo}>
@@ -360,6 +374,7 @@ export function OnboardMerchantPage({ session }: Props) {
   if (agents.length === 0) {
     return (
       <div className="b4-wizard-page">
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
           <div className="b4-wizard" role="dialog" aria-modal="true">
             <header className="b4-wizard__head">
@@ -369,7 +384,7 @@ export function OnboardMerchantPage({ session }: Props) {
               </Link>
             </header>
             <div className="b4-wizard__body">
-              <p className="b4-wizard__error">
+              <p className="muted">
                 Onboard an agent first — merchants must sit under an agent account.
               </p>
             </div>

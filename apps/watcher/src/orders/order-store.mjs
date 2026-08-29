@@ -164,7 +164,7 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{
  *   result: { orderId?: string, orderIds?: string[], status: string, reason?: string },
- *   transfer: { txHash: string, amount: string, network: string },
+ *   transfer: { txHash: string, amount: string, network: string, fromAddress?: string },
  * }} input
  */
 export async function applyMatchResult(db, input) {
@@ -175,6 +175,10 @@ export async function applyMatchResult(db, input) {
       : result.orderId
         ? [result.orderId]
         : [];
+  const fromAddress =
+    typeof transfer.fromAddress === "string" && transfer.fromAddress.trim()
+      ? transfer.fromAddress.trim()
+      : null;
 
   if (ids.length === 0) {
     return { updated: 0, skipped: true, reason: result.reason ?? "no_order" };
@@ -224,13 +228,19 @@ export async function applyMatchResult(db, input) {
              ELSE NULL
            END,
            received_amount = CASE
-             WHEN $1 = 'verifying' THEN $2
+             WHEN $1 IN ('verifying', 'payment_anomaly') THEN $2
              ELSE received_amount
            END,
            tx_hash = CASE
              WHEN $1 = 'verifying' THEN $3
              WHEN tx_hash IS NULL AND $1 = 'payment_anomaly' THEN $3
              ELSE tx_hash
+           END,
+           from_address = CASE
+             WHEN $7::text IS NULL THEN from_address
+             WHEN from_address IS NULL THEN $7
+             WHEN $1 = 'verifying' THEN $7
+             ELSE from_address
            END,
            updated_at = now()
        WHERE id = ANY($4::uuid[])
@@ -243,6 +253,7 @@ export async function applyMatchResult(db, input) {
         toWrite,
         WATCHER_MATCH_APPLY_STATUSES,
         result.reason ?? null,
+        fromAddress,
       ],
     );
 
@@ -355,6 +366,11 @@ export async function applyConfirmationUpdate(db, input) {
       `UPDATE payment_orders
        SET confirmations = GREATEST(confirmations, $1),
            status = $2,
+           confirmed_at = CASE
+             WHEN $2 IN ('completed', 'confirmed')
+               THEN COALESCE(confirmed_at, now())
+             ELSE confirmed_at
+           END,
            updated_at = now()
        WHERE id = $3::uuid
          AND status = ANY($4::text[])
@@ -388,4 +404,125 @@ export async function applyConfirmationUpdate(db, input) {
     skipped: (rowCount ?? 0) === 0,
     reason: decision.reason,
   };
+}
+
+/**
+ * Fill missing payer address when the same tx is seen again on poll
+ * (e.g. orders matched before from_address was persisted).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{
+ *   network: string,
+ *   transfers: Array<{ txHash?: string, fromAddress?: string }>,
+ * }} input
+ */
+export async function patchMissingFromAddresses(db, input) {
+  const pairs = [];
+  for (const t of input.transfers) {
+    const txHash = typeof t.txHash === "string" ? t.txHash.trim() : "";
+    const fromAddress =
+      typeof t.fromAddress === "string" ? t.fromAddress.trim() : "";
+    if (!txHash || !fromAddress) continue;
+    pairs.push({ txHash, fromAddress });
+  }
+  if (pairs.length === 0) {
+    return { updated: 0 };
+  }
+
+  let updated = 0;
+  for (const pair of pairs) {
+    const { rowCount } = await db.query(
+      `UPDATE payment_orders
+       SET from_address = $1,
+           updated_at = now()
+       WHERE network = $2
+         AND tx_hash = $3
+         AND from_address IS NULL`,
+      [pair.fromAddress, input.network, pair.txHash],
+    );
+    updated += rowCount ?? 0;
+  }
+  return { updated };
+}
+
+/**
+ * Fill missing received amount when the same tx is seen again on poll
+ * (orders matched as anomaly before received_amount was persisted).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{
+ *   network: string,
+ *   transfers: Array<{ txHash?: string, amount?: string }>,
+ * }} input
+ */
+export async function patchMissingReceivedAmounts(db, input) {
+  const pairs = [];
+  for (const t of input.transfers) {
+    const txHash = typeof t.txHash === "string" ? t.txHash.trim() : "";
+    const amount = typeof t.amount === "string" ? t.amount.trim() : "";
+    if (!txHash || !amount) continue;
+    pairs.push({ txHash, amount });
+  }
+  if (pairs.length === 0) {
+    return { updated: 0 };
+  }
+
+  let updated = 0;
+  for (const pair of pairs) {
+    const { rowCount } = await db.query(
+      `UPDATE payment_orders
+       SET received_amount = $1,
+           updated_at = now()
+       WHERE network = $2
+         AND tx_hash = $3
+         AND received_amount IS NULL`,
+      [pair.amount, input.network, pair.txHash],
+    );
+    updated += rowCount ?? 0;
+  }
+  return { updated };
+}
+
+/**
+ * Receive addresses for recent orders that still lack payer address.
+ * Included in poll watch set so patchMissingFromAddresses can fill them.
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ asset: string, network: string, limit?: number }} filter
+ */
+export async function listAddressesNeedingFromBackfill(db, filter) {
+  const limit = Math.min(Math.max(filter.limit ?? 40, 1), 100);
+  const { rows } = await db.query(
+    `SELECT DISTINCT receive_address
+     FROM payment_orders
+     WHERE asset = $1
+       AND network = $2
+       AND tx_hash IS NOT NULL
+       AND from_address IS NULL
+       AND updated_at > now() - interval '14 days'
+     ORDER BY receive_address
+     LIMIT $3`,
+    [filter.asset, filter.network, limit],
+  );
+  return rows.map((r) => String(r.receive_address ?? "").trim()).filter(Boolean);
+}
+
+/**
+ * Receive addresses for recent orders that have a tx but no received_amount
+ * (so patchMissingReceivedAmounts can fill them on the next poll).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ asset: string, network: string, limit?: number }} filter
+ */
+export async function listAddressesNeedingReceivedBackfill(db, filter) {
+  const limit = Math.min(Math.max(filter.limit ?? 40, 1), 100);
+  const { rows } = await db.query(
+    `SELECT DISTINCT receive_address
+     FROM payment_orders
+     WHERE asset = $1
+       AND network = $2
+       AND tx_hash IS NOT NULL
+       AND received_amount IS NULL
+       AND updated_at > now() - interval '14 days'
+     ORDER BY receive_address
+     LIMIT $3`,
+    [filter.asset, filter.network, limit],
+  );
+  return rows.map((r) => String(r.receive_address ?? "").trim()).filter(Boolean);
 }

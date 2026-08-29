@@ -4,6 +4,7 @@ import {
   qrPayloadForOrder,
   toOnChainDetails,
   toPaymentDetails,
+  walletUriForOrder,
 } from "../src/orders/order-map.mjs";
 
 const row = {
@@ -32,8 +33,26 @@ describe("payment details mapper", () => {
       "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
     );
     assert.equal(details.payExactAmountWarning, undefined);
+    assert.equal(details.confirmations, 0);
+    assert.equal(details.requiredConfirmations, 19);
+    assert.equal(details.txHash, null);
     assert.equal("fee" in details, false);
     assert.equal("xPub" in details, false);
+  });
+
+  it("passes watcher confirmation progress for guest UI", () => {
+    const details = toPaymentDetails({
+      ...row,
+      status: "verifying",
+      confirmations: 4,
+      required_confirmations: 6,
+      tx_hash: "abc123",
+      created_at: new Date("2026-08-24T11:50:00.000Z"),
+    });
+    assert.equal(details.confirmations, 4);
+    assert.equal(details.requiredConfirmations, 6);
+    assert.equal(details.txHash, "abc123");
+    assert.equal(details.createdAt, "2026-08-24T11:50:00.000Z");
   });
 
   it("adds Mode C exact-amount warning", () => {
@@ -41,15 +60,28 @@ describe("payment details mapper", () => {
     assert.ok(details.payExactAmountWarning);
   });
 
-  it("encodes a network URI, not an RPC URL", () => {
-    const payload = qrPayloadForOrder({
-      receiveAddress: row.receive_address,
-      amount: "245.00",
-      asset: "USDT",
-      network: "tron",
-    });
-    assert.match(payload, /^tron:/);
-    assert.doesNotMatch(payload, /https?:\/\//);
+  it("encodes the HTTPS payment page in the QR, not an RPC URL", () => {
+    const details = toPaymentDetails(row);
+    assert.equal(details.qrPayload, details.paymentPageUrl);
+    assert.match(details.qrPayload, /^https?:\/\//);
+    assert.equal(
+      qrPayloadForOrder({ paymentPageUrl: details.paymentPageUrl }),
+      details.paymentPageUrl,
+    );
+  });
+
+  it("keeps a walletUri hint for address-based wallet parsers", () => {
+    const details = toPaymentDetails(row);
+    assert.match(details.walletUri, /^tron:/);
+    assert.equal(
+      details.walletUri,
+      walletUriForOrder({
+        receiveAddress: row.receive_address,
+        amount: "245.00",
+        asset: "USDT",
+        network: "tron",
+      }),
+    );
   });
 });
 

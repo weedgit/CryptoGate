@@ -8,6 +8,8 @@ import {
   canEnrollMfa,
   resolveOrderOrgId,
   canReadPaymentOrder,
+  canCancelPaymentOrder,
+  canResolvePaymentAnomaly,
   canExportPaymentOrders,
   paymentOrderListScope,
   canViewSettlementSettings,
@@ -427,5 +429,46 @@ describe("role policy", () => {
       canDeleteMerchantSite(platformOp, { id: "m1", type: "merchant", parent_id: "a1" }),
       false,
     );
+  });
+
+  it("resolves payment anomalies for O/A any and Cashier own only", () => {
+    const anomalyOwn = {
+      orgId: "m1",
+      createdBy: "u1",
+      status: "payment_anomaly",
+    };
+    const anomalyOther = {
+      orgId: "m1",
+      createdBy: "u9",
+      status: "payment_anomaly",
+    };
+    const pending = {
+      orgId: "m1",
+      createdBy: "u1",
+      status: "pending_payment",
+    };
+    const ownerCaller = {
+      userId: "u2",
+      platformOperator: false,
+      memberships: [merchantOwner],
+    };
+    const cashierCaller = {
+      userId: "u1",
+      platformOperator: false,
+      memberships: [merchantCashier],
+    };
+    const viewerCaller = {
+      userId: "u3",
+      platformOperator: false,
+      memberships: [merchantViewer],
+    };
+    assert.equal(canResolvePaymentAnomaly(ownerCaller, anomalyOwn), true);
+    assert.equal(canResolvePaymentAnomaly(ownerCaller, anomalyOther), true);
+    assert.equal(canResolvePaymentAnomaly(cashierCaller, anomalyOwn), true);
+    assert.equal(canResolvePaymentAnomaly(cashierCaller, anomalyOther), false);
+    assert.equal(canResolvePaymentAnomaly(viewerCaller, anomalyOwn), false);
+    assert.equal(canResolvePaymentAnomaly(ownerCaller, pending), false);
+    assert.equal(canCancelPaymentOrder(ownerCaller, pending), true);
+    assert.equal(canCancelPaymentOrder(ownerCaller, anomalyOwn), false);
   });
 });

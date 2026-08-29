@@ -25,8 +25,8 @@ import {
 } from "../platform/ui/PlatformPending";
 import {
   ApiError,
-  getAgentCommission,
-  getAgentPayout,
+  listAgentCommissions,
+  listAgentPayoutAddresses,
   listOrgs,
   listServiceBills,
   type OrgAccount,
@@ -128,54 +128,62 @@ export function CommissionsPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [orgRows, bills, commission] = await Promise.all([
-        listOrgs(),
-        listServiceBills(),
-        getAgentCommission(agentId).catch(() => null),
-      ]);
+      const [orgRows, bills, commissions, payoutAddrs, agentPayoutRows] =
+        await Promise.all([
+          listOrgs(),
+          listServiceBills(),
+          listAgentCommissions(),
+          listAgentPayoutAddresses(),
+          listCommissionPayouts({
+            payer: "agent",
+            payerOrgId: agentId,
+          }),
+        ]);
       setOrgs(orgRows);
       setBillsCache(bills);
-      const pct =
-        commission?.commissionPercent?.trim() ||
+      const own =
+        commissions.find((c) => c.orgId === agentId)?.commissionPercent?.trim() ||
         DEFAULT_AGENT_COMMISSION_PERCENT;
-      setPercent(pct);
+      setPercent(own);
       const merchantIds = new Set(
         merchantsInAgentSubtree(agentId, orgRows).map((m) => m.id),
       );
-      setRows(commissionHistoryFromBills(bills, merchantIds, pct));
+      setRows(commissionHistoryFromBills(bills, merchantIds, own));
 
-      const subs = subAgentsInAgentSubtree(agentId, orgRows);
+      const pctByOrg = new Map(
+        commissions.map((c) => [
+          c.orgId,
+          c.commissionPercent?.trim() || DEFAULT_AGENT_COMMISSION_PERCENT,
+        ]),
+      );
       const pctMap = new Map<string, string>();
       const addrMap = new Map<
         string,
         { address: string; asset: string; network: string }
       >();
-      await Promise.all(
-        subs.map(async (s) => {
-          const [c, payout] = await Promise.all([
-            getAgentCommission(s.id).catch(() => null),
-            getAgentPayout(s.id).catch(() => null),
-          ]);
-          pctMap.set(
-            s.id,
-            c?.commissionPercent?.trim() || DEFAULT_AGENT_COMMISSION_PERCENT,
-          );
-          if (payout?.address) {
-            addrMap.set(s.id, {
-              address: payout.address,
-              asset: payout.asset,
-              network: payout.network,
-            });
-          }
-        }),
-      );
+      for (const s of subAgentsInAgentSubtree(agentId, orgRows)) {
+        pctMap.set(
+          s.id,
+          pctByOrg.get(s.id) ?? DEFAULT_AGENT_COMMISSION_PERCENT,
+        );
+      }
+      for (const payout of payoutAddrs) {
+        if (!payout.address) continue;
+        addrMap.set(payout.orgId, {
+          address: payout.address,
+          asset: payout.asset,
+          network: payout.network,
+        });
+      }
       setSubPercents(pctMap);
       setSubPayoutAddrs(addrMap);
-      await refreshPayouts();
+      setAgentPayouts(agentPayoutRows);
     } catch (err) {
       setError(
         err instanceof ApiError
-          ? err.message
+          ? err.code === "rate_limited"
+            ? "Too many requests — wait a moment and retry."
+            : err.message
           : err instanceof Error
             ? err.message
             : "Failed to load commission statements",
@@ -183,7 +191,7 @@ export function CommissionsPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [agentId, refreshPayouts]);
+  }, [agentId]);
 
   useEffect(() => {
     void load();

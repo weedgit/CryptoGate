@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   decideEnterpriseRateApproval,
@@ -213,6 +214,14 @@ export function FeeTiersSettingsPage({ session }: Props) {
 
   return (
     <div className="plat-fee-tiers">
+      <AuthToast
+        message={error ?? message}
+        tone={error ? "error" : "ok"}
+        onDismiss={() => {
+          setError(null);
+          setMessage(null);
+        }}
+      />
       <div className="b3-agent-detail__tabs" role="tablist" aria-label="Platform fees">
         <button
           type="button"
@@ -245,11 +254,6 @@ export function FeeTiersSettingsPage({ session }: Props) {
           ) : null}
         </button>
       </div>
-
-      {error ? <p className="error plat-fee-tiers__flash">{error}</p> : null}
-      {message ? (
-        <p className="banner banner-ok plat-fee-tiers__flash">{message}</p>
-      ) : null}
 
       {tab === "pricing" ? (
         <>

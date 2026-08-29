@@ -27,6 +27,7 @@ export const AUDIT_ACTIONS = {
   apiKeyRotate: "api_key_rotate",
   feeTierPut: "fee_tier_put",
   orgPolicyPut: "org_policy_put",
+  billingWalletPut: "billing_wallet_put",
   merchantCommercialPut: "merchant_commercial_put",
   agentPayoutPut: "agent_payout_put",
   commissionPayoutUpsert: "commission_payout_upsert",

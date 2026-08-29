@@ -1,9 +1,9 @@
+import { GateLogoMark } from "../marketing/GateLogoMark";
+
 export function LoginBrandHeader() {
   return (
     <div className="login-brand">
-      <div className="login-logo-mark" aria-hidden>
-        CG
-      </div>
+      <GateLogoMark size={36} className="login-logo-mark-svg" />
       <span className="login-brand-name">CryptoGate</span>
     </div>
   );

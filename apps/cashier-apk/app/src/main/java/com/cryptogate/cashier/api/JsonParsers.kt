@@ -65,12 +65,17 @@ object JsonParsers {
         asset: String,
         network: String,
         validitySeconds: Int,
+        merchantReference: String? = null,
     ): String {
         val o = JSONObject()
         o.put("amount", amount)
         o.put("asset", asset)
         o.put("network", network)
         o.put("validitySeconds", validitySeconds)
+        val ref = merchantReference?.trim().orEmpty()
+        if (ref.isNotEmpty()) {
+            o.put("merchantReference", ref.take(200))
+        }
         return o.toString()
     }
 
@@ -93,6 +98,7 @@ object JsonParsers {
             network = obj.getString("network"),
             expiresAt = obj.getString("expiresAt"),
             memoOrTag = obj.optNullableString("memoOrTag"),
+            merchantReference = obj.optNullableString("merchantReference"),
         )
     }
 

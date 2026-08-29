@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getOrgOverview,
@@ -1224,6 +1225,14 @@ export function AgentDetailCard({
 
   return (
     <aside className="b3-agent-detail" aria-label="Agent detail">
+      <AuthToast
+        message={tabError ?? commissionError}
+        tone="error"
+        onDismiss={() => {
+          setTabError(null);
+          setCommissionError(null);
+        }}
+      />
       <header className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
           <div className="b3-agent-detail__avatar" aria-hidden>
@@ -1319,8 +1328,6 @@ export function AgentDetailCard({
       <div
         className={`b3-agent-detail__body${tab === "accounts" ? " is-accounts" : ""}`}
       >
-        {tabError ? <p className="error">{tabError}</p> : null}
-
         {tab === "overview" ? (
           <>
             <div className="b3-agent-detail__kpis b3-agent-detail__kpis--3">
@@ -1801,9 +1808,6 @@ export function AgentDetailCard({
                       <span className="b3-commission-modal__suffix">%</span>
                     </div>
                   </label>
-                  {commissionError ? (
-                    <p className="b3-commission-modal__error">{commissionError}</p>
-                  ) : null}
                 </div>
                 <footer className="b3-commission-modal__foot">
                   <button

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
@@ -46,13 +53,37 @@ function matchesFilter(bill: ServiceBill, filter: Filter): boolean {
   }
 }
 
+function matchesQuery(bill: ServiceBill, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    bill.id.toLowerCase().includes(q) ||
+    formatBillId(bill.id).toLowerCase().includes(q) ||
+    bill.periodStart.toLowerCase().includes(q) ||
+    bill.periodEnd.toLowerCase().includes(q) ||
+    bill.totalAmount.toLowerCase().includes(q) ||
+    bill.currency.toLowerCase().includes(q) ||
+    bill.status.toLowerCase().includes(q) ||
+    serviceBillStatusLabel(bill.status).toLowerCase().includes(q) ||
+    (bill.paymentReference?.toLowerCase().includes(q) ?? false)
+  );
+}
+
 export function ServiceBillsListPage({ session }: Props) {
   const navigate = useNavigate();
   const canPay = useMemo(() => sessionCanCheckoutServiceBill(session), [session]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
   const [items, setItems] = useState<ServiceBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    setTopbarCenterSlot(document.getElementById("merchant-topbar-center"));
+  }, []);
 
   const dismissToast = useCallback(() => setError(null), []);
 
@@ -60,9 +91,7 @@ export function ServiceBillsListPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listServiceBills({
-        status: filter === "overdue" ? "overdue" : undefined,
-      });
+      const rows = await listServiceBills();
       setItems(rows);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load service bills");
@@ -70,15 +99,18 @@ export function ServiceBillsListPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const filtered = useMemo(
-    () => items.filter((bill) => matchesFilter(bill, filter)),
-    [items, filter],
+    () =>
+      items.filter(
+        (bill) => matchesFilter(bill, filter) && matchesQuery(bill, query),
+      ),
+    [items, filter, query],
   );
 
   const unpaidCount = useMemo(
@@ -91,34 +123,66 @@ export function ServiceBillsListPage({ session }: Props) {
     [items],
   );
 
+  const topbarFilters = topbarCenterSlot
+    ? createPortal(
+        <div className="plat-bills-topbar" aria-label="Service bill filters">
+          <div
+            className="org-agents__pills plat-orders-topbar__pills plat-bills-topbar__pills"
+            role="group"
+            aria-label="Status filter"
+          >
+            {STATUS_PILLS.map((pill) => {
+              let label = pill.label;
+              if (pill.id === "unpaid" && unpaidCount > 0) {
+                label = `Unpaid (${unpaidCount})`;
+              }
+              if (pill.id === "overdue" && overdueCount > 0) {
+                label = `Overdue (${overdueCount})`;
+              }
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  className={`org-agents__pill${filter === pill.id ? " is-active" : ""}`}
+                  aria-pressed={filter === pill.id}
+                  onClick={() => setFilter(pill.id)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <label className="org-agents__search-wrap plat-bills__search-wrap plat-orders-topbar__search plat-bills-topbar__search">
+            <span className="org-agents__search-icon" aria-hidden>
+              <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
+                <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.6" />
+                <path
+                  d="M12.75 12.75 16.5 16.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <input
+              className="field-control org-agents__search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search bill ID, period, or amount"
+              aria-label="Search service bills"
+            />
+          </label>
+          <span className="plat-bills-topbar__balance" aria-hidden />
+        </div>,
+        topbarCenterSlot,
+      )
+    : null;
+
   return (
     <div className="plat-bills">
+      {topbarFilters}
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
-
-      <div className="plat-bills__toolbar">
-        <div className="org-agents__pills" role="group" aria-label="Status filter">
-          {STATUS_PILLS.map((pill) => {
-            let label = pill.label;
-            if (pill.id === "unpaid" && unpaidCount > 0) {
-              label = `Unpaid (${unpaidCount})`;
-            }
-            if (pill.id === "overdue" && overdueCount > 0) {
-              label = `Overdue (${overdueCount})`;
-            }
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                className={`org-agents__pill${filter === pill.id ? " is-active" : ""}`}
-                aria-pressed={filter === pill.id}
-                onClick={() => setFilter(pill.id)}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div className="plat-bills__table-wrap">
         {loading ? (
@@ -134,7 +198,7 @@ export function ServiceBillsListPage({ session }: Props) {
 
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">
-            {filter !== "all"
+            {filter !== "all" || query.trim()
               ? "No service bills match this filter."
               : "No service bills yet. Platform SaaS invoices appear here when issued."}
           </p>

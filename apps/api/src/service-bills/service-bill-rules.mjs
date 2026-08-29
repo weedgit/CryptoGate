@@ -104,6 +104,38 @@ export function validateIssueServiceBillBody(body) {
     };
   }
 
+  const TIER_OK = new Set(["small", "mid", "enterprise"]);
+  const tierRaw = typeof body.tier === "string" ? body.tier.trim() : "";
+  const tier = tierRaw && TIER_OK.has(tierRaw) ? tierRaw : null;
+  if (tierRaw && !tier) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "tier must be small, mid, or enterprise",
+    };
+  }
+  const volumeFeePercent =
+    typeof body.volumeFeePercent === "string" ? body.volumeFeePercent.trim() : "";
+  const billedVolumeUsd =
+    typeof body.billedVolumeUsd === "string" ? body.billedVolumeUsd.trim() : "";
+  if (volumeFeePercent && !/^\d+(\.\d{1,4})?$/.test(volumeFeePercent)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "volumeFeePercent must be a decimal percent string",
+    };
+  }
+  if (billedVolumeUsd && !isUsdAmount(billedVolumeUsd)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "billedVolumeUsd must be a USD decimal string",
+    };
+  }
+
   return {
     ok: true,
     orgId,
@@ -113,6 +145,9 @@ export function validateIssueServiceBillBody(body) {
     volumeFeeAmount,
     totalAmount: addUsdAmounts(subscriptionAmount, volumeFeeAmount),
     dueAt: new Date(due).toISOString(),
+    tier,
+    volumeFeePercent: volumeFeePercent || null,
+    billedVolumeUsd: billedVolumeUsd || null,
   };
 }
 
@@ -164,6 +199,27 @@ export function toServiceBill(row) {
   }
   if (row.last_adjustment_reason) {
     bill.lastAdjustmentReason = row.last_adjustment_reason;
+  }
+  if (row.last_adjustment_amount != null && row.last_adjustment_amount !== "") {
+    bill.lastAdjustmentAmount = String(row.last_adjustment_amount);
+  }
+  if (row.payment_reference) {
+    bill.paymentReference = row.payment_reference;
+  }
+  if (row.created_at) {
+    bill.createdAt =
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at);
+  }
+  if (row.tier) {
+    bill.tier = row.tier;
+  }
+  if (row.volume_fee_percent != null && row.volume_fee_percent !== "") {
+    bill.volumeFeePercent = String(row.volume_fee_percent);
+  }
+  if (row.billed_volume_usd != null && row.billed_volume_usd !== "") {
+    bill.billedVolumeUsd = String(row.billed_volume_usd);
   }
   return bill;
 }

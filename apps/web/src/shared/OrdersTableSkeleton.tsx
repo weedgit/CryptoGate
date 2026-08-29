@@ -15,6 +15,7 @@ export function OrdersTableSkeleton({ rows = 5 }: OrdersSkeletonProps) {
           <span className="cg-skel__bar" />
           <span className="cg-skel__bar" />
           <span className="cg-skel__bar" />
+          <span className="cg-skel__bar" />
         </div>
       ))}
     </div>

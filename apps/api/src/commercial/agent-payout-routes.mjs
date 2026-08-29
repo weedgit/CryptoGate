@@ -6,6 +6,7 @@ import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import {
   canReadAgentPayout,
+  canReadCommissionPayouts,
   canUpdateAgentPayout,
 } from "../orgs/role-policy.mjs";
 import { findUserMfaById } from "../auth/users.mjs";
@@ -18,6 +19,7 @@ import {
 } from "./agent-payout-rules.mjs";
 import {
   findAgentPayoutAddress,
+  listAgentPayoutAddressesByOrgIds,
   upsertAgentPayoutAddress,
 } from "./agent-payout-store.mjs";
 
@@ -46,6 +48,30 @@ async function loadVisibleAgentOrg(req, res, orgId) {
     return null;
   }
   return { caller, org };
+}
+
+/**
+ * GET /v1/agent-payout-addresses — configured payout addresses for visible agents.
+ * Orgs without an address are omitted (same as per-org 404).
+ */
+export async function handleListAgentPayoutAddresses(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  if (!canReadCommissionPayouts(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to list agent payout addresses");
+    return;
+  }
+
+  const visible = await listVisibleOrgs(
+    caller.platformOperator,
+    caller.memberships,
+  );
+  const agentOrgIds = visible
+    .filter((o) => agentPayoutAllowedOnOrgType(o.type))
+    .map((o) => o.id);
+  const rows = await listAgentPayoutAddressesByOrgIds(agentOrgIds);
+  sendJson(res, 200, { items: rows.map(toAgentPayoutAddress) });
 }
 
 /**

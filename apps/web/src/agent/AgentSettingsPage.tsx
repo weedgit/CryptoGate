@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpModal } from "../auth/MfaStepUpModal";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
@@ -26,7 +27,11 @@ import {
 
 type Props = { session: Session };
 
-const ASSET_OPTIONS = uniqueAssetsFromRegistry().map((id) => ({ id, label: id }));
+type PendingPayout = {
+  asset: string;
+  network: string;
+  address: string;
+};
 
 /** C12 — Agent org settings (profile + payout address). */
 export function AgentSettingsPage({ session }: Props) {
@@ -39,14 +44,17 @@ export function AgentSettingsPage({ session }: Props) {
     () => sessionIsAgentViewerOnly(session),
     [session],
   );
+  const assetOptions = useMemo(
+    () => uniqueAssetsFromRegistry().map((id) => ({ id, label: id })),
+    [],
+  );
 
   const [org, setOrg] = useState<OrgAccount | null>(null);
   const [payout, setPayout] = useState<AgentPayoutAddress | null>(null);
   const [asset, setAsset] = useState(defaultLivePair().asset);
   const [network, setNetwork] = useState(defaultLivePair().network);
   const [address, setAddress] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [pendingMfa, setPendingMfa] = useState<PendingPayout | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,21 +111,31 @@ export function AgentSettingsPage({ session }: Props) {
     void load();
   }, [load]);
 
-  async function onSavePayout(e: React.FormEvent) {
+  function onSavePayout(e: FormEvent) {
     e.preventDefault();
     if (!agentId || !canEditPayout) return;
-    setSaving(true);
+    const next = address.trim();
+    if (!next) return;
     setError(null);
     setSavedMsg(null);
+    setPendingMfa({
+      asset: asset.trim(),
+      network: network.trim(),
+      address: next,
+    });
+  }
+
+  async function verifyPayoutMfa(mfaCode: string) {
+    if (!agentId || !pendingMfa) return;
     try {
       const row = await putAgentPayout(agentId, {
-        asset: asset.trim(),
-        network: network.trim(),
-        address: address.trim(),
-        mfaCode: mfaCode.trim(),
+        asset: pendingMfa.asset,
+        network: pendingMfa.network,
+        address: pendingMfa.address,
+        mfaCode,
       });
       setPayout(row);
-      setMfaCode("");
+      setAddress(row.pendingAddress ?? row.address);
       if (row.pendingActivatesAt) {
         setSavedMsg(
           `Payout address change pending — activates ${new Date(row.pendingActivatesAt).toLocaleString()}`,
@@ -126,11 +144,9 @@ export function AgentSettingsPage({ session }: Props) {
         setSavedMsg("Payout address saved");
       }
     } catch (err) {
-      setError(
+      throw new Error(
         err instanceof ApiError ? err.message : "Failed to save payout address",
       );
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -195,8 +211,9 @@ export function AgentSettingsPage({ session }: Props) {
           <div className="plat-settings__card-body">
             <p className="plat-settings__card-copy">
               Watch-only destination for platform (or parent-agent) commission
-              slips. CryptoGate never holds spend keys. Address changes require
-              MFA and a cool-down before they become active.
+              slips. CryptoGate never holds spend keys. You confirm with
+              authenticator MFA on save; changes enter a cool-down before they
+              become active.
             </p>
             {payout?.pendingActivatesAt ? (
               <p className="plat-settings__notice" role="status">
@@ -209,13 +226,13 @@ export function AgentSettingsPage({ session }: Props) {
             {canEditPayout ? (
               <form
                 className="plat-settings__payout-form"
-                onSubmit={(e) => void onSavePayout(e)}
+                onSubmit={onSavePayout}
               >
                 <label className="plat-settings__field">
                   <span>Asset</span>
                   <SearchableSelect
                     value={asset}
-                    options={ASSET_OPTIONS}
+                    options={assetOptions}
                     onChange={onAssetChange}
                     allowEmpty={false}
                     placeholder="Asset"
@@ -245,26 +262,12 @@ export function AgentSettingsPage({ session }: Props) {
                     required
                   />
                 </label>
-                <label className="plat-settings__field">
-                  <span>MFA code</span>
-                  <input
-                    className="plat-settings__input"
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value)}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="6-digit code"
-                    required
-                  />
-                </label>
                 <button
                   type="submit"
                   className="btn-primary plat-settings__submit"
-                  disabled={
-                    saving || !address.trim() || mfaCode.trim().length < 6
-                  }
+                  disabled={!address.trim()}
                 >
-                  {saving ? "Saving…" : payout ? "Update address" : "Save address"}
+                  {payout ? "Update address" : "Save address"}
                 </button>
               </form>
             ) : (
@@ -320,6 +323,13 @@ export function AgentSettingsPage({ session }: Props) {
           </div>
         </section>
       </div>
+
+      {pendingMfa ? (
+        <MfaStepUpModal
+          onClose={() => setPendingMfa(null)}
+          onVerify={verifyPayoutMfa}
+        />
+      ) : null}
     </div>
   );
 }

@@ -447,7 +447,7 @@ export function OnboardAgentPage() {
                     </div>
                   ) : null}
                   {depthBlocked ? (
-                    <p className="b4-wizard__error">
+                    <p className="muted">
                       Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached for this parent.{" "}
                       <Link to="/platform/settings/fee-tiers">Platform fees</Link>
                     </p>

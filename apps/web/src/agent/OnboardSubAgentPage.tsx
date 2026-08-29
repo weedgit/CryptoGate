@@ -182,6 +182,25 @@ export function OnboardSubAgentPage({ session }: Props) {
     );
   }, [parentId, orgs]);
 
+  useEffect(() => {
+    if (!canOnboard) {
+      setError((prev) => prev ?? "Viewer accounts cannot onboard sub-agents.");
+      return;
+    }
+    if (booting) return;
+    if (!parentId || !parentOrg) {
+      setError((prev) => prev ?? "Parent agent not found.");
+      return;
+    }
+    if (!depthOk) {
+      setError(
+        (prev) =>
+          prev ??
+          `Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) reached under ${parentOrg.name}.`,
+      );
+    }
+  }, [canOnboard, booting, parentId, parentOrg, depthOk]);
+
   const apiName = form.displayName.trim() || form.legalName.trim();
 
   function validateStep(): string | null {
@@ -305,10 +324,9 @@ export function OnboardSubAgentPage({ session }: Props) {
   if (!canOnboard) {
     return (
       <div className="b4-wizard-page">
-        <p className="error">
-          Viewer accounts cannot onboard sub-agents.{" "}
-          <Link to={backTo}>Back</Link>
-        </p>
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+        <p className="muted">You do not have permission to onboard sub-agents.</p>
+        <Link to={backTo}>← Back</Link>
       </div>
     );
   }
@@ -327,9 +345,9 @@ export function OnboardSubAgentPage({ session }: Props) {
   if (!parentId || !parentOrg) {
     return (
       <div className="b4-wizard-page">
-        <p className="error">
-          Parent agent not found. <Link to={backTo}>Back</Link>
-        </p>
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+        <p className="muted">Could not load the parent agent for this wizard.</p>
+        <Link to={backTo}>← Back</Link>
       </div>
     );
   }
@@ -337,6 +355,7 @@ export function OnboardSubAgentPage({ session }: Props) {
   if (!depthOk) {
     return (
       <div className="b4-wizard-page">
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
           <div className="b4-wizard" role="dialog" aria-modal="true">
             <header className="b4-wizard__head">
@@ -346,7 +365,7 @@ export function OnboardSubAgentPage({ session }: Props) {
               </Link>
             </header>
             <div className="b4-wizard__body">
-              <p className="error">
+              <p className="muted">
                 Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached under{" "}
                 <strong>{parentOrg.name}</strong>. You can still onboard
                 merchants under this account.
