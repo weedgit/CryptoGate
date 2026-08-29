@@ -245,10 +245,10 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 | xPub change pending / activated | Merchant O, A | Same pattern as address |
 | Site override approval requested | Merchant O (parent) | “Site **Downtown** requested wallet override — **Approve** / **Deny**.” |
 | Site override approved / denied | Site O, A | Result of approval flow |
-| Payment Anomaly | Merchant O, A, C (own order) | “Order **#12345** — payment anomaly (same-amount collision).” |
-| Webhook delivery failed | Merchant O, A | “Webhook failed 5 times for order **#12345**.” |
-| Service bill issued | Merchant O, A | “Service bill **SB-2026-08** ready — due **date**.” |
-| Service bill overdue | Merchant O, A | “Service bill overdue — account may be restricted.” |
+| Payment Anomaly | Merchant O, A, C (own order) | “Order **#12345** — Amount received was less than expected. Expected 10 USDT, received 9. Open the order… Resolve with a note.” |
+| Webhook delivery failed | Merchant O, A | “Webhook not reaching your server — **host** failed 5 times…” |
+| Service bill issued | Merchant O, A | “Bill **Aug 2026** ready — due **date**. Platform fees, not a customer payment.” |
+| Service bill overdue | Merchant O, A | “Service bill overdue — pay to avoid account restriction.” |
 | Commission statement | Agent O, A | “Commission statement **Aug 2026** available.” |
 | Compliance override | Merchant O, A | “Platform applied compliance override to settlement settings (logged).” |
 | Enterprise rate pending | Platform O | “Enterprise rate request from Agent **X** — review.” |
@@ -518,12 +518,17 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 
 **Content**
 
-- Bill header: merchant, billing period, status, due date
-- Line items: subscription, volume fee (volume × effective rate), adjustments with reason
-- Payment instructions link (platform billing wallet) — separate checkout surface
-- History: issued, reminders sent, paid timestamp, tx reference if on-chain
-- **Issue bill** / **Adjust** (O, A) — reason required for adjustments
-- PDF export
+- **Invoice face** (finance layout — see [Service-Bill-Invoice-Phase1.md](Service-Bill-Invoice-Phase1.md)):
+  - Parties: platform seller (config) + merchant buyer (name, legal name, billing email, country, org ID)
+  - Document meta: bill ID, status, issue date, due date, period, currency
+  - Line items: subscription (tier snapshot), volume fee (`billed volume × rate%`), adjustment reason badge, totals / paid / balance
+  - Remittance: service-bill checkout / platform billing wallet — **not** guest payment page
+  - Receipt when paid: paid at, payment reference, amount
+  - **Print** → browser PDF of invoice panel only
+- Ops sidebar: bill state timeline; Platform actions Issue / Adjust / Mark paid / Void (O, A) — reason required for adjustments
+- Rate / volume math frozen on bill at issue (do not re-read live commercial)
+
+**Never show** payment-order checkout or agent commission on this page.
 
 ---
 
@@ -534,12 +539,14 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 | **Route** | `/platform/settings/billing-wallet` |
 | **Access** | O ✓ · A R |
 
-**Content**
+**Content (B11-lite)**
 
-- Per-asset/network receive addresses for **service bill** payments (platform revenue)
-- QR preview
-- Rotation policy note
-- Change address: MFA + audit (platform-internal)
+- Invoice seller name + billing contact email
+- Service-bill remittance `payTo` (wallet / instruction string) + preview
+- Rotation / audit note (`billing_wallet_put`)
+- Checkout and platform invoice face prefer live settings over env
+
+Phase 1 does **not** require a full multi-asset wallet catalog; one remittance string is enough.
 
 ---
 
@@ -872,8 +879,8 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 **Content**
 
 - Filters: status, date range, asset, network, site, created by, matching mode, anomaly flag
-- Columns: order #, created, site, created by, amount, payable amount (Mode C), asset, network, receive address (truncated), status, tx hash
-- Bulk export CSV (O, A, V — not C)
+- Columns: order #, **merchant reference**, expires, amount, asset, network, receive address (truncated), matching mode, status
+- Bulk export CSV (O, A, V — not C) — includes merchant_reference
 - Row click → D3
 - Status badges: Pending Payment, Verifying, Confirmed, Completed, Expired, Payment Anomaly, Failed
 
@@ -890,24 +897,33 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Sections**
 
-1. **Summary** — status badge (large), order #, created at, expires at, created by, site
-2. **Payment** — payable amount, asset, network, contract, receive address (full), address source (main / HD pool), matching mode, memo/tag if Mode D, hd_index if Mode S
-3. **QR & link** — QR image, payment link (copy), **Open payment page** preview
-4. **On-chain** — tx hash (link to explorer), from, amount received vs expected, confirmations progress bar, block time
-5. **Timeline** — status history with timestamps
-6. **Webhook log** — delivery attempts, response codes (O, A)
+1. **Invoice / receipt face** — finance document (Print → PDF) — [Payment-Order-Invoice-Phase1.md](Payment-Order-Invoice-Phase1.md)
+   - Display order #, full id, status, created, expires, asset/network, matching mode
+   - Seller = merchant org; buyer = guest payer (Phase 1)
+   - Lines: payable / received / balance; remittance = merchant receive address
+   - On-chain proof when tx known; anomaly block when flagged
+2. **Live gateway** — QR, copy address, validity timer, guest payment page link
+3. **On-chain** — confirmations progress, tx hash (auto-poll every 5s while `pending_payment` / `verifying`; stop on terminal status)
+4. **Timeline** — status history with timestamps
+5. **Webhook log** — delivery attempts, response codes (O, A) — when shipped
 
 **Actions**
 
-- **Cancel order** (if pending and policy allows) — O, A, C (own)
+- **Print invoice** (document panel only)
+- **Cancel order** (pending only) — O, A any on org; C own only — frees Mode B amount / Mode D memo create locks
 - **Copy** payment details
 - **Resend webhook** (O, A)
-- Anomaly: **no “Mark paid”** button — show explanation + support guidance
+- Anomaly: **no “Mark paid”** button — plain-language reason + expected/received + **Resolve anomaly** (required note) → cancelled; invoice keeps reason + staff note
 
 **Anomaly detail panel**
 
-- Reason: same-amount collision / underpay / overpay / wrong network / late pay / duplicate tx
-- Suggested merchant actions (manual reconciliation copy)
+- Reason in plain language (underpay / overpay / wrong network / late pay / same-amount collision / …)
+- Expected vs received amounts when known
+- Suggested merchant actions (manual reconciliation)
+- **Resolve** with required note (O/A any on org; C own) — closes ticket; leaves anomaly list and urgent alerts
+- Anomalies do **not** block creating a new order for the same amount (Mode B) or memo (Mode D)
+
+**Never** show service-bill remittance or platform billing wallet on this page.
 
 ---
 
@@ -924,8 +940,9 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - Asset (dropdown — enabled only)
 - Network (dropdown — filtered by asset)
 - Validity period (preset: 15m / 30m / 1h / custom)
+- **Merchant reference** (optional, max 200 — PO / table / internal “for what”; stored on order, shown on invoice + CSV)
 - Site (if parent merchant creating for a site)
-- Optional metadata: reference note, customer label (internal)
+- Optional metadata: customer label (internal, via merchantMetadata when needed)
 
 **Read-only info shown before submit**
 
@@ -970,9 +987,9 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Content**
 
-- Line items, period, due date, status
+- Same **Invoice face** as B10 (read-only) — [Service-Bill-Invoice-Phase1.md](Service-Bill-Invoice-Phase1.md)
 - **Pay service bill** — launches **service bill checkout** (Part G) — platform billing wallet
-- Payment history on bill
+- Print invoice
 - Overdue warning styling + consequences note (from contract)
 
 ---
@@ -1025,10 +1042,10 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Content**
 
-- Date range, site filter
-- Reports: completed volume, order count by status, anomalies, by asset/network, by cashier
-- Columns per plan: matching_mode, payable_amount, receive_address, address_source, hd_index, memo_or_tag
-- Export CSV / PDF
+- Date range (by order **created** date), site filter with org names
+- KPIs: completed volume, orders in range, anomaly count
+- Breakdowns: by status (count + volume), asset/network, **site**, **day**, cashier (email when known), matching mode
+- CSV export: org_name, merchant_reference, received_amount, created_by_email (Cashier 403)
 - Schedule export (Phase 1 optional — if cut, hide)
 
 ---
@@ -1200,33 +1217,38 @@ When logged into a **merchant (site) account**, same pages as D1–D16 with thes
 
 **Content (prominent)**
 
-- Merchant display name (and site name if applicable)
+- Trusted merchant badge (no merchant display name on the face)
 - **Payable amount** (large) — Mode C exact fingerprint
 - Asset + **network** (large, color-coded)
 - Token contract address (copy) for tokens
 - **Receive address** (copy button)
-- QR code (encoded URI per network standards)
+- QR code encodes the **receive address** by default (**Address only**). Segmented control under the QR: **With amount** (HTTPS pay-page URL so a camera opens amount/asset) · **Address only** (bare receive address for exchange/wallet scanners). API `qrPayload` remains the pay-page URL for POS clients that encode it; the guest page default is address-only. Optional API `walletUri` for network URI parsers.
 - Countdown: **Expires in MM:SS**
 - Order reference # (small)
 
-**Warnings (always visible)**
+**Warnings**
 
-- “Send only **{asset}** on **{network}**. Wrong network may result in lost funds.”
 - Mode C: “Pay **exactly {amount}**. Do not round.”
 - Mode D: “Include memo: **{memo}**” when supported
-- Non-custodial note: “Payment goes directly to the merchant’s wallet.”
+- Network is shown on the network pill / QR mark (no separate wrong-network banner)
 
 **States**
 
 | State | UI |
 | --- | --- |
-| Pending Payment | QR + countdown active |
-| Verifying | Spinner + “Payment detected — waiting for confirmations (**n/N**)” |
-| Confirmed | Progress still shown |
-| Completed | Success checkmark + “Payment received” + tx link (no confetti that implies merchant fulfillment) |
+| Pending Payment | QR + countdown active; progress panel shows 0/N confirmations + flow at **Created** |
+| Verifying | Verifying badge; confirmation segments fill + flow step **Verifying** with directional animation |
+| Confirmed / Completed | Teal “Payment received” + Completed badge; confirmations full + flow at **Confirmed** |
 | Expired | Greyed QR, “This order has expired” + contact merchant |
 | Payment Anomaly | “Payment received but could not be matched automatically” — payer-safe message |
 | Failed | Error explanation |
+
+**Progress panel** (below warnings, above order ref) — simpler than merchant D3:
+
+- **Blockchain confirmations** — segmented bar + `n / N` count from the order’s asset/network registry (e.g. USDT Tron **19**, Ethereum **12**, BSC **15**); short status note
+- **Horizontal flow** — Created → Detected → Verifying → Confirmed (diamond nodes, chevron direction, motion while verifying)
+
+Merchant **Orders → detail** keeps the fuller vertical timeline and tx-hash panel.
 
 **Actions**
 
@@ -1303,12 +1325,22 @@ Cashier role only. Kotlin native preferred.
 - Asset picker (merchant-enabled list)
 - Network picker
 - Validity (merchant default or presets)
+- **Merchant reference** (optional — PO / table / check #; max 200)
 - **Create** → G4
+
+**Mode B same-amount create lock**
+
+- If another **live** open order (`pending_payment` / `verifying` / `confirmed`) already uses the same payable amount on the main settlement address → **do not create**
+- **Payment Anomaly** does not block create (reconcile separately; new same-amount ticket allowed)
+- API `409 mode_b_amount_in_use` with `details.blockingOrder` (order #, creator email, status)
+- UI: explain collision, show first order (by who + `#CG-…`), link to that order; poll until first is finished/cancelled/expired; then show **Continue** to retry create
+- Suggest change amount or ask Owner for Amount fingerprint / Smart address
 
 **Blocked states**
 
 - Network maintenance toast
 - API error with retry
+- Mode B amount-in-use panel (above)
 
 ---
 
@@ -1317,6 +1349,7 @@ Cashier role only. Kotlin native preferred.
 **Large display**
 
 - Payable amount, asset, network
+- Merchant reference when set (POS-only label; not on guest pay page)
 - Contract (if token)
 - Receive address (truncated + expand)
 - QR code (large)
