@@ -7,6 +7,7 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
+import { AuthToast } from "../auth/AuthToast";
 import {
   parentMerchantOrgId,
   sessionCanManageSites,
@@ -53,6 +54,7 @@ export function SitesListPage({ session }: Props) {
 
   return (
     <div className="sites-page">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       {canManage && multiLocation ? (
         <div className="orders-toolbar">
           <Link className="btn-primary btn-inline" to="/merchant/sites/new">
@@ -61,7 +63,6 @@ export function SitesListPage({ session }: Props) {
         </div>
       ) : null}
 
-      {error ? <p className="error">{error}</p> : null}
       {loading ? (
         <p className="muted">Loading sites…</p>
       ) : !multiLocation ? (

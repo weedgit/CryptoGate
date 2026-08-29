@@ -1,4 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpModal } from "../auth/MfaStepUpModal";
 import {
   ApiError,
   decideSiteOverride,
@@ -34,6 +36,7 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
   const [source, setSource] = useState<string>("inherit");
   const [retentionDays, setRetentionDays] = useState<number>(90);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [kind, setKind] = useState<SiteSettingOverride["settingKind"]>("matching_mode");
@@ -41,8 +44,8 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
   const [address, setAddress] = useState("");
   const [xPub, setXPub] = useState("");
   const [days, setDays] = useState("90");
-  const [mfa, setMfa] = useState("");
   const [denyReason, setDenyReason] = useState("");
+  const [pendingApproveId, setPendingApproveId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -71,6 +74,7 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
     if (!canRequest) return;
     setBusy(true);
     setError(null);
+    setSuccess(null);
     try {
       const payload =
         kind === "matching_mode"
@@ -83,6 +87,7 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
       await requestSiteOverride(siteId, { settingKind: kind, payload });
       setAddress("");
       setXPub("");
+      setSuccess("Override request submitted");
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Request failed");
@@ -91,21 +96,17 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
     }
   }
 
-  async function onDecide(id: string, decision: "approve" | "deny") {
+  async function onDeny(id: string) {
     setBusy(true);
     setError(null);
+    setSuccess(null);
     try {
-      const row = pending.find((r) => r.id === id);
-      const needsMfa =
-        decision === "approve" &&
-        (row?.settingKind === "settlement" || row?.settingKind === "xpub");
       await decideSiteOverride(siteId, id, {
-        decision,
-        reason: decision === "deny" ? denyReason.trim() : undefined,
-        mfaCode: needsMfa ? mfa.trim() : undefined,
+        decision: "deny",
+        reason: denyReason.trim() || undefined,
       });
-      setMfa("");
       setDenyReason("");
+      setSuccess("Override denied");
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Decision failed");
@@ -114,15 +115,64 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
     }
   }
 
+  function onApproveClick(id: string) {
+    const row = pending.find((r) => r.id === id);
+    const needsMfa =
+      row?.settingKind === "settlement" || row?.settingKind === "xpub";
+    if (needsMfa) {
+      setError(null);
+      setSuccess(null);
+      setPendingApproveId(id);
+      return;
+    }
+    void approveWithoutMfa(id);
+  }
+
+  async function approveWithoutMfa(id: string) {
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await decideSiteOverride(siteId, id, { decision: "approve" });
+      setSuccess("Override approved");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Decision failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyApproveMfa(mfaCode: string) {
+    if (!pendingApproveId) return;
+    try {
+      await decideSiteOverride(siteId, pendingApproveId, {
+        decision: "approve",
+        mfaCode,
+      });
+      setSuccess("Override approved");
+      await load();
+    } catch (err) {
+      throw new Error(err instanceof ApiError ? err.message : "Decision failed");
+    }
+  }
+
   return (
     <div className="panel settings-panel">
+      <AuthToast
+        message={error ?? success}
+        tone={error ? "error" : "ok"}
+        onDismiss={() => {
+          setError(null);
+          setSuccess(null);
+        }}
+      />
       <h2>Inherit vs override</h2>
       <p className="muted settings-note">
         Wallet, xPub, matching mode, and order retention inherit from the parent
         merchant until the parent Owner approves a site override. Current matching
         source: <strong>{source}</strong>. Retention: {retentionDays} days.
       </p>
-      {error ? <p className="error">{error}</p> : null}
 
       {canRequest ? (
         <form onSubmit={onRequest} className="settings-field" style={{ display: "grid", gap: 8 }}>
@@ -197,19 +247,11 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
                 {row.settingKind.replace(/_/g, " ")} · {row.status}
               </span>
               <div className="orders-actions">
-                {(row.settingKind === "settlement" || row.settingKind === "xpub") && (
-                  <input
-                    placeholder="MFA code"
-                    value={mfa}
-                    onChange={(e) => setMfa(e.target.value)}
-                    autoComplete="one-time-code"
-                  />
-                )}
                 <button
                   type="button"
                   className="btn-primary btn-inline"
                   disabled={busy}
-                  onClick={() => void onDecide(row.id, "approve")}
+                  onClick={() => onApproveClick(row.id)}
                 >
                   Approve
                 </button>
@@ -222,7 +264,7 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
                   type="button"
                   className="btn-ghost btn-inline"
                   disabled={busy}
-                  onClick={() => void onDecide(row.id, "deny")}
+                  onClick={() => void onDeny(row.id)}
                 >
                   Deny
                 </button>
@@ -250,6 +292,13 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
       ) : (
         <p className="muted">No override requests yet.</p>
       )}
+
+      {pendingApproveId ? (
+        <MfaStepUpModal
+          onClose={() => setPendingApproveId(null)}
+          onVerify={verifyApproveMfa}
+        />
+      ) : null}
     </div>
   );
 }

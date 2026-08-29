@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpModal } from "../auth/MfaStepUpModal";
+import { NetworkIcon } from "../platform/cryptoIcons";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
@@ -23,19 +25,32 @@ import {
 } from "./matchingLabels";
 import {
   formatCountdown,
-  networkLabel,
   primaryMerchantOrgId,
   truncateAddress,
 } from "./org";
 import {
   defaultLivePair,
+  displayNetworkForPair,
   isLivePair,
-  pairSelectLabel,
   pairsForAsset,
   uniqueAssetsFromRegistry,
 } from "../shared/assetNetworks";
 
 type Props = { session: Session };
+
+type PendingMfa =
+  | {
+      kind: "address";
+      asset: string;
+      network: string;
+      address: string;
+    }
+  | {
+      kind: "xpub";
+      asset: string;
+      network: string;
+      xPub: string;
+    };
 
 function settlementStatusTone(status: string): string {
   return status === "pending_cool_down" ? "warn" : "ok";
@@ -45,11 +60,19 @@ function settlementStatusLabel(status: string): string {
   return status === "pending_cool_down" ? "Cool-down" : "Active";
 }
 
+function networkOptionLabel(row: {
+  displayNetwork: string;
+  enabled: boolean;
+}): string {
+  return row.enabled ? row.displayNetwork : `${row.displayNetwork} (coming soon)`;
+}
+
 export function SettlementPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [mode, setMode] = useState("B");
   const [modeSource, setModeSource] = useState<string>("merchant");
   const [draftMode, setDraftMode] = useState("B");
@@ -66,12 +89,11 @@ export function SettlementPage({ session }: Props) {
   const [addrAsset, setAddrAsset] = useState(initialPair.asset);
   const [addrNetwork, setAddrNetwork] = useState(initialPair.network);
   const [addrValue, setAddrValue] = useState("");
-  const [addrMfa, setAddrMfa] = useState("");
   const [savingAddr, setSavingAddr] = useState(false);
 
   const [xPubValue, setXPubValue] = useState("");
-  const [xPubMfa, setXPubMfa] = useState("");
   const [savingXpub, setSavingXpub] = useState(false);
+  const [pendingMfa, setPendingMfa] = useState<PendingMfa | null>(null);
 
   const settlementAssets = useMemo(() => uniqueAssetsFromRegistry(), []);
   const settlementNetworkOptions = useMemo(
@@ -80,6 +102,7 @@ export function SettlementPage({ session }: Props) {
   );
   const settlementPairLive = isLivePair(addrAsset, addrNetwork);
   const readOnly = modeSource === "inherit";
+  const xPubPair = useMemo(() => defaultLivePair(), []);
 
   const load = useCallback(async () => {
     if (!orgId) {
@@ -126,9 +149,12 @@ export function SettlementPage({ session }: Props) {
   }, [load]);
 
   const cooldownBanner = addresses.find((a) => a.status === "pending_cool_down");
-  const tronXpub = xpubs.find((x) => x.asset === "USDT" && x.network === "tron");
-  const inUse = pool.filter((p) => p.status === "IN_USE").length;
-  const poolTotal = pool.length;
+  const activeXpub = xpubs.find(
+    (x) => x.asset === xPubPair.asset && x.network === xPubPair.network,
+  );
+  const poolFree = pool.filter((p) => p.status === "FREE").length;
+  const poolInUse = pool.filter((p) => p.status === "IN_USE").length;
+  const poolCooldown = pool.filter((p) => p.status === "COOLDOWN").length;
 
   async function saveMatchingMode() {
     if (!orgId) return;
@@ -145,6 +171,7 @@ export function SettlementPage({ session }: Props) {
       setUnderpayTolerance(tol);
       setSavedUnderpayTolerance(tol);
       setConfirmOpen(false);
+      setSuccess("Matching mode saved");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Save matching mode failed");
     } finally {
@@ -152,49 +179,77 @@ export function SettlementPage({ session }: Props) {
     }
   }
 
-  async function onSaveAddress(e: FormEvent) {
+  function onSaveAddress(e: FormEvent) {
     e.preventDefault();
-    if (!orgId) return;
-    setSavingAddr(true);
+    if (!orgId || readOnly) return;
+    const address = addrValue.trim();
+    if (!address) return;
     setError(null);
-    try {
-      await putSettlement(orgId, {
-        asset: addrAsset,
-        network: addrNetwork,
-        address: addrValue.trim(),
-        mfaCode: addrMfa.trim(),
-      });
-      setAddrValue("");
-      setAddrMfa("");
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Save address failed");
-    } finally {
-      setSavingAddr(false);
-    }
+    setSuccess(null);
+    setPendingMfa({
+      kind: "address",
+      asset: addrAsset,
+      network: addrNetwork,
+      address,
+    });
   }
 
-  async function onSaveXpub(e: FormEvent) {
+  function onSaveXpub(e: FormEvent) {
     e.preventDefault();
-    if (!orgId) return;
-    setSavingXpub(true);
+    if (!orgId || readOnly) return;
+    const xPub = xPubValue.trim();
+    if (!xPub) return;
     setError(null);
+    setSuccess(null);
+    setPendingMfa({
+      kind: "xpub",
+      asset: xPubPair.asset,
+      network: xPubPair.network,
+      xPub,
+    });
+  }
+
+  async function verifyPendingMfa(mfaCode: string) {
+    if (!orgId || !pendingMfa) return;
     try {
-      await putXpub(orgId, {
-        asset: "USDT",
-        network: "tron",
-        xPub: xPubValue.trim(),
-        mfaCode: xPubMfa.trim(),
-      });
-      setXPubValue("");
-      setXPubMfa("");
+      if (pendingMfa.kind === "address") {
+        setSavingAddr(true);
+        await putSettlement(orgId, {
+          asset: pendingMfa.asset,
+          network: pendingMfa.network,
+          address: pendingMfa.address,
+          mfaCode,
+        });
+        setAddrValue("");
+        setSuccess("Settlement address saved — cool-down may apply");
+      } else {
+        setSavingXpub(true);
+        await putXpub(orgId, {
+          asset: pendingMfa.asset,
+          network: pendingMfa.network,
+          xPub: pendingMfa.xPub,
+          mfaCode,
+        });
+        setXPubValue("");
+        setSuccess("xPub saved — cool-down may apply");
+      }
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Save xPub failed");
+      throw new Error(
+        err instanceof ApiError
+          ? err.message
+          : pendingMfa.kind === "address"
+            ? "Save address failed"
+            : "Save xPub failed",
+      );
     } finally {
+      setSavingAddr(false);
       setSavingXpub(false);
     }
   }
+
+  const toastMessage = error ?? success;
+  const toastTone = error ? "error" : "ok";
 
   if (loading) {
     return (
@@ -207,13 +262,20 @@ export function SettlementPage({ session }: Props) {
 
   if (forbidden) {
     return (
-      <div className="plat-settings plat-settings--merchant">
+      <div className="plat-settings plat-settings--merchant plat-settlement">
+        <AuthToast
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
         <section className="plat-settings__card">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Settlement</h2>
           </div>
           <div className="plat-settings__card-body">
-            <p className="error">{error}</p>
+            <p className="muted">
+              You do not have access to settlement settings.
+            </p>
           </div>
         </section>
       </div>
@@ -222,15 +284,38 @@ export function SettlementPage({ session }: Props) {
 
   return (
     <div className="plat-settings plat-settings--merchant plat-settlement">
-      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <AuthToast
+        message={toastMessage}
+        tone={toastTone}
+        onDismiss={() => {
+          setError(null);
+          setSuccess(null);
+        }}
+      />
 
       {cooldownBanner ? (
-        <p className="plat-settings__notice" role="status">
-          Settlement address cool-down active —{" "}
-          {truncateAddress(cooldownBanner.pendingAddress ?? cooldownBanner.address)}{" "}
-          pending ({formatCountdown(cooldownBanner.pendingActivatesAt) ?? "waiting"}).
-          New orders still use the active address until cool-down ends.
-        </p>
+        <aside className="plat-settlement__banner" role="status">
+          <div className="plat-settlement__banner-copy">
+            <strong>Settlement cool-down active</strong>
+            <p>
+              Pending{" "}
+              <code className="mono">
+                {truncateAddress(
+                  cooldownBanner.pendingAddress ?? cooldownBanner.address,
+                  10,
+                  8,
+                )}
+              </code>
+              . New orders still use the active address until cool-down ends.
+            </p>
+          </div>
+          <div className="plat-settlement__banner-timer" aria-label="Time remaining">
+            <span className="plat-settlement__banner-timer-label">Activates in</span>
+            <span className="plat-settlement__banner-timer-value">
+              {formatCountdown(cooldownBanner.pendingActivatesAt) ?? "waiting"}
+            </span>
+          </div>
+        </aside>
       ) : null}
 
       {readOnly ? (
@@ -241,8 +326,8 @@ export function SettlementPage({ session }: Props) {
         </p>
       ) : null}
 
-      <div className="plat-settings__grid plat-settings__grid--single">
-        <section className="plat-settings__card">
+      <div className="plat-settlement__layout">
+        <section className="plat-settings__card plat-settlement__card plat-settlement__card--addresses">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Settlement addresses</h2>
           </div>
@@ -255,11 +340,12 @@ export function SettlementPage({ session }: Props) {
               {addresses.length === 0 ? (
                 <p className="plat-bills__empty">No settlement addresses yet.</p>
               ) : (
-                <table className="plat-bills__table b3-settlement__table">
+                <table className="plat-bills__table plat-settlement__table">
                   <thead>
                     <tr>
                       <th>Network</th>
-                      <th>Address</th>
+                      <th>Active address</th>
+                      <th>Pending</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -267,9 +353,22 @@ export function SettlementPage({ session }: Props) {
                     {addresses.map((row) => (
                       <tr key={`${row.asset}-${row.network}`}>
                         <td>
-                          {networkLabel(row.network)} · {row.asset}
+                          <span className="plat-settlement__net">
+                            <NetworkIcon network={row.network} />
+                            <span>
+                              <strong>{displayNetworkForPair(row.asset, row.network)}</strong>
+                              <em>{row.asset}</em>
+                            </span>
+                          </span>
                         </td>
-                        <td className="mono">{truncateAddress(row.address, 10, 8)}</td>
+                        <td className="mono plat-settlement__addr">
+                          {truncateAddress(row.address, 10, 8)}
+                        </td>
+                        <td className="mono plat-settlement__addr muted">
+                          {row.status === "pending_cool_down" && row.pendingAddress
+                            ? truncateAddress(row.pendingAddress, 10, 8)
+                            : "—"}
+                        </td>
                         <td>
                           <span
                             className={`plat-bills__badge tone-${settlementStatusTone(row.status)}`}
@@ -283,11 +382,15 @@ export function SettlementPage({ session }: Props) {
                 </table>
               )}
             </div>
-            <form className="plat-settings__payout-form" onSubmit={onSaveAddress}>
-              <h3 className="plat-settlement__form-title">Add or rotate address</h3>
-              <p className="plat-settings__card-note plat-settlement__form-note">
-                MFA required. Changes enter a cool-down before they become active.
-              </p>
+
+            <form className="plat-settings__payout-form plat-settlement__form" onSubmit={onSaveAddress}>
+              <div className="plat-settlement__form-head">
+                <h3 className="plat-settlement__form-title">Add or rotate address</h3>
+                <p className="plat-settings__card-note plat-settlement__form-note">
+                  You will confirm with authenticator MFA on save. Changes enter a
+                  cool-down before they become active.
+                </p>
+              </div>
               <div className="plat-settlement__field-row">
                 <label className="plat-settings__field">
                   <span>Asset</span>
@@ -319,51 +422,46 @@ export function SettlementPage({ session }: Props) {
                     disabled={savingAddr || readOnly}
                   >
                     {settlementNetworkOptions.map((row) => (
-                      <option key={row.network} value={row.network} disabled={!row.enabled}>
-                        {pairSelectLabel(row)}
+                      <option
+                        key={row.network}
+                        value={row.network}
+                        disabled={!row.enabled}
+                      >
+                        {networkOptionLabel(row)}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label className="plat-settings__field">
-                  <span>MFA code</span>
-                  <input
-                    className="plat-settings__input"
-                    value={addrMfa}
-                    onChange={(e) => setAddrMfa(e.target.value)}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    required
-                    disabled={savingAddr || readOnly}
-                  />
-                </label>
               </div>
               <label className="plat-settings__field">
-                <span>Receive address ({addrAsset})</span>
+                <span>Receive address</span>
                 <input
-                  className="plat-settings__input"
+                  className="plat-settings__input mono"
                   value={addrValue}
                   onChange={(e) => setAddrValue(e.target.value)}
                   required
                   disabled={savingAddr || readOnly}
                   spellCheck={false}
+                  placeholder={`${addrAsset} address on selected network`}
                 />
               </label>
-              <button
-                type="submit"
-                className="btn-primary plat-settings__submit"
-                disabled={savingAddr || readOnly || !settlementPairLive}
-              >
-                {savingAddr ? "Saving…" : "Save settlement address"}
-              </button>
+              <div className="plat-settlement__form-actions">
+                <button
+                  type="submit"
+                  className="btn-primary plat-settings__submit"
+                  disabled={savingAddr || readOnly || !settlementPairLive}
+                >
+                  Save settlement address
+                </button>
+              </div>
             </form>
           </div>
         </section>
 
-        <section className="plat-settings__card">
+        <section className="plat-settings__card plat-settlement__card plat-settlement__card--matching">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Matching mode</h2>
-            <span className="b3-settlement__mode-pill">{matchingModeLabel(mode)}</span>
+            <span className="plat-settlement__mode-pill">{matchingModeLabel(mode)}</span>
           </div>
           <div className="plat-settings__card-body">
             <p className="plat-settings__card-copy">{matchingModeScope(mode)}</p>
@@ -371,6 +469,17 @@ export function SettlementPage({ session }: Props) {
               Changing the default does not rewrite open orders — mode is fixed at
               create time.
             </p>
+            {mode === "B" || draftMode === "B" ? (
+              <aside className="plat-settlement__mode-nudge" role="status">
+                <strong>Concurrent same-amount tickets</strong>
+                <p>
+                  Under Standard, a second cashier cannot open another order for
+                  the same amount until the first is completed or cancelled. For
+                  busy desks, switch to <strong>Amount fingerprint</strong> or{" "}
+                  <strong>Smart address</strong> (xPub required for Smart address).
+                </p>
+              </aside>
+            ) : null}
             <div className="plat-settlement__modes" role="listbox" aria-label="Matching mode">
               {MATCHING_MODE_CARDS.map((card) => {
                 const selected = draftMode === card.mode;
@@ -384,8 +493,11 @@ export function SettlementPage({ session }: Props) {
                     disabled={readOnly}
                     onClick={() => setDraftMode(card.mode)}
                   >
-                    <strong>{card.label}</strong>
-                    <span>{card.blurb}</span>
+                    <span className="plat-settlement__mode-head">
+                      <span className="plat-settlement__mode-key">{card.mode}</span>
+                      <strong>{card.label}</strong>
+                    </span>
+                    <span className="plat-settlement__mode-blurb">{card.blurb}</span>
                     {selected ? <em>Selected</em> : null}
                   </button>
                 );
@@ -409,55 +521,69 @@ export function SettlementPage({ session }: Props) {
                 </p>
               </label>
             ) : null}
-            <button
-              type="button"
-              className="btn-primary plat-settings__submit"
-              disabled={
-                (draftMode === mode &&
-                  (draftMode !== "B" ||
-                    underpayTolerance.trim() === savedUnderpayTolerance)) ||
-                savingMode ||
-                readOnly
-              }
-              onClick={() => setConfirmOpen(true)}
-            >
-              Save matching mode
-            </button>
+            <div className="plat-settlement__form-actions">
+              <button
+                type="button"
+                className="btn-primary plat-settings__submit"
+                disabled={
+                  (draftMode === mode &&
+                    (draftMode !== "B" ||
+                      underpayTolerance.trim() === savedUnderpayTolerance)) ||
+                  savingMode ||
+                  readOnly
+                }
+                onClick={() => setConfirmOpen(true)}
+              >
+                Save matching mode
+              </button>
+            </div>
           </div>
         </section>
 
-        <section className="plat-settings__card">
+        <section className="plat-settings__card plat-settlement__card plat-settlement__card--pool">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">HD pool (Mode S)</h2>
+            <span className="plat-settlement__pool-meta mono">{derivePath}</span>
           </div>
           <div className="plat-settings__card-body">
             <p className="plat-settings__card-copy">
-              Watch-only xPub and derived addresses. Path template:{" "}
-              <code className="mono">{derivePath}</code>
+              Watch-only xPub and derived addresses for{" "}
+              {displayNetworkForPair(xPubPair.asset, xPubPair.network)}. CryptoGate
+              never sweeps or signs.
             </p>
-            <dl className="plat-settings__dl plat-settings__dl--rows">
-              <div>
-                <dt>xPub status</dt>
-                <dd>
-                  {tronXpub?.xPubConfigured ? (
-                    <>
-                      Configured
-                      {tronXpub.pendingXPub
-                        ? ` · cool-down ${formatCountdown(tronXpub.pendingActivatesAt) ?? ""}`
-                        : " · active"}
-                    </>
-                  ) : (
-                    "Not configured — Mode S falls back to Standard"
-                  )}
-                </dd>
+
+            <div className="plat-settlement__stats" aria-label="HD pool summary">
+              <div className="plat-settlement__stat">
+                <span className="plat-settlement__stat-label">xPub</span>
+                <strong className="plat-settlement__stat-value">
+                  {activeXpub?.xPubConfigured
+                    ? activeXpub.pendingXPub
+                      ? "Cool-down"
+                      : "Configured"
+                    : "Not set"}
+                </strong>
+                <span className="plat-settlement__stat-hint">
+                  {activeXpub?.xPubConfigured
+                    ? activeXpub.pendingXPub
+                      ? formatCountdown(activeXpub.pendingActivatesAt) ?? "pending"
+                      : "Active for Mode S"
+                    : "Mode S falls back to Standard"}
+                </span>
               </div>
-              <div>
-                <dt>Pool utilization</dt>
-                <dd>
-                  {inUse} in use / {poolTotal || "—"} total
-                </dd>
+              <div className="plat-settlement__stat">
+                <span className="plat-settlement__stat-label">Free</span>
+                <strong className="plat-settlement__stat-value">{poolFree}</strong>
               </div>
-            </dl>
+              <div className="plat-settlement__stat">
+                <span className="plat-settlement__stat-label">In use</span>
+                <strong className="plat-settlement__stat-value">{poolInUse}</strong>
+              </div>
+              <div className="plat-settlement__stat">
+                <span className="plat-settlement__stat-label">Cool-down</span>
+                <strong className="plat-settlement__stat-value">{poolCooldown}</strong>
+              </div>
+            </div>
+
             <div className="plat-settlement__chips">
               {pool.length === 0 ? (
                 <p className="muted plat-settlement__chips-empty">No HD pool rows yet.</p>
@@ -473,42 +599,39 @@ export function SettlementPage({ session }: Props) {
                 ))
               )}
             </div>
-            <form className="plat-settings__payout-form" onSubmit={onSaveXpub}>
-              <h3 className="plat-settlement__form-title">Register or rotate xPub</h3>
-              <p className="plat-settings__card-note plat-settlement__form-note">
-                Paste watch-only xPub only. Never paste spend keys or seed phrases.
-              </p>
-              <label className="plat-settings__field">
-                <span>xPub</span>
-                <input
-                  className="plat-settings__input"
-                  value={xPubValue}
-                  onChange={(e) => setXPubValue(e.target.value)}
-                  required
+
+            <form className="plat-settings__payout-form plat-settlement__form" onSubmit={onSaveXpub}>
+              <div className="plat-settlement__form-head">
+                <h3 className="plat-settlement__form-title">Register or rotate xPub</h3>
+                <p className="plat-settings__card-note plat-settlement__form-note">
+                  Paste watch-only xPub only. MFA confirms on save. Never paste spend
+                  keys or seed phrases.
+                </p>
+              </div>
+              <div className="plat-settlement__field-row plat-settlement__field-row--xpub">
+                <label className="plat-settings__field plat-settlement__field--grow">
+                  <span>xPub</span>
+                  <input
+                    className="plat-settings__input mono"
+                    value={xPubValue}
+                    onChange={(e) => setXPubValue(e.target.value)}
+                    required
+                    disabled={savingXpub || readOnly}
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="xpub…"
+                  />
+                </label>
+              </div>
+              <div className="plat-settlement__form-actions">
+                <button
+                  type="submit"
+                  className="btn-primary plat-settings__submit"
                   disabled={savingXpub || readOnly}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-              </label>
-              <label className="plat-settings__field">
-                <span>MFA code</span>
-                <input
-                  className="plat-settings__input"
-                  value={xPubMfa}
-                  onChange={(e) => setXPubMfa(e.target.value)}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  required
-                  disabled={savingXpub || readOnly}
-                />
-              </label>
-              <button
-                type="submit"
-                className="btn-primary plat-settings__submit"
-                disabled={savingXpub || readOnly}
-              >
-                {savingXpub ? "Saving…" : "Save xPub"}
-              </button>
+                >
+                  Save xPub
+                </button>
+              </div>
             </form>
           </div>
         </section>
@@ -571,6 +694,13 @@ export function SettlementPage({ session }: Props) {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {pendingMfa ? (
+        <MfaStepUpModal
+          onClose={() => setPendingMfa(null)}
+          onVerify={verifyPendingMfa}
+        />
       ) : null}
     </div>
   );

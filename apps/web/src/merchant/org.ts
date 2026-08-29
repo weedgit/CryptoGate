@@ -1,5 +1,5 @@
 import type { Session } from "./api";
-import { listAssetNetworkRegistry } from "@cryptogate/domain";
+import { displayNetworkForPair, networkShortLabel } from "../shared/assetNetworks";
 
 /** Prefer merchant / merchant_site membership for settings org scope. */
 export function primaryMerchantOrgId(session: Session): string | null {
@@ -32,18 +32,8 @@ export function formatCountdown(iso: string | null | undefined): string | null {
 }
 
 export function networkLabel(network: string, asset?: string): string {
-  const rows = listAssetNetworkRegistry();
-  if (asset) {
-    const row = rows.find((r) => r.network === network && r.asset === asset);
-    if (row) return row.displayNetwork;
-  }
-  const any = rows.find((r) => r.network === network);
-  if (any) return any.displayNetwork;
-  if (network === "tron") return "TRON TRC-20";
-  if (network === "tron_nile") return "TRON Nile (testnet)";
-  if (network === "ethereum") return "Ethereum ERC-20";
-  if (network === "bnb_smart_chain") return "BNB Smart Chain BEP-20";
-  return network.replace(/_/g, " ");
+  if (asset) return displayNetworkForPair(asset, network);
+  return networkShortLabel(network);
 }
 
 /** O / A / V may export CSV; cashiers cannot. */

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   listOrders,
+  listOrgs,
   ordersCsvUrl,
+  type OrgAccount,
   type PaymentOrder,
   type Session,
 } from "./api";
@@ -35,6 +38,10 @@ function presetRange(preset: DatePreset): { from: Date | null; to: Date } {
   return { from, to };
 }
 
+function orderTimestamp(o: PaymentOrder): string {
+  return o.createdAt ?? o.expiresAt;
+}
+
 function inRange(iso: string, from: Date | null, to: Date): boolean {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return false;
@@ -52,18 +59,15 @@ function sumCompletedVolume(orders: PaymentOrder[]): number {
   return total;
 }
 
+function volumeForOrder(o: PaymentOrder): number {
+  if (o.status !== "completed" && o.status !== "confirmed") return 0;
+  const n = Number(o.payableAmount.amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function ReportsPage({ session }: Props) {
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
-  const siteOptions = useMemo(
-    () =>
-      session.memberships.filter(
-        (m) =>
-          m.orgType === "merchant" ||
-          m.orgType === "merchant_site" ||
-          m.orgType == null,
-      ),
-    [session],
-  );
+  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [preset, setPreset] = useState<DatePreset>("30d");
   const [siteOrgId, setSiteOrgId] = useState<string>("");
   const [items, setItems] = useState<PaymentOrder[]>([]);
@@ -71,6 +75,20 @@ export function ReportsPage({ session }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
+
+  const orgNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of orgs) map.set(o.id, o.name);
+    return map;
+  }, [orgs]);
+
+  const siteOptions = useMemo(
+    () =>
+      orgs.filter(
+        (o) => o.type === "merchant" || o.type === "merchant_site",
+      ),
+    [orgs],
+  );
 
   useLayoutEffect(() => {
     setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
@@ -80,11 +98,15 @@ export function ReportsPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listOrders({
-        limit: 200,
-        orgId: siteOrgId || undefined,
-      });
+      const [rows, orgRows] = await Promise.all([
+        listOrders({
+          limit: 200,
+          orgId: siteOrgId || undefined,
+        }),
+        listOrgs().catch(() => [] as OrgAccount[]),
+      ]);
       setItems(rows);
+      setOrgs(orgRows);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load report data");
       setItems([]);
@@ -100,16 +122,19 @@ export function ReportsPage({ session }: Props) {
   const { from, to } = useMemo(() => presetRange(preset), [preset]);
 
   const filtered = useMemo(
-    () => items.filter((o) => inRange(o.expiresAt, from, to)),
+    () => items.filter((o) => inRange(orderTimestamp(o), from, to)),
     [items, from, to],
   );
 
   const statusCounts = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; volume: number }>();
     for (const o of filtered) {
-      map.set(o.status, (map.get(o.status) ?? 0) + 1);
+      const cur = map.get(o.status) ?? { count: 0, volume: 0 };
+      cur.count += 1;
+      cur.volume += volumeForOrder(o);
+      map.set(o.status, cur);
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
   }, [filtered]);
 
   const assetCounts = useMemo(() => {
@@ -118,22 +143,62 @@ export function ReportsPage({ session }: Props) {
       const key = `${o.asset} · ${networkLabel(o.network)}`;
       const cur = map.get(key) ?? { count: 0, volume: 0 };
       cur.count += 1;
-      if (o.status === "completed" || o.status === "confirmed") {
-        const n = Number(o.payableAmount.amount);
-        if (Number.isFinite(n)) cur.volume += n;
-      }
+      cur.volume += volumeForOrder(o);
       map.set(key, cur);
     }
     return [...map.entries()].sort((a, b) => b[1].volume - a[1].volume);
   }, [filtered]);
 
-  const cashierCounts = useMemo(() => {
-    const map = new Map<string, number>();
+  const siteCounts = useMemo(() => {
+    const map = new Map<string, { count: number; volume: number }>();
     for (const o of filtered) {
-      const key = o.createdBy ? truncateAddress(o.createdBy, 6, 4) : "—";
-      map.set(key, (map.get(key) ?? 0) + 1);
+      const key =
+        o.orgName ??
+        (o.orgId ? orgNameById.get(o.orgId) : null) ??
+        o.orgId ??
+        "Unknown";
+      const cur = map.get(key) ?? { count: 0, volume: 0 };
+      cur.count += 1;
+      cur.volume += volumeForOrder(o);
+      map.set(key, cur);
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    return [...map.entries()].sort((a, b) => b[1].volume - a[1].volume);
+  }, [filtered, orgNameById]);
+
+  const dayCounts = useMemo(() => {
+    const map = new Map<string, { count: number; volume: number; sortKey: string }>();
+    for (const o of filtered) {
+      const iso = orderTimestamp(o);
+      const d = new Date(iso);
+      if (!Number.isFinite(d.getTime())) continue;
+      const sortKey = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+      const cur = map.get(label) ?? { count: 0, volume: 0, sortKey };
+      cur.count += 1;
+      cur.volume += volumeForOrder(o);
+      map.set(label, cur);
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[1].sortKey.localeCompare(a[1].sortKey))
+      .slice(0, 14);
+  }, [filtered]);
+
+  const cashierCounts = useMemo(() => {
+    const map = new Map<string, { count: number; volume: number }>();
+    for (const o of filtered) {
+      const key =
+        o.createdByEmail ??
+        (o.createdBy ? truncateAddress(o.createdBy, 6, 4) : "—");
+      const cur = map.get(key) ?? { count: 0, volume: 0 };
+      cur.count += 1;
+      cur.volume += volumeForOrder(o);
+      map.set(key, cur);
+    }
+    return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
   }, [filtered]);
 
   const completedVolume = useMemo(() => sumCompletedVolume(filtered), [filtered]);
@@ -151,6 +216,7 @@ export function ReportsPage({ session }: Props) {
 
   return (
     <div className="reports-page">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       {canExport && topbarActionsSlot
         ? createPortal(
             <button type="button" className="btn-primary" onClick={onExport}>
@@ -182,10 +248,9 @@ export function ReportsPage({ session }: Props) {
                 onChange={(e) => setSiteOrgId(e.target.value)}
               >
                 <option value="">All sites</option>
-                {siteOptions.map((m) => (
-                  <option key={m.orgId} value={m.orgId}>
-                    {m.orgType === "merchant_site" ? "Site" : "Merchant"} ·{" "}
-                    {truncateAddress(m.orgId, 8, 4)}
+                {siteOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.type === "merchant_site" ? "Site" : "Merchant"} · {o.name}
                   </option>
                 ))}
               </select>
@@ -193,13 +258,11 @@ export function ReportsPage({ session }: Props) {
           ) : null}
         </div>
         <p className="muted reports-note">
-          Summary uses orders loaded from the API (up to 200). CSV export includes
-          matching_mode, payable_amount, receive_address, address_source, hd_index,
-          and memo_or_tag for up to 5,000 rows in scope.
+          Summary by order <strong>created</strong> date (up to 200 loaded rows).
+          CSV export includes org name, merchant reference, received amount, and
+          cashier email for up to 5,000 rows.
         </p>
       </div>
-
-      {error ? <p className="error">{error}</p> : null}
 
       {loading ? (
         <p className="muted">Loading report data…</p>
@@ -232,15 +295,17 @@ export function ReportsPage({ session }: Props) {
               {statusCounts.length === 0 ? (
                 <p className="muted">No orders in this range.</p>
               ) : (
-                <div className="breakdown-table cols-2">
+                <div className="breakdown-table">
                   <div className="breakdown-head">
                     <span>Status</span>
                     <span>Count</span>
+                    <span>Volume</span>
                   </div>
-                  {statusCounts.map(([status, count]) => (
+                  {statusCounts.map(([status, stats]) => (
                     <div key={status} className="breakdown-row">
                       <span>{orderStatusLabel(status)}</span>
-                      <span className="mono">{count}</span>
+                      <span className="mono">{stats.count}</span>
+                      <span className="mono">{stats.volume.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -270,19 +335,65 @@ export function ReportsPage({ session }: Props) {
             </section>
 
             <section className="panel reports-breakdown">
+              <h2>By site</h2>
+              {siteCounts.length === 0 ? (
+                <p className="muted">No orders in this range.</p>
+              ) : (
+                <div className="breakdown-table">
+                  <div className="breakdown-head">
+                    <span>Location</span>
+                    <span>Orders</span>
+                    <span>Volume</span>
+                  </div>
+                  {siteCounts.map(([key, stats]) => (
+                    <div key={key} className="breakdown-row">
+                      <span>{key}</span>
+                      <span className="mono">{stats.count}</span>
+                      <span className="mono">{stats.volume.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="panel reports-breakdown">
+              <h2>By day</h2>
+              {dayCounts.length === 0 ? (
+                <p className="muted">No orders in this range.</p>
+              ) : (
+                <div className="breakdown-table">
+                  <div className="breakdown-head">
+                    <span>Date</span>
+                    <span>Orders</span>
+                    <span>Volume</span>
+                  </div>
+                  {dayCounts.map(([key, stats]) => (
+                    <div key={key} className="breakdown-row">
+                      <span>{key}</span>
+                      <span className="mono">{stats.count}</span>
+                      <span className="mono">{stats.volume.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="panel reports-breakdown">
               <h2>By cashier</h2>
               {cashierCounts.length === 0 ? (
                 <p className="muted">No orders in this range.</p>
               ) : (
-                <div className="breakdown-table cols-2">
+                <div className="breakdown-table">
                   <div className="breakdown-head">
                     <span>Created by</span>
                     <span>Orders</span>
+                    <span>Volume</span>
                   </div>
-                  {cashierCounts.map(([who, count]) => (
+                  {cashierCounts.map(([who, stats]) => (
                     <div key={who} className="breakdown-row">
                       <span className="mono">{who}</span>
-                      <span className="mono">{count}</span>
+                      <span className="mono">{stats.count}</span>
+                      <span className="mono">{stats.volume.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>

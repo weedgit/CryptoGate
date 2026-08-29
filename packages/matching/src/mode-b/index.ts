@@ -7,6 +7,7 @@ import {
   AddressSource,
   AssetCode,
   NetworkId,
+  OrderStatus,
   getAssetNetworkConfig,
   type AssetCode as AssetCodeType,
   type NetworkId as NetworkIdType,
@@ -21,6 +22,17 @@ import type {
 } from "../types.js";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
+
+/**
+ * Live Mode B tickets that block creating another same amount on the main
+ * settlement address. Payment Anomaly is history/reconcile — it must not lock
+ * the amount forever (staff can open a new ticket; match-time safety net remains).
+ */
+export const MODE_B_CREATE_BLOCK_STATUSES = [
+  OrderStatus.PendingPayment,
+  OrderStatus.Verifying,
+  OrderStatus.Confirmed,
+] as const;
 
 function isAssetCode(value: string): value is AssetCodeType {
   return (Object.values(AssetCode) as string[]).includes(value);

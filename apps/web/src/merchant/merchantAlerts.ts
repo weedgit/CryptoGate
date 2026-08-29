@@ -13,14 +13,16 @@ import {
   type ServiceBill,
   type SiteSettingOverride,
 } from "./api";
-import { anomalyReasonLabel, formatShortTime } from "./orderStatus";
+import { anomalyAmountLine, anomalyExplain, formatShortTime } from "./orderStatus";
 import {
   formatCountdown,
   parentMerchantOrgId,
   primaryMerchantOrgId,
-  sessionCanViewIntegrations,
+  sessionCanCheckoutServiceBill,
+  sessionCanManageIntegrations,
   sessionIsCashierOnly,
   sessionIsOrgOwner,
+  sessionRoleOnOrg,
 } from "./org";
 
 type Listener = (items: AlertItem[]) => void;
@@ -28,6 +30,7 @@ type Listener = (items: AlertItem[]) => void;
 export type MerchantAlertsRefreshResult = {
   unread: number;
   urgentUnread: number;
+  unresolved: number;
 };
 
 const LIVE: AlertItem[] = [];
@@ -92,20 +95,39 @@ function billRef(bill: ServiceBill): string {
   return bill.id.slice(0, 8).toUpperCase();
 }
 
-function anomalyAlert(order: PaymentOrder): AlertItem {
-  const cause = anomalyReasonLabel(order.anomalyReason);
+function anomalyAlert(order: PaymentOrder, actionable: boolean): AlertItem {
+  const explain = anomalyExplain({
+    reason: order.anomalyReason,
+    matchingMode: order.matchingMode,
+    payableAmount: order.payableAmount?.amount,
+    receivedAmount: order.receivedAmount?.amount,
+    hasTx: Boolean(order.receivedAmount?.amount),
+  });
+  const amounts = anomalyAmountLine({
+    payableAmount: order.payableAmount?.amount,
+    receivedAmount: order.receivedAmount?.amount,
+    asset: order.asset,
+  });
   return {
     id: `anomaly:${order.id}`,
     category: "payments",
-    title: "Payment anomaly",
-    body: cause
-      ? `Order #${order.orderNumber} — ${cause}.`
-      : `Order #${order.orderNumber} needs manual review.`,
+    title: "Payment needs review",
+    body: [
+      `Order #${order.orderNumber} — ${explain.title}.`,
+      amounts,
+      actionable
+        ? "Open the order, then Resolve with a note (no Mark paid)."
+        : "Owner, Administrator, or the Cashier who created this order must Resolve with a note.",
+    ]
+      .filter(Boolean)
+      .join(" "),
     at: formatShortTime(order.createdAt ?? order.expiresAt),
     href: `/merchant/orders/${order.id}`,
-    hrefLabel: "Review order",
+    hrefLabel: actionable ? "Review order" : "View order",
     tone: "anomaly",
     urgent: true,
+    unresolved: true,
+    actionable,
   };
 }
 
@@ -119,15 +141,18 @@ function settlementCooldownAlert(
   return {
     id: `settlement:cooldown:${orgId}:${asset}:${network}`,
     category: "security",
-    title: "Settlement cool-down active",
+    title: "Settlement address change pending",
     body: remaining
-      ? `New ${asset} address activates in ${remaining}.`
-      : `New ${asset} settlement address activates ${formatShortTime(activatesAt)}.`,
+      ? `New ${asset} (${network}) receive address activates in ${remaining}. Until then, open orders still use the current address.`
+      : `New ${asset} (${network}) receive address activates ${formatShortTime(activatesAt)}. Until then, open orders still use the current address.`,
     at: formatShortTime(activatesAt),
     href: "/merchant/settings/settlement",
     hrefLabel: "Settlement",
     tone: "warn",
     urgent: true,
+    unresolved: true,
+    /** Cool-down clears itself; no role can skip it. */
+    actionable: false,
   };
 }
 
@@ -141,33 +166,41 @@ function xpubCooldownAlert(
   return {
     id: `xpub:cooldown:${orgId}:${asset}:${network}`,
     category: "security",
-    title: "xPub cool-down active",
+    title: "xPub change pending",
     body: remaining
-      ? `Mode S xPub for ${asset} activates in ${remaining}.`
-      : `Mode S xPub activates ${formatShortTime(activatesAt)}.`,
+      ? `Mode S watch-only xPub for ${asset} (${network}) activates in ${remaining}. New HD addresses wait until then.`
+      : `Mode S watch-only xPub for ${asset} (${network}) activates ${formatShortTime(activatesAt)}.`,
     at: formatShortTime(activatesAt),
     href: "/merchant/settings/settlement",
     hrefLabel: "Settlement",
     tone: "warn",
     urgent: true,
+    unresolved: true,
+    actionable: false,
   };
 }
 
-function serviceBillAlert(bill: ServiceBill): AlertItem {
+function serviceBillAlert(bill: ServiceBill, canPay: boolean): AlertItem {
   const overdue = bill.status === "overdue";
   const ref = billRef(bill);
   return {
     id: `bill:${bill.id}`,
     category: "billing",
-    title: overdue ? "Service bill overdue" : "Service bill issued",
+    title: overdue ? "Service bill overdue" : "Service bill unpaid",
     body: overdue
-      ? `${ref} · ${bill.totalAmount} ${bill.currency} — pay to avoid account restriction.`
-      : `${ref} · ${bill.totalAmount} ${bill.currency} · due ${formatShortTime(bill.dueAt)}.`,
+      ? canPay
+        ? `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is overdue — pay the platform service bill to avoid account restriction.`
+        : `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is overdue — ask an Owner or Administrator to pay.`
+      : canPay
+        ? `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is unpaid — due ${formatShortTime(bill.dueAt)}. This is platform fees, not a customer payment order.`
+        : `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is unpaid — due ${formatShortTime(bill.dueAt)}. An Owner or Administrator must pay.`,
     at: formatShortTime(bill.dueAt),
     href: `/merchant/service-bills/${bill.id}`,
-    hrefLabel: overdue ? "Pay bill" : "View bill",
-    tone: overdue ? "warn" : "info",
-    urgent: overdue,
+    hrefLabel: canPay ? "Pay bill" : "View bill",
+    tone: "warn",
+    urgent: true,
+    unresolved: true,
+    actionable: canPay,
   };
 }
 
@@ -180,13 +213,15 @@ function siteOverridePendingForParent(
   return {
     id: `site-override:pending:${row.id}`,
     category: "security",
-    title: "Site override approval",
-    body: `${siteName} requested a ${kind} override — review and approve or deny.`,
+    title: "Site asked to change settings",
+    body: `${siteName} requested a ${kind} change — approve or deny on the site page.`,
     at: formatShortTime(row.createdAt),
     href: `/merchant/sites/${siteId}`,
     hrefLabel: "Review",
     tone: "warn",
     urgent: true,
+    unresolved: true,
+    actionable: true,
   };
 }
 
@@ -195,13 +230,16 @@ function siteOverridePendingForSite(row: SiteSettingOverride): AlertItem {
   return {
     id: `site-override:pending:${row.id}`,
     category: "security",
-    title: "Override pending approval",
-    body: `Your ${kind} override is waiting for parent merchant Owner approval.`,
+    title: "Waiting for parent approval",
+    body: `Your ${kind} change is waiting for the parent merchant Owner to approve.`,
     at: formatShortTime(row.createdAt),
     href: `/merchant/settings/settlement`,
     hrefLabel: "Settings",
     tone: "info",
     urgent: false,
+    unresolved: true,
+    /** Only parent Owner can decide — site cannot self-clear. */
+    actionable: false,
   };
 }
 
@@ -213,15 +251,18 @@ function siteOverrideDecidedAlert(
   return {
     id: `site-override:decided:${row.id}`,
     category: "security",
-    title: approved ? "Override approved" : "Override denied",
+    title: approved ? "Site change approved" : "Site change denied",
     body: approved
-      ? `Parent merchant approved your ${kind} override.`
-      : `Parent merchant denied your ${kind} override.`,
+      ? `Parent merchant approved your ${kind} change.`
+      : `Parent merchant denied your ${kind} change. Ask them if you need a different setting.`,
     at: formatShortTime(row.decidedAt ?? row.createdAt),
     href: `/merchant/settings/settlement`,
     hrefLabel: "Settings",
     tone: approved ? "ok" : "warn",
     urgent: false,
+    /** Informational — already decided; drop from unresolved banner. */
+    unresolved: false,
+    actionable: true,
   };
 }
 
@@ -241,14 +282,26 @@ function webhookFailureAlert(
   return {
     id: `webhook:fail:${webhookId}`,
     category: "system",
-    title: "Webhook delivery failing",
-    body: `${host} failed ${attempts} times — check endpoint availability and signing.`,
+    title: "Webhook not reaching your server",
+    body: `${host} failed ${attempts} times — check that your endpoint is up and verifies the signed payload.`,
     at: at ? formatShortTime(at) : "Recent",
     href: "/merchant/settings/integrations",
     hrefLabel: "Integrations",
     tone: "warn",
     urgent: true,
+    unresolved: true,
+    actionable: true,
   };
+}
+
+function canResolveAnomaly(session: Session, order: PaymentOrder): boolean {
+  const orgId = order.orgId;
+  if (!orgId) return false;
+  const role = sessionRoleOnOrg(session, orgId);
+  if (role === "cashier") {
+    return Boolean(order.createdBy && order.createdBy === session.userId);
+  }
+  return role === "owner" || role === "administrator";
 }
 
 export function initMerchantAlertReads(userEmail: string): void {
@@ -280,11 +333,17 @@ export function markAllMerchantAlertsRead(): void {
 }
 
 export function countUnreadMerchantAlerts(): number {
-  return LIVE.filter((a) => !readIds.has(a.id)).length;
+  return LIVE.filter(
+    (a) => a.category !== "billing" && !readIds.has(a.id),
+  ).length;
 }
 
 export function countUrgentUnreadMerchantAlerts(): number {
   return LIVE.filter((a) => a.urgent && !readIds.has(a.id)).length;
+}
+
+export function countUnresolvedMerchantAlerts(): number {
+  return LIVE.filter((a) => a.unresolved !== false).length;
 }
 
 async function loadSettlementAlerts(orgId: string, next: AlertItem[]): Promise<void> {
@@ -320,13 +379,16 @@ async function loadXpubAlerts(orgId: string, next: AlertItem[]): Promise<void> {
   }
 }
 
-async function loadBillingAlerts(next: AlertItem[]): Promise<void> {
+async function loadBillingAlerts(
+  next: AlertItem[],
+  canPay: boolean,
+): Promise<void> {
   try {
     const billList = await listServiceBills();
     for (const bill of billList.filter(
       (b) => b.status === "overdue" || b.status === "issued",
     )) {
-      next.push(serviceBillAlert(bill));
+      next.push(serviceBillAlert(bill, canPay));
     }
   } catch {
     /* ignore */
@@ -430,24 +492,24 @@ export async function refreshMerchantAlerts(
 ): Promise<MerchantAlertsRefreshResult> {
   const orgId = primaryMerchantOrgId(session);
   const cashierOnly = sessionIsCashierOnly(session);
+  const canPay = sessionCanCheckoutServiceBill(session);
+  const canManageHooks = sessionCanManageIntegrations(session);
   const next: AlertItem[] = [];
 
   if (orgId && !cashierOnly) {
     await Promise.all([
       loadSettlementAlerts(orgId, next),
       loadXpubAlerts(orgId, next),
-      loadBillingAlerts(next),
+      loadBillingAlerts(next, canPay),
       loadSiteOverrideAlerts(session, orgId, next),
-      sessionCanViewIntegrations(session)
-        ? loadWebhookFailureAlerts(orgId, next)
-        : Promise.resolve(),
+      canManageHooks ? loadWebhookFailureAlerts(orgId, next) : Promise.resolve(),
     ]);
   }
 
   try {
     const orders = await listOrders({ limit: 500 });
     for (const order of orders.filter((o) => o.status === "payment_anomaly")) {
-      next.push(anomalyAlert(order));
+      next.push(anomalyAlert(order, canResolveAnomaly(session, order)));
     }
   } catch {
     /* ignore */
@@ -460,6 +522,7 @@ export async function refreshMerchantAlerts(
   return {
     unread: countUnreadMerchantAlerts(),
     urgentUnread: countUrgentUnreadMerchantAlerts(),
+    unresolved: countUnresolvedMerchantAlerts(),
   };
 }
 

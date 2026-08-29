@@ -53,6 +53,20 @@ describe("@cryptogate/watcher restart safety (M4-20)", () => {
     assert.equal(d.write, true);
   });
 
+  it("matchWriteNeeded backfills missing received_amount on anomaly", () => {
+    const d = matchWriteNeeded(
+      {
+        status: "payment_anomaly",
+        txHash: "0xabc",
+        receivedAmount: null,
+      },
+      { status: "payment_anomaly" },
+      { txHash: "0xabc", amount: "5.00" },
+    );
+    assert.equal(d.write, true);
+    assert.equal(d.reason, "backfill_received_amount");
+  });
+
   it("confirmationWriteNeeded skips unchanged count", () => {
     const d = confirmationWriteNeeded(
       { status: "verifying", confirmations: 5 },

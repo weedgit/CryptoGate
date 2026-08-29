@@ -86,6 +86,7 @@ export function mapTrc20Row(row, cfg) {
 
   const txHash = String(row.transaction_id ?? row.txID ?? "").trim();
   const toAddress = String(row.to ?? "").trim();
+  const fromAddress = String(row.from ?? "").trim() || undefined;
   const value = row.value;
   if (!txHash || !toAddress || value === undefined || value === null) {
     return null;
@@ -105,6 +106,7 @@ export function mapTrc20Row(row, cfg) {
 
   return {
     toAddress,
+    fromAddress,
     amount,
     txHash,
     asset: cfg.asset ?? "USDT",
@@ -209,6 +211,8 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
       );
       const amountSun = Number(value.amount);
       const toAddress = String(row.toAddress ?? value.to_address ?? "").trim();
+      const ownerRaw = value.owner_address ?? row.from ?? row.ownerAddress;
+      const fromAddress = String(ownerRaw ?? "").trim() || undefined;
       const txHash = String(row.txID ?? row.transaction_id ?? "").trim();
       if (!toAddress || !watched.has(toAddress) || !Number.isFinite(amountSun) || !txHash) {
         continue;
@@ -223,6 +227,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
 
       transfers.push({
         toAddress,
+        fromAddress,
         amount,
         txHash,
         asset: cfg.asset,

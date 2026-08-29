@@ -59,7 +59,9 @@ On USDT Tron, many wallets cannot attach a memo. Two open orders for **245.00 US
 
 ### Standard (B)
 
-CryptoGate **does not guess**. Both payments become **Payment Anomaly** (manual review). There is no FIFO “first order wins.”
+CryptoGate **does not guess**. At **create** time, a second open order for the same amount on the main address is **blocked** (`mode_b_amount_in_use`) while a **live** ticket exists (`pending_payment` / `verifying` / `confirmed`). **Payment Anomaly** does not block create — reconcile that row manually; staff may open a new ticket for the same amount. **Cancel** (Owner/Admin any pending; Cashier own pending) frees a live slot so the second cashier can Continue. If two tickets still collide at match time (race), both become **Payment Anomaly**. There is no FIFO “first order wins.”
+
+For concurrent same-amount cashiers, prefer **Amount fingerprint** or **Smart address**.
 
 ### Amount fingerprint (C)
 
@@ -121,12 +123,16 @@ Guests should not use a different network or round the amount under Amount finge
 
 ## 8. Payment Anomaly — what to do
 
-Typical causes: same-amount collision under Standard, underpay/overpay, wrong network, late pay, duplicate tx hash.
+Typical causes: two open tickets with the same amount, underpay/overpay, wrong network, late pay, duplicate tx.
 
-1. Open the payment order detail — read the anomaly reason.  
+1. Open the payment order detail — read the plain-language reason and expected vs received amounts.  
 2. Check the chain explorer for the tx.  
 3. Reconcile manually in your own books / wallet.  
-4. **Do not** expect a “Mark paid” button — CryptoGate will not invent a match.
+4. **Resolve anomaly** with a short note (Owner/Admin any order; Cashier own only). The ticket closes; alerts stop.  
+5. **Do not** expect a “Mark paid” button — CryptoGate will not invent a match.  
+6. Open anomalies do **not** block creating a new same-amount ticket — but resolve them so they do not stay in Alerts forever.
+
+The printed **invoice** shows the anomaly reason, amounts, and (after resolve) your staff note.
 
 ---
 

@@ -39,6 +39,7 @@ data class PaymentOrder(
     val network: String,
     val expiresAt: String,
     val memoOrTag: String?,
+    val merchantReference: String? = null,
 )
 
 data class PaymentDetails(

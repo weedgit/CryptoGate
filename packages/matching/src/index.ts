@@ -64,7 +64,7 @@ export async function matchTransaction(input: MatchInput): Promise<MatchResult> 
   }
 }
 
-export { assignModeB, matchModeB, majorToMinor } from "./mode-b/index.js";
+export { assignModeB, matchModeB, majorToMinor, MODE_B_CREATE_BLOCK_STATUSES } from "./mode-b/index.js";
 export {
   assignModeC,
   matchModeC,
@@ -83,6 +83,7 @@ export {
   sanitizeMemoSeed,
   normalizeMemoOrTag,
   MODE_D_RESERVED_STATUSES,
+  MODE_D_CREATE_BLOCK_STATUSES,
   MODE_D_MAX_MEMO_ATTEMPTS,
   MODE_D_MAX_MEMO_LENGTH,
 } from "./mode-d/index.js";

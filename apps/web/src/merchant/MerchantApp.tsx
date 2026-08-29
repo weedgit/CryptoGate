@@ -7,7 +7,7 @@ import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { CashierForbiddenPage } from "./CashierForbiddenPage";
 import { NetworksPage } from "./NetworksPage";
-import { CreateOrderPage } from "./CreateOrderPage";
+import { MerchantOrdersRoutes } from "./MerchantOrdersRoutes";
 import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantShell } from "./MerchantShell";
@@ -145,12 +145,11 @@ export function MerchantApp() {
         element={
           <Shell
             session={session}
-           
             onSignOut={signOut}
             onSessionRefresh={setSession}
             showCashierBanner={cashier}
           >
-            <CreateOrderPage />
+            <MerchantOrdersRoutes session={session} showCreateModal />
           </Shell>
         }
       />
@@ -159,7 +158,7 @@ export function MerchantApp() {
         element={
           <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
-            <OrderDetailPage />
+            <OrderDetailPage session={session} />
           </Shell>
         }
       />
