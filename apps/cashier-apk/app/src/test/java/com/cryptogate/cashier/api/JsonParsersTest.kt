@@ -63,6 +63,29 @@ class JsonParsersTest {
         assertEquals(900, obj.getInt("validitySeconds"))
         assertFalse(obj.has("matchingMode"))
         assertFalse(obj.has("receiveAddress"))
+        assertFalse(obj.has("merchantReference"))
+    }
+
+    @Test
+    fun createOrderJsonIncludesMerchantReferenceWhenSet() {
+        val json =
+            JsonParsers.createOrderRequestJson(
+                "50.00",
+                "USDT",
+                "tron",
+                900,
+                "PO-8842 / Table 12",
+            )
+        val obj = JSONObject(json)
+        assertEquals("PO-8842 / Table 12", obj.getString("merchantReference"))
+        assertFalse(obj.has("matchingMode"))
+    }
+
+    @Test
+    fun createOrderJsonOmitsBlankMerchantReference() {
+        val json = JsonParsers.createOrderRequestJson("50.00", "USDT", "tron", 900, "  ")
+        val obj = JSONObject(json)
+        assertFalse(obj.has("merchantReference"))
     }
 
     @Test
@@ -100,7 +123,8 @@ class JsonParsersTest {
                   "merchantName": "Hotel",
                   "matchingMode": "C",
                   "paymentPageUrl": "http://localhost:5173/pay/ord-1",
-                  "qrPayload": "tron:TMain?amount=50.01&asset=USDT&network=tron",
+                  "qrPayload": "http://localhost:5173/pay/ord-1",
+                  "walletUri": "tron:TMain?amount=50.01&asset=USDT&network=tron",
                   "receiveAddress": "TMain",
                   "payableAmount": { "amount": "50.01", "currency": "USDT" },
                   "copyAmount": "50.01",
@@ -113,7 +137,7 @@ class JsonParsersTest {
                 """.trimIndent(),
             )
         assertEquals("50.01", pay.copyAmount)
-        assertTrue(pay.qrPayload.startsWith("tron:TMain"))
+        assertTrue(pay.qrPayload.startsWith("http"))
         assertEquals("Send the exact payable amount.", pay.payExactAmountWarning)
     }
 }

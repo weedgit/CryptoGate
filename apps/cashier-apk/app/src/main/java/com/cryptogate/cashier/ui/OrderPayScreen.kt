@@ -35,6 +35,7 @@ import com.cryptogate.cashier.qr.QrBitmaps
 @Composable
 fun OrderPayScreen(
     details: PaymentDetails,
+    merchantReference: String? = null,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -75,6 +76,13 @@ fun OrderPayScreen(
             color = statusColor,
             fontWeight = if (OrderStatusUi.isAnomaly(details.status)) FontWeight.Bold else FontWeight.Normal,
         )
+        if (!merchantReference.isNullOrBlank()) {
+            Text(
+                text = "Ref · $merchantReference",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+            )
+        }
         if (OrderStatusUi.isAnomaly(details.status)) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
