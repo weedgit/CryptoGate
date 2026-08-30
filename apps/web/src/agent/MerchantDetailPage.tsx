@@ -296,10 +296,12 @@ export function MerchantDetailPage() {
                 : "Single-location merchant — no separate site orgs."}
             </p>
           ) : (
-            <table className="data-table">
+            <table className="data-table b3-merchant-sites__table">
               <thead>
                 <tr>
                   <th>Site name</th>
+                  <th>Email</th>
+                  <th>Status</th>
                   <th>ID</th>
                 </tr>
               </thead>
@@ -307,7 +309,17 @@ export function MerchantDetailPage() {
                 {sites.map((site) => (
                   <tr key={site.id}>
                     <td>{site.name}</td>
-                    <td className="mono">{site.id}</td>
+                    <td>{site.billingEmail?.trim() || "—"}</td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          site.status === "paused" ? "tone-warn" : "tone-ok"
+                        }`}
+                      >
+                        {(site.status ?? "active").toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="mono">{site.id.slice(0, 8)}…</td>
                   </tr>
                 ))}
               </tbody>

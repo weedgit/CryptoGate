@@ -5393,12 +5393,51 @@ select {
 
 .sites-table .orders-head,
 .sites-table .sites-row {
-  grid-template-columns: 1.5fr 1fr 1fr auto;
+  grid-template-columns: 1.3fr 1.4fr 0.9fr 0.7fr 1fr auto;
 }
 
 .sites-row {
   text-decoration: none;
   color: inherit;
+}
+
+.sites-row__email {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .b3-merchant-sites__table td {
+  vertical-align: middle;
+}
+
+.platform-shell .b3-merchant-sites__name {
+  display: block;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.platform-shell .b3-merchant-sites__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.platform-shell .b3-merchant-sites__email {
+  font-size: 12.5px;
+  color: #c5ced9;
+  word-break: break-all;
+}
+
+.platform-shell .b3-merchant-sites__created {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .merchant-site-danger {
@@ -6029,7 +6068,8 @@ select {
   .panel-preview {
     width: 100%;
   }
-  .sidebar {
+  /* Portal sidebars use off-canvas drawer — do not hide .platform-shell .sidebar here. */
+  .shell:not(.platform-shell) > .sidebar {
     display: none;
   }
   .mode-grid {
@@ -9639,6 +9679,14 @@ select {
   color: var(--text);
 }
 
+.platform-shell .plat-commissions__tabs {
+  margin: 0 0 16px;
+}
+
+.platform-shell .plat-commissions__tabs + .plat-commissions__history-title {
+  margin-top: 4px;
+}
+
 .platform-shell .plat-commissions__summary {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -9673,23 +9721,423 @@ select {
   font-weight: 650;
 }
 
-.platform-shell .plat-commissions__row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .platform-shell .plat-commissions__addr code {
   font-size: 12px;
   color: var(--muted);
 }
 
-.platform-shell .plat-commissions-slip {
+/* Commissions tables — denser institutional finance styling */
+.platform-shell .plat-commissions .plat-bills__table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .plat-commissions__table {
+  font-size: 13px;
+}
+
+.platform-shell .plat-commissions__table th {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  color: #8b97a8;
+  background: #10151c;
+  padding: 9px 12px;
+}
+
+.platform-shell .plat-commissions__table td {
+  padding: 8px 12px;
+  color: #d5dbe6;
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.platform-shell .plat-commissions__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.platform-shell .plat-commissions__table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.platform-shell .plat-commissions__period {
+  color: #a8b3c4;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__agent-link {
+  color: #e8edf5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.platform-shell .plat-commissions__agent-link:hover {
+  color: #99f6e4;
+  text-decoration: underline;
+}
+
+.platform-shell .plat-commissions__th-num,
+.platform-shell .plat-commissions__num,
+.platform-shell .plat-commissions__rate-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__num .fund-amount {
+  color: #cbd5e1;
+  font-weight: 550;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.platform-shell .plat-commissions__num--emph .fund-amount {
+  color: #f0d9a0;
+  font-weight: 650;
+}
+
+.platform-shell .plat-commissions__rate-cell {
+  color: #a8b3c4;
+}
+
+.platform-shell .plat-commissions__th-actions,
+.platform-shell .plat-commissions__actions-cell {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__row-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.platform-shell .plat-commissions__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.25rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__status.is-scheduled {
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.platform-shell .plat-commissions__status.is-pending {
+  color: #f0c674;
+  border-color: rgba(240, 198, 116, 0.32);
+  background: rgba(240, 198, 116, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-ready {
+  color: #7dd3c0;
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-paid {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .plat-commissions__action {
+  appearance: none;
+  margin: 0;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d5dbe6;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.platform-shell .plat-commissions__action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.platform-shell .plat-commissions__action--primary {
+  border-color: rgba(45, 212, 191, 0.35);
+  background: rgba(45, 212, 191, 0.1);
+  color: #99f6e4;
+}
+
+.platform-shell .plat-commissions__action--primary:hover {
+  border-color: rgba(45, 212, 191, 0.5);
+  background: rgba(45, 212, 191, 0.18);
+  color: #ccfbf1;
+}
+
+.platform-shell .plat-commissions .plat-bills__table-wrap .org-pager {
+  margin-top: 0;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.platform-shell .plat-commissions-slip,
+.b3-commission-modal-backdrop .plat-commissions-slip {
   max-width: 560px;
   width: min(560px, 94vw);
 }
 
+.b3-commission-modal-backdrop .plat-commissions-slip__head {
+  align-items: flex-start;
+  padding: 16px 18px 14px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__head-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__kicker {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3c0;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__head h3 {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__body {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__summary {
+  padding: 14px 14px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__label {
+  display: block;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8b97a8;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__payee {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: #e8edf5;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__amount {
+  margin: 12px 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__amount .fund-amount {
+  color: #f0d9a0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__breakdown {
+  margin: 0;
+  font-size: 12.5px;
+  color: #a8b3c4;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8b97a8;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__pay {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__qr-wrap {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__qr-wrap img {
+  display: block;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+  width: 148px;
+  height: 148px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__asset {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__dest {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__copy {
+  appearance: none;
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #99f6e4;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__copy:hover {
+  border-color: rgba(45, 212, 191, 0.4);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__address {
+  display: block;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+  color: #e8edf5;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #99f6e4;
+  text-decoration: none;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__link:hover {
+  text-decoration: underline;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__tx {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__input {
+  min-height: 38px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__paid-meta {
+  margin: 0;
+  font-size: 12px;
+  color: #8b97a8;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__foot {
+  padding: 12px 18px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+@media (max-width: 560px) {
+  .b3-commission-modal-backdrop .plat-commissions-slip__pay {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .b3-commission-modal-backdrop .plat-commissions-slip__dest {
+    width: 100%;
+  }
+}
+
+/* Legacy hook kept for any non-backdrop references */
 .platform-shell .plat-commissions-slip__qr {
   display: flex;
   gap: 16px;
@@ -9776,6 +10224,22 @@ select {
 @media (max-width: 900px) {
   .platform-shell .plat-commissions__summary {
     grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-commissions__row-actions {
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .plat-commissions__th-actions,
+  .platform-shell .plat-commissions__actions-cell {
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .plat-commissions__row-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -14250,13 +14714,53 @@ select {
   min-height: 0;
 }
 
+.platform-shell .b3-settlement > .b3-card--section:first-child {
+  overflow: visible;
+  z-index: 2;
+}
+
+.platform-shell .b3-settlement__xpub-card {
+  overflow: visible;
+  z-index: 1;
+}
+
+.platform-shell .b3-settlement__heading-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-shell .b3-settlement__heading-help {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.platform-shell .b3-settlement__heading-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .b3-settlement__heading-help .plat-card-help__tip {
+  left: 0;
+  right: auto;
+  transform: none;
+  width: min(300px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  z-index: 5;
+}
+
 .platform-shell .b3-settlement__meta {
   display: grid;
   gap: 0;
   margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -14271,6 +14775,7 @@ select {
 
 .platform-shell .b3-settlement__meta > div:first-child {
   border-top: 0;
+  overflow: visible;
 }
 
 .platform-shell .b3-settlement__meta dt {
@@ -14280,6 +14785,36 @@ select {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #94a3b8;
+}
+
+.platform-shell .b3-settlement__meta-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.platform-shell .b3-settlement__meta-help {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.platform-shell .b3-settlement__meta-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .b3-settlement__meta-help .plat-card-help__tip {
+  left: 0;
+  right: auto;
+  transform: none;
+  width: min(280px, 70vw);
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  z-index: 5;
 }
 
 .platform-shell .b3-settlement__meta dd {
@@ -14341,6 +14876,40 @@ select {
 
 .platform-shell .b3-settlement__table {
   margin: 0;
+}
+
+.platform-shell .b3-settlement__table td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.platform-shell .b3-settlement__pair-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.platform-shell .b3-settlement__pair-cell .plat-crypto-icon {
+  flex-shrink: 0;
+}
+
+.platform-shell .b3-settlement__addr-value {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.platform-shell .b3-settlement__addr-value .chain-value__link,
+.platform-shell .b3-settlement__addr-value > .mono {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .platform-shell .b3-settlement__notice {
@@ -18323,14 +18892,56 @@ select {
 }
 
 /* B9 — Issue service bill modal (portaled to body — do not scope only under .platform-shell) */
+@keyframes plat-issue-bill-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes plat-issue-bill-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plat-issue-bill-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plat-issue-bill-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .plat-issue-bill-modal {
   width: min(520px, 100%);
   max-height: min(90vh, 780px);
   overflow: auto;
-  background: #111827;
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.04) 0%, transparent 48px),
+    #111827;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.06),
+    0 24px 64px rgba(0, 0, 0, 0.55);
+  transform-origin: 50% 20%;
 }
 
 .plat-issue-bill-modal-backdrop {
@@ -18339,10 +18950,142 @@ select {
   padding-bottom: 28px;
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .plat-issue-bill-modal-backdrop {
+    animation: plat-issue-bill-backdrop-in 0.22s ease-out both;
+  }
+
+  .plat-issue-bill-modal {
+    animation: plat-issue-bill-panel-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__section {
+    animation: plat-issue-bill-section-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__section:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__section:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__section:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__actions {
+    animation: plat-issue-bill-section-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+}
+
+.plat-issue-bill-modal__head {
+  position: relative;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-issue-bill-modal__head::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(251, 191, 36, 0.55) 0%,
+    rgba(251, 191, 36, 0.08) 42%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.plat-issue-bill-modal__titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plat-issue-bill-modal__eyebrow {
+  margin: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.plat-issue-bill-modal__head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+}
+
+.plat-issue-bill-modal .b3-commission-modal__close {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.plat-issue-bill-modal .b3-commission-modal__close:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.plat-issue-bill-modal .b3-commission-modal__close:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .plat-issue-bill-modal__pending {
-  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 22px;
+  text-align: center;
+}
+
+.plat-issue-bill-modal__spinner,
+.plat-issue-bill-modal__btn-spin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 191, 36, 0.22);
+  border-top-color: #fbbf24;
+}
+
+.plat-issue-bill-modal__btn-spin {
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .plat-issue-bill-modal__spinner,
+  .plat-issue-bill-modal__btn-spin {
+    animation: plat-issue-bill-spin 0.7s linear infinite;
+  }
 }
 
 .plat-issue-bill__form--modal {
@@ -18407,6 +19150,15 @@ select {
   color: #f8fafc;
   font-size: 14px;
   line-height: 1.3;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.plat-issue-bill__form--modal .field-control:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #0d1218;
 }
 
 .plat-issue-bill__form--modal .field-control:focus {
@@ -18425,6 +19177,11 @@ select {
   flex-direction: row;
   align-items: stretch;
   width: 100%;
+  transition: transform 0.18s ease;
+}
+
+.plat-issue-bill__form--modal .plat-issue-bill__money:focus-within {
+  transform: translateY(-1px);
 }
 
 .plat-issue-bill__form--modal .plat-issue-bill__affix {
@@ -18441,6 +19198,16 @@ select {
   color: #94a3b8;
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 13px;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.plat-issue-bill__form--modal .plat-issue-bill__money:focus-within .plat-issue-bill__affix {
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
 }
 
 .plat-issue-bill__form--modal .plat-issue-bill__money .field-control {
@@ -18463,46 +19230,52 @@ select {
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  padding: 6px 20px 0;
+  padding: 10px 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 4px;
 }
 
 .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary {
   width: auto;
-  min-width: 124px;
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 999px;
+  min-width: 0;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 6px;
   border: 1px solid rgba(251, 191, 36, 0.45);
   background: var(--plat-gold-grad, linear-gradient(135deg, #f59e0b 0%, #fbbf24 55%, #fde68a 100%));
   color: #0b0e11;
+  font-size: 13px;
   font-weight: 700;
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.22);
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.18);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    filter 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.28);
   background: var(--plat-gold-grad, linear-gradient(135deg, #f59e0b 0%, #fbbf24 55%, #fde68a 100%));
+}
+
+.plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.98);
 }
 
 .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.plat-issue-bill__form--modal .plat-issue-bill__actions .btn-secondary {
-  width: auto;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f8fafc;
-}
-
-.plat-issue-bill__form--modal .plat-issue-bill__actions .btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #f8fafc;
+  transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 480px) {
@@ -18514,9 +19287,24 @@ select {
     justify-content: stretch;
   }
 
-  .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary,
-  .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-secondary {
+  .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary {
     flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plat-issue-bill-modal-backdrop,
+  .plat-issue-bill-modal,
+  .plat-issue-bill__form--modal .plat-issue-bill__section,
+  .plat-issue-bill__form--modal .plat-issue-bill__actions,
+  .plat-issue-bill-modal__spinner,
+  .plat-issue-bill-modal__btn-spin {
+    animation: none !important;
+  }
+
+  .plat-issue-bill__form--modal .plat-issue-bill__actions .btn-primary:hover:not(:disabled),
+  .plat-issue-bill__form--modal .plat-issue-bill__money:focus-within {
+    transform: none;
   }
 }
 
@@ -21611,8 +22399,8 @@ select {
 
 .platform-shell .plat-compliance__kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .platform-shell .plat-compliance__kpi {
@@ -21621,7 +22409,7 @@ select {
   align-items: center;
   justify-content: center;
   min-height: 108px;
-  padding: 16px;
+  padding: 14px 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
@@ -21634,6 +22422,9 @@ select {
     );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   text-align: center;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -21644,70 +22435,106 @@ select {
   transform: translateY(-1px);
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(1) {
+.platform-shell .plat-compliance__kpi.is-active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.platform-shell .plat-compliance__kpi.tone-all {
   background:
     radial-gradient(120% 100% at 0% 0%, rgba(251, 113, 133, 0.1), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(244, 63, 94, 0.05), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(136, 19, 55, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(15, 23, 42, 0.08) 100%
-    );
+    linear-gradient(155deg, rgba(136, 19, 55, 0.1) 0%, rgba(255, 255, 255, 0.03) 55%);
   border-color: rgba(251, 113, 133, 0.18);
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(2) {
-  background:
-    radial-gradient(120% 100% at 0% 0%, rgba(96, 165, 250, 0.1), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(59, 130, 246, 0.05), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(30, 64, 175, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(15, 23, 42, 0.08) 100%
-    );
-  border-color: rgba(96, 165, 250, 0.18);
-}
-
-.platform-shell .plat-compliance__kpi:nth-child(3) {
-  background:
-    radial-gradient(120% 100% at 0% 0%, rgba(52, 211, 153, 0.1), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(16, 185, 129, 0.05), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(6, 95, 70, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(2, 44, 34, 0.08) 100%
-    );
-  border-color: rgba(52, 211, 153, 0.18);
-}
-
-.platform-shell .plat-compliance__kpi:nth-child(1) .plat-compliance__kpi-label,
-.platform-shell .plat-compliance__kpi:nth-child(1) .plat-compliance__kpi-copy {
+.platform-shell .plat-compliance__kpi.tone-all .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-all .plat-compliance__kpi-copy {
   color: rgba(251, 113, 133, 0.78);
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(1) .plat-compliance__kpi-value {
+.platform-shell .plat-compliance__kpi.tone-all .plat-compliance__kpi-value {
   color: #fda4af;
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(2) .plat-compliance__kpi-label,
-.platform-shell .plat-compliance__kpi:nth-child(2) .plat-compliance__kpi-copy {
+.platform-shell .plat-compliance__kpi.tone-underpay {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(251, 191, 36, 0.1), transparent 58%),
+    linear-gradient(155deg, rgba(120, 53, 15, 0.12) 0%, rgba(255, 255, 255, 0.03) 55%);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.platform-shell .plat-compliance__kpi.tone-underpay .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-underpay .plat-compliance__kpi-copy {
+  color: rgba(252, 211, 77, 0.78);
+}
+
+.platform-shell .plat-compliance__kpi.tone-underpay .plat-compliance__kpi-value {
+  color: #fcd34d;
+}
+
+.platform-shell .plat-compliance__kpi.tone-overpay {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(96, 165, 250, 0.1), transparent 58%),
+    linear-gradient(155deg, rgba(30, 64, 175, 0.1) 0%, rgba(255, 255, 255, 0.03) 55%);
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.platform-shell .plat-compliance__kpi.tone-overpay .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-overpay .plat-compliance__kpi-copy {
   color: rgba(147, 197, 253, 0.78);
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(2) .plat-compliance__kpi-value {
+.platform-shell .plat-compliance__kpi.tone-overpay .plat-compliance__kpi-value {
   color: #93c5fd;
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(3) .plat-compliance__kpi-label,
-.platform-shell .plat-compliance__kpi:nth-child(3) .plat-compliance__kpi-copy {
-  color: rgba(110, 231, 183, 0.78);
+.platform-shell .plat-compliance__kpi.tone-collision {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(244, 114, 182, 0.1), transparent 58%),
+    linear-gradient(155deg, rgba(131, 24, 67, 0.12) 0%, rgba(255, 255, 255, 0.03) 55%);
+  border-color: rgba(244, 114, 182, 0.2);
 }
 
-.platform-shell .plat-compliance__kpi:nth-child(3) .plat-compliance__kpi-value {
-  color: #6ee7b7;
+.platform-shell .plat-compliance__kpi.tone-collision .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-collision .plat-compliance__kpi-copy {
+  color: rgba(249, 168, 212, 0.78);
+}
+
+.platform-shell .plat-compliance__kpi.tone-collision .plat-compliance__kpi-value {
+  color: #f9a8d4;
+}
+
+.platform-shell .plat-compliance__kpi.tone-network {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(167, 139, 250, 0.1), transparent 58%),
+    linear-gradient(155deg, rgba(76, 29, 149, 0.12) 0%, rgba(255, 255, 255, 0.03) 55%);
+  border-color: rgba(167, 139, 250, 0.2);
+}
+
+.platform-shell .plat-compliance__kpi.tone-network .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-network .plat-compliance__kpi-copy {
+  color: rgba(196, 181, 253, 0.78);
+}
+
+.platform-shell .plat-compliance__kpi.tone-network .plat-compliance__kpi-value {
+  color: #c4b5fd;
+}
+
+.platform-shell .plat-compliance__kpi.tone-other {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(148, 163, 184, 0.1), transparent 58%),
+    linear-gradient(155deg, rgba(51, 65, 85, 0.14) 0%, rgba(255, 255, 255, 0.03) 55%);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.platform-shell .plat-compliance__kpi.tone-other .plat-compliance__kpi-label,
+.platform-shell .plat-compliance__kpi.tone-other .plat-compliance__kpi-copy {
+  color: rgba(203, 213, 225, 0.78);
+}
+
+.platform-shell .plat-compliance__kpi.tone-other .plat-compliance__kpi-value {
+  color: #e2e8f0;
 }
 
 .platform-shell .plat-compliance__kpi-label {
@@ -21852,6 +22679,7 @@ select {
   font-weight: 650;
   color: #fcd34d;
   text-decoration: none;
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -21870,6 +22698,10 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.platform-shell .plat-compliance__merchant:hover {
+  text-decoration: underline;
 }
 
 .platform-shell a.plat-compliance__merchant:hover {
@@ -21940,9 +22772,15 @@ select {
   white-space: nowrap;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .platform-shell .plat-compliance__kpis {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .platform-shell .plat-compliance__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .platform-shell .plat-compliance__table {
@@ -23105,6 +23943,33 @@ select {
   background: #12181f;
   box-shadow: 0 12px 16px rgba(255, 90, 106, 0.13);
   animation: b7-modal-in 280ms ease both;
+}
+
+/* Embedded on Compliance tab — same fields, no dialog chrome. */
+.b7-override-modal--inline {
+  width: 100%;
+  max-width: none;
+  margin-top: 8px;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 90, 106, 0.28);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.b7-override-modal--inline.is-pulse {
+  animation: b7-danger-pulse-inline 400ms ease;
+}
+
+@keyframes b7-danger-pulse-inline {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: inset 0 0 0 1px rgba(255, 90, 106, 0.45); }
+}
+
+.b7-override-modal__footer-spacer {
+  flex: 1;
 }
 
 @keyframes b7-modal-in {
@@ -24354,6 +25219,14 @@ select {
   color: #f1f5f9;
 }
 
+.sb-invoice__party-email {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
 .sb-invoice__party-note {
   margin: 6px 0 0;
   font-size: 12px;
@@ -24624,6 +25497,7 @@ select {
   }
 
   .sb-invoice__party-name,
+  .sb-invoice__party-email,
   .sb-invoice__meta-dl dd,
   .sb-invoice__remit h3,
   .sb-invoice__receipt h3 {
@@ -24663,3 +25537,253 @@ select {
   }
 }
 
+
+/* ===== Responsive UI — portal shell + shared layouts (Phase 0–2) ===== */
+
+.portal-mobile-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.portal-mobile-nav-toggle__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 16px;
+}
+
+.portal-mobile-nav-toggle__bars span {
+  display: block;
+  height: 1.5px;
+  width: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transition: transform 180ms var(--ease-out), opacity 180ms ease;
+}
+
+.portal-mobile-nav-toggle.is-open .portal-mobile-nav-toggle__bars span:nth-child(1) {
+  transform: translateY(5.5px) rotate(45deg);
+}
+
+.portal-mobile-nav-toggle.is-open .portal-mobile-nav-toggle__bars span:nth-child(2) {
+  opacity: 0;
+}
+
+.portal-mobile-nav-toggle.is-open .portal-mobile-nav-toggle__bars span:nth-child(3) {
+  transform: translateY(-5.5px) rotate(-45deg);
+}
+
+.portal-nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .portal-mobile-nav-toggle {
+    display: inline-flex;
+  }
+
+  .platform-shell .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 80;
+    width: min(280px, 86vw);
+    height: 100%;
+    max-height: 100dvh;
+    transform: translateX(-105%);
+    transition: transform 280ms var(--ease-out);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .platform-shell.platform-shell--collapsed .sidebar {
+    width: min(280px, 86vw);
+    padding: 24px 12px;
+    align-items: stretch;
+  }
+
+  .platform-shell.platform-shell--collapsed .sidebar .logo-copy,
+  .platform-shell.platform-shell--collapsed .sidebar .nav-label,
+  .platform-shell.platform-shell--collapsed .sidebar .nav-item span {
+    display: initial;
+  }
+
+  .platform-shell.platform-shell--collapsed .sidebar .nav-item {
+    justify-content: flex-start;
+  }
+
+  .platform-shell .sidebar-toggle {
+    display: none;
+  }
+
+  .platform-shell.portal-shell--nav-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .platform-shell.portal-shell--nav-open .portal-nav-backdrop {
+    display: block;
+  }
+
+  .platform-shell .topbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+    margin: 8px 12px 0;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .platform-shell .topbar-status {
+    display: none;
+  }
+
+  .platform-shell .org-architecture__map,
+  .platform-shell .org-architecture {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .data-table-wrap,
+  .platform-shell .org-agents__table-wrap,
+  .platform-shell .plat-bills__table-wrap,
+  .platform-shell .plat-compliance__table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .topbar {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    border-radius: 14px;
+    margin: 6px 8px 0;
+    gap: 8px;
+  }
+
+  .platform-shell .topbar-left,
+  .platform-shell .topbar-center,
+  .platform-shell .topbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .platform-shell .topbar-right {
+    justify-content: space-between;
+  }
+
+  .platform-shell .topbar-center:empty,
+  .platform-shell .topbar-actions:empty {
+    display: none;
+  }
+
+  .platform-shell .body {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .platform-shell .org-split__pane {
+    min-height: min(80vh, 640px);
+  }
+
+  .platform-shell .plat-compliance__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-shell .plat-compliance__pills {
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .b3-agent-detail__head-actions {
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .order-detail-page__layout,
+  .platform-shell .order-detail-page__invoice-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .platform-shell .plat-settings__grid,
+  .platform-shell .plat-dash__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .sidebar,
+  .portal-mobile-nav-toggle__bars span {
+    transition: none;
+  }
+}
+
+/* Phase 1–2: denser page families */
+@media (max-width: 1100px) {
+  .platform-shell .org-architecture__detail-pane {
+    max-height: none;
+  }
+
+  .platform-shell .dash-page.plat-dash .plat-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-bills__filters,
+  .platform-shell .org-agents__toolbar,
+  .platform-shell .plat-compliance__topbar-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .platform-shell .onboard-wizard,
+  .platform-shell .plat-settings__form-grid,
+  .platform-shell .fee-tiers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .org-architecture__metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .platform-shell .plat-bills__table,
+  .platform-shell .org-agents__table,
+  .platform-shell .plat-compliance__table,
+  .platform-shell .data-table {
+    min-width: 640px;
+  }
+
+  .platform-shell .order-detail-page__rail,
+  .platform-shell .order-detail-page__main {
+    width: 100%;
+  }
+
+  .platform-shell .onboard-steps,
+  .platform-shell .wizard-footer {
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .wizard-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    padding: 12px 0;
+    background: linear-gradient(180deg, transparent, var(--bg) 28%);
+  }
+}

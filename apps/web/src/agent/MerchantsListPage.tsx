@@ -14,6 +14,7 @@ import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
+import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import { handleOrgTableKeyDown } from "../platform/orgTableKeyboard";
 import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
@@ -615,6 +616,7 @@ export function MerchantsListPage({ session }: Props) {
   const selectMerchant = (id: string) => {
     navigate(`/agent/merchants/${id}`);
     tableRef.current?.focus({ preventScroll: true });
+    scrollOrgSplitPaneIntoView();
   };
 
   const searchingByEmail =

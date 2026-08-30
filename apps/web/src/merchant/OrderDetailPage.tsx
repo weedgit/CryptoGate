@@ -49,7 +49,11 @@ function timelineStepClass(stepIndex: number, currentIndex: number): string {
   return "";
 }
 
-type Props = { session: Session };
+type Props = {
+  session: Session;
+  /** Platform opens the same evidence UI watch-only (no cancel / resolve / create). */
+  variant?: "merchant" | "platform";
+};
 
 const ORDER_DETAIL_POLL_MS = 5000;
 
@@ -89,11 +93,20 @@ function canResolveAnomalyOrder(
   return m.role === "owner" || m.role === "administrator";
 }
 
-export function OrderDetailPage({ session }: Props) {
+export function OrderDetailPage({
+  session,
+  variant = "merchant",
+}: Props) {
   const { id } = useParams();
   const location = useLocation();
   const invoiceRef = useRef<HTMLElement | null>(null);
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
+  const isPlatform = variant === "platform";
+  const backTo = isPlatform ? "/platform/compliance" : "/merchant/orders";
+  const backLabel = isPlatform ? "← Back to compliance" : "← Back to orders";
+  const topbarCenterId = isPlatform
+    ? "platform-topbar-center"
+    : "merchant-topbar-center";
 
   const [order, setOrder] = useState<PaymentOrder | null>(null);
   const [pay, setPay] = useState<PaymentDetails | null>(seededPay ?? null);
@@ -111,8 +124,8 @@ export function OrderDetailPage({ session }: Props) {
   const [resolveNote, setResolveNote] = useState("");
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("merchant-topbar-center"));
-  }, []);
+    setTopbarSlot(document.getElementById(topbarCenterId));
+  }, [topbarCenterId]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -288,8 +301,8 @@ export function OrderDetailPage({ session }: Props) {
         <section className="plat-settings__card">
           <div className="plat-settings__card-body">
             <p className="muted">Could not load this payment order.</p>
-            <Link className="order-detail-topbar__back" to="/merchant/orders">
-              ← Back to orders
+            <Link className="order-detail-topbar__back" to={backTo}>
+              {backLabel}
             </Link>
           </div>
         </section>
@@ -343,8 +356,8 @@ export function OrderDetailPage({ session }: Props) {
     pay?.paymentPageUrl ??
     address
   ).trim();
-  const showCancel = canCancelPendingOrder(session, order);
-  const showResolve = canResolveAnomalyOrder(session, order);
+  const showCancel = !isPlatform && canCancelPendingOrder(session, order);
+  const showResolve = !isPlatform && canResolveAnomalyOrder(session, order);
   const amountLine = anomalyAmountLine({
     payableAmount: amount,
     receivedAmount: received ?? null,
@@ -365,8 +378,8 @@ export function OrderDetailPage({ session }: Props) {
       ? createPortal(
           <div className="order-detail-topbar no-print" aria-label="Order context">
             <div className="order-detail-topbar__lead">
-              <Link className="order-detail-topbar__back" to="/merchant/orders">
-                ← Orders
+              <Link className="order-detail-topbar__back" to={backTo}>
+                {isPlatform ? "← Compliance" : "← Orders"}
               </Link>
               <span className="order-detail-topbar__divider" aria-hidden />
               <div className="order-detail-topbar__identity">
@@ -797,9 +810,22 @@ export function OrderDetailPage({ session }: Props) {
                   {cancelling ? "Cancelling…" : "Cancel pending order"}
                 </button>
               ) : null}
-              <Link className="order-detail-page__cta" to="/merchant/orders/new">
-                Create another payment order
-              </Link>
+              {!isPlatform ? (
+                <Link className="order-detail-page__cta" to="/merchant/orders/new">
+                  Create another payment order
+                </Link>
+              ) : order?.orgId ? (
+                <Link
+                  className="order-detail-page__cta"
+                  to={`/platform/merchants/${encodeURIComponent(order.orgId)}?tab=compliance`}
+                >
+                  Open merchant
+                </Link>
+              ) : (
+                <Link className="order-detail-page__cta" to="/platform/compliance">
+                  Back to compliance
+                </Link>
+              )}
             </div>
           </div>
 
@@ -897,7 +923,9 @@ export function OrderDetailPage({ session }: Props) {
                   </div>
                 ) : (
                   <p className="order-detail-anomaly__hint">
-                    Ask Owner or Administrator to resolve if this is not your order.
+                    {isPlatform
+                      ? "Platform is watch-only here. Merchant Owner or Administrator resolves after reconciling — never mark paid from platform."
+                      : "Ask Owner or Administrator to resolve if this is not your order."}
                   </p>
                 )}
               </div>

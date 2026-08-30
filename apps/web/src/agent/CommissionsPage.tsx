@@ -18,6 +18,7 @@ import {
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
 import { FundAmount } from "../platform/FundAmount";
+import { OrgListPagination } from "../platform/OrgListPagination";
 import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
 import {
   PlatformPending,
@@ -49,6 +50,15 @@ const PAYOUT_LABEL: Record<string, string> = {
   scheduled: "Scheduled",
   ready: "Ready",
 };
+
+const PAGE_SIZE = 10;
+
+function payoutTone(status: string): string {
+  if (status === "paid") return "paid";
+  if (status === "pending") return "pending";
+  if (status === "ready") return "ready";
+  return "scheduled";
+}
 
 function qrUrl(data: string): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(data)}`;
@@ -90,6 +100,7 @@ export function CommissionsPage({ session }: Props) {
     record: CommissionPayoutRecord | null;
   } | null>(null);
   const [txRef, setTxRef] = useState("");
+  const [copiedKey, setCopiedKey] = useState<"address" | "link" | null>(null);
   const [busy, setBusy] = useState(false);
   const [billsCache, setBillsCache] = useState<
     {
@@ -99,6 +110,9 @@ export function CommissionsPage({ session }: Props) {
       status: string;
     }[]
   >([]);
+  const [statementsPage, setStatementsPage] = useState(1);
+  const [subPayoutsPage, setSubPayoutsPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
 
   const dismissToast = useCallback(() => setError(null), []);
 
@@ -254,6 +268,58 @@ export function CommissionsPage({ session }: Props) {
 
   const agentPaidHistory = agentPayouts;
 
+  const statementsPageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pagedRows = useMemo(() => {
+    const start = (statementsPage - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, statementsPage]);
+
+  const subPayoutsPageCount = Math.max(
+    1,
+    Math.ceil(subPayoutRows.length / PAGE_SIZE),
+  );
+  const pagedSubPayouts = useMemo(() => {
+    const start = (subPayoutsPage - 1) * PAGE_SIZE;
+    return subPayoutRows.slice(start, start + PAGE_SIZE);
+  }, [subPayoutRows, subPayoutsPage]);
+
+  const historyPageCount = Math.max(
+    1,
+    Math.ceil(agentPaidHistory.length / PAGE_SIZE),
+  );
+  const pagedHistory = useMemo(() => {
+    const start = (historyPage - 1) * PAGE_SIZE;
+    return agentPaidHistory.slice(start, start + PAGE_SIZE);
+  }, [agentPaidHistory, historyPage]);
+
+  useEffect(() => {
+    setStatementsPage(1);
+  }, [rows.length]);
+
+  useEffect(() => {
+    setSubPayoutsPage(1);
+  }, [subPayoutRows.length]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [agentPaidHistory.length]);
+
+  useEffect(() => {
+    if (statementsPage > statementsPageCount) {
+      setStatementsPage(statementsPageCount);
+    }
+  }, [statementsPage, statementsPageCount]);
+
+  useEffect(() => {
+    if (subPayoutsPage > subPayoutsPageCount) {
+      setSubPayoutsPage(subPayoutsPageCount);
+    }
+  }, [subPayoutsPage, subPayoutsPageCount]);
+
+  useEffect(() => {
+    if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
+  }, [historyPage, historyPageCount]);
+
   useEffect(() => {
     const payee = searchParams.get("payee");
     const period = searchParams.get("period");
@@ -336,7 +402,18 @@ export function CommissionsPage({ session }: Props) {
   function closeSlip() {
     setSlip(null);
     setTxRef("");
+    setCopiedKey(null);
     setSearchParams({}, { replace: true });
+  }
+
+  async function copySlipValue(key: "address" | "link", value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(null), 1600);
+    } catch {
+      setError("Could not copy to clipboard");
+    }
   }
 
   async function onMarkSubPaid() {
@@ -452,18 +529,19 @@ export function CommissionsPage({ session }: Props) {
         ) : null}
 
         {!loading && rows.length > 0 ? (
-          <table className="plat-bills__table">
+          <>
+          <table className="plat-bills__table plat-commissions__table">
             <thead>
               <tr>
                 <th>Period</th>
-                <th>Platform fee collected</th>
-                <th>Rate</th>
-                <th>Commission</th>
+                <th className="plat-commissions__th-num">Platform fee collected</th>
+                <th className="plat-commissions__th-num">Rate</th>
+                <th className="plat-commissions__th-num">Commission</th>
                 <th>Payout</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
+              {pagedRows.map((row, index) => (
                 <tr
                   key={row.id}
                   className="plat-bills__row"
@@ -471,19 +549,19 @@ export function CommissionsPage({ session }: Props) {
                     animationDelay: `${Math.min(index, 24) * 40}ms`,
                   }}
                 >
-                  <td>{row.periodLabel}</td>
-                  <td className="plat-bills__amount">
+                  <td className="plat-commissions__period">{row.periodLabel}</td>
+                  <td className="plat-commissions__num">
                     <FundAmount amount={row.platformFeeCollected} />
                   </td>
-                  <td>{row.commissionPercent}%</td>
-                  <td className="plat-bills__amount">
+                  <td className="plat-commissions__rate-cell">
+                    {row.commissionPercent}%
+                  </td>
+                  <td className="plat-commissions__num plat-commissions__num--emph">
                     <FundAmount amount={row.commissionAmount} />
                   </td>
                   <td>
                     <span
-                      className={`org-agents__bill is-${
-                        row.payoutStatus === "paid" ? "paid" : "issued"
-                      }`}
+                      className={`plat-commissions__status is-${payoutTone(row.payoutStatus)}`}
                     >
                       {PAYOUT_LABEL[row.payoutStatus] ?? row.payoutStatus}
                     </span>
@@ -492,6 +570,14 @@ export function CommissionsPage({ session }: Props) {
               ))}
             </tbody>
           </table>
+          <OrgListPagination
+            page={statementsPage}
+            pageCount={statementsPageCount}
+            total={rows.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setStatementsPage}
+          />
+          </>
         ) : null}
       </div>
 
@@ -516,60 +602,72 @@ export function CommissionsPage({ session }: Props) {
             </p>
           ) : (
             <div className="plat-bills__table-wrap">
-              <table className="plat-bills__table">
+              <table className="plat-bills__table plat-commissions__table">
                 <thead>
                   <tr>
                     <th>Sub-agent</th>
                     <th>Period</th>
-                    <th>Fee base</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
+                    <th className="plat-commissions__th-num">Fee base</th>
+                    <th className="plat-commissions__th-num">Rate</th>
+                    <th className="plat-commissions__th-num">Amount</th>
                     <th>Status</th>
-                    <th />
+                    <th className="plat-commissions__th-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {subPayoutRows.map((row) => (
+                  {pagedSubPayouts.map((row) => (
                     <tr key={row.sub.id} className="plat-bills__row">
                       <td>
-                        <Link to={`/agent/agents/${row.sub.id}`}>
+                        <Link
+                          className="plat-commissions__agent-link"
+                          to={`/agent/agents/${row.sub.id}`}
+                        >
                           {row.sub.name}
                         </Link>
                       </td>
-                      <td>{row.periodLabel}</td>
-                      <td className="plat-bills__amount">
+                      <td className="plat-commissions__period">
+                        {row.periodLabel}
+                      </td>
+                      <td className="plat-commissions__num">
                         <FundAmount amount={row.feeBase} />
                       </td>
-                      <td>{row.pct}%</td>
-                      <td className="plat-bills__amount">
+                      <td className="plat-commissions__rate-cell">{row.pct}%</td>
+                      <td className="plat-commissions__num plat-commissions__num--emph">
                         <FundAmount amount={row.amount} />
                       </td>
                       <td>
                         <span
-                          className={`org-agents__bill is-${
-                            row.status === "paid" ? "paid" : "issued"
-                          }`}
+                          className={`plat-commissions__status is-${payoutTone(row.status)}`}
                         >
                           {PAYOUT_LABEL[row.status] ?? row.status}
                         </span>
                       </td>
-                      <td>
+                      <td className="plat-commissions__actions-cell">
                         {canManage ? (
-                          <button
-                            type="button"
-                            className="btn-secondary btn-inline"
-                            onClick={() => void openSubSlip(row)}
-                          >
-                            {row.status === "paid"
-                              ? "View slip"
-                              : "Payout slip"}
-                          </button>
+                          <div className="plat-commissions__row-actions">
+                            <button
+                              type="button"
+                              className="plat-commissions__action plat-commissions__action--primary"
+                              onClick={() => void openSubSlip(row)}
+                            >
+                              {row.status === "paid"
+                                ? "View slip"
+                                : "Payout slip"}
+                            </button>
+                          </div>
                         ) : null}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <OrgListPagination
+                page={subPayoutsPage}
+                pageCount={subPayoutsPageCount}
+                total={subPayoutRows.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setSubPayoutsPage}
+              />
             </div>
           )}
 
@@ -579,18 +677,18 @@ export function CommissionsPage({ session }: Props) {
                 Sub-agent payment history
               </h2>
               <div className="plat-bills__table-wrap">
-                <table className="plat-bills__table">
+                <table className="plat-bills__table plat-commissions__table">
                   <thead>
                     <tr>
                       <th>Paid at</th>
                       <th>Sub-agent</th>
                       <th>Period</th>
-                      <th>Amount</th>
+                      <th className="plat-commissions__th-num">Amount</th>
                       <th>Tx / ref</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {agentPaidHistory.map((h) => (
+                    {pagedHistory.map((h) => (
                       <tr key={h.id} className="plat-bills__row">
                         <td>
                           {h.paidAt
@@ -598,8 +696,10 @@ export function CommissionsPage({ session }: Props) {
                             : "—"}
                         </td>
                         <td>{h.payeeName}</td>
-                        <td>{h.periodLabel}</td>
-                        <td className="plat-bills__amount">
+                        <td className="plat-commissions__period">
+                          {h.periodLabel}
+                        </td>
+                        <td className="plat-commissions__num plat-commissions__num--emph">
                           <FundAmount amount={h.commissionAmount} />
                         </td>
                         <td>{h.txRef || "—"}</td>
@@ -607,6 +707,13 @@ export function CommissionsPage({ session }: Props) {
                     ))}
                   </tbody>
                 </table>
+                <OrgListPagination
+                  page={historyPage}
+                  pageCount={historyPageCount}
+                  total={agentPaidHistory.length}
+                  pageSize={PAGE_SIZE}
+                  onPageChange={setHistoryPage}
+                />
               </div>
             </>
           ) : null}
@@ -627,10 +734,15 @@ export function CommissionsPage({ session }: Props) {
                 aria-labelledby="agent-sub-slip-title"
                 onClick={(e) => e.stopPropagation()}
               >
-                <header className="b3-commission-modal__head">
-                  <h3 id="agent-sub-slip-title">
-                    Sub-agent payout · {slip.periodLabel}
-                  </h3>
+                <header className="b3-commission-modal__head plat-commissions-slip__head">
+                  <div className="plat-commissions-slip__head-text">
+                    <p className="plat-commissions-slip__kicker">
+                      Agent → sub-agent
+                    </p>
+                    <h3 id="agent-sub-slip-title">
+                      Payout slip · {slip.periodLabel}
+                    </h3>
+                  </div>
                   <button
                     type="button"
                     className="b3-commission-modal__close"
@@ -640,37 +752,97 @@ export function CommissionsPage({ session }: Props) {
                     ×
                   </button>
                 </header>
-                <div className="b3-commission-modal__body">
-                  <p className="muted" style={{ marginTop: 0 }}>
-                    Pay <strong>{slip.sub.name}</strong>{" "}
-                    <FundAmount amount={slip.amount} /> ({slip.pct}% on{" "}
-                    <FundAmount amount={slip.feeBase} /> fee base). QR and link
-                    point to the <strong>sub-agent payout address</strong>.
-                  </p>
-                  {slipDest?.address ? (
-                    <div className="plat-commissions-slip__qr">
-                      <img
-                        src={qrUrl(slipDest.address)}
-                        alt="Sub-agent payout address QR"
-                        width={160}
-                        height={160}
-                      />
+                <div className="b3-commission-modal__body plat-commissions-slip__body">
+                  <section className="plat-commissions-slip__summary">
+                    <div className="plat-commissions-slip__summary-top">
                       <div>
-                        <p className="plat-commissions__eyebrow">
+                        <p className="plat-commissions-slip__label">Payee</p>
+                        <p className="plat-commissions-slip__payee">
+                          {slip.sub.name}
+                        </p>
+                      </div>
+                      <span
+                        className={`plat-commissions__status is-${payoutTone(slip.record?.payoutStatus ?? "ready")}`}
+                      >
+                        {PAYOUT_LABEL[slip.record?.payoutStatus ?? "ready"] ??
+                          slip.record?.payoutStatus ??
+                          "Ready"}
+                      </span>
+                    </div>
+                    <p className="plat-commissions-slip__amount">
+                      <FundAmount amount={slip.amount} />
+                    </p>
+                    <p className="plat-commissions-slip__breakdown">
+                      {slip.pct}% on <FundAmount amount={slip.feeBase} /> fee
+                      base
+                    </p>
+                    <p className="plat-commissions-slip__hint">
+                      Send funds to the sub-agent payout address below. Platform
+                      does not pay sub-agents directly.
+                    </p>
+                  </section>
+
+                  {slipDest?.address ? (
+                    <section className="plat-commissions-slip__pay">
+                      <div className="plat-commissions-slip__qr-wrap">
+                        <img
+                          src={qrUrl(slipDest.address)}
+                          alt="Sub-agent payout address QR"
+                          width={148}
+                          height={148}
+                        />
+                        <p className="plat-commissions-slip__asset">
                           {slipDest.asset} · {slipDest.network}
                         </p>
-                        <code className="plat-commissions-slip__address">
-                          {slipDest.address}
-                        </code>
-                        <p
-                          className="plat-commissions__eyebrow"
-                          style={{ marginTop: 12 }}
-                        >
-                          Payment link
-                        </p>
-                        <a href={slipLink}>{absoluteSlipLink}</a>
                       </div>
-                    </div>
+                      <div className="plat-commissions-slip__dest">
+                        <div className="plat-commissions-slip__field">
+                          <div className="plat-commissions-slip__field-head">
+                            <span className="plat-commissions-slip__label">
+                              Payout address
+                            </span>
+                            <button
+                              type="button"
+                              className="plat-commissions-slip__copy"
+                              onClick={() =>
+                                void copySlipValue(
+                                  "address",
+                                  slipDest.address,
+                                )
+                              }
+                            >
+                              {copiedKey === "address" ? "Copied" : "Copy"}
+                            </button>
+                          </div>
+                          <code className="plat-commissions-slip__address">
+                            {slipDest.address}
+                          </code>
+                        </div>
+                        <div className="plat-commissions-slip__field">
+                          <div className="plat-commissions-slip__field-head">
+                            <span className="plat-commissions-slip__label">
+                              Payment link
+                            </span>
+                            <button
+                              type="button"
+                              className="plat-commissions-slip__copy"
+                              onClick={() =>
+                                void copySlipValue("link", absoluteSlipLink)
+                              }
+                            >
+                              {copiedKey === "link" ? "Copied" : "Copy"}
+                            </button>
+                          </div>
+                          <a
+                            className="plat-commissions-slip__link"
+                            href={slipLink}
+                            title={absoluteSlipLink}
+                          >
+                            {absoluteSlipLink}
+                          </a>
+                        </div>
+                      </div>
+                    </section>
                   ) : (
                     <p className="banner banner-warn">
                       No payout address on this sub-agent yet. They must set it
@@ -678,11 +850,14 @@ export function CommissionsPage({ session }: Props) {
                       then reopen this slip.
                     </p>
                   )}
+
                   {canManage && slip.record?.payoutStatus !== "paid" ? (
                     <label className="plat-commissions-slip__tx">
-                      <span>Tx hash / bank ref</span>
+                      <span className="plat-commissions-slip__label">
+                        Tx hash / bank ref
+                      </span>
                       <input
-                        className="field-control"
+                        className="field-control plat-commissions-slip__input"
                         value={txRef}
                         onChange={(e) => setTxRef(e.target.value)}
                         placeholder="Paste proof after sending"
@@ -690,7 +865,7 @@ export function CommissionsPage({ session }: Props) {
                     </label>
                   ) : null}
                 </div>
-                <footer className="b3-commission-modal__foot">
+                <footer className="b3-commission-modal__foot plat-commissions-slip__foot">
                   <button type="button" className="btn-ghost" onClick={closeSlip}>
                     Close
                   </button>

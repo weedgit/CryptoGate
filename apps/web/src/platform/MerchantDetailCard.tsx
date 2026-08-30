@@ -8,6 +8,7 @@ import {
   getMatchingMode,
   getOrgOverview,
   listComplianceOverrides,
+  listPlatformOrgMemberEmails,
   listServiceBills,
   listSettlement,
   listXpub,
@@ -39,7 +40,10 @@ import {
 } from "./orgDetailSeeds";
 import { tierLabel } from "../commercialLabels";
 import type { MerchantTier } from "../commercialLabels";
-import { matchingModeLabel, matchingModeScope } from "../merchant/matchingLabels";
+import { matchingModeLabel, matchingModeScope, matchingModeTooltip } from "../merchant/matchingLabels";
+import { displayNetworkForPair } from "../shared/assetNetworks";
+import { CopyableChainValue } from "../shared/CopyableChainValue";
+import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import {
   formatBillId,
   serviceBillStatusLabel,
@@ -218,24 +222,41 @@ function SettlementSectionEmpty({
   );
 }
 
+const XPUB_HELP =
+  "An xPub is a watch-only key from the merchant’s wallet. CryptoGate can derive temporary receive addresses from it when Smart address matching needs them — but it cannot spend or move funds. Private keys never leave the merchant. Standard, amount fingerprint, and memo modes do not need an xPub; they use the fixed settlement address only.";
+
+const COMPLIANCE_OVERRIDE_HELP =
+  "Break-glass controls for Platform Owner or Administrator only. You can change where funds settle, switch how payments are matched, stop new payment orders, or suspend the merchant. Every change needs MFA and is saved in the audit log — guests and cashiers cannot use this.";
+
+function SettlementHelpTip({ text }: { text: string }) {
+  return (
+    <span className="plat-card-help b3-settlement__heading-help">
+      <button type="button" className="plat-card-help__btn" aria-label={text}>
+        ?
+      </button>
+      <span className="plat-card-help__tip" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
 function MerchantCompliancePanel({
-  orgId,
-  orders,
+  org,
   commercial,
-  loading,
   canManage,
-  onOpenOverride,
+  onApplied,
 }: {
-  orgId: string;
-  orders: PaymentOrder[];
+  org: OrgAccount;
   commercial: MerchantCommercialSettings | null;
-  loading: boolean;
   canManage: boolean;
-  onOpenOverride: () => void;
+  onApplied: (result: { org?: OrgAccount }) => void;
 }) {
+  const orgId = org.id;
   const [overrides, setOverrides] = useState<ComplianceOverride[]>([]);
   const [overridesLoading, setOverridesLoading] = useState(true);
   const [overridesHint, setOverridesHint] = useState<string | null>(null);
+  const [historyTick, setHistoryTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,51 +283,37 @@ function MerchantCompliancePanel({
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
+  }, [orgId, historyTick]);
 
-  const anomalies = useMemo(
-    () =>
-      orders.filter(
-        (o) => o.orgId === orgId && o.status === "payment_anomaly",
-      ),
-    [orders, orgId],
-  );
   const enterprisePending = commercial?.enterpriseApprovalStatus === "pending";
-
-  if (loading) {
-    return (
-      <div className="b3-agent-detail__empty" role="status">
-        <div className="b3-agent-detail__empty-mark is-busy" aria-hidden>
-          <span className="b3-agent-detail__activity-empty-spinner" />
-        </div>
-        <p className="b3-agent-detail__empty-title">Loading compliance</p>
-        <p className="b3-agent-detail__empty-copy">
-          Checking payment anomalies and enterprise rate status for this merchant.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="b3-compliance">
+      <section className="b3-card b3-card--section b3-card--flat b3-compliance__apply-card">
+        <div className="b3-profile__head">
+          <h3 className="b3-card__heading b3-settlement__heading-with-help">
+            Compliance override
+            <SettlementHelpTip text={COMPLIANCE_OVERRIDE_HELP} />
+          </h3>
+        </div>
+        <ComplianceOverrideModal
+          org={org}
+          canApply={canManage}
+          variant="inline"
+          onApplied={(result) => {
+            setHistoryTick((n) => n + 1);
+            onApplied(result);
+          }}
+        />
+      </section>
+
       <section className="b3-card b3-card--section b3-card--flat">
         <div className="b3-profile__head">
-          <h3 className="b3-card__heading">Compliance override</h3>
-          {canManage ? (
-            <button
-              type="button"
-              className="b3-compliance__danger-btn"
-              onClick={onOpenOverride}
-            >
-              Override…
-            </button>
-          ) : null}
+          <h3 className="b3-card__heading">Override history</h3>
+          <span className="b3-agent-detail__activity-cap">
+            {overridesLoading ? "…" : `${overrides.length} recorded`}
+          </span>
         </div>
-        <p className="b3-compliance__copy">
-          Platform Owner/Administrator may change settlement, matching mode, or
-          suspend order create / the merchant — MFA required; every action is
-          audited.
-        </p>
         {overridesHint ? (
           <p className="b3-compliance__copy">{overridesHint}</p>
         ) : null}
@@ -356,48 +363,6 @@ function MerchantCompliancePanel({
           <Link className="b3-compliance__link" to="/platform/settings/fee-tiers?tab=overrides">
             Review on Platform fees
           </Link>
-        </section>
-      ) : null}
-
-      {anomalies.length > 0 ? (
-        <section className="b3-card b3-card--section b3-card--flat">
-          <div className="b3-profile__head">
-            <h3 className="b3-card__heading">Payment anomalies</h3>
-            <span className="b3-agent-detail__activity-cap">
-              {anomalies.length} open
-            </span>
-          </div>
-          <p className="b3-compliance__copy">
-            On-chain payments that could not be matched cleanly to an open order.
-            Resolve in the merchant portal — never mark paid from here alone.
-          </p>
-          <table className="data-table b3-compliance__table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {anomalies.slice(0, 8).map((order) => (
-                <tr key={order.id}>
-                  <td className="mono">{order.id.slice(0, 8)}…</td>
-                  <td>
-                    <FundAmount amount={order.payableAmount.amount} />
-                  </td>
-                  <td>
-                    <span className="status-badge tone-anomaly">Anomaly</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {anomalies.length > 8 ? (
-            <p className="b3-compliance__more muted">
-              +{anomalies.length - 8} more in merchant order history
-            </p>
-          ) : null}
         </section>
       ) : null}
     </div>
@@ -481,7 +446,23 @@ function MerchantSettlementPanel({
         </div>
         <dl className="b3-settlement__meta">
           <div>
-            <dt>Mode</dt>
+            <dt>
+              <span className="b3-settlement__meta-label">
+                Mode
+                <span className="plat-card-help b3-settlement__meta-help">
+                  <button
+                    type="button"
+                    className="plat-card-help__btn"
+                    aria-label={matchingModeTooltip(matchingMode)}
+                  >
+                    ?
+                  </button>
+                  <span className="plat-card-help__tip" role="tooltip">
+                    {matchingModeTooltip(matchingMode)}
+                  </span>
+                </span>
+              </span>
+            </dt>
             <dd>
               <span className="b3-settlement__mode-pill">
                 {matchingModeLabel(matchingMode)}
@@ -521,10 +502,26 @@ function MerchantSettlementPanel({
             <tbody>
               {settlement.map((row) => (
                 <tr key={`${row.asset}-${row.network}`}>
-                  <td>{row.asset}</td>
-                  <td>{row.network}</td>
-                  <td className="mono" title={row.address}>
-                    {truncateAddress(row.address)}
+                  <td>
+                    <span className="b3-settlement__pair-cell">
+                      <AssetIcon asset={row.asset} />
+                      <span>{row.asset}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <span className="b3-settlement__pair-cell">
+                      <NetworkIcon network={row.network} />
+                      <span>{displayNetworkForPair(row.asset, row.network)}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <CopyableChainValue
+                      className="b3-settlement__addr-value"
+                      value={row.address}
+                      network={row.network}
+                      kind="address"
+                      display={truncateAddress(row.address)}
+                    />
                   </td>
                   <td>
                     <span
@@ -546,9 +543,12 @@ function MerchantSettlementPanel({
         )}
       </section>
 
-      <section className="b3-card b3-card--section b3-card--flat">
+      <section className="b3-card b3-card--section b3-card--flat b3-settlement__xpub-card">
         <div className="b3-profile__head">
-          <h3 className="b3-card__heading">xPub (watch-only)</h3>
+          <h3 className="b3-card__heading b3-settlement__heading-with-help">
+            xPub (watch-only)
+            <SettlementHelpTip text={XPUB_HELP} />
+          </h3>
           <span className="b3-agent-detail__activity-cap">
             {xpubs.length} {xpubs.length === 1 ? "network" : "networks"}
           </span>
@@ -558,12 +558,12 @@ function MerchantSettlementPanel({
             title={
               matchingMode === "S"
                 ? "No xPub registered"
-                : "xPub not required for this mode"
+                : "Not needed for this matching mode"
             }
             copy={
               matchingMode === "S"
-                ? "Mode S HD pools need a watch-only xPub on the merchant account. Full strings stay in the merchant portal."
-                : "Only Smart address (Mode S) uses a watch-only xPub. Standard, fingerprint, and memo modes use settlement addresses alone."
+                ? "Smart address needs a watch-only xPub so temporary receive addresses can be created when two open orders would collide. The merchant registers it in their portal — full xPub strings are not shown here."
+                : "This merchant uses a matching mode that only needs a fixed settlement address. An xPub is only required for Smart address matching."
             }
           />
         ) : (
@@ -579,8 +579,18 @@ function MerchantSettlementPanel({
             <tbody>
               {xpubs.map((row) => (
                 <tr key={`${row.asset}-${row.network}`}>
-                  <td>{row.asset}</td>
-                  <td>{row.network}</td>
+                  <td>
+                    <span className="b3-settlement__pair-cell">
+                      <AssetIcon asset={row.asset} />
+                      <span>{row.asset}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <span className="b3-settlement__pair-cell">
+                      <NetworkIcon network={row.network} />
+                      <span>{displayNetworkForPair(row.asset, row.network)}</span>
+                    </span>
+                  </td>
                   <td>{row.xPubConfigured ? "Yes" : "No"}</td>
                   <td>
                     <span
@@ -631,6 +641,24 @@ function preferredOrgEmail(members: OrgMember[]): string | null {
   return email || null;
 }
 
+type SiteEmailIndex = Map<
+  string,
+  { emails: string[]; ownerEmail?: string | null }
+>;
+
+function siteContactEmail(
+  site: OrgAccount,
+  emailByOrg: SiteEmailIndex,
+): string {
+  const row = emailByOrg.get(site.id);
+  return (
+    row?.ownerEmail?.trim() ||
+    row?.emails.find((e) => e.trim())?.trim() ||
+    site.billingEmail?.trim() ||
+    "—"
+  );
+}
+
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
@@ -660,14 +688,7 @@ export function MerchantDetailCard({
   const [tab, setTab] = useState<TabId>(() =>
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
   );
-  const [overrideOpen, setOverrideOpen] = useState(false);
-  const [complianceTick, setComplianceTick] = useState(0);
 
-  useEffect(() => {
-    if (initialTab && VALID_TABS.has(initialTab)) {
-      setTab(initialTab);
-    }
-  }, [org.id, initialTab]);
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
   const [settlement, setSettlement] = useState<SettlementAddress[]>([]);
@@ -688,6 +709,7 @@ export function MerchantDetailCard({
   const [editVolume, setEditVolume] = useState("");
   const [editReason, setEditReason] = useState("");
   const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
+  const [siteEmails, setSiteEmails] = useState<SiteEmailIndex>(() => new Map());
 
   const status = org.status ?? "active";
   const structureLabel = org.structure
@@ -699,8 +721,8 @@ export function MerchantDetailCard({
     [bills, org.id],
   );
   const profileEmail = useMemo(
-    () => preferredOrgEmail(team) ?? "—",
-    [team],
+    () => preferredOrgEmail(team) ?? org.billingEmail?.trim() ?? "—",
+    [team, org.billingEmail],
   );
   const periodStart = useMemo(
     () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
@@ -752,7 +774,11 @@ export function MerchantDetailCard({
   }, [audit, org.id, org.name, org.createdAt]);
 
   useEffect(() => {
-    setTab("overview");
+    setTab(
+      initialTab && VALID_TABS.has(initialTab)
+        ? (initialTab as TabId)
+        : "overview",
+    );
     setTabError(null);
     setCommercial(null);
     setTeam([]);
@@ -764,7 +790,7 @@ export function MerchantDetailCard({
     setBills([]);
     setCommercialEditOpen(false);
     setCommercialError(null);
-  }, [org.id]);
+  }, [org.id, initialTab]);
 
   const selectedBand = useMemo(
     () => feeTiers.find((t) => t.tier === editTier) ?? null,
@@ -835,6 +861,32 @@ export function MerchantDetailCard({
       cancelled = true;
     };
   }, [org.id]);
+
+  useEffect(() => {
+    if (tab !== "sites" || sites.length === 0) {
+      setSiteEmails(new Map());
+      return;
+    }
+    let cancelled = false;
+    void listPlatformOrgMemberEmails({ types: ["merchant_site"] })
+      .then((items) => {
+        if (cancelled) return;
+        const map: SiteEmailIndex = new Map();
+        for (const item of items) {
+          map.set(item.orgId, {
+            emails: item.emails ?? [],
+            ownerEmail: item.ownerEmail,
+          });
+        }
+        setSiteEmails(map);
+      })
+      .catch(() => {
+        if (!cancelled) setSiteEmails(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, sites]);
 
   useEffect(() => {
     if (tab === "overview" || tab === "compliance") return;
@@ -913,14 +965,6 @@ export function MerchantDetailCard({
         <div className="b3-agent-detail__head-actions">
           {canManage ? (
             <>
-              <button
-                type="button"
-                className="b3-agent-detail__suspend b3-agent-detail__override"
-                disabled={busy}
-                onClick={() => setOverrideOpen(true)}
-              >
-                Override
-              </button>
               {status === "active" ? (
                 <button
                   type="button"
@@ -1126,10 +1170,12 @@ export function MerchantDetailCard({
                   {sites.length} {sites.length === 1 ? "site" : "sites"}
                 </span>
               </div>
-              <table className="data-table">
+              <table className="data-table b3-merchant-sites__table">
                 <thead>
                   <tr>
                     <th>Site name</th>
+                    <th>Email</th>
+                    <th>Created</th>
                     <th>Status</th>
                     <th>ID</th>
                   </tr>
@@ -1137,7 +1183,24 @@ export function MerchantDetailCard({
                 <tbody>
                   {sites.map((site) => (
                     <tr key={site.id}>
-                      <td>{site.name}</td>
+                      <td>
+                        <span className="b3-merchant-sites__name">
+                          {site.name}
+                        </span>
+                        {site.country ? (
+                          <span className="b3-merchant-sites__meta">
+                            {site.country}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="b3-merchant-sites__email">
+                        {siteContactEmail(site, siteEmails)}
+                      </td>
+                      <td className="b3-merchant-sites__created">
+                        {site.createdAt
+                          ? formatOnboardDate(site.createdAt)
+                          : "—"}
+                      </td>
                       <td>
                         <span
                           className={`status-badge ${
@@ -1233,39 +1296,28 @@ export function MerchantDetailCard({
 
         {tab === "compliance" ? (
           <MerchantCompliancePanel
-            key={`${org.id}-${complianceTick}`}
-            orgId={org.id}
-            orders={orders}
+            org={org}
             commercial={commercial}
-            loading={overviewLoading}
             canManage={canManage}
-            onOpenOverride={() => setOverrideOpen(true)}
+            onApplied={({ org: next }) => {
+              if (next) onOrgPatched?.(next);
+              upsertPlatformAlert({
+                id: `compliance-override-${org.id}`,
+                category: "security",
+                title: "Compliance override applied",
+                body: `Override logged for ${org.name}.`,
+                at: relativeAlertTime(),
+                unread: true,
+                tone: "warn",
+                /** Notice only — action already done; do not pin Action required dock. */
+                unresolved: false,
+                href: `/platform/merchants/${encodeURIComponent(org.id)}?tab=compliance`,
+                hrefLabel: "Open merchant",
+              });
+            }}
           />
         ) : null}
       </div>
-
-      {overrideOpen ? (
-        <ComplianceOverrideModal
-          org={org}
-          canApply={canManage}
-          onClose={() => setOverrideOpen(false)}
-          onApplied={({ org: next }) => {
-            setComplianceTick((n) => n + 1);
-            if (next) onOrgPatched?.(next);
-            upsertPlatformAlert({
-              id: `compliance-override-${org.id}`,
-              category: "security",
-              title: "Compliance override applied",
-              body: `Override logged for ${org.name}.`,
-              at: relativeAlertTime(),
-              unread: true,
-              tone: "warn",
-              href: `/platform/merchants?id=${encodeURIComponent(org.id)}&tab=compliance`,
-              hrefLabel: "Open merchant",
-            });
-          }}
-        />
-      ) : null}
 
       {commercialEditOpen && commercial
         ? createPortal(

@@ -13,6 +13,8 @@ type Props = {
   kind: Kind;
   /** Optional class on the outer row. */
   className?: string;
+  /** Optional truncated / friendly label; clipboard still copies `value`. */
+  display?: string;
 };
 
 function CopyIcon({ done }: { done: boolean }) {
@@ -65,10 +67,12 @@ export function CopyableChainValue({
   network,
   kind,
   className,
+  display,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const trimmed = value?.trim() || "";
   const empty = !trimmed || trimmed === "—";
+  const shown = display?.trim() || trimmed;
   const href = empty
     ? null
     : kind === "tx"
@@ -99,13 +103,13 @@ export function CopyableChainValue({
           target="_blank"
           rel="noreferrer"
           className="chain-value__link mono"
-          title={name ? `Open in ${name}` : "Open in explorer"}
+          title={name ? `${trimmed} · Open in ${name}` : trimmed}
         >
-          {trimmed}
+          {shown}
         </a>
       ) : (
         <span className="mono" title={trimmed}>
-          {trimmed}
+          {shown}
         </span>
       )}
       <span className="chain-value__actions no-print">

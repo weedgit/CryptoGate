@@ -1400,3 +1400,38 @@ code {
   color: var(--ink);
   font-weight: 700;
 }
+
+/* Small-phone polish — keep single-column guest pay usable */
+@media (max-width: 640px) {
+  .pay {
+    width: 100%;
+    padding: 0.85rem 0.85rem 1.25rem;
+    gap: 0.85rem;
+  }
+
+  .qr {
+    width: min(100%, 15.5rem);
+    max-width: 100%;
+  }
+
+  .qr-img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .address-block .mono,
+  .pay .mono {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  .pay {
+    padding: 0.65rem 0.65rem 1rem;
+  }
+
+  .qr {
+    width: min(100%, 13.5rem);
+  }
+}

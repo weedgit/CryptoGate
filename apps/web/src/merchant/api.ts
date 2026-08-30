@@ -846,6 +846,8 @@ export type OrgMember = OrgMembership & {
 export type OrgMemberEmailRow = {
   orgId: string;
   emails: string[];
+  /** Preferred Owner-role email when present. */
+  ownerEmail?: string | null;
 };
 
 export async function listOrgMemberEmails(opts?: {

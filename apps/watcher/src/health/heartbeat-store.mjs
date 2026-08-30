@@ -79,18 +79,24 @@ export async function upsertWatcherHeartbeat(db, row) {
  *   at: string,
  *   pollIntervalMs: number,
  *   target: { asset: string, network: string },
+ *   targets?: Array<{ asset: string, network: string }>,
  *   chain: Record<string, { ok?: boolean, mode?: string, rpcConfigured?: boolean, asset?: string }>,
  *   ingest: Record<string, unknown>,
+ *   ingestByNetwork?: Record<string, Record<string, unknown>>,
  * }} payload
  */
 export async function persistTickHeartbeats(db, payload) {
   const networks = Object.keys(payload.chain ?? {});
+  const activeNetworks = new Set(
+    (payload.targets ?? [payload.target]).map((t) => t.network),
+  );
   for (const network of networks) {
     const chain = payload.chain[network];
     if (!chain) continue;
-    const isActiveTarget = payload.target.network === network;
+    const isActiveTarget = activeNetworks.has(network);
+    const perNet = payload.ingestByNetwork?.[network];
     const ingest = isActiveTarget
-      ? payload.ingest
+      ? (perNet ?? payload.ingest)
       : { mode: "idle", note: "not active watcher target" };
     const scored = computeWatcherHealthScore({
       chain,
@@ -121,6 +127,7 @@ export async function persistTickHeartbeats(db, payload) {
         isActiveTarget,
         chainPollMode: ingest.chainPollMode ?? null,
         phase: ingest.phase ?? null,
+        multiNetwork: Boolean(payload.targets && payload.targets.length > 1),
       },
       tickAt: payload.at,
     });

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,13 +50,13 @@ fun OrderPayScreen(
                 MaterialTheme.colorScheme.error
             else -> MaterialTheme.colorScheme.onBackground
         }
+    val qrSize = if (LocalConfiguration.current.screenWidthDp < 360) 200.dp else 240.dp
 
-
+    PosScreenFrame {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top,
     ) {
@@ -95,7 +96,7 @@ fun OrderPayScreen(
         Image(
             bitmap = qr.asImageBitmap(),
             contentDescription = "Payment QR",
-            modifier = Modifier.size(240.dp),
+            modifier = Modifier.size(qrSize),
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -150,6 +151,7 @@ fun OrderPayScreen(
         ) {
             Text("New order")
         }
+    }
     }
 }
 

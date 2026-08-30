@@ -519,7 +519,7 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 **Content**
 
 - **Invoice face** (finance layout — see [Service-Bill-Invoice-Phase1.md](Service-Bill-Invoice-Phase1.md)):
-  - Parties: platform seller (config) + merchant buyer (name, legal name, billing email, country, org ID)
+  - Parties: platform seller (name + billing email) + merchant buyer (name, legal name, billing email, country)
   - Document meta: bill ID, status, issue date, due date, period, currency
   - Line items: subscription (tier snapshot), volume fee (`billed volume × rate%`), adjustment reason badge, totals / paid / balance
   - Remittance: service-bill checkout / platform billing wallet — **not** guest payment page
@@ -559,10 +559,11 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one remittance s
 
 **Content**
 
-- Period selector
-- Table: agent, platform fee collected (subtree), commission %, commission amount, payout status
+- Tabs: **Agent** (platform → top-level agent statements + payment history) · **Sub-agent** (read-only cascade history)
+- Agent tab table: agent, platform fee collected (subtree), commission %, commission amount, payout status
 - Mark paid, export CSV
 - Drill-down to B3 commission tab
+- URL: `?tab=agent` (default) · `?tab=sub-agent`
 
 ---
 

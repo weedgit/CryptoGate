@@ -27,6 +27,7 @@ import { looksLikeEmailQuery, orgEmailsMapFromBulkRows } from "../shared/registe
 import { AgentDetailCard } from "./AgentDetailCard";
 import { merchantCountsByAgentId, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { OrgListPagination } from "./OrgListPagination";
+import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
@@ -587,6 +588,7 @@ export function AgentsListPage({ session }: Props) {
       navigate(`/platform/agents/${id}`);
     });
     tableRef.current?.focus({ preventScroll: true });
+    scrollOrgSplitPaneIntoView();
   };
 
   const clearSelection = () => {

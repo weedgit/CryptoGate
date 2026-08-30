@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import {
   ApiError,
   getOrg,
+  listOrgMemberEmails,
   listOrgs,
   type OrgAccount,
   type Session,
 } from "./api";
 import { AuthToast } from "../auth/AuthToast";
+import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import {
   parentMerchantOrgId,
   sessionCanManageSites,
@@ -17,11 +19,27 @@ import {
 
 type Props = { session: Session };
 
+function siteContactEmail(
+  site: OrgAccount,
+  emailByOrg: Map<string, { emails: string[]; ownerEmail?: string | null }>,
+): string {
+  const row = emailByOrg.get(site.id);
+  return (
+    row?.ownerEmail?.trim() ||
+    row?.emails.find((e) => e.trim())?.trim() ||
+    site.billingEmail?.trim() ||
+    "—"
+  );
+}
+
 export function SitesListPage({ session }: Props) {
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const canManage = useMemo(() => sessionCanManageSites(session), [session]);
   const [parent, setParent] = useState<OrgAccount | null>(null);
   const [sites, setSites] = useState<OrgAccount[]>([]);
+  const [siteEmails, setSiteEmails] = useState<
+    Map<string, { emails: string[]; ownerEmail?: string | null }>
+  >(() => new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,14 +51,31 @@ export function SitesListPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [merchant, all] = await Promise.all([getOrg(parentId), listOrgs()]);
+      const [merchant, all, emails] = await Promise.all([
+        getOrg(parentId),
+        listOrgs(),
+        listOrgMemberEmails({ types: ["merchant_site"] }).catch(() => []),
+      ]);
       setParent(merchant);
-      setSites(
-        all.filter((o) => o.type === "merchant_site" && o.parentId === parentId),
+      const nextSites = all.filter(
+        (o) => o.type === "merchant_site" && o.parentId === parentId,
       );
+      setSites(nextSites);
+      const map = new Map<
+        string,
+        { emails: string[]; ownerEmail?: string | null }
+      >();
+      for (const item of emails) {
+        map.set(item.orgId, {
+          emails: item.emails ?? [],
+          ownerEmail: item.ownerEmail,
+        });
+      }
+      setSiteEmails(map);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load sites");
       setSites([]);
+      setSiteEmails(new Map());
     } finally {
       setLoading(false);
     }
@@ -91,8 +126,10 @@ export function SitesListPage({ session }: Props) {
         <div className="orders-table sites-table" role="table">
           <div className="orders-head" role="row">
             <span>SITE</span>
-            <span>ORG ID</span>
+            <span>EMAIL</span>
+            <span>CREATED</span>
             <span>STATUS</span>
+            <span>ORG ID</span>
             <span />
           </div>
           {sites.map((site) => (
@@ -103,10 +140,16 @@ export function SitesListPage({ session }: Props) {
               to={`/merchant/sites/${site.id}`}
             >
               <span className="order-id">{site.name}</span>
-              <span className="mono muted">{truncateAddress(site.id, 8, 6)}</span>
+              <span className="sites-row__email">
+                {siteContactEmail(site, siteEmails)}
+              </span>
+              <span className="muted">
+                {site.createdAt ? formatOnboardDate(site.createdAt) : "—"}
+              </span>
               <span className={site.status === "paused" ? "tone-warn" : "muted"}>
                 {site.status === "paused" ? "Paused" : "Active"}
               </span>
+              <span className="mono muted">{truncateAddress(site.id, 8, 6)}</span>
               <span className="muted">View →</span>
             </Link>
           ))}

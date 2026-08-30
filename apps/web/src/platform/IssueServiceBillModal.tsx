@@ -119,8 +119,11 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
         aria-labelledby="issue-bill-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="b3-commission-modal__head">
-          <h3 id="issue-bill-title">Issue service bill</h3>
+        <header className="b3-commission-modal__head plat-issue-bill-modal__head">
+          <div className="plat-issue-bill-modal__titles">
+            <p className="plat-issue-bill-modal__eyebrow">Platform billing</p>
+            <h3 id="issue-bill-title">Service bill</h3>
+          </div>
           <button
             type="button"
             className="b3-commission-modal__close"
@@ -133,7 +136,8 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
         </header>
 
         {booting ? (
-          <div className="plat-issue-bill-modal__pending">
+          <div className="plat-issue-bill-modal__pending" aria-busy="true">
+            <span className="plat-issue-bill-modal__spinner" aria-hidden />
             <p className="muted">Loading merchants…</p>
           </div>
         ) : (
@@ -245,19 +249,18 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
 
             <div className="plat-issue-bill__actions">
               <button
-                type="button"
-                className="btn-secondary"
-                disabled={loading}
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
                 className="btn-primary"
                 type="submit"
                 disabled={loading || !orgId}
               >
-                {loading ? "Issuing…" : "Issue bill"}
+                {loading ? (
+                  <>
+                    <span className="plat-issue-bill-modal__btn-spin" aria-hidden />
+                    Issuing…
+                  </>
+                ) : (
+                  "Issue bill"
+                )}
               </button>
             </div>
           </form>

@@ -280,6 +280,24 @@ async function seedMultiLocationMerchant(pool, {
     if (site.ok) siteIds.set(siteName, site.row.id);
   }
 
+  const siteBillingEmails = {
+    "Downtown Store": "downtown@demo-retail.local",
+    "Airport Kiosk": "airport@demo-retail.local",
+    "Marina Branch": "marina@demo-retail.local",
+  };
+  for (const [siteName, email] of Object.entries(siteBillingEmails)) {
+    const siteId = siteIds.get(siteName);
+    if (!siteId) continue;
+    await pool.query(
+      `UPDATE org_accounts
+       SET billing_email = COALESCE(NULLIF(billing_email, ''), $2),
+           country = COALESCE(NULLIF(country, ''), 'SG'),
+           updated_at = now()
+       WHERE id = $1`,
+      [siteId, email],
+    );
+  }
+
   const downtownId = siteIds.get("Downtown Store");
   if (downtownId) {
     await ensureMembership(downtownId, siteCashierUserId, "cashier");

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { GateLogoMark } from "./GateLogoMark";
 import { MarketingBackground } from "./MarketingBackground";
@@ -38,19 +39,40 @@ const STATS = [
 ] as const;
 
 export function MarketingLandingPage() {
+  const [navOpen, setNavOpen] = useState(false);
+
   return (
-    <div className="marketing-shell">
+    <div className={`marketing-shell${navOpen ? " is-nav-open" : ""}`}>
       <MarketingBackground />
       <header className="marketing-nav">
         <Link className="marketing-nav__brand" to="/">
           <GateLogoMark size={36} />
           <span className="marketing-nav__name">CryptoGate</span>
         </Link>
+        <button
+          type="button"
+          className={`marketing-nav__menu-btn${navOpen ? " is-open" : ""}`}
+          aria-label={navOpen ? "Close menu" : "Open menu"}
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen((v) => !v)}
+        >
+          <span aria-hidden />
+          <span aria-hidden />
+          <span aria-hidden />
+        </button>
         <div className="marketing-nav__actions">
-          <a className="marketing-nav__link" href="#product">
+          <a
+            className="marketing-nav__link"
+            href="#product"
+            onClick={() => setNavOpen(false)}
+          >
             Product
           </a>
-          <Link className="marketing-btn-primary" to="/login">
+          <Link
+            className="marketing-btn-primary"
+            to="/login"
+            onClick={() => setNavOpen(false)}
+          >
             Sign in
           </Link>
         </div>

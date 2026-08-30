@@ -35,6 +35,45 @@ export {
 };
 
 /**
+ * Distinct asset+network scopes that currently need match or confirmation work.
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {{ now?: Date, lateLookbackMs?: number }} [opts]
+ * @returns {Promise<Array<{ asset: string, network: string }>>}
+ */
+export async function listDistinctWatchScopes(db, opts = {}) {
+  const now = opts.now ?? new Date();
+  const lookbackMs = opts.lateLookbackMs ?? LATE_PAYMENT_LOOKBACK_MS;
+  const expiredAfter = new Date(now.getTime() - lookbackMs);
+
+  const { rows } = await db.query(
+    `SELECT DISTINCT asset, network
+     FROM payment_orders
+     WHERE (
+         status = ANY($1::text[])
+         OR (
+           status = ANY($2::text[])
+           AND expires_at >= $3::timestamptz
+         )
+         OR (
+           status = ANY($4::text[])
+           AND tx_hash IS NOT NULL
+         )
+       )
+     ORDER BY network ASC, asset ASC`,
+    [
+      WATCHER_MATCH_STATUSES,
+      WATCHER_LATE_PAYMENT_STATUSES,
+      expiredAfter.toISOString(),
+      WATCHER_CONFIRM_STATUSES,
+    ],
+  );
+  return rows.map((row) => ({
+    asset: row.asset,
+    network: row.network,
+  }));
+}
+
+/**
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{ asset: string, network: string, now?: Date, lateLookbackMs?: number }} filter
  */
@@ -156,6 +195,7 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
     confirmations: row.confirmations ?? 0,
     requiredConfirmations: row.required_confirmations,
     network: row.network,
+    asset: filter.asset,
   }));
 }
 

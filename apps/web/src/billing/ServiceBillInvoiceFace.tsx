@@ -134,7 +134,6 @@ export function ServiceBillInvoiceFace({
         <div>
           <p className="sb-invoice__kicker">Service bill invoice</p>
           <h2 className="sb-invoice__doc-id">{displayBillId(bill.id)}</h2>
-          <p className="sb-invoice__doc-meta mono">{bill.id}</p>
         </div>
         <div className="sb-invoice__doc-status">
           {statusBadge}
@@ -165,7 +164,9 @@ export function ServiceBillInvoiceFace({
         <div className="sb-invoice__party">
           <h3>From (seller)</h3>
           <p className="sb-invoice__party-name">{seller.name}</p>
-          {seller.email ? <p className="muted">{seller.email}</p> : null}
+          <p className="sb-invoice__party-email">
+            {seller.email?.trim() || "—"}
+          </p>
           <p className="sb-invoice__party-note">
             Platform SaaS billing — not a merchant payment order
           </p>
@@ -176,11 +177,10 @@ export function ServiceBillInvoiceFace({
           {buyer.legalName ? (
             <p className="muted">Legal · {buyer.legalName}</p>
           ) : null}
-          {buyer.billingEmail ? (
-            <p className="muted">{buyer.billingEmail}</p>
-          ) : null}
+          <p className="sb-invoice__party-email">
+            {buyer.billingEmail?.trim() || "—"}
+          </p>
           {buyer.country ? <p className="muted">{buyer.country}</p> : null}
-          <p className="mono muted">Org · {buyer.orgId}</p>
         </div>
       </div>
 

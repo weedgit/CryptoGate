@@ -20,7 +20,9 @@ import {
   subscribePlatformAlerts,
 } from "../platform/platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
@@ -109,6 +111,8 @@ export function AgentShell({
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+    usePortalMobileNav();
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -146,9 +150,16 @@ export function AgentShell({
 
   return (
     <div
-      className={`shell agent-shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}`}
+      className={`shell agent-shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
-      <aside className="sidebar" aria-label="Agent navigation">
+      <button
+        type="button"
+        className="portal-nav-backdrop"
+        aria-label="Close navigation"
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={closeMobileNav}
+      />
+      <aside id="portal-sidebar" className="sidebar" aria-label="Agent navigation">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
           {!collapsed ? (
@@ -224,6 +235,7 @@ export function AgentShell({
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
+            <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
             <ServerConnectionStatus />
           </div>
           <div className="topbar-center" id="agent-topbar-center" />

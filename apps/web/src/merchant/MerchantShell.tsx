@@ -3,7 +3,9 @@ import { NavLink, useLocation } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertSummaryToast } from "../shared/AlertSummaryToast";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
 import {
   AlertsNavIcon,
@@ -183,6 +185,8 @@ export function MerchantShell({
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertToast, setAlertToast] = useState<string | null>(null);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+    usePortalMobileNav();
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -226,12 +230,19 @@ export function MerchantShell({
 
   return (
     <div
-      className={`shell merchant-shell platform-shell${shellEnter ? " is-enter" : ""}`}
+      className={`shell merchant-shell platform-shell${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
-      <aside className="sidebar">
+      <button
+        type="button"
+        className="portal-nav-backdrop"
+        aria-label="Close navigation"
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={closeMobileNav}
+      />
+      <aside id="portal-sidebar" className="sidebar" aria-label="Merchant navigation">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
-          <div>
+          <div className="logo-copy">
             <p className="logo-title">CryptoGate</p>
             <span className="logo-badge">
               {cashier ? "Cashier" : "Merchant"}
@@ -278,6 +289,7 @@ export function MerchantShell({
       <div className="main">
         <header className="topbar">
           <div className="topbar-left">
+            <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
             <ServerConnectionStatus />
           </div>
           <div className="topbar-center" id="merchant-topbar-center" />

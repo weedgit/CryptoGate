@@ -14,6 +14,7 @@ import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
+import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import {
   merchantCountsByAgentId,
   merchantOrgIdsInAgentSubtree,
@@ -545,6 +546,7 @@ export function SubAgentsListPage({ session }: Props) {
       navigate(`/agent/agents/${id}`);
     });
     tableRef.current?.focus({ preventScroll: true });
+    scrollOrgSplitPaneIntoView();
   };
 
   const searchingByEmail =

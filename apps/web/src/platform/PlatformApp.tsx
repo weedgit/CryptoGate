@@ -29,6 +29,7 @@ import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
 import { ServiceBillsListPage } from "./ServiceBillsListPage";
 import { SystemHealthPage } from "./SystemHealthPage";
 import { PlatformCommissionsPage } from "./PlatformCommissionsPage";
+import { OrderDetailPage } from "../merchant/OrderDetailPage";
 
 type ShellProps = {
   session: Session;
@@ -212,6 +213,15 @@ export function PlatformApp() {
           <Shell session={session} onSignOut={signOut}
           onSessionRefresh={setSession}>
             <AuditLogPage />
+          </Shell>
+        }
+      />
+      <Route
+        path="orders/:id"
+        element={
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
+            <OrderDetailPage session={session} variant="platform" />
           </Shell>
         }
       />

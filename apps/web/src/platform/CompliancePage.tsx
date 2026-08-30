@@ -21,31 +21,126 @@ import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 
 const ANOMALY_LIST_LIMIT = 200;
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
-function inferAnomalyHint(order: PaymentOrder): string {
+type AnomalyKind =
+  | "underpay"
+  | "overpay"
+  | "collision"
+  | "wrong_network"
+  | "other";
+
+type KindFilter = "" | AnomalyKind;
+
+const KIND_META: {
+  id: KindFilter;
+  label: string;
+  copy: string;
+  tone: string;
+}[] = [
+  {
+    id: "",
+    label: "Open",
+    copy: `Latest ${ANOMALY_LIST_LIMIT} loaded`,
+    tone: "all",
+  },
+  {
+    id: "underpay",
+    label: "Underpay",
+    copy: "Received less than expected",
+    tone: "underpay",
+  },
+  {
+    id: "overpay",
+    label: "Overpay",
+    copy: "Received more than expected",
+    tone: "overpay",
+  },
+  {
+    id: "collision",
+    label: "Collision",
+    copy: "Same-amount clash",
+    tone: "collision",
+  },
+  {
+    id: "wrong_network",
+    label: "Wrong network",
+    copy: "Asset or chain mismatch",
+    tone: "network",
+  },
+  {
+    id: "other",
+    label: "Other",
+    copy: "Late, duplicate, or unclear",
+    tone: "other",
+  },
+];
+
+/** Prefer stored reason; fall back to amount/mode heuristics for older rows. */
+function classifyAnomalyKind(order: PaymentOrder): AnomalyKind {
+  const reason = (order.anomalyReason ?? "").trim().toLowerCase();
+  if (
+    reason === "mode_b_underpay" ||
+    reason === "underpay" ||
+    reason.includes("underpay")
+  ) {
+    return "underpay";
+  }
+  if (
+    reason === "mode_b_overpay" ||
+    reason === "overpay" ||
+    reason.includes("overpay")
+  ) {
+    return "overpay";
+  }
+  if (
+    reason.includes("collision") ||
+    reason === "no_exact_amount_match"
+  ) {
+    return "collision";
+  }
+  if (reason.includes("wrong_network") || reason.includes("wrong_asset")) {
+    return "wrong_network";
+  }
+  if (
+    reason === "late_payment_after_expiry" ||
+    reason === "duplicate_payment" ||
+    reason === "delayed_arrival"
+  ) {
+    return "other";
+  }
+
   const payable = Number(order.payableAmount?.amount);
   const receivedRaw = order.receivedAmount?.amount;
   const received =
     receivedRaw != null && receivedRaw !== "" ? Number(receivedRaw) : null;
-  const mode = order.matchingMode || "B";
+  if (received != null && Number.isFinite(received) && Number.isFinite(payable)) {
+    if (received < payable) return "underpay";
+    if (received > payable) return "overpay";
+    if ((order.matchingMode || "B") === "B") return "collision";
+  }
+  if ((order.matchingMode || "B") === "D" && (received == null || !Number.isFinite(received))) {
+    return "wrong_network";
+  }
+  return "other";
+}
 
-  if (received == null || !Number.isFinite(received)) {
-    return "No clean on-chain match bound — reconcile from merchant order detail.";
+function inferAnomalyHint(order: PaymentOrder): string {
+  const kind = classifyAnomalyKind(order);
+  const payable = order.payableAmount?.amount;
+  const receivedRaw = order.receivedAmount?.amount;
+  switch (kind) {
+    case "underpay":
+      return `Underpay — expected ${payable}, received ${receivedRaw ?? "—"}.`;
+    case "overpay":
+      return `Overpay — expected ${payable}, received ${receivedRaw ?? "—"}.`;
+    case "collision":
+      return "Likely same-amount collision — never FIFO-guess; reconcile manually.";
+    case "wrong_network":
+      return "Wrong network or asset suspected — check explorer, then merchant resolves.";
+    default:
+      return "Needs manual review — reconcile from order detail; never mark paid here.";
   }
-  if (Number.isFinite(payable) && received < payable) {
-    return `Underpay — expected ${order.payableAmount.amount}, received ${receivedRaw}.`;
-  }
-  if (Number.isFinite(payable) && received > payable) {
-    return `Overpay — expected ${order.payableAmount.amount}, received ${receivedRaw}.`;
-  }
-  if (mode === "B") {
-    return "Likely Mode B same-amount collision — never FIFO-guess; reconcile manually.";
-  }
-  if (mode === "D") {
-    return "Memo/tag mismatch or wrong-network receipt suspected.";
-  }
-  return "Amount or match mismatch — reconcile manually; no Mark paid from compliance.";
 }
 
 function formatWhen(iso: string | undefined): string {
@@ -70,6 +165,7 @@ export function CompliancePage() {
   });
   const [query, setQuery] = useState("");
   const [modeFilter, setModeFilter] = useState<"" | "B" | "C" | "D" | "S">("");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +212,9 @@ export function CompliancePage() {
     const q = query.trim().toLowerCase();
     return orders
       .filter((o) => (modeFilter ? o.matchingMode === modeFilter : true))
+      .filter((o) =>
+        kindFilter ? classifyAnomalyKind(o) === kindFilter : true,
+      )
       .filter((o) => {
         if (!q) return true;
         const merchant = (orgNames.get(o.orgId ?? "") ?? o.orgId ?? "").toLowerCase();
@@ -132,7 +231,7 @@ export function CompliancePage() {
         const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
         return tb - ta;
       });
-  }, [orders, orgNames, query, modeFilter]);
+  }, [orders, orgNames, query, modeFilter, kindFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = useMemo(() => {
@@ -142,7 +241,7 @@ export function CompliancePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, modeFilter]);
+  }, [query, modeFilter, kindFilter]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -156,6 +255,25 @@ export function CompliancePage() {
     }
     return counts;
   }, [orders]);
+
+  const kindCounts = useMemo(() => {
+    const counts: Record<AnomalyKind, number> = {
+      underpay: 0,
+      overpay: 0,
+      collision: 0,
+      wrong_network: 0,
+      other: 0,
+    };
+    for (const o of orders) {
+      counts[classifyAnomalyKind(o)] += 1;
+    }
+    return counts;
+  }, [orders]);
+
+  function kindCardValue(id: KindFilter): number {
+    if (id === "") return orders.length;
+    return kindCounts[id];
+  }
 
   return (
     <div className="plat-compliance">
@@ -238,39 +356,36 @@ export function CompliancePage() {
       <div className="plat-compliance__banner" role="note">
         <span className="plat-compliance__banner-label">Watch-only</span>
         <p>
-          Open merchant detail for evidence. Never mark paid from compliance —
-          anomalies stay unresolved until the merchant reconciles.
+          Click an order to review evidence. Platform cannot mark paid — the
+          merchant reconciles and resolves the anomaly.
         </p>
       </div>
 
-      <div className="plat-compliance__kpis">
-        <div className="plat-compliance__kpi">
-          <p className="plat-compliance__kpi-label">Open anomalies</p>
-          <p className="plat-compliance__kpi-value">
-            {loading ? "…" : orders.length.toLocaleString()}
-          </p>
-          <p className="plat-compliance__kpi-copy">
-            Latest {ANOMALY_LIST_LIMIT} platform order fetch
-          </p>
-        </div>
-        <div className="plat-compliance__kpi">
-          <p className="plat-compliance__kpi-label">Visible now</p>
-          <p className="plat-compliance__kpi-value">
-            {loading ? "…" : filtered.length.toLocaleString()}
-          </p>
-          <p className="plat-compliance__kpi-copy">
-            After search and mode filter
-          </p>
-        </div>
-        <div className="plat-compliance__kpi">
-          <p className="plat-compliance__kpi-label">Merchants touched</p>
-          <p className="plat-compliance__kpi-value">
-            {loading
-              ? "…"
-              : new Set(orders.map((o) => o.orgId).filter(Boolean)).size.toLocaleString()}
-          </p>
-          <p className="plat-compliance__kpi-copy">Distinct orgs in queue</p>
-        </div>
+      <div
+        className="plat-compliance__kpis"
+        role="group"
+        aria-label="Anomaly kind filter"
+      >
+        {KIND_META.map((card) => {
+          const active = kindFilter === card.id;
+          return (
+            <button
+              key={card.id || "all"}
+              type="button"
+              className={`plat-compliance__kpi tone-${card.tone}${
+                active ? " is-active" : ""
+              }`}
+              onClick={() => setKindFilter(card.id)}
+              aria-pressed={active}
+            >
+              <p className="plat-compliance__kpi-label">{card.label}</p>
+              <p className="plat-compliance__kpi-value">
+                {loading ? "…" : kindCardValue(card.id).toLocaleString()}
+              </p>
+              <p className="plat-compliance__kpi-copy">{card.copy}</p>
+            </button>
+          );
+        })}
       </div>
 
       <div className="plat-compliance__table-wrap">
@@ -295,7 +410,7 @@ export function CompliancePage() {
             <p className="plat-compliance__empty-copy">
               {orders.length === 0
                 ? "When Mode B collisions, under/overpays, or wrong-network receipts land, they appear here."
-                : "Clear search or switch matching mode to see more rows."}
+                : "Clear search or kind / mode filter to see more rows."}
             </p>
           </div>
         ) : null}
@@ -345,26 +460,20 @@ export function CompliancePage() {
                     style={{ animationDelay: `${Math.min(index, 24) * 35}ms` }}
                   >
                     <td>
-                      {orgId ? (
-                        <Link
-                          className="plat-compliance__order"
-                          to={`/platform/merchants/${orgId}?tab=compliance`}
-                          title={orderTitle}
-                        >
-                          {order.orderNumber}
-                        </Link>
-                      ) : (
-                        <span className="plat-compliance__order" title={orderTitle}>
-                          {order.orderNumber}
-                        </span>
-                      )}
+                      <Link
+                        className="plat-compliance__order"
+                        to={`/platform/orders/${encodeURIComponent(order.id)}`}
+                        title={orderTitle}
+                      >
+                        {order.orderNumber}
+                      </Link>
                     </td>
                     <td>
                       {orgId ? (
                         <Link
                           className="plat-compliance__merchant"
                           to={`/platform/merchants/${orgId}?tab=compliance`}
-                          title={merchantName}
+                          title={`Open ${merchantName}`}
                         >
                           {merchantName}
                         </Link>

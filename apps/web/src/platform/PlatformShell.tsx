@@ -31,7 +31,9 @@ import {
   subscribePlatformAlerts,
 } from "./platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
@@ -249,6 +251,8 @@ export function PlatformShell({
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [shellEnter, setShellEnter] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+    usePortalMobileNav();
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -294,9 +298,17 @@ export function PlatformShell({
 
   return (
     <div
-      className={`shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}`}
+      className={`shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
+      <button
+        type="button"
+        className="portal-nav-backdrop"
+        aria-label="Close navigation"
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={closeMobileNav}
+      />
       <aside
+        id="portal-sidebar"
         className="sidebar"
         aria-label="Platform navigation"
         onWheel={onSidebarWheel}
@@ -375,6 +387,7 @@ export function PlatformShell({
       <div className="main" ref={mainRef}>
         <header className="topbar">
           <div className="topbar-left">
+            <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
             <div className="topbar-leading" id="platform-topbar-leading" />
             <TopbarStatusRail />
           </div>

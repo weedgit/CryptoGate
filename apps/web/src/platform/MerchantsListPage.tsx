@@ -26,6 +26,7 @@ import {
 import { MerchantDetailCard } from "./MerchantDetailCard";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { OrgListPagination } from "./OrgListPagination";
+import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanIssueServiceBill } from "./org";
 import {
@@ -615,6 +616,7 @@ export function MerchantsListPage({ session }: Props) {
   const selectMerchant = (id: string) => {
     navigate(`/platform/merchants/${id}`);
     tableRef.current?.focus({ preventScroll: true });
+    scrollOrgSplitPaneIntoView();
   };
 
   const clearSelection = () => {

@@ -60,4 +60,8 @@
   --motion-page: 800ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-inout: cubic-bezier(0.45, 0, 0.55, 1);
+
+  /* Responsive breakpoints (keep in sync with apps/web tokens.css) */
+  --bp-phone: 640px;
+  --bp-tablet: 1100px;
 }

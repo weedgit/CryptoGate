@@ -7,6 +7,7 @@ import {
   listAuditLog,
   listOrders,
   listOrgUsers,
+  listOrgMemberEmails,
   listServiceBills,
   updateMerchantCommercial,
   type AuditLogEntry,
@@ -81,6 +82,24 @@ function preferredOrgEmail(members: OrgMember[]): string | null {
     members[0];
   const email = preferred?.email?.trim();
   return email || null;
+}
+
+type SiteEmailIndex = Map<
+  string,
+  { emails: string[]; ownerEmail?: string | null }
+>;
+
+function siteContactEmail(
+  site: OrgAccount,
+  emailByOrg: SiteEmailIndex,
+): string {
+  const row = emailByOrg.get(site.id);
+  return (
+    row?.ownerEmail?.trim() ||
+    row?.emails.find((e) => e.trim())?.trim() ||
+    site.billingEmail?.trim() ||
+    "—"
+  );
 }
 
 function relativeTime(iso: string): string {
@@ -222,6 +241,7 @@ export function MerchantDetailCard({
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
+  const [siteEmails, setSiteEmails] = useState<SiteEmailIndex>(() => new Map());
 
   const status = org.status ?? "active";
   const sites = useMemo(() => merchantSites(org.id, orgs), [org.id, orgs]);
@@ -340,6 +360,32 @@ export function MerchantDetailCard({
       cancelled = true;
     };
   }, [org.id]);
+
+  useEffect(() => {
+    if (tab !== "sites" || sites.length === 0) {
+      setSiteEmails(new Map());
+      return;
+    }
+    let cancelled = false;
+    void listOrgMemberEmails({ types: ["merchant_site"] })
+      .then((items) => {
+        if (cancelled) return;
+        const map: SiteEmailIndex = new Map();
+        for (const item of items) {
+          map.set(item.orgId, {
+            emails: item.emails ?? [],
+            ownerEmail: item.ownerEmail,
+          });
+        }
+        setSiteEmails(map);
+      })
+      .catch(() => {
+        if (!cancelled) setSiteEmails(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, sites]);
 
   useEffect(() => {
     if (tab !== "service-bills" && tab !== "volume") return;
@@ -587,10 +633,12 @@ export function MerchantDetailCard({
                   {sites.length} {sites.length === 1 ? "site" : "sites"}
                 </span>
               </div>
-              <table className="data-table">
+              <table className="data-table b3-merchant-sites__table">
                 <thead>
                   <tr>
                     <th>Site name</th>
+                    <th>Email</th>
+                    <th>Created</th>
                     <th>Status</th>
                     <th>ID</th>
                   </tr>
@@ -598,7 +646,24 @@ export function MerchantDetailCard({
                 <tbody>
                   {sites.map((site) => (
                     <tr key={site.id}>
-                      <td>{site.name}</td>
+                      <td>
+                        <span className="b3-merchant-sites__name">
+                          {site.name}
+                        </span>
+                        {site.country ? (
+                          <span className="b3-merchant-sites__meta">
+                            {site.country}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="b3-merchant-sites__email">
+                        {siteContactEmail(site, siteEmails)}
+                      </td>
+                      <td className="b3-merchant-sites__created">
+                        {site.createdAt
+                          ? formatOnboardDate(site.createdAt)
+                          : "—"}
+                      </td>
                       <td>
                         <span
                           className={`status-badge ${
