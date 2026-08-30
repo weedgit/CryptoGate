@@ -9,6 +9,8 @@ describe("health-payload", () => {
     assert.equal(p.status, "ok");
     assert.equal(p.phase, "m1");
     assert.ok(p.timestamp);
+    assert.equal(p.webhook, "unknown");
+    assert.match(String(p.webhookDetail), /not started/i);
   });
 
   it("skips db when DATABASE_URL unset", async () => {
@@ -18,6 +20,7 @@ describe("health-payload", () => {
       const p = await getHealthPayload({ checkDb: true });
       assert.equal(p.db, "skipped");
       assert.equal(p.status, "ok");
+      assert.equal(p.webhook, "unknown");
     } finally {
       if (prev !== undefined) process.env.DATABASE_URL = prev;
     }

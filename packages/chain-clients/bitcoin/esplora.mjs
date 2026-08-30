@@ -2,6 +2,7 @@
  * Bitcoin watch-only ingest via Esplora-compatible REST (Blockstream default).
  */
 
+import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { minorToMajor } from "../tron/amount.mjs";
 import { getBitcoinRuntimeConfig } from "./config.mjs";
 
@@ -11,16 +12,12 @@ import { getBitcoinRuntimeConfig } from "./config.mjs";
  * @param {{ apiKey?: string, fetchImpl?: typeof fetch }} opts
  */
 export async function esploraFetch(baseUrl, path, opts = {}) {
-  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-  if (typeof fetchImpl !== "function") {
-    throw new Error("fetch is not available in this runtime");
-  }
   const url = `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
   /** @type {Record<string, string>} */
   const headers = { Accept: "application/json" };
   if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`;
 
-  const res = await fetchImpl(url, { headers });
+  const res = await fetchWithTimeout(opts.fetchImpl, url, { headers });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     const err = new Error(`bitcoin api HTTP ${res.status}: ${text.slice(0, 200)}`);

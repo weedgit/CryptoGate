@@ -19,9 +19,26 @@ import { FundAmount } from "./FundAmount";
 import { matchingModeLabel } from "../merchant/matchingLabels";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
+import {
+  SortHeader,
+  compareDate,
+  compareNumber,
+  compareText,
+  toggleSortState,
+  type SortState,
+} from "./ui/TableArrange";
 
 const ANOMALY_LIST_LIMIT = 200;
 const PAGE_SIZE = 15;
+
+type SortKey =
+  | "order"
+  | "merchant"
+  | "amount"
+  | "mode"
+  | "network"
+  | "hint"
+  | "when";
 
 type AnomalyKind =
   | "underpay"
@@ -166,6 +183,10 @@ export function CompliancePage() {
   const [query, setQuery] = useState("");
   const [modeFilter, setModeFilter] = useState<"" | "B" | "C" | "D" | "S">("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("");
+  const [sort, setSort] = useState<SortState<SortKey>>({
+    key: "when",
+    dir: "desc",
+  });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -210,7 +231,7 @@ export function CompliancePage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return orders
+    const rows = orders
       .filter((o) => (modeFilter ? o.matchingMode === modeFilter : true))
       .filter((o) =>
         kindFilter ? classifyAnomalyKind(o) === kindFilter : true,
@@ -225,13 +246,46 @@ export function CompliancePage() {
           o.receiveAddress.toLowerCase().includes(q) ||
           `${o.asset} ${o.network}`.toLowerCase().includes(q)
         );
-      })
-      .sort((a, b) => {
-        const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
-        const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
-        return tb - ta;
       });
-  }, [orders, orgNames, query, modeFilter, kindFilter]);
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const merchantOf = (o: PaymentOrder) =>
+      orgNames.get(o.orgId ?? "") ?? o.orgId ?? "";
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      switch (sort.key) {
+        case "order":
+          cmp = compareText(a.orderNumber, b.orderNumber);
+          break;
+        case "merchant":
+          cmp = compareText(merchantOf(a), merchantOf(b));
+          break;
+        case "amount":
+          cmp = compareNumber(
+            Number(a.payableAmount?.amount),
+            Number(b.payableAmount?.amount),
+          );
+          break;
+        case "mode":
+          cmp = compareText(a.matchingMode || "B", b.matchingMode || "B");
+          break;
+        case "network":
+          cmp = compareText(
+            `${a.asset} ${a.network}`,
+            `${b.asset} ${b.network}`,
+          );
+          break;
+        case "hint":
+          cmp = compareText(inferAnomalyHint(a), inferAnomalyHint(b));
+          break;
+        case "when":
+        default:
+          cmp = compareDate(a.createdAt, b.createdAt);
+          break;
+      }
+      if (cmp !== 0) return dir * cmp;
+      return dir * compareDate(a.createdAt, b.createdAt);
+    });
+  }, [orders, orgNames, query, modeFilter, kindFilter, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = useMemo(() => {
@@ -241,7 +295,13 @@ export function CompliancePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, modeFilter, kindFilter]);
+  }, [query, modeFilter, kindFilter, sort]);
+
+  const onSort = useCallback((key: SortKey) => {
+    setSort((prev) =>
+      toggleSortState(prev, key, key === "when" || key === "amount" ? "desc" : "asc"),
+    );
+  }, []);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -428,17 +488,66 @@ export function CompliancePage() {
             </colgroup>
             <thead>
               <tr>
-                <th>Order</th>
-                <th>Merchant</th>
-                <th>Amount</th>
-                <th>Mode</th>
-                <th>Network</th>
-                <th>Hint</th>
-                <th>When</th>
+                <th>
+                  <SortHeader
+                    label="Order"
+                    sortKey="order"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Merchant"
+                    sortKey="merchant"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Amount"
+                    sortKey="amount"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Mode"
+                    sortKey="mode"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Network"
+                    sortKey="network"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Hint"
+                    sortKey="hint"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="When"
+                    sortKey="when"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
-              {paged.map((order, index) => {
+              {paged.map((order) => {
                 const orgId = order.orgId ?? "";
                 const merchantName =
                   orgNames.get(orgId) ?? (orgId ? orgId.slice(0, 8) : "—");
@@ -455,10 +564,7 @@ export function CompliancePage() {
                   ? `payable ${order.payableAmount.amount} · received ${order.receivedAmount.amount}`
                   : undefined;
                 return (
-                  <tr
-                    key={order.id}
-                    style={{ animationDelay: `${Math.min(index, 24) * 35}ms` }}
-                  >
+                  <tr key={order.id}>
                     <td>
                       <Link
                         className="plat-compliance__order"

@@ -8,22 +8,32 @@ import {
 import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { commissionHistoryFromBills } from "../commercial/commissionStatements";
+import {
+  commissionHistoryFromBills,
+  formatCommissionPeriodLabel,
+} from "../commercial/commissionStatements";
 import {
   findPayout,
   listCommissionPayouts,
   markCommissionPayoutPaid,
+  agentConfirmCommissionPayout,
+  commissionPayoutRemittanceUri,
   paymentLinkForAgentSubPayout,
   upsertCommissionPayout,
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
 import { FundAmount } from "../platform/FundAmount";
+import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { OrgListPagination } from "../platform/OrgListPagination";
-import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
+import {
+  DEFAULT_AGENT_COMMISSION_PERCENT,
+  truncateAddress,
+} from "../platform/orgDetailSeeds";
 import {
   PlatformPending,
   PlatformTableSkeleton,
 } from "../platform/ui/PlatformPending";
+import { CopyableChainValue } from "../shared/CopyableChainValue";
 import {
   ApiError,
   listAgentCommissions,
@@ -49,15 +59,28 @@ const PAYOUT_LABEL: Record<string, string> = {
   pending: "Pending",
   scheduled: "Scheduled",
   ready: "Ready",
+  issued: "Issued",
+  settled: "Settled",
+  verifying: "Verifying",
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 function payoutTone(status: string): string {
   if (status === "paid") return "paid";
   if (status === "pending") return "pending";
   if (status === "ready") return "ready";
+  if (status === "issued") return "issued";
+  if (status === "settled") return "settled";
+  if (status === "verifying") return "verifying";
   return "scheduled";
+}
+
+function platformInvoiceLabel(status: string): string {
+  if (status === "issued") return "Issued";
+  if (status === "paid") return "Paid — confirm receipt";
+  if (status === "settled") return "Settled";
+  return PAYOUT_LABEL[status] ?? status;
 }
 
 function qrUrl(data: string): string {
@@ -90,6 +113,9 @@ export function CommissionsPage({ session }: Props) {
   const [agentPayouts, setAgentPayouts] = useState<CommissionPayoutRecord[]>(
     [],
   );
+  const [platformInvoices, setPlatformInvoices] = useState<
+    CommissionPayoutRecord[]
+  >([]);
   const [slip, setSlip] = useState<{
     sub: OrgAccount;
     periodKey: string;
@@ -99,8 +125,6 @@ export function CommissionsPage({ session }: Props) {
     pct: string;
     record: CommissionPayoutRecord | null;
   } | null>(null);
-  const [txRef, setTxRef] = useState("");
-  const [copiedKey, setCopiedKey] = useState<"address" | "link" | null>(null);
   const [busy, setBusy] = useState(false);
   const [billsCache, setBillsCache] = useState<
     {
@@ -124,13 +148,21 @@ export function CommissionsPage({ session }: Props) {
   const refreshPayouts = useCallback(async () => {
     if (!agentId) {
       setAgentPayouts([]);
+      setPlatformInvoices([]);
       return;
     }
-    const rows = await listCommissionPayouts({
-      payer: "agent",
-      payerOrgId: agentId,
-    });
-    setAgentPayouts(rows);
+    const [subRows, platformRows] = await Promise.all([
+      listCommissionPayouts({
+        payer: "agent",
+        payerOrgId: agentId,
+      }),
+      listCommissionPayouts({
+        payer: "platform",
+        payeeOrgId: agentId,
+      }),
+    ]);
+    setAgentPayouts(subRows);
+    setPlatformInvoices(platformRows);
   }, [agentId]);
 
   const load = useCallback(async () => {
@@ -142,17 +174,27 @@ export function CommissionsPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [orgRows, bills, commissions, payoutAddrs, agentPayoutRows] =
-        await Promise.all([
-          listOrgs(),
-          listServiceBills(),
-          listAgentCommissions(),
-          listAgentPayoutAddresses(),
-          listCommissionPayouts({
-            payer: "agent",
-            payerOrgId: agentId,
-          }),
-        ]);
+      const [
+        orgRows,
+        bills,
+        commissions,
+        payoutAddrs,
+        agentPayoutRows,
+        platformRows,
+      ] = await Promise.all([
+        listOrgs(),
+        listServiceBills(),
+        listAgentCommissions(),
+        listAgentPayoutAddresses(),
+        listCommissionPayouts({
+          payer: "agent",
+          payerOrgId: agentId,
+        }),
+        listCommissionPayouts({
+          payer: "platform",
+          payeeOrgId: agentId,
+        }),
+      ]);
       setOrgs(orgRows);
       setBillsCache(bills);
       const own =
@@ -192,6 +234,7 @@ export function CommissionsPage({ session }: Props) {
       setSubPercents(pctMap);
       setSubPayoutAddrs(addrMap);
       setAgentPayouts(agentPayoutRows);
+      setPlatformInvoices(platformRows);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -254,7 +297,7 @@ export function CommissionsPage({ session }: Props) {
         sub,
         pct,
         periodKey: mtd.periodKey,
-        periodLabel: mtd.periodLabel,
+        periodLabel: formatCommissionPeriodLabel(mtd.periodKey),
         amount: saved?.commissionAmount ?? periodRow?.commissionAmount ?? 0,
         feeBase:
           saved?.platformFeeCollected ?? periodRow?.platformFeeCollected ?? 0,
@@ -337,7 +380,6 @@ export function CommissionsPage({ session }: Props) {
         pct: match.pct,
         record: match.record,
       });
-      setTxRef(match.record?.txRef ?? "");
     }
   }, [searchParams, subPayoutRows, mtd]);
 
@@ -351,13 +393,21 @@ export function CommissionsPage({ session }: Props) {
         payoutByKey.get(`${row.sub.id}:${row.periodKey}`) ??
         (await findPayout(row.sub.id, row.periodKey, "agent"));
       if (!record && canManage && agentId) {
+        const remittance = dest?.address
+          ? commissionPayoutRemittanceUri({
+              address: dest.address,
+              amount: row.amount,
+              asset: dest.asset,
+              network: dest.network,
+            })
+          : link;
         record = await upsertCommissionPayout({
           payeeOrgId: row.sub.id,
           payeeName: row.sub.name,
           payer: "agent",
           payerOrgId: agentId,
           periodKey: row.periodKey,
-          periodLabel: row.periodLabel,
+          periodLabel: formatCommissionPeriodLabel(row.periodKey),
           platformFeeCollected: row.feeBase,
           commissionPercent: row.pct,
           commissionAmount: row.amount,
@@ -365,7 +415,7 @@ export function CommissionsPage({ session }: Props) {
           payoutAddress: dest?.address ?? null,
           asset: dest?.asset ?? null,
           network: dest?.network ?? null,
-          paymentLink: link,
+          paymentLink: remittance,
           txRef: null,
           paidAt: null,
         });
@@ -387,7 +437,6 @@ export function CommissionsPage({ session }: Props) {
         pct: row.pct,
         record: record ?? null,
       });
-      setTxRef(record?.txRef ?? "");
       setSearchParams(
         { payee: row.sub.id, period: row.periodKey },
         { replace: true },
@@ -401,19 +450,7 @@ export function CommissionsPage({ session }: Props) {
 
   function closeSlip() {
     setSlip(null);
-    setTxRef("");
-    setCopiedKey(null);
     setSearchParams({}, { replace: true });
-  }
-
-  async function copySlipValue(key: "address" | "link", value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedKey(key);
-      window.setTimeout(() => setCopiedKey(null), 1600);
-    } catch {
-      setError("Could not copy to clipboard");
-    }
   }
 
   async function onMarkSubPaid() {
@@ -431,24 +468,57 @@ export function CommissionsPage({ session }: Props) {
           network: dest.network,
         });
       }
-      await markCommissionPayoutPaid(record.id, txRef);
+      const paid = await markCommissionPayoutPaid(record.id);
       await refreshPayouts();
-      closeSlip();
+      if (paid) {
+        setSlip({ ...slip, record: paid });
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to mark paid");
+      setError(err instanceof Error ? err.message : "Failed to confirm payout");
     } finally {
       setBusy(false);
     }
   }
 
+  async function onConfirmPlatformInvoice(inv: CommissionPayoutRecord) {
+    if (!canManage || inv.payoutStatus !== "paid") return;
+    setBusy(true);
+    setError(null);
+    try {
+      await agentConfirmCommissionPayout(inv.id);
+      await refreshPayouts();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to confirm commission",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const openPlatformInvoices = useMemo(
+    () =>
+      platformInvoices.filter(
+        (p) => p.payoutStatus === "issued" || p.payoutStatus === "paid",
+      ),
+    [platformInvoices],
+  );
+  const settledPlatformInvoices = useMemo(
+    () => platformInvoices.filter((p) => p.payoutStatus === "settled"),
+    [platformInvoices],
+  );
+
   const slipDest = slip ? subPayoutAddrs.get(slip.sub.id) : null;
-  const slipLink = slip
-    ? paymentLinkForAgentSubPayout(slip.sub.id, slip.periodKey)
-    : "";
-  const absoluteSlipLink =
-    typeof window !== "undefined" && slipLink
-      ? `${window.location.origin}${slipLink}`
-      : slipLink;
+  const remittanceUri =
+    slip && slipDest?.address
+      ? commissionPayoutRemittanceUri({
+          address: slipDest.address,
+          amount: slip.amount,
+          asset: slipDest.asset,
+          network: slipDest.network,
+        })
+      : "";
+  const qrPayload = remittanceUri || slipDest?.address || "";
 
   return (
     <div className="plat-bills plat-commissions">
@@ -491,7 +561,7 @@ export function CommissionsPage({ session }: Props) {
         {mtd ? (
           <div className="plat-commissions__mtd">
             <p className="plat-commissions__eyebrow">
-              {mtd.periodLabel} statement
+              {formatCommissionPeriodLabel(mtd.periodKey)} statement
             </p>
             <p className="plat-commissions__mtd-value">
               <FundAmount amount={mtd.commissionAmount} />
@@ -505,9 +575,153 @@ export function CommissionsPage({ session }: Props) {
       </div>
 
       <p className="plat-bills__hint muted">
-        Statements from merchant service bills in your subtree.{" "}
+        Platform pays top-level agents monthly (USDT · TRON). Confirm after
+        remittance to move the invoice into history.{" "}
         <Link to="/agent/service-bills">View service bills</Link>
       </p>
+
+      {isTopLevel ? (
+        <section className="plat-commissions__platform-invoices">
+          <h2 className="plat-commissions__history-title">
+            Platform invoices
+          </h2>
+          {!loading && openPlatformInvoices.length === 0 ? (
+            <p className="plat-bills__empty">
+              No open platform invoices. They appear after platform generates
+              the month-end commission invoice.
+            </p>
+          ) : null}
+          {!loading && openPlatformInvoices.length > 0 ? (
+            <div className="plat-bills__table-wrap">
+              <table className="plat-bills__table plat-commissions__table">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th className="plat-commissions__th-num">Fee collected</th>
+                    <th className="plat-commissions__th-num">Rate</th>
+                    <th className="plat-commissions__th-num">Commission</th>
+                    <th>Status</th>
+                    <th>Tx / ref</th>
+                    <th className="plat-commissions__th-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openPlatformInvoices.map((inv) => (
+                    <tr key={inv.id} className="plat-bills__row">
+                      <td className="plat-commissions__period">
+                        {formatCommissionPeriodLabel(inv.periodKey)}
+                      </td>
+                      <td className="plat-commissions__num">
+                        <FundAmount amount={inv.platformFeeCollected} />
+                      </td>
+                      <td className="plat-commissions__rate-cell">
+                        {inv.commissionPercent}%
+                      </td>
+                      <td className="plat-commissions__num plat-commissions__num--emph">
+                        <FundAmount amount={inv.commissionAmount} />
+                      </td>
+                      <td>
+                        <span
+                          className={`plat-commissions__status is-${payoutTone(inv.payoutStatus)}`}
+                        >
+                          {platformInvoiceLabel(inv.payoutStatus)}
+                        </span>
+                      </td>
+                      <td className="plat-commissions__tx">
+                        <CopyableChainValue
+                          value={inv.txRef}
+                          network={inv.network?.trim() || "tron"}
+                          kind="tx"
+                          display={
+                            inv.txRef
+                              ? truncateAddress(inv.txRef, 8, 6)
+                              : undefined
+                          }
+                        />
+                      </td>
+                      <td className="plat-commissions__actions-cell">
+                        {canManage && inv.payoutStatus === "paid" ? (
+                          <button
+                            type="button"
+                            className="plat-commissions__action plat-commissions__action--primary"
+                            disabled={busy}
+                            onClick={() => void onConfirmPlatformInvoice(inv)}
+                          >
+                            {busy ? "Confirming…" : "Confirm receipt"}
+                          </button>
+                        ) : inv.payoutStatus === "issued" ? (
+                          <span className="muted" style={{ fontSize: 12 }}>
+                            Awaiting platform pay
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {settledPlatformInvoices.length > 0 ? (
+            <>
+              <h2 className="plat-commissions__history-title">
+                Settled with platform
+              </h2>
+              <div className="plat-bills__table-wrap">
+                <table className="plat-bills__table plat-commissions__table">
+                  <thead>
+                    <tr>
+                      <th>Period</th>
+                      <th className="plat-commissions__th-num">Amount</th>
+                      <th>Settled at</th>
+                      <th>Tx / ref</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {settledPlatformInvoices.map((inv) => (
+                      <tr key={inv.id} className="plat-bills__row">
+                        <td className="plat-commissions__period">
+                          {formatCommissionPeriodLabel(inv.periodKey)}
+                        </td>
+                        <td className="plat-commissions__num plat-commissions__num--emph">
+                          <FundAmount amount={inv.commissionAmount} />
+                        </td>
+                        <td className="plat-commissions__paid-at">
+                          {inv.settledAt
+                            ? new Date(inv.settledAt).toLocaleString()
+                            : inv.paidAt
+                              ? new Date(inv.paidAt).toLocaleString()
+                              : "—"}
+                        </td>
+                        <td className="plat-commissions__tx">
+                          <CopyableChainValue
+                            value={inv.txRef}
+                            network={inv.network?.trim() || "tron"}
+                            kind="tx"
+                            display={
+                              inv.txRef
+                                ? truncateAddress(inv.txRef, 8, 6)
+                                : undefined
+                            }
+                          />
+                        </td>
+                        <td>
+                          <span className="plat-commissions__status is-settled">
+                            Settled
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
+      <h2 className="plat-commissions__history-title">Fee base (live)</h2>
 
       <div className="plat-bills__table-wrap">
         {loading ? (
@@ -549,7 +763,9 @@ export function CommissionsPage({ session }: Props) {
                     animationDelay: `${Math.min(index, 24) * 40}ms`,
                   }}
                 >
-                  <td className="plat-commissions__period">{row.periodLabel}</td>
+                  <td className="plat-commissions__period">
+                    {formatCommissionPeriodLabel(row.periodKey)}
+                  </td>
                   <td className="plat-commissions__num">
                     <FundAmount amount={row.platformFeeCollected} />
                   </td>
@@ -626,7 +842,7 @@ export function CommissionsPage({ session }: Props) {
                         </Link>
                       </td>
                       <td className="plat-commissions__period">
-                        {row.periodLabel}
+                        {formatCommissionPeriodLabel(row.periodKey)}
                       </td>
                       <td className="plat-commissions__num">
                         <FundAmount amount={row.feeBase} />
@@ -697,12 +913,23 @@ export function CommissionsPage({ session }: Props) {
                         </td>
                         <td>{h.payeeName}</td>
                         <td className="plat-commissions__period">
-                          {h.periodLabel}
+                          {formatCommissionPeriodLabel(h.periodKey)}
                         </td>
                         <td className="plat-commissions__num plat-commissions__num--emph">
                           <FundAmount amount={h.commissionAmount} />
                         </td>
-                        <td>{h.txRef || "—"}</td>
+                        <td className="plat-commissions__tx">
+                          <CopyableChainValue
+                            value={h.txRef}
+                            network={h.network?.trim() || "tron"}
+                            kind="tx"
+                            display={
+                              h.txRef
+                                ? truncateAddress(h.txRef, 8, 6)
+                                : undefined
+                            }
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -740,7 +967,7 @@ export function CommissionsPage({ session }: Props) {
                       Agent → sub-agent
                     </p>
                     <h3 id="agent-sub-slip-title">
-                      Payout slip · {slip.periodLabel}
+                      Payout slip · {formatCommissionPeriodLabel(slip.periodKey)}
                     </h3>
                   </div>
                   <button
@@ -776,18 +1003,14 @@ export function CommissionsPage({ session }: Props) {
                       {slip.pct}% on <FundAmount amount={slip.feeBase} /> fee
                       base
                     </p>
-                    <p className="plat-commissions-slip__hint">
-                      Send funds to the sub-agent payout address below. Platform
-                      does not pay sub-agents directly.
-                    </p>
                   </section>
 
                   {slipDest?.address ? (
                     <section className="plat-commissions-slip__pay">
                       <div className="plat-commissions-slip__qr-wrap">
                         <img
-                          src={qrUrl(slipDest.address)}
-                          alt="Sub-agent payout address QR"
+                          src={qrUrl(qrPayload)}
+                          alt="Sub-agent payout remittance QR"
                           width={148}
                           height={148}
                         />
@@ -797,49 +1020,15 @@ export function CommissionsPage({ session }: Props) {
                       </div>
                       <div className="plat-commissions-slip__dest">
                         <div className="plat-commissions-slip__field">
-                          <div className="plat-commissions-slip__field-head">
-                            <span className="plat-commissions-slip__label">
-                              Payout address
-                            </span>
-                            <button
-                              type="button"
-                              className="plat-commissions-slip__copy"
-                              onClick={() =>
-                                void copySlipValue(
-                                  "address",
-                                  slipDest.address,
-                                )
-                              }
-                            >
-                              {copiedKey === "address" ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                          <code className="plat-commissions-slip__address">
-                            {slipDest.address}
-                          </code>
-                        </div>
-                        <div className="plat-commissions-slip__field">
-                          <div className="plat-commissions-slip__field-head">
-                            <span className="plat-commissions-slip__label">
-                              Payment link
-                            </span>
-                            <button
-                              type="button"
-                              className="plat-commissions-slip__copy"
-                              onClick={() =>
-                                void copySlipValue("link", absoluteSlipLink)
-                              }
-                            >
-                              {copiedKey === "link" ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                          <a
-                            className="plat-commissions-slip__link"
-                            href={slipLink}
-                            title={absoluteSlipLink}
-                          >
-                            {absoluteSlipLink}
-                          </a>
+                          <span className="plat-commissions-slip__label">
+                            Payout address
+                          </span>
+                          <CopyableChainValue
+                            className="plat-commissions-slip__chain"
+                            value={slipDest.address}
+                            network={slipDest.network?.trim() || "tron"}
+                            kind="address"
+                          />
                         </div>
                       </div>
                     </section>
@@ -851,35 +1040,64 @@ export function CommissionsPage({ session }: Props) {
                     </p>
                   )}
 
-                  {canManage && slip.record?.payoutStatus !== "paid" ? (
-                    <label className="plat-commissions-slip__tx">
+                  {slip.record?.payoutStatus === "paid" ? (
+                    <div className="plat-commissions-slip__field">
                       <span className="plat-commissions-slip__label">
-                        Tx hash / bank ref
+                        Tx hash
                       </span>
-                      <input
-                        className="field-control plat-commissions-slip__input"
-                        value={txRef}
-                        onChange={(e) => setTxRef(e.target.value)}
-                        placeholder="Paste proof after sending"
+                      <CopyableChainValue
+                        className="plat-commissions-slip__chain"
+                        value={slip.record.txRef}
+                        network={
+                          slip.record.network?.trim() ||
+                          slipDest?.network?.trim() ||
+                          "tron"
+                        }
+                        kind="tx"
                       />
-                    </label>
+                    </div>
+                  ) : null}
+
+                  {slip.record?.paidAt ? (
+                    <p className="plat-commissions-slip__paid-meta">
+                      Confirmed{" "}
+                      {new Date(slip.record.paidAt).toLocaleString()}
+                      {" · USDT · TRON"}
+                    </p>
                   ) : null}
                 </div>
-                <footer className="b3-commission-modal__foot plat-commissions-slip__foot">
-                  <button type="button" className="btn-ghost" onClick={closeSlip}>
-                    Close
-                  </button>
-                  {canManage && slip.record?.payoutStatus !== "paid" ? (
+                {canManage && slip.record?.payoutStatus !== "paid" ? (
+                  <footer className="plat-commissions-slip__confirm">
+                    <div className="plat-commissions-slip__confirm-meta">
+                      <span className="plat-commissions-slip__confirm-asset">
+                        <AssetIcon asset={slipDest?.asset ?? "USDT"} />
+                        <NetworkIcon network={slipDest?.network ?? "tron"} />
+                        <span>USDT · TRON</span>
+                      </span>
+                      <span className="plat-commissions-slip__confirm-amount">
+                        <FundAmount amount={slip.amount} />
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      className="btn-primary"
-                      disabled={busy || !txRef.trim()}
+                      className="btn-primary plat-commissions-slip__confirm-btn"
+                      disabled={busy || !slipDest?.address}
                       onClick={() => void onMarkSubPaid()}
                     >
-                      {busy ? "Saving…" : "Mark paid"}
+                      {busy ? "Confirming…" : "Confirm sent"}
                     </button>
-                  ) : null}
-                </footer>
+                  </footer>
+                ) : (
+                  <footer className="b3-commission-modal__foot plat-commissions-slip__foot">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={closeSlip}
+                    >
+                      Close
+                    </button>
+                  </footer>
+                )}
               </div>
             </div>,
             document.body,

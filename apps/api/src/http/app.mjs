@@ -84,6 +84,12 @@ import {
 } from "../platform-settings/platform-settings-routes.mjs";
 import { handleGetWatcherHealth } from "../ops/watcher-health-routes.mjs";
 import {
+  handleGetNetworkCatalog,
+  handleGetNetworksStatus,
+  handleListActiveNetworkMaintenance,
+  handlePutNetworkMaintenance,
+} from "../platform-settings/network-maintenance-routes.mjs";
+import {
   handleApplyComplianceOverride,
   handleListComplianceOverrides,
 } from "../compliance/compliance-routes.mjs";
@@ -102,6 +108,9 @@ import {
   handlePutAgentCommission,
 } from "../commercial/agent-commission-routes.mjs";
 import {
+  handleAgentConfirmCommissionPayout,
+  handleConfirmCommissionPayoutSent,
+  handleGenerateCommissionInvoices,
   handleListCommissionPayouts,
   handleMarkCommissionPayoutPaid,
   handleUpsertCommissionPayout,
@@ -395,6 +404,11 @@ export async function handleRequest(req, res) {
     }
   }
 
+  if (method === "POST" && path === "/v1/commission-payouts/generate") {
+    await handleGenerateCommissionInvoices(req, res);
+    return;
+  }
+
   if (method === "GET" && path === "/v1/agent-commissions") {
     await handleListAgentCommissions(req, res);
     return;
@@ -402,6 +416,30 @@ export async function handleRequest(req, res) {
 
   if (method === "GET" && path === "/v1/agent-payout-addresses") {
     await handleListAgentPayoutAddresses(req, res);
+    return;
+  }
+
+  const commissionPayoutConfirmMatch = path.match(
+    /^\/v1\/commission-payouts\/([^/]+)\/confirm-sent$/,
+  );
+  if (method === "POST" && commissionPayoutConfirmMatch) {
+    await handleConfirmCommissionPayoutSent(
+      req,
+      res,
+      decodeURIComponent(commissionPayoutConfirmMatch[1]),
+    );
+    return;
+  }
+
+  const commissionAgentConfirmMatch = path.match(
+    /^\/v1\/commission-payouts\/([^/]+)\/agent-confirm$/,
+  );
+  if (method === "POST" && commissionAgentConfirmMatch) {
+    await handleAgentConfirmCommissionPayout(
+      req,
+      res,
+      decodeURIComponent(commissionAgentConfirmMatch[1]),
+    );
     return;
   }
 
@@ -516,6 +554,33 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/platform/watcher-health" && method === "GET") {
     await handleGetWatcherHealth(req, res);
+    return;
+  }
+
+  if (path === "/v1/platform/networks/catalog" && method === "GET") {
+    await handleGetNetworkCatalog(req, res);
+    return;
+  }
+
+  if (path === "/v1/networks/status" && method === "GET") {
+    await handleGetNetworksStatus(req, res);
+    return;
+  }
+
+  if (path === "/v1/network-maintenance" && method === "GET") {
+    await handleListActiveNetworkMaintenance(req, res);
+    return;
+  }
+
+  const networkMaintMatch = path.match(
+    /^\/v1\/platform\/networks\/([^/]+)\/maintenance$/,
+  );
+  if (method === "PUT" && networkMaintMatch) {
+    await handlePutNetworkMaintenance(
+      req,
+      res,
+      decodeURIComponent(networkMaintMatch[1]),
+    );
     return;
   }
 

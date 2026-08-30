@@ -125,7 +125,8 @@ describe("@cryptogate/matching mode-b assign (M1-32 / M2-40)", () => {
         assignModeB({
           ...baseAssign,
           mode: "B",
-          network: "ethereum",
+          asset: "USDT",
+          network: "bitcoin",
         }),
       /not enabled in registry/,
     );

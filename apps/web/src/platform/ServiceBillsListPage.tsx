@@ -11,6 +11,7 @@ import { AssetCode } from "@cryptogate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
+  getBillingWalletSettings,
   getPlatformOrgs,
   getPlatformServiceBills,
   peekPlatformOrgs,
@@ -19,6 +20,7 @@ import {
 } from "./api";
 import { AssetIcon } from "./cryptoIcons";
 import { formatShortDate, sessionCanIssueServiceBill } from "./org";
+import { truncateAddress } from "./orgDetailSeeds";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
 import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
@@ -30,10 +32,29 @@ import {
 } from "./serviceBillStatus";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
+import {
+  SortHeader,
+  compareDate,
+  compareNumber,
+  compareText,
+  toggleSortState,
+  type SortState,
+} from "./ui/TableArrange";
 
 type Props = { session: Session };
 
 type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
+
+type SortKey =
+  | "billId"
+  | "merchant"
+  | "amount"
+  | "dueDate"
+  | "status"
+  | "period"
+  | "txHash"
+  | "rxAddress"
+  | "txAddress";
 
 const PAGE_SIZE = 20;
 
@@ -83,8 +104,14 @@ export function ServiceBillsListPage({ session }: Props) {
     const cached = peekPlatformOrgs();
     return cached ? orgNameMap(cached) : new Map();
   });
+  /** Platform remittance destination (Rx) from billing wallet settings. */
+  const [rxAddress, setRxAddress] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState<SortKey>>({
+    key: "dueDate",
+    dir: "desc",
+  });
   const [loading, setLoading] = useState(() => peekPlatformServiceBills() == null);
   const [error, setError] = useState<string | null>(null);
   const [topbarLeadingSlot, setTopbarLeadingSlot] = useState<HTMLElement | null>(
@@ -123,12 +150,14 @@ export function ServiceBillsListPage({ session }: Props) {
     if (!canUseCache) setLoading(true);
     setError(null);
     try {
-      const [bills, orgs] = await Promise.all([
+      const [bills, orgs, billing] = await Promise.all([
         getPlatformServiceBills(),
         getPlatformOrgs(),
+        getBillingWalletSettings().catch(() => null),
       ]);
       setItems(bills);
       setOrgNames(orgNameMap(orgs));
+      setRxAddress(billing?.payTo?.trim() || null);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -156,23 +185,85 @@ export function ServiceBillsListPage({ session }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((bill) => {
+    const rows = items.filter((bill) => {
       if (!matchesStatus(bill, statusFilter)) return false;
       if (periodFilter !== "all" && bill.periodStart !== periodFilter) return false;
       if (!q) return true;
       const merchant = (orgNames.get(bill.orgId) ?? bill.orgId).toLowerCase();
       const billId = formatBillId(bill.id).toLowerCase();
+      const txHash = (bill.paymentReference ?? "").toLowerCase();
+      const rx = (bill.rxAddress ?? rxAddress ?? "").toLowerCase();
+      const tx = (bill.txAddress ?? "").toLowerCase();
       return (
         billId.includes(q) ||
         bill.id.toLowerCase().includes(q) ||
-        merchant.includes(q)
+        merchant.includes(q) ||
+        (txHash.length > 0 && txHash.includes(q)) ||
+        (rx.length > 0 && rx.includes(q)) ||
+        (tx.length > 0 && tx.includes(q))
       );
     });
-  }, [items, orgNames, query, statusFilter, periodFilter]);
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const merchantOf = (bill: ServiceBill) =>
+      orgNames.get(bill.orgId) ?? bill.orgId;
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      switch (sort.key) {
+        case "billId":
+          cmp = compareText(formatBillId(a.id), formatBillId(b.id));
+          break;
+        case "merchant":
+          cmp = compareText(merchantOf(a), merchantOf(b));
+          break;
+        case "amount":
+          cmp = compareNumber(Number(a.totalAmount), Number(b.totalAmount));
+          break;
+        case "status":
+          cmp = compareText(
+            serviceBillStatusLabel(a.status),
+            serviceBillStatusLabel(b.status),
+          );
+          break;
+        case "period":
+          cmp = compareText(a.periodStart, b.periodStart);
+          break;
+        case "txHash":
+          cmp = compareText(a.paymentReference ?? "", b.paymentReference ?? "");
+          break;
+        case "rxAddress":
+          cmp = compareText(
+            a.rxAddress ?? rxAddress ?? "",
+            b.rxAddress ?? rxAddress ?? "",
+          );
+          break;
+        case "txAddress":
+          cmp = compareText(a.txAddress ?? "", b.txAddress ?? "");
+          break;
+        case "dueDate":
+        default:
+          cmp = compareDate(a.dueAt, b.dueAt);
+          break;
+      }
+      if (cmp !== 0) return dir * cmp;
+      return dir * compareDate(a.dueAt, b.dueAt);
+    });
+  }, [items, orgNames, query, statusFilter, periodFilter, sort, rxAddress]);
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, periodFilter]);
+  }, [query, statusFilter, periodFilter, sort]);
+
+  const onSort = useCallback((key: SortKey) => {
+    setSort((prev) =>
+      toggleSortState(
+        prev,
+        key,
+        key === "dueDate" || key === "amount" || key === "period"
+          ? "desc"
+          : "asc",
+      ),
+    );
+  }, []);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -232,8 +323,8 @@ export function ServiceBillsListPage({ session }: Props) {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search bill ID or merchant"
-                aria-label="Search service bills"
+                placeholder="Search bill ID, merchant, Tx hash, or Rx address"
+                aria-label="Search service bills by bill ID, merchant, Tx hash, or Rx address"
               />
             </label>,
             topbarSlot,
@@ -266,8 +357,12 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
-      <div className="plat-bills__toolbar">
-        <div className="org-agents__pills" role="group" aria-label="Status filter">
+      <div className="plat-bills__toolbar plat-bills__toolbar--tabs">
+        <div
+          className="b3-agent-detail__tabs plat-bills__tabs"
+          role="tablist"
+          aria-label="Status filter"
+        >
           {STATUS_PILLS.map((pill) => {
             let label = pill.label;
             if (pill.id === "unpaid" && unpaidCount > 0) {
@@ -280,8 +375,11 @@ export function ServiceBillsListPage({ session }: Props) {
               <button
                 key={pill.id}
                 type="button"
-                className={`org-agents__pill${statusFilter === pill.id ? " is-active" : ""}`}
-                aria-pressed={statusFilter === pill.id}
+                role="tab"
+                className={`b3-agent-detail__tab${
+                  statusFilter === pill.id ? " is-active" : ""
+                }`}
+                aria-selected={statusFilter === pill.id}
                 onClick={() => setStatusFilter(pill.id)}
               >
                 {label}
@@ -304,6 +402,17 @@ export function ServiceBillsListPage({ session }: Props) {
               </option>
             ))}
           </select>
+          <span className="plat-bills__period-filter-icon" aria-hidden>
+            <svg viewBox="0 0 10 6" width="10" height="6" fill="none">
+              <path
+                d="M1 1l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </label>
       </div>
 
@@ -315,32 +424,103 @@ export function ServiceBillsListPage({ session }: Props) {
               title="Loading service bills"
               copy="Fetching invoices and merchant names."
             />
-            <PlatformTableSkeleton columns={6} rows={8} />
+            <PlatformTableSkeleton columns={9} rows={8} />
           </div>
         ) : null}
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">
-            {query.trim() || statusFilter !== "all" || periodFilter !== "all"
-              ? "No service bills match this filter."
-              : "No service bills yet. Use Generate period for the monthly batch."}
+            {query.trim()
+              ? "No service bills match that bill ID, merchant, Tx hash, or Rx address."
+              : statusFilter !== "all" || periodFilter !== "all"
+                ? "No service bills for the selected status or period."
+                : "No service bills issued yet. Generate a period to create the monthly batch."}
           </p>
         ) : null}
         {!loading && filtered.length > 0 ? (
           <table className="plat-bills__table">
             <thead>
               <tr>
-                <th>Bill ID</th>
-                <th>Merchant</th>
-                <th>Amount</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Period</th>
+                <th>
+                  <SortHeader
+                    label="Bill ID"
+                    sortKey="billId"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Merchant"
+                    sortKey="merchant"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Amount"
+                    sortKey="amount"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Due Date"
+                    sortKey="dueDate"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Status"
+                    sortKey="status"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Period"
+                    sortKey="period"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Tx hash"
+                    sortKey="txHash"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Rx address"
+                    sortKey="rxAddress"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Tx address"
+                    sortKey="txAddress"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
               {paged.map((bill, index) => {
                 const overdue = bill.status === "overdue";
                 const href = `/platform/service-bills/${bill.id}`;
+                const txHash = bill.paymentReference?.trim() || "";
+                const rowRx = bill.rxAddress?.trim() || rxAddress || "";
+                const rowTx = bill.txAddress?.trim() || "";
                 return (
                   <tr
                     key={bill.id}
@@ -388,7 +568,19 @@ export function ServiceBillsListPage({ session }: Props) {
                         {serviceBillStatusLabel(bill.status)}
                       </span>
                     </td>
-                    <td className="plat-bills__created">{bill.periodStart}</td>
+                    <td className="plat-bills__created">
+                      {formatShortDate(bill.periodStart)} →{" "}
+                      {formatShortDate(bill.periodEnd)}
+                    </td>
+                    <td className="plat-bills__tx" title={txHash || undefined}>
+                      {txHash ? <code>{truncateAddress(txHash, 8, 6)}</code> : "—"}
+                    </td>
+                    <td className="plat-bills__addr" title={rowRx || undefined}>
+                      {rowRx ? <code>{truncateAddress(rowRx)}</code> : "—"}
+                    </td>
+                    <td className="plat-bills__addr" title={rowTx || undefined}>
+                      {rowTx ? <code>{truncateAddress(rowTx)}</code> : "—"}
+                    </td>
                   </tr>
                 );
               })}

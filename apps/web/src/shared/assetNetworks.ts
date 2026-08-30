@@ -41,11 +41,12 @@ export function visibleRegistry(): readonly AssetNetworkConfig[] {
   return listAssetNetworkRegistry(webChainEnvOverride());
 }
 
+/** Topbar pill label from `VITE_CRYPTOGATE_CHAIN_ENV` (mainnet | testnet). */
 export function chainEnvironmentLabel(): string {
   return resolveChainEnvironment(webChainEnvOverride()) ===
     ChainEnvironment.Testnet
-    ? "testnet"
-    : "mainnet";
+    ? "Test-Net"
+    : "Main-Net";
 }
 
 export function networkShortLabel(network: string): string {

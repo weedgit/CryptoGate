@@ -2147,6 +2147,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /commission-payouts/generate:
+    post:
+      tags: [orgs]
+      operationId: generateCommissionInvoices
+      summary: Generate month-end platform → agent commission invoices
+      description: >
+        Creates or refreshes issued invoices for all top-level agents for the
+        period (default current UTC month). Fee base = paid volume fees in the
+        agent subtree. Skips agents already paid or settled for that period.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                periodKey:
+                  type: string
+                  description: YYYY-MM (defaults to current calendar month UTC)
+                  example: "2026-08"
+      responses:
+        "200":
+          description: Generated invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [periodKey, periodLabel, created, skipped]
+                properties:
+                  periodKey:
+                    type: string
+                  periodLabel:
+                    type: string
+                  created:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommissionPayout"
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /agent-commissions:
     get:
       tags: [orgs]
@@ -2207,11 +2257,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /commission-payouts/{payoutId}/confirm-sent:
+    post:
+      tags: [orgs]
+      operationId: confirmCommissionPayoutSent
+      summary: Confirm USDT-TRON remittance sent (ready → verifying)
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: payoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  nullable: true
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Slip in verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPayout"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /commission-payouts/{payoutId}/mark-paid:
     post:
       tags: [orgs]
       operationId: markCommissionPayoutPaid
-      summary: Mark a commission payout as paid
+      summary: Mark remittance paid (platform invoice or agent→sub slip)
+      description: >
+        Platform → agent issued → paid (awaiting agent confirm).
+        Agent → sub ready/verifying → paid. Note required without txRef from issued/ready.
       security:
         - sessionCookie: []
       parameters:
@@ -2226,10 +2328,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [txRef]
               properties:
                 txRef:
                   type: string
+                  nullable: true
+                  description: >
+                    Optional chain tx hash. Watcher may set this later for USDT-TRON.
+                note:
+                  type: string
+                  nullable: true
+                  maxLength: 2000
+                  description: Required when completing from issued/ready without a tx.
       responses:
         "200":
           description: Updated slip
@@ -2245,6 +2354,53 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /commission-payouts/{payoutId}/agent-confirm:
+    post:
+      tags: [orgs]
+      operationId: agentConfirmCommissionPayout
+      summary: Agent confirms receipt (paid → settled)
+      description: >
+        Agent Owner/Admin acknowledges the platform remittance. Settled invoices
+        appear in platform Payout history.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: payoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Settled invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPayout"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid state
           content:
             application/json:
               schema:
@@ -3045,6 +3201,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /platform/networks/catalog:
+    get:
+      tags: [platform-settings]
+      operationId: getNetworkCatalog
+      summary: Network & asset catalog (B16)
+      description: >
+        Platform Owner/Administrator/Viewer. One card per network from the
+        domain registry, merged with persisted maintenance and watcher heartbeats.
+        Catalog fraction is enabled pairs / catalogued pairs — not a fake health %.
+        Ingest healthScore comes from watcher heartbeats when present.
+        Each card/pair includes an orderability lamp (Open / Paused / Down / Off).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Network catalog snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkCatalog"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /networks/status:
+    get:
+      tags: [platform-settings]
+      operationId: getNetworksStatus
+      summary: Orderability lamps for all networks (any authenticated portal)
+      description: >
+        Any authenticated session (platform, agent, merchant). Compact Open /
+        Paused / Down / Off lamps from registry enablement + maintenance +
+        watcher ingest. Used by merchant Networks and System Health tables.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Network status snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworksStatus"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /platform/networks/{network}/maintenance:
+    put:
+      tags: [platform-settings]
+      operationId: putNetworkMaintenance
+      summary: Enable or clear network maintenance (deposit pause)
+      description: >
+        Platform Owner or Administrator. While active, POST /orders for that
+        network returns 422 network_maintenance. Merchants see the message via
+        GET /network-maintenance. Audited.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: network
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/NetworkId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NetworkMaintenanceUpdate"
+      responses:
+        "200":
+          description: Updated maintenance window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkMaintenanceState"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown network
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /network-maintenance:
+    get:
+      tags: [platform-settings]
+      operationId: listActiveNetworkMaintenance
+      summary: Active network maintenance windows (all authenticated portals)
+      description: >
+        Any authenticated session. Used for merchant/agent deposit-pause banners.
+        Returns only networks currently under effective maintenance.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Active maintenance list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveNetworkMaintenanceList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /platform/orgs/{orgId}/compliance-overrides:
     get:
       tags: [platform-settings]
@@ -3532,7 +3809,10 @@ components:
           type: number
         payoutStatus:
           type: string
-          enum: [ready, paid]
+          enum: [issued, ready, verifying, paid, settled]
+          description: >
+            Platform → agent: issued → paid (ops remitted) → settled (agent confirm).
+            Agent → sub: ready → verifying → paid.
         payoutAddress:
           type: string
           nullable: true
@@ -3547,9 +3827,26 @@ components:
         txRef:
           type: string
           nullable: true
+        note:
+          type: string
+          nullable: true
+          description: Optional ops note when confirming remittance paid
+        treeSnapshot:
+          type: object
+          nullable: true
+          description: Merchant/site fee status + onboard dates for the invoice period
+          additionalProperties: true
         paidAt:
           type: string
           format: date-time
+          nullable: true
+        settledAt:
+          type: string
+          format: date-time
+          nullable: true
+        agentConfirmedBy:
+          type: string
+          format: uuid
           nullable: true
         updatedAt:
           type: string
@@ -4562,7 +4859,15 @@ components:
         paymentReference:
           type: string
           nullable: true
-          description: Remittance / off-chain reference when marked paid
+          description: Tx hash / bank remittance reference when marked paid
+        rxAddress:
+          type: string
+          nullable: true
+          description: Platform billing wallet (receive) snapshotted at mark-paid
+        txAddress:
+          type: string
+          nullable: true
+          description: Merchant payer / sender address when marked paid
         createdAt:
           type: string
           format: date-time
@@ -4664,7 +4969,17 @@ components:
         paymentReference:
           type: string
           maxLength: 256
-          description: Optional off-chain or on-chain reference when action=mark_paid
+          description: Optional tx hash / bank remittance reference when action=mark_paid
+        rxAddress:
+          type: string
+          maxLength: 128
+          description: >
+            Optional receive address snapshot when action=mark_paid. When omitted,
+            API fills from platform billing wallet payTo if configured.
+        txAddress:
+          type: string
+          maxLength: 128
+          description: Optional merchant payer / sender address when action=mark_paid
     ServiceBillCheckout:
       type: object
       required: [billId, totalAmount, currency, payTo, instructions]
@@ -5001,6 +5316,285 @@ components:
         note:
           type: string
           description: Optional operator hint (e.g. missing migration)
+    NetworkOrderabilityLamp:
+      type: object
+      description: >
+        Single-signal orderability — Open (green), Paused (amber), Down (red),
+        Off (grey). Combines catalog enabled + maintenance + watcher ingest.
+      required: [code, label, tone]
+      properties:
+        code:
+          type: string
+          enum: [open, paused, down, off]
+        label:
+          type: string
+          enum: [Open, Paused, Down, Off]
+        tone:
+          type: string
+          enum: [ok, warn, bad, muted]
+    NetworkCatalogIngestStatus:
+      type: string
+      enum: [live, stub, degraded, down, unknown]
+    NetworkCatalogCardStatus:
+      type: string
+      enum: [active, maintenance, catalogued]
+    NetworkCatalogIngest:
+      type: object
+      required:
+        - ingestStatus
+        - ingestLabel
+        - rpcConfigured
+        - openOrders
+      properties:
+        ingestStatus:
+          $ref: "#/components/schemas/NetworkCatalogIngestStatus"
+        ingestLabel:
+          type: string
+        rpcConfigured:
+          type: boolean
+        rpcMode:
+          type: string
+          nullable: true
+        healthScore:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Watcher heartbeat score when present; null if no heartbeat
+        lagMs:
+          type: integer
+          nullable: true
+        tickAt:
+          type: string
+          format: date-time
+          nullable: true
+        openOrders:
+          type: integer
+    NetworkCatalogPair:
+      type: object
+      required:
+        - asset
+        - enabled
+        - decimals
+        - minAmount
+        - requiredConfirmations
+        - displayNetwork
+        - lamp
+      properties:
+        asset:
+          $ref: "#/components/schemas/AssetCode"
+        enabled:
+          type: boolean
+        contractAddress:
+          type: string
+          nullable: true
+        decimals:
+          type: integer
+        minAmount:
+          type: string
+        requiredConfirmations:
+          type: integer
+        displayNetwork:
+          type: string
+        lamp:
+          $ref: "#/components/schemas/NetworkOrderabilityLamp"
+    NetworkCatalogCard:
+      type: object
+      required:
+        - network
+        - title
+        - status
+        - lamp
+        - pairCount
+        - enabledCount
+        - catalogFraction
+        - pairs
+        - maintenance
+        - ingest
+      properties:
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/NetworkCatalogCardStatus"
+        lamp:
+          $ref: "#/components/schemas/NetworkOrderabilityLamp"
+        pairCount:
+          type: integer
+        enabledCount:
+          type: integer
+        catalogFraction:
+          type: number
+          description: enabledCount / pairCount (registry completeness)
+        primaryAsset:
+          type: string
+          nullable: true
+        confirmations:
+          type: integer
+          nullable: true
+        minAmount:
+          type: string
+          nullable: true
+        contractAddress:
+          type: string
+          nullable: true
+        pairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/NetworkCatalogPair"
+        maintenance:
+          type: object
+          required: [active]
+          properties:
+            active:
+              type: boolean
+            message:
+              type: string
+              nullable: true
+            startedAt:
+              type: string
+              format: date-time
+              nullable: true
+            endsAt:
+              type: string
+              format: date-time
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
+              nullable: true
+        ingest:
+          $ref: "#/components/schemas/NetworkCatalogIngest"
+    NetworkCatalog:
+      type: object
+      required: [chainEnv, checkedAt, items]
+      properties:
+        chainEnv:
+          type: string
+          enum: [mainnet, testnet]
+        checkedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NetworkCatalogCard"
+    NetworksStatus:
+      type: object
+      required: [chainEnv, checkedAt, items]
+      properties:
+        chainEnv:
+          type: string
+          enum: [mainnet, testnet]
+        checkedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NetworksStatusItem"
+    NetworksStatusItem:
+      type: object
+      required: [network, title, lamp, maintenance, ingestStatus, pairs]
+      properties:
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        title:
+          type: string
+        lamp:
+          $ref: "#/components/schemas/NetworkOrderabilityLamp"
+        maintenance:
+          type: object
+          required: [active]
+          properties:
+            active:
+              type: boolean
+            message:
+              type: string
+              nullable: true
+        ingestStatus:
+          $ref: "#/components/schemas/NetworkCatalogIngestStatus"
+        pairs:
+          type: array
+          items:
+            type: object
+            required: [asset, enabled, lamp, displayNetwork]
+            properties:
+              asset:
+                $ref: "#/components/schemas/AssetCode"
+              enabled:
+                type: boolean
+              lamp:
+                $ref: "#/components/schemas/NetworkOrderabilityLamp"
+              displayNetwork:
+                type: string
+    NetworkMaintenanceUpdate:
+      type: object
+      required: [active]
+      additionalProperties: false
+      properties:
+        active:
+          type: boolean
+        message:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Merchant-facing banner; defaulted when active and omitted
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+    NetworkMaintenanceState:
+      type: object
+      required: [network, active, updatedAt]
+      properties:
+        network:
+          $ref: "#/components/schemas/NetworkId"
+        active:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    ActiveNetworkMaintenanceList:
+      type: object
+      required: [items, checkedAt]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [network]
+            properties:
+              network:
+                $ref: "#/components/schemas/NetworkId"
+              message:
+                type: string
+                nullable: true
+              startedAt:
+                type: string
+                format: date-time
+                nullable: true
+              endsAt:
+                type: string
+                format: date-time
+                nullable: true
+        checkedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
     ComplianceOverrideType:
       type: string
       enum:

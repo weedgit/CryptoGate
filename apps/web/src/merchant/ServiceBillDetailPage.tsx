@@ -23,28 +23,9 @@ import {
   platformInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
-import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
-import { displayNetworkForPair } from "../shared/assetNetworks";
-import {
-  AssetIcon,
-  NetworkIcon,
-  QrCenterNetworkMark,
-} from "../platform/cryptoIcons";
+import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
 
 type Props = { session: Session };
-
-const BILL_ASSET = "USDT";
-const BILL_NETWORK = "tron";
-
-function serviceBillQrPayload(payTo: string, totalAmount: string): string | null {
-  if (!payTo.startsWith("T") || payTo.length < 30) return null;
-  const q = new URLSearchParams({
-    amount: totalAmount,
-    asset: BILL_ASSET,
-    network: BILL_NETWORK,
-  });
-  return `tron:${payTo}?${q.toString()}`;
-}
 
 /** 0 = Issued, 1 = Awaiting / Overdue, 2 = Paid. */
 function billTimelineIndex(status: string): number {
@@ -78,7 +59,6 @@ export function ServiceBillDetailPage({ session }: Props) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -131,26 +111,11 @@ export function ServiceBillDetailPage({ session }: Props) {
 
   const payTo =
     checkout?.payTo ?? platformBillingPayToFallback() ?? null;
-  const qrPayload =
-    checkout?.qrPayload ??
-    (payTo && bill ? serviceBillQrPayload(payTo, bill.totalAmount) : null);
-  const networkDisplay = displayNetworkForPair(BILL_ASSET, BILL_NETWORK);
   const paid = bill?.status === "paid";
   const voided = bill?.status === "voided";
   const payable = bill?.status === "issued" || bill?.status === "overdue";
   const isOverdue = bill?.status === "overdue";
   const timelineIndex = bill ? billTimelineIndex(bill.status) : 0;
-
-  async function copyPayTo() {
-    if (!payTo) return;
-    try {
-      await navigator.clipboard.writeText(payTo);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  }
 
   if (loading && !bill) {
     return <p className="muted">Loading service bill…</p>;
@@ -238,106 +203,25 @@ export function ServiceBillDetailPage({ session }: Props) {
 
         <div className="order-detail-page__rail no-print">
           <div className="order-detail-page__rail-body">
-            <section className="plat-settings__card order-detail-gateway">
-              <div className="plat-settings__card-body order-detail-gateway__body">
-                <div className="order-detail-gateway__pay-panel">
-                  <div className="order-detail-gateway__amount">
-                    <div className="order-detail-gateway__chain-icons" aria-hidden>
-                      <AssetIcon asset={BILL_ASSET} />
-                      <NetworkIcon network={BILL_NETWORK} />
-                    </div>
-                    <span className="order-detail-gateway__amount-label">
-                      Amount due
-                    </span>
-                    <p className="order-detail-gateway__amount-value fund-amount">
-                      {bill.totalAmount} {BILL_ASSET}
-                    </p>
-                    <p className="order-detail-gateway__amount-net">
-                      <NetworkIcon network={BILL_NETWORK} />
-                      <span>{networkDisplay}</span>
-                    </p>
-                  </div>
-
-                  <div className="order-detail-gateway__qr-wrap">
-                    <div className="order-detail-gateway__qr">
-                      {checkoutLoading ? (
-                        <span className="muted">Loading QR…</span>
-                      ) : qrPayload && payable ? (
-                        <>
-                          <PaymentQrCanvas
-                            payload={qrPayload}
-                            size={204}
-                            alt="Service bill payment QR"
-                          />
-                          <span
-                            className="order-detail-gateway__qr-mark"
-                            aria-hidden
-                          >
-                            <QrCenterNetworkMark network={BILL_NETWORK} />
-                          </span>
-                        </>
-                      ) : (
-                        <span className="muted">
-                          {paid
-                            ? "Paid — QR closed"
-                            : voided
-                              ? "Voided"
-                              : "QR unavailable"}
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      className={`order-detail-gateway__timer${
-                        paid || voided || !payable ? " is-terminal" : ""
-                      }`}
-                    >
-                      {paid
-                        ? "Payment completed — QR no longer needed"
-                        : voided
-                          ? "Bill voided"
-                          : isOverdue
-                            ? "Overdue — settle remittance promptly"
-                            : payable
-                              ? `Due ${formatShortTime(bill.dueAt)}`
-                              : serviceBillStatusLabel(bill.status)}
-                    </p>
-                  </div>
-
-                  <div className="order-detail-gateway__address-block">
-                    <span className="order-detail-gateway__field-label">
-                      Payment address
-                    </span>
-                    <div className="order-detail-gateway__address-row">
-                      <div
-                        className="order-detail-gateway__address-icons"
-                        aria-hidden
-                      >
-                        <AssetIcon asset={BILL_ASSET} />
-                        <NetworkIcon network={BILL_NETWORK} />
-                      </div>
-                      <p
-                        className="order-detail-gateway__address mono"
-                        title={payTo || undefined}
-                      >
-                        {payTo || "—"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="order-detail-gateway__copy-btn"
-                      onClick={() => void copyPayTo()}
-                      disabled={!payTo}
-                    >
-                      {copied ? "Copied" : "Copy address"}
-                    </button>
-                  </div>
-
-                  <p className="order-detail-gateway__hint muted">
-                    Platform remittance — not a guest payment order address.
-                  </p>
-                </div>
-              </div>
-            </section>
+            <ServiceBillPayQrCard
+              totalAmount={bill.totalAmount}
+              payTo={payTo}
+              qrPayload={checkout?.qrPayload}
+              status={bill.status}
+              dueAt={bill.dueAt}
+              loading={checkoutLoading}
+              timerLabel={
+                paid
+                  ? "Payment completed — QR no longer needed"
+                  : voided
+                    ? "Bill voided"
+                    : isOverdue
+                      ? "Overdue — settle remittance promptly"
+                      : payable
+                        ? `Due ${formatShortTime(bill.dueAt)}`
+                        : serviceBillStatusLabel(bill.status)
+              }
+            />
 
             <aside className="order-detail-page__aside">
               <section className="plat-settings__card order-detail-aside-card order-detail-chain">
@@ -370,13 +254,39 @@ export function ServiceBillDetailPage({ session }: Props) {
                   </p>
                   {bill.paymentReference ? (
                     <label className="order-detail-chain__tx plat-settings__field">
-                      <span>Payment reference</span>
+                      <span>Tx hash</span>
                       <div className="field-shell">
                         <input
                           className="plat-settings__input mono"
                           readOnly
                           value={bill.paymentReference}
-                          aria-label="Payment reference"
+                          aria-label="Tx hash"
+                        />
+                      </div>
+                    </label>
+                  ) : null}
+                  {bill.rxAddress ? (
+                    <label className="order-detail-chain__tx plat-settings__field">
+                      <span>Rx address</span>
+                      <div className="field-shell">
+                        <input
+                          className="plat-settings__input mono"
+                          readOnly
+                          value={bill.rxAddress}
+                          aria-label="Rx address"
+                        />
+                      </div>
+                    </label>
+                  ) : null}
+                  {bill.txAddress ? (
+                    <label className="order-detail-chain__tx plat-settings__field">
+                      <span>Tx address</span>
+                      <div className="field-shell">
+                        <input
+                          className="plat-settings__input mono"
+                          readOnly
+                          value={bill.txAddress}
+                          aria-label="Tx address"
                         />
                       </div>
                     </label>

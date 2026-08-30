@@ -24,6 +24,7 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { chainEnvironmentLabel } from "../shared/assetNetworks";
 import { sessionIsPlatformViewerOnly } from "./org";
 import { AlertsDrawer, platformAlertsSource } from "./ui/AlertsDrawer";
 import {
@@ -89,9 +90,14 @@ function TopbarStatusRail() {
     };
   }, []);
 
+  const chainLabel = chainEnvironmentLabel();
+
   return (
     <div className="topbar-status" aria-label="System status">
-      <TopbarStatusPill label="Main-Net" title="Settlement rail" />
+      <TopbarStatusPill
+        label={chainLabel}
+        title={`Settlement rail · ${chainLabel}`}
+      />
       <TopbarStatusPill label="API" title="API process" ok={health.api} />
       <TopbarStatusPill
         label="Database"
@@ -194,12 +200,6 @@ const NAV_GROUPS: NavGroup[] = [
         label: "Fees",
         matchPrefix: "/platform/settings/fee-tiers",
         Icon: FeesNavIcon,
-      },
-      {
-        to: "/platform/settings/billing-wallet",
-        label: "Billing",
-        matchPrefix: "/platform/settings/billing-wallet",
-        Icon: ServiceBillsNavIcon,
       },
       {
         to: "/platform/audit",

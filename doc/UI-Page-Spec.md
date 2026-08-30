@@ -341,6 +341,28 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 
 ---
 
+### Architecture — org hierarchy
+
+| | |
+| --- | --- |
+| **Route** | `/platform/architecture` (agent: `/agent/architecture`) |
+| **Access** | O ✓ · A ✓ · V R |
+
+**Content**
+
+- Left: searchable org tree (Platform → agents → merchants → sites); filter by type/status
+- Right **detail card** (compact, ops-first; Members-like chips/density):
+  - Header: name, type/status pills; O/A actions (Add / Suspend·Run / Delete on platform; Add onboard on agent)
+  - **Stat strip:** Agents / Merchants / Sites / Direct children
+  - **Ops:** Org ID (copy), status, parent (+ type); agents also depth + commission %; merchants also structure, tier + volume fee %, order-create Allowed/Suspended
+  - **Registration:** registered date + filled contact fields only; short empty note when legal/country/billing blank
+  - CTA → Platform team (platform root) or Open agent|merchant detail (B3/B6 / C3/C6)
+- Viewer: read-only (no action buttons)
+
+Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Architecture is the map + ops snapshot. Density matches Platform Team Members (tight rows, compact pills).
+
+---
+
 ### B2. Agent accounts — list
 
 | | |
@@ -476,19 +498,17 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 | **Route** | `/platform/settings/fee-tiers` |
 | **Access** | O ✓ (edit) · A R · V R |
 
-**Content per tier (Small / Mid / Enterprise)**
+**Tabs**
 
-- Monthly subscription amount (USD)
-- Volume fee min % and max %
-- Default signup rate (within band)
-- Tier assignment rules description (editable help text)
-
-**Enterprise pending approvals** sub-table → approve/deny (O only)
+1. **Platform fees** — tier cards (Small / Mid / Enterprise): subscription, default signup rate, agent band, assignment notes
+2. **Band settings** — edit subscription / min–max / default signup / notes (O only); apply next billing period
+3. **Rate overrides** — Enterprise custom-rate approve/deny queue (O only)
+4. **Fee wallet** (B11-lite) — invoice seller name + contact email; crypto wallet merchants use to pay platform fees (`payTo`); rotation audited as `billing_wallet_put`. Checkout/invoice face prefer live settings over env. Route `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`; legacy `/platform/settings/billing-wallet` redirects).
 
 **Banners**
 
-- “Changes apply to **next billing period** only” (persistent info)
-- Unsaved changes warning on navigate away
+- “Changes apply to **next billing period** only” (pricing / bands)
+- Unsaved changes warning on navigate away (bands + fee wallet)
 
 ---
 
@@ -502,8 +522,16 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 **Content**
 
 - Filters: status (draft/issued/paid/overdue), period, merchant, agent
-- Columns: bill ID, merchant, period, subscription line, volume fee line, total, status, due date
+- Columns: bill ID, merchant, amount, due date, status, period, **Tx hash**, **Rx address**, **Tx address**
 - Actions (O, A): View (B10), Issue, Adjust, Mark paid (off-chain), Void (draft only)
+
+**Receipt columns**
+
+| Column | Source |
+| --- | --- |
+| Tx hash | `payment_reference` when marked paid |
+| Rx address | Bill `rx_address` snapshot, else live billing-wallet `payTo` |
+| Tx address | Bill `tx_address` (payer/sender) when recorded at mark paid |
 
 **Never show** payment-order checkout on this page.
 
@@ -523,30 +551,31 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
   - Document meta: bill ID, status, issue date, due date, period, currency
   - Line items: subscription (tier snapshot), volume fee (`billed volume × rate%`), adjustment reason badge, totals / paid / balance
   - Remittance: service-bill checkout / platform billing wallet — **not** guest payment page
-  - Receipt when paid: paid at, payment reference, amount
+  - Receipt when paid: paid at, **Tx hash** (`payment_reference`), **Rx address**, **Tx address**, amount
   - **Print** → browser PDF of invoice panel only
 - Ops sidebar: bill state timeline; Platform actions Issue / Adjust / Mark paid / Void (O, A) — reason required for adjustments
+  - Mark paid captures optional Tx hash, Rx address (defaults to billing wallet), Tx address (payer)
 - Rate / volume math frozen on bill at issue (do not re-read live commercial)
 
 **Never show** payment-order checkout or agent commission on this page.
 
 ---
 
-### B11. Platform billing wallet settings
+### B11. Platform fee wallet (service bills)
 
 | | |
 | --- | --- |
-| **Route** | `/platform/settings/billing-wallet` |
-| **Access** | O ✓ · A R |
+| **Route** | `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`; legacy `/platform/settings/billing-wallet` redirects) |
+| **Access** | O ✓ · A R · V R |
 
-**Content (B11-lite)**
+**Content (B11-lite)** — lives under **Fees → Fee wallet** (see B8):
 
-- Invoice seller name + billing contact email
-- Service-bill remittance `payTo` (wallet / instruction string) + preview
+- Invoice seller name + contact email
+- Crypto wallet address merchants use to pay platform fees (`payTo`)
 - Rotation / audit note (`billing_wallet_put`)
 - Checkout and platform invoice face prefer live settings over env
 
-Phase 1 does **not** require a full multi-asset wallet catalog; one remittance string is enough.
+Phase 1 does **not** require a full multi-asset wallet catalog; one crypto receive address is enough.
 
 ---
 
@@ -559,11 +588,11 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one remittance s
 
 **Content**
 
-- Tabs: **Agent** (platform → top-level agent statements + payment history) · **Sub-agent** (read-only cascade history)
-- Agent tab table: agent, platform fee collected (subtree), commission %, commission amount, payout status
-- Mark paid, export CSV
-- Drill-down to B3 commission tab
-- URL: `?tab=agent` (default) · `?tab=sub-agent`
+- Tabs: **Invoices** (platform → agent monthly invoices: issued / paid awaiting agent) · **Payout history** (settled after agent confirm) · **Sub-agent** (read-only cascade)
+- Month-end: **Generate invoices** for `YYYY-MM` from paid subtree volume fees; invoice shows tree fee status + onboard dates
+- Owner/Admin: **Confirm & pay** (USDT·TRON) → status **Paid**; agent Owner/Admin **Confirm receipt** → **Settled** → history
+- Click invoice row (Invoices or Payout history) → open invoice modal to review tree + remittance; Address / Tx open Tronscan (copy available)
+- URL: `?tab=invoices` (default) · `?tab=history` · `?tab=sub-agent`
 
 ---
 
@@ -616,7 +645,8 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one remittance s
 
 **Content**
 
-- Member table: name, email, role, MFA status, last login
+- Member table (dense rows): name, email, role, MFA chip, last login (right-aligned)
+- Compact Pause / Remove actions; self-row protected
 - **Invite** — email + role (Administrator or Viewer only; cannot create second Owner via UI unless transfer flow)
 - **Remove** member — confirm dialog
 - **Transfer ownership** (O only) — separate dangerous-action flow with MFA
@@ -635,9 +665,14 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one remittance s
 **Per asset/network row**
 
 - Asset, network, contract address, decimals, min amount, confirmations required
-- Status: active / maintenance / disabled
-- **Maintenance mode** — start/end time, banner message shown to merchants
-- Watcher health indicator
+- **Orderability lamp** — Open / Paused / Down / Off (enabled + maintenance + watcher ingest). Not the old catalog-only “Live”.
+- Status chip: maintenance badge when paused for ops; catalog ACTIVE/CATALOGUED remain secondary
+- **Catalog status** — `enabled/total` asset pairs on that network (registry completeness). Not a fake health %.
+- **Ingest** — watcher heartbeat when present (`Live` / `Stub` / `Down` + real health %). Empty RPC → stub; open orders will not complete until `*_RPC_URL` is set.
+- **Maintenance mode** — Platform O/A toggle; persisted; blocks `POST /orders` (`422 network_maintenance`); merchant dashboard banner via `GET /network-maintenance`; lamp → Paused
+- Contract addresses from `@cryptogate/domain` (explorer-linked in UI)
+- Watcher line shows lag / rpc mode from heartbeats (not fake `WATCHER_NN` labels)
+- Compact lamps also on merchant Networks via `GET /v1/networks/status`
 
 ---
 
@@ -651,9 +686,11 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one remittance s
 **Content**
 
 - API uptime, watcher lag, queue depth, webhook retry backlog
-- Per-chain last block processed
+- Per-chain last block processed / watcher heartbeats
 - Error rate chart
 - Link to runbook (doc)
+
+Asset/network orderability lives on **B16 Networks** (and dashboard volume filter), not on this page.
 
 ---
 
@@ -796,7 +833,8 @@ Like B4 but parent fixed to current agent. Depth check against platform max.
 
 **Content**
 
-- Monthly statements: platform fee base, commission %, amount, payout status, PDF
+- **Platform invoices** (top-level agents): issued / paid awaiting confirm / settled history; Owner/Admin **Confirm receipt** after platform remittance
+- Live fee-base statements + sub-agent payout slips (parent agents)
 - Not the same as merchant service bills — separate table and copy
 
 ---
@@ -1480,6 +1518,7 @@ Use consistently across portals.
 | Payment orders | — | — | D2–D4 | D2–D4 |
 | Service bills | B9–B10 | C9 | D5–D6 | D5–D6 |
 | Agents / merchants mgmt | B2–B6 | C2–C7 | — | — |
+| Org architecture map | Architecture | Architecture | — | — |
 | Sites | — | — | D7–D9 | — |
 | Settlement settings | — | — | D11 | D11* |
 | API/webhooks | — | — | D14 | — |

@@ -20,6 +20,8 @@ export type InvoiceBill = {
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
+  rxAddress?: string | null;
+  txAddress?: string | null;
   createdAt?: string | null;
 };
 
@@ -274,8 +276,18 @@ export function ServiceBillInvoiceFace({
               <dd>{shortDate(bill.paidAt)}</dd>
             </div>
             <div>
-              <dt>Reference</dt>
+              <dt>Tx hash</dt>
               <dd className="mono">{bill.paymentReference || "—"}</dd>
+            </div>
+            <div>
+              <dt>Rx address</dt>
+              <dd className="mono">
+                {bill.rxAddress || remittance?.payTo || "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>Tx address</dt>
+              <dd className="mono">{bill.txAddress || "—"}</dd>
             </div>
             <div>
               <dt>Amount</dt>

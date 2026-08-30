@@ -17,6 +17,7 @@ import {
   type FeeTierBand,
   type Session,
 } from "./api";
+import { BillingWalletPanel } from "./BillingWalletPanel";
 import {
   formatTierPercent,
   formatTierSubscription,
@@ -39,7 +40,14 @@ const TIER_LABEL: Record<string, string> = {
 
 const OVERRIDES_PAGE_SIZE = 18;
 
-type TabId = "pricing" | "bands" | "overrides";
+type TabId = "pricing" | "bands" | "overrides" | "remittance";
+
+function parseTab(raw: string | null): TabId {
+  if (raw === "overrides" || raw === "bands" || raw === "remittance") return raw;
+  /* Legacy Fees → Billing deep link */
+  if (raw === "billing") return "remittance";
+  return "pricing";
+}
 
 type Props = { session: Session };
 
@@ -59,11 +67,8 @@ function overrideStatusLabel(status: string): string {
 /** B8 — Fee tiers & pricing (Figma `b8-fee-tiers-pricing`). */
 export function FeeTiersSettingsPage({ session }: Props) {
   const canEdit = useMemo(() => sessionIsPlatformOwner(session), [session]);
-  const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab");
-  const [tab, setTab] = useState<TabId>(
-    initialTab === "overrides" || initialTab === "bands" ? initialTab : "pricing",
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState<TabId>(() => parseTab(searchParams.get("tab")));
   const [tiers, setTiers] = useState<FeeTierBand[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -73,6 +78,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [billingDirty, setBillingDirty] = useState(false);
 
   const pendingOverrideCount = useMemo(
     () => approvals.filter((a) => a.status === "pending").length,
@@ -159,7 +165,17 @@ export function FeeTiersSettingsPage({ session }: Props) {
       );
       if (!leave) return;
     }
+    if (billingDirty && tab === "remittance" && next !== "remittance") {
+      const leave = window.confirm(
+        "Fee wallet has unsaved changes. Leave without saving?",
+      );
+      if (!leave) return;
+    }
     setTab(next);
+    setSearchParams(
+      next === "pricing" ? {} : { tab: next },
+      { replace: true },
+    );
   }
 
   async function onSave(e: FormEvent) {
@@ -203,15 +219,6 @@ export function FeeTiersSettingsPage({ session }: Props) {
     }
   }
 
-  if (loading) {
-    return (
-      <PlatformPending
-        title="Loading platform fees"
-        copy="Fetching global pricing bands and Enterprise approval queue."
-      />
-    );
-  }
-
   return (
     <div className="plat-fee-tiers">
       <AuthToast
@@ -253,9 +260,25 @@ export function FeeTiersSettingsPage({ session }: Props) {
             <span className="plat-fee-tiers__tab-count">{pendingOverrideCount}</span>
           ) : null}
         </button>
+        <button
+          type="button"
+          role="tab"
+          className={`b3-agent-detail__tab${tab === "remittance" ? " is-active" : ""}`}
+          aria-selected={tab === "remittance"}
+          onClick={() => switchTab("remittance")}
+        >
+          Fee wallet
+        </button>
       </div>
 
-      {tab === "pricing" ? (
+      {tab === "remittance" ? (
+        <BillingWalletPanel session={session} onDirtyChange={setBillingDirty} />
+      ) : loading ? (
+        <PlatformPending
+          title="Loading platform fees"
+          copy="Fetching global pricing bands and Enterprise approval queue."
+        />
+      ) : tab === "pricing" ? (
         <>
           <div className="plat-fee-tiers__banner" role="status">
             <span className="plat-fee-tiers__banner-icon" aria-hidden />

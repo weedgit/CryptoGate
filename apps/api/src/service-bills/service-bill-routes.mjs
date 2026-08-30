@@ -314,7 +314,15 @@ export async function handleUpdateServiceBill(req, res, billId) {
   let updated = null;
 
   if (validated.action === ServiceBillUpdateAction.MarkPaid) {
-    updated = await markServiceBillPaid(billId, validated.paymentReference);
+    let rxAddress = validated.rxAddress;
+    if (!rxAddress) {
+      rxAddress = (await resolvePlatformBillingPayTo()) || null;
+    }
+    updated = await markServiceBillPaid(billId, {
+      paymentReference: validated.paymentReference,
+      rxAddress,
+      txAddress: validated.txAddress,
+    });
     if (updated) {
       await insertAuditEvent({
         actorUserId: caller.userId,
@@ -323,6 +331,8 @@ export async function handleUpdateServiceBill(req, res, billId) {
         metadata: {
           billId,
           paymentReference: validated.paymentReference,
+          rxAddress,
+          txAddress: validated.txAddress,
         },
       });
     }

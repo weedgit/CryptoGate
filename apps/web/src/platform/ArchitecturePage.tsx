@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
@@ -27,6 +27,7 @@ import {
   defaultExpandedIds,
   expandedIdsForSelectedBranch,
   filterPlatformOrgForest,
+  agentDepthOfNode,
   orgAddChildHref,
   orgBreadcrumbPath,
   orgCanAddChild,
@@ -37,6 +38,7 @@ import {
   type PlatformOrgTreeNode,
 } from "./platformOrgTree";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
+import { useOrgTreeOpsExtras } from "./useOrgTreeOpsExtras";
 
 const STATUS_PILLS: { id: OrgTreeFilter["status"]; label: string }[] = [
   { id: "all", label: "All" },
@@ -65,6 +67,33 @@ function displayOrDash(value: string | null | undefined): string {
   return trimmed;
 }
 
+function shortOrgId(id: string): string {
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+function CopyOrgId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="org-architecture__id-copy"
+      title={copied ? "Copied" : "Copy org id"}
+      onClick={() => {
+        void navigator.clipboard.writeText(id).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+    >
+      <code className="org-architecture__id-code">{shortOrgId(id)}</code>
+      <span className="org-architecture__id-hint" aria-hidden>
+        {copied ? "✓" : "⎘"}
+      </span>
+    </button>
+  );
+}
+
 const REGISTRATION_HELP: Record<string, string> = {
   Country: "Country captured on the onboard Details step.",
   "Billing email":
@@ -83,6 +112,26 @@ function MetaHelp({ text }: { text: string }) {
         {text}
       </span>
     </span>
+  );
+}
+
+function MetaRow({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: ReactNode;
+  help?: string;
+}) {
+  return (
+    <div className="org-architecture__meta-row">
+      <dt>
+        <span>{label}</span>
+        {help ? <MetaHelp text={help} /> : null}
+      </dt>
+      <dd>{value}</dd>
+    </div>
   );
 }
 
@@ -252,6 +301,11 @@ function OrgTreeDetail({
   const canDelete = node.type !== "platform";
   const showActions = canManage && (canAdd || canDelete);
   const isAgentParent = node.type === "agent" || node.type === "agent_sub";
+  const isAgent = isAgentParent;
+  const isMerchant = node.type === "merchant";
+  const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
+  const depth = isAgent ? agentDepthOfNode(node, byId) : null;
+  const ops = useOrgTreeOpsExtras(node);
 
   useEffect(() => {
     setAddMenuOpen(false);
@@ -274,33 +328,33 @@ function OrgTreeDetail({
     };
   }, [addMenuOpen]);
 
-  const registrationRows = [
+  const contactRows = [
     {
       label: "Registered",
       value: formatOnboardDate(node.createdAt),
+      always: true,
     },
-    { label: "Legal name", value: node.legalName },
-    { label: "Country", value: node.country },
-    { label: "Billing email", value: node.billingEmail },
-    { label: "Owner email", value: ownerEmail },
+    { label: "Legal name", value: node.legalName, always: false },
+    { label: "Country", value: node.country, always: false },
+    { label: "Billing email", value: node.billingEmail, always: false },
+    { label: "Owner email", value: ownerEmail, always: false },
   ];
+  const filledContact = contactRows.filter(
+    (r) => r.always || (r.value && String(r.value).trim() && String(r.value) !== "—"),
+  );
+  const missingContact =
+    !node.legalName?.trim() &&
+    !node.country?.trim() &&
+    !node.billingEmail?.trim();
 
-  const detailRows = [
-    { label: "Parent", value: node.parentName },
-    {
-      label: "Structure",
-      value: node.structure
-        ? (STRUCTURE_LABELS[node.structure] ?? node.structure)
-        : null,
-    },
-    {
-      label: "Direct children",
-      value: String(counts.total),
-    },
-  ];
+  const showStatStrip =
+    counts.agents > 0 ||
+    counts.merchants > 0 ||
+    counts.sites > 0 ||
+    counts.total > 0;
 
   return (
-    <div className="org-architecture__detail-inner">
+    <div className="org-architecture__detail-inner org-architecture__detail-inner--dense">
       <header className="org-architecture__detail-head">
         <div className="org-architecture__detail-avatar" aria-hidden>
           {initials(node.name)}
@@ -438,58 +492,127 @@ function OrgTreeDetail({
         </nav>
       ) : null}
 
-      <div
-        className={`org-architecture__mini-stats${
-          counts.agents > 0 || counts.merchants > 0 ? "" : " is-empty"
-        }`}
-        aria-label="Direct children"
-        aria-hidden={counts.agents === 0 && counts.merchants === 0}
-      >
-        {counts.agents > 0 ? (
-          <div className="org-architecture__mini-stat">
-            <span className="org-architecture__mini-stat-value">{counts.agents}</span>
-            <span className="org-architecture__mini-stat-label">Agents</span>
+      {showStatStrip ? (
+        <div className="org-architecture__stat-strip" aria-label="Direct children">
+          <div className="org-architecture__stat-pill">
+            <span className="org-architecture__stat-pill-value">{counts.agents}</span>
+            <span className="org-architecture__stat-pill-label">Agents</span>
           </div>
-        ) : null}
-        {counts.merchants > 0 ? (
-          <div className="org-architecture__mini-stat">
-            <span className="org-architecture__mini-stat-value">
-              {counts.merchants}
-            </span>
-            <span className="org-architecture__mini-stat-label">Merchants</span>
+          <div className="org-architecture__stat-pill">
+            <span className="org-architecture__stat-pill-value">{counts.merchants}</span>
+            <span className="org-architecture__stat-pill-label">Merchants</span>
           </div>
-        ) : null}
-      </div>
+          <div className="org-architecture__stat-pill">
+            <span className="org-architecture__stat-pill-value">{counts.sites}</span>
+            <span className="org-architecture__stat-pill-label">Sites</span>
+          </div>
+          <div className="org-architecture__stat-pill">
+            <span className="org-architecture__stat-pill-value">{counts.total}</span>
+            <span className="org-architecture__stat-pill-label">Children</span>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="org-architecture__section org-architecture__section--ops">
+        <h4 className="org-architecture__section-title">Ops</h4>
+        <dl className="org-architecture__meta org-architecture__meta--dense">
+          <MetaRow label="Org ID" value={<CopyOrgId id={node.id} />} />
+          <MetaRow
+            label="Status"
+            value={
+              <span
+                className={`org-architecture__status-inline ${
+                  isPaused ? "is-paused" : "is-active"
+                }`}
+              >
+                {node.status}
+              </span>
+            }
+          />
+          <MetaRow
+            label="Parent"
+            value={
+              node.parentName
+                ? `${node.parentName}${
+                    parentNode ? ` · ${orgTypeLabel(parentNode.type)}` : ""
+                  }`
+                : "-"
+            }
+          />
+          {isAgent ? (
+            <>
+              <MetaRow label="Depth" value={depth != null ? String(depth) : "-"} />
+              <MetaRow
+                label="Commission %"
+                value={
+                  ops.loading
+                    ? "…"
+                    : ops.commissionPercent
+                      ? `${ops.commissionPercent}%`
+                      : "-"
+                }
+              />
+            </>
+          ) : null}
+          {isMerchant ? (
+            <>
+              <MetaRow
+                label="Structure"
+                value={
+                  node.structure
+                    ? (STRUCTURE_LABELS[node.structure] ?? node.structure)
+                    : "-"
+                }
+              />
+              <MetaRow
+                label="Tier"
+                value={
+                  ops.loading
+                    ? "…"
+                    : ops.tier
+                      ? `${ops.tier}${
+                          ops.volumeFeePercent
+                            ? ` · ${ops.volumeFeePercent}% fee`
+                            : ""
+                        }`
+                      : "-"
+                }
+              />
+              <MetaRow
+                label="Order create"
+                value={
+                  <span
+                    className={`org-architecture__status-inline ${
+                      node.orderCreateSuspended ? "is-paused" : "is-active"
+                    }`}
+                  >
+                    {node.orderCreateSuspended ? "Suspended" : "Allowed"}
+                  </span>
+                }
+              />
+            </>
+          ) : null}
+        </dl>
+      </section>
 
       <div className="org-architecture__info-grid">
         <section className="org-architecture__section org-architecture__section--registration">
           <h4 className="org-architecture__section-title">Registration</h4>
-          <dl className="org-architecture__meta">
-            {registrationRows.map((row) => {
-              const help = REGISTRATION_HELP[row.label];
-              return (
-                <div key={row.label}>
-                  <dt>
-                    <span>{row.label}</span>
-                    {help ? <MetaHelp text={help} /> : null}
-                  </dt>
-                  <dd>{displayOrDash(row.value)}</dd>
-                </div>
-              );
-            })}
-          </dl>
-        </section>
-
-        <section className="org-architecture__section">
-          <h4 className="org-architecture__section-title">Details</h4>
-          <dl className="org-architecture__meta">
-            {detailRows.map((row) => (
-              <div key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{displayOrDash(row.value)}</dd>
-              </div>
+          <dl className="org-architecture__meta org-architecture__meta--dense">
+            {filledContact.map((row) => (
+              <MetaRow
+                key={row.label}
+                label={row.label}
+                value={displayOrDash(row.value)}
+                help={REGISTRATION_HELP[row.label]}
+              />
             ))}
           </dl>
+          {missingContact ? (
+            <p className="org-architecture__empty-note">
+              No legal name, country, or billing email on file yet.
+            </p>
+          ) : null}
         </section>
       </div>
 

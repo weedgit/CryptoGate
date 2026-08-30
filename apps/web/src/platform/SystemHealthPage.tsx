@@ -6,14 +6,13 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { AssetNetworkTables } from "./AssetNetworkTables";
+import { networkShortLabel } from "../shared/assetNetworks";
 import {
   getWatcherHealth,
   type WatcherHealthList,
-  type WatcherHeartbeat,
 } from "./api";
+import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 
 type HealthPayload = {
@@ -22,6 +21,11 @@ type HealthPayload = {
   phase?: string;
   timestamp?: string;
   db?: string;
+  webhook?: string;
+  webhookDetail?: string;
+  webhookPendingOutbox?: number;
+  webhookOverdueDeliveries?: number;
+  webhookLastTickAt?: string | null;
 };
 
 type CheckTone = "ok" | "warn";
@@ -41,10 +45,6 @@ function statusLabel(value: string | undefined, fallback = "Unknown"): string {
   if (!value) return fallback;
   if (value === "ok") return "OK";
   return value.replace(/_/g, " ");
-}
-
-function heartbeatDetail(row: WatcherHeartbeat): string {
-  return `${row.healthScore}% · lag ${formatLag(row.lagMs)} · ${row.rpcMode} / ${row.ingestMode}`;
 }
 
 /** B17 — System health from live API /health + watcher heartbeats. */
@@ -107,44 +107,6 @@ export function SystemHealthPage() {
     };
   }, [loading]);
 
-  const byNetwork = new Map(
-    (watcher?.items ?? []).map((row) => [row.network, row]),
-  );
-  const tron = byNetwork.get("tron");
-  const ethereum = byNetwork.get("ethereum");
-
-  const checks: {
-    label: string;
-    tone: CheckTone;
-    detail: string;
-  }[] = [
-    {
-      label: "API process",
-      tone: health?.status === "ok" ? "ok" : "warn",
-      detail: statusLabel(health?.status),
-    },
-    {
-      label: "Postgres",
-      tone: health?.db === "ok" ? "ok" : "warn",
-      detail: statusLabel(health?.db),
-    },
-    {
-      label: "Watcher (Tron)",
-      tone: tron ? heartbeatTone(tron.status) : "warn",
-      detail: tron ? heartbeatDetail(tron) : "No heartbeat yet",
-    },
-    {
-      label: "Watcher (Ethereum)",
-      tone: ethereum ? heartbeatTone(ethereum.status) : "warn",
-      detail: ethereum ? heartbeatDetail(ethereum) : "No heartbeat yet",
-    },
-    {
-      label: "Webhook delivery worker",
-      tone: "ok",
-      detail: "Outbox fan-out on API",
-    },
-  ];
-
   return (
     <div
       className={`plat-ops-health${enterMotion ? " is-enter" : ""}`}
@@ -184,11 +146,17 @@ export function SystemHealthPage() {
           <p className="plat-ops-health__kpi-copy">SELECT 1 probe</p>
         </div>
         <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">Phase</p>
+          <p className="plat-ops-health__kpi-label">Webhook</p>
           <p className="plat-ops-health__kpi-value">
-            {loading && !health ? "…" : health?.phase ?? "—"}
+            {loading && !health
+              ? "…"
+              : statusLabel(health?.webhook, "—")}
           </p>
-          <p className="plat-ops-health__kpi-copy">Contract milestone tag</p>
+          <p className="plat-ops-health__kpi-copy">
+            {loading && !health
+              ? "Delivery worker"
+              : health?.webhookDetail?.trim() || "Outbox fan-out on API"}
+          </p>
         </div>
         <div className="plat-ops-health__kpi">
           <p className="plat-ops-health__kpi-label">Checked at</p>
@@ -205,40 +173,6 @@ export function SystemHealthPage() {
 
       <div className="plat-ops-health__panels">
         <div className="plat-ops-health__stack">
-          <div className="plat-ops-health__card">
-            <div className="plat-ops-health__card-head">
-              <h2 className="plat-ops-health__card-title">Checklist</h2>
-              <span className="plat-ops-health__meta">
-                {checks.filter((c) => c.tone === "ok").length}/{checks.length}{" "}
-                ready
-              </span>
-            </div>
-            {loading && !health ? (
-              <PlatformPending
-                compact
-                title="Checking system health"
-                copy="Probing API /health and watcher heartbeats."
-              />
-            ) : (
-              <ul className="plat-ops-health__checks">
-                {checks.map((row) => (
-                  <li key={row.label} className="plat-ops-health__check">
-                    <span
-                      className={`plat-ops-health__dot tone-${row.tone}`}
-                      aria-hidden="true"
-                    />
-                    <span className="plat-ops-health__check-label">
-                      {row.label}
-                    </span>
-                    <span className="plat-ops-health__check-detail">
-                      {row.detail}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
           <div className="plat-ops-health__card">
             <div className="plat-ops-health__card-head">
               <h2 className="plat-ops-health__card-title">
@@ -297,14 +231,20 @@ export function SystemHealthPage() {
                     {watcher.items.map((row) => {
                       const tone = heartbeatTone(row.status);
                       return (
-                        <tr key={row.network}>
+                        <tr key={`${row.network}:${row.asset}`}>
                           <td>
-                            <span className="plat-ops-health__net">
-                              {row.network}
-                            </span>
-                            <span className="plat-ops-health__asset">
-                              {row.asset}
-                            </span>
+                            <div className="plat-ops-health__net-cell">
+                              <NetworkIcon network={row.network} />
+                              <div className="plat-ops-health__net-text">
+                                <span className="plat-ops-health__net">
+                                  {networkShortLabel(row.network)}
+                                </span>
+                                <span className="plat-ops-health__asset">
+                                  <AssetIcon asset={row.asset} />
+                                  <span>{row.asset}</span>
+                                </span>
+                              </div>
+                            </div>
                           </td>
                           <td>
                             <span
@@ -335,21 +275,6 @@ export function SystemHealthPage() {
               </div>
             ) : null}
           </div>
-        </div>
-
-        <div className="plat-ops-health__card">
-          <div className="plat-ops-health__card-head">
-            <h2 className="plat-ops-health__card-title">
-              Connected assets &amp; networks
-            </h2>
-            <Link
-              to="/platform/settings/networks"
-              className="plat-ops-health__link"
-            >
-              Catalog →
-            </Link>
-          </div>
-          <AssetNetworkTables />
         </div>
       </div>
     </div>

@@ -64,9 +64,33 @@ describe("service bill update rules (v0.3.2)", () => {
       due_at: new Date("2026-09-15T00:00:00.000Z"),
       paid_at: new Date("2026-09-10T12:00:00.000Z"),
       last_adjustment_reason: "credit",
+      payment_reference: "0xabc",
+      rx_address: "TRxReceiveExampleAddress1234567890",
+      tx_address: "TTxSenderExampleAddress123456789012",
     });
     assert.equal(bill.paidAt, "2026-09-10T12:00:00.000Z");
     assert.equal(bill.lastAdjustmentReason, "credit");
+    assert.equal(bill.paymentReference, "0xabc");
+    assert.equal(bill.rxAddress, "TRxReceiveExampleAddress1234567890");
+    assert.equal(bill.txAddress, "TTxSenderExampleAddress123456789012");
+  });
+
+  it("mark_paid accepts optional receipt addresses", () => {
+    const ok = validateUpdateServiceBillBody(
+      {
+        action: ServiceBillUpdateAction.MarkPaid,
+        paymentReference: "WIRE-1",
+        rxAddress: "TRx",
+        txAddress: "TTx",
+      },
+      ServiceBillStatus.Overdue,
+    );
+    assert.equal(ok.ok, true);
+    if (ok.ok) {
+      assert.equal(ok.paymentReference, "WIRE-1");
+      assert.equal(ok.rxAddress, "TRx");
+      assert.equal(ok.txAddress, "TTx");
+    }
   });
 });
 

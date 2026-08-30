@@ -42,8 +42,8 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 
 | Field | Source |
 | --- | --- |
-| Legal / display name | Billing settings `sellerName` (fallback: env / CryptoGate) |
-| Billing contact | Billing settings `sellerEmail` (optional) |
+| Legal / display name | Remittance settings `sellerName` (fallback: env / CryptoGate) |
+| Invoice contact | Remittance settings `sellerEmail` (optional) |
 
 **Buyer (merchant parent)**
 
@@ -75,7 +75,9 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 | Field | Source |
 | --- | --- |
 | Paid at | `paid_at` |
-| Payment reference | `payment_reference` |
+| Tx hash / payment reference | `payment_reference` |
+| Rx address | `rx_address` (snapshot at mark-paid; else live billing `payTo`) |
+| Tx address | `tx_address` (merchant payer / sender, optional) |
 | Amount | `total_amount` |
 
 ### Should
@@ -108,6 +110,13 @@ Also exposed on API (already in DB): `payment_reference`, `created_at`.
 
 Adjustment delta: `last_adjustment_amount` (migration `038`).
 
+Payment address snapshot at mark-paid (migration `044`):
+
+| Column | Meaning |
+| --- | --- |
+| `rx_address` | Platform billing wallet receive address used for remittance |
+| `tx_address` | Merchant payer / sender address (optional) |
+
 ### Backfill existing bills
 
 Bills issued before snapshot columns existed need a one-shot repair (totals **unchanged**):
@@ -125,14 +134,14 @@ Requires migrate through `037+` and `DATABASE_URL`. Skips voided bills and rows 
 ### Seller / payTo (B11-lite)
 
 Live config: `GET/PUT /v1/platform/settings/billing-wallet` (migration `039`).
-UI: `/platform/settings/billing-wallet`. Checkout prefers DB `pay_to`, then env.
+UI: `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`; legacy `/platform/settings/billing-wallet` redirects). Checkout prefers DB `pay_to`, then env.
 
 **Seller (platform)** on the invoice face:
 
 | Field | Source |
 | --- | --- |
-| Legal / display name | Billing settings `sellerName` (fallback: env / CryptoGate) |
-| Billing contact | Billing settings `sellerEmail` (optional) |
+| Legal / display name | Remittance settings `sellerName` (fallback: env / CryptoGate) |
+| Invoice contact | Remittance settings `sellerEmail` (optional) |
 
 ---
 

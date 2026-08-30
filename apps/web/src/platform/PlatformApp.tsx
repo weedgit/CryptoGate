@@ -21,7 +21,6 @@ import {
 import { AuditLogPage } from "./AuditLogPage";
 import { CompliancePage } from "./CompliancePage";
 import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
-import { BillingWalletSettingsPage } from "./BillingWalletSettingsPage";
 import { PlatformPending } from "./ui/PlatformPending";
 import { NetworkCatalogPage } from "./NetworkCatalogPage";
 import { PlatformTeamPage } from "./PlatformTeamPage";
@@ -254,10 +253,7 @@ export function PlatformApp() {
       <Route
         path="settings/billing-wallet"
         element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <BillingWalletSettingsPage session={session} />
-          </Shell>
+          <Navigate to="/platform/settings/fee-tiers?tab=remittance" replace />
         }
       />
       <Route
@@ -265,7 +261,7 @@ export function PlatformApp() {
         element={
           <Shell session={session} onSignOut={signOut}
           onSessionRefresh={setSession}>
-            <NetworkCatalogPage />
+            <NetworkCatalogPage session={session} />
           </Shell>
         }
       />

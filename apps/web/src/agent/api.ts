@@ -46,6 +46,7 @@ export type OrgAccount = {
   billingEmail?: string | null;
   legalName?: string | null;
   createdAt?: string;
+  orderCreateSuspended?: boolean;
 };
 
 export type ServiceBill = {
@@ -67,6 +68,8 @@ export type ServiceBill = {
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
+  rxAddress?: string | null;
+  txAddress?: string | null;
   createdAt?: string | null;
 };
 

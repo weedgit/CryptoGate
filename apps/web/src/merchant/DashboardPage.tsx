@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ApiError,
+  listActiveNetworkMaintenance,
   listOrders,
   listServiceBills,
+  type ActiveNetworkMaintenance,
   type PaymentOrder,
   type ServiceBill,
   type Session,
@@ -22,6 +24,7 @@ import {
   truncateAddress,
 } from "./org";
 import { AuthToast } from "../auth/AuthToast";
+import { networkShortLabel } from "../shared/assetNetworks";
 import { StatusBadge } from "../shared/StatusBadge";
 import {
   DASHBOARD_PERIOD_OPTIONS,
@@ -50,6 +53,9 @@ export function DashboardPage({ session }: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [maintenance, setMaintenance] = useState<ActiveNetworkMaintenance[]>(
+    [],
+  );
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
     null,
@@ -95,6 +101,12 @@ export function DashboardPage({ session }: Props) {
         } catch {
           setBills([]);
         }
+      }
+
+      try {
+        setMaintenance(await listActiveNetworkMaintenance());
+      } catch {
+        setMaintenance([]);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load dashboard");
@@ -152,6 +164,22 @@ export function DashboardPage({ session }: Props) {
   return (
     <div className="dash-page plat-dash">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+
+      {maintenance.length > 0 ? (
+        <div className="banner banner-warn" role="status" style={{ marginBottom: 16 }}>
+          {maintenance.map((m) => (
+            <p key={m.network} style={{ margin: "0 0 4px" }}>
+              <strong>{networkShortLabel(m.network)}</strong>
+              {": "}
+              {m.message?.trim() ||
+                "Deposits paused — network maintenance. New payment orders on this network are blocked."}
+              {m.endsAt
+                ? ` Until ${new Date(m.endsAt).toLocaleString()}.`
+                : ""}
+            </p>
+          ))}
+        </div>
+      ) : null}
 
       {topbarActionsSlot
         ? createPortal(

@@ -31,7 +31,10 @@ export const AUDIT_ACTIONS = {
   merchantCommercialPut: "merchant_commercial_put",
   agentPayoutPut: "agent_payout_put",
   commissionPayoutUpsert: "commission_payout_upsert",
+  commissionPayoutGenerate: "commission_payout_generate",
+  commissionPayoutConfirmSent: "commission_payout_confirm_sent",
   commissionPayoutMarkPaid: "commission_payout_mark_paid",
+  commissionPayoutAgentConfirm: "commission_payout_agent_confirm",
   agentCommissionPut: "agent_commission_put",
   enterpriseRateDecide: "enterprise_rate_decide",
   complianceOverride: "compliance_override",
@@ -40,6 +43,7 @@ export const AUDIT_ACTIONS = {
   passwordResetRequest: "password_reset_request",
   passwordResetComplete: "password_reset_complete",
   profileUpdate: "profile_update",
+  networkMaintenancePut: "network_maintenance_put",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

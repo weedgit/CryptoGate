@@ -105,6 +105,18 @@ export const MerchantTier = {
 
 export type MerchantTier = (typeof MerchantTier)[keyof typeof MerchantTier];
 
+/** Platform → agent monthly invoice + agent → sub slip statuses. */
+export const CommissionPayoutStatus = {
+  Issued: "issued",
+  Ready: "ready",
+  Verifying: "verifying",
+  Paid: "paid",
+  Settled: "settled",
+} as const;
+
+export type CommissionPayoutStatus =
+  (typeof CommissionPayoutStatus)[keyof typeof CommissionPayoutStatus];
+
 /** One Small/Mid/Enterprise band row (platform settings B8). */
 export type FeeTierBand = {
   tier: MerchantTier;
@@ -687,6 +699,8 @@ export const ServiceBillColumn = {
   volumeFeePercent: "volume_fee_percent",
   billedVolumeUsd: "billed_volume_usd",
   paymentReference: "payment_reference",
+  rxAddress: "rx_address",
+  txAddress: "tx_address",
   lastAdjustmentAmount: "last_adjustment_amount",
   createdAt: "created_at",
 } as const;
@@ -724,8 +738,12 @@ export type ServiceBill = {
   lastAdjustmentReason?: string | null;
   /** Last signed USD adjustment delta applied to total. */
   lastAdjustmentAmount?: string | null;
-  /** Off-chain / remittance reference when marked paid. */
+  /** Tx hash / bank remittance reference when marked paid. */
   paymentReference?: string | null;
+  /** Platform billing wallet (receive) snapshotted at mark-paid. */
+  rxAddress?: string | null;
+  /** Merchant payer / sender address when marked paid (optional). */
+  txAddress?: string | null;
   /** Issue timestamp. */
   createdAt?: string | null;
 };

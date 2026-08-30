@@ -113,6 +113,12 @@ async function ingestScope(pool, filter) {
     apply: (args) => applyConfirmationUpdate(pool, args),
   });
 
+  /** @type {string | null} */
+  let rpcGapWarning = null;
+  if (polled.mode === "stub" && matchCandidates.length > 0) {
+    rpcGapWarning = "rpc_not_configured_open_orders_will_not_complete";
+  }
+
   return {
     asset: filter.asset,
     network: filter.network,
@@ -120,6 +126,7 @@ async function ingestScope(pool, filter) {
     phase: "m3-43",
     chainPollMode: polled.mode,
     ingestError: polled.error ?? null,
+    rpcGapWarning,
     watchedAddresses: watchedAddresses.length,
     openOrders: matchCandidates.length,
     transfersSeen: polled.transfers.length,
@@ -135,6 +142,36 @@ async function ingestScope(pool, filter) {
     reorgAware: true,
     anomalyPaths: true,
   };
+}
+
+/**
+ * @param {Promise<Record<string, unknown>>} promise
+ * @param {number} timeoutMs
+ * @param {{ asset: string, network: string }} filter
+ */
+function withScopeTimeout(promise, timeoutMs, filter) {
+  if (!timeoutMs || timeoutMs <= 0) return promise;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      resolve({
+        asset: filter.asset,
+        network: filter.network,
+        mode: "error",
+        phase: "m3-40",
+        error: `scope timeout after ${timeoutMs}ms`,
+      });
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 /**
@@ -224,7 +261,11 @@ export async function runTick(ctx) {
       const scopeResults = [];
       for (const filter of targets) {
         try {
-          const result = await ingestScope(pool, filter);
+          const result = await withScopeTimeout(
+            ingestScope(pool, filter),
+            ctx.config.scopeTimeoutMs,
+            filter,
+          );
           scopeResults.push(result);
           const prev = ingestByNetwork[filter.network];
           if (!prev) {

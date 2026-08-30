@@ -28,6 +28,7 @@ import {
 } from "../matching-mode/matching-mode-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 import { resolveSiteInherit } from "../sites/site-inherit.mjs";
+import { getEffectiveNetworkMaintenance } from "../platform-settings/network-maintenance-store.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -93,6 +94,29 @@ export async function handleCreatePaymentOrder(req, res) {
   if (!validated.ok) {
     sendError(res, validated.status, validated.code, validated.message);
     return;
+  }
+
+  try {
+    const maint = await getEffectiveNetworkMaintenance(validated.parsed.network);
+    if (maint) {
+      const until = maint.endsAt
+        ? ` until ${new Date(maint.endsAt).toISOString()}`
+        : "";
+      sendError(
+        res,
+        422,
+        "network_maintenance",
+        maint.message ||
+          `Network ${validated.parsed.network} is in maintenance${until}`,
+      );
+      return;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!/network_maintenance|does not exist/i.test(message)) {
+      sendError(res, 500, "internal_error", "Failed to check network maintenance");
+      return;
+    }
   }
 
   const scope = resolveOrderOrgId(caller.memberships, validated.parsed.orgId);

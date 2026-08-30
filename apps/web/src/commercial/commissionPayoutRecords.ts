@@ -1,5 +1,23 @@
 import type { CommissionStatementRow } from "./commissionStatements";
 
+export type CommissionTreeMerchantLine = {
+  orgId: string;
+  name: string;
+  type: string;
+  onboardedAt: string | null;
+  billId: string | null;
+  billStatus: string | null;
+  subscriptionAmount: number;
+  volumeFeeAmount: number;
+  includedInCommission: boolean;
+};
+
+export type CommissionTreeSnapshot = {
+  periodKey: string;
+  generatedAt: string;
+  merchants: CommissionTreeMerchantLine[];
+};
+
 export type CommissionPayoutRecord = {
   id: string;
   payeeOrgId: string;
@@ -12,13 +30,17 @@ export type CommissionPayoutRecord = {
   platformFeeCollected: number;
   commissionPercent: string;
   commissionAmount: number;
-  payoutStatus: "ready" | "paid";
+  payoutStatus: "issued" | "ready" | "verifying" | "paid" | "settled";
   payoutAddress: string | null;
   asset: string | null;
   network: string | null;
   paymentLink: string;
   txRef: string | null;
+  note?: string | null;
+  treeSnapshot?: CommissionTreeSnapshot | null;
   paidAt: string | null;
+  settledAt?: string | null;
+  agentConfirmedBy?: string | null;
   updatedAt: string;
 };
 
@@ -62,8 +84,34 @@ export async function listCommissionPayouts(filter?: {
   });
 }
 
+export async function generateCommissionInvoices(periodKey?: string): Promise<{
+  periodKey: string;
+  periodLabel: string;
+  created: CommissionPayoutRecord[];
+  skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
+}> {
+  const res = await fetch(`${API_BASE}/commission-payouts/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(periodKey ? { periodKey } : {}),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    periodKey: string;
+    periodLabel: string;
+    created: CommissionPayoutRecord[];
+    skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
+  };
+}
+
 export async function upsertCommissionPayout(
-  input: Omit<CommissionPayoutRecord, "id" | "updatedAt"> & { id?: string },
+  input: Omit<CommissionPayoutRecord, "id" | "updatedAt" | "treeSnapshot" | "settledAt" | "agentConfirmedBy"> & {
+    id?: string;
+  },
 ): Promise<CommissionPayoutRecord> {
   const res = await fetch(`${API_BASE}/commission-payouts`, {
     method: "POST",
@@ -92,9 +140,32 @@ export async function upsertCommissionPayout(
   return (await res.json()) as CommissionPayoutRecord;
 }
 
+export async function confirmCommissionPayoutSent(
+  id: string,
+  opts?: { note?: string | null },
+): Promise<CommissionPayoutRecord | null> {
+  const res = await fetch(
+    `${API_BASE}/commission-payouts/${encodeURIComponent(id)}/confirm-sent`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        note: opts?.note?.trim() || null,
+      }),
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as CommissionPayoutRecord;
+}
+
 export async function markCommissionPayoutPaid(
   id: string,
-  txRef: string,
+  opts?: { txRef?: string | null; note?: string | null },
 ): Promise<CommissionPayoutRecord | null> {
   const res = await fetch(
     `${API_BASE}/commission-payouts/${encodeURIComponent(id)}/mark-paid`,
@@ -105,7 +176,26 @@ export async function markCommissionPayoutPaid(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ txRef }),
+      body: JSON.stringify({
+        txRef: opts?.txRef?.trim() || null,
+        note: opts?.note?.trim() || null,
+      }),
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as CommissionPayoutRecord;
+}
+
+export async function agentConfirmCommissionPayout(
+  id: string,
+): Promise<CommissionPayoutRecord | null> {
+  const res = await fetch(
+    `${API_BASE}/commission-payouts/${encodeURIComponent(id)}/agent-confirm`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
     },
   );
   if (res.status === 404) return null;
@@ -117,7 +207,7 @@ export function paymentLinkForPlatformPayout(
   payeeOrgId: string,
   periodKey: string,
 ): string {
-  return `/platform/commissions?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
+  return `/platform/commissions?tab=invoices&payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
 }
 
 export function paymentLinkForAgentSubPayout(
@@ -127,15 +217,37 @@ export function paymentLinkForAgentSubPayout(
   return `/agent/commissions?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
 }
 
+/**
+ * Remittance URI for commission payout slips (QR + copyable payment link).
+ * Matches service-bill style: `tron:<addr>?amount=&asset=&network=` when Tron.
+ */
+export function commissionPayoutRemittanceUri(opts: {
+  address: string;
+  amount: number | string;
+  asset?: string | null;
+  network?: string | null;
+}): string {
+  const address = opts.address.trim();
+  if (!address) return "";
+  const asset = (opts.asset ?? "USDT").trim().toUpperCase() || "USDT";
+  const network = (opts.network ?? "tron").trim().toLowerCase() || "tron";
+  const amount = String(opts.amount).trim();
+  if (network === "tron" && address.startsWith("T") && address.length >= 30) {
+    const q = new URLSearchParams({ amount, asset, network });
+    return `tron:${address}?${q.toString()}`;
+  }
+  return address;
+}
+
 export function mergeStatementWithPayout(
   statement: CommissionStatementRow,
   payout: CommissionPayoutRecord | undefined,
 ): CommissionStatementRow {
   if (!payout) return statement;
-  return {
-    ...statement,
-    payoutStatus: payout.payoutStatus === "paid" ? "paid" : statement.payoutStatus,
-  };
+  if (payout.payoutStatus === "settled" || payout.payoutStatus === "paid") {
+    return { ...statement, payoutStatus: "paid" };
+  }
+  return statement;
 }
 
 export async function findPayout(
@@ -150,4 +262,11 @@ export async function findPayout(
       r.periodKey === periodKey &&
       r.payer === payer,
   );
+}
+
+/** Current UTC calendar month YYYY-MM. */
+export function defaultCommissionPeriodKey(now = new Date()): string {
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() + 1;
+  return `${y}-${String(m).padStart(2, "0")}`;
 }

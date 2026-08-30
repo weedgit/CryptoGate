@@ -17,6 +17,7 @@ const required = [
   "app/src/main/java/com/cryptogate/cashier/MainActivity.kt",
   "app/src/main/java/com/cryptogate/cashier/api/CryptoGateClient.kt",
   "app/src/main/java/com/cryptogate/cashier/api/SessionStore.kt",
+  "app/src/main/java/com/cryptogate/cashier/api/AssetNetworkCatalog.kt",
   "app/src/main/java/com/cryptogate/cashier/api/CashierPosSurface.kt",
   "app/src/main/java/com/cryptogate/cashier/api/NetworkReachability.kt",
   "app/src/main/java/com/cryptogate/cashier/ui/LoginScreen.kt",
@@ -26,6 +27,7 @@ const required = [
   "app/src/main/java/com/cryptogate/cashier/qr/QrBitmaps.kt",
   "app/src/main/java/com/cryptogate/cashier/api/OrderStatusUi.kt",
   "app/src/test/java/com/cryptogate/cashier/api/JsonParsersTest.kt",
+  "app/src/test/java/com/cryptogate/cashier/api/AssetNetworkCatalogTest.kt",
 ];
 
 describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
@@ -43,8 +45,20 @@ describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
     assert.match(gradle, /cryptogate\.stagingApi/);
     assert.match(gradle, /cryptogate\.prodApi/);
     assert.match(gradle, /APP_ENV/);
+    assert.match(gradle, /CHAIN_ENV/);
     assert.match(gradle, /signingConfigs/);
     assert.match(gradle, /keystore\.properties/);
+  });
+
+  it("POS catalog mirrors Phase 1 registry pairs", () => {
+    const catalog = readFileSync(
+      join(root, "app/src/main/java/com/cryptogate/cashier/api/AssetNetworkCatalog.kt"),
+      "utf8",
+    );
+    assert.match(catalog, /bnb_smart_chain/);
+    assert.match(catalog, /tron_nile/);
+    assert.match(catalog, /AssetNetworkPair\("USDC", "base"/);
+    assert.match(catalog, /AssetNetworkPair\("BTC", "bitcoin"/);
   });
 
   it("does not commit keystore.properties", () => {

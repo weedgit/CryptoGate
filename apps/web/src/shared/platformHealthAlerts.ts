@@ -101,8 +101,8 @@ export function syncPlatformHealthAlerts(
     upsertPlatformAlert({
       id: "sys-webhook",
       category: "system",
-      title: "Webhook path degraded",
-      body: "Webhook worker health follows API status. Merchant signed deliveries may lag.",
+      title: "Webhook delivery degraded",
+      body: "Webhook worker is off, stale, or backlog is overdue. Merchant signed deliveries may lag — check System health.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
       hrefLabel: "System health",
@@ -130,11 +130,16 @@ export async function fetchPlatformHealth(): Promise<
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return "unreachable";
-    const payload = (await res.json()) as { status?: string; db?: string };
+    const payload = (await res.json()) as {
+      status?: string;
+      db?: string;
+      webhook?: string;
+    };
     return {
       api: payload.status === "ok",
       database: payload.db === "ok",
-      webhook: payload.status === "ok",
+      // Real worker/queue status from API — not a copy of API status.
+      webhook: payload.webhook === "ok",
     };
   } catch {
     return "unreachable";

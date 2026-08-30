@@ -200,9 +200,19 @@ export function TeamSettingsPage({ session }: Props) {
     if (!orgId || !canManage) return;
     setBusy(true);
     try {
-      await assignOrgUserRole(orgId, userId, role);
-      showOk(`Updated role to ${roleLabel(role)}.`);
-      await load();
+      const updated = await assignOrgUserRole(orgId, userId, role);
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.userId === userId
+            ? {
+                ...m,
+                role: updated.role,
+                status: updated.status ?? m.status,
+              }
+            : m,
+        ),
+      );
+      showOk(`Updated role to ${roleLabel(updated.role)}.`);
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Role update failed");
     } finally {
@@ -466,7 +476,13 @@ export function TeamSettingsPage({ session }: Props) {
                 onClick={(e) => e.stopPropagation()}
               >
                 <header className="b3-commission-modal__head">
-                  <h3 id="agent-team-invite-title">Invite member</h3>
+                  <div className="plat-team__invite-head-text">
+                    <h3 id="agent-team-invite-title">Invite member</h3>
+                    <p className="plat-team__invite-lede">
+                      Send a portal invite for Administrator or Viewer on this
+                      agent org.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     className="b3-commission-modal__close"
@@ -497,25 +513,24 @@ export function TeamSettingsPage({ session }: Props) {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       disabled={busy || Boolean(inviteCreds)}
-                      placeholder="Name@company.com"
+                      placeholder="name@company.com"
                     />
                   </label>
-                  <label
-                    className="plat-team__field"
-                    htmlFor="agent-team-invite-role"
-                  >
-                    <span>Role</span>
-                    <SearchableSelect
-                      id="agent-team-invite-role"
-                      value={inviteRole}
-                      options={ROLE_OPTIONS}
-                      onChange={setInviteRole}
-                      disabled={busy || Boolean(inviteCreds)}
-                      allowEmpty={false}
-                      placeholder="Role"
-                      ariaLabel="Invite role"
-                    />
-                  </label>
+                  <div className="plat-team__field">
+                    <span id="agent-team-invite-role-label">Role</span>
+                    <div className="plat-team__invite-role">
+                      <SearchableSelect
+                        id="agent-team-invite-role"
+                        value={inviteRole}
+                        options={ROLE_OPTIONS}
+                        onChange={setInviteRole}
+                        disabled={busy || Boolean(inviteCreds)}
+                        allowEmpty={false}
+                        placeholder="Select role"
+                        ariaLabel="Invite role"
+                      />
+                    </div>
+                  </div>
                   {inviteCreds ? (
                     <div className="plat-team__creds">
                       <InviteCredentialsPanel
@@ -538,13 +553,23 @@ export function TeamSettingsPage({ session }: Props) {
                         Done
                       </button>
                     ) : (
-                      <button
-                        type="submit"
-                        className="plat-team__invite-confirm"
-                        disabled={busy || !inviteEmail.trim()}
-                      >
-                        {busy ? "Working…" : "Add member"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="plat-team__invite-cancel"
+                          disabled={busy}
+                          onClick={() => setInviteOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="plat-team__invite-confirm"
+                          disabled={busy || !inviteEmail.trim()}
+                        >
+                          {busy ? "Working…" : "Add member"}
+                        </button>
+                      </>
                     )}
                   </footer>
                 </form>

@@ -243,9 +243,13 @@ async function insertLogicBill(pool, bill) {
 }
 
 function periodLabelFromKey(key) {
-  const [y, m] = key.split("-");
-  const monthIdx = Number(m) - 1;
-  const mon = MONTH_LABELS[monthIdx] ?? m ?? "—";
+  const [yRaw, mRaw] = key.split("-");
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+    return key;
+  }
+  const mon = MONTH_LABELS[m - 1] ?? mRaw;
   return `${mon} ${y}`;
 }
 

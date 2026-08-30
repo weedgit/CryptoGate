@@ -416,21 +416,63 @@ export function AuditLogPage() {
       <div className="plat-audit__filters" aria-label="Audit filters">
         <label className="plat-audit__field">
           <span>From</span>
-          <input
-            className="plat-audit__input"
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-          />
+          <span className="plat-audit__date-wrap">
+            <input
+              className="plat-audit__input plat-audit__input--date"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+            <span className="plat-audit__date-icon" aria-hidden>
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                <rect
+                  x="2"
+                  y="3.5"
+                  width="12"
+                  height="10.5"
+                  rx="1.5"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                />
+                <path
+                  d="M5 2v2.5M11 2v2.5M2 7h12"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          </span>
         </label>
         <label className="plat-audit__field">
           <span>To</span>
-          <input
-            className="plat-audit__input"
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-          />
+          <span className="plat-audit__date-wrap">
+            <input
+              className="plat-audit__input plat-audit__input--date"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+            <span className="plat-audit__date-icon" aria-hidden>
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                <rect
+                  x="2"
+                  y="3.5"
+                  width="12"
+                  height="10.5"
+                  rx="1.5"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                />
+                <path
+                  d="M5 2v2.5M11 2v2.5M2 7h12"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          </span>
         </label>
         <label className="plat-audit__field plat-audit__field--wide">
           <span>Action</span>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ApiError,
@@ -23,7 +23,9 @@ import {
   platformInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
+import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
 import { AuthToast } from "../auth/AuthToast";
+import { formatShortTime } from "../merchant/orderStatus";
 
 type Props = { session: Session };
 
@@ -250,6 +252,27 @@ export function ServiceBillDetailPage({ session }: Props) {
           />
         </div>
 
+        <div className="plat-bill-detail__pay-card no-print">
+          <ServiceBillPayQrCard
+            totalAmount={bill.totalAmount}
+            payTo={payTo}
+            status={bill.status}
+            dueAt={bill.dueAt}
+            timerLabel={
+              bill.status === "paid"
+                ? "Payment completed — QR no longer needed"
+                : bill.status === "voided"
+                  ? "Bill voided"
+                  : bill.status === "overdue"
+                    ? "Overdue — settle remittance promptly"
+                    : bill.status === "issued"
+                      ? `Due ${formatShortTime(bill.dueAt)}`
+                      : serviceBillStatusLabel(bill.status)
+            }
+            hint="Merchant remittance destination — same QR as service-bill checkout."
+          />
+        </div>
+
         <aside className="plat-bill-detail__side">
           <section className="plat-bill-detail__card plat-bill-detail__timeline-card">
             <h2 className="plat-bill-detail__section-title">Bill state timeline</h2>
@@ -258,7 +281,12 @@ export function ServiceBillDetailPage({ session }: Props) {
                 <li
                   key={step.id}
                   className={`plat-bill-detail__step is-${step.tone}`}
-                  style={{ animationDelay: `${i * 60}ms` }}
+                  style={
+                    {
+                      animationDelay: `${i * 90}ms`,
+                      ["--step-delay"]: `${i * 90}ms`,
+                    } as CSSProperties
+                  }
                 >
                   <span className="plat-bill-detail__step-dot" aria-hidden />
                   <div className="plat-bill-detail__step-body">

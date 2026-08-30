@@ -1,7 +1,8 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
+  getBillingWalletSettings,
   invalidatePlatformServiceBillsList,
   updateServiceBill,
   type ServiceBill,
@@ -15,11 +16,35 @@ type Props = {
   onUpdated: (bill: ServiceBill) => void;
 };
 
+const ACTION_HELP = {
+  markPaid:
+    "Record that the merchant already remitted this service bill off-chain (bank or on-chain to the billing wallet). Does not create or fulfill a merchant payment order.",
+  voidBill:
+    "Cancel this unpaid bill. Requires a reason. Voided bills stay in history for audit — they cannot be marked paid afterward.",
+  adjustTotal:
+    "Change the amount due before remittance (credit or debit). Enter a signed USD adjustment and reason. Separate from merchant payment-order amounts.",
+} as const;
+
+function ActionHelpTip({ text }: { text: string }) {
+  return (
+    <span className="plat-card-help plat-bill-actions__help">
+      <button type="button" className="plat-card-help__btn" aria-label={text}>
+        ?
+      </button>
+      <span className="plat-card-help__tip" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
 export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
   const canAct = useMemo(() => sessionCanIssueServiceBill(session), [session]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paymentReference, setPaymentReference] = useState("");
+  const [rxAddress, setRxAddress] = useState("");
+  const [txAddress, setTxAddress] = useState("");
   const [voidReason, setVoidReason] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
@@ -27,6 +52,23 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
   const canMarkPaid = bill.status === "issued" || bill.status === "overdue";
   const canVoid = bill.status === "issued";
   const canAdjust = bill.status === "issued" || bill.status === "overdue";
+
+  useEffect(() => {
+    if (!canAct || !canMarkPaid) return;
+    let cancelled = false;
+    void getBillingWalletSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        const payTo = settings.payTo?.trim() ?? "";
+        if (payTo) setRxAddress((prev) => prev || payTo);
+      })
+      .catch(() => {
+        /* optional prefill */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canAct, canMarkPaid, bill.id]);
 
   if (!canAct) return null;
 
@@ -50,6 +92,8 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
       updateServiceBill(bill.id, {
         action: "mark_paid",
         paymentReference: paymentReference.trim() || undefined,
+        rxAddress: rxAddress.trim() || undefined,
+        txAddress: txAddress.trim() || undefined,
       }),
     );
   }
@@ -90,25 +134,55 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
     <section className="plat-bill-detail__card plat-bill-actions">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <h2 className="plat-bill-detail__section-title">Platform actions</h2>
-      <p className="plat-bill-actions__lead">
-        Off-chain mark paid, void, or adjust — separate from merchant payment
-        orders.
-      </p>
 
       {canMarkPaid ? (
         <form className="plat-bill-actions__block" onSubmit={onMarkPaid}>
-          <p className="plat-bill-actions__block-title">Mark paid</p>
+          <div className="plat-bill-actions__block-head">
+            <p className="plat-bill-actions__block-title">Mark paid</p>
+            <ActionHelpTip text={ACTION_HELP.markPaid} />
+          </div>
           <div className="b4-field">
             <label className="b4-field__label" htmlFor="pay-ref">
-              Payment reference (optional)
+              Tx hash / payment reference
             </label>
             <input
               id="pay-ref"
               className="b4-field__control"
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
-              placeholder="Bank ref or tx note"
+              placeholder="On-chain tx hash or bank ref"
               disabled={busy !== null}
+              autoComplete="off"
+            />
+          </div>
+          <div className="b4-field">
+            <label className="b4-field__label" htmlFor="rx-addr">
+              Rx address
+            </label>
+            <input
+              id="rx-addr"
+              className="b4-field__control"
+              value={rxAddress}
+              onChange={(e) => setRxAddress(e.target.value)}
+              placeholder="Platform billing wallet"
+              disabled={busy !== null}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          <div className="b4-field">
+            <label className="b4-field__label" htmlFor="tx-addr">
+              Tx address
+            </label>
+            <input
+              id="tx-addr"
+              className="b4-field__control"
+              value={txAddress}
+              onChange={(e) => setTxAddress(e.target.value)}
+              placeholder="Merchant payer / sender (optional)"
+              disabled={busy !== null}
+              autoComplete="off"
+              spellCheck={false}
             />
           </div>
           <button
@@ -123,7 +197,10 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
 
       {canVoid ? (
         <form className="plat-bill-actions__block" onSubmit={onVoid}>
-          <p className="plat-bill-actions__block-title">Void bill</p>
+          <div className="plat-bill-actions__block-head">
+            <p className="plat-bill-actions__block-title">Void bill</p>
+            <ActionHelpTip text={ACTION_HELP.voidBill} />
+          </div>
           <div className="b4-field">
             <label className="b4-field__label" htmlFor="void-reason">
               Reason
@@ -150,7 +227,10 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
 
       {canAdjust ? (
         <form className="plat-bill-actions__block" onSubmit={onAdjust}>
-          <p className="plat-bill-actions__block-title">Adjust total</p>
+          <div className="plat-bill-actions__block-head">
+            <p className="plat-bill-actions__block-title">Adjust total</p>
+            <ActionHelpTip text={ACTION_HELP.adjustTotal} />
+          </div>
           <div className="plat-bill-actions__row">
             <div className="b4-field">
               <label className="b4-field__label" htmlFor="adj-amt">

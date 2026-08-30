@@ -22,7 +22,9 @@ Watcher, API, and payment page must take confirmations, decimals, min amount, Mo
 | **Merchant settlement / payout private keys** | **Never** | Platform is watch-only; merchants (or their wallets) hold spend keys |
 | **Platform billing / commission treasury keys** | Outside watcher | Ops send rebills/commissions from their own wallets; slip UI shows destination only |
 
-Empty `*_RPC_URL` → chain client stays in **stub** mode (health OK, no live transfers). Set the URL (and optional API key) in `.env` for production.
+Empty `*_RPC_URL` → chain client stays in **stub** mode (health OK, no live transfers). Set the URL (and optional API key) in `.env` for production. Open orders on a stub network will not complete; watcher ticks may emit `rpcGapWarning: rpc_not_configured_open_orders_will_not_complete`.
+
+**Timeouts (ops friction):** every chain HTTP call uses `CHAIN_FETCH_TIMEOUT_MS` (default **15000**). Each watcher asset+network scope is also capped by `WATCHER_SCOPE_TIMEOUT_MS` (default **60000**) so one hanging RPC cannot stall the whole multi-network loop. Narrow work with `WATCHER_NETWORKS` / `WATCHER_ASSETS` when testing.
 
 ---
 
@@ -96,3 +98,28 @@ Guest copy must name the exact asset+network for the order. USDT on Ethereum aga
 2. Set `*_RPC_URL` (+ API key if the provider requires it) in the watcher/API host env.
 3. Smoke: create a small order on that pair, send a test transfer, confirm watcher tick shows `chainPollMode` live (not `stub`) and order advances after required confirmations.
 4. Monitor `watcher_heartbeats` / platform Network catalog for `rpcConfigured`.
+
+---
+
+## Platform Network catalog (B16) — trustworthy values
+
+| UI field | Meaning |
+| --- | --- |
+| **Orderability lamp** | Single signal: **Open** (green) / **Paused** (amber) / **Down** (red) / **Off** (grey). Combines registry `enabled` + maintenance + watcher ingest. Answers “can this network take payments now?” |
+| **Catalog status** (`2/2 enabled`) | How many asset pairs on that network are `enabled: true` in `ASSET_NETWORK_REGISTRY` |
+| **Ingest** + bar % | Watcher heartbeat `healthScore` when present; otherwise bar mirrors catalog completeness (not a fake “91%”) |
+| **Contract** | Token contract from the domain registry (USDT preferred as primary) |
+| **Maintenance Mode** | Persisted in `network_maintenance`. Platform O/A. While active: create-order → `422 network_maintenance`; merchants see banner; lamp → **Paused** |
+
+**Lamp rules**
+
+| Lamp | When |
+| --- | --- |
+| Open | ≥1 enabled pair, not maintenance, ingest healthy (`live`) |
+| Paused | Enabled, but maintenance **or** ingest `degraded` / `stub` |
+| Down | Enabled, but ingest `down` / no heartbeat |
+| Off | No enabled pairs (catalogued only) |
+
+Same lamp appears on System health “Connected assets & networks”, merchant Blockchain networks, and `GET /v1/networks/status` (any authenticated portal).
+
+**Implemented vs live ingest:** registry + chain client code can be done while RPC is empty. Without `*_RPC_URL`, watcher stays in **stub** — catalog may still show enabled pairs, lamp → **Paused** (stub).

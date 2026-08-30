@@ -87,11 +87,50 @@ describe("@cryptogate/chain-clients/tron stub", () => {
 
   it("listRecentTransfers returns empty stub with watched count", async () => {
     const result = await listRecentTransfers({
-      watchedAddresses: ["TMain"],
+      watchedAddresses: ["TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK"],
     });
     assert.deepEqual(result.transfers, []);
     assert.equal(result.mode, "stub");
     assert.equal(result.watchedAddressCount, 1);
+  });
+
+  it("listRecentTransfers skips invalid seed-style addresses without error", async () => {
+    const prev = process.env.TRON_RPC_URL;
+    process.env.TRON_RPC_URL = "https://api.trongrid.io";
+    try {
+      const result = await listRecentTransfers({
+        watchedAddresses: [
+          // Alphabet-ok hex seed — fails Base58Check
+          "T35dacea7f19482733e4dcf20457d7073a",
+          // Contains '0' — fails alphabet / checksum
+          "T0d16beb96cc393e07deef302f40642d5d",
+          "",
+          // Known mainnet USDT TRC-20 contract (valid Base58Check)
+          USDT_TRC20_CONTRACT,
+        ],
+        network: "tron",
+        fetch: async (url) => {
+          if (String(url).includes(USDT_TRC20_CONTRACT)) {
+            return {
+              ok: true,
+              status: 200,
+              headers: { get: () => null },
+              json: async () => ({ data: [] }),
+              text: async () => "",
+            };
+          }
+          throw new Error(`unexpected TronGrid call: ${url}`);
+        },
+      });
+      assert.equal(result.mode, "trongrid");
+      assert.equal(result.watchedAddressCount, 1);
+      assert.equal(result.skippedInvalidAddresses, 2);
+      assert.equal(result.transfers.length, 0);
+      assert.equal(result.error, undefined);
+    } finally {
+      if (prev === undefined) delete process.env.TRON_RPC_URL;
+      else process.env.TRON_RPC_URL = prev;
+    }
   });
 
   it("dedupeTransfersByTxHash drops duplicates", () => {
@@ -188,7 +227,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
             data: [
               {
                 transaction_id: "tx1",
-                to: "TWatched",
+                to: "TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK",
                 from: "TPayer",
                 value: "50000000",
                 token_info: {
@@ -198,7 +237,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
               },
               {
                 transaction_id: "tx1",
-                to: "TWatched",
+                to: "TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK",
                 from: "TPayer",
                 value: "50000000",
                 token_info: {
@@ -213,7 +252,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     };
 
     const result = await listRecentTransfers({
-      watchedAddresses: ["TWatched"],
+      watchedAddresses: ["TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK"],
       network: "tron",
       fetch: /** @type {typeof fetch} */ (fetchMock),
     });
@@ -224,7 +263,10 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
     assert.equal(result.transfers[0].amount, "50");
     assert.equal(result.transfers[0].txHash, "tx1");
     assert.equal(result.transfers[0].fromAddress, "TPayer");
-    assert.match(urls[0], /\/v1\/accounts\/TWatched\/transactions\/trc20/);
+    assert.match(
+      urls[0],
+      /\/v1\/accounts\/TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK\/transactions\/trc20/,
+    );
     assert.match(urls[0], /contract_address=/);
   });
 
@@ -328,7 +370,7 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
             data: [
               {
                 transaction_id: "retry-ok",
-                to: "TWatched",
+                to: "TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK",
                 value: "1000000",
                 token_info: { address: USDT_TRC20_CONTRACT, decimals: 6 },
               },
@@ -339,7 +381,7 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
     };
     try {
       const result = await listRecentTransfers({
-        watchedAddresses: ["TWatched"],
+        watchedAddresses: ["TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK"],
         network: "tron",
         fetch: /** @type {typeof fetch} */ (fetchMock),
         sleep: async () => {},

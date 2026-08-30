@@ -3,6 +3,7 @@
  * No apps/api imports. Fetch is injectable for unit tests.
  */
 
+import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { minorToMajor } from "./amount.mjs";
 import {
   DEFAULT_TRON_MAX_ATTEMPTS,
@@ -14,22 +15,32 @@ import {
 import { getTronRuntimeConfig } from "./config.mjs";
 
 /**
+ * TronGrid 400 "valid account address" — skip this address, keep polling others.
+ * @param {unknown} err
+ */
+function isInvalidTronAddressHttpError(err) {
+  if (!err || typeof err !== "object") return false;
+  const status = /** @type {{ status?: number, message?: string }} */ (err).status;
+  if (status !== 400) return false;
+  const message = String(
+    /** @type {{ message?: string }} */ (err).message ?? err,
+  );
+  return /valid account address/i.test(message);
+}
+
+/**
  * @param {string} baseUrl
  * @param {string} path
  * @param {{ apiKey?: string, method?: string, body?: unknown, fetchImpl?: typeof fetch }} opts
  */
 export async function trongridFetch(baseUrl, path, opts = {}) {
-  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-  if (typeof fetchImpl !== "function") {
-    throw new Error("fetch is not available in this runtime");
-  }
   const url = `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
   /** @type {Record<string, string>} */
   const headers = { Accept: "application/json" };
   if (opts.apiKey) headers["TRON-PRO-API-KEY"] = opts.apiKey;
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
-  const res = await fetchImpl(url, {
+  const res = await fetchWithTimeout(opts.fetchImpl, url, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -133,6 +144,7 @@ export async function fetchTrc20TransfersForAddresses(input) {
   /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }>} */
   const transfers = [];
 
+  let skippedInvalidRemote = 0;
   for (const address of watched) {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions/trc20` +
@@ -140,14 +152,24 @@ export async function fetchTrc20TransfersForAddresses(input) {
       (cfg.contractAddress
         ? `&contract_address=${encodeURIComponent(cfg.contractAddress)}`
         : "");
-    const json = await withTronRetry(
-      () =>
-        trongridFetch(cfg.baseUrl, path, {
-          apiKey: cfg.apiKey,
-          fetchImpl: input.fetchImpl,
-        }),
-      { sleepImpl: input.sleepImpl },
-    );
+    let json;
+    try {
+      json = await withTronRetry(
+        () =>
+          trongridFetch(cfg.baseUrl, path, {
+            apiKey: cfg.apiKey,
+            fetchImpl: input.fetchImpl,
+          }),
+        { sleepImpl: input.sleepImpl },
+      );
+    } catch (err) {
+      // One bad address must not fail the whole network tick (seed / checksum rejects).
+      if (isInvalidTronAddressHttpError(err)) {
+        skippedInvalidRemote += 1;
+        continue;
+      }
+      throw err;
+    }
     const rows = Array.isArray(json?.data) ? json.data : [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
@@ -164,6 +186,7 @@ export async function fetchTrc20TransfersForAddresses(input) {
     transfers,
     mode: "trongrid",
     watchedAddressCount: watched.length,
+    skippedInvalidRemote,
   };
 }
 
@@ -187,18 +210,28 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
   const limit = input.limit ?? 50;
   /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string }>} */
   const transfers = [];
+  let skippedInvalidRemote = 0;
 
   for (const address of watched) {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions?only_to=true&limit=${limit}`;
-    const json = await withTronRetry(
-      () =>
-        trongridFetch(cfg.baseUrl, path, {
-          apiKey: cfg.apiKey,
-          fetchImpl: input.fetchImpl,
-        }),
-      { sleepImpl: input.sleepImpl },
-    );
+    let json;
+    try {
+      json = await withTronRetry(
+        () =>
+          trongridFetch(cfg.baseUrl, path, {
+            apiKey: cfg.apiKey,
+            fetchImpl: input.fetchImpl,
+          }),
+        { sleepImpl: input.sleepImpl },
+      );
+    } catch (err) {
+      if (isInvalidTronAddressHttpError(err)) {
+        skippedInvalidRemote += 1;
+        continue;
+      }
+      throw err;
+    }
     const rows = Array.isArray(json?.data) ? json.data : [];
     for (const row of rows) {
       const raw = /** @type {Record<string, unknown>} */ (row.raw_data ?? {});
@@ -241,6 +274,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
     transfers,
     mode: "trongrid",
     watchedAddressCount: watched.size,
+    skippedInvalidRemote,
   };
 }
 

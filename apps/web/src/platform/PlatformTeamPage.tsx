@@ -194,9 +194,19 @@ export function PlatformTeamPage({ session }: Props) {
     if (!orgId || !canManage) return;
     setBusy(true);
     try {
-      await assignOrgUserRole(orgId, userId, role);
-      showOk(`Updated role to ${roleLabel(role)}.`);
-      await load();
+      const updated = await assignOrgUserRole(orgId, userId, role);
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.userId === userId
+            ? {
+                ...m,
+                role: updated.role,
+                status: updated.status ?? m.status,
+              }
+            : m,
+        ),
+      );
+      showOk(`Updated role to ${roleLabel(updated.role)}.`);
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Role update failed");
     } finally {
@@ -297,14 +307,14 @@ export function PlatformTeamPage({ session }: Props) {
           <p className="plat-team__empty">No members returned for platform org.</p>
         ) : (
           <div className="plat-team__table-wrap">
-            <table className="plat-team__table">
+            <table className="plat-team__table plat-team__table--dense">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
-                  <th>MFA Status</th>
-                  <th>Last login</th>
+                  <th>MFA</th>
+                  <th className="plat-team__th-login">Last login</th>
                   {canManage ? (
                     <th className="plat-team__th-actions">Actions</th>
                   ) : null}
@@ -366,7 +376,7 @@ export function PlatformTeamPage({ session }: Props) {
                           </span>
                         )}
                       </td>
-                      <td>
+                      <td className="plat-team__td-mfa">
                         <span
                           className={`plat-team__mfa${
                             m.mfaEnrolled ? " is-on" : " is-pending"
@@ -456,7 +466,13 @@ export function PlatformTeamPage({ session }: Props) {
                 onClick={(e) => e.stopPropagation()}
               >
                 <header className="b3-commission-modal__head">
-                  <h3 id="plat-team-invite-title">Invite member</h3>
+                  <div className="plat-team__invite-head-text">
+                    <h3 id="plat-team-invite-title">Invite member</h3>
+                    <p className="plat-team__invite-lede">
+                      Send a portal invite for Administrator or Viewer on the
+                      platform org.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     className="b3-commission-modal__close"
@@ -484,22 +500,24 @@ export function PlatformTeamPage({ session }: Props) {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       disabled={busy || Boolean(inviteCreds)}
-                      placeholder="Name@company.com"
+                      placeholder="name@company.com"
                     />
                   </label>
-                  <label className="plat-team__field" htmlFor="plat-team-invite-role">
-                    <span>Role</span>
-                    <SearchableSelect
-                      id="plat-team-invite-role"
-                      value={inviteRole}
-                      options={ROLE_OPTIONS}
-                      onChange={setInviteRole}
-                      disabled={busy || Boolean(inviteCreds)}
-                      allowEmpty={false}
-                      placeholder="Role"
-                      ariaLabel="Invite role"
-                    />
-                  </label>
+                  <div className="plat-team__field">
+                    <span id="plat-team-invite-role-label">Role</span>
+                    <div className="plat-team__invite-role">
+                      <SearchableSelect
+                        id="plat-team-invite-role"
+                        value={inviteRole}
+                        options={ROLE_OPTIONS}
+                        onChange={setInviteRole}
+                        disabled={busy || Boolean(inviteCreds)}
+                        allowEmpty={false}
+                        placeholder="Select role"
+                        ariaLabel="Invite role"
+                      />
+                    </div>
+                  </div>
                   {inviteCreds ? (
                     <div className="plat-team__creds">
                       <InviteCredentialsPanel
@@ -522,13 +540,23 @@ export function PlatformTeamPage({ session }: Props) {
                         Done
                       </button>
                     ) : (
-                      <button
-                        type="submit"
-                        className="plat-team__invite-confirm"
-                        disabled={busy || !inviteEmail.trim()}
-                      >
-                        {busy ? "Working…" : "Add member"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="plat-team__invite-cancel"
+                          disabled={busy}
+                          onClick={() => setInviteOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="plat-team__invite-confirm"
+                          disabled={busy || !inviteEmail.trim()}
+                        >
+                          {busy ? "Working…" : "Add member"}
+                        </button>
+                      </>
                     )}
                   </footer>
                 </form>

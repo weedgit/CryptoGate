@@ -6,12 +6,14 @@ import {
   platformInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
+import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
 import {
   formatBillId,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
 import { PlatformPending } from "../platform/ui/PlatformPending";
+import { formatShortTime } from "../merchant/orderStatus";
 import {
   ApiError,
   getServiceBill,
@@ -238,6 +240,27 @@ export function ServiceBillDetailPage() {
         </div>
 
         <aside className="plat-bill-detail__side">
+          <div className="plat-bill-detail__pay-card no-print">
+            <ServiceBillPayQrCard
+              totalAmount={bill.totalAmount}
+              payTo={payTo}
+              status={bill.status}
+              dueAt={bill.dueAt}
+              timerLabel={
+                bill.status === "paid"
+                  ? "Payment completed — QR no longer needed"
+                  : bill.status === "voided"
+                    ? "Bill voided"
+                    : bill.status === "overdue"
+                      ? "Overdue — settle remittance promptly"
+                      : bill.status === "issued"
+                        ? `Due ${formatShortTime(bill.dueAt)}`
+                        : serviceBillStatusLabel(bill.status)
+              }
+              hint="Same remittance QR merchants see on service-bill checkout. Agent is read-only."
+            />
+          </div>
+
           <section className="plat-bill-detail__card plat-bill-detail__timeline-card">
             <h2 className="plat-bill-detail__section-title">Bill state timeline</h2>
             <ol className="plat-bill-detail__timeline">

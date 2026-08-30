@@ -4,6 +4,7 @@
  */
 
 import { AssetCode } from "@cryptogate/domain";
+import { filterLikelyTronAddresses } from "./address.mjs";
 import { getTronRuntimeConfig } from "./config.mjs";
 import {
   fetchNativeTrxTransfersForAddresses,
@@ -11,6 +12,7 @@ import {
   fetchTrc20TransfersForAddresses,
 } from "./trongrid.mjs";
 
+export { isLikelyTronAddress, filterLikelyTronAddresses } from "./address.mjs";
 export { minorToMajor } from "./amount.mjs";
 export { mapTrc20Row } from "./trongrid.mjs";
 export {
@@ -53,9 +55,11 @@ export function dedupeTransfersByTxHash(transfers) {
 }
 
 export async function listRecentTransfers(options = {}) {
-  const watched = (options.watchedAddresses ?? [])
+  const rawWatched = (options.watchedAddresses ?? [])
     .map((a) => a.trim())
     .filter(Boolean);
+  const { valid: watched, skipped: skippedInvalid } =
+    filterLikelyTronAddresses(rawWatched);
   const asset = options.asset ?? AssetCode.USDT;
   const networkHint = options.network;
 
@@ -74,12 +78,14 @@ export async function listRecentTransfers(options = {}) {
         transfers: dedupeTransfersByTxHash(filtered),
         mode: "stub-env",
         watchedAddressCount: watched.length,
+        skippedInvalidAddresses: skippedInvalid,
       };
     } catch {
       return {
         transfers: [],
         mode: "stub-env-invalid-json",
         watchedAddressCount: watched.length,
+        skippedInvalidAddresses: skippedInvalid,
       };
     }
   }
@@ -90,6 +96,7 @@ export async function listRecentTransfers(options = {}) {
       transfers: [],
       mode: "stub",
       watchedAddressCount: watched.length,
+      skippedInvalidAddresses: skippedInvalid,
     };
   }
 
@@ -98,6 +105,7 @@ export async function listRecentTransfers(options = {}) {
       transfers: [],
       mode: "trongrid",
       watchedAddressCount: 0,
+      skippedInvalidAddresses: skippedInvalid,
     };
   }
 
@@ -119,12 +127,14 @@ export async function listRecentTransfers(options = {}) {
       transfers: dedupeTransfersByTxHash(live.transfers),
       mode: live.mode,
       watchedAddressCount: live.watchedAddressCount,
+      skippedInvalidAddresses: skippedInvalid,
     };
   } catch (err) {
     return {
       transfers: [],
       mode: "trongrid-error",
       watchedAddressCount: watched.length,
+      skippedInvalidAddresses: skippedInvalid,
       error: err instanceof Error ? err.message : String(err),
     };
   }

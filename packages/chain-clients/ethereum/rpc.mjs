@@ -2,6 +2,7 @@
  * Ethereum JSON-RPC — USDT ERC-20 Transfer logs + confirmations (M3-32).
  */
 
+import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { minorToMajor } from "../tron/amount.mjs";
 import {
   DEFAULT_ETH_MAX_ATTEMPTS,
@@ -19,15 +20,11 @@ import { ERC20_TRANSFER_TOPIC, getEthereumRuntimeConfig } from "./config.mjs";
  * @param {{ fetchImpl?: typeof fetch, apiKey?: string }} opts
  */
 export async function jsonRpcCall(rpcUrl, method, params, opts = {}) {
-  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-  if (typeof fetchImpl !== "function") {
-    throw new Error("fetch is not available in this runtime");
-  }
   /** @type {Record<string, string>} */
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
   if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`;
 
-  const res = await fetchImpl(rpcUrl, {
+  const res = await fetchWithTimeout(opts.fetchImpl, rpcUrl, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),

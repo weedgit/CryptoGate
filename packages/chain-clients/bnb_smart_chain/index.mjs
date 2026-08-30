@@ -2,7 +2,7 @@
  * BNB Smart Chain client — USDT BEP-20 via JSON-RPC when BSC_RPC_URL is set (X-06).
  * Confirmations + contract + decimals from @cryptogate/domain USDT_BNB_SMART_CHAIN.
  * Reuses EVM log polling from ethereum/rpc (parameterized runtime config).
- * Create-order stays 422 until Kevin sets enabled: true.
+ * Registry pair USDT/bnb_smart_chain is enabled — live when BSC_RPC_URL is set.
  * No imports from apps/api.
  */
 

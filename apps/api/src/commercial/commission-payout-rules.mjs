@@ -117,23 +117,45 @@ export function validateUpsertCommissionPayoutBody(body) {
  * @param {unknown} body
  */
 export function validateMarkPaidBody(body) {
-  const txRef =
-    typeof body?.txRef === "string" ? body.txRef.trim() : "";
-  if (!txRef) {
+  const rawTx = typeof body?.txRef === "string" ? body.txRef.trim() : "";
+  const rawNote = typeof body?.note === "string" ? body.note.trim() : "";
+  if (rawNote.length > 2000) {
     return {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "txRef is required",
+      message: "note must be at most 2000 characters",
     };
   }
-  return { ok: true, parsed: { txRef } };
+  return {
+    ok: true,
+    parsed: {
+      txRef: rawTx || null,
+      note: rawNote || null,
+    },
+  };
+}
+
+/**
+ * Confirm-sent body (optional note while entering Verification).
+ * @param {unknown} body
+ */
+export function validateConfirmSentBody(body) {
+  return validateMarkPaidBody(body ?? {});
 }
 
 /**
  * @param {object} row
  */
 export function toCommissionPayout(row) {
+  let treeSnapshot = row.tree_snapshot ?? null;
+  if (typeof treeSnapshot === "string") {
+    try {
+      treeSnapshot = JSON.parse(treeSnapshot);
+    } catch {
+      treeSnapshot = null;
+    }
+  }
   return {
     id: row.id,
     payeeOrgId: row.payee_org_id,
@@ -151,9 +173,13 @@ export function toCommissionPayout(row) {
     network: row.network ?? null,
     paymentLink: row.payment_link,
     txRef: row.tx_ref ?? null,
-    paidAt: row.paid_at
-      ? new Date(row.paid_at).toISOString()
+    note: row.note ?? null,
+    treeSnapshot,
+    paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
+    settledAt: row.settled_at
+      ? new Date(row.settled_at).toISOString()
       : null,
+    agentConfirmedBy: row.agent_confirmed_by ?? null,
     updatedAt: row.updated_at
       ? new Date(row.updated_at).toISOString()
       : undefined,

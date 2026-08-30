@@ -3,7 +3,7 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
-import { findOrgById } from "../orgs/org-store.mjs";
+import { findOrgById, findPlatformOrg } from "../orgs/org-store.mjs";
 import {
   canIssueServiceBill,
   canManageAgentCommissionPayout,
@@ -11,7 +11,13 @@ import {
   canReadCommissionPayouts,
 } from "../orgs/role-policy.mjs";
 import {
+  defaultCommissionPeriodKey,
+  generateMonthlyCommissionInvoices,
+  validatePeriodKey,
+} from "./commission-invoice-generate.mjs";
+import {
   toCommissionPayout,
+  validateConfirmSentBody,
   validateMarkPaidBody,
   validateUpsertCommissionPayoutBody,
 } from "./commission-payout-rules.mjs";
@@ -19,6 +25,8 @@ import {
   findCommissionPayoutById,
   listCommissionPayoutRows,
   markCommissionPayoutPaidRow,
+  markCommissionPayoutSettledRow,
+  markCommissionPayoutVerifyingRow,
   upsertCommissionPayoutRow,
 } from "./commission-payout-store.mjs";
 
@@ -151,7 +159,73 @@ export async function handleUpsertCommissionPayout(req, res) {
 }
 
 /**
+ * POST /v1/commission-payouts/{id}/confirm-sent
+ * ready → verifying (USDT-TRON remittance sent; await match / ops complete)
+ */
+export async function handleConfirmCommissionPayoutSent(req, res, payoutId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const existing = await findCommissionPayoutById(payoutId);
+  if (!existing) {
+    sendError(res, 404, "not_found", "Payout not found");
+    return;
+  }
+
+  if (existing.payer === "platform") {
+    if (!canIssueServiceBill(caller)) {
+      sendError(res, 403, "forbidden", "Not allowed to confirm platform payouts");
+      return;
+    }
+  } else if (
+    !canManageAgentCommissionPayout(caller, existing.payer_org_id)
+  ) {
+    sendError(res, 403, "forbidden", "Not allowed to confirm this payout");
+    return;
+  }
+
+  if (existing.payout_status === "paid") {
+    sendError(res, 409, "already_paid", "Payout is already paid");
+    return;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+  const validated = validateConfirmSentBody(body);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+
+  const row = await markCommissionPayoutVerifyingRow({
+    id: payoutId,
+    note: validated.parsed.note,
+  });
+  if (!row) {
+    sendError(res, 409, "invalid_state", "Payout cannot enter verification");
+    return;
+  }
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: existing.payee_org_id,
+    action: AUDIT_ACTIONS.commissionPayoutConfirmSent,
+    metadata: {
+      payoutId,
+      note: validated.parsed.note,
+      payer: existing.payer,
+    },
+  });
+  sendJson(res, 200, toCommissionPayout(row));
+}
+
+/**
  * POST /v1/commission-payouts/{id}/mark-paid
+ * Complete: manual (note required when from ready without tx) or after verifying.
  */
 export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
   const caller = await requireCaller(req, res);
@@ -175,6 +249,21 @@ export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
     return;
   }
 
+  if (
+    existing.payout_status === "paid" ||
+    existing.payout_status === "settled"
+  ) {
+    sendError(
+      res,
+      409,
+      "already_paid",
+      existing.payout_status === "settled"
+        ? "Payout is already settled"
+        : "Payout is already paid (awaiting agent confirm)",
+    );
+    return;
+  }
+
   let body;
   try {
     body = await readJsonBody(req);
@@ -188,10 +277,29 @@ export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
     return;
   }
 
+  const fromOpen =
+    existing.payout_status === "ready" ||
+    existing.payout_status === "issued";
+  const hasTx = Boolean(validated.parsed.txRef || existing.tx_ref);
+  if (fromOpen && !hasTx && !validated.parsed.note) {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "note is required to complete without on-chain remittance",
+    );
+    return;
+  }
+
   const row = await markCommissionPayoutPaidRow({
     id: payoutId,
     txRef: validated.parsed.txRef,
+    note: validated.parsed.note,
   });
+  if (!row) {
+    sendError(res, 409, "invalid_state", "Payout cannot be marked paid");
+    return;
+  }
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId: existing.payee_org_id,
@@ -199,8 +307,118 @@ export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
     metadata: {
       payoutId,
       txRef: validated.parsed.txRef,
+      note: validated.parsed.note,
       payer: existing.payer,
+      fromStatus: existing.payout_status,
     },
+  });
+  sendJson(res, 200, toCommissionPayout(row));
+}
+
+/**
+ * POST /v1/commission-payouts/generate
+ * Month-end: create issued invoices for all top-level agents.
+ */
+export async function handleGenerateCommissionInvoices(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  if (!canIssueServiceBill(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to generate commission invoices");
+    return;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const periodKey =
+    typeof body?.periodKey === "string" && body.periodKey.trim()
+      ? body.periodKey.trim()
+      : defaultCommissionPeriodKey();
+  const validated = validatePeriodKey(periodKey);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+
+  const result = await generateMonthlyCommissionInvoices(periodKey);
+  const platform = await findPlatformOrg();
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: platform?.id ?? null,
+    action: AUDIT_ACTIONS.commissionPayoutGenerate,
+    metadata: {
+      periodKey: result.periodKey,
+      created: result.created.length,
+      skipped: result.skipped.length,
+    },
+  });
+  sendJson(res, 200, {
+    periodKey: result.periodKey,
+    periodLabel: result.periodLabel,
+    created: result.created.map(toCommissionPayout),
+    skipped: result.skipped,
+  });
+}
+
+/**
+ * POST /v1/commission-payouts/{id}/agent-confirm
+ * Agent acknowledges remittance → settled (Payout history).
+ */
+export async function handleAgentConfirmCommissionPayout(req, res, payoutId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const existing = await findCommissionPayoutById(payoutId);
+  if (!existing) {
+    sendError(res, 404, "not_found", "Payout not found");
+    return;
+  }
+  if (existing.payer !== "platform") {
+    sendError(res, 400, "invalid_request", "Only platform → agent invoices use agent confirm");
+    return;
+  }
+
+  const role = caller.memberships.find(
+    (m) => m.orgId === existing.payee_org_id,
+  )?.role;
+  if (!role || !["owner", "administrator"].includes(role)) {
+    sendError(res, 403, "forbidden", "Only agent Owner/Admin may confirm this invoice");
+    return;
+  }
+
+  if (existing.payout_status === "settled") {
+    sendError(res, 409, "already_settled", "Invoice is already settled");
+    return;
+  }
+  if (existing.payout_status !== "paid") {
+    sendError(
+      res,
+      409,
+      "invalid_state",
+      "Confirm after platform marks the remittance paid",
+    );
+    return;
+  }
+
+  const row = await markCommissionPayoutSettledRow({
+    id: payoutId,
+    userId: caller.userId,
+  });
+  if (!row) {
+    sendError(res, 409, "invalid_state", "Invoice cannot be settled");
+    return;
+  }
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: existing.payee_org_id,
+    action: AUDIT_ACTIONS.commissionPayoutAgentConfirm,
+    metadata: { payoutId, periodKey: existing.period_key },
   });
   sendJson(res, 200, toCommissionPayout(row));
 }

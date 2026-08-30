@@ -42,12 +42,15 @@ android {
             versionNameSuffix = "-staging"
             buildConfigField("String", "API_BASE_URL", "\"$stagingApi\"")
             buildConfigField("String", "APP_ENV", "\"staging\"")
+            // Align with CRYPTOGATE_CHAIN_ENV — Nile visible on staging builds.
+            buildConfigField("String", "CHAIN_ENV", "\"testnet\"")
             resValue("string", "app_name", "CryptoGate POS (Test)")
         }
         create("prod") {
             dimension = "env"
             buildConfigField("String", "API_BASE_URL", "\"$prodApi\"")
             buildConfigField("String", "APP_ENV", "\"prod\"")
+            buildConfigField("String", "CHAIN_ENV", "\"mainnet\"")
             resValue("string", "app_name", "CryptoGate POS")
         }
     }

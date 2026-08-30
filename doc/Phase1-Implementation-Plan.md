@@ -23,19 +23,21 @@ Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordi
 | Cashier APK (generic Android) | Login, create, QR, poll; MFA blocked to web | `apps/cashier-apk` |
 | Ops docs + E2E smoke | Done | `doc/M4-*`, `scripts/e2e-smoke.mjs`, `scripts/deploy-wave5.mjs` |
 
-### Live networks
+### Live networks (catalog)
+
+All **15** Plan §VI pairs are **`enabled: true`** in `ASSET_NETWORK_REGISTRY` (plus `USDT`/`tron_nile` when `CRYPTOGATE_CHAIN_ENV=testnet`). Source of truth: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) + `packages/domain`.
 
 | Pair | Registry | Ingest |
 | --- | --- | --- |
-| USDT / tron | **enabled** | Live (TronGrid) or stub locally |
-| USDT / ethereum | `enabled: false` | Client ready — flip after [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md) |
-| Other Plan §VI pairs (13) | `enabled: false` | Catalogued in `ASSET_NETWORK_REGISTRY` — enable after each chain-client smoke |
+| USDT / tron | **enabled** | Live (TronGrid) when `TRON_RPC_URL` set; else stub |
+| All other §VI pairs | **enabled** | Per-network client live when `*_RPC_URL` set; else stub — smoke each before ops go-live |
+| USDT / tron_nile | **enabled** (testnet env only) | Same Tron client against Nile RPC |
 
-Full list: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md).
+Create-order accepts every enabled pair; completion still requires watcher RPC + confirmations.
 
 ### Next code gap
 
-**Wave 4:** keep USDT/ethereum **422** until staging RPC smoke; then Kevin enable PR. **Wave 5:** Company A hostnames still pending.
+**Wave 4:** staging RPC smoke per network (USDT/ethereum first). **Wave 5:** Company A hostnames still pending.
 
 ---
 
@@ -113,9 +115,9 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 
 | # | Task |
 | --- | --- |
-| 4.1 | Staging: `ETH_RPC_URL`, create USDT/ethereum order (422 until enable) |
+| 4.1 | Staging: `ETH_RPC_URL`, create USDT/ethereum order (registry already enabled) |
 | 4.2 | End-to-end: test wallet → verifying → completed @ 12 conf |
-| 4.3 | Kevin PR: `USDT_ETHEREUM.enabled: true` + M3-04 live section |
+| 4.3 | Confirm M3-04 + platform Network catalog show `rpcConfigured` for ethereum |
 | 4.4 | `E2E_API_BASE=… node scripts/e2e-smoke.mjs --live` on staging |
 
 **Gate:** Staging accepts USDT/ethereum orders; guest pay shows Ethereum ERC-20 label.
@@ -146,7 +148,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | X-02 | Service bill **generation** automation (not just manual issue) | Wave 2 — **Done 2026-08-27** `POST /v1/service-bills/generate` + migration **029** |
 | X-03 | Agent commission statements (read-only) | Wave 1 — **Done 2026-08-27** `/agent/commissions` from subtree bills |
 | X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 — **Done 2026-08-27** `setting-overrides` + inherit GET |
-| X-06 | Next network (BSC USDT) | Wave 4 — **Client scaffolded 2026-08-27** (`bnb_smart_chain/`, still `enabled: false`) |
+| X-06 | Next network (BSC USDT) | Wave 4 — **Client live-capable** (`bnb_smart_chain/`, registry `enabled: true`; smoke with `BSC_RPC_URL`) |
 | X-07 | E2E: signed order create + webhook listener tier | Wave 5 — **Done 2026-08-27** `e2e-live-machine.mjs` + mint helper |
 
 ---

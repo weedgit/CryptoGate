@@ -19,13 +19,19 @@ export function applyHeartbeatLag(row, nowMs = Date.now()) {
   let score = row.healthScore;
   let status = row.status;
 
-  if (lagMs > interval * 10) {
+  // Multi-network ticks often exceed 10× a 5s poll (RPC + open-order scopes).
+  // Floor thresholds so a slow-but-alive watcher is not painted "down 20%".
+  const softLag = Math.max(interval * 2, 45_000);
+  const hardLag = Math.max(interval * 5, 90_000);
+  const downLag = Math.max(interval * 10, 180_000);
+
+  if (lagMs > downLag) {
     score = Math.min(score, 20);
     status = "down";
-  } else if (lagMs > interval * 5) {
+  } else if (lagMs > hardLag) {
     score = Math.min(score, 55);
     if (status === "ok") status = "degraded";
-  } else if (lagMs > interval * 2) {
+  } else if (lagMs > softLag) {
     score = Math.min(score, 80);
     if (status === "ok") status = "degraded";
   }

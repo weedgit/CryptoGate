@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.cryptogate.cashier.api.AssetNetworkCatalog
 import com.cryptogate.cashier.api.CashierPosSurface
 import com.cryptogate.cashier.api.NetworkReachability
 import com.cryptogate.cashier.api.OrderDefaults
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as CashierApplication
+        val chainEnv = BuildConfig.CHAIN_ENV
+        val defaultPair = AssetNetworkCatalog.defaultPair(chainEnv)
 
         setContent {
             CashierTheme {
@@ -48,6 +51,8 @@ class MainActivity : ComponentActivity() {
                     var loading by remember { mutableStateOf(false) }
                     var screen by remember { mutableStateOf(PosScreen.Home) }
                     var amount by remember { mutableStateOf("") }
+                    var asset by remember { mutableStateOf(defaultPair.asset) }
+                    var network by remember { mutableStateOf(defaultPair.network) }
                     var merchantReference by remember { mutableStateOf("") }
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
@@ -129,6 +134,9 @@ class MainActivity : ComponentActivity() {
                                 error = null
                                 amount = ""
                                 merchantReference = ""
+                                val pair = AssetNetworkCatalog.defaultPair(chainEnv)
+                                asset = pair.asset
+                                network = pair.network
                                 screen = PosScreen.Create
                             },
                             onSignOut = {
@@ -144,12 +152,20 @@ class MainActivity : ComponentActivity() {
                         )
                         PosScreen.Create -> CreateOrderScreen(
                             amount = amount,
+                            asset = asset,
+                            network = network,
+                            chainEnv = chainEnv,
                             merchantReference = merchantReference,
                             validitySeconds = validitySeconds,
                             error = error,
                             loading = loading,
                             online = online,
                             onAmountChange = { amount = it; error = null },
+                            onPairChange = {
+                                asset = it.asset
+                                network = it.network
+                                error = null
+                            },
                             onMerchantReferenceChange = { merchantReference = it; error = null },
                             onValidityChange = { validitySeconds = it },
                             onSubmit = {
@@ -164,6 +180,8 @@ class MainActivity : ComponentActivity() {
                                     try {
                                         val order = app.api.createOrder(
                                             amount = amount.trim(),
+                                            asset = asset,
+                                            network = network,
                                             validitySeconds = validitySeconds,
                                             merchantReference = merchantReference.trim()
                                                 .ifEmpty { null },

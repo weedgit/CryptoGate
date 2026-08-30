@@ -25,6 +25,18 @@ const MONTH_LABELS = [
   "Dec",
 ] as const;
 
+/** `2026-08` → `Aug 2026` (one calendar billing month). */
+export function formatCommissionPeriodLabel(periodKey: string): string {
+  const [yRaw, mRaw] = periodKey.split("-");
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+    return periodKey;
+  }
+  const mon = MONTH_LABELS[m - 1] ?? mRaw;
+  return `${mon} ${y}`;
+}
+
 /**
  * Build commission statements from live service bills in the agent subtree.
  * Fee base = **paid** volume fees only (“platform fee collected”).
@@ -68,9 +80,6 @@ export function commissionHistoryFromBills(
   return [...byPeriod.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([key, agg]) => {
-      const [y, m] = key.split("-");
-      const monthIdx = Number(m) - 1;
-      const mon = MONTH_LABELS[monthIdx] ?? m ?? "—";
       const platformFeeCollected = Math.round(agg.feeCollected * 100) / 100;
       const commissionAmount =
         Math.round(platformFeeCollected * (bps / 10_000) * 100) / 100;
@@ -81,7 +90,7 @@ export function commissionHistoryFromBills(
       return {
         id: `live-commission-${key}`,
         periodKey: key,
-        periodLabel: `${mon} ${y}`,
+        periodLabel: formatCommissionPeriodLabel(key),
         platformFeeCollected,
         commissionPercent,
         commissionAmount,

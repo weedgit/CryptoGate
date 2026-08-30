@@ -11,6 +11,7 @@ export type PlatformOrgTreeNode = {
   billingEmail?: string | null;
   legalName?: string | null;
   createdAt?: string | null;
+  orderCreateSuspended?: boolean;
   parentId: string | null;
   parentName: string | null;
   children: PlatformOrgTreeNode[];
@@ -84,6 +85,7 @@ export function buildPlatformOrgForest(
       billingEmail: org.billingEmail ?? null,
       legalName: org.legalName ?? null,
       createdAt: org.createdAt ?? null,
+      orderCreateSuspended: org.orderCreateSuspended === true,
       parentId: org.parentId,
       parentName,
       children,

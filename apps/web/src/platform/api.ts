@@ -85,6 +85,8 @@ export type ServiceBill = {
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
+  rxAddress?: string | null;
+  txAddress?: string | null;
   createdAt?: string | null;
 };
 
@@ -353,6 +355,8 @@ export async function updateServiceBill(
     reason?: string;
     adjustmentAmount?: string;
     paymentReference?: string;
+    rxAddress?: string;
+    txAddress?: string;
   },
 ): Promise<ServiceBill> {
   const res = await fetch(
@@ -566,6 +570,158 @@ export async function getWatcherHealth(): Promise<WatcherHealthList> {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as WatcherHealthList;
+}
+
+export type NetworkOrderabilityLamp = {
+  code: "open" | "paused" | "down" | "off";
+  label: "Open" | "Paused" | "Down" | "Off" | string;
+  tone: "ok" | "warn" | "bad" | "muted" | string;
+};
+
+export type NetworkCatalogIngestStatus =
+  | "live"
+  | "stub"
+  | "degraded"
+  | "down"
+  | "unknown";
+
+export type NetworkCatalogCard = {
+  network: string;
+  title: string;
+  status: "active" | "maintenance" | "catalogued";
+  lamp: NetworkOrderabilityLamp;
+  pairCount: number;
+  enabledCount: number;
+  catalogFraction: number;
+  primaryAsset: string | null;
+  confirmations: number | null;
+  minAmount: string | null;
+  contractAddress: string | null;
+  pairs: {
+    asset: string;
+    enabled: boolean;
+    contractAddress: string | null;
+    decimals: number;
+    minAmount: string;
+    requiredConfirmations: number;
+    displayNetwork: string;
+    lamp: NetworkOrderabilityLamp;
+  }[];
+  maintenance: {
+    active: boolean;
+    message: string | null;
+    startedAt: string | null;
+    endsAt: string | null;
+    updatedAt: string | null;
+  };
+  ingest: {
+    ingestStatus: NetworkCatalogIngestStatus | string;
+    ingestLabel: string;
+    rpcConfigured: boolean;
+    rpcMode: string | null;
+    healthScore: number | null;
+    lagMs: number | null;
+    tickAt: string | null;
+    openOrders: number;
+  };
+};
+
+export type NetworkCatalog = {
+  chainEnv: string;
+  checkedAt: string;
+  items: NetworkCatalogCard[];
+};
+
+export type NetworksStatus = {
+  chainEnv: string;
+  checkedAt: string;
+  items: {
+    network: string;
+    title: string;
+    lamp: NetworkOrderabilityLamp;
+    maintenance: { active: boolean; message: string | null };
+    ingestStatus: NetworkCatalogIngestStatus | string;
+    pairs: {
+      asset: string;
+      enabled: boolean;
+      lamp: NetworkOrderabilityLamp;
+      displayNetwork: string;
+    }[];
+  }[];
+};
+
+export async function getNetworkCatalog(): Promise<NetworkCatalog> {
+  const res = await fetch(`${API_BASE}/platform/networks/catalog`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as NetworkCatalog;
+}
+
+export async function getNetworksStatus(): Promise<NetworksStatus> {
+  const res = await fetch(`${API_BASE}/networks/status`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as NetworksStatus;
+}
+
+export async function putNetworkMaintenance(
+  network: string,
+  body: { active: boolean; message?: string | null; endsAt?: string | null },
+): Promise<{
+  network: string;
+  active: boolean;
+  message: string | null;
+  startedAt: string | null;
+  endsAt: string | null;
+  updatedAt: string;
+}> {
+  const res = await fetch(
+    `${API_BASE}/platform/networks/${encodeURIComponent(network)}/maintenance`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    network: string;
+    active: boolean;
+    message: string | null;
+    startedAt: string | null;
+    endsAt: string | null;
+    updatedAt: string;
+  };
+}
+
+export type ActiveNetworkMaintenance = {
+  network: string;
+  message: string | null;
+  startedAt: string | null;
+  endsAt: string | null;
+};
+
+export async function listActiveNetworkMaintenance(): Promise<{
+  items: ActiveNetworkMaintenance[];
+  checkedAt: string;
+}> {
+  const res = await fetch(`${API_BASE}/network-maintenance`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    items: ActiveNetworkMaintenance[];
+    checkedAt: string;
+  };
 }
 
 export type MerchantCommercialSettings = {

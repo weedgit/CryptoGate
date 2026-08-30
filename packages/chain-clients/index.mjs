@@ -1,4 +1,10 @@
 export {
+  chainFetchTimeoutMs,
+  DEFAULT_CHAIN_FETCH_TIMEOUT_MS,
+  fetchWithTimeout,
+} from "./fetch-timeout.mjs";
+
+export {
   healthCheck,
   listRecentTransfers,
   dedupeTransfersByTxHash,

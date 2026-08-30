@@ -257,6 +257,58 @@ export async function createOrder(input: {
   return (await res.json()) as PaymentOrder;
 }
 
+export type ActiveNetworkMaintenance = {
+  network: string;
+  message: string | null;
+  startedAt: string | null;
+  endsAt: string | null;
+};
+
+export async function listActiveNetworkMaintenance(): Promise<
+  ActiveNetworkMaintenance[]
+> {
+  const res = await fetch(`${API_BASE}/network-maintenance`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items?: ActiveNetworkMaintenance[] };
+  return data.items ?? [];
+}
+
+export type NetworkOrderabilityLamp = {
+  code: "open" | "paused" | "down" | "off";
+  label: string;
+  tone: string;
+};
+
+export type NetworksStatus = {
+  chainEnv: string;
+  checkedAt: string;
+  items: {
+    network: string;
+    title: string;
+    lamp: NetworkOrderabilityLamp;
+    maintenance: { active: boolean; message: string | null };
+    ingestStatus: string;
+    pairs: {
+      asset: string;
+      enabled: boolean;
+      lamp: NetworkOrderabilityLamp;
+      displayNetwork: string;
+    }[];
+  }[];
+};
+
+export async function getNetworksStatus(): Promise<NetworksStatus> {
+  const res = await fetch(`${API_BASE}/networks/status`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as NetworksStatus;
+}
+
 export async function getPaymentDetails(orderId: string): Promise<PaymentDetails> {
   const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/payment`, {
     headers: { Accept: "application/json" },
@@ -606,6 +658,8 @@ export type ServiceBill = {
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
+  rxAddress?: string | null;
+  txAddress?: string | null;
   createdAt?: string | null;
 };
 

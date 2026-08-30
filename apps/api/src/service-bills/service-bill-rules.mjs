@@ -206,6 +206,12 @@ export function toServiceBill(row) {
   if (row.payment_reference) {
     bill.paymentReference = row.payment_reference;
   }
+  if (row.rx_address) {
+    bill.rxAddress = row.rx_address;
+  }
+  if (row.tx_address) {
+    bill.txAddress = row.tx_address;
+  }
   if (row.created_at) {
     bill.createdAt =
       row.created_at instanceof Date
@@ -254,10 +260,32 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
         message: "paymentReference too long",
       };
     }
+    const rxAddress =
+      typeof body.rxAddress === "string" ? body.rxAddress.trim() : "";
+    if (rxAddress.length > 128) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "rxAddress too long",
+      };
+    }
+    const txAddress =
+      typeof body.txAddress === "string" ? body.txAddress.trim() : "";
+    if (txAddress.length > 128) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "txAddress too long",
+      };
+    }
     return {
       ok: true,
       action,
       paymentReference: paymentReference || null,
+      rxAddress: rxAddress || null,
+      txAddress: txAddress || null,
     };
   }
 

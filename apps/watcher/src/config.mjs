@@ -42,6 +42,11 @@ export function loadWatcherConfig() {
     networkAllowList: readCsv("WATCHER_NETWORKS"),
     /** Optional allow-list of assets (e.g. USDT,USDC). Null = all. */
     assetAllowList: readCsv("WATCHER_ASSETS"),
+    /**
+     * Per asset+network ingest hard cap (match + confirmations).
+     * Chain HTTP also uses CHAIN_FETCH_TIMEOUT_MS (default 15s).
+     */
+    scopeTimeoutMs: readInt("WATCHER_SCOPE_TIMEOUT_MS", 60_000),
   };
 }
 

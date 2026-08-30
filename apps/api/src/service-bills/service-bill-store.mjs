@@ -3,7 +3,8 @@ import { getPool } from "../db/pool.mjs";
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
   total_amount, currency, status, due_at, paid_at, voided_at,
-  last_adjustment_reason, last_adjustment_amount, payment_reference, created_at, updated_at,
+  last_adjustment_reason, last_adjustment_amount, payment_reference,
+  rx_address, tx_address, created_at, updated_at,
   tier, volume_fee_percent, billed_volume_usd
 `;
 
@@ -22,6 +23,18 @@ async function queryBills(sql, params = []) {
     return await getPool().query(sql, params);
   } catch (err) {
     if (err && err.code === "42703") {
+      if (sql.includes("rx_address") || sql.includes("tx_address")) {
+        const stripped = sql
+          .replace(/,\s*rx_address/g, "")
+          .replace(/,\s*tx_address/g, "")
+          .replace(/rx_address\s*=\s*\$\d+,?\s*/g, "")
+          .replace(/tx_address\s*=\s*\$\d+,?\s*/g, "");
+        try {
+          return await getPool().query(stripped, params);
+        } catch (inner) {
+          if (!(inner && inner.code === "42703")) throw inner;
+        }
+      }
       if (sql.includes("last_adjustment_amount")) {
         const stripped = sql
           .replace(/,\s*last_adjustment_amount/g, "")
@@ -150,17 +163,41 @@ export async function insertServiceBill(input) {
 
 /**
  * @param {string} id
- * @param {string | null} paymentReference
+ * @param {{
+ *   paymentReference?: string | null,
+ *   rxAddress?: string | null,
+ *   txAddress?: string | null,
+ * }} [receipt]
  */
-export async function markServiceBillPaid(id, paymentReference) {
-  const { rows } = await queryBills(
-    `UPDATE service_bills
-     SET status = 'paid', paid_at = now(), payment_reference = $2, updated_at = now()
-     WHERE id = $1 AND status IN ('issued', 'overdue')
-     RETURNING ${BILL_SELECT}`,
-    [id, paymentReference],
-  );
-  return rows[0] ?? null;
+export async function markServiceBillPaid(id, receipt = {}) {
+  const paymentReference = receipt.paymentReference ?? null;
+  const rxAddress = receipt.rxAddress ?? null;
+  const txAddress = receipt.txAddress ?? null;
+  try {
+    const { rows } = await getPool().query(
+      `UPDATE service_bills
+       SET status = 'paid',
+           paid_at = now(),
+           payment_reference = $2,
+           rx_address = $3,
+           tx_address = $4,
+           updated_at = now()
+       WHERE id = $1 AND status IN ('issued', 'overdue')
+       RETURNING ${BILL_SELECT}`,
+      [id, paymentReference, rxAddress, txAddress],
+    );
+    return rows[0] ?? null;
+  } catch (err) {
+    if (!(err && err.code === "42703")) throw err;
+    const { rows } = await queryBills(
+      `UPDATE service_bills
+       SET status = 'paid', paid_at = now(), payment_reference = $2, updated_at = now()
+       WHERE id = $1 AND status IN ('issued', 'overdue')
+       RETURNING ${BILL_SELECT}`,
+      [id, paymentReference],
+    );
+    return rows[0] ?? null;
+  }
 }
 
 /**

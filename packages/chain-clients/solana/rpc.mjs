@@ -2,6 +2,7 @@
  * Solana JSON-RPC — SPL token transfers to watched owner addresses.
  */
 
+import { fetchWithTimeout } from "../fetch-timeout.mjs";
 import { minorToMajor } from "../tron/amount.mjs";
 import { getSolanaRuntimeConfig } from "./config.mjs";
 
@@ -12,15 +13,11 @@ import { getSolanaRuntimeConfig } from "./config.mjs";
  * @param {{ fetchImpl?: typeof fetch, apiKey?: string }} opts
  */
 export async function solanaRpcCall(rpcUrl, method, params, opts = {}) {
-  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-  if (typeof fetchImpl !== "function") {
-    throw new Error("fetch is not available in this runtime");
-  }
   /** @type {Record<string, string>} */
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
   if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`;
 
-  const res = await fetchImpl(rpcUrl, {
+  const res = await fetchWithTimeout(opts.fetchImpl, rpcUrl, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),

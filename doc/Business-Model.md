@@ -216,6 +216,7 @@ Volume fee **follows merchant size**, not one fixed rate for everyone. Platform 
 
 - Merchant account receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
 - **Platform pays top-level agents only** (agent whose parent is Platform): commission = agreed **% of platform fee collected** on that agent’s **full subtree** (merchants under the agent and under agent (sub) accounts). **Collected** = volume fees on **paid** service bills only (not issued/overdue).
+- **Monthly cadence:** last day of month (or ops **Generate invoices**) creates an **issued** invoice per top-level agent with tree fee status + onboard dates; platform Owner/Admin remits on/around the **1st** (**paid**); agent Owner/Admin **confirms receipt** (**settled** → payout history).
 - **Agent pays agent (sub) accounts** from the parent agent’s own funds (not from platform treasury). Same pattern: statement → payout slip (QR + payment link to **sub-agent payout address**) → pay → save history. Platform may view cascade payout history read-only.
 - Agent never receives a share of payer on-chain payments.
 - Merchants do **not** pay a separate agent fee.
@@ -226,10 +227,11 @@ Commission payouts reuse the familiar checkout pattern, but the **receiver is th
 
 | Step | Merchant service bill | Platform → agent | Agent → sub-agent |
 | --- | --- | --- | --- |
-| Statement ready | Bill issued | Monthly commission ready | Sub-agent share ready |
-| Slip | QR + link → platform wallet | QR + link → **agent payout address** | QR + link → **sub-agent payout address** |
-| Who pays | Merchant | Platform treasury / ops | Parent agent |
-| History | Service bill paid | Platform commission payout record | Agent sub-payout record (platform may view read-only) |
+| Statement ready | Bill issued | Monthly invoice **issued** | Sub-agent share ready |
+| Slip | QR + link → platform wallet | QR → **agent payout address** | QR + link → **sub-agent payout address** |
+| Who pays | Merchant | Platform treasury / ops → **paid** | Parent agent |
+| Confirm | — | Agent confirms receipt → **settled** | — |
+| History | Service bill paid | Settled platform commission record | Agent sub-payout record (platform may view read-only) |
 
 Both sides keep an immutable history (statement + paidAt + tx/ref) in the API.
 
