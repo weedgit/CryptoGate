@@ -8,7 +8,7 @@ import { signingNonceTtlSeconds } from "./signing-rules.mjs";
  */
 export async function findActiveApiKeyByKeyId(keyId) {
   const { rows } = await getPool().query(
-    `SELECT id, org_id, user_id, key_id, secret
+    `SELECT id, org_id, user_id, key_id, secret, scopes, ip_allowlist
      FROM api_keys
      WHERE key_id = $1
        AND revoked_at IS NULL
@@ -23,6 +23,8 @@ export async function findActiveApiKeyByKeyId(keyId) {
     userId: row.user_id,
     keyId: row.key_id,
     secret: row.secret,
+    scopes: Array.isArray(row.scopes) ? row.scopes : ["orders", "webhooks"],
+    ipAllowlist: Array.isArray(row.ip_allowlist) ? row.ip_allowlist : [],
   };
 }
 
@@ -42,7 +44,8 @@ export async function touchApiKeyLastUsed(apiKeyRowId) {
  */
 export async function listActiveApiKeys(orgId) {
   const { rows } = await getPool().query(
-    `SELECT id, org_id, key_id, label, created_at, last_used_at, expires_at
+    `SELECT id, org_id, key_id, label, created_at, last_used_at, expires_at,
+            scopes, ip_allowlist
      FROM api_keys
      WHERE org_id = $1 AND revoked_at IS NULL
      ORDER BY created_at ASC`,
@@ -73,6 +76,8 @@ export async function findApiKeyByIdForOrg(apiKeyId, orgId) {
  *   secret: string,
  *   label: string,
  *   expiresAt: Date | null,
+ *   scopes: string[],
+ *   ipAllowlist: string[],
  * }} input
  * @returns {Promise<{ ok: true, row: object } | { ok: false, code: "limit" }>}
  */
@@ -93,9 +98,11 @@ export async function insertApiKey(input) {
       return { ok: false, code: "limit" };
     }
     const { rows } = await client.query(
-      `INSERT INTO api_keys (org_id, user_id, key_id, secret, label, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, org_id, key_id, label, created_at, last_used_at, expires_at`,
+      `INSERT INTO api_keys
+         (org_id, user_id, key_id, secret, label, expires_at, scopes, ip_allowlist)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8::text[])
+       RETURNING id, org_id, key_id, label, created_at, last_used_at, expires_at,
+                 scopes, ip_allowlist`,
       [
         input.orgId,
         input.userId,
@@ -103,6 +110,8 @@ export async function insertApiKey(input) {
         input.secret,
         input.label,
         input.expiresAt,
+        input.scopes,
+        input.ipAllowlist,
       ],
     );
     await client.query("COMMIT");
@@ -148,6 +157,8 @@ export async function revokeApiKey(apiKeyId, orgId) {
  *   keyId: string,
  *   secret: string,
  *   expiresAt: Date | null | undefined,
+ *   scopes?: string[],
+ *   ipAllowlist?: string[],
  * }} input
  * @returns {Promise<
  *   | { ok: true, row: object }
@@ -160,7 +171,7 @@ export async function rotateApiKey(input) {
   try {
     await client.query("BEGIN");
     const { rows: oldRows } = await client.query(
-      `SELECT id, label, expires_at, revoked_at
+      `SELECT id, label, expires_at, revoked_at, scopes, ip_allowlist
        FROM api_keys
        WHERE id = $1 AND org_id = $2
        FOR UPDATE`,
@@ -181,10 +192,20 @@ export async function rotateApiKey(input) {
     );
     const expiresAt =
       input.expiresAt === undefined ? old.expires_at : input.expiresAt;
+    const scopes =
+      input.scopes === undefined
+        ? old.scopes ?? ["orders", "webhooks"]
+        : input.scopes;
+    const ipAllowlist =
+      input.ipAllowlist === undefined
+        ? old.ip_allowlist ?? []
+        : input.ipAllowlist;
     const { rows } = await client.query(
-      `INSERT INTO api_keys (org_id, user_id, key_id, secret, label, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, org_id, key_id, label, created_at, last_used_at, expires_at`,
+      `INSERT INTO api_keys
+         (org_id, user_id, key_id, secret, label, expires_at, scopes, ip_allowlist)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8::text[])
+       RETURNING id, org_id, key_id, label, created_at, last_used_at, expires_at,
+                 scopes, ip_allowlist`,
       [
         input.orgId,
         input.userId,
@@ -192,6 +213,8 @@ export async function rotateApiKey(input) {
         input.secret,
         old.label,
         expiresAt,
+        scopes,
+        ipAllowlist,
       ],
     );
     await client.query("COMMIT");

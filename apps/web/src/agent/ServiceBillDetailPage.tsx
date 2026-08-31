@@ -168,7 +168,11 @@ export function ServiceBillDetailPage() {
   }
 
   const seller = platformInvoiceSeller();
-  const payTo = platformBillingPayToFallback();
+  const payTo =
+    bill.rxAddress?.trim() ||
+    bill.remittancePayTo?.trim() ||
+    platformBillingPayToFallback() ||
+    null;
 
   return (
     <div className="plat-bill-detail">

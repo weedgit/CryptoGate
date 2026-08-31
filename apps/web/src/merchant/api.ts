@@ -51,6 +51,7 @@ export type PaymentOrder = {
   /** Staff note after resolve; order status is cancelled. */
   anomalyResolutionNote?: string | null;
   anomalyResolvedAt?: string | null;
+  fulfillmentPolicy?: string;
 };
 
 export type OnChainDetails = {
@@ -425,6 +426,14 @@ export type MatchingModeSettings = {
   effectiveOrgId?: string;
 };
 
+export type FulfillmentPolicySettings = {
+  orgId: string;
+  fulfillmentPolicy: string;
+  source?: SettingsSource;
+  parentOrgId?: string | null;
+  effectiveOrgId?: string;
+};
+
 export type OrgRetentionSettings = {
   orgId: string;
   orderDeleteDays: number;
@@ -437,7 +446,7 @@ export type SiteSettingOverride = {
   id: string;
   siteOrgId: string;
   parentOrgId: string;
-  settingKind: "settlement" | "xpub" | "matching_mode" | "order_retention";
+  settingKind: "settlement" | "xpub" | "matching_mode" | "order_retention" | "fulfillment_policy";
   status: "pending" | "approved" | "denied";
   payload: Record<string, unknown>;
   requestedBy?: string;
@@ -514,6 +523,37 @@ export async function putMatchingMode(
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as MatchingModeSettings;
+}
+
+export async function getFulfillmentPolicy(
+  orgId: string,
+): Promise<FulfillmentPolicySettings> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/fulfillment-policy`,
+    { credentials: "include" },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as FulfillmentPolicySettings;
+}
+
+export async function putFulfillmentPolicy(
+  orgId: string,
+  fulfillmentPolicy: string,
+): Promise<FulfillmentPolicySettings> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/fulfillment-policy`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fulfillmentPolicy }),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as FulfillmentPolicySettings;
 }
 
 export async function listSettlement(orgId: string): Promise<SettlementAddress[]> {
@@ -659,6 +699,8 @@ export type ServiceBill = {
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
   rxAddress?: string | null;
+  /** Effective remittance destination (rx snapshot or live fee wallet). */
+  remittancePayTo?: string | null;
   txAddress?: string | null;
   createdAt?: string | null;
 };
@@ -715,6 +757,8 @@ export type ApiKey = {
   createdAt?: string;
   lastUsedAt?: string | null;
   expiresAt?: string | null;
+  scopes?: string[];
+  ipAllowlist?: string[];
 };
 
 export type ApiKeyCreated = ApiKey & { secret: string };
@@ -732,12 +776,22 @@ export type WebhookCreated = WebhookEndpoint & { signingSecret: string };
 
 export type WebhookDelivery = {
   id: string;
+  eventId?: string;
   eventType: string;
+  orderId?: string | null;
   status: string;
   attempt: number;
+  httpStatus?: number | null;
   responseStatus?: number | null;
+  nextRetryAt?: string | null;
   createdAt?: string;
   deliveredAt?: string | null;
+};
+
+export type NotificationPreference = {
+  eventType: string;
+  email: boolean;
+  inApp: boolean;
 };
 
 export async function listApiKeys(orgId?: string): Promise<ApiKey[]> {
@@ -754,6 +808,8 @@ export async function listApiKeys(orgId?: string): Promise<ApiKey[]> {
 export async function createApiKey(body: {
   label: string;
   expiresAt?: string | null;
+  scopes?: string[];
+  ipAllowlist?: string[];
   orgId?: string;
 }): Promise<ApiKeyCreated> {
   const res = await fetch(`${API_BASE}/api-keys`, {
@@ -781,7 +837,12 @@ export async function revokeApiKey(apiKeyId: string, orgId?: string): Promise<vo
 
 export async function rotateApiKey(
   apiKeyId: string,
-  body?: { expiresAt?: string | null; orgId?: string },
+  body?: {
+    expiresAt?: string | null;
+    scopes?: string[];
+    ipAllowlist?: string[];
+    orgId?: string;
+  },
 ): Promise<ApiKeyCreated> {
   const res = await fetch(`${API_BASE}/api-keys/${encodeURIComponent(apiKeyId)}/rotate`, {
     method: "POST",
@@ -835,6 +896,23 @@ export async function deleteWebhook(webhookId: string, orgId?: string): Promise<
   if (!res.ok && res.status !== 204) await parseError(res);
 }
 
+export async function rotateWebhookSecret(
+  webhookId: string,
+  orgId?: string,
+): Promise<WebhookCreated> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(
+    `${API_BASE}/webhooks/${encodeURIComponent(webhookId)}/rotate-secret${q}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as WebhookCreated;
+}
+
 export async function testWebhook(body?: {
   webhookId?: string;
   orgId?: string;
@@ -866,6 +944,64 @@ export async function listWebhookDeliveries(
   );
   if (!res.ok) await parseError(res);
   const data = (await res.json()) as { items: WebhookDelivery[] };
+  return (data.items ?? []).map((d) => ({
+    ...d,
+    responseStatus: d.responseStatus ?? d.httpStatus ?? null,
+  }));
+}
+
+export async function resendWebhookDelivery(
+  webhookId: string,
+  deliveryId: string,
+  orgId?: string,
+): Promise<WebhookDelivery> {
+  const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+  const res = await fetch(
+    `${API_BASE}/webhooks/${encodeURIComponent(webhookId)}/deliveries/${encodeURIComponent(deliveryId)}/resend${q}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const d = (await res.json()) as WebhookDelivery;
+  return { ...d, responseStatus: d.responseStatus ?? d.httpStatus ?? null };
+}
+
+export async function getNotificationPreferences(
+  orgId: string,
+): Promise<NotificationPreference[]> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/notification-preferences`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: NotificationPreference[] };
+  return data.items ?? [];
+}
+
+export async function putNotificationPreferences(
+  orgId: string,
+  items: NotificationPreference[],
+): Promise<NotificationPreference[]> {
+  const res = await fetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/notification-preferences`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ items }),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: NotificationPreference[] };
   return data.items ?? [];
 }
 

@@ -10,13 +10,23 @@ import {
   hmacMatches,
   parseSigningHeaders,
 } from "./signing-rules.mjs";
+import {
+  clientIpFromRequest,
+  ipAllowed,
+} from "../api-keys/api-key-rules.mjs";
 
 /**
  * Verify machine-client HMAC. Session callers must omit X-Api-Key.
  * @param {import("node:http").IncomingMessage} req
  * @returns {Promise<
- *   | { ok: true, key: { id: string, orgId: string, userId: string, keyId: string } }
- *   | { ok: false, code: "signature_invalid" | "timestamp_skew" | "nonce_replay" }
+ *   | { ok: true, key: {
+ *       id: string,
+ *       orgId: string,
+ *       userId: string,
+ *       keyId: string,
+ *       scopes: string[],
+ *     } }
+ *   | { ok: false, code: "signature_invalid" | "timestamp_skew" | "nonce_replay" | "ip_not_allowed" }
  * >}
  */
 export async function authenticateApiKeyRequest(req) {
@@ -26,6 +36,10 @@ export async function authenticateApiKeyRequest(req) {
   const key = await findActiveApiKeyByKeyId(parsed.keyId);
   if (!key) {
     return { ok: false, code: "signature_invalid" };
+  }
+
+  if (!ipAllowed(clientIpFromRequest(req), key.ipAllowlist)) {
+    return { ok: false, code: "ip_not_allowed" };
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
@@ -60,6 +74,7 @@ export async function authenticateApiKeyRequest(req) {
       orgId: key.orgId,
       userId: key.userId,
       keyId: key.keyId,
+      scopes: key.scopes,
     },
   };
 }

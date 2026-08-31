@@ -1,4 +1,4 @@
-import { GateLogoMark } from "../marketing/GateLogoMark";
+import { GateLogoMark } from "./GateLogoMark";
 
 export function LoginBrandHeader() {
   return (

@@ -295,7 +295,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
       txHash: "deadbeef",
       fetch: /** @type {typeof fetch} */ (fetchMock),
     });
-    assert.equal(n, 25);
+    assert.equal(n, 26);
     assert.equal(paths.length, 2);
   });
 

@@ -51,10 +51,12 @@ export async function walletGroupOrgIds(org, client) {
  */
 export async function resolveSiteInherit(org, client) {
   const matching = await settingsLookupOrgId(org, "matching_mode", client);
+  const fulfillment = await settingsLookupOrgId(org, "fulfillment_policy", client);
   const settlement = await settingsLookupOrgId(org, "settlement", client);
   const xpub = await settingsLookupOrgId(org, "xpub", client);
   return {
     matchingOrgId: matching.orgId,
+    fulfillmentOrgId: fulfillment.orgId,
     settlementOrgId: settlement.orgId,
     xpubOrgId: xpub.orgId,
     walletGroupOrgIds: await walletGroupOrgIds(org, client),

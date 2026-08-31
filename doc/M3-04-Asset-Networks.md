@@ -61,7 +61,8 @@ Native `TRX` / `ETH` / `BTC` are **not** interchangeable with USDT/USDC on the s
 
 | Pair | Decimals | Confirmations | Mode D (memo) |
 | --- | --- | --- | --- |
-| USDT Tron / Nile | 6 | 19 | Off |
+| USDT Tron (mainnet) / TRX | 6 | 19 | Off |
+| USDT Nile (testnet) | 6 | 3 | Off |
 | USDT Ethereum / Polygon / Arbitrum / Solana / TON | 6 | 12–64 | Off |
 | USDT BSC | **18** | 15 | Off |
 | USDC (all) | 6 | 12–64 | Off |

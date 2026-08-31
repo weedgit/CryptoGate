@@ -137,6 +137,8 @@ export async function handleCreateApiKey(req, res) {
     secret,
     label: validated.label,
     expiresAt: validated.expiresAt,
+    scopes: validated.scopes,
+    ipAllowlist: validated.ipAllowlist,
   });
   if (!inserted.ok) {
     sendError(
@@ -227,6 +229,8 @@ export async function handleRotateApiKey(req, res, apiKeyId, url) {
     keyId,
     secret,
     expiresAt: validated.expiresAt,
+    scopes: validated.scopes,
+    ipAllowlist: validated.ipAllowlist,
   });
   if (!rotated.ok) {
     sendError(res, 404, "not_found", "API key not found");

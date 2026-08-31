@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
+import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import {
   AssetIcon,
@@ -82,6 +83,7 @@ export function ServiceBillPayQrCard({
   );
   const timer =
     timerLabel ?? defaultTimerLabel(status, dueAt);
+  const qrTerminal = paid || voided || !payable;
 
   async function copyPayTo() {
     if (!payTo) return;
@@ -104,7 +106,7 @@ export function ServiceBillPayQrCard({
               <NetworkIcon network={SERVICE_BILL_NETWORK} />
             </div>
             <span className="order-detail-gateway__amount-label">
-              Amount due
+              {paid ? "Amount paid" : voided ? "Bill total" : "Amount due"}
             </span>
             <p className="order-detail-gateway__amount-value fund-amount">
               {totalAmount} {SERVICE_BILL_ASSET}
@@ -116,9 +118,13 @@ export function ServiceBillPayQrCard({
           </div>
 
           <div className="order-detail-gateway__qr-wrap">
-            <div className="order-detail-gateway__qr">
+            <div
+              className={`order-detail-gateway__qr${
+                qrTerminal ? " is-terminal" : ""
+              }`}
+            >
               {loading ? (
-                <span className="muted">Loading QR…</span>
+                <GatewayQrTerminal kind="loading" />
               ) : qrPayload && payable ? (
                 <>
                   <PaymentQrCanvas
@@ -134,20 +140,22 @@ export function ServiceBillPayQrCard({
                   </span>
                 </>
               ) : (
-                <span className="muted">
-                  {paid
-                    ? "Paid — QR closed"
-                    : voided
-                      ? "Voided"
-                      : payTo
-                        ? "QR unavailable"
-                        : "Set billing wallet pay-to"}
-                </span>
+                <GatewayQrTerminal
+                  kind={
+                    paid ? "paid" : voided ? "voided" : payTo ? "unavailable" : "failed"
+                  }
+                  title={!payTo && !paid && !voided ? "Pay-to not configured" : undefined}
+                  detail={
+                    !payTo && !paid && !voided
+                      ? "Platform billing wallet required"
+                      : undefined
+                  }
+                />
               )}
             </div>
             <p
               className={`order-detail-gateway__timer${
-                paid || voided || !payable ? " is-terminal" : ""
+                qrTerminal ? " is-terminal" : ""
               }`}
             >
               {timer}

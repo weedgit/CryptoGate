@@ -285,7 +285,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
  * @returns {Promise<{ confirmations: number, presence: 'confirmed' | 'missing' | 'unknown' }>}
  */
 export async function fetchTransactionConfirmationState(input) {
-  const cfg = getTronRuntimeConfig();
+  const cfg = getTronRuntimeConfig(input?.asset, input?.network);
   if (!cfg.configured) {
     return { confirmations: 0, presence: "unknown" };
   }
@@ -333,7 +333,7 @@ export async function fetchTransactionConfirmationState(input) {
     }
 
     return {
-      confirmations: Math.max(0, current - txBlock),
+      confirmations: Math.max(0, current - txBlock + 1),
       presence: "confirmed",
     };
   } catch {

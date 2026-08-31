@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -24,8 +25,11 @@ import {
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
 import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
+import { StatusBadge } from "../shared/StatusBadge";
 
 type Props = { session: Session };
+
+const BACK_TO = "/merchant/service-bills";
 
 /** 0 = Issued, 1 = Awaiting / Overdue, 2 = Paid. */
 function billTimelineIndex(status: string): number {
@@ -59,6 +63,11 @@ export function ServiceBillDetailPage({ session }: Props) {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    setTopbarSlot(document.getElementById("merchant-topbar-center"));
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -110,39 +119,105 @@ export function ServiceBillDetailPage({ session }: Props) {
   }, [bill, canPay, loadCheckout, openCheckout]);
 
   const payTo =
-    checkout?.payTo ?? platformBillingPayToFallback() ?? null;
+    bill?.rxAddress?.trim() ||
+    bill?.remittancePayTo?.trim() ||
+    checkout?.payTo ||
+    platformBillingPayToFallback() ||
+    null;
   const paid = bill?.status === "paid";
   const voided = bill?.status === "voided";
   const payable = bill?.status === "issued" || bill?.status === "overdue";
   const isOverdue = bill?.status === "overdue";
   const timelineIndex = bill ? billTimelineIndex(bill.status) : 0;
 
+  const topbarChrome =
+    topbarSlot && bill
+      ? createPortal(
+          <div className="order-detail-topbar no-print" aria-label="Service bill context">
+            <div className="order-detail-topbar__lead">
+              <Link className="order-detail-topbar__back" to={BACK_TO}>
+                ← Service bills
+              </Link>
+              <span className="order-detail-topbar__divider" aria-hidden />
+              <div className="order-detail-topbar__identity">
+                <span className="order-detail-topbar__kicker">Service bill</span>
+                <span className="order-detail-topbar__title">
+                  {formatBillId(bill.id)}
+                </span>
+              </div>
+            </div>
+            <div className="order-detail-topbar__meta">
+              <span className="order-detail-topbar__amount fund-amount">
+                {bill.totalAmount} USDT
+              </span>
+            </div>
+            <div className="order-detail-topbar__status">
+              <StatusBadge
+                tone={serviceBillStatusTone(bill.status)}
+                alarm={isOverdue}
+              >
+                {serviceBillStatusLabel(bill.status)}
+              </StatusBadge>
+            </div>
+          </div>,
+          topbarSlot,
+        )
+      : topbarSlot
+        ? createPortal(
+            <div className="order-detail-topbar no-print" aria-label="Service bill context">
+              <div className="order-detail-topbar__lead">
+                <Link className="order-detail-topbar__back" to={BACK_TO}>
+                  ← Service bills
+                </Link>
+              </div>
+            </div>,
+            topbarSlot,
+          )
+        : null;
+
   if (loading && !bill) {
-    return <p className="muted">Loading service bill…</p>;
+    return (
+      <div className="bills-detail-page plat-settings plat-settings--merchant">
+        {topbarChrome}
+        <p className="muted">Loading service bill…</p>
+      </div>
+    );
   }
 
   if (error && !bill) {
     return (
       <div className="panel">
+        {topbarChrome}
         <AuthToast
           message={error}
           tone="error"
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this service bill.</p>
-        <Link to="/merchant/service-bills" style={{ color: "var(--teal)" }}>
+        <Link className="order-detail-topbar__back" to={BACK_TO}>
           ← Back to service bills
         </Link>
       </div>
     );
   }
 
-  if (!bill) return null;
+  if (!bill) {
+    return (
+      <div className="bills-detail-page plat-settings plat-settings--merchant">
+        {topbarChrome}
+        <p className="muted">Service bill unavailable.</p>
+        <Link className="order-detail-topbar__back" to={BACK_TO}>
+          ← Back to service bills
+        </Link>
+      </div>
+    );
+  }
 
   const toastMessage = error || checkoutError;
 
   return (
     <div className="bills-detail-page">
+      {topbarChrome}
       <AuthToast
         message={toastMessage}
         tone="error"

@@ -18,25 +18,35 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cryptogate.cashier.api.PaymentDetails
 import com.cryptogate.cashier.api.OrderStatusUi
+import com.cryptogate.cashier.api.PaymentDetails
 import com.cryptogate.cashier.qr.QrBitmaps
+import kotlinx.coroutines.delay
+import java.time.Instant
 
 @Composable
 fun OrderPayScreen(
     details: PaymentDetails,
     merchantReference: String? = null,
+    canCancel: Boolean = false,
+    cancelling: Boolean = false,
+    onCancel: (() -> Unit)? = null,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -51,6 +61,19 @@ fun OrderPayScreen(
             else -> MaterialTheme.colorScheme.onBackground
         }
     val qrSize = if (LocalConfiguration.current.screenWidthDp < 360) 200.dp else 240.dp
+    var remainingSec by remember(details.expiresAt, details.status) {
+        mutableIntStateOf(remainingSeconds(details.expiresAt))
+    }
+
+    LaunchedEffect(details.expiresAt, details.status) {
+        while (
+            remainingSec > 0 &&
+            details.status == OrderStatusUi.PENDING
+        ) {
+            delay(1_000)
+            remainingSec = remainingSeconds(details.expiresAt)
+        }
+    }
 
     PosScreenFrame {
     Column(
@@ -77,6 +100,20 @@ fun OrderPayScreen(
             color = statusColor,
             fontWeight = if (OrderStatusUi.isAnomaly(details.status)) FontWeight.Bold else FontWeight.Normal,
         )
+        if (details.status == OrderStatusUi.VERIFYING) {
+            Text(
+                text = "Confirmations ${details.confirmations}/${details.requiredConfirmations}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        if (details.status == OrderStatusUi.PENDING && remainingSec > 0) {
+            Text(
+                text = "Expires in ${formatCountdown(remainingSec)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         if (!merchantReference.isNullOrBlank()) {
             Text(
                 text = "Ref · $merchantReference",
@@ -144,6 +181,16 @@ fun OrderPayScreen(
         ) {
             Text("Copy guest pay link")
         }
+        if (canCancel && onCancel != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(
+                onClick = onCancel,
+                enabled = !cancelling,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (cancelling) "Cancelling…" else "Cancel pending order")
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(
             onClick = onDone,
@@ -153,6 +200,19 @@ fun OrderPayScreen(
         }
     }
     }
+}
+
+private fun remainingSeconds(expiresAt: String): Int {
+    return runCatching {
+        val end = Instant.parse(expiresAt).toEpochMilli()
+        ((end - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
+    }.getOrDefault(0)
+}
+
+private fun formatCountdown(totalSec: Int): String {
+    val m = totalSec / 60
+    val s = totalSec % 60
+    return "%d:%02d".format(m, s)
 }
 
 private fun copy(context: Context, label: String, value: String) {

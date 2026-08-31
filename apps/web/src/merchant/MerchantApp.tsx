@@ -16,8 +16,6 @@ import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
 import { ReportsPage } from "./ReportsPage";
 import { IntegrationsPage } from "./IntegrationsPage";
-import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
-import { BillingSettingsPage } from "./BillingSettingsPage";
 import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
 import { TeamSettingsPage } from "./TeamSettingsPage";
 import { SettlementPage } from "./SettlementPage";
@@ -194,25 +192,11 @@ export function MerchantApp() {
       />
       <Route
         path="settings/organization"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OwnerOnly session={session} area="organization settings">
-              <OrganizationSettingsPage session={session} />
-            </OwnerOnly>
-          </Shell>
-        }
+        element={<Navigate to="/merchant/settings/team" replace />}
       />
       <Route
         path="settings/billing"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OwnerOnly session={session} area="billing settings">
-              <BillingSettingsPage session={session} />
-            </OwnerOnly>
-          </Shell>
-        }
+        element={<Navigate to="/merchant/service-bills" replace />}
       />
       <Route
         path="settings/security"
@@ -260,7 +244,7 @@ export function MerchantApp() {
           <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="settings">
-              <Navigate to="/merchant/settings/organization" replace />
+              <Navigate to="/merchant/settings/team" replace />
             </OwnerOnly>
           </Shell>
         }

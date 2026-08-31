@@ -25,11 +25,21 @@ describe("api-key rules (M4-11)", () => {
     const ok = validateCreateApiKeyBody({ label: "Production" });
     assert.equal(ok.ok, true);
     assert.equal(ok.expiresAt, null);
+    assert.deepEqual(ok.scopes, ["orders", "webhooks"]);
+    assert.deepEqual(ok.ipAllowlist, []);
     const past = validateCreateApiKeyBody({
       label: "x",
       expiresAt: "2020-01-01T00:00:00.000Z",
     });
     assert.equal(past.ok, false);
+    const scoped = validateCreateApiKeyBody({
+      label: "orders-only",
+      scopes: ["orders"],
+      ipAllowlist: ["203.0.113.10"],
+    });
+    assert.equal(scoped.ok, true);
+    assert.deepEqual(scoped.scopes, ["orders"]);
+    assert.deepEqual(scoped.ipAllowlist, ["203.0.113.10"]);
   });
 
   it("rotate omits expiresAt to keep previous", () => {

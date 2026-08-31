@@ -261,7 +261,15 @@ async function loadReadableBill(req, res, billId, mode) {
 export async function handleGetServiceBill(req, res, billId) {
   const loaded = await loadReadableBill(req, res, billId, "view");
   if (!loaded) return;
-  sendJson(res, 200, toServiceBill(loaded.row));
+  const bill = toServiceBill(loaded.row);
+  // Receipt / invoice remittance: snapshotted rx, else live platform fee wallet.
+  const remittancePayTo =
+    (typeof loaded.row.rx_address === "string" && loaded.row.rx_address.trim()) ||
+    (await resolvePlatformBillingPayTo());
+  if (remittancePayTo) {
+    bill.remittancePayTo = remittancePayTo;
+  }
+  sendJson(res, 200, bill);
 }
 
 /**

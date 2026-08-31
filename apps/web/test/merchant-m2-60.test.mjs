@@ -46,6 +46,7 @@ describe("@cryptogate/web merchant M2-61/62/63 settlement", () => {
     );
     assert.match(page, /new orders only/i);
     assert.match(page, /putMatchingMode/);
+    assert.match(page, /putFulfillmentPolicy/);
     assert.match(page, /putSettlement/);
     assert.match(page, /putXpub/);
     assert.match(page, /listHdPool/);
@@ -97,6 +98,8 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
     assert.match(detail, /order-detail-anomaly/);
     assert.match(detail, /Resolve anomaly/);
     assert.match(detail, /resolveOrderAnomaly/);
+    assert.match(detail, /listWebhookDeliveries/);
+    assert.match(detail, /resendWebhookDelivery/);
   });
 });
 
@@ -177,11 +180,13 @@ describe("@cryptogate/web merchant D14 integrations", () => {
     assert.match(api, /registerWebhook/);
     assert.match(api, /testWebhook/);
     assert.match(api, /listWebhookDeliveries/);
+    assert.match(api, /resendWebhookDelivery/);
   });
 
   it("shows secrets once and blocks cashiers via owner portal", () => {
     const page = readFileSync(join(root, "src/merchant/IntegrationsPage.tsx"), "utf8");
     assert.match(page, /shown once/i);
+    assert.match(page, /resendWebhookDelivery/);
     assert.match(page, /SecretOncePanel/);
     assert.match(page, /Cashiers cannot view/);
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
@@ -200,8 +205,8 @@ describe("@cryptogate/web merchant D10 reports", () => {
 
   it("shows volume breakdown and separate from service bills", () => {
     const page = readFileSync(join(root, "src/merchant/ReportsPage.tsx"), "utf8");
-    assert.match(page, /COMPLETED VOLUME/);
-    assert.match(page, /sumCompletedVolume|completedVolume/);
+    assert.match(page, /Completed volume/i);
+    assert.match(page, /volumeForOrder/);
     assert.match(page, /matchingMode/);
     assert.match(page, /ordersCsvUrl/);
     assert.doesNotMatch(page, /Mark paid/i);
@@ -210,16 +215,17 @@ describe("@cryptogate/web merchant D10 reports", () => {
 });
 
 describe("@cryptogate/web merchant D12-D16 settings", () => {
-  it("wires org, billing, notifications, and team routes", () => {
+  it("wires team, notifications, and legacy org/billing redirects", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /OrganizationSettingsPage/);
-    assert.match(app, /BillingSettingsPage/);
     assert.match(app, /NotificationsSettingsPage/);
     assert.match(app, /TeamSettingsPage/);
     assert.match(app, /settings\/organization/);
     assert.match(app, /settings\/billing/);
+    assert.match(app, /Navigate to="\/merchant\/settings\/team"/);
+    assert.match(app, /Navigate to="\/merchant\/service-bills"/);
     assert.match(app, /settings\/notifications/);
     assert.match(app, /settings\/team/);
+    assert.doesNotMatch(app, /OrganizationSettingsPage/);
   });
 
   it("uses org API helpers and owner-only team management", () => {
@@ -231,12 +237,13 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
     const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
     assert.match(team, /Only the Owner can add or remove team members/i);
     assert.match(team, /inviteOrgUser/);
-    const billing = readFileSync(
-      join(root, "src/merchant/BillingSettingsPage.tsx"),
+    assert.match(team, /plat-team__org/);
+    const bills = readFileSync(
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
-    assert.match(billing, /not deducted from payer on-chain/i);
-    assert.match(billing, /service-bills/);
+    assert.match(bills, /not deducted from payer on-chain/i);
+    assert.match(bills, /getMerchantCommercial/);
   });
 });
 

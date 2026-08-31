@@ -1582,7 +1582,7 @@ export function DashboardPage({ session }: Props) {
         : null}
 
       <div className="plat-overview-grid">
-        <div className="panel plat-overview-card glass-tone-blue">
+        <div className="plat-overview-card glass-tone-blue">
           <div className="plat-overview-card__head">
             <h2>Accounts</h2>
             <CardHelp text="Who’s on the platform: totals, who had payment activity, who was quiet, and who is paused." />
@@ -1591,7 +1591,7 @@ export function DashboardPage({ session }: Props) {
           <AccountRows title="Agents" slice={stats.agents} />
         </div>
 
-        <div className="panel plat-overview-card glass-tone-emerald">
+        <div className="plat-overview-card glass-tone-emerald">
           <div className="plat-overview-card__head">
             <h2>Grow</h2>
             <CardHelp text={`New merchants, agents, and cashiers added in ${periodLabel}.`} />
@@ -1605,7 +1605,7 @@ export function DashboardPage({ session }: Props) {
           />
         </div>
 
-        <div className="panel plat-overview-card glass-tone-amber">
+        <div className="plat-overview-card glass-tone-amber">
           <div className="plat-overview-card__head">
             <h2>Invoices</h2>
             <CardHelp text={`Service bills in ${periodLabel}: how many were issued, paid, or are overdue.`} />

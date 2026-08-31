@@ -28,6 +28,14 @@ export const MATCHING_MODE_CARDS = [
   },
 ] as const;
 
+/** Tooltip — concurrent same-amount cashiers (merchant settlement). */
+export const MATCHING_CONCURRENT_HELP =
+  "Helping multiple cashiers at once: Standard mode allows only one open order per amount on your main receive address. If a second cashier needs the same amount while the first ticket is still open, they must wait until it is completed or cancelled. For busier desks, Amount fingerprint or Smart address handle this better — Smart address also needs an xPub configured on this page.";
+
+/** Tooltip — Mode B underpay tolerance (merchant settlement). */
+export const MATCHING_UNDERPAY_TOLERANCE_HELP =
+  "How much less than the order amount you will still accept as paid. Example: 0.01 means a guest may be up to 0.01 short and the order can still complete. Use 0 to require the exact amount. If two open orders share the same amount, staff must review that case separately — this setting does not auto-choose between them.";
+
 export function matchingModeLabel(mode: string | null | undefined): string {
   if (!mode) return MATCHING_LABELS.B;
   return MATCHING_LABELS[mode] ?? mode;

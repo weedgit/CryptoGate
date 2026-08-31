@@ -21,6 +21,7 @@ import {
 import { AuditLogPage } from "./AuditLogPage";
 import { CompliancePage } from "./CompliancePage";
 import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
+import { PlatformSettingsPage } from "./PlatformSettingsPage";
 import { PlatformPending } from "./ui/PlatformPending";
 import { NetworkCatalogPage } from "./NetworkCatalogPage";
 import { PlatformTeamPage } from "./PlatformTeamPage";
@@ -235,7 +236,12 @@ export function PlatformApp() {
       />
       <Route
         path="settings"
-        element={<Navigate to="/platform" replace />}
+        element={
+          <Shell session={session} onSignOut={signOut}
+          onSessionRefresh={setSession}>
+            <PlatformSettingsPage session={session} />
+          </Shell>
+        }
       />
       <Route
         path="settings/security"

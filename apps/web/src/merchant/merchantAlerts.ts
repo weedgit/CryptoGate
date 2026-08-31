@@ -1,6 +1,7 @@
 import type { AlertItem, AlertsSource } from "../platform/ui/AlertsDrawer";
 import type { Session } from "./api";
 import {
+  getNotificationPreferences,
   listOrders,
   listOrgs,
   listServiceBills,
@@ -44,6 +45,7 @@ const SETTING_KIND_LABELS: Record<SiteSettingOverride["settingKind"], string> = 
   settlement: "settlement address",
   xpub: "xPub (Mode S)",
   matching_mode: "matching mode",
+  fulfillment_policy: "fulfillment policy",
   order_retention: "order retention",
 };
 
@@ -515,8 +517,27 @@ export async function refreshMerchantAlerts(
     /* ignore */
   }
 
+  /** Honor D15 in-app toggles when preferences are available. */
+  let filtered = next;
+  if (orgId && !cashierOnly) {
+    try {
+      const prefs = await getNotificationPreferences(orgId);
+      const inAppOff = new Set(
+        prefs.filter((p) => !p.inApp).map((p) => p.eventType),
+      );
+      if (inAppOff.size > 0) {
+        filtered = next.filter((a) => {
+          const eventType = alertEventType(a);
+          return !eventType || !inAppOff.has(eventType);
+        });
+      }
+    } catch {
+      /* keep unfiltered if prefs unavailable */
+    }
+  }
+
   LIVE.length = 0;
-  LIVE.push(...next);
+  LIVE.push(...filtered);
   emit();
 
   return {
@@ -524,6 +545,22 @@ export async function refreshMerchantAlerts(
     urgentUnread: countUrgentUnreadMerchantAlerts(),
     unresolved: countUnresolvedMerchantAlerts(),
   };
+}
+
+function alertEventType(alert: AlertItem): string | null {
+  if (alert.id.startsWith("settlement:")) return "settlement_address";
+  if (alert.id.startsWith("xpub:")) return "xpub_change";
+  if (alert.id.startsWith("webhook:")) return "webhook_failures";
+  if (alert.id.startsWith("bill:") || alert.category === "billing") {
+    return "service_bills";
+  }
+  if (alert.id.startsWith("site-override:") || alert.id.includes("override")) {
+    return "site_overrides";
+  }
+  if (alert.id.startsWith("anomaly:")) {
+    return "payment_anomaly";
+  }
+  return null;
 }
 
 export const merchantAlertsSource: AlertsSource = {

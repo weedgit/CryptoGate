@@ -1,14 +1,16 @@
-import { getAssetNetworkConfig, MatchingMode } from "@cryptogate/domain";
+import { FulfillmentPolicy, getAssetNetworkConfig, MatchingMode } from "@cryptogate/domain";
 
 export const SITE_OVERRIDE_KINDS = [
   "settlement",
   "xpub",
   "matching_mode",
   "order_retention",
+  "fulfillment_policy",
 ];
 
 const KIND_SET = new Set(SITE_OVERRIDE_KINDS);
 const MODE_SET = new Set(Object.values(MatchingMode));
+const FULFILLMENT_SET = new Set(Object.values(FulfillmentPolicy));
 
 /**
  * @param {{ type?: string, parent_id?: string | null, parentId?: string | null }} org
@@ -35,7 +37,7 @@ export function validateOverrideRequestBody(body) {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "settingKind must be settlement, xpub, matching_mode, or order_retention",
+      message: "settingKind must be settlement, xpub, matching_mode, order_retention, or fulfillment_policy",
     };
   }
   const payload = body?.payload && typeof body.payload === "object" ? body.payload : {};
@@ -73,6 +75,22 @@ export function validateOverridePayload(kind, payload) {
       };
     }
     return { ok: true, parsed: { matchingMode } };
+  }
+
+  if (kind === "fulfillment_policy") {
+    const fulfillmentPolicy =
+      typeof payload.fulfillmentPolicy === "string"
+        ? payload.fulfillmentPolicy.trim()
+        : "";
+    if (!FULFILLMENT_SET.has(fulfillmentPolicy)) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_fulfillment_policy",
+        message: "payload.fulfillmentPolicy must be on_completed or on_verifying",
+      };
+    }
+    return { ok: true, parsed: { fulfillmentPolicy } };
   }
 
   if (kind === "order_retention") {

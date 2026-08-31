@@ -153,6 +153,7 @@ export function toPaymentOrder(row) {
     anomalyResolvedAt: row.anomaly_resolved_at
       ? expiresAtIso(row.anomaly_resolved_at)
       : null,
+    fulfillmentPolicy: row.fulfillment_policy ?? "on_completed",
   };
   if (row.created_by) {
     order.createdBy = row.created_by;

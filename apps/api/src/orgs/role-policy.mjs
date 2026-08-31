@@ -320,6 +320,16 @@ export function canViewMatchingModeSettings(caller, org) {
   return canViewSettlementSettings(caller, org);
 }
 
+/** Same bar as matching mode: Cashier cannot change fulfillment policy. */
+export function canChangeFulfillmentPolicySettings(caller, org) {
+  return canChangeSettlementSettings(caller, org);
+}
+
+/** Same bar as matching mode: Cashier cannot view fulfillment policy settings. */
+export function canViewFulfillmentPolicySettings(caller, org) {
+  return canViewSettlementSettings(caller, org);
+}
+
 /** Same bar as settlement: Cashier cannot change xPub. */
 export function canChangeXpubSettings(caller, org) {
   return canChangeSettlementSettings(caller, org);

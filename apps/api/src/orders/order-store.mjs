@@ -8,6 +8,7 @@ const ORDER_SELECT = `
   from_address, confirmed_at,
   confirmations, required_confirmations, idempotency_key,
   idempotency_body_hash, merchant_metadata, underpay_tolerance,
+  fulfillment_policy,
   anomaly_reason, anomaly_resolution_note, anomaly_resolved_at,
   created_at, updated_at
 `;
@@ -333,6 +334,8 @@ export async function hasModeSSameAmountConflict(client, query) {
  *   idempotencyKey: string,
  *   idempotencyBodyHash: string,
  *   merchantMetadata: unknown,
+ *   underpayTolerance?: string,
+ *   fulfillmentPolicy?: string,
  * }} input
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
@@ -344,12 +347,12 @@ export async function insertPaymentOrder(input, client) {
          payable_amount, receive_address, address_source, hd_index, memo_or_tag,
          asset, network, expires_at, required_confirmations,
          idempotency_key, idempotency_body_hash, merchant_metadata,
-         underpay_tolerance
+         underpay_tolerance, fulfillment_policy
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
-         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -370,6 +373,7 @@ export async function insertPaymentOrder(input, client) {
         input.idempotencyBodyHash,
         input.merchantMetadata,
         input.underpayTolerance ?? "0",
+        input.fulfillmentPolicy ?? "on_completed",
       ],
     );
     return { ok: true, row: rows[0] };

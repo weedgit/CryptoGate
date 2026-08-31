@@ -8,14 +8,19 @@ import {
   getOrder,
   getOrg,
   getPaymentDetails,
+  listWebhookDeliveries,
+  listWebhooks,
+  resendWebhookDelivery,
   resolveOrderAnomaly,
   type OnChainDetails,
   type OrgAccount,
   type PaymentDetails,
   type PaymentOrder,
   type Session,
+  type WebhookDelivery,
 } from "./api";
 import { matchingModeLabel } from "./matchingLabels";
+import { orderFulfillmentHint } from "./fulfillmentLabels";
 import {
   anomalyAmountLine,
   anomalyExplain,
@@ -25,12 +30,13 @@ import {
   orderStatusLabel,
   orderStatusTone,
 } from "./orderStatus";
-import { networkLabel, primaryMerchantOrgId } from "./org";
+import { networkLabel, primaryMerchantOrgId, sessionCanManageIntegrations, sessionCanViewIntegrations } from "./org";
 import { refreshMerchantAlerts } from "./merchantAlerts";
 import { displayNetworkForPair, webChainEnvOverride } from "../shared/assetNetworks";
 import { findAssetNetworkRow } from "@cryptogate/domain";
 import { StatusBadge } from "../shared/StatusBadge";
 import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
+import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
 import { AuthToast } from "../auth/AuthToast";
 import { PaymentOrderInvoiceFace } from "../billing/PaymentOrderInvoiceFace";
 import { AssetIcon, NetworkIcon, QrCenterNetworkMark } from "../platform/cryptoIcons";
@@ -122,6 +128,15 @@ export function OrderDetailPage({
   const [cancelling, setCancelling] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolveNote, setResolveNote] = useState("");
+  const [webhookRows, setWebhookRows] = useState<
+    Array<WebhookDelivery & { webhookId: string }>
+  >([]);
+  const [webhookBusy, setWebhookBusy] = useState(false);
+  const [webhookMsg, setWebhookMsg] = useState<string | null>(null);
+
+  const orgId = primaryMerchantOrgId(session);
+  const canViewWebhooks = !isPlatform && sessionCanViewIntegrations(session);
+  const canResendWebhooks = sessionCanManageIntegrations(session);
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById(topbarCenterId));
@@ -183,6 +198,34 @@ export function OrderDetailPage({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!canViewWebhooks || !orgId || !order?.id) {
+      setWebhookRows([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const hooks = await listWebhooks(orgId);
+        const rows: Array<WebhookDelivery & { webhookId: string }> = [];
+        for (const hook of hooks) {
+          const deliveries = await listWebhookDeliveries(hook.id, orgId);
+          for (const row of deliveries) {
+            if (row.orderId === order.id) {
+              rows.push({ ...row, webhookId: hook.id });
+            }
+          }
+        }
+        if (!cancelled) setWebhookRows(rows);
+      } catch {
+        if (!cancelled) setWebhookRows([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewWebhooks, orgId, order?.id]);
 
   const liveStatus = order?.status ?? pay?.status;
   const watching = isOpenOrderStatus(liveStatus);
@@ -339,6 +382,12 @@ export function OrderDetailPage({
   const isAnomaly = status === "payment_anomaly";
   const received = order?.receivedAmount?.amount ?? chain?.amount?.amount;
   const settled = status === "completed" || status === "confirmed";
+  const qrTerminal =
+    settled ||
+    status === "expired" ||
+    status === "payment_anomaly" ||
+    status === "failed" ||
+    status === "cancelled";
   const paidAt = settled ? chain?.confirmedAt ?? pay?.confirmedAt ?? null : null;
   const createdByLabel = order?.createdByEmail?.trim() || null;
   const sellerOrgId =
@@ -348,6 +397,7 @@ export function OrderDetailPage({
     "—";
   const networkDisplay = displayNetworkForPair(asset, network);
   const timelineIndex = orderTimelineStepIndex(status, hasTx);
+  const fulfillmentHint = orderFulfillmentHint(order?.fulfillmentPolicy, status);
   const confirmationStatusSuffix = hasTx
     ? " — tx detected on chain"
     : " — awaiting tx";
@@ -497,6 +547,11 @@ export function OrderDetailPage({
 
         <div className="order-detail-page__rail no-print">
           <div className="order-detail-page__rail-body">
+          {fulfillmentHint ? (
+            <p className="plat-settings__notice order-detail-fulfillment-hint" role="status">
+              {fulfillmentHint}
+            </p>
+          ) : null}
           <section className="plat-settings__card order-detail-gateway">
             <div className="plat-settings__card-body order-detail-gateway__body">
               <div className="order-detail-gateway__pay-panel">
@@ -505,7 +560,9 @@ export function OrderDetailPage({
                     <AssetIcon asset={asset} />
                     <NetworkIcon network={network} />
                   </div>
-                  <span className="order-detail-gateway__amount-label">Amount due</span>
+                  <span className="order-detail-gateway__amount-label">
+                    {settled ? "Amount paid" : "Amount due"}
+                  </span>
                   <p className="order-detail-gateway__amount-value fund-amount">
                     {amount} {asset}
                   </p>
@@ -516,8 +573,12 @@ export function OrderDetailPage({
                 </div>
 
                 <div className="order-detail-gateway__qr-wrap">
-                  <div className="order-detail-gateway__qr">
-                    {qrPayload ? (
+                  <div
+                    className={`order-detail-gateway__qr${
+                      qrTerminal ? " is-terminal" : ""
+                    }`}
+                  >
+                    {qrPayload && !qrTerminal ? (
                       <>
                         <PaymentQrCanvas
                           payload={qrPayload}
@@ -529,18 +590,29 @@ export function OrderDetailPage({
                         </span>
                       </>
                     ) : (
-                      <span className="muted">QR unavailable</span>
+                      <GatewayQrTerminal
+                        kind={
+                          settled
+                            ? "completed"
+                            : status === "payment_anomaly"
+                              ? "anomaly"
+                              : status === "expired"
+                                ? "expired"
+                                : status === "failed" || status === "cancelled"
+                                  ? "failed"
+                                  : "unavailable"
+                        }
+                        title={
+                          status === "failed" || status === "cancelled"
+                            ? orderStatusLabel(status, order)
+                            : undefined
+                        }
+                      />
                     )}
                   </div>
                   <p
                     className={`order-detail-gateway__timer${
-                      settled ||
-                      status === "expired" ||
-                      status === "payment_anomaly" ||
-                      status === "failed" ||
-                      status === "cancelled"
-                        ? " is-terminal"
-                        : ""
+                      qrTerminal ? " is-terminal" : ""
                     }`}
                     key={settled ? "settled" : nowTick}
                   >
@@ -687,6 +759,97 @@ export function OrderDetailPage({
               ) : null}
             </div>
           </section>
+
+          {canViewWebhooks ? (
+            <section className="plat-settings__card order-detail-aside-card order-detail-webhooks-card no-print">
+              <div className="plat-settings__card-head">
+                <h2 className="plat-settings__card-title">Webhook deliveries</h2>
+              </div>
+              <div className="plat-settings__card-body">
+                {webhookMsg ? (
+                  <p className="plat-settings__card-note" role="status">
+                    {webhookMsg}
+                  </p>
+                ) : null}
+                {webhookRows.length === 0 ? (
+                  <p className="muted">No webhook deliveries recorded for this order yet.</p>
+                ) : (
+                  <div className="delivery-table">
+                    <div className="delivery-head">
+                      <span>EVENT</span>
+                      <span>STATUS</span>
+                      <span>HTTP</span>
+                      <span>ATTEMPT</span>
+                      <span>TIME</span>
+                      {canResendWebhooks ? <span /> : null}
+                    </div>
+                    {webhookRows.map((d) => (
+                      <div key={d.id} className="delivery-row">
+                        <span className="mono">{d.eventType}</span>
+                        <span>{d.status}</span>
+                        <span>{d.responseStatus ?? d.httpStatus ?? "—"}</span>
+                        <span>{d.attempt}</span>
+                        <span className="muted">
+                          {formatShortTime(d.deliveredAt ?? d.createdAt)}
+                        </span>
+                        {canResendWebhooks ? (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-tiny"
+                            disabled={
+                              webhookBusy ||
+                              (d.status !== "failed" && d.status !== "success")
+                            }
+                            onClick={() => {
+                              if (!orgId) return;
+                              void (async () => {
+                                setWebhookBusy(true);
+                                setWebhookMsg(null);
+                                try {
+                                  await resendWebhookDelivery(
+                                    d.webhookId,
+                                    d.id,
+                                    orgId,
+                                  );
+                                  setWebhookMsg("Delivery queued for resend.");
+                                  const hooks = await listWebhooks(orgId);
+                                  const rows: Array<
+                                    WebhookDelivery & { webhookId: string }
+                                  > = [];
+                                  for (const hook of hooks) {
+                                    const deliveries = await listWebhookDeliveries(
+                                      hook.id,
+                                      orgId,
+                                    );
+                                    for (const row of deliveries) {
+                                      if (row.orderId === order?.id) {
+                                        rows.push({ ...row, webhookId: hook.id });
+                                      }
+                                    }
+                                  }
+                                  setWebhookRows(rows);
+                                } catch (err) {
+                                  setWebhookMsg(
+                                    err instanceof ApiError
+                                      ? err.message
+                                      : "Resend failed",
+                                  );
+                                } finally {
+                                  setWebhookBusy(false);
+                                }
+                              })();
+                            }}
+                          >
+                            Resend
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
 
           <section className="plat-settings__card order-detail-aside-card order-detail-timeline-card">
             <div className="plat-settings__card-head">

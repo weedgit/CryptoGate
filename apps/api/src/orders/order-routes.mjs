@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { OrderStatus } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
-import { requireCaller } from "../http/require-caller.mjs";
+import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
@@ -26,6 +26,7 @@ import {
   getEffectiveMatchingMode,
   getEffectiveUnderpayTolerance,
 } from "../matching-mode/matching-mode-store.mjs";
+import { getEffectiveFulfillmentPolicy } from "../fulfillment-policy/fulfillment-policy-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 import { resolveSiteInherit } from "../sites/site-inherit.mjs";
 import { getEffectiveNetworkMaintenance } from "../platform-settings/network-maintenance-store.mjs";
@@ -52,6 +53,7 @@ function hashBody(payload) {
 export async function handleCreatePaymentOrder(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
+  if (!assertApiKeyScope(caller, res, "orders")) return;
 
   const idempotencyKey = readIdempotencyKey(req);
   if (!idempotencyKey) {
@@ -204,6 +206,10 @@ export async function handleCreatePaymentOrder(req, res) {
           inherit.matchingOrgId,
           client,
         );
+        const fulfillmentPolicy = await getEffectiveFulfillmentPolicy(
+          inherit.fulfillmentOrgId,
+          client,
+        );
         const underpayTolerance =
           matchingMode === "B"
             ? await getEffectiveUnderpayTolerance(inherit.matchingOrgId, client)
@@ -253,6 +259,7 @@ export async function handleCreatePaymentOrder(req, res) {
             idempotencyBodyHash: bodyHash,
             merchantMetadata: validated.parsed.merchantMetadata,
             underpayTolerance,
+            fulfillmentPolicy,
           },
           client,
         );
@@ -320,6 +327,7 @@ export async function handleCreatePaymentOrder(req, res) {
 async function loadReadablePaymentOrder(req, res, orderId) {
   const caller = await requireCaller(req, res);
   if (!caller) return null;
+  if (!assertApiKeyScope(caller, res, "orders")) return null;
 
   const row = await findOrderById(orderId);
   if (!row) {
@@ -549,5 +557,23 @@ export async function handleGetPaymentOrderPayment(req, res, orderId) {
     sendError(res, 404, "not_found", "Payment link not found");
     return;
   }
-  sendJson(res, 200, toPaymentDetails(row));
+  const details = toPaymentDetails(row);
+  try {
+    const maint = await getEffectiveNetworkMaintenance(row.network);
+    if (maint) {
+      details.networkMaintenance = {
+        message:
+          maint.message ||
+          `This network is temporarily unavailable${maint.endsAt ? ` until ${new Date(maint.endsAt).toISOString()}` : ""}.`,
+        endsAt: maint.endsAt ?? null,
+      };
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!/network_maintenance|does not exist/i.test(message)) {
+      sendError(res, 500, "internal_error", "Failed to check network maintenance");
+      return;
+    }
+  }
+  sendJson(res, 200, details);
 }

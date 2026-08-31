@@ -188,7 +188,11 @@ export function ServiceBillDetailPage({ session }: Props) {
     email: billing?.sellerEmail ?? envSeller.email,
   };
   const payTo =
-    billing?.payTo?.trim() || platformBillingPayToFallback() || null;
+    bill.rxAddress?.trim() ||
+    billing?.payTo?.trim() ||
+    bill.remittancePayTo?.trim() ||
+    platformBillingPayToFallback() ||
+    null;
 
   return (
     <div className="plat-bill-detail">

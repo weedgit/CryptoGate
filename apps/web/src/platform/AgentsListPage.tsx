@@ -28,6 +28,7 @@ import { AgentDetailCard } from "./AgentDetailCard";
 import { merchantCountsByAgentId, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
@@ -532,14 +533,6 @@ export function AgentsListPage({ session }: Props) {
   }, [agents, query, statusFilter, sort, byId, merchantCountByAgent, payoutByAgentId, orgEmailsByOrgId]);
 
   useEffect(() => {
-    if (loading || !query.trim() || !selectedId) return;
-    if (looksLikeEmailQuery(query) && emailIndexLoading) return;
-    if (!filtered.some((a) => a.id === selectedId)) {
-      navigate("/platform/agents", { replace: true });
-    }
-  }, [filtered, selectedId, loading, query, navigate, emailIndexLoading]);
-
-  useEffect(() => {
     setPage(1);
   }, [query, statusFilter, sort]);
 
@@ -562,18 +555,23 @@ export function AgentsListPage({ session }: Props) {
   }, [filtered, page]);
 
   const filteredIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const agentIds = useMemo(() => agents.map((row) => row.id), [agents]);
+
+  useAutoSelectOrgListRow({
+    selectedId,
+    loading,
+    allIds: agentIds,
+    filteredIds,
+    basePath: "/platform/agents",
+    navigate,
+    emailIndexLoading,
+    query,
+  });
 
   const selected = useMemo(() => {
     if (!selectedId) return null;
     return agents.find((a) => a.id === selectedId) ?? null;
   }, [agents, selectedId]);
-
-  useEffect(() => {
-    if (!selectedId || loading) return;
-    if (!agents.some((a) => a.id === selectedId)) {
-      navigate("/platform/agents", { replace: true });
-    }
-  }, [selectedId, agents, loading, navigate]);
 
   useEffect(() => {
     if (!selectedId) return;

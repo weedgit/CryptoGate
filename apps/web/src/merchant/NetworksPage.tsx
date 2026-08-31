@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  resolveChainEnvironment,
-  ChainEnvironment,
-  type AssetNetworkConfig,
-} from "@cryptogate/domain";
-import { NetworkIcon } from "../platform/cryptoIcons";
+import { type AssetNetworkConfig } from "@cryptogate/domain";
+import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import {
   computeOrderabilityLamp,
   type NetworkLamp,
 } from "../shared/networkLamp";
-import {
-  networkShortLabel,
-  summarizeNetworks,
-  visibleRegistry,
-} from "../shared/assetNetworks";
+import { networkShortLabel, visibleRegistry } from "../shared/assetNetworks";
 import {
   getNetworksStatus,
   type NetworkOrderabilityLamp,
@@ -26,7 +18,10 @@ function shortContract(addr: string | null): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function asLamp(raw: NetworkOrderabilityLamp | NetworkLamp | undefined, row: AssetNetworkConfig): NetworkLamp {
+function asLamp(
+  raw: NetworkOrderabilityLamp | NetworkLamp | undefined,
+  row: AssetNetworkConfig,
+): NetworkLamp {
   if (raw) return raw as NetworkLamp;
   return computeOrderabilityLamp({
     enabled: row.enabled,
@@ -37,22 +32,19 @@ function asLamp(raw: NetworkOrderabilityLamp | NetworkLamp | undefined, row: Ass
 
 /** Merchant view of Phase 1 asset/network catalog with orderability lamps. */
 export function NetworksPage() {
-  const chains = useMemo(() => summarizeNetworks(), []);
   const pairs = useMemo(
     () =>
       [...visibleRegistry()].sort((a, b) => {
         const liveA = a.enabled ? 0 : 1;
         const liveB = b.enabled ? 0 : 1;
         if (liveA !== liveB) return liveA - liveB;
-        return networkShortLabel(a.network).localeCompare(networkShortLabel(b.network));
+        return networkShortLabel(a.network).localeCompare(
+          networkShortLabel(b.network),
+        );
       }),
     [],
   );
 
-  const [lampByNetwork, setLampByNetwork] = useState<Map<
-    string,
-    NetworkOrderabilityLamp
-  > | null>(null);
   const [lampByPair, setLampByPair] = useState<Map<
     string,
     NetworkOrderabilityLamp
@@ -64,21 +56,15 @@ export function NetworksPage() {
       try {
         const status = await getNetworksStatus();
         if (cancelled) return;
-        const byNet = new Map<string, NetworkOrderabilityLamp>();
         const byPair = new Map<string, NetworkOrderabilityLamp>();
         for (const net of status.items) {
-          byNet.set(net.network, net.lamp);
           for (const pair of net.pairs) {
             byPair.set(`${pair.asset}:${net.network}`, pair.lamp);
           }
         }
-        setLampByNetwork(byNet);
         setLampByPair(byPair);
       } catch {
-        if (!cancelled) {
-          setLampByNetwork(null);
-          setLampByPair(null);
-        }
+        if (!cancelled) setLampByPair(null);
       }
     })();
     return () => {
@@ -86,105 +72,156 @@ export function NetworksPage() {
     };
   }, []);
 
-  const openCount = pairs.filter((p) => {
-    const lamp = lampByPair?.get(`${p.asset}:${p.network}`);
-    return (lamp?.code ?? (p.enabled ? "down" : "off")) === "open";
-  }).length;
-  const isTestnet = resolveChainEnvironment() === ChainEnvironment.Testnet;
+  const { openCount, pausedCount } = useMemo(() => {
+    let open = 0;
+    let paused = 0;
+    for (const row of pairs) {
+      const code = asLamp(
+        lampByPair?.get(`${row.asset}:${row.network}`),
+        row,
+      ).code;
+      if (code === "open") open += 1;
+      else if (code === "paused") paused += 1;
+    }
+    return { openCount: open, pausedCount: paused };
+  }, [pairs, lampByPair]);
 
   return (
-    <div className="dash-page merchant-networks">
-      <header className="dash-head">
-        <div>
-          <h1>Blockchain networks</h1>
-          <p className="muted">
-            {isTestnet
-              ? "Local testnet catalog — not used in product builds. "
-              : "Phase 1 mainnet catalog. "}
-            Orderability lamp: Open can take payments; Paused is maintenance or degraded
-            ingest; Down means watcher unhealthy; Off is not enabled.
-            {lampByPair
-              ? ` ${openCount} open pair${openCount === 1 ? "" : "s"} now.`
-              : ""}
-          </p>
-        </div>
-      </header>
+    <div className="merchant-networks">
+      <div className="merchant-networks__kpis">
+        <article className="merchant-networks__kpi merchant-networks__kpi--total">
+          <div className="merchant-networks__kpi-top">
+            <span className="merchant-networks__kpi-icon" aria-hidden>
+              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+                <path
+                  d="M3.5 16.5V8.5l6.5-4.5 6.5 4.5v8H3.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M8 16.5v-4.5h4v4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <span className="merchant-networks__kpi-label">Total pairs</span>
+          </div>
+          <p className="merchant-networks__kpi-value">{pairs.length}</p>
+        </article>
+        <article className="merchant-networks__kpi merchant-networks__kpi--open">
+          <div className="merchant-networks__kpi-top">
+            <span className="merchant-networks__kpi-icon" aria-hidden>
+              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="6.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M6.8 10.2 9 12.4l4.4-5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <span className="merchant-networks__kpi-label">Open</span>
+          </div>
+          <p className="merchant-networks__kpi-value">{openCount}</p>
+        </article>
+        <article
+          className={`merchant-networks__kpi merchant-networks__kpi--paused${
+            pausedCount > 0 ? " is-alert" : ""
+          }`}
+        >
+          <div className="merchant-networks__kpi-top">
+            <span className="merchant-networks__kpi-icon" aria-hidden>
+              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="6.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M8.2 7.5v5M11.8 7.5v5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="merchant-networks__kpi-label">Paused</span>
+          </div>
+          <p className="merchant-networks__kpi-value">{pausedCount}</p>
+        </article>
+      </div>
 
-      <section className="panel merchant-networks__chains">
-        <h2>Networks</h2>
-        <div className="merchant-networks__chain-grid">
-          {chains.map((chain) => {
-            const lamp =
-              (lampByNetwork?.get(chain.network) as NetworkLamp | undefined) ??
-              computeOrderabilityLamp({
-                enabled: chain.liveCount > 0,
-                maintenanceActive: false,
-                ingestStatus: "unknown",
-              });
+      <section className="merchant-networks__card">
+        <header className="merchant-networks__card-head">
+          <h2 className="merchant-networks__card-title">Asset pairs</h2>
+          <span className="merchant-networks__card-pill">
+            {pairs.length} pair{pairs.length === 1 ? "" : "s"}
+          </span>
+        </header>
+        <div className="merchant-networks__table" role="table">
+          <div className="merchant-networks__thead" role="row">
+            <span>Asset</span>
+            <span>Network</span>
+            <span>Guest label</span>
+            <span className="merchant-networks__status-head">Status</span>
+            <span>Min amount</span>
+            <span>Confirmations</span>
+            <span>Contract</span>
+          </div>
+          {pairs.map((row) => {
+            const lamp = asLamp(
+              lampByPair?.get(`${row.asset}:${row.network}`),
+              row,
+            );
+            const dimmed = lamp.code === "off";
             return (
-              <article key={chain.network} className="merchant-networks__chain-card">
-                <span className="merchant-networks__chain-icon" aria-hidden="true">
-                  <NetworkIcon network={chain.network} />
+              <div
+                key={`${row.asset}:${row.network}`}
+                className={`merchant-networks__row${dimmed ? " is-dimmed" : ""}`}
+                role="row"
+              >
+                <span className="merchant-networks__asset">
+                  <AssetIcon asset={row.asset} />
+                  {row.asset}
                 </span>
-                <div>
-                  <h3>{chain.title}</h3>
-                  <p className="muted">
-                    {chain.liveCount}/{chain.assetCount} asset
-                    {chain.assetCount === 1 ? "" : "s"} enabled
-                  </p>
-                </div>
-                <NetworkStatusLamp lamp={lamp} />
-              </article>
+                <span className="merchant-networks__net-cell">
+                  <NetworkIcon network={row.network} />
+                  {networkShortLabel(row.network)}
+                </span>
+                <span className="merchant-networks__guest">
+                  {row.displayNetwork}
+                </span>
+                <span className="merchant-networks__status">
+                  <NetworkStatusLamp lamp={lamp} />
+                </span>
+                <span className="merchant-networks__amount">
+                  {row.minAmount} {row.asset}
+                </span>
+                <span className="merchant-networks__meta">
+                  {row.requiredConfirmations}
+                </span>
+                <span
+                  className="mono merchant-networks__contract"
+                  title={row.contractAddress ?? undefined}
+                >
+                  {shortContract(row.contractAddress)}
+                </span>
+              </div>
             );
           })}
-        </div>
-      </section>
-
-      <section className="panel merchant-networks__table-wrap">
-        <h2>Asset pairs</h2>
-        <div className="table-scroll">
-          <table className="data-table merchant-networks__table">
-            <thead>
-              <tr>
-                <th>Asset</th>
-                <th>Network</th>
-                <th>Guest label</th>
-                <th>Status</th>
-                <th>Min amount</th>
-                <th>Confirmations</th>
-                <th>Contract</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pairs.map((row) => (
-                <tr key={`${row.asset}:${row.network}`}>
-                  <td>{row.asset}</td>
-                  <td>
-                    <span className="merchant-networks__net-cell">
-                      <NetworkIcon network={row.network} />
-                      {networkShortLabel(row.network)}
-                    </span>
-                  </td>
-                  <td>{row.displayNetwork}</td>
-                  <td>
-                    <NetworkStatusLamp
-                      lamp={asLamp(
-                        lampByPair?.get(`${row.asset}:${row.network}`),
-                        row,
-                      )}
-                    />
-                  </td>
-                  <td>
-                    {row.minAmount} {row.asset}
-                  </td>
-                  <td>{row.requiredConfirmations}</td>
-                  <td className="mono" title={row.contractAddress ?? undefined}>
-                    {shortContract(row.contractAddress)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </section>
     </div>

@@ -69,6 +69,7 @@ export type ServiceBill = {
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
   rxAddress?: string | null;
+  remittancePayTo?: string | null;
   txAddress?: string | null;
   createdAt?: string | null;
 };

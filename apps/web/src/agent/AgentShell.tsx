@@ -111,8 +111,10 @@ export function AgentShell({
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+  const { mobileNavOpen, isTabletOrBelow, closeMobileNav, toggleMobileNav } =
     usePortalMobileNav();
+  /** Drawer must show labels even if desktop preference is collapsed. */
+  const navCollapsed = collapsed && !isTabletOrBelow;
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -150,7 +152,7 @@ export function AgentShell({
 
   return (
     <div
-      className={`shell agent-shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
+      className={`shell agent-shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
       <button
         type="button"
@@ -162,7 +164,7 @@ export function AgentShell({
       <aside id="portal-sidebar" className="sidebar" aria-label="Agent navigation">
         <div className="logo-row">
           <div className="logo-mark">CG</div>
-          {!collapsed ? (
+          {!navCollapsed ? (
             <div className="logo-copy">
               <p className="logo-title">CryptoGate</p>
               <span className="logo-badge">AGENT PORTAL</span>
@@ -171,20 +173,20 @@ export function AgentShell({
           <button
             type="button"
             className="sidebar-toggle"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!collapsed}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!navCollapsed}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => setCollapsed((v) => !v)}
           >
             <SidebarCollapseIcon
               className="sidebar-toggle-icon"
-              expanded={!collapsed}
+              expanded={!navCollapsed}
             />
           </button>
         </div>
         <nav className="nav-list" aria-label="Agent">
           <div className="nav-group">
-            {!collapsed ? (
+            {!navCollapsed ? (
               <p
                 className="nav-label"
                 style={{ ["--nav-delay" as string]: "120ms" } as CSSProperties}
@@ -216,7 +218,7 @@ export function AgentShell({
                   }}
                 >
                   <Icon />
-                  {!collapsed ? <span>{item.label}</span> : null}
+                  {!navCollapsed ? <span>{item.label}</span> : null}
                 </NavLink>
               );
             })}
@@ -226,7 +228,7 @@ export function AgentShell({
           <SidebarProfileMenu
             session={session}
             variant="agent"
-            collapsed={collapsed}
+            collapsed={navCollapsed}
             onSignOut={onSignOut}
             onSessionRefresh={onSessionRefresh}
           />

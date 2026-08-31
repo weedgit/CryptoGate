@@ -117,7 +117,7 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 **Merchant (site) account.** Operates under a multi-location merchant. Creates payment orders for that site. May override parent defaults (wallet, xPub, matching mode, order retention) only with **merchant Owner** approval.
 
-**Cashier.** User role on a merchant or merchant (site) account. Creates payment orders at the counter (web or POS APK). Manages **own** payment orders only. Cannot change settlement address, xPub, fees, or org settings.
+**Cashier.** User role on a merchant or merchant (site) account. Creates payment orders at the counter (web or POS APK). Manages **own** payment orders only. Cannot change settlement address, xPub, fees, fulfillment policy, confirmation rules, or org settings.
 
 ## Roles and permissions
 
@@ -134,7 +134,7 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 **Audit:** All login events and privileged actions are **append-only**. No user may delete audit records.
 
-**Settings inheritance:** Merchant (site) defaults inherit from the parent merchant account. Overrides (wallet address, xPub, payment matching mode, order delete period) require **merchant Owner** approval. Platform Owner may override only for compliance or abuse (logged).
+**Settings inheritance:** Merchant (site) defaults inherit from the parent merchant account. Overrides (wallet address, xPub, payment matching mode, fulfillment policy, order delete period) require **merchant Owner** approval. Platform Owner may override only for compliance or abuse (logged).
 
 **Merchant (site) wallet address:** A site may use its own receive address only after **merchant Owner** approval. Platform Owner override only for compliance (logged).
 
@@ -162,6 +162,8 @@ Merchant, merchant (site), and agent portals each show **service bills** applica
 3. The payer sends coins on that network to that address.
 4. The platform watches the chain, waits for confirmations, and updates order status.
 5. The merchant system may receive a signed webhook. The merchant receives **100%** of the on-chain amount in their wallet.
+
+**Fulfillment vs chain status (Phase 2):** Merchants may choose when staff release goods (`on_completed` vs `on_verifying`) — see [Merchant-Fulfillment-Policy.md](Merchant-Fulfillment-Policy.md). This does **not** lower platform confirmation floors or let Cashiers change chain policy.
 
 Wrong network, underpay, overpay, duplicate pay, or late pay → explicit order state. The platform does not move coins to fix it.
 

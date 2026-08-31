@@ -15,6 +15,7 @@ import {
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import { handleOrgTableKeyDown } from "../platform/orgTableKeyboard";
 import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
@@ -592,18 +593,23 @@ export function MerchantsListPage({ session }: Props) {
   }, [filtered, page]);
 
   const filteredIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const merchantIds = useMemo(() => merchants.map((row) => row.id), [merchants]);
+
+  useAutoSelectOrgListRow({
+    selectedId,
+    loading,
+    allIds: merchantIds,
+    filteredIds,
+    basePath: "/agent/merchants",
+    navigate,
+    emailIndexLoading,
+    query,
+  });
 
   const selected = useMemo(() => {
     if (!selectedId) return null;
     return merchants.find((m) => m.id === selectedId) ?? null;
   }, [merchants, selectedId]);
-
-  useEffect(() => {
-    if (!selectedId || loading) return;
-    if (!merchants.some((m) => m.id === selectedId)) {
-      navigate("/agent/merchants", { replace: true });
-    }
-  }, [selectedId, merchants, loading, navigate]);
 
   useEffect(() => {
     if (!selectedId) return;

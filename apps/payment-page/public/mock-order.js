@@ -21,7 +21,7 @@ const ASSET_NETWORK_UI = {
   "USDT:tron_nile": {
     displayNetwork: "TRON Nile (testnet)",
     memoSupported: false,
-    requiredConfirmations: 19,
+    requiredConfirmations: 3,
   },
   "USDT:ethereum": {
     displayNetwork: "Ethereum ERC-20",
@@ -117,6 +117,7 @@ const statusCopy = {
   failed: "Failed",
   cancelled: "Failed",
   invalid: "Invalid link",
+  maintenance: "Network unavailable",
 };
 
 const amountLabelEl = document.getElementById("amount-label");
@@ -377,6 +378,7 @@ function fromPaymentDetails(d) {
     txHash: d.txHash || null,
     createdAt: d.createdAt || null,
     confirmedAt: d.confirmedAt || null,
+    networkMaintenanceMessage: d.networkMaintenance?.message || null,
   };
 }
 
@@ -591,14 +593,31 @@ function flowStepIndex(status, hasTx) {
   return 0;
 }
 
-function confirmationNote(state, filled, total) {
+function confirmationEtaLabel(network, total) {
+  const n = String(network || "").toLowerCase();
+  if (n === "tron" || n === "tron_nile") {
+    const secs = Math.max(3, total * 3);
+    return secs < 60
+      ? `~${secs}s on TRON`
+      : `~${Math.ceil(secs / 60)} min on TRON`;
+  }
+  if (n === "ethereum" || n === "arbitrum_one" || n === "base") {
+    return `~${Math.max(1, Math.ceil((total * 12) / 60))} min on ${n === "ethereum" ? "Ethereum" : "EVM"}`;
+  }
+  if (n === "bitcoin") return `~${total * 10} min on Bitcoin`;
+  return "network confirmations in progress";
+}
+
+function confirmationNote(state, filled, total, network) {
   if (state === "completed" || state === "confirmed") {
     return "Payment confirmed on-chain";
   }
   if (state === "verifying") {
+    const eta = confirmationEtaLabel(network, total);
+    const closeHint = " You can close this page.";
     return filled > 0
-      ? `Confirming · ${filled} of ${total} blocks`
-      : "Transaction detected · waiting for confirmations";
+      ? `Confirming · ${filled} of ${total} blocks (${eta}).${closeHint}`
+      : `Transaction detected · waiting for confirmations (${eta}).${closeHint}`;
   }
   if (state === "anomaly") {
     return "Payment seen but needs merchant review";
@@ -622,7 +641,7 @@ function paintConfirmations(view, state) {
   filled = Math.min(filled, total);
 
   confirmCountEl.textContent = `${filled} / ${total}`;
-  confirmNoteEl.textContent = confirmationNote(state, filled, total);
+  confirmNoteEl.textContent = confirmationNote(state, filled, total, view.network);
   confirmTrackEl.setAttribute("aria-valuenow", String(filled));
   confirmTrackEl.setAttribute("aria-valuemax", String(total));
   confirmTrackEl.setAttribute(
@@ -882,6 +901,28 @@ function paintInvalid() {
   renderQr("", "");
 }
 
+function paintMaintenance(message) {
+  setSourceBanner("");
+  setShareUrl("");
+  currentView = null;
+  if (mainEl) {
+    mainEl.dataset.state = "maintenance";
+    delete mainEl.dataset.mode;
+  }
+  if (statusEl) statusEl.textContent = statusCopy.maintenance;
+  if (timerLabelEl) timerLabelEl.textContent = "Status";
+  if (expiresEl) expiresEl.textContent = "Paused";
+  if (confirmNoteEl) {
+    confirmNoteEl.textContent =
+      message || "This network is temporarily unavailable.";
+  }
+  setTimerTone(0, "maintenance");
+  if (exactWarn) exactWarn.hidden = true;
+  if (memoWarn) memoWarn.hidden = true;
+  setQrModeVisible("invalid");
+  renderQr("", "");
+}
+
 async function fetchPaymentDetails(id) {
   const res = await fetch(
     `${apiBase}/v1/orders/${encodeURIComponent(id)}/payment`,
@@ -909,6 +950,11 @@ async function loadLiveOrder(id) {
       return;
     }
     if (got.details) {
+      if (got.details.networkMaintenance) {
+        stopPolling();
+        paintMaintenance(got.details.networkMaintenance.message);
+        return;
+      }
       setSourceBanner("");
       const view = fromPaymentDetails(got.details);
       paint(view);

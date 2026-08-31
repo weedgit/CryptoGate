@@ -1,4 +1,5 @@
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
+import { upsertFulfillmentPolicySettings } from "../fulfillment-policy/fulfillment-policy-store.mjs";
 import { upsertRetentionSettings } from "../retention/retention-store.mjs";
 import { settlementCooldownMs } from "../settlement/settlement-rules.mjs";
 import { upsertSettlementAddress } from "../settlement/settlement-store.mjs";
@@ -18,6 +19,13 @@ export async function applyApprovedOverride(row) {
     await upsertMatchingModeSettings({
       orgId,
       matchingMode: payload.matchingMode,
+    });
+    return;
+  }
+  if (kind === "fulfillment_policy") {
+    await upsertFulfillmentPolicySettings({
+      orgId,
+      fulfillmentPolicy: payload.fulfillmentPolicy,
     });
     return;
   }

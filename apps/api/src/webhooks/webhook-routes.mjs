@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { WebhookEventType } from "@cryptogate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
-import { requireCaller } from "../http/require-caller.mjs";
+import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import {
@@ -28,6 +28,7 @@ import {
   insertWebhookEndpoint,
   listWebhookDeliveries,
   listWebhookEndpoints,
+  rotateWebhookSigningSecret,
 } from "./webhook-store.mjs";
 
 /**
@@ -79,6 +80,8 @@ async function loadWebhookMerchant(req, res, mode, requestedOrgId) {
     sendError(res, 403, "forbidden", "Not allowed to view webhooks");
     return null;
   }
+
+  if (!assertApiKeyScope(caller, res, "webhooks")) return null;
 
   return { caller, org };
 }
@@ -184,6 +187,44 @@ export async function handleDeleteWebhook(req, res, webhookId, url) {
   });
   res.statusCode = 204;
   res.end();
+}
+
+/**
+ * POST /v1/webhooks/{webhookId}/rotate-secret — new signing secret once (D14).
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} webhookId
+ * @param {URL} url
+ */
+export async function handleRotateWebhookSecret(req, res, webhookId, url) {
+  const loaded = await loadWebhookMerchant(req, res, "manage", queryOrgId(url));
+  if (!loaded) return;
+
+  const row = await findWebhookById(webhookId);
+  if (!row || !row.enabled || row.org_id !== loaded.org.id) {
+    sendError(res, 404, "not_found", "Webhook not found");
+    return;
+  }
+
+  const signingSecret = generateWebhookSigningSecret();
+  const updated = await rotateWebhookSigningSecret(
+    webhookId,
+    loaded.org.id,
+    signingSecret,
+  );
+  if (!updated) {
+    sendError(res, 404, "not_found", "Webhook not found");
+    return;
+  }
+
+  await insertAuditEvent({
+    actorUserId: loaded.caller.userId,
+    orgId: loaded.org.id,
+    action: AUDIT_ACTIONS.webhookRotateSecret,
+    metadata: { webhookId },
+  });
+
+  sendJson(res, 200, toWebhookCreated(updated, signingSecret));
 }
 
 /**

@@ -14,22 +14,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.cryptogate.cashier.api.ApiError
 import com.cryptogate.cashier.api.AssetNetworkCatalog
+import com.cryptogate.cashier.api.BlockingOrder
 import com.cryptogate.cashier.api.CashierPosSurface
+import com.cryptogate.cashier.api.JsonParsers
 import com.cryptogate.cashier.api.NetworkReachability
 import com.cryptogate.cashier.api.OrderDefaults
 import com.cryptogate.cashier.api.OrderStatusUi
 import com.cryptogate.cashier.api.PaymentDetails
+import com.cryptogate.cashier.api.PaymentOrder
 import com.cryptogate.cashier.api.Session
 import com.cryptogate.cashier.ui.CreateOrderScreen
 import com.cryptogate.cashier.ui.HomeScreen
 import com.cryptogate.cashier.ui.LoginScreen
 import com.cryptogate.cashier.ui.OrderPayScreen
+import com.cryptogate.cashier.ui.TodayOrdersScreen
 import com.cryptogate.cashier.ui.theme.CashierTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 /** Only POS flows — no wallet / xPub / matching settings screens (M2-73). */
-private enum class PosScreen { Home, Create, Pay }
+private enum class PosScreen { Home, Create, Pay, Today }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +62,11 @@ class MainActivity : ComponentActivity() {
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
                     var watchingOrderId by remember { mutableStateOf<String?>(null) }
+                    var blockingOrder by remember { mutableStateOf<BlockingOrder?>(null) }
+                    var todayOrders by remember { mutableStateOf<List<PaymentOrder>>(emptyList()) }
+                    var todayLoading by remember { mutableStateOf(false) }
+                    var todayError by remember { mutableStateOf<String?>(null) }
+                    var cancelling by remember { mutableStateOf(false) }
                     var online by remember { mutableStateOf(NetworkReachability.isOnline(this@MainActivity)) }
 
                     LaunchedEffect(Unit) {
@@ -132,12 +142,27 @@ class MainActivity : ComponentActivity() {
                                     return@HomeScreen
                                 }
                                 error = null
+                                blockingOrder = null
                                 amount = ""
                                 merchantReference = ""
                                 val pair = AssetNetworkCatalog.defaultPair(chainEnv)
                                 asset = pair.asset
                                 network = pair.network
                                 screen = PosScreen.Create
+                            },
+                            onTodayOrders = {
+                                screen = PosScreen.Today
+                                todayLoading = true
+                                todayError = null
+                                scope.launch {
+                                    try {
+                                        todayOrders = app.api.listOrders()
+                                    } catch (e: Exception) {
+                                        todayError = CashierPosSurface.userMessage(e)
+                                    } finally {
+                                        todayLoading = false
+                                    }
+                                }
                             },
                             onSignOut = {
                                 scope.launch {
@@ -160,7 +185,24 @@ class MainActivity : ComponentActivity() {
                             error = error,
                             loading = loading,
                             online = online,
-                            onAmountChange = { amount = it; error = null },
+                            blockingOrder = blockingOrder,
+                            onOpenBlockingOrder = { block ->
+                                scope.launch {
+                                    loading = true
+                                    error = null
+                                    try {
+                                        payment = app.api.getPaymentDetails(block.id)
+                                        watchingOrderId = block.id
+                                        blockingOrder = null
+                                        screen = PosScreen.Pay
+                                    } catch (e: Exception) {
+                                        error = CashierPosSurface.userMessage(e)
+                                    } finally {
+                                        loading = false
+                                    }
+                                }
+                            },
+                            onAmountChange = { amount = it; error = null; blockingOrder = null },
                             onPairChange = {
                                 asset = it.asset
                                 network = it.network
@@ -177,6 +219,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     loading = true
                                     error = null
+                                    blockingOrder = null
                                     try {
                                         val order = app.api.createOrder(
                                             amount = amount.trim(),
@@ -190,7 +233,15 @@ class MainActivity : ComponentActivity() {
                                         watchingOrderId = order.id
                                         screen = PosScreen.Pay
                                     } catch (e: Exception) {
-                                        error = CashierPosSurface.userMessage(e)
+                                        if (
+                                            e is ApiError &&
+                                            (e.code == "mode_b_amount_in_use" || e.code == "mode_d_memo_in_use")
+                                        ) {
+                                            blockingOrder = JsonParsers.parseBlockingOrder(e.details)
+                                            error = null
+                                        } else {
+                                            error = CashierPosSurface.userMessage(e)
+                                        }
                                     } finally {
                                         loading = false
                                     }
@@ -198,6 +249,30 @@ class MainActivity : ComponentActivity() {
                             },
                             onBack = {
                                 error = null
+                                blockingOrder = null
+                                screen = PosScreen.Home
+                            },
+                        )
+                        PosScreen.Today -> TodayOrdersScreen(
+                            orders = todayOrders,
+                            loading = todayLoading,
+                            error = todayError,
+                            onSelect = { order ->
+                                scope.launch {
+                                    todayLoading = true
+                                    try {
+                                        payment = app.api.getPaymentDetails(order.id)
+                                        watchingOrderId = order.id
+                                        screen = PosScreen.Pay
+                                    } catch (e: Exception) {
+                                        todayError = CashierPosSurface.userMessage(e)
+                                    } finally {
+                                        todayLoading = false
+                                    }
+                                }
+                            },
+                            onBack = {
+                                todayError = null
                                 screen = PosScreen.Home
                             },
                         )
@@ -209,6 +284,22 @@ class MainActivity : ComponentActivity() {
                                 OrderPayScreen(
                                     details = details,
                                     merchantReference = merchantReference.trim().ifEmpty { null },
+                                    canCancel = details.status == OrderStatusUi.PENDING,
+                                    cancelling = cancelling,
+                                    onCancel = {
+                                        val id = watchingOrderId ?: return@OrderPayScreen
+                                        scope.launch {
+                                            cancelling = true
+                                            try {
+                                                app.api.cancelOrder(id)
+                                                payment = app.api.getPaymentDetails(id)
+                                            } catch (e: Exception) {
+                                                error = CashierPosSurface.userMessage(e)
+                                            } finally {
+                                                cancelling = false
+                                            }
+                                        }
+                                    },
                                     onDone = {
                                         payment = null
                                         watchingOrderId = null

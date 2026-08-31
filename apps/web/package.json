@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Platform / agent / merchant shells — merchant create order (M2-60).",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-with-pay.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",

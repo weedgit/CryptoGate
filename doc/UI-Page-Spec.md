@@ -21,48 +21,6 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 | `apps/payment-page` | Payer (no login) |
 | Service bill checkout | Merchant payer of platform fees (linked from portal) |
 | `apps/cashier-apk` | Cashier on POS device |
-| `apps/web` — `/` marketing | Public advertise / broadcast entry (pre-auth) |
-| `apps/web` — `/login` | Portal picker (Merchant / Agent / Platform) |
-
----
-
-## Part M0 — Public marketing (pre-auth)
-
-### M0. Marketing landing
-
-| | |
-| --- | --- |
-| **Route** | `/` |
-| **Access** | Public (no session) |
-
-**Content**
-
-- Brand (gate mark + CryptoGate) · Product anchor · **Sign in** CTA
-- Hero: watch-only / merchant-controlled positioning; USDT Tron live rail
-- Glass **payment order** mock (TRC-20, 19 confirmations, **Completed** — never “Paid”)
-- Product pillars: watch-only · honest order state · counter / POS
-- Audience pills (hotels, travel, retail, sites, agents)
-- Soft ink + grid background — **not** the portal login radar scene
-- Footer: support contact
-
-**Out of scope on this page**
-
-- Settlement / xPub / matching settings
-- Live chain telemetry claimed as production metrics
-- Guest payment checkout (that is `apps/payment-page`)
-
-### M0b. Sign-in hub
-
-| | |
-| --- | --- |
-| **Route** | `/login` |
-| **Access** | Public (pre-auth) |
-
-**Content**
-
-- Choose portal: Merchant · Agent · Platform → existing portal login (`/merchant`, `/agent`, `/platform`)
-- Back link to `/`
-- Note: guest pay links do not require sign-in
 
 ---
 
@@ -72,7 +30,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 | | |
 | --- | --- |
-| **Route** | `/merchant`, `/agent`, or `/platform` (unauthenticated) — entry also via `/login` hub |
+| **Route** | `/merchant`, `/agent`, or `/platform` (unauthenticated) |
 | **Access** | All users (pre-auth) |
 
 **Content**
@@ -894,17 +852,16 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Content**
 
-- **Site selector** (multi-location parent): All sites / per site — filters all widgets
-- KPIs: today’s orders, completed volume, pending count, anomaly count, expiring soon
-- **Effective volume fee %** and tier badge (O, A, V) — not shown to C
-- Recent payment orders table (C: own only)
-- **Alerts banner** (priority order):
-  - Settlement address cool-down pending
-  - xPub change pending
-  - Site override awaiting parent Owner approval (parent O)
-  - Network maintenance (asset/network)
-  - Service bill overdue (O, A)
-  - Webhook delivery failures (O, A)
+- Period controls (topbar): **Today / 7d / MTD** + custom date range — filters volume / fee / sites widgets
+- **Alerts banner** (priority): settlement cool-down, xPub cool-down, network maintenance, overdue service bills (O/A/V), open payment anomalies
+- **KPIs**
+  - O / A / V: **Completed volume**, **Platform fee** (est. from effective volume fee %), **Tier** + fee %, **Open orders** (pending + verifying), **Anomalies**
+  - C: Completed volume, Open orders, Anomalies (own scope) — no fee / tier
+- **Network status** strip (O/A/V): enabled pairs with asset/network icons + orderability lamps → Networks
+- **Split panels:** Recent payment orders · Open anomalies (C: own only on orders)
+- **Sites** summary when child sites exist (O/A/V): orders / volume / anomalies in period → Sites
+
+**Not on D1 (Phase 1):** live login/session table (IP / device) — use Security / audit when available; full analytics charts.
 
 ---
 
@@ -1042,8 +999,10 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Content**
 
-- Table: site name, status, default inherit/overrides summary, volume (period)
-- **+ Add merchant (site) account** (O, A) → D8
+- KPIs: total sites, active, paused (themed cards)
+- Table: site name, contact email, created, status badge, org id → site detail
+- **+ Add site** in top bar (O, A) → D8
+- Empty / single-location states as polished cards
 
 ---
 
@@ -1081,9 +1040,10 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Content**
 
-- Date range (by order **created** date), site filter with org names
-- KPIs: completed volume, orders in range, anomaly count
-- Breakdowns: by status (count + volume), asset/network, **site**, **day**, cashier (email when known), matching mode
+- Date range in **top bar** (7d / 30d / MTD / All pills; by order **created** date); site filter + CSV in top-bar actions when applicable
+- KPIs: completed volume, orders in range, anomaly count, date window
+- Breakdowns: by status (count + volume), asset/network (**AssetIcon** + **NetworkIcon**), **site**, **day**, cashier (email when known), matching mode
+- Volume share bars on breakdown rows (relative to max volume in that table)
 - CSV export: org_name, merchant_reference, received_amount, created_by_email (Cashier 403)
 - Schedule export (Phase 1 optional — if cut, hide)
 
@@ -1134,6 +1094,19 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - Default order validity
 - Order delete / retention period
 - Underpay tolerance (Mode B; disabled or capped when Mode C active)
+
+#### D11e. Fulfillment policy (Phase 2)
+
+- **Route:** same page `/merchant/settings/settlement` (Order policies block) or sub-tab
+- **Access:** O ✓ · A ✓ · V R · C — (Cashier hidden / 403)
+- Radio:
+  - **Standard** (`on_completed`) — release goods only when order is **Completed** (chain confirmations met). Default.
+  - **Counter** (`on_verifying`) — staff may release when status is **Verifying** (tx detected); order still shows verifying on guest page until completed.
+- Risk acknowledgment modal for counter mode; MFA on save
+- Copy: “Does not change blockchain confirmation rules or platform minimums.”
+- Site inheritance panel (like matching mode); Owner approval for site override
+- Cashier/APK: read-only **Chain status** + optional **OK to release** hint when policy allows — never editable
+- Spec: [Merchant-Fulfillment-Policy.md](Merchant-Fulfillment-Policy.md)
 
 ---
 

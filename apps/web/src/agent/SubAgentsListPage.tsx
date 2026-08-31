@@ -15,6 +15,7 @@ import {
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import {
   merchantCountsByAgentId,
   merchantOrgIdsInAgentSubtree,
@@ -520,18 +521,23 @@ export function SubAgentsListPage({ session }: Props) {
   }, [filtered, page]);
 
   const filteredIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const agentIds = useMemo(() => agents.map((row) => row.id), [agents]);
+
+  useAutoSelectOrgListRow({
+    selectedId,
+    loading,
+    allIds: agentIds,
+    filteredIds,
+    basePath: "/agent/agents",
+    navigate,
+    emailIndexLoading,
+    query,
+  });
 
   const selected = useMemo(() => {
     if (!selectedId) return null;
     return agents.find((a) => a.id === selectedId) ?? null;
   }, [agents, selectedId]);
-
-  useEffect(() => {
-    if (!selectedId || loading) return;
-    if (!agents.some((a) => a.id === selectedId)) {
-      navigate("/agent/agents", { replace: true });
-    }
-  }, [selectedId, agents, loading, navigate]);
 
   useEffect(() => {
     if (!selectedId) return;

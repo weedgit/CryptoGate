@@ -748,6 +748,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/fulfillment-policy:
+    get:
+      tags: [orgs]
+      operationId: getFulfillmentPolicySettings
+      summary: Get merchant fulfillment policy (default on_completed when unset)
+      description: >
+        When staff may release goods vs chain-final Completed. Merchant Owner,
+        Administrator, or Viewer may read. Cashier receives 403. Stamped onto
+        each payment order at create; changing default does not rewrite open orders.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Current fulfillment policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FulfillmentPolicySettings"
+        "400":
+          description: Org is not a merchant (or merchant site)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (e.g. Cashier)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: putFulfillmentPolicySettings
+      summary: Set merchant fulfillment policy (Owner / Administrator only)
+      description: >
+        on_completed = release goods only after Completed. on_verifying = staff
+        may release when tx is detected (Verifying). Does not lower blockchain
+        confirmation requirements. Cashier receives 403.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFulfillmentPolicyRequest"
+      responses:
+        "200":
+          description: Fulfillment policy saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FulfillmentPolicySettings"
+        "400":
+          description: Invalid fulfillmentPolicy or non-merchant org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden (Cashier / Viewer / insufficient role)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found or not in caller subtree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orgs/{orgId}/settlement:
     get:
       tags: [orgs]
@@ -1152,7 +1245,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/notification-preferences:
+    get:
+      tags: [orgs]
+      operationId: getNotificationPreferences
+      summary: List notification email/in-app preferences for the caller on this org
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "200":
+          description: Preference rows (defaults true/true when unset)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferenceList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Org not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [orgs]
+      operationId: putNotificationPreferences
+      summary: Save notification preferences for the caller on this org
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationPreferencesRequest"
+      responses:
+        "200":
+          description: Saved preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferenceList"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /orgs/{orgId}/retention:
+
     get:
       tags: [orgs]
       operationId: getOrgRetentionSettings
@@ -1916,7 +2083,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /webhooks/{webhookId}/rotate-secret:
+    post:
+      tags: [webhooks]
+      operationId: rotateWebhookSecret
+      summary: Rotate webhook signing secret (shown once)
+      description: >
+        Owner/Admin only. Replaces signing_secret in place and returns it once.
+        GET/list never returns signingSecret.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/webhookId"
+      responses:
+        "200":
+          description: Endpoint metadata with new signingSecret once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookCreated"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Webhook not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /webhooks/test:
+
     post:
       tags: [webhooks]
       operationId: testWebhook
@@ -3518,6 +3723,10 @@ components:
       type: string
       description: B Standard, C Amount fingerprint, D Memo tag, S Smart address
       enum: [B, C, D, S]
+    FulfillmentPolicy:
+      type: string
+      description: When merchant staff may release goods (chain status unchanged)
+      enum: [on_completed, on_verifying]
     MatchingModeSettings:
       type: object
       required: [orgId, matchingMode]
@@ -3543,6 +3752,32 @@ components:
           type: string
           format: uuid
           description: Org whose stored matching mode was returned
+    FulfillmentPolicySettings:
+      type: object
+      required: [orgId, fulfillmentPolicy]
+      properties:
+        orgId:
+          type: string
+          description: Merchant or merchant_site org id (the requested org)
+        fulfillmentPolicy:
+          $ref: "#/components/schemas/FulfillmentPolicy"
+        source:
+          $ref: "#/components/schemas/SettingsSource"
+        parentOrgId:
+          type: string
+          format: uuid
+          nullable: true
+        effectiveOrgId:
+          type: string
+          format: uuid
+          description: Org whose stored fulfillment policy was returned
+    UpdateFulfillmentPolicyRequest:
+      type: object
+      required: [fulfillmentPolicy]
+      additionalProperties: false
+      properties:
+        fulfillmentPolicy:
+          $ref: "#/components/schemas/FulfillmentPolicy"
     SettingsSource:
       type: string
       description: >
@@ -3551,7 +3786,7 @@ components:
       enum: [merchant, inherit, override]
     SiteOverrideKind:
       type: string
-      enum: [settlement, xpub, matching_mode, order_retention]
+      enum: [settlement, xpub, matching_mode, order_retention, fulfillment_policy]
     SiteOverrideStatus:
       type: string
       enum: [pending, approved, denied]
@@ -4417,6 +4652,9 @@ components:
           type: string
           nullable: true
           description: Merchant PO / purpose reference at create
+        fulfillmentPolicy:
+          $ref: "#/components/schemas/FulfillmentPolicy"
+          description: When staff may release goods; stamped at create
         anomalyReason:
           type: string
           nullable: true
@@ -4564,7 +4802,45 @@ components:
           type: string
           format: date-time
           nullable: true
+    NotificationEventType:
+      type: string
+      enum:
+        - payment_completed
+        - payment_anomaly
+        - settlement_address
+        - xpub_change
+        - webhook_failures
+        - service_bills
+        - site_overrides
+    NotificationPreference:
+      type: object
+      required: [eventType, email, inApp]
+      properties:
+        eventType:
+          $ref: "#/components/schemas/NotificationEventType"
+        email:
+          type: boolean
+        inApp:
+          type: boolean
+    NotificationPreferenceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationPreference"
+    UpdateNotificationPreferencesRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/NotificationPreference"
     WebhookEventType:
+
       type: string
       description: Matches @cryptogate/domain WebhookEventType
       enum:
@@ -4575,6 +4851,10 @@ components:
         - payment_order.payment_anomaly
         - payment_order.failed
         - webhook.test
+    ApiKeyScope:
+      type: string
+      enum: [orders, webhooks]
+      description: Machine-key capability scope (D14)
     CreateApiKeyRequest:
       type: object
       required: [label]
@@ -4589,6 +4869,21 @@ components:
           format: date-time
           nullable: true
           description: Optional expiry; null = no expiry. Rejected if in the past.
+        scopes:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+          description: Defaults to both orders and webhooks when omitted
+        ipAllowlist:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          description: Empty or omitted = any IP. Exact IPv4/IPv6 or IPv4 CIDR.
     RotateApiKeyRequest:
       type: object
       properties:
@@ -4599,9 +4894,20 @@ components:
           description: >
             Optional new expiry for the replacement key. Omit to keep the
             previous key's expiresAt (including null).
+        scopes:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        ipAllowlist:
+          type: array
+          maxItems: 32
+          items:
+            type: string
     ApiKey:
       type: object
-      required: [id, orgId, keyId, label, createdAt, lastUsedAt, expiresAt]
+      required: [id, orgId, keyId, label, createdAt, lastUsedAt, expiresAt, scopes, ipAllowlist]
       description: >
         Public API key metadata — never `secret`. Matches @cryptogate/domain ApiKey.
       properties:
@@ -4630,6 +4936,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        ipAllowlist:
+          type: array
+          items:
+            type: string
     ApiKeyList:
       type: object
       required: [items]
@@ -4864,6 +5178,12 @@ components:
           type: string
           nullable: true
           description: Platform billing wallet (receive) snapshotted at mark-paid
+        remittancePayTo:
+          type: string
+          nullable: true
+          description: >
+            Effective remittance destination for invoice / pay card display —
+            rxAddress when set, otherwise live platform billing wallet payTo.
         txAddress:
           type: string
           nullable: true

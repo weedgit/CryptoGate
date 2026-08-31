@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import {
   ApiError,
   assignOrgUserRole,
+  getOrg,
   inviteOrgUser,
   listOrgMemberEmails,
   listOrgUsers,
@@ -17,6 +18,7 @@ import {
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
+  type OrgAccount,
   type OrgMember,
   type Session,
 } from "./api";
@@ -25,10 +27,12 @@ import { AuthToast } from "../auth/AuthToast";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import {
+  orgTypeLabel,
   primaryMerchantOrgId,
   roleLabel,
   sessionCanManageTeam,
   sessionRoleOnOrg,
+  structureLabel,
 } from "./org";
 import {
   fetchRegisteredEmailIndex,
@@ -96,6 +100,7 @@ export function TeamSettingsPage({ session }: Props) {
   );
 
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [org, setOrg] = useState<OrgAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -135,7 +140,12 @@ export function TeamSettingsPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      setMembers(await listOrgUsers(orgId));
+      const [roster, account] = await Promise.all([
+        listOrgUsers(orgId),
+        getOrg(orgId),
+      ]);
+      setMembers(roster);
+      setOrg(account);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load team");
     } finally {
@@ -308,6 +318,25 @@ export function TeamSettingsPage({ session }: Props) {
         </div>
       ) : null}
 
+      {org ? (
+        <header className="plat-team__org">
+          <p className="plat-team__org-eyebrow">Organization</p>
+          <div className="plat-team__org-title-row">
+            <h1 className="plat-team__org-name">{org.name}</h1>
+            <div className="plat-team__org-chips">
+              <span className="plat-team__org-chip">
+                {orgTypeLabel(org.type)}
+              </span>
+              <span className="plat-team__org-chip plat-team__org-chip--muted">
+                {structureLabel(org.structure)}
+              </span>
+            </div>
+          </div>
+          <p className="plat-team__org-note">
+            Legal name and structure are managed by CryptoGate.
+          </p>
+        </header>
+      ) : null}
 
       <section className="plat-team__card">
         <header className="plat-team__card-head">

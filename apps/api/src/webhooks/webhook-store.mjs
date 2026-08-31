@@ -106,6 +106,27 @@ export async function disableWebhookEndpoint(webhookId, orgId) {
 }
 
 /**
+ * Replace signing secret in place (D14 rotate).
+ * @param {string} webhookId
+ * @param {string} orgId
+ * @param {string} signingSecret
+ */
+export async function rotateWebhookSigningSecret(
+  webhookId,
+  orgId,
+  signingSecret,
+) {
+  const { rows } = await getPool().query(
+    `UPDATE webhook_endpoints
+     SET signing_secret = $3
+     WHERE id = $1 AND org_id = $2 AND enabled = true
+     RETURNING id, org_id, url, events, enabled, created_at`,
+    [webhookId, orgId, signingSecret],
+  );
+  return rows[0] ?? null;
+}
+
+/**
  * @param {{
  *   webhookId: string,
  *   eventId: string,
@@ -294,7 +315,8 @@ export async function cloneWebhookDeliveryForResend(source) {
  */
 export async function listWebhookDeliveries(webhookId, limit = 50) {
   const { rows } = await getPool().query(
-    `SELECT id, event_id, status, attempt, http_status, next_retry_at
+    `SELECT id, event_id, event_type, payload, status, attempt, http_status,
+            next_retry_at, created_at
      FROM webhook_deliveries
      WHERE webhook_id = $1
      ORDER BY created_at DESC

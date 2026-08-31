@@ -6,6 +6,7 @@ import {
   MembershipStatus,
   OrderStatus,
   MatchingMode,
+  FulfillmentPolicy,
   AddressSource,
   DEFAULT_ASSET_NETWORK,
   AssetCode,
@@ -64,6 +65,11 @@ describe("@cryptogate/domain", () => {
     );
   });
 
+  it("exposes Phase 2 fulfillment policy enum", () => {
+    assert.equal(FulfillmentPolicy.OnCompleted, "on_completed");
+    assert.equal(FulfillmentPolicy.OnVerifying, "on_verifying");
+  });
+
   it("defaults first network to USDT on Tron", () => {
     assert.equal(DEFAULT_ASSET_NETWORK.asset, AssetCode.USDT);
     assert.equal(DEFAULT_ASSET_NETWORK.network, NetworkId.Tron);
@@ -101,6 +107,7 @@ describe("@cryptogate/domain", () => {
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
     assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);
+    assert.equal(USDT_TRON_NILE.requiredConfirmations, 3);
     assert.equal(
       USDT_TRON_NILE.contractAddress,
       "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf",

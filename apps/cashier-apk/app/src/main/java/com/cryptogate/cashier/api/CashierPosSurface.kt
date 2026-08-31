@@ -25,6 +25,11 @@ object CashierPosSurface {
     fun userMessage(error: Throwable): String {
         when (error) {
             is ApiError -> {
+                if (error.code == "mode_b_amount_in_use" || error.code == "mode_d_memo_in_use") {
+                    return error.message.trim().ifEmpty {
+                        "Another open order is using this amount. Open it or pick a different amount."
+                    }
+                }
                 if (error.httpStatus == 403) {
                     return FORBIDDEN_POS
                 }

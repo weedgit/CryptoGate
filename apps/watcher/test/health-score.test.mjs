@@ -38,7 +38,7 @@ describe("watcher health score", () => {
   });
 
   it("applies lag penalty on read", () => {
-    const now = Date.parse("2026-08-27T00:01:00.000Z");
+    const now = Date.parse("2026-08-27T00:04:00.000Z");
     const out = applyHeartbeatLag(
       {
         healthScore: 100,
@@ -48,7 +48,7 @@ describe("watcher health score", () => {
       },
       now,
     );
-    assert.equal(out.lagMs, 60_000);
+    assert.equal(out.lagMs, 240_000);
     assert.equal(out.status, "down");
     assert.ok(out.healthScore <= 20);
   });

@@ -27,6 +27,7 @@ import { MerchantDetailCard } from "./MerchantDetailCard";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanIssueServiceBill } from "./org";
 import {
@@ -592,18 +593,23 @@ export function MerchantsListPage({ session }: Props) {
   }, [filtered, page]);
 
   const filteredIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const merchantIds = useMemo(() => merchants.map((row) => row.id), [merchants]);
+
+  useAutoSelectOrgListRow({
+    selectedId,
+    loading,
+    allIds: merchantIds,
+    filteredIds,
+    basePath: "/platform/merchants",
+    navigate,
+    emailIndexLoading,
+    query,
+  });
 
   const selected = useMemo(() => {
     if (!selectedId) return null;
     return merchants.find((m) => m.id === selectedId) ?? null;
   }, [merchants, selectedId]);
-
-  useEffect(() => {
-    if (!selectedId || loading) return;
-    if (!merchants.some((m) => m.id === selectedId)) {
-      navigate("/platform/merchants", { replace: true });
-    }
-  }, [selectedId, merchants, loading, navigate]);
 
   useEffect(() => {
     if (!selectedId) return;

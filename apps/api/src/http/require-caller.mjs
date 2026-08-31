@@ -1,9 +1,9 @@
+import { sendError } from "./json.mjs";
 import { findUserById } from "../auth/users.mjs";
 import { loadCaller, isPlatformOwner } from "../orgs/org-access.mjs";
 import { findMembership } from "../orgs/membership-store.mjs";
 import { isPlatformOperator } from "../orgs/membership-rules.mjs";
 import { requireSession } from "./require-session.mjs";
-import { sendError } from "./json.mjs";
 import { authenticateApiKeyRequest } from "../signing/verify-api-key.mjs";
 import { signingRejectMessage } from "../signing/signing-rules.mjs";
 
@@ -14,6 +14,24 @@ function apiKeyHeader(headers) {
   const raw = headers["x-api-key"];
   const value = Array.isArray(raw) ? raw[0] : raw;
   return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * Session callers pass. Machine keys must include `scope` (orders|webhooks).
+ * @param {{ apiKeyScopes?: string[] } | null} caller
+ * @param {import("node:http").ServerResponse} res
+ * @param {string} scope
+ */
+export function assertApiKeyScope(caller, res, scope) {
+  if (!caller?.apiKeyScopes) return true;
+  if (caller.apiKeyScopes.includes(scope)) return true;
+  sendError(
+    res,
+    403,
+    "insufficient_scope",
+    `API key is missing required scope: ${scope}`,
+  );
+  return false;
 }
 
 /**
@@ -32,6 +50,10 @@ export async function requireCaller(req, res) {
   if (apiKeyHeader(req.headers)) {
     const auth = await authenticateApiKeyRequest(req);
     if (!auth.ok) {
+      if (auth.code === "ip_not_allowed") {
+        sendError(res, 403, "ip_not_allowed", "API key is not allowed from this IP");
+        return null;
+      }
       sendError(res, 401, auth.code, signingRejectMessage());
       return null;
     }
@@ -47,6 +69,7 @@ export async function requireCaller(req, res) {
       memberships,
       platformOwner: isPlatformOwner(memberships),
       platformOperator: isPlatformOperator(memberships),
+      apiKeyScopes: auth.key.scopes,
     };
   }
 

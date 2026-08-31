@@ -178,6 +178,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Infrastructure",
     items: [
       {
+        to: "/platform/settings",
+        label: "Settings",
+        matchPrefix: "/platform/settings",
+        Icon: TeamNavIcon,
+      },
+      {
         to: "/platform/settings/networks",
         label: "Network",
         matchPrefix: "/platform/settings/networks",
@@ -251,8 +257,10 @@ export function PlatformShell({
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [shellEnter, setShellEnter] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+  const { mobileNavOpen, isTabletOrBelow, closeMobileNav, toggleMobileNav } =
     usePortalMobileNav();
+  /** Drawer must show labels even if desktop preference is collapsed. */
+  const navCollapsed = collapsed && !isTabletOrBelow;
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -298,7 +306,7 @@ export function PlatformShell({
 
   return (
     <div
-      className={`shell platform-shell${collapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
+      className={`shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
       <button
         type="button"
@@ -315,7 +323,7 @@ export function PlatformShell({
       >
         <div className="logo-row">
           <div className="logo-mark">CG</div>
-          {!collapsed ? (
+          {!navCollapsed ? (
             <div className="logo-copy">
               <p className="logo-title">CryptoGate</p>
               <span className="logo-badge">PLATFORM</span>
@@ -324,21 +332,21 @@ export function PlatformShell({
           <button
             type="button"
             className="sidebar-toggle"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!collapsed}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!navCollapsed}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => setCollapsed((v) => !v)}
           >
             <SidebarCollapseIcon
               className="sidebar-toggle-icon"
-              expanded={!collapsed}
+              expanded={!navCollapsed}
             />
           </button>
         </div>
         <nav className="nav-list" aria-label="Platform" ref={navRef}>
           {NAV_GROUPS.map((group, groupIndex) => (
             <div key={group.label} className="nav-group">
-              {!collapsed ? (
+              {!navCollapsed ? (
                 <p
                   className="nav-label"
                   style={
@@ -367,7 +375,7 @@ export function PlatformShell({
                     }
                   >
                     <Icon />
-                    {!collapsed ? <span>{item.label}</span> : null}
+                    {!navCollapsed ? <span>{item.label}</span> : null}
                   </NavLink>
                 );
               })}
@@ -378,7 +386,7 @@ export function PlatformShell({
           <SidebarProfileMenu
             session={session}
             variant="platform"
-            collapsed={collapsed}
+            collapsed={navCollapsed}
             onSignOut={onSignOut}
             onSessionRefresh={onSessionRefresh}
           />

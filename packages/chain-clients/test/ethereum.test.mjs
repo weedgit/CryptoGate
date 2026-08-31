@@ -11,7 +11,47 @@ import {
   ERC20_TRANSFER_TOPIC,
 } from "../ethereum/index.mjs";
 
+const ETH_TEST_ENV_KEYS = ["ETH_RPC_URL", "ETHEREUM_RPC_URL"];
+
+/**
+ * @param {Record<string, string | undefined>} patch
+ * @returns {() => void}
+ */
+function withEnv(patch) {
+  /** @type {Record<string, string | undefined>} */
+  const prev = {};
+  for (const key of Object.keys(patch)) {
+    prev[key] = process.env[key];
+    const next = patch[key];
+    if (next === undefined) delete process.env[key];
+    else process.env[key] = next;
+  }
+  return () => {
+    for (const [key, value] of Object.entries(prev)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+}
+
+function clearEthTestEnv() {
+  /** @type {Record<string, string | undefined>} */
+  const patch = {};
+  for (const key of ETH_TEST_ENV_KEYS) patch[key] = undefined;
+  return withEnv(patch);
+}
+
 describe("@cryptogate/chain-clients/ethereum stub", () => {
+  let restore = () => {};
+
+  before(() => {
+    restore = clearEthTestEnv();
+  });
+
+  after(() => {
+    restore();
+  });
+
   it("healthCheck returns stub mode without ETH_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "ethereum");

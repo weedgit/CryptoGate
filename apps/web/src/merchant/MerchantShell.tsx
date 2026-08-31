@@ -10,11 +10,9 @@ import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
 import {
   AlertsNavIcon,
   BillsNavIcon,
-  BillingNavIcon,
   DashboardNavIcon,
   IntegrationsNavIcon,
   OrdersNavIcon,
-  OrgNavIcon,
   ReportsNavIcon,
   SettlementNavIcon,
   SitesNavIcon,
@@ -90,12 +88,6 @@ const OWNER_GROUPS: NavGroup[] = [
         Icon: SettlementNavIcon,
       },
       {
-        to: "/merchant/settings/organization",
-        label: "Org",
-        matchPrefix: "/merchant/settings/organization",
-        Icon: OrgNavIcon,
-      },
-      {
         to: "/merchant/settings/team",
         label: "Team",
         matchPrefix: "/merchant/settings/team",
@@ -111,12 +103,6 @@ const OWNER_GROUPS: NavGroup[] = [
         label: "Integrations",
         matchPrefix: "/merchant/settings/integrations",
         Icon: IntegrationsNavIcon,
-      },
-      {
-        to: "/merchant/settings/billing",
-        label: "Billing",
-        matchPrefix: "/merchant/settings/billing",
-        Icon: BillingNavIcon,
       },
       {
         to: "/merchant/settings/notifications",
@@ -273,11 +259,6 @@ export function MerchantShell({
           ))}
         </nav>
         <div className="sidebar-foot">
-          <p>
-            MERCH_ID //{" "}
-            {merchantId ? merchantId.slice(0, 8).toUpperCase() : "—"}
-          </p>
-          <p>{cashier ? "Cashier session active" : "Enterprise tier active"}</p>
           <SidebarProfileMenu
             session={session}
             variant="merchant"

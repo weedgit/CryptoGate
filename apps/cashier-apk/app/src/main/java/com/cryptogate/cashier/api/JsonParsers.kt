@@ -42,6 +42,7 @@ object JsonParsers {
                 code = root.optString("code", "http_error"),
                 message = root.optString("message", "Request failed"),
                 httpStatus = httpStatus,
+                details = root.optJSONObject("details"),
             )
         } catch (_: Exception) {
             ApiError(
@@ -50,6 +51,22 @@ object JsonParsers {
                 httpStatus = httpStatus,
             )
         }
+    }
+
+    fun parseBlockingOrder(details: JSONObject?): BlockingOrder? {
+        if (details == null) return null
+        val blocking = details.optJSONObject("blockingOrder") ?: return null
+        val id = blocking.optString("id", "").trim()
+        val orderNumber = blocking.optString("orderNumber", "").trim()
+        if (id.isEmpty() || orderNumber.isEmpty()) return null
+        return BlockingOrder(
+            id = id,
+            orderNumber = orderNumber,
+            status = blocking.optString("status", "pending_payment"),
+            payableAmount = blocking.optString("payableAmount", ""),
+            asset = blocking.optString("asset", ""),
+            network = blocking.optString("network", ""),
+        )
     }
 
     fun loginRequestJson(email: String, password: String, orgId: String?): String {
@@ -85,9 +102,10 @@ object JsonParsers {
             currency = obj.getString("currency"),
         )
 
-    fun parsePaymentOrder(body: String): PaymentOrder {
-        val obj = JSONObject(body)
-        return PaymentOrder(
+    fun parsePaymentOrder(body: String): PaymentOrder = parsePaymentOrderObject(JSONObject(body))
+
+    fun parsePaymentOrderObject(obj: JSONObject): PaymentOrder =
+        PaymentOrder(
             id = obj.getString("id"),
             orderNumber = obj.getString("orderNumber"),
             status = obj.getString("status"),
@@ -100,7 +118,6 @@ object JsonParsers {
             memoOrTag = obj.optNullableString("memoOrTag"),
             merchantReference = obj.optNullableString("merchantReference"),
         )
-    }
 
     fun parsePaymentDetails(body: String): PaymentDetails {
         val obj = JSONObject(body)
@@ -122,7 +139,19 @@ object JsonParsers {
             memoOrTag = obj.optNullableString("memoOrTag"),
             memoWarning = obj.optNullableString("memoWarning"),
             contractAddress = obj.optNullableString("contractAddress"),
+            confirmations = obj.optInt("confirmations", 0),
+            requiredConfirmations = obj.optInt("requiredConfirmations", 1),
         )
+    }
+
+    fun parsePaymentOrderList(body: String): List<PaymentOrder> {
+        val root = JSONObject(body)
+        val items = root.optJSONArray("items") ?: JSONArray()
+        val out = mutableListOf<PaymentOrder>()
+        for (i in 0 until items.length()) {
+            out.add(parsePaymentOrderObject(items.getJSONObject(i)))
+        }
+        return out
     }
 
     private fun JSONObject.optNullableString(key: String): String? {

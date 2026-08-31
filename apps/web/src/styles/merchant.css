@@ -1980,6 +1980,55 @@ select {
   overflow: hidden;
 }
 
+.order-detail-gateway__qr.is-terminal {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(0, 212, 200, 0.22);
+  box-shadow: none;
+}
+
+.order-detail-gateway__qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted, rgba(148, 163, 184, 0.95));
+}
+
+.order-detail-gateway__qr-placeholder strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #e2e8f0);
+  letter-spacing: 0.02em;
+}
+
+.order-detail-gateway__qr-placeholder--terminal strong {
+  color: var(--ok, #4ade80);
+}
+
+.order-detail-gateway__qr-void {
+  color: var(--muted, #94a3b8) !important;
+}
+
+.order-detail-gateway__qr-check {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: rgba(74, 222, 128, 0.14);
+  border: 2px solid rgba(74, 222, 128, 0.45);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ok, #4ade80);
+  line-height: 1;
+}
+
 .order-detail-gateway__qr img,
 .order-detail-gateway__qr canvas {
   display: block;
@@ -5385,10 +5434,1073 @@ select {
   font-size: 18px;
 }
 
+/* —— Merchant Reports (D10) professional restyle —— */
+.platform-shell .merchant-reports {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.platform-shell .merchant-reports__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-reports__topbar-site {
+  display: block;
+  margin: 0;
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.platform-shell .merchant-reports__topbar-site .field-shell {
+  min-height: 36px;
+}
+
+.platform-shell .merchant-reports__topbar-site .searchable-select__trigger {
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-reports__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.platform-shell .merchant-reports__kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.platform-shell .merchant-reports__kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 118px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+    0 10px 24px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  --reports-kpi-glow: rgba(148, 163, 184, 0.22);
+  animation:
+    merchant-reports-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-reports-kpi-breathe 4.2s ease-in-out 0.7s infinite;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(1) {
+  animation-delay: 60ms, 0.8s;
+}
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(2) {
+  animation-delay: 120ms, 1.2s;
+}
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(3) {
+  animation-delay: 180ms, 1.6s;
+}
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(4) {
+  animation-delay: 240ms, 2s;
+}
+
+.platform-shell .merchant-reports__kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.platform-shell .merchant-reports__kpi:hover {
+  transform: translateY(-3px);
+  animation-play-state: paused;
+}
+
+.platform-shell .merchant-reports__kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .merchant-reports__kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+    rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  flex-shrink: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.platform-shell .merchant-reports__kpi-icon svg {
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.platform-shell .merchant-reports__kpi-label {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.platform-shell .merchant-reports__kpi-value {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    0 3px 0 rgba(0, 0, 0, 0.28),
+    0 8px 14px rgba(0, 0, 0, 0.4);
+}
+
+.platform-shell .merchant-reports__kpi-value--fund {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: #fbbf24;
+}
+
+.platform-shell .merchant-reports__kpi-amount {
+  color: #fbbf24;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 180, 0.5),
+    0 2px 0 rgba(146, 96, 12, 0.5),
+    0 6px 12px rgba(0, 0, 0, 0.45);
+}
+
+.platform-shell .merchant-reports__kpi-unit {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-reports__kpi--volume {
+  --reports-kpi-glow: rgba(52, 211, 153, 0.4);
+  border-color: rgba(52, 211, 153, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(52, 211, 153, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(16, 36, 30, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-reports__kpi--volume .merchant-reports__kpi-icon {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.32);
+  background:
+    linear-gradient(160deg, rgba(167, 243, 208, 0.2), rgba(52, 211, 153, 0.04) 55%),
+    rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .merchant-reports__kpi--orders {
+  --reports-kpi-glow: rgba(96, 165, 250, 0.4);
+  border-color: rgba(96, 165, 250, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(96, 165, 250, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 44, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-reports__kpi--orders .merchant-reports__kpi-icon {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.32);
+  background:
+    linear-gradient(160deg, rgba(191, 219, 254, 0.2), rgba(96, 165, 250, 0.04) 55%),
+    rgba(96, 165, 250, 0.1);
+}
+
+.platform-shell .merchant-reports__kpi--orders .merchant-reports__kpi-value {
+  color: #bfdbfe;
+}
+
+.platform-shell .merchant-reports__kpi--anomaly {
+  --reports-kpi-glow: rgba(148, 163, 184, 0.22);
+}
+
+.platform-shell .merchant-reports__kpi--anomaly.is-alert {
+  --reports-kpi-glow: rgba(248, 113, 113, 0.48);
+  border-color: rgba(248, 113, 113, 0.38);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(248, 113, 113, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(48, 18, 22, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-reports__kpi--anomaly.is-alert .merchant-reports__kpi-icon {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.36);
+  background:
+    linear-gradient(160deg, rgba(254, 202, 202, 0.2), rgba(248, 113, 113, 0.05) 55%),
+    rgba(248, 113, 113, 0.12);
+  animation: merchant-reports-alert-pulse 1.8s ease-in-out infinite;
+}
+
+.platform-shell .merchant-reports__kpi--anomaly.is-alert .merchant-reports__kpi-value {
+  color: #fca5a5;
+}
+
+.platform-shell .merchant-reports__kpi--window {
+  --reports-kpi-glow: rgba(251, 191, 36, 0.36);
+  border-color: rgba(251, 191, 36, 0.24);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(40, 32, 16, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-reports__kpi--window .merchant-reports__kpi-icon {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.32);
+  background:
+    linear-gradient(160deg, rgba(253, 230, 138, 0.2), rgba(251, 191, 36, 0.04) 55%),
+    rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .merchant-reports__kpi--window .merchant-reports__kpi-value {
+  color: #fde68a;
+  font-size: 32px;
+}
+
+.platform-shell .merchant-reports__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.platform-shell .merchant-reports__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+    linear-gradient(165deg, rgba(18, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  animation: merchant-reports-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(1) {
+  animation-delay: 280ms;
+}
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(2) {
+  animation-delay: 340ms;
+}
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(3) {
+  animation-delay: 400ms;
+}
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(4) {
+  animation-delay: 460ms;
+}
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(5) {
+  animation-delay: 520ms;
+}
+.platform-shell .merchant-reports__grid > .merchant-reports__card:nth-child(6) {
+  animation-delay: 580ms;
+}
+
+.platform-shell .merchant-reports__card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 14px 28px rgba(0, 0, 0, 0.34);
+}
+
+.platform-shell .merchant-reports__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.platform-shell .merchant-reports__card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #e2e8f0;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.platform-shell .merchant-reports__card-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.platform-shell .merchant-reports__empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-reports__table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .merchant-reports__thead,
+.platform-shell .merchant-reports__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 4.5rem minmax(5.5rem, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-reports__table--cols2 .merchant-reports__thead,
+.platform-shell .merchant-reports__table--cols2 .merchant-reports__row {
+  grid-template-columns: minmax(0, 1fr) 4.5rem;
+}
+
+.platform-shell .merchant-reports__thead {
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-reports__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 140ms ease;
+}
+
+.platform-shell .merchant-reports__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.platform-shell .merchant-reports__thead span:not(:first-child),
+.platform-shell .merchant-reports__row > span:not(:first-child) {
+  text-align: right;
+  justify-self: end;
+}
+
+.platform-shell .merchant-reports__row-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-reports__pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-reports__pair-icons {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.platform-shell .merchant-reports__pair-icons .plat-crypto-icon {
+  width: 22px;
+  height: 22px;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.platform-shell .merchant-reports__pair-icons .plat-crypto-icon + .plat-crypto-icon {
+  margin-left: -6px;
+}
+
+.platform-shell .merchant-reports__pair-icons .plat-crypto-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.platform-shell .merchant-reports__pair-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-reports__pair-text strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+
+.platform-shell .merchant-reports__pair-text em {
+  font-style: normal;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-reports__vol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 5.5rem;
+  width: 100%;
+}
+
+.platform-shell .merchant-reports__vol-bar {
+  display: block;
+  width: 100%;
+  max-width: 88px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.platform-shell .merchant-reports__vol-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #34d399, #fbbf24);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.35);
+  transition: width 320ms ease;
+}
+
+.platform-shell .merchant-reports__vol-num {
+  font-size: 12.5px;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes merchant-reports-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes merchant-reports-kpi-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.12) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 10px 24px rgba(0, 0, 0, 0.32),
+      0 0 16px color-mix(in srgb, var(--reports-kpi-glow) 35%, transparent);
+  }
+  50% {
+    filter: brightness(1.05);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.16) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 12px 26px rgba(0, 0, 0, 0.36),
+      0 0 28px var(--reports-kpi-glow);
+  }
+}
+
+@keyframes merchant-reports-alert-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 0 rgba(254, 202, 202, 0.3) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+      0 4px 10px rgba(220, 38, 38, 0.28),
+      0 0 0 0 rgba(248, 113, 113, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 rgba(254, 202, 202, 0.35) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+      0 6px 14px rgba(220, 38, 38, 0.4),
+      0 0 0 5px rgba(248, 113, 113, 0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .merchant-reports__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-shell .merchant-reports__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .merchant-reports__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-reports__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .merchant-reports__kpi,
+  .platform-shell .merchant-reports__card,
+  .platform-shell .merchant-reports__kpi--anomaly.is-alert .merchant-reports__kpi-icon {
+    animation: none !important;
+  }
+
+  .platform-shell .merchant-reports__kpi:hover,
+  .platform-shell .merchant-reports__card:hover {
+    transform: none;
+  }
+}
+
 .sites-page {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* —— Merchant Sites (D7) professional restyle —— */
+.platform-shell .merchant-sites {
+  gap: 18px;
+}
+
+.platform-shell .merchant-sites--solo {
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  min-height: min(520px, calc(100dvh - 220px));
+}
+
+.platform-shell .body:has(.merchant-sites--solo) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell .merchant-sites__empty-stage {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.platform-shell .merchant-sites__empty-stage--inline {
+  margin-top: 4px;
+}
+
+.platform-shell .merchant-sites__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.platform-shell .merchant-sites__kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 108px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+    0 10px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  --sites-kpi-glow: rgba(148, 163, 184, 0.2);
+  animation:
+    merchant-sites-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-sites-breathe 4.2s ease-in-out 0.7s infinite;
+  transition: transform 180ms ease;
+}
+
+.platform-shell .merchant-sites__kpis > .merchant-sites__kpi:nth-child(1) {
+  animation-delay: 40ms, 0.8s;
+}
+.platform-shell .merchant-sites__kpis > .merchant-sites__kpi:nth-child(2) {
+  animation-delay: 100ms, 1.2s;
+}
+.platform-shell .merchant-sites__kpis > .merchant-sites__kpi:nth-child(3) {
+  animation-delay: 160ms, 1.6s;
+}
+
+.platform-shell .merchant-sites__kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.platform-shell .merchant-sites__kpi:hover {
+  transform: translateY(-3px);
+  animation-play-state: paused;
+}
+
+.platform-shell .merchant-sites__kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .merchant-sites__kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+    rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 4px 10px rgba(0, 0, 0, 0.32);
+}
+
+.platform-shell .merchant-sites__kpi-icon svg {
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.28))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.platform-shell .merchant-sites__kpi-label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.platform-shell .merchant-sites__kpi-value {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-align: center;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2),
+    0 3px 0 rgba(0, 0, 0, 0.28),
+    0 8px 14px rgba(0, 0, 0, 0.4);
+}
+
+.platform-shell .merchant-sites__kpi--total {
+  --sites-kpi-glow: rgba(96, 165, 250, 0.38);
+  border-color: rgba(96, 165, 250, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(96, 165, 250, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 44, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-sites__kpi--total .merchant-sites__kpi-icon {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.32);
+  background:
+    linear-gradient(160deg, rgba(191, 219, 254, 0.2), rgba(96, 165, 250, 0.04) 55%),
+    rgba(96, 165, 250, 0.1);
+}
+
+.platform-shell .merchant-sites__kpi--total .merchant-sites__kpi-value {
+  color: #bfdbfe;
+}
+
+.platform-shell .merchant-sites__kpi--active {
+  --sites-kpi-glow: rgba(52, 211, 153, 0.38);
+  border-color: rgba(52, 211, 153, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(52, 211, 153, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(16, 36, 30, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-sites__kpi--active .merchant-sites__kpi-icon {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.32);
+  background:
+    linear-gradient(160deg, rgba(167, 243, 208, 0.2), rgba(52, 211, 153, 0.04) 55%),
+    rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .merchant-sites__kpi--active .merchant-sites__kpi-value {
+  color: #6ee7b7;
+}
+
+.platform-shell .merchant-sites__kpi--paused {
+  --sites-kpi-glow: rgba(148, 163, 184, 0.2);
+}
+
+.platform-shell .merchant-sites__kpi--paused.is-alert {
+  --sites-kpi-glow: rgba(251, 191, 36, 0.4);
+  border-color: rgba(251, 191, 36, 0.3);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(40, 32, 16, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-sites__kpi--paused.is-alert .merchant-sites__kpi-icon {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.34);
+  background:
+    linear-gradient(160deg, rgba(253, 230, 138, 0.2), rgba(251, 191, 36, 0.04) 55%),
+    rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .merchant-sites__kpi--paused.is-alert .merchant-sites__kpi-value {
+  color: #fde68a;
+}
+
+.platform-shell .merchant-sites__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+    linear-gradient(165deg, rgba(18, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  animation: merchant-sites-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 220ms;
+}
+
+.platform-shell .merchant-sites__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.platform-shell .merchant-sites__card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #e2e8f0;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.platform-shell .merchant-sites__card-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.platform-shell .merchant-sites__table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .merchant-sites__thead,
+.platform-shell .merchant-sites__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) 0.9fr 0.75fr 1fr auto;
+  gap: 10px;
+  padding: 12px 14px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-sites__thead {
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-sites__row {
+  text-decoration: none;
+  color: inherit;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.platform-shell .merchant-sites__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+}
+
+.platform-shell .merchant-sites__name {
+  font-weight: 650;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.platform-shell .merchant-sites__email {
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-sites__meta {
+  color: #94a3b8;
+  font-size: 12.5px;
+}
+
+.platform-shell .merchant-sites__go {
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-sites__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 28px 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, transparent 45%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 10px 24px rgba(0, 0, 0, 0.28);
+  animation: merchant-sites-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .merchant-sites__empty--centered {
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 36px 36px;
+  gap: 12px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(96, 165, 250, 0.08), transparent 55%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, transparent 45%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-sites__empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  color: #93c5fd;
+  background: rgba(96, 165, 250, 0.1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.platform-shell .merchant-sites__empty--centered .merchant-sites__empty-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  border-color: rgba(96, 165, 250, 0.34);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(147, 197, 253, 0.22), rgba(96, 165, 250, 0.08) 70%);
+}
+
+.platform-shell .merchant-sites__empty-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.platform-shell .merchant-sites__empty--centered .merchant-sites__empty-title {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.platform-shell .merchant-sites__empty-copy {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-sites__empty--centered .merchant-sites__empty-copy {
+  max-width: 34ch;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.platform-shell .merchant-sites__empty-copy--sub {
+  margin-top: -4px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.platform-shell .merchant-sites__empty-action {
+  margin-top: 8px;
+}
+
+@keyframes merchant-sites-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes merchant-sites-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.12) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 10px 24px rgba(0, 0, 0, 0.3),
+      0 0 14px color-mix(in srgb, var(--sites-kpi-glow) 35%, transparent);
+  }
+  50% {
+    filter: brightness(1.05);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.16) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 12px 26px rgba(0, 0, 0, 0.34),
+      0 0 26px var(--sites-kpi-glow);
+  }
+}
+
+@media (max-width: 900px) {
+  .platform-shell .merchant-sites__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-sites__thead,
+  .platform-shell .merchant-sites__row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  }
+
+  .platform-shell .merchant-sites__thead span:nth-child(3),
+  .platform-shell .merchant-sites__thead span:nth-child(5),
+  .platform-shell .merchant-sites__row > span:nth-child(3),
+  .platform-shell .merchant-sites__row > span:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .merchant-sites__kpi,
+  .platform-shell .merchant-sites__card,
+  .platform-shell .merchant-sites__empty {
+    animation: none !important;
+  }
+
+  .platform-shell .merchant-sites__kpi:hover,
+  .platform-shell .merchant-sites__row:hover {
+    transform: none;
+  }
 }
 
 .sites-table .orders-head,
@@ -5989,6 +7101,540 @@ select {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* Merchant Integrations (D14) */
+.plat-int {
+  gap: 16px;
+  width: 100%;
+  max-width: none;
+}
+
+.plat-int__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding: 4px 2px 2px;
+}
+
+.plat-int__eyebrow,
+.plat-alerts__eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-int__title-row,
+.plat-alerts__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.plat-int__name,
+.plat-alerts__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #f8fafc;
+}
+
+.plat-int__lead,
+.plat-alerts__lead {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.plat-int__chip,
+.plat-alerts__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.1);
+  border: 1px solid rgba(0, 212, 200, 0.28);
+}
+
+.plat-int__chip--muted,
+.plat-alerts__chip--muted {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.plat-int__chip--warn,
+.plat-alerts__chip--soon {
+  color: var(--plat-gold-bright, #fbbf24);
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.plat-int__kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 160px));
+  gap: 10px;
+}
+
+.plat-int__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.05) 0%, transparent 48%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.plat-int__kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-int__kpi-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+}
+
+.plat-int__kpi-hint {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.plat-int__secret {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, transparent 45%),
+    rgba(18, 22, 28, 0.96);
+}
+
+.plat-int__secret-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plat-int__secret-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  color: #fde68a;
+}
+
+.plat-int__secret-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.plat-int__secret-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.plat-int__secret-box code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  word-break: break-all;
+  color: #f8fafc;
+}
+
+.plat-int__toast-ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.08);
+  font-size: 12px;
+  color: #a7f3d0;
+}
+
+.plat-int__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.plat-int__form {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.plat-int__form .plat-settings__submit {
+  justify-self: start;
+}
+
+.plat-int__empty {
+  margin: 0;
+  padding: 14px 0 2px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.plat-int__list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.plat-int__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-int__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.plat-int__item.is-selected {
+  background: rgba(0, 212, 200, 0.04);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 8px;
+}
+
+.plat-int__item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.plat-int__item-main strong {
+  font-size: 14px;
+  color: #f1f5f9;
+}
+
+.plat-int__url {
+  font-size: 12px !important;
+  word-break: break-all;
+}
+
+.plat-int__meta {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.plat-int__status.is-on {
+  color: #5eead4;
+}
+
+.plat-int__status.is-off {
+  color: #94a3b8;
+}
+
+.plat-int__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.plat-int__danger {
+  color: #fca5a5 !important;
+}
+
+.plat-int__log-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.plat-int__table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-int__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.plat-int__table th,
+.plat-int__table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.plat-int__table th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.plat-int__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.plat-int__badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: lowercase;
+}
+
+.plat-int__badge.is-ok {
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.1);
+  border: 1px solid rgba(0, 212, 200, 0.22);
+}
+
+.plat-int__badge.is-bad {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+.plat-int__badge.is-muted {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.plat-int__td-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.plat-int__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plat-int__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.plat-int__check input {
+  margin: 0;
+  accent-color: #34d399;
+}
+
+.plat-int__field-hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+/* Merchant Alerts preferences (D15) */
+.plat-alerts {
+  gap: 16px;
+  width: 100%;
+  max-width: none;
+}
+
+.plat-alerts__hero {
+  padding: 4px 2px 2px;
+}
+
+.plat-alerts__card {
+  max-width: 880px;
+}
+
+.plat-alerts__table {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.plat-alerts__thead,
+.plat-alerts__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 88px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+}
+
+.plat-alerts__thead {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-alerts__row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.plat-alerts__row:last-child {
+  border-bottom: 0;
+}
+
+.plat-alerts__event {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.plat-alerts__event strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: #f1f5f9;
+}
+
+.plat-alerts__event span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.plat-alerts__toggle {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.plat-alerts__toggle:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.plat-alerts__toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.plat-alerts__switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.plat-alerts__switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: left 140ms ease, background 140ms ease;
+}
+
+.plat-alerts__toggle input:checked + .plat-alerts__switch {
+  background: rgba(52, 211, 153, 0.45);
+  border-color: rgba(52, 211, 153, 0.45);
+  opacity: 1;
+}
+
+.plat-alerts__toggle input:checked + .plat-alerts__switch::after {
+  left: 18px;
+  background: #ecfdf5;
+}
+
+.plat-alerts__toggle input:disabled + .plat-alerts__switch {
+  opacity: 0.55;
+}
+
+@media (max-width: 960px) {
+  .plat-int__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plat-int__kpis {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .plat-alerts__thead,
+  .plat-alerts__row {
+    grid-template-columns: minmax(0, 1fr) 64px 64px;
+    gap: 8px;
+    padding: 12px 10px;
+  }
+
+  .plat-int__kpis {
+    grid-template-columns: 1fr;
+  }
 }
 
 .integrations-grid {
@@ -9568,19 +11214,177 @@ select {
   animation-delay: 190ms;
 }
 
+/* Overview cards — same living 3D language as merchant dashboard KPIs */
 .platform-shell .dash-page.plat-dash .plat-overview-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.09) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.05), transparent 55%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.4) inset,
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 10px 24px rgba(0, 0, 0, 0.38),
+    0 22px 40px rgba(0, 0, 0, 0.22);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: translateZ(0);
+  will-change: transform, box-shadow, filter;
+  --kpi-glow: rgba(148, 163, 184, 0.22);
+  animation:
+    merchant-kpi-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-kpi-card-breathe 4.2s ease-in-out 0.7s infinite;
   transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+    border-color 200ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-overview-card:nth-child(1) {
+  animation-delay: 40ms, 0.7s;
+  --kpi-glow: rgba(96, 165, 250, 0.32);
+}
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-overview-card:nth-child(2) {
+  animation-delay: 120ms, 1.2s;
+  --kpi-glow: rgba(52, 211, 153, 0.32);
+}
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-overview-card:nth-child(3) {
+  animation-delay: 200ms, 1.7s;
+  --kpi-glow: rgba(251, 191, 36, 0.34);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: merchant-kpi-sheen 3.2s ease-in-out infinite;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: -50%;
+  width: 55%;
+  height: 160%;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.03) 60%,
+    transparent 100%
+  );
+  animation: merchant-kpi-card-sweep 5.5s ease-in-out infinite;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-overview-card:nth-child(2)::after {
+  animation-delay: 0.7s;
+}
+.platform-shell .dash-page.plat-dash .plat-overview-grid > .plat-overview-card:nth-child(3)::after {
+  animation-delay: 1.4s;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .platform-shell .dash-page.plat-dash .plat-overview-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-5px) scale(1.015);
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.28);
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.42) inset,
+    0 2px 4px rgba(0, 0, 0, 0.22),
+    0 18px 34px rgba(0, 0, 0, 0.45),
+    0 32px 56px rgba(0, 0, 0, 0.3),
+    0 0 28px color-mix(in srgb, var(--kpi-glow) 55%, transparent);
+  animation-play-state: paused;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card:hover::after {
+  animation-play-state: paused;
+  opacity: 0.55;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card.glass-tone-blue {
+  background:
+    linear-gradient(165deg, rgba(96, 165, 250, 0.14) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(59, 130, 246, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 48, 0.98), rgba(8, 12, 22, 0.99));
+  border-color: rgba(96, 165, 250, 0.22);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card.glass-tone-emerald {
+  background:
+    linear-gradient(165deg, rgba(52, 211, 153, 0.12) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(16, 185, 129, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(12, 32, 28, 0.98), rgba(6, 14, 14, 0.99));
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card.glass-tone-amber {
+  background:
+    linear-gradient(165deg, rgba(251, 191, 36, 0.12) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(245, 158, 11, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(36, 26, 12, 0.98), rgba(16, 12, 6, 0.99));
+  border-color: rgba(251, 191, 36, 0.24);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card .plat-stat-v,
+.platform-shell .dash-page.plat-dash .plat-overview-card .plat-metric-line__value {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 4px 0 rgba(0, 0, 0, 0.22),
+    0 8px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 180ms ease;
+  animation: merchant-kpi-value-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card .plat-metric-line__value {
+  font-size: 28px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card .plat-stat-v {
+  font-size: 26px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card:hover .plat-stat-v,
+.platform-shell .dash-page.plat-dash .plat-overview-card:hover .plat-metric-line__value {
+  transform: scale(1.04);
+}
+
+.platform-shell .dash-page.plat-dash .plat-overview-card h2 {
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.35);
 }
 
 .platform-shell .dash-page.plat-dash .plat-stat-block,
@@ -11355,7 +13159,12 @@ select {
   .platform-shell .dash-page.plat-dash .dash-split > *,
   .platform-shell .dash-page.plat-dash .overview-charts__head,
   .platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card,
-  .platform-shell .dash-page.plat-dash .dash-chart-panel__period-value {
+  .platform-shell .dash-page.plat-dash .dash-chart-panel__period-value,
+  .platform-shell .dash-page.plat-dash .plat-overview-card,
+  .platform-shell .dash-page.plat-dash .plat-overview-card::before,
+  .platform-shell .dash-page.plat-dash .plat-overview-card::after,
+  .platform-shell .dash-page.plat-dash .plat-overview-card .plat-stat-v,
+  .platform-shell .dash-page.plat-dash .plat-overview-card .plat-metric-line__value {
     animation: none !important;
   }
 
@@ -11365,6 +13174,9 @@ select {
   }
 
   .platform-shell .dash-page.plat-dash .plat-overview-card:hover,
+  .platform-shell .dash-page.plat-dash .plat-overview-card:active,
+  .platform-shell .dash-page.plat-dash .plat-overview-card:hover .plat-stat-v,
+  .platform-shell .dash-page.plat-dash .plat-overview-card:hover .plat-metric-line__value,
   .platform-shell .dash-page.plat-dash
     .overview-charts:not(.overview-charts--editing)
     .overview-chart-card:hover {
@@ -12385,53 +14197,34 @@ select {
   min-height: 100%;
   padding: 22px;
   background:
-    radial-gradient(110% 90% at 8% 0%, rgba(148, 163, 184, 0.04), transparent 55%),
-    linear-gradient(
-      155deg,
-      rgba(255, 255, 255, 0.055) 0%,
-      rgba(255, 255, 255, 0.02) 48%,
-      rgba(255, 255, 255, 0.012) 100%
-    );
-  border-color: rgba(255, 255, 255, 0.1);
+    linear-gradient(165deg, rgba(255, 255, 255, 0.09) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.05), transparent 55%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .platform-shell .plat-overview-card.glass-tone-blue {
   background:
-    radial-gradient(120% 100% at 0% 0%, rgba(96, 165, 250, 0.06), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(59, 130, 246, 0.03), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(30, 64, 175, 0.06) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(15, 23, 42, 0.08) 100%
-    );
-  border-color: rgba(96, 165, 250, 0.12);
+    linear-gradient(165deg, rgba(96, 165, 250, 0.14) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(59, 130, 246, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 48, 0.98), rgba(8, 12, 22, 0.99));
+  border-color: rgba(96, 165, 250, 0.22);
 }
 
 .platform-shell .plat-overview-card.glass-tone-emerald {
   background:
-    radial-gradient(120% 100% at 0% 0%, rgba(52, 211, 153, 0.06), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(16, 185, 129, 0.03), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(6, 95, 70, 0.07) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(2, 44, 34, 0.08) 100%
-    );
-  border-color: rgba(52, 211, 153, 0.12);
+    linear-gradient(165deg, rgba(52, 211, 153, 0.12) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(16, 185, 129, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(12, 32, 28, 0.98), rgba(6, 14, 14, 0.99));
+  border-color: rgba(52, 211, 153, 0.22);
 }
 
 .platform-shell .plat-overview-card.glass-tone-amber {
   background:
-    radial-gradient(120% 100% at 0% 0%, rgba(251, 191, 36, 0.06), transparent 58%),
-    radial-gradient(90% 80% at 100% 100%, rgba(245, 158, 11, 0.03), transparent 50%),
-    linear-gradient(
-      155deg,
-      rgba(120, 53, 15, 0.07) 0%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(69, 26, 3, 0.08) 100%
-    );
-  border-color: rgba(251, 191, 36, 0.12);
+    linear-gradient(165deg, rgba(251, 191, 36, 0.12) 0%, transparent 40%),
+    radial-gradient(120% 90% at 0% 0%, rgba(245, 158, 11, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(36, 26, 12, 0.98), rgba(16, 12, 6, 0.99));
+  border-color: rgba(251, 191, 36, 0.24);
 }
 
 .platform-shell .plat-overview-card__head {
@@ -13819,7 +15612,6 @@ select {
 }
 
 .plat-pair-status-cell .network-status-lamp,
-.merchant-networks__table .network-status-lamp,
 .merchant-networks__chain-card .network-status-lamp {
   justify-content: flex-end;
   width: 100%;
@@ -19741,6 +21533,94 @@ select {
   flex: 1 1 auto;
 }
 
+.platform-shell .plat-bills__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px 2px;
+}
+
+.platform-shell .plat-bills__plan-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
+}
+
+.platform-shell .plat-bills__plan-copy {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.platform-shell .plat-bills__plan-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.platform-shell .plat-bills__plan-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.05) 0%, transparent 48%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.platform-shell .plat-bills__plan-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.platform-shell .plat-bills__plan-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #f1f5f9;
+}
+
+.platform-shell .plat-bills__plan-hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.platform-shell .plat-bills__plan-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde68a;
+}
+
+@media (max-width: 960px) {
+  .platform-shell .plat-bills__plan-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .platform-shell .plat-bills__plan-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .platform-shell .plat-bills__toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -23604,6 +25484,72 @@ select {
   background: rgba(251, 191, 36, 0.06);
 }
 
+:is(.platform-shell, .shell) .plat-team__org {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 2px 4px;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #f8fafc;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.1);
+  border: 1px solid rgba(0, 212, 200, 0.28);
+}
+
+:is(.platform-shell, .shell) .plat-team__org-chip--muted {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+:is(.platform-shell, .shell) .plat-team__org-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
 :is(.platform-shell, .shell) .plat-team__banner-label {
   margin-top: 1px;
   padding: 2px 8px;
@@ -26464,6 +28410,940 @@ select {
   animation-delay: 340ms;
 }
 
+.platform-shell .merchant-dash__alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  animation: merchant-kpi-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .merchant-dash__alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 40%),
+    rgba(251, 191, 36, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+.platform-shell .merchant-dash__alert--danger {
+  border-color: rgba(248, 113, 113, 0.35);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+    rgba(248, 113, 113, 0.08);
+}
+
+.platform-shell .merchant-dash__alert p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.platform-shell .merchant-dash__alert-link {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: #fbbf24;
+  text-decoration: none;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 180, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__alert-link:hover {
+  text-decoration: underline;
+}
+
+.platform-shell .merchant-dash__kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.platform-shell .merchant-dash__kpis--cashier {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.platform-shell .merchant-dash__kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 132px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.09) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.05), transparent 55%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.4) inset,
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 10px 24px rgba(0, 0, 0, 0.38),
+    0 22px 40px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  transform: translateZ(0);
+  will-change: transform, box-shadow, filter;
+  --kpi-glow: rgba(148, 163, 184, 0.22);
+  animation:
+    merchant-kpi-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-kpi-card-breathe 4.2s ease-in-out 0.7s infinite;
+  transition:
+    border-color 200ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(1) {
+  animation-delay: 40ms, 0.7s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(2) {
+  animation-delay: 120ms, 1.2s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(3) {
+  animation-delay: 200ms, 1.7s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(4) {
+  animation-delay: 280ms, 2.2s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(5) {
+  animation-delay: 360ms, 2.7s;
+}
+
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(2) .merchant-dash__kpi-icon {
+  animation-delay: 0.4s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(3) .merchant-dash__kpi-icon {
+  animation-delay: 0.8s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(4) .merchant-dash__kpi-icon {
+  animation-delay: 1.2s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(5) .merchant-dash__kpi-icon {
+  animation-delay: 1.6s;
+}
+
+.platform-shell .merchant-dash__kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+  animation: merchant-kpi-sheen 3.2s ease-in-out infinite;
+}
+
+.platform-shell .merchant-dash__kpi::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: -50%;
+  width: 55%;
+  height: 160%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.03) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: merchant-kpi-card-sweep 5.5s ease-in-out infinite;
+}
+
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(2)::after {
+  animation-delay: 0.7s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(3)::after {
+  animation-delay: 1.4s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(4)::after {
+  animation-delay: 2.1s;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(5)::after {
+  animation-delay: 2.8s;
+}
+
+.platform-shell .merchant-dash__kpi > * {
+  position: relative;
+  z-index: 1;
+}
+
+.platform-shell .merchant-dash__kpi:hover {
+  transform: translateY(-5px) scale(1.015);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.42) inset,
+    0 2px 4px rgba(0, 0, 0, 0.22),
+    0 18px 34px rgba(0, 0, 0, 0.45),
+    0 32px 56px rgba(0, 0, 0, 0.3);
+  animation-play-state: paused;
+}
+
+.platform-shell .merchant-dash__kpi:hover::after {
+  animation-play-state: paused;
+  opacity: 0.55;
+}
+
+.platform-shell .merchant-dash__kpi:hover .merchant-dash__kpi-icon {
+  transform: translateY(-1px) scale(1.08);
+  animation-play-state: paused;
+}
+
+.platform-shell .merchant-dash__kpi:hover .merchant-dash__kpi-value {
+  transform: scale(1.04);
+}
+
+.platform-shell .merchant-dash__kpi:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+.platform-shell .merchant-dash__kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .merchant-dash__kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 55%),
+    rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  flex-shrink: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 10px rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  animation: merchant-kpi-icon-float 3.2s ease-in-out infinite;
+}
+
+.platform-shell .merchant-dash__kpi-icon svg {
+  width: 28px;
+  height: 28px;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.35))
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
+.platform-shell .merchant-dash__kpi-label {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+  animation: merchant-kpi-fade 480ms ease both;
+  animation-delay: inherit;
+}
+
+.platform-shell .merchant-dash__kpi-value {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  width: 100%;
+  justify-content: center;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 0 rgba(0, 0, 0, 0.35),
+    0 4px 0 rgba(0, 0, 0, 0.22),
+    0 8px 16px rgba(0, 0, 0, 0.45);
+  transform-origin: center;
+  transition: transform 180ms ease;
+  animation: merchant-kpi-value-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(1) .merchant-dash__kpi-value {
+  animation-delay: 120ms;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(2) .merchant-dash__kpi-value {
+  animation-delay: 190ms;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(3) .merchant-dash__kpi-value {
+  animation-delay: 260ms;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(4) .merchant-dash__kpi-value {
+  animation-delay: 330ms;
+}
+.platform-shell .merchant-dash__kpis > .merchant-dash__kpi:nth-child(5) .merchant-dash__kpi-value {
+  animation-delay: 400ms;
+}
+
+.platform-shell .merchant-dash__kpi-value--fund {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: #fbbf24;
+}
+
+.platform-shell .merchant-dash__kpi-amount {
+  color: #fbbf24;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 180, 0.55),
+    0 2px 0 rgba(146, 96, 12, 0.55),
+    0 4px 0 rgba(80, 50, 0, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi-unit {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.platform-shell .merchant-dash__kpi-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: auto 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.35;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.platform-shell .merchant-dash__kpi-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 3px 8px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+.platform-shell .merchant-dash__kpi--volume {
+  --kpi-glow: rgba(52, 211, 153, 0.42);
+  border-color: rgba(52, 211, 153, 0.28);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(52, 211, 153, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(16, 36, 30, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-dash__kpi--volume .merchant-dash__kpi-icon {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+  background:
+    linear-gradient(160deg, rgba(167, 243, 208, 0.22), rgba(52, 211, 153, 0.04) 55%),
+    rgba(52, 211, 153, 0.1);
+  box-shadow:
+    0 1px 0 rgba(167, 243, 208, 0.35) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 12px rgba(16, 185, 129, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.platform-shell .merchant-dash__kpi--volume .merchant-dash__kpi-value {
+  color: #fbbf24;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 180, 0.55),
+    0 2px 0 rgba(146, 96, 12, 0.55),
+    0 4px 0 rgba(80, 50, 0, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi--fee {
+  --kpi-glow: rgba(251, 191, 36, 0.42);
+  border-color: rgba(251, 191, 36, 0.28);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(40, 32, 16, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-dash__kpi--fee .merchant-dash__kpi-icon {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.38);
+  background:
+    linear-gradient(160deg, rgba(253, 230, 138, 0.25), rgba(251, 191, 36, 0.04) 55%),
+    rgba(251, 191, 36, 0.1);
+  box-shadow:
+    0 1px 0 rgba(253, 230, 138, 0.4) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 12px rgba(245, 158, 11, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.platform-shell .merchant-dash__kpi--fee .merchant-dash__kpi-value {
+  color: #fbbf24;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 180, 0.55),
+    0 2px 0 rgba(146, 96, 12, 0.55),
+    0 4px 0 rgba(80, 50, 0, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi--tier {
+  --kpi-glow: rgba(96, 165, 250, 0.42);
+  border-color: rgba(96, 165, 250, 0.28);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(96, 165, 250, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 44, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-dash__kpi--tier .merchant-dash__kpi-icon {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.38);
+  background:
+    linear-gradient(160deg, rgba(191, 219, 254, 0.22), rgba(96, 165, 250, 0.04) 55%),
+    rgba(96, 165, 250, 0.1);
+  box-shadow:
+    0 1px 0 rgba(191, 219, 254, 0.35) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 12px rgba(59, 130, 246, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.platform-shell .merchant-dash__kpi--tier .merchant-dash__kpi-value {
+  color: #bfdbfe;
+  text-shadow:
+    0 1px 0 rgba(219, 234, 254, 0.45),
+    0 2px 0 rgba(37, 99, 235, 0.4),
+    0 4px 0 rgba(15, 40, 90, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi--open {
+  --kpi-glow: rgba(251, 146, 60, 0.42);
+  border-color: rgba(251, 146, 60, 0.28);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(251, 146, 60, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(40, 26, 14, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-dash__kpi--open .merchant-dash__kpi-icon {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.38);
+  background:
+    linear-gradient(160deg, rgba(254, 215, 170, 0.22), rgba(251, 146, 60, 0.04) 55%),
+    rgba(251, 146, 60, 0.1);
+  box-shadow:
+    0 1px 0 rgba(254, 215, 170, 0.35) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 12px rgba(234, 88, 12, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.platform-shell .merchant-dash__kpi--open .merchant-dash__kpi-value {
+  color: #fdba74;
+  text-shadow:
+    0 1px 0 rgba(254, 215, 170, 0.45),
+    0 2px 0 rgba(154, 52, 18, 0.45),
+    0 4px 0 rgba(80, 30, 0, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi--anomaly {
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.platform-shell .merchant-dash__kpi--anomaly.is-alert {
+  --kpi-glow: rgba(248, 113, 113, 0.5);
+  border-color: rgba(248, 113, 113, 0.4);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(248, 113, 113, 0.18), transparent 55%),
+    linear-gradient(165deg, rgba(48, 18, 22, 0.96), rgba(10, 14, 20, 0.98));
+  animation:
+    merchant-kpi-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-kpi-card-breathe 3.2s ease-in-out 0.7s infinite;
+}
+
+.platform-shell .merchant-dash__kpi--anomaly .merchant-dash__kpi-icon {
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-dash__kpi--anomaly.is-alert .merchant-dash__kpi-icon {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
+  background:
+    linear-gradient(160deg, rgba(254, 202, 202, 0.22), rgba(248, 113, 113, 0.04) 55%),
+    rgba(248, 113, 113, 0.12);
+  box-shadow:
+    0 1px 0 rgba(254, 202, 202, 0.35) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+    0 4px 12px rgba(220, 38, 38, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  animation:
+    merchant-kpi-icon-float 3.2s ease-in-out infinite,
+    merchant-kpi-alert-pulse 1.8s ease-in-out infinite;
+}
+
+.platform-shell .merchant-dash__kpi--anomaly.is-alert .merchant-dash__kpi-value {
+  color: #fca5a5;
+  text-shadow:
+    0 1px 0 rgba(254, 202, 202, 0.45),
+    0 2px 0 rgba(153, 27, 27, 0.45),
+    0 4px 0 rgba(70, 10, 10, 0.35),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+}
+
+.platform-shell .merchant-dash__kpi--anomaly.is-alert .merchant-dash__kpi-pill {
+  border-color: rgba(248, 113, 113, 0.35);
+  background:
+    linear-gradient(180deg, rgba(254, 202, 202, 0.18), rgba(248, 113, 113, 0.06)),
+    rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  box-shadow:
+    0 1px 0 rgba(254, 202, 202, 0.22) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 3px 8px rgba(185, 28, 28, 0.3);
+  animation: merchant-kpi-pill-breathe 2s ease-in-out infinite;
+}
+
+.platform-shell .merchant-dash__networks {
+  margin-top: 18px;
+}
+
+.platform-shell .merchant-dash__net-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.platform-shell .merchant-dash__net-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 50%),
+    rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 6px 14px rgba(0, 0, 0, 0.3);
+  animation: merchant-kpi-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(1) {
+  animation-delay: 380ms;
+}
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(2) {
+  animation-delay: 440ms;
+}
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(3) {
+  animation-delay: 500ms;
+}
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(4) {
+  animation-delay: 560ms;
+}
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(5) {
+  animation-delay: 620ms;
+}
+.platform-shell .merchant-dash__net-strip > .merchant-dash__net-chip:nth-child(n + 6) {
+  animation-delay: 680ms;
+}
+
+.platform-shell .merchant-dash__net-chip:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 10px 18px rgba(0, 0, 0, 0.36);
+}
+
+.platform-shell .merchant-dash__net-chip-icons {
+  display: inline-flex;
+  align-items: center;
+}
+
+.platform-shell .merchant-dash__net-chip-icons .plat-crypto-icon {
+  width: 22px;
+  height: 22px;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.25))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.platform-shell .merchant-dash__net-chip-icons .plat-crypto-icon + .plat-crypto-icon {
+  margin-left: -6px;
+}
+
+.platform-shell .merchant-dash__net-chip-icons .plat-crypto-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.platform-shell .merchant-dash__net-chip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-dash__net-chip-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes merchant-kpi-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes merchant-kpi-card-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.14) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.4) inset,
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 10px 24px rgba(0, 0, 0, 0.38),
+      0 0 16px color-mix(in srgb, var(--kpi-glow) 35%, transparent);
+  }
+  50% {
+    filter: brightness(1.07);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.2) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.4) inset,
+      0 2px 4px rgba(0, 0, 0, 0.22),
+      0 14px 28px rgba(0, 0, 0, 0.4),
+      0 0 34px var(--kpi-glow);
+  }
+}
+
+@keyframes merchant-kpi-card-sweep {
+  0% {
+    transform: translateX(0) rotate(12deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  45% {
+    opacity: 0.35;
+  }
+  70%,
+  100% {
+    transform: translateX(280%) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes merchant-kpi-value-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes merchant-kpi-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes merchant-kpi-sheen {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateX(-18%);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(18%);
+  }
+}
+
+@keyframes merchant-kpi-icon-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes merchant-kpi-alert-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 0 rgba(254, 202, 202, 0.35) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+      0 4px 12px rgba(220, 38, 38, 0.3),
+      0 0 0 0 rgba(248, 113, 113, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 rgba(254, 202, 202, 0.4) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.45) inset,
+      0 6px 16px rgba(220, 38, 38, 0.45),
+      0 0 0 6px rgba(248, 113, 113, 0);
+  }
+}
+
+@keyframes merchant-kpi-pill-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .merchant-dash__alerts,
+  .platform-shell .merchant-dash__kpi,
+  .platform-shell .merchant-dash__kpi-icon,
+  .platform-shell .merchant-dash__kpi-label,
+  .platform-shell .merchant-dash__kpi-value,
+  .platform-shell .merchant-dash__kpi::before,
+  .platform-shell .merchant-dash__kpi::after,
+  .platform-shell .merchant-dash__kpi--anomaly.is-alert,
+  .platform-shell .merchant-dash__kpi--anomaly.is-alert .merchant-dash__kpi-icon,
+  .platform-shell .merchant-dash__kpi--anomaly.is-alert .merchant-dash__kpi-pill,
+  .platform-shell .merchant-dash__net-chip {
+    animation: none !important;
+  }
+
+  .platform-shell .merchant-dash__kpi:hover,
+  .platform-shell .merchant-dash__kpi:hover .merchant-dash__kpi-icon,
+  .platform-shell .merchant-dash__kpi:hover .merchant-dash__kpi-value,
+  .platform-shell .merchant-dash__kpi:active,
+  .platform-shell .merchant-dash__net-chip:hover {
+    transform: none;
+  }
+}
+
+.platform-shell .merchant-dash__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 8px;
+  align-items: start;
+}
+
+.platform-shell .merchant-dash__split .merchant-dash-orders {
+  margin-top: 18px;
+}
+
+.platform-shell .merchant-dash-anomalies {
+  margin-top: 18px;
+}
+
+.platform-shell .merchant-dash-anomalies__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.platform-shell .merchant-dash-anomalies__row {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 45%),
+    rgba(248, 113, 113, 0.05);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 6px 14px rgba(0, 0, 0, 0.28);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.platform-shell .merchant-dash-anomalies__row:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.36);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 10px 18px rgba(0, 0, 0, 0.32);
+}
+
+.platform-shell .merchant-dash-anomalies__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.platform-shell .merchant-dash-anomalies__title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fecaca;
+  line-height: 1.35;
+}
+
+.platform-shell .merchant-dash-anomalies__meta {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.platform-shell .merchant-dash__order-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-shell .merchant-dash__order-net .plat-crypto-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.platform-shell .merchant-dash__order-net .plat-crypto-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.platform-shell .merchant-dash-sites {
+  margin-top: 22px;
+}
+
+.platform-shell .merchant-dash-sites__head,
+.platform-shell .merchant-dash-sites__row {
+  grid-template-columns: minmax(0, 2fr) 0.8fr 1.2fr 0.8fr;
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .merchant-dash__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-shell .merchant-dash__kpis--cashier {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-dash__split {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-dash-orders__scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -4px;
+    padding: 0 4px;
+  }
+
+  .platform-shell .merchant-dash-orders__table.orders-table {
+    min-width: 720px;
+  }
+
+  .platform-shell .merchant-dash-sites .merchant-dash-orders__table.orders-table {
+    min-width: 480px;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .merchant-dash__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-dash__kpi-value {
+    font-size: 36px;
+  }
+}
+
 .platform-shell .dash-page.plat-dash .merchant-dash-orders .plat-dash-merchants__head {
   padding-bottom: 14px;
   margin-bottom: 0;
@@ -26477,6 +29357,40 @@ select {
   overflow: visible;
 }
 
+.platform-shell .merchant-dash-orders__table .orders-head,
+.platform-shell .merchant-dash-orders__table .orders-row {
+  align-items: center;
+  grid-template-columns:
+    minmax(108px, 1.1fr)
+    minmax(72px, 0.85fr)
+    minmax(88px, 1fr)
+    minmax(88px, 0.95fr)
+    minmax(100px, 1.15fr)
+    minmax(72px, 0.75fr)
+    minmax(96px, 0.95fr);
+}
+
+.platform-shell .merchant-dash-orders__table .orders-row > span {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  min-height: 28px;
+  line-height: 1.25;
+}
+
+.platform-shell .merchant-dash-orders__table .orders-head > span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.platform-shell .merchant-dash__where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .platform-shell .merchant-dash-orders__table .orders-head {
   background: #141820;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -26486,12 +29400,19 @@ select {
 }
 
 .platform-shell .merchant-dash-orders__table .orders-row {
+  padding-block: 10px;
   padding-inline: 0;
   border-top-color: rgba(148, 163, 184, 0.08);
 }
 
 .platform-shell .merchant-dash-orders__table .orders-row:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+
+.platform-shell .merchant-dash__order-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Merchant service bills — align with platform list chrome */
@@ -26591,6 +29512,24 @@ select {
   gap: 14px;
   width: 100%;
   max-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.platform-shell .main:has(.plat-settlement) {
+  overflow: hidden;
+}
+
+.platform-shell .body:has(.plat-settlement) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
 }
 
 .plat-settlement__layout {
@@ -26599,16 +29538,26 @@ select {
   gap: 14px;
   align-items: stretch;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .plat-settlement__card--addresses,
 .plat-settlement__card--matching,
-.plat-settlement__card--pool {
+.plat-settlement__card--fulfillment {
   grid-column: auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.plat-settlement__card--addresses .plat-settlement__form {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .plat-settlement__card .plat-settings__card-body {
@@ -26616,6 +29565,11 @@ select {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+}
+
+.plat-settlement__card--addresses .plat-settings__card-body {
+  overflow: hidden;
 }
 
 @media (max-width: 1100px) {
@@ -26633,10 +29587,37 @@ select {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .platform-shell .main:has(.plat-settlement) {
+    overflow-y: auto;
+  }
+
+  .platform-shell .body:has(.plat-settlement) {
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .plat-settlement.plat-settings {
+    overflow: visible;
+  }
+
+  .plat-settlement__layout {
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+
   .plat-settlement__card--addresses,
   .plat-settlement__card--matching,
-  .plat-settlement__card--pool {
+  .plat-settlement__card--fulfillment {
     grid-column: 1;
+    height: auto;
+  }
+
+  .plat-settlement__card .plat-settings__card-body {
+    overflow: visible;
+  }
+
+  .plat-settlement__card--addresses .plat-settings__card-body {
+    overflow: visible;
   }
 }
 
@@ -26712,12 +29693,79 @@ select {
 
 .plat-settlement__table-wrap.plat-bills__table-wrap {
   margin: 0 0 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.38);
+  background-clip: padding-box;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.plat-settlement__address-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-settlement__card--addresses .plat-settlement__table-wrap.plat-bills__table-wrap {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow: auto;
+  overflow-y: auto;
+}
+
+.plat-settlement__address-table .plat-settlement__form-title {
+  margin: 0;
 }
 
 .plat-settlement__table thead th {
   background: rgba(0, 212, 200, 0.1);
   color: #94a3b8;
   border-bottom: 1px solid rgba(0, 212, 200, 0.18);
+}
+
+.plat-settlement__table-idx {
+  width: 2.25rem;
+  min-width: 2.25rem;
+  padding-left: 12px;
+  padding-right: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+}
+
+.plat-settlement__table thead .plat-settlement__table-idx {
+  color: #64748b;
 }
 
 .plat-settlement__net {
@@ -26757,6 +29805,20 @@ select {
   font-size: 12px;
 }
 
+.platform-shell .plat-settlement__addr-value .chain-value {
+  max-width: 100%;
+}
+
+.platform-shell .plat-settlement__addr-value .chain-value__link,
+.platform-shell .plat-settlement__addr-value > .mono {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .plat-settlement__form {
   margin-top: 8px;
   padding-top: 14px;
@@ -26768,6 +29830,36 @@ select {
   flex-direction: column;
   gap: 4px;
   margin-bottom: 2px;
+}
+
+.plat-settlement__form-head--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plat-settlement__form-head--row .plat-settlement__form-title {
+  margin: 0;
+}
+
+.platform-shell .plat-settlement__form-badge-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(280px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.45;
+  z-index: 8;
+}
+
+.plat-settlement .plat-settings__badge.plat-settlement__step-badge {
+  margin: 0;
+  cursor: help;
+  color: var(--plat-gold-bright, #fbbf24);
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.32);
 }
 
 .plat-settlement__form-title {
@@ -26798,10 +29890,45 @@ select {
   min-width: 0;
 }
 
+.plat-settlement__field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.platform-shell .plat-settlement__underpay-help .plat-card-help__btn,
+.platform-shell .plat-settlement__xpub-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .plat-settlement__underpay-help .plat-card-help__tip,
+.platform-shell .plat-settlement__xpub-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(300px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.5;
+  z-index: 8;
+}
+
+.plat-settlement__card--addresses .plat-settings__payout-form {
+  gap: 8px;
+}
+
+.plat-settlement__card--addresses .plat-settlement__form-actions {
+  margin-top: 0;
+}
+
 .plat-settlement__form-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 2px;
+  margin-top: 10px;
 }
 
 .plat-settlement__mode-pill {
@@ -26819,222 +29946,63 @@ select {
   border: 1px solid rgba(0, 212, 200, 0.28);
 }
 
-.plat-settlement__modes {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+.plat-settlement__mode-pill.is-stale {
+  color: #64748b;
+  background: rgba(51, 65, 85, 0.35);
+  border-color: rgba(71, 85, 105, 0.4);
 }
 
-.plat-settlement__mode {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 12px 12px 11px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  color: #e2e8f0;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.plat-settlement__mode-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  width: 100%;
-}
-
-.plat-settlement__mode-key {
+.plat-settlement__head-badges {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 1.4rem;
-  height: 1.4rem;
-  padding: 0 5px;
-  border-radius: 5px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  max-width: min(100%, 320px);
 }
 
-.plat-settlement__mode-head strong {
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.plat-settlement__mode-blurb {
-  display: block;
-  padding-left: calc(1.4rem + 10px);
+.plat-settlement__draft-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
-  line-height: 1.4;
-  color: #94a3b8;
-}
-
-.plat-settlement__mode-nudge {
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(251, 191, 36, 0.28);
-  background: rgba(251, 191, 36, 0.08);
-}
-
-.plat-settlement__mode-nudge strong {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  white-space: nowrap;
 }
 
-.plat-settlement__mode-nudge p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: #e2e8f0;
-}
-
-.create-order-amount-lock {
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(251, 146, 60, 0.35);
-  background: rgba(251, 146, 60, 0.08);
-  display: grid;
+.plat-settlement__mode-title {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
-.create-order-amount-lock.is-cleared {
-  border-color: rgba(0, 212, 200, 0.35);
-  background: rgba(0, 212, 200, 0.08);
+.platform-shell .plat-settlement__mode-help .plat-card-help__btn,
+.platform-shell .plat-settlement__pool-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
 }
 
-.create-order-amount-lock strong {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fdba74;
-}
-
-.create-order-amount-lock.is-cleared strong {
-  color: #5eead4;
-}
-
-.create-order-amount-lock > p {
-  margin: 0;
-  font-size: 12px;
+.platform-shell .plat-settlement__mode-help .plat-card-help__tip,
+.platform-shell .plat-settlement__pool-help .plat-card-help__tip {
+  left: 0;
+  right: auto;
+  transform: none;
+  width: min(320px, 72vw);
+  white-space: normal;
+  font-weight: 500;
   line-height: 1.45;
-  color: #e2e8f0;
+  z-index: 5;
 }
 
-.create-order-amount-lock__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  margin: 4px 0 0;
-}
-
-.create-order-amount-lock__meta dt {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-.create-order-amount-lock__meta dd {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #f8fafc;
-}
-
-.create-order-amount-lock__meta a {
-  color: #5eead4;
-  text-decoration: none;
-}
-
-.create-order-amount-lock__meta a:hover {
-  text-decoration: underline;
-}
-
-.create-order-amount-lock__wait {
-  font-size: 12px;
-  color: #fdba74;
-}
-
-.create-order-amount-lock__hint {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #94a3b8;
-}
-
-.create-order-amount-lock__continue {
-  justify-self: start;
-  margin-top: 4px;
-}
-
-.create-order-amount-lock__dismiss {
-  justify-self: start;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #94a3b8;
-  font-size: 12px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.create-order-amount-lock__dismiss:hover:not(:disabled) {
-  color: #e2e8f0;
-}
-
-.plat-settlement__mode em {
-  font-style: normal;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #5eead4;
-  padding-left: calc(1.4rem + 10px);
-}
-
-.plat-settlement__mode:hover:not(:disabled) {
-  border-color: rgba(0, 212, 200, 0.28);
-  background: rgba(0, 212, 200, 0.04);
-}
-
-.plat-settlement__mode.is-selected {
-  border-color: rgba(0, 212, 200, 0.45);
-  background: rgba(0, 212, 200, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.plat-settlement__mode.is-selected .plat-settlement__mode-key {
-  color: #0b0f14;
-  background: #00d4c8;
-  border-color: transparent;
-}
-
-.plat-settlement__mode:disabled {
-  opacity: 0.72;
-  cursor: not-allowed;
-}
 
 .plat-settlement__pool-meta {
   margin-left: auto;
@@ -27060,11 +30028,29 @@ select {
 }
 
 .plat-settlement__stat-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #64748b;
+}
+
+.plat-settlement__stat-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.12);
+  border: 1px solid rgba(0, 212, 200, 0.28);
 }
 
 .plat-settlement__stat-value {
@@ -27078,6 +30064,123 @@ select {
   font-size: 11px;
   color: #94a3b8;
   line-height: 1.35;
+}
+
+.plat-settlement__stats--pick {
+  margin: 4px 0 8px;
+}
+
+.plat-settlement__stats--duo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plat-settlement__stat-pick {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.plat-settlement__stat-pick:not(.is-selected) {
+  opacity: 0.72;
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.plat-settlement__stat-pick:not(.is-selected) .plat-settlement__stat-value {
+  color: #cbd5e1;
+}
+
+.plat-settlement__stat-pick.is-selected {
+  border-color: rgba(0, 212, 200, 0.32);
+  background: rgba(0, 212, 200, 0.08);
+  opacity: 1;
+}
+
+.plat-settlement__stat-pick.is-selected .plat-settlement__stat-value {
+  color: #5eead4;
+}
+
+.plat-settlement__stat-pick.is-selected .plat-settlement__stat-hint {
+  color: #94a3b8;
+}
+
+.plat-settlement__stat-pick:hover:not(:disabled):not(.is-selected) {
+  opacity: 0.88;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.plat-settlement__stat-pick:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.platform-shell .plat-settlement__stat-pick .plat-settlement__stat-pick-help.plat-card-help {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  z-index: 2;
+}
+
+.platform-shell .plat-settlement__stat-pick-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.platform-shell .plat-settlement__stat-pick-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(260px, 70vw);
+  z-index: 8;
+}
+
+.plat-settlement__stat-pick .plat-settlement__stat-label {
+  padding-right: 22px;
+}
+
+.plat-settlement__stat-pick .plat-settlement__stat-hint {
+  padding-right: 4px;
+}
+
+.plat-settlement__card--matching .plat-settlement__form,
+.plat-settlement__card--fulfillment .plat-settlement__form {
+  margin-top: 0;
+}
+
+.plat-settlement__pool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-settlement__pool-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plat-settlement__pool-section-head .plat-settlement__pool-meta {
+  flex-shrink: 0;
+}
+
+.plat-settlement__form--pool {
+  margin-top: 2px;
 }
 
 .plat-settlement__chips {
@@ -27131,11 +30234,399 @@ select {
   margin-top: 18px;
 }
 
-.plat-settlement .plat-settings__card-head .plat-settlement__mode-pill {
+.plat-settlement .plat-settings__card-head .plat-settlement__head-badges {
   margin-left: auto;
 }
 
-/* Merchant network catalog (NetworksPage) */
+.plat-settlement .plat-settings__card-head .plat-settlement__head-badges .plat-settlement__mode-pill {
+  margin-left: 0;
+}
+
+/* —— Merchant Networks (D8) professional restyle —— */
+.platform-shell .merchant-networks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.platform-shell .merchant-networks__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.platform-shell .merchant-networks__kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 108px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, transparent 42%),
+    linear-gradient(165deg, rgba(22, 28, 38, 0.96), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+    0 10px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  --networks-kpi-glow: rgba(148, 163, 184, 0.2);
+  animation:
+    merchant-networks-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    merchant-networks-breathe 4.2s ease-in-out 0.7s infinite;
+  transition: transform 180ms ease;
+}
+
+.platform-shell .merchant-networks__kpis > .merchant-networks__kpi:nth-child(1) {
+  animation-delay: 40ms, 0.8s;
+}
+.platform-shell .merchant-networks__kpis > .merchant-networks__kpi:nth-child(2) {
+  animation-delay: 100ms, 1.2s;
+}
+.platform-shell .merchant-networks__kpis > .merchant-networks__kpi:nth-child(3) {
+  animation-delay: 160ms, 1.6s;
+}
+
+.platform-shell .merchant-networks__kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.platform-shell .merchant-networks__kpi:hover {
+  transform: translateY(-3px);
+  animation-play-state: paused;
+}
+
+.platform-shell .merchant-networks__kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .merchant-networks__kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 55%),
+    rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
+    0 4px 10px rgba(0, 0, 0, 0.32);
+}
+
+.platform-shell .merchant-networks__kpi-label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.platform-shell .merchant-networks__kpi-value {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-align: center;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-shell .merchant-networks__kpi--total {
+  --networks-kpi-glow: rgba(96, 165, 250, 0.38);
+  border-color: rgba(96, 165, 250, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(96, 165, 250, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(18, 28, 44, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-networks__kpi--total .merchant-networks__kpi-icon {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.32);
+  background:
+    linear-gradient(160deg, rgba(191, 219, 254, 0.2), rgba(96, 165, 250, 0.04) 55%),
+    rgba(96, 165, 250, 0.1);
+}
+
+.platform-shell .merchant-networks__kpi--total .merchant-networks__kpi-value {
+  color: #bfdbfe;
+}
+
+.platform-shell .merchant-networks__kpi--open {
+  --networks-kpi-glow: rgba(52, 211, 153, 0.38);
+  border-color: rgba(52, 211, 153, 0.26);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(52, 211, 153, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(16, 36, 30, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-networks__kpi--open .merchant-networks__kpi-icon {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.32);
+  background:
+    linear-gradient(160deg, rgba(167, 243, 208, 0.2), rgba(52, 211, 153, 0.04) 55%),
+    rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .merchant-networks__kpi--open .merchant-networks__kpi-value {
+  color: #6ee7b7;
+}
+
+.platform-shell .merchant-networks__kpi--paused.is-alert {
+  --networks-kpi-glow: rgba(251, 191, 36, 0.4);
+  border-color: rgba(251, 191, 36, 0.3);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, transparent 42%),
+    radial-gradient(120% 90% at 0% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(40, 32, 16, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.platform-shell .merchant-networks__kpi--paused.is-alert .merchant-networks__kpi-icon {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.34);
+  background:
+    linear-gradient(160deg, rgba(253, 230, 138, 0.2), rgba(251, 191, 36, 0.04) 55%),
+    rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .merchant-networks__kpi--paused.is-alert .merchant-networks__kpi-value {
+  color: #fde68a;
+}
+
+.platform-shell .merchant-networks__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%),
+    linear-gradient(165deg, rgba(18, 24, 34, 0.98), rgba(10, 14, 20, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.35) inset,
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  animation: merchant-networks-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 220ms;
+}
+
+.platform-shell .merchant-networks__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.platform-shell .merchant-networks__card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+
+.platform-shell .merchant-networks__card-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.platform-shell .merchant-networks__table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .merchant-networks__thead,
+.platform-shell .merchant-networks__row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 0.72fr)
+    minmax(0, 1.1fr)
+    minmax(0, 1.05fr)
+    minmax(92px, 0.95fr)
+    minmax(0, 0.88fr)
+    minmax(64px, 0.62fr)
+    minmax(0, 0.92fr);
+  gap: 10px;
+  padding: 12px 14px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-networks__thead > span,
+.platform-shell .merchant-networks__row > span {
+  min-width: 0;
+}
+
+.platform-shell .merchant-networks__thead {
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-networks__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 140ms ease;
+}
+
+.platform-shell .merchant-networks__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.platform-shell .merchant-networks__row.is-dimmed {
+  opacity: 0.68;
+}
+
+.platform-shell .merchant-networks__asset,
+.platform-shell .merchant-networks__net-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.platform-shell .merchant-networks__asset {
+  font-weight: 650;
+}
+
+.platform-shell .merchant-networks__guest {
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-networks__amount,
+.platform-shell .merchant-networks__meta {
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-shell .merchant-networks__contract {
+  color: #94a3b8;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-networks__status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.platform-shell .merchant-networks__table .merchant-networks__status .network-status-lamp {
+  justify-content: flex-start;
+  width: auto;
+  max-width: 100%;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.platform-shell .merchant-networks__thead .merchant-networks__status-head,
+.platform-shell .merchant-networks__status {
+  justify-self: start;
+}
+
+@keyframes merchant-networks-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes merchant-networks-breathe {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.12) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 10px 24px rgba(0, 0, 0, 0.3),
+      0 0 14px color-mix(in srgb, var(--networks-kpi-glow) 35%, transparent);
+  }
+  50% {
+    filter: brightness(1.05);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.14) inset,
+      0 -2px 0 rgba(0, 0, 0, 0.38) inset,
+      0 12px 28px rgba(0, 0, 0, 0.34),
+      0 0 20px color-mix(in srgb, var(--networks-kpi-glow) 50%, transparent);
+  }
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .merchant-networks__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .merchant-networks__thead,
+  .platform-shell .merchant-networks__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .platform-shell .merchant-networks__thead span:nth-child(n + 3),
+  .platform-shell .merchant-networks__row > span:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .merchant-networks__kpi,
+  .platform-shell .merchant-networks__card {
+    animation: none;
+  }
+
+  .platform-shell .merchant-networks__kpi:hover {
+    transform: none;
+  }
+}
+
+/* Legacy chain card helpers (platform/agent reuse) */
 .merchant-networks__chains h2,
 .merchant-networks__table-wrap h2 {
   margin: 0 0 14px;
@@ -28153,6 +31644,23 @@ select {
     display: none;
   }
 
+  .platform-shell .plat-period-controls--topbar {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .platform-shell .plat-period-pills--topbar,
+  .platform-shell .plat-period-dates--topbar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .platform-shell .plat-period-dates--topbar .plat-period-date input {
+    max-width: 9.5rem;
+  }
+
   .platform-shell .body {
     padding-left: 8px;
     padding-right: 8px;
@@ -28181,8 +31689,72 @@ select {
   }
 
   .platform-shell .plat-settings__grid,
-  .platform-shell .plat-dash__grid {
+  .platform-shell .plat-settings__form-grid,
+  .platform-shell .plat-fee-tiers__cards,
+  .platform-shell .dash-page.plat-dash .plat-overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .platform-shell .b4-wizard__foot {
+    flex-wrap: wrap;
+    gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    padding: 12px 16px;
+    background: linear-gradient(180deg, transparent, #12181f 28%);
+  }
+
+  .platform-shell .b4-wizard__foot-left {
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .b4-wizard__body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  .platform-shell .plat-compliance__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .org-architecture__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-period-dates--topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .platform-shell .plat-period-dates--topbar .plat-period-dates__sep {
+    display: none;
+  }
+
+  .platform-shell .plat-period-dates--topbar .plat-period-date {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .platform-shell .plat-period-dates--topbar .plat-period-date input {
+    max-width: none;
+    flex: 1;
+  }
+
+  .platform-shell .topbar h1 {
+    font-size: 1.05rem;
+  }
+
+  .platform-shell .merchant-dash__kpi {
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .platform-shell .merchant-dash__kpi-value {
+    font-size: 32px;
   }
 }
 
@@ -28205,15 +31777,21 @@ select {
 
   .platform-shell .plat-bills__filters,
   .platform-shell .org-agents__toolbar,
-  .platform-shell .plat-compliance__topbar-actions {
+  .platform-shell .plat-compliance__topbar-actions,
+  .platform-shell .org-agents__actions {
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .platform-shell .onboard-wizard,
   .platform-shell .plat-settings__form-grid,
-  .platform-shell .fee-tiers-grid {
+  .platform-shell .plat-fee-tiers__cards,
+  .platform-shell .b4-field-row {
     grid-template-columns: 1fr;
+  }
+
+  .platform-shell .b4-wizard__dialog {
+    width: min(100vw - 16px, 720px);
+    max-height: min(96dvh, 900px);
   }
 }
 
@@ -28234,16 +31812,14 @@ select {
     width: 100%;
   }
 
-  .platform-shell .onboard-steps,
-  .platform-shell .wizard-footer {
-    flex-wrap: wrap;
+  .platform-shell .org-agents__cta,
+  .platform-shell .plat-orders-topbar__actions {
+    width: 100%;
   }
 
-  .platform-shell .wizard-footer {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
-    padding: 12px 0;
-    background: linear-gradient(180deg, transparent, var(--bg) 28%);
+  .platform-shell .org-agents__cta .btn-primary,
+  .platform-shell .plat-orders-topbar__actions .btn-primary,
+  .platform-shell .plat-orders-topbar__actions .btn-ghost {
+    flex: 1 1 auto;
   }
 }

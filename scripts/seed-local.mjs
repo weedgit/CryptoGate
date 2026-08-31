@@ -719,6 +719,14 @@ async function main() {
   }
 
   // Paid volume fees for commission statement math (prefix demo-bill-).
+  const { rows: billingRows } = await pool.query(
+    `SELECT pay_to FROM platform_billing_settings WHERE id = 1`,
+  );
+  const platformPayTo =
+    billingRows[0]?.pay_to != null && String(billingRows[0].pay_to).trim()
+      ? String(billingRows[0].pay_to).trim()
+      : process.env.PLATFORM_BILLING_PAY_TO?.trim() || null;
+
   const demoBillMerchants = [
     { id: merchantId, fee: "100.00", sub: "49.00" },
     { id: subMerchantId, fee: "50.00", sub: "29.00" },
@@ -758,11 +766,13 @@ async function main() {
            org_id, period_start, period_end,
            subscription_amount, volume_fee_amount, total_amount,
            currency, status, due_at, paid_at, payment_reference,
+           rx_address,
            created_at, updated_at
          ) VALUES (
            $1, $2::date, $3::date,
            $4, $5, $6,
            'USD', $7, $8, $9, $10,
+           $11,
            now(), now()
          )`,
         [
@@ -776,6 +786,7 @@ async function main() {
           due.toISOString(),
           paidAt ? paidAt.toISOString() : null,
           ref,
+          plan.status === "paid" ? platformPayTo : null,
         ],
       );
     }

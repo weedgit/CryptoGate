@@ -38,6 +38,10 @@ import {
   handleGetMatchingMode,
   handlePutMatchingMode,
 } from "../matching-mode/matching-mode-routes.mjs";
+import {
+  handleGetFulfillmentPolicy,
+  handlePutFulfillmentPolicy,
+} from "../fulfillment-policy/fulfillment-policy-routes.mjs";
 import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
 import {
@@ -55,6 +59,7 @@ import {
   handleListWebhooks,
   handleRegisterWebhook,
   handleResendWebhookDelivery,
+  handleRotateWebhookSecret,
   handleTestWebhook,
 } from "../webhooks/webhook-routes.mjs";
 import {
@@ -63,6 +68,10 @@ import {
   handleRevokeApiKey,
   handleRotateApiKey,
 } from "../api-keys/api-key-routes.mjs";
+import {
+  handleGetNotificationPreferences,
+  handlePutNotificationPreferences,
+} from "../notifications/notification-routes.mjs";
 import {
   handleGetServiceBill,
   handleGetServiceBillCheckout,
@@ -286,6 +295,36 @@ export async function handleRequest(req, res) {
     }
   }
 
+  const fulfillmentPolicyMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/fulfillment-policy$/,
+  );
+  if (fulfillmentPolicyMatch) {
+    const orgId = decodeURIComponent(fulfillmentPolicyMatch[1]);
+    if (method === "GET") {
+      await handleGetFulfillmentPolicy(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutFulfillmentPolicy(req, res, orgId);
+      return;
+    }
+  }
+
+  const notificationPrefsMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/notification-preferences$/,
+  );
+  if (notificationPrefsMatch) {
+    const orgId = decodeURIComponent(notificationPrefsMatch[1]);
+    if (method === "GET") {
+      await handleGetNotificationPreferences(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutNotificationPreferences(req, res, orgId);
+      return;
+    }
+  }
+
   const xpubMatch = path.match(/^\/v1\/orgs\/([^/]+)\/xpub$/);
   if (xpubMatch) {
     const orgId = decodeURIComponent(xpubMatch[1]);
@@ -488,6 +527,19 @@ export async function handleRequest(req, res) {
       req,
       res,
       decodeURIComponent(webhookMatch[1]),
+      url,
+    );
+    return;
+  }
+
+  const webhookRotateSecretMatch = path.match(
+    /^\/v1\/webhooks\/([^/]+)\/rotate-secret$/,
+  );
+  if (method === "POST" && webhookRotateSecretMatch) {
+    await handleRotateWebhookSecret(
+      req,
+      res,
+      decodeURIComponent(webhookRotateSecretMatch[1]),
       url,
     );
     return;

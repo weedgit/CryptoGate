@@ -195,6 +195,8 @@ No further Phase 1 product code is required without the above inputs (Wave 8 + X
 
 **Landed on `main` (2026-08-30):** service-bill invoice snapshots + adjustment amount, platform billing wallet (B11), batch agent commission / payout APIs, portal alerts bell, merchant order modal + bill QR rail, payment-page states, watcher/matching harden — migrations through **041**.
 
+**Landed (2026-08-31):** merchant fulfillment policy (migration **047**, API, Settlement UI, order snapshot, guest copy); Phase 1 final polish — B13 settings route, webhook delivery log + resend (D3), payment-page network maintenance (E2), cashier APK today’s orders / cancel / Mode B lock / expiry + confirmations, CI hermetic chain-client tests, webhook delivery DTO fixes.
+
 ## 4. Critical path (shortest path to UAT)
 
 ```mermaid

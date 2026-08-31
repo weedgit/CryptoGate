@@ -15,17 +15,24 @@ import {
 } from "../platform/ui/PlatformPending";
 import {
   ApiError,
+  getMerchantCommercial,
+  getOrg,
   listServiceBills,
+  type MerchantCommercialSettings,
   type ServiceBill,
   type Session,
 } from "./api";
 import { formatShortDate } from "../platform/org";
+import { tierLabel } from "../commercialLabels";
 import {
   formatBillId,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
-import { sessionCanCheckoutServiceBill } from "./org";
+import {
+  primaryMerchantOrgId,
+  sessionCanCheckoutServiceBill,
+} from "./org";
 
 type Filter = "all" | "overdue" | "unpaid" | "paid";
 
@@ -71,10 +78,15 @@ function matchesQuery(bill: ServiceBill, query: string): boolean {
 
 export function ServiceBillsListPage({ session }: Props) {
   const navigate = useNavigate();
+  const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canPay = useMemo(() => sessionCanCheckoutServiceBill(session), [session]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ServiceBill[]>([]);
+  const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
+    null,
+  );
+  const [agentName, setAgentName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(
@@ -104,6 +116,38 @@ export function ServiceBillsListPage({ session }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await getMerchantCommercial(orgId);
+        if (cancelled) return;
+        setCommercial(row);
+        const account = await getOrg(orgId);
+        if (cancelled) return;
+        if (account.parentId) {
+          try {
+            const parent = await getOrg(account.parentId);
+            if (!cancelled) setAgentName(parent.name?.trim() || null);
+          } catch {
+            if (!cancelled) setAgentName(null);
+          }
+        } else if (!cancelled) {
+          setAgentName(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setCommercial(null);
+          setAgentName(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
 
   const filtered = useMemo(
     () =>
@@ -183,6 +227,58 @@ export function ServiceBillsListPage({ session }: Props) {
     <div className="plat-bills">
       {topbarFilters}
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+
+      <section className="plat-bills__plan" aria-label="Fee and billing">
+        <div className="plat-bills__plan-head">
+          <div>
+            <h2 className="plat-bills__plan-title">Fee &amp; billing</h2>
+            <p className="plat-bills__plan-copy">
+              Platform fee tier and volume rate — display only. Changes come from
+              your agent or CryptoGate platform.
+            </p>
+          </div>
+        </div>
+        <div className="plat-bills__plan-stats">
+          <article className="plat-bills__plan-stat">
+            <span className="plat-bills__plan-label">Tier</span>
+            <strong className="plat-bills__plan-value">
+              {commercial ? tierLabel(commercial.tier) : "—"}
+            </strong>
+          </article>
+          <article className="plat-bills__plan-stat">
+            <span className="plat-bills__plan-label">Volume fee</span>
+            <strong className="plat-bills__plan-value">
+              {commercial ? `${commercial.volumeFeePercent}%` : "—"}
+            </strong>
+            <span className="plat-bills__plan-hint">
+              Not deducted from payer on-chain
+            </span>
+          </article>
+          <article className="plat-bills__plan-stat">
+            <span className="plat-bills__plan-label">Subscription</span>
+            <strong className="plat-bills__plan-value">
+              {commercial ? `$${commercial.subscriptionAmountUsd}` : "—"}
+            </strong>
+            <span className="plat-bills__plan-hint">per month</span>
+          </article>
+          <article className="plat-bills__plan-stat">
+            <span className="plat-bills__plan-label">Next period rate</span>
+            <strong className="plat-bills__plan-value">
+              {commercial?.pendingVolumeFeePercent
+                ? `${commercial.pendingVolumeFeePercent}%`
+                : "—"}
+            </strong>
+            {agentName ? (
+              <span className="plat-bills__plan-hint">Agent · {agentName}</span>
+            ) : null}
+          </article>
+        </div>
+        {commercial?.enterpriseApprovalStatus === "pending" ? (
+          <p className="plat-bills__plan-notice" role="status">
+            Custom Enterprise rate awaits platform Owner review.
+          </p>
+        ) : null}
+      </section>
 
       <div className="plat-bills__table-wrap">
         {loading ? (

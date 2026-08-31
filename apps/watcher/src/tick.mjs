@@ -29,6 +29,7 @@ import {
   listKnownTxHashes,
   listOpenOrdersForMatch,
   listOrdersAwaitingConfirmations,
+  listAllOrdersAwaitingConfirmations,
   listOrdersByReceiveAddresses,
   patchMissingFromAddresses,
   patchMissingReceivedAmounts,
@@ -145,6 +146,49 @@ async function ingestScope(pool, filter) {
 }
 
 /**
+ * Fast confirmation pass for all verifying orders (before heavy per-scope ingest).
+ * @param {import("pg").Pool} pool
+ */
+async function processPriorityConfirmations(pool) {
+  const orders = await listAllOrdersAwaitingConfirmations(pool);
+  if (orders.length === 0) {
+    return { priorityConfirmations: 0, priorityConfirmOutcomes: [] };
+  }
+
+  /** @type {Map<string, typeof orders>} */
+  const byScope = new Map();
+  for (const order of orders) {
+    const key = `${order.asset}:${order.network}`;
+    const group = byScope.get(key);
+    if (group) group.push(order);
+    else byScope.set(key, [order]);
+  }
+
+  /** @type {Array<Record<string, unknown>>} */
+  const priorityConfirmOutcomes = [];
+  for (const [key, group] of byScope) {
+    const [asset, network] = key.split(":");
+    const chain = await loadChainClient(network);
+    const outcomes = await processConfirmationBatch({
+      orders: group,
+      getConfirmationState: (args) =>
+        chain.getTransactionConfirmationState({
+          ...args,
+          asset,
+          network,
+        }),
+      apply: (args) => applyConfirmationUpdate(pool, args),
+    });
+    priorityConfirmOutcomes.push(...outcomes);
+  }
+
+  return {
+    priorityConfirmations: orders.length,
+    priorityConfirmOutcomes,
+  };
+}
+
+/**
  * @param {Promise<Record<string, unknown>>} promise
  * @param {number} timeoutMs
  * @param {{ asset: string, network: string }} filter
@@ -252,6 +296,7 @@ export async function runTick(ctx) {
   if (ctx.config.databaseUrl) {
     try {
       const pool = getWatcherPool();
+      const priorityConfirm = await processPriorityConfirmations(pool);
       const openScopes = ctx.config.multiNetwork
         ? await listDistinctWatchScopes(pool)
         : [];
@@ -307,6 +352,8 @@ export async function runTick(ctx) {
       }
 
       ingest = aggregateIngest(scopeResults);
+      ingest.priorityConfirmations = priorityConfirm.priorityConfirmations;
+      ingest.priorityConfirmOutcomes = priorityConfirm.priorityConfirmOutcomes;
     } catch (err) {
       ingest = {
         mode: "error",

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cryptogate.cashier.api.AssetNetworkCatalog
 import com.cryptogate.cashier.api.AssetNetworkPair
+import com.cryptogate.cashier.api.BlockingOrder
 import com.cryptogate.cashier.api.CashierPosSurface
 
 data class ValidityChoice(val label: String, val seconds: Int)
@@ -48,6 +49,8 @@ fun CreateOrderScreen(
     error: String?,
     loading: Boolean,
     online: Boolean,
+    blockingOrder: BlockingOrder? = null,
+    onOpenBlockingOrder: ((BlockingOrder) -> Unit)? = null,
     onAmountChange: (String) -> Unit,
     onPairChange: (AssetNetworkPair) -> Unit,
     onMerchantReferenceChange: (String) -> Unit,
@@ -168,6 +171,26 @@ fun CreateOrderScreen(
                 )
             }
         }
+        if (blockingOrder != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Same amount already open on ${blockingOrder.orderNumber}. " +
+                    "Wait for it to complete, cancel it, or choose a different amount.",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (onOpenBlockingOrder != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onOpenBlockingOrder(blockingOrder) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !loading,
+                ) {
+                    Text("Open blocking order")
+                }
+            }
+        }
         if (!error.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(text = error, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
@@ -178,7 +201,7 @@ fun CreateOrderScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            enabled = !loading && online && amount.isNotBlank() && selected != null,
+            enabled = !loading && online && amount.isNotBlank() && selected != null && blockingOrder == null,
         ) {
             if (loading) {
                 CircularProgressIndicator(

@@ -200,6 +200,30 @@ export async function listOrdersAwaitingConfirmations(db, filter) {
 }
 
 /**
+ * All orders waiting on confirmations — fast path before heavy ingest scopes.
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ */
+export async function listAllOrdersAwaitingConfirmations(db) {
+  const { rows } = await db.query(
+    `SELECT id, status, tx_hash, confirmations, required_confirmations, network, asset
+     FROM payment_orders
+     WHERE status = ANY($1::text[])
+       AND tx_hash IS NOT NULL
+     ORDER BY updated_at ASC`,
+    [WATCHER_CONFIRM_STATUSES],
+  );
+  return rows.map((row) => ({
+    orderId: row.id,
+    status: row.status,
+    txHash: row.tx_hash,
+    confirmations: row.confirmations ?? 0,
+    requiredConfirmations: row.required_confirmations,
+    network: row.network,
+    asset: row.asset,
+  }));
+}
+
+/**
  * Apply a match result. Idempotent on (network, tx_hash) and already-applied rows.
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{

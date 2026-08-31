@@ -148,6 +148,46 @@ class CryptoGateClient(
             }
         }
 
+    /** GET /v1/orders — cashier scope returns own orders only. */
+    suspend fun listOrders(limit: Int = 40): List<PaymentOrder> =
+        withContext(Dispatchers.IO) {
+            val token = requireToken()
+            val req = Request.Builder()
+                .url(config.url("/orders?limit=$limit"))
+                .get()
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader(token))
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    if (res.code == 401) sessionStore.clear()
+                    throw JsonParsers.parseError(body, res.code)
+                }
+                JsonParsers.parsePaymentOrderList(body)
+            }
+        }
+
+    /** POST /v1/orders/{id}/cancel — pending orders only (cashier own). */
+    suspend fun cancelOrder(orderId: String): PaymentOrder =
+        withContext(Dispatchers.IO) {
+            val token = requireToken()
+            val req = Request.Builder()
+                .url(config.url("/orders/${orderId.trim()}/cancel"))
+                .post("{}".toRequestBody(jsonMedia))
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader(token))
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    if (res.code == 401) sessionStore.clear()
+                    throw JsonParsers.parseError(body, res.code)
+                }
+                JsonParsers.parsePaymentOrder(body)
+            }
+        }
+
     private fun requireToken(): String =
         sessionStore.sessionToken
             ?: throw ApiError("not_authenticated", "Not signed in", 401)

@@ -4,6 +4,7 @@ import { MfaStepUpModal } from "../auth/MfaStepUpModal";
 import {
   ApiError,
   decideSiteOverride,
+  getFulfillmentPolicy,
   getMatchingMode,
   getRetention,
   listSiteOverrides,
@@ -15,6 +16,7 @@ import { sessionRoleOnOrg } from "./org";
 
 const KINDS: Array<{ id: SiteSettingOverride["settingKind"]; label: string }> = [
   { id: "matching_mode", label: "Matching mode" },
+  { id: "fulfillment_policy", label: "Fulfillment policy" },
   { id: "settlement", label: "Settlement address" },
   { id: "xpub", label: "xPub (Mode S)" },
   { id: "order_retention", label: "Order retention" },
@@ -41,6 +43,7 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
 
   const [kind, setKind] = useState<SiteSettingOverride["settingKind"]>("matching_mode");
   const [matchingMode, setMatchingMode] = useState("B");
+  const [fulfillmentPolicy, setFulfillmentPolicy] = useState("on_completed");
   const [address, setAddress] = useState("");
   const [xPub, setXPub] = useState("");
   const [days, setDays] = useState("90");
@@ -50,13 +53,15 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [ov, mode, ret] = await Promise.all([
+      const [ov, mode, fulfillment, ret] = await Promise.all([
         listSiteOverrides(siteId),
         getMatchingMode(siteId),
+        getFulfillmentPolicy(siteId),
         getRetention(siteId),
       ]);
       setRows(ov);
       setSource(mode.source ?? "inherit");
+      setFulfillmentPolicy(fulfillment.fulfillmentPolicy);
       setRetentionDays(ret.orderDeleteDays);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load overrides");
@@ -79,11 +84,13 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
       const payload =
         kind === "matching_mode"
           ? { matchingMode }
-          : kind === "order_retention"
-            ? { orderDeleteDays: Number(days) }
-            : kind === "settlement"
-              ? { asset: "USDT", network: "tron", address: address.trim() }
-              : { asset: "USDT", network: "tron", xPub: xPub.trim() };
+          : kind === "fulfillment_policy"
+            ? { fulfillmentPolicy }
+            : kind === "order_retention"
+              ? { orderDeleteDays: Number(days) }
+              : kind === "settlement"
+                ? { asset: "USDT", network: "tron", address: address.trim() }
+                : { asset: "USDT", network: "tron", xPub: xPub.trim() };
       await requestSiteOverride(siteId, { settingKind: kind, payload });
       setAddress("");
       setXPub("");
@@ -169,9 +176,10 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
       />
       <h2>Inherit vs override</h2>
       <p className="muted settings-note">
-        Wallet, xPub, matching mode, and order retention inherit from the parent
-        merchant until the parent Owner approves a site override. Current matching
-        source: <strong>{source}</strong>. Retention: {retentionDays} days.
+        Wallet, xPub, matching mode, fulfillment policy, and order retention
+        inherit from the parent merchant until the parent Owner approves a site
+        override. Current matching source: <strong>{source}</strong>. Fulfillment:{" "}
+        <strong>{fulfillmentPolicy}</strong>. Retention: {retentionDays} days.
       </p>
 
       {canRequest ? (
@@ -194,6 +202,18 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
                 <option value="C">C Amount fingerprint</option>
                 <option value="D">D Memo tag</option>
                 <option value="S">S Smart address</option>
+              </select>
+            </label>
+          ) : null}
+          {kind === "fulfillment_policy" ? (
+            <label className="settings-filter">
+              <span>Policy</span>
+              <select
+                value={fulfillmentPolicy}
+                onChange={(e) => setFulfillmentPolicy(e.target.value)}
+              >
+                <option value="on_completed">Standard (on completed)</option>
+                <option value="on_verifying">Counter (on verifying)</option>
               </select>
             </label>
           ) : null}

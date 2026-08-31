@@ -1,5 +1,5 @@
 import { sendCsv, sendError, sendJson } from "../http/json.mjs";
-import { requireCaller } from "../http/require-caller.mjs";
+import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
@@ -44,6 +44,7 @@ async function merchantOrgIdsInAgentSubtree(agentOrgId, visible) {
 export async function handleListPaymentOrders(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
+  if (!assertApiKeyScope(caller, res, "orders")) return;
 
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const parsed = parseListOrdersQuery(url.searchParams, req.headers.accept);

@@ -129,9 +129,31 @@ export function toWebhookCreated(row, signingSecret) {
  * @param {object} row
  */
 export function toWebhookDelivery(row) {
+  let orderId = null;
+  let eventType = row.event_type ?? null;
+  try {
+    const payload =
+      typeof row.payload === "string"
+        ? JSON.parse(row.payload)
+        : row.payload;
+    if (payload && typeof payload === "object") {
+      if (!eventType && typeof payload.type === "string") {
+        eventType = payload.type;
+      }
+      const data = payload.data;
+      if (data && typeof data === "object" && typeof data.orderId === "string") {
+        orderId = data.orderId;
+      }
+    }
+  } catch {
+    /* ignore malformed payload */
+  }
+
   return {
     id: row.id,
     eventId: row.event_id,
+    eventType: eventType ?? "unknown",
+    orderId,
     status: row.status,
     attempt: row.attempt,
     httpStatus: row.http_status ?? null,
@@ -139,6 +161,11 @@ export function toWebhookDelivery(row) {
       ? row.next_retry_at instanceof Date
         ? row.next_retry_at.toISOString()
         : String(row.next_retry_at)
+      : null,
+    createdAt: row.created_at
+      ? row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at)
       : null,
   };
 }

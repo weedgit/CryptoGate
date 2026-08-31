@@ -4,7 +4,17 @@ data class ApiError(
     val code: String,
     val message: String,
     val httpStatus: Int,
+    val details: JSONObject? = null,
 ) : Exception("$code: $message")
+
+data class BlockingOrder(
+    val id: String,
+    val orderNumber: String,
+    val status: String,
+    val payableAmount: String,
+    val asset: String,
+    val network: String,
+)
 
 data class OrgMembership(
     val orgId: String,
@@ -60,6 +70,8 @@ data class PaymentDetails(
     val memoOrTag: String?,
     val memoWarning: String?,
     val contractAddress: String?,
+    val confirmations: Int = 0,
+    val requiredConfirmations: Int = 1,
 )
 
 object OrderDefaults {

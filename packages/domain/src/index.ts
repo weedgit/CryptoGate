@@ -68,6 +68,21 @@ export const MatchingMode = {
 
 export type MatchingMode = (typeof MatchingMode)[keyof typeof MatchingMode];
 
+/**
+ * When merchant staff / ERP may release goods vs chain-final order status.
+ * Does not change watcher confirmation rules or OrderStatus transitions.
+ * Phase 2 — see doc/Merchant-Fulfillment-Policy.md.
+ */
+export const FulfillmentPolicy = {
+  /** Fulfill only after order status completed (default). */
+  OnCompleted: "on_completed",
+  /** Merchant may fulfill when tx detected (verifying); completed webhook still fires. */
+  OnVerifying: "on_verifying",
+} as const;
+
+export type FulfillmentPolicy =
+  (typeof FulfillmentPolicy)[keyof typeof FulfillmentPolicy];
+
 /** Where the receive address came from (Mode S). */
 export const AddressSource = {
   Main: "main",
@@ -286,7 +301,8 @@ export const USDT_TRON_NILE: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
-  requiredConfirmations: 19,
+  /** Testnet: 3 blocks (~9s) — mainnet Tron stays 19 for production safety. */
+  requiredConfirmations: 3,
   memoSupported: false,
 };
 
@@ -597,6 +613,7 @@ export const PaymentOrderColumn = {
   anomalyReason: "anomaly_reason",
   anomalyResolutionNote: "anomaly_resolution_note",
   anomalyResolvedAt: "anomaly_resolved_at",
+  fulfillmentPolicy: "fulfillment_policy",
 } as const;
 
 export type PaymentOrderColumnName =
@@ -637,6 +654,8 @@ export type PaymentOrder = PaymentOrderAssignFields & {
   orgName?: string | null;
   /** Merchant PO / table / purpose reference (merchant_metadata.reference) */
   merchantReference?: string | null;
+  /** When staff may release goods; stamped at create. */
+  fulfillmentPolicy?: FulfillmentPolicy | string;
 };
 
 /** Outbound merchant webhook names (OpenAPI WebhookEventType). */
@@ -652,6 +671,28 @@ export const WebhookEventType = {
 
 export type WebhookEventType =
   (typeof WebhookEventType)[keyof typeof WebhookEventType];
+
+/** Merchant portal notification preference rows (D15). */
+export const NotificationEventType = {
+  PaymentCompleted: "payment_completed",
+  PaymentAnomaly: "payment_anomaly",
+  SettlementAddress: "settlement_address",
+  XpubChange: "xpub_change",
+  WebhookFailures: "webhook_failures",
+  ServiceBills: "service_bills",
+  SiteOverrides: "site_overrides",
+} as const;
+
+export type NotificationEventType =
+  (typeof NotificationEventType)[keyof typeof NotificationEventType];
+
+export const NOTIFICATION_EVENT_TYPES = Object.values(NotificationEventType);
+
+export type NotificationPreference = {
+  eventType: NotificationEventType | string;
+  email: boolean;
+  inApp: boolean;
+};
 
 export const WebhookDeliveryStatus = {
   Pending: "pending",
@@ -781,6 +822,7 @@ export const AuditAction = {
   XpubPut: "xpub_put",
   WebhookRegister: "webhook_register",
   WebhookDelete: "webhook_delete",
+  WebhookRotateSecret: "webhook_rotate_secret",
   ServiceBillIssue: "service_bill_issue",
   ServiceBillMarkPaid: "service_bill_mark_paid",
   ServiceBillVoid: "service_bill_void",
@@ -788,6 +830,7 @@ export const AuditAction = {
   ApiKeyCreate: "api_key_create",
   ApiKeyRevoke: "api_key_revoke",
   ApiKeyRotate: "api_key_rotate",
+  NotificationPrefsPut: "notification_prefs_put",
   FeeTierPut: "fee_tier_put",
   OrgPolicyPut: "org_policy_put",
   BillingWalletPut: "billing_wallet_put",
@@ -807,6 +850,7 @@ export const SiteOverrideKind = {
   Xpub: "xpub",
   MatchingMode: "matching_mode",
   OrderRetention: "order_retention",
+  FulfillmentPolicy: "fulfillment_policy",
 } as const;
 
 export type SiteOverrideKind =
@@ -856,10 +900,7 @@ export type AuditLogEntry = {
   createdAt: string;
 };
 
-/**
- * Machine API key metadata (M4-11). Never include `secret` on list/GET.
- * `keyId` is the public X-Api-Key value; HMAC uses the one-time `secret`.
- */
+/** Machine API key metadata (M4-11 / D14). Never include `secret` on list/GET. */
 export type ApiKey = {
   id: string;
   orgId: string;
@@ -868,10 +909,24 @@ export type ApiKey = {
   createdAt: string;
   lastUsedAt: string | null;
   expiresAt: string | null;
+  /** Capability scopes for HMAC clients (D14). */
+  scopes: ApiKeyScope[];
+  /** Empty = any IP. Otherwise request IP must match an entry (exact or CIDR). */
+  ipAllowlist: string[];
 };
 
 /** Soft cap on active (non-revoked) keys per merchant org. */
 export const API_KEY_MAX_PER_ORG = 10;
+
+/** Phase 1 API key scopes (D14). */
+export const ApiKeyScope = {
+  Orders: "orders",
+  Webhooks: "webhooks",
+} as const;
+
+export type ApiKeyScope = (typeof ApiKeyScope)[keyof typeof ApiKeyScope];
+
+export const API_KEY_SCOPES = Object.values(ApiKeyScope);
 
 /** DB columns on `api_keys` (Andrew migration — extend 012 for label/last_used/expires). */
 export const ApiKeyColumn = {
@@ -884,6 +939,8 @@ export const ApiKeyColumn = {
   expiresAt: "expires_at",
   revokedAt: "revoked_at",
   createdAt: "created_at",
+  scopes: "scopes",
+  ipAllowlist: "ip_allowlist",
 } as const;
 
 export type ApiKeyColumnName = (typeof ApiKeyColumn)[keyof typeof ApiKeyColumn];

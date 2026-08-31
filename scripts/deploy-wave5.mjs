@@ -45,6 +45,9 @@ const doSeed = flags.has("--seed") || doLocal;
 const webPort = process.env.WEB_PORT || "5174";
 const webOrigin = `http://127.0.0.1:${webPort}`;
 
+const payPort = process.env.PAYMENT_PAGE_PORT || "5173";
+const payOrigin = `http://127.0.0.1:${payPort}`;
+
 const apiPort = process.env.API_PORT || "3000";
 const apiBase =
   process.env.API_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
@@ -268,6 +271,52 @@ async function waitForWeb() {
   process.exit(1);
 }
 
+function startPaymentPage() {
+  loadEnvFile();
+  mkdirSync(deployDir, { recursive: true });
+  const pids = readPids() ?? {};
+  if (pids.paymentPage && isAlive(pids.paymentPage)) {
+    log("payment-page", `already running (pid ${pids.paymentPage}) → ${payOrigin}`);
+    return;
+  }
+
+  const payLog = join(deployDir, "payment-page.log");
+  const payOut = openSync(payLog, "a");
+  const payChild = spawn(
+    "npx",
+    ["--yes", "serve@14", "public", "-p", payPort],
+    {
+      cwd: join(root, "apps/payment-page"),
+      env: process.env,
+      detached: true,
+      stdio: ["ignore", payOut, payOut],
+    },
+  );
+  payChild.unref();
+
+  pids.paymentPage = payChild.pid;
+  writeFileSync(pidFile, JSON.stringify(pids, null, 2));
+  log("payment-page", `pid ${payChild.pid} → ${payLog}`);
+}
+
+async function waitForPaymentPage() {
+  const url = `${payOrigin}/`;
+  for (let i = 0; i < 30; i++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.ok || res.status === 404) {
+        log("payment-page", `dev server ready (${payOrigin})`);
+        return;
+      }
+    } catch {
+      /* retry */
+    }
+    sleep(500);
+  }
+  console.error("Payment-page dev server did not start — check .deploy/payment-page.log");
+  process.exit(1);
+}
+
 function startWeb() {
   loadEnvFile();
   mkdirSync(deployDir, { recursive: true });
@@ -301,6 +350,7 @@ function printLocalUrls() {
   console.log(`Platform   ${webOrigin}/platform`);
   console.log(`Agent      ${webOrigin}/agent`);
   console.log(`Merchant   ${webOrigin}/merchant`);
+  console.log(`Guest pay  ${payOrigin}/pay/{orderId}`);
   console.log(`API health ${apiBase}/health`);
   console.log("Login: admin.platform@cryptogate.io / User123456!1 (platform + agent)");
   console.log("       owner.singlemerchant@cryptogate.io / User123456!1 (merchant)");
@@ -450,6 +500,8 @@ async function main() {
     await waitForHealth();
   }
   if (doWeb) {
+    startPaymentPage();
+    await waitForPaymentPage();
     startWeb();
     await waitForWeb();
   }
