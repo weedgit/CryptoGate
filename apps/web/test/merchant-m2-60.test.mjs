@@ -185,10 +185,11 @@ describe("@cryptogate/web merchant D14 integrations", () => {
 
   it("shows secrets once and blocks cashiers via owner portal", () => {
     const page = readFileSync(join(root, "src/merchant/IntegrationsPage.tsx"), "utf8");
-    assert.match(page, /shown once/i);
+    assert.match(page, /One-time display/i);
+    assert.match(page, /cannot be retrieved/i);
     assert.match(page, /resendWebhookDelivery/);
-    assert.match(page, /SecretOncePanel/);
-    assert.match(page, /Cashiers cannot view/);
+    assert.match(page, /SecretOnceModal/);
+    assert.match(page, /Cashier accounts/i);
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
     assert.match(shell, /Integrations/);
   });
