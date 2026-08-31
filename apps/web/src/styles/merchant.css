@@ -95,13 +95,11 @@ select {
 .logo-mark {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
-  background: var(--teal);
-  color: var(--bg);
-  font-weight: 800;
-  display: grid;
-  place-items: center;
-  font-size: 16px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: transparent;
+  display: block;
+  flex-shrink: 0;
 }
 
 .logo-title {
@@ -3794,6 +3792,10 @@ select {
   stroke: none;
 }
 
+.auth-background .auth-bg-wordmark-icon {
+  filter: drop-shadow(0 2px 8px rgba(212, 175, 55, 0.35));
+}
+
 @keyframes auth-bg-breathe {
   0%,
   100% {
@@ -3930,6 +3932,10 @@ select {
 .login-logo-mark-svg {
   flex-shrink: 0;
   display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .login-brand-name {
@@ -7224,32 +7230,46 @@ select {
   color: #64748b;
 }
 
-.plat-int__secret {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(251, 191, 36, 0.32);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, transparent 45%),
-    rgba(18, 22, 28, 0.96);
-}
-
-.plat-int__secret-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .plat-int__secret-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 650;
   color: #fde68a;
+}
+
+.plat-int-secret-backdrop {
+  z-index: 1100;
+}
+
+.plat-int-secret-modal {
+  width: min(640px, 100%);
+  border-color: rgba(251, 191, 36, 0.32);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, transparent 45%),
+    #12161c;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(251, 191, 36, 0.08);
+}
+
+.plat-int-secret-modal__head {
+  border-bottom-color: rgba(251, 191, 36, 0.18);
+}
+
+.plat-int-secret-modal__body {
+  gap: 12px;
+}
+
+.plat-int-secret-modal__foot {
+  justify-content: stretch;
+  border-top-color: rgba(251, 191, 36, 0.18);
+  background: rgba(8, 11, 16, 0.35);
+}
+
+.plat-int-secret-modal__confirm {
+  width: 100%;
+  margin: 0;
 }
 
 .plat-int__secret-copy {
@@ -7295,14 +7315,217 @@ select {
   align-items: start;
 }
 
+.plat-int__card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plat-int__card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.plat-int__budget {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.plat-int__budget strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.plat-int__budget.is-full {
+  border-color: rgba(251, 191, 36, 0.32);
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+
+.plat-int__budget.is-full strong {
+  color: #fde68a;
+}
+
+.platform-shell .plat-int__card-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .plat-int__card-help .plat-card-help__tip {
+  left: auto;
+  right: 0;
+  transform: none;
+  width: min(320px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.5;
+  z-index: 8;
+}
+
 .plat-int__form {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
+}
+
+.plat-int__form-panel {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.plat-int__section-title {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-int__list-section {
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-int__list-section .plat-int__section-title {
+  margin-bottom: 10px;
+}
+
+.plat-int .plat-settings__field > span,
+.plat-int .plat-int__field-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #94a3b8;
+}
+
+.plat-int__fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.plat-int__field-label {
+  display: block;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.plat-int__option-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plat-int__option-group--choices {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.plat-int__option-group--events {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 20px;
+}
+
+.plat-int__option-group--stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.plat-int__form .btn-primary {
+  width: auto;
+  min-width: 168px;
+  margin-top: 2px;
 }
 
 .plat-int__form .plat-settings__submit {
   justify-self: start;
+}
+
+.plat-int__expiry-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.plat-int__expiry-field {
+  min-width: 0;
+  margin: 0;
+}
+
+.plat-int__expiry-row .plat-int__generate-btn {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  justify-self: stretch;
+}
+
+.plat-int__expiry-hint {
+  margin-top: -4px;
+}
+
+.plat-int__date-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.plat-int__datetime-input {
+  padding-right: 36px;
+  color-scheme: dark;
+}
+
+.plat-int__datetime-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.plat-int__date-icon {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.plat-int__date-wrap:hover .plat-int__date-icon {
+  color: #e2e8f0;
+}
+
+.plat-int__date-wrap:focus-within .plat-int__date-icon {
+  color: #cbd5e1;
 }
 
 .plat-int__empty {
@@ -7322,11 +7545,7 @@ select {
 }
 
 .plat-int__item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  display: block;
   padding: 14px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -7347,14 +7566,78 @@ select {
 .plat-int__item-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
-  flex: 1 1 200px;
 }
 
-.plat-int__item-main strong {
+.plat-int__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.plat-int__item-head strong {
+  flex-shrink: 0;
   font-size: 14px;
+  font-weight: 650;
   color: #f1f5f9;
+}
+
+.plat-int__item-head .plat-int__actions {
+  margin-left: auto;
+}
+
+.plat-int__item-key {
+  display: block;
+  flex: 0 1 auto;
+  max-width: min(100%, 420px);
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  line-height: 1.4;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plat-int__item-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.plat-int__detail {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plat-int__detail dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-int__detail dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+
+.plat-int__item-meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
 }
 
 .plat-int__url {
@@ -7466,23 +7749,47 @@ select {
 }
 
 .plat-int__check {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 10px;
+  min-height: 32px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.4;
-  color: #cbd5e1;
+  color: #94a3b8;
   cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.plat-int__check:hover {
+  color: #cbd5e1;
+}
+
+.plat-int__check:has(input:checked) {
+  border: 0;
+  background: transparent;
+  color: #e2e8f0;
 }
 
 .plat-int__check input {
   margin: 0;
-  accent-color: #34d399;
+  width: 15px;
+  height: 15px;
+  accent-color: #64748b;
+  flex-shrink: 0;
+}
+
+.plat-int__check:has(input:checked) input {
+  accent-color: #cbd5e1;
 }
 
 .plat-int__field-hint {
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.45;
   color: #64748b;
 }
 
@@ -7499,6 +7806,15 @@ select {
 
 .plat-alerts__card {
   max-width: 880px;
+}
+
+.plat-alerts__load-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
 }
 
 .plat-alerts__table {
@@ -7526,6 +7842,24 @@ select {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #64748b;
+}
+
+.plat-alerts__col-email {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.plat-alerts__table--email-unavailable .plat-alerts__col-email {
+  color: #475569;
+}
+
+.plat-alerts__table--email-unavailable .plat-alerts__thead span[role="columnheader"]:nth-child(2),
+.plat-alerts__table--email-unavailable .plat-alerts__row .plat-alerts__toggle:first-of-type {
+  opacity: 0.72;
 }
 
 .plat-alerts__row {
@@ -7634,6 +7968,24 @@ select {
 
   .plat-int__kpis {
     grid-template-columns: 1fr;
+  }
+
+  .plat-int__option-group,
+  .plat-int__option-group--events,
+  .plat-int__item-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plat-int__expiry-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plat-int__expiry-field {
+    width: 100%;
+  }
+
+  .plat-int__form .btn-primary {
+    width: 100%;
   }
 }
 
@@ -8127,9 +8479,11 @@ select {
 }
 
 .platform-shell .logo-mark {
-  background: var(--plat-gold-grad);
-  color: #0b0e11;
-  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
 }
 
 .platform-shell .logo-badge {
@@ -8622,6 +8976,10 @@ select {
 
 .profile-settings-card__grid--password {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-settings-card__timezone-hint {
+  margin: 6px 0 0;
 }
 
 .profile-password-meter {

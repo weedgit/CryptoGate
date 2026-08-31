@@ -24,6 +24,7 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { GateLogoMark } from "../auth/GateLogoMark";
 import { chainEnvironmentLabel } from "../shared/assetNetworks";
 import { sessionIsPlatformViewerOnly } from "./org";
 import { AlertsDrawer, platformAlertsSource } from "./ui/AlertsDrawer";
@@ -322,7 +323,7 @@ export function PlatformShell({
         onWheel={onSidebarWheel}
       >
         <div className="logo-row">
-          <div className="logo-mark">CG</div>
+          <GateLogoMark size={32} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
               <p className="logo-title">CryptoGate</p>

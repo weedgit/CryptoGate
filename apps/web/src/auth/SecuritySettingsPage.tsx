@@ -22,16 +22,6 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
 };
 
-const LOCALE_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "zh-CN", label: "简体中文" },
-  { value: "zh-TW", label: "繁體中文" },
-  { value: "ja", label: "日本語" },
-  { value: "ko", label: "한국어" },
-  { value: "vi", label: "Tiếng Việt" },
-  { value: "th", label: "ไทย" },
-] as const;
-
 const TIMEZONE_OPTIONS = [
   "UTC",
   "Asia/Singapore",
@@ -51,6 +41,22 @@ const TIMEZONE_OPTIONS = [
 
 const SESSION_OPTIONS = [15, 30, 60, 120] as const;
 
+function formatTimezoneLabel(tz: string): string {
+  if (tz === "UTC") return "UTC — Coordinated Universal Time";
+  try {
+    const offset = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset",
+    })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value;
+    const label = tz.replace(/_/g, " ");
+    return offset ? `${label} (${offset})` : label;
+  } catch {
+    return tz.replace(/_/g, " ");
+  }
+}
+
 function ProfileForm({
   session,
   variant,
@@ -61,7 +67,6 @@ function ProfileForm({
   onSessionRefresh?: (session: Session) => void;
 }) {
   const [displayName, setDisplayName] = useState(session.displayName ?? "");
-  const [locale, setLocale] = useState(session.locale || "en");
   const [timezone, setTimezone] = useState(session.timezone || "UTC");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,19 +74,17 @@ function ProfileForm({
 
   useEffect(() => {
     setDisplayName(session.displayName ?? "");
-    setLocale(session.locale || "en");
     setTimezone(session.timezone || "UTC");
-  }, [session.displayName, session.locale, session.timezone]);
+  }, [session.displayName, session.timezone]);
 
   const dirty = useMemo(() => {
     const name = displayName.trim();
     const savedName = (session.displayName ?? "").trim();
     return (
       name !== savedName ||
-      locale !== (session.locale || "en") ||
       timezone !== (session.timezone || "UTC")
     );
-  }, [displayName, locale, timezone, session]);
+  }, [displayName, timezone, session]);
 
   const timezoneChoices = useMemo(() => {
     const set = new Set<string>(TIMEZONE_OPTIONS);
@@ -98,7 +101,6 @@ function ProfileForm({
     try {
       const next = await updateProfile({
         displayName: displayName.trim() || null,
-        locale,
         timezone,
       });
       onSessionRefresh?.(next);
@@ -152,25 +154,7 @@ function ProfileForm({
             </FieldControl>
           </label>
         </div>
-        <div className="profile-settings-card__grid">
-          <label className="plat-settings__field" htmlFor="profile-locale">
-            <span>Language</span>
-            <FieldControl icon="globe">
-              <select
-                id="profile-locale"
-                className="plat-settings__select plat-settings__select--block"
-                value={locale}
-                disabled={busy}
-                onChange={(e) => setLocale(e.target.value)}
-              >
-                {LOCALE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </FieldControl>
-          </label>
+        <div className="plat-settings__row plat-settings__row--stack">
           <label className="plat-settings__field" htmlFor="profile-timezone">
             <span>Timezone</span>
             <FieldControl icon="clock">
@@ -183,11 +167,15 @@ function ProfileForm({
               >
                 {timezoneChoices.map((tz) => (
                   <option key={tz} value={tz}>
-                    {tz}
+                    {formatTimezoneLabel(tz)}
                   </option>
                 ))}
               </select>
             </FieldControl>
+            <p className="plat-settings__row-hint profile-settings-card__timezone-hint">
+              Order times, bills, and activity in this portal display in this
+              timezone.
+            </p>
           </label>
         </div>
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
@@ -213,7 +201,7 @@ function ProfileForm({
       />
       <h2>Profile</h2>
       <p className="muted">
-        Display name and regional preferences for this account.
+        Display name and timezone for timestamps in this portal.
       </p>
       <label className="field">
         <span>Name</span>
@@ -232,21 +220,6 @@ function ProfileForm({
         <input className="field-control" value={session.email} disabled readOnly />
       </label>
       <label className="field">
-        <span>Language</span>
-        <select
-          className="field-control"
-          value={locale}
-          disabled={busy}
-          onChange={(e) => setLocale(e.target.value)}
-        >
-          {LOCALE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
         <span>Timezone</span>
         <select
           className="field-control"
@@ -256,10 +229,13 @@ function ProfileForm({
         >
           {timezoneChoices.map((tz) => (
             <option key={tz} value={tz}>
-              {tz}
+              {formatTimezoneLabel(tz)}
             </option>
           ))}
         </select>
+        <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+          Order times, bills, and activity display in this timezone.
+        </span>
       </label>
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <button type="submit" className="btn-primary" disabled={busy || !dirty}>

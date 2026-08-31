@@ -46,35 +46,61 @@ const NOTIFICATION_META: Record<
   },
 };
 
+const DEFAULT_NOTIFICATION_ITEMS: NotificationPreference[] = Object.keys(
+  NOTIFICATION_META,
+).map((eventType) => ({
+  eventType,
+  email: false,
+  inApp: true,
+}));
+
 type Props = { session: Session };
+
+function formatLoadError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 404 && err.message === "Not found") {
+      return "Alerts API route not found — restart the API after migration 048.";
+    }
+    return err.message;
+  }
+  return "Failed to load notification preferences";
+}
 
 /** D15 — notification preferences (persisted per user + org). */
 export function NotificationsSettingsPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canEdit = sessionCanEditOrgSettings(session);
-  const [items, setItems] = useState<NotificationPreference[]>([]);
+  const [items, setItems] = useState<NotificationPreference[]>(
+    DEFAULT_NOTIFICATION_ITEMS,
+  );
+  const [emailAvailable, setEmailAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
     if (!orgId) {
+      setLoadError("No merchant organization is available for this account.");
+      setItems(DEFAULT_NOTIFICATION_ITEMS);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
+    setLoadError(null);
     try {
-      setItems(await getNotificationPreferences(orgId));
+      const loaded = await getNotificationPreferences(orgId);
+      setEmailAvailable(loaded.emailAvailable);
+      setItems(
+        loaded.items.length > 0 ? loaded.items : DEFAULT_NOTIFICATION_ITEMS,
+      );
       setDirty(false);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Failed to load notification preferences",
-      );
+      setLoadError(formatLoadError(err));
+      setItems(DEFAULT_NOTIFICATION_ITEMS);
     } finally {
       setLoading(false);
     }
@@ -89,7 +115,7 @@ export function NotificationsSettingsPage({ session }: Props) {
     channel: "email" | "inApp",
     value: boolean,
   ) {
-    if (!canEdit) return;
+    if (!canEdit || (channel === "email" && !emailAvailable)) return;
     setItems((prev) =>
       prev.map((row) =>
         row.eventType === eventType ? { ...row, [channel]: value } : row,
@@ -107,7 +133,8 @@ export function NotificationsSettingsPage({ session }: Props) {
     setOkMsg(null);
     try {
       const saved = await putNotificationPreferences(orgId, items);
-      setItems(saved);
+      setEmailAvailable(saved.emailAvailable);
+      setItems(saved.items);
       setDirty(false);
       setOkMsg("Notification preferences saved.");
     } catch (err) {
@@ -130,7 +157,6 @@ export function NotificationsSettingsPage({ session }: Props) {
 
       <header className="plat-alerts__hero">
         <div className="plat-alerts__hero-main">
-          <p className="plat-alerts__eyebrow">Settings</p>
           <div className="plat-alerts__title-row">
             <h1 className="plat-alerts__name">Alerts</h1>
             {!canEdit ? (
@@ -139,11 +165,6 @@ export function NotificationsSettingsPage({ session }: Props) {
               </span>
             ) : null}
           </div>
-          <p className="plat-alerts__lead">
-            Choose email and in-app delivery per event for your account on this
-            merchant. The sidebar bell still surfaces operational items that need
-            attention.
-          </p>
         </div>
       </header>
 
@@ -155,7 +176,7 @@ export function NotificationsSettingsPage({ session }: Props) {
               type="submit"
               form="plat-alerts-form"
               className="btn-primary btn-inline btn-tiny"
-              disabled={saving || !dirty || loading}
+              disabled={saving || !dirty || loading || Boolean(loadError)}
             >
               {saving ? "Saving…" : "Save preferences"}
             </button>
@@ -165,15 +186,29 @@ export function NotificationsSettingsPage({ session }: Props) {
           {loading ? (
             <p className="muted">Loading preferences…</p>
           ) : (
-            <form id="plat-alerts-form" onSubmit={(e) => void onSave(e)}>
+            <>
+              {loadError ? (
+                <p className="plat-settings__card-note plat-alerts__load-error">
+                  {loadError} Showing default preferences until preferences can
+                  be loaded from the server.
+                </p>
+              ) : null}
+              <form id="plat-alerts-form" onSubmit={(e) => void onSave(e)}>
               <div
-                className="plat-alerts__table"
+                className={`plat-alerts__table${emailAvailable ? "" : " plat-alerts__table--email-unavailable"}`}
                 role="table"
                 aria-label="Notification preferences"
               >
                 <div className="plat-alerts__thead" role="row">
                   <span role="columnheader">Event</span>
-                  <span role="columnheader">Email</span>
+                  <span role="columnheader" className="plat-alerts__col-email">
+                    Email
+                    {!emailAvailable ? (
+                      <span className="plat-alerts__chip plat-alerts__chip--muted plat-alerts__chip--soon">
+                        Unavailable
+                      </span>
+                    ) : null}
+                  </span>
                   <span role="columnheader">In-app</span>
                 </div>
                 {items.map((row) => {
@@ -194,14 +229,17 @@ export function NotificationsSettingsPage({ session }: Props) {
                       <label className="plat-alerts__toggle" role="cell">
                         <input
                           type="checkbox"
-                          checked={row.email}
-                          disabled={!canEdit || saving}
+                          checked={emailAvailable ? row.email : false}
+                          disabled={!canEdit || saving || !emailAvailable}
                           onChange={(e) =>
                             toggle(row.eventType, "email", e.target.checked)
                           }
                         />
                         <span className="plat-alerts__switch" aria-hidden />
-                        <span className="sr-only">Email for {meta.label}</span>
+                        <span className="sr-only">
+                          Email for {meta.label}
+                          {!emailAvailable ? " (unavailable)" : ""}
+                        </span>
                       </label>
                       <label className="plat-alerts__toggle" role="cell">
                         <input
@@ -219,12 +257,9 @@ export function NotificationsSettingsPage({ session }: Props) {
                   );
                 })}
               </div>
-            </form>
+              </form>
+            </>
           )}
-          <p className="plat-settings__card-note">
-            Preferences are stored for your user on this merchant org. Email
-            delivery uses your account email when the mailer is configured.
-          </p>
         </div>
       </section>
     </div>

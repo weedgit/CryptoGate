@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ApiError,
   createApiKey,
@@ -36,11 +37,42 @@ const WEBHOOK_EVENTS = [
   "payment_order.failed",
 ] as const;
 
+const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
+  "payment_order.created": "Order created",
+  "payment_order.verifying": "Payment verifying",
+  "payment_order.completed": "Payment completed",
+  "payment_order.expired": "Order expired",
+  "payment_order.payment_anomaly": "Payment anomaly",
+  "payment_order.failed": "Payment failed",
+};
+
+function webhookEventLabel(event: string): string {
+  return event in WEBHOOK_EVENT_LABELS
+    ? WEBHOOK_EVENT_LABELS[event as (typeof WEBHOOK_EVENTS)[number]]
+    : event;
+}
+
 const KEY_SCOPES = ["orders", "webhooks"] as const;
+const KEY_SCOPE_LABELS: Record<(typeof KEY_SCOPES)[number], string> = {
+  orders: "Payment orders",
+  webhooks: "Webhooks",
+};
+const API_KEYS_HELP =
+  "Authenticate server-to-server API requests with HMAC. Use a clear label for each environment, such as production or staging.";
+const WEBHOOKS_HELP =
+  "When a payment order status changes, CryptoGate notifies your HTTPS endpoint. Verify the signature on every delivery before fulfilling the order.";
+
+const SECRET_ONCE_BADGE = "One-time display";
+const SECRET_ONCE_CONFIRM = "Confirm saved";
+const SECRET_ONCE_HINT =
+  "Copy this credential now and store it in a secure location. It cannot be retrieved after you close this dialog.";
+
+const MAX_API_KEYS = 10;
+const MAX_WEBHOOKS = 5;
 
 type Props = { session: Session };
 
-function SecretOncePanel({
+function SecretOnceModal({
   title,
   secret,
   hint,
@@ -52,6 +84,17 @@ function SecretOncePanel({
   onDismiss: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(secret);
@@ -61,23 +104,43 @@ function SecretOncePanel({
       setCopied(false);
     }
   }
-  return (
-    <div className="plat-int__secret" role="alert">
-      <div className="plat-int__secret-head">
-        <h3 className="plat-int__secret-title">{title}</h3>
-        <span className="plat-int__chip plat-int__chip--warn">Show once</span>
+
+  return createPortal(
+    <div className="b3-commission-modal-backdrop plat-int-secret-backdrop" role="presentation">
+      <div
+        className="b3-commission-modal plat-int-secret-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="plat-int-secret-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="b3-commission-modal__head plat-int-secret-modal__head">
+          <h3 id="plat-int-secret-title" className="plat-int__secret-title">
+            {title}
+          </h3>
+          <span className="plat-int__chip plat-int__chip--warn">{SECRET_ONCE_BADGE}</span>
+        </header>
+        <div className="b3-commission-modal__body plat-int-secret-modal__body">
+          <p className="plat-int__secret-copy">{hint}</p>
+          <div className="plat-int__secret-box">
+            <code className="mono">{secret}</code>
+            <button type="button" className="btn-ghost btn-tiny" onClick={() => void copy()}>
+              {copied ? "Copied" : "Copy to clipboard"}
+            </button>
+          </div>
+        </div>
+        <footer className="b3-commission-modal__foot plat-int-secret-modal__foot">
+          <button
+            type="button"
+            className="btn-primary plat-settings__submit plat-int-secret-modal__confirm"
+            onClick={onDismiss}
+          >
+            {SECRET_ONCE_CONFIRM}
+          </button>
+        </footer>
       </div>
-      <p className="plat-int__secret-copy">{hint}</p>
-      <div className="plat-int__secret-box">
-        <code className="mono">{secret}</code>
-        <button type="button" className="btn-ghost btn-tiny" onClick={() => void copy()}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <button type="button" className="btn-primary plat-settings__submit" onClick={onDismiss}>
-        I have stored this secret
-      </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -177,6 +240,10 @@ export function IntegrationsPage({ session }: Props) {
   async function onCreateKey(e: FormEvent) {
     e.preventDefault();
     if (!orgId || !keyLabel.trim() || keyScopes.length === 0) return;
+    if (keys.length >= MAX_API_KEYS) {
+      setError(`API key limit reached (${MAX_API_KEYS}). Revoke an unused key before creating another.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -188,9 +255,9 @@ export function IntegrationsPage({ session }: Props) {
         orgId,
       });
       setSecretOnce({
-        title: "API key secret — copy now",
+        title: "API key secret",
         secret: created.secret,
-        hint: "This secret is shown once. Store it securely; it cannot be retrieved again.",
+        hint: SECRET_ONCE_HINT,
       });
       setKeyLabel("");
       setKeyScopes([...KEY_SCOPES]);
@@ -207,6 +274,12 @@ export function IntegrationsPage({ session }: Props) {
   async function onRegisterHook(e: FormEvent) {
     e.preventDefault();
     if (!orgId || !hookUrl.trim() || hookEvents.length === 0) return;
+    if (hooks.length >= MAX_WEBHOOKS) {
+      setError(
+        `Webhook limit reached (${MAX_WEBHOOKS}). Delete an unused endpoint before adding another.`,
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -216,15 +289,15 @@ export function IntegrationsPage({ session }: Props) {
         orgId,
       });
       setSecretOnce({
-        title: "Webhook signing secret — copy now",
+        title: "Webhook signing secret",
         secret: created.signingSecret,
-        hint: "Verify signatures with this secret. It is never shown again after you dismiss.",
+        hint: "Use this secret to verify incoming webhook signatures. It cannot be retrieved after you close this dialog.",
       });
       setHookUrl("https://");
       setHookEvents([...WEBHOOK_EVENTS]);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Register webhook failed");
+      setError(err instanceof ApiError ? err.message : "Unable to add webhook");
     } finally {
       setBusy(false);
     }
@@ -236,7 +309,7 @@ export function IntegrationsPage({ session }: Props) {
         <section className="plat-settings__card">
           <div className="plat-settings__card-body">
             <p className="plat-settings__card-copy">
-              Cashiers cannot view API keys or webhooks.
+              Integrations are not available for Cashier accounts.
             </p>
           </div>
         </section>
@@ -246,43 +319,21 @@ export function IntegrationsPage({ session }: Props) {
 
   const selectedHookUrl =
     hooks.find((h) => h.id === selectedHook)?.url ?? selectedHook;
+  const keysAtLimit = keys.length >= MAX_API_KEYS;
+  const hooksAtLimit = hooks.length >= MAX_WEBHOOKS;
 
   return (
     <div className="plat-settings plat-settings--merchant plat-int">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
-      <header className="plat-int__hero">
-        <div className="plat-int__hero-main">
-          <p className="plat-int__eyebrow">Settings</p>
-          <div className="plat-int__title-row">
-            <h1 className="plat-int__name">Integrations</h1>
-            {!canManage ? (
-              <span className="plat-int__chip plat-int__chip--muted">
-                Viewer · read-only
-              </span>
-            ) : null}
-          </div>
-          <p className="plat-int__lead">
-            Machine API keys and signed webhooks for payment-order status —
-            separate from guest payment pages. Secrets are shown once on create.
-          </p>
-        </div>
-        <div className="plat-int__kpis" aria-label="Integration summary">
-          <article className="plat-int__kpi">
-            <span className="plat-int__kpi-label">API keys</span>
-            <strong className="plat-int__kpi-value">{loading ? "…" : keys.length}</strong>
-            <span className="plat-int__kpi-hint">Max 10 active</span>
-          </article>
-          <article className="plat-int__kpi">
-            <span className="plat-int__kpi-label">Webhooks</span>
-            <strong className="plat-int__kpi-value">{loading ? "…" : hooks.length}</strong>
-            <span className="plat-int__kpi-hint">Max 5 endpoints</span>
-          </article>
-        </div>
-      </header>
+      {!canManage ? (
+        <p className="plat-int__chip plat-int__chip--muted" style={{ marginBottom: 12 }}>
+          Viewer · read-only
+        </p>
+      ) : null}
 
       {secretOnce ? (
-        <SecretOncePanel
+        <SecretOnceModal
           title={secretOnce.title}
           secret={secretOnce.secret}
           hint={secretOnce.hint}
@@ -300,17 +351,42 @@ export function IntegrationsPage({ session }: Props) {
         <section className="plat-settings__card plat-int__card">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">API keys</h2>
+            <div className="plat-int__card-meta">
+              <span
+                className={`plat-int__budget${keysAtLimit ? " is-full" : ""}`}
+                title={`Maximum ${MAX_API_KEYS} active API keys`}
+              >
+                <strong>{loading ? "…" : keys.length}</strong>
+                <span aria-hidden="true">/</span>
+                <span>{MAX_API_KEYS}</span>
+              </span>
+              <span className="plat-card-help plat-int__card-help">
+                <button
+                  type="button"
+                  className="plat-card-help__btn"
+                  aria-label={API_KEYS_HELP}
+                >
+                  ?
+                </button>
+                <span className="plat-card-help__tip" role="tooltip">
+                  {API_KEYS_HELP}
+                </span>
+              </span>
+            </div>
           </div>
           <div className="plat-settings__card-body">
-            <p className="plat-settings__card-copy">
-              HMAC signing for server-to-server calls. Label keys by environment
-              (e.g. production, staging).
-            </p>
-
             {canManage ? (
-              <form className="plat-int__form" onSubmit={onCreateKey}>
+              keysAtLimit ? (
+                <p className="plat-settings__card-note">
+                  Limit reached ({MAX_API_KEYS} active). Revoke an unused key to
+                  create another.
+                </p>
+              ) : (
+              <div className="plat-int__form-panel">
+                <h3 className="plat-int__section-title">Create API key</h3>
+                <form className="plat-int__form" onSubmit={onCreateKey}>
                 <label className="plat-settings__field" htmlFor="key-label">
-                  <span>New key label</span>
+                  <span>Label</span>
                   <input
                     id="key-label"
                     className="plat-settings__input"
@@ -319,13 +395,13 @@ export function IntegrationsPage({ session }: Props) {
                     maxLength={64}
                     required
                     disabled={busy}
-                    placeholder="production"
+                    placeholder="e.g. Production"
                   />
                 </label>
 
-                <fieldset className="plat-settings__field">
-                  <span>Scopes</span>
-                  <div className="plat-int__checks">
+                <fieldset className="plat-settings__field plat-int__fieldset">
+                  <legend className="plat-int__field-label">Permissions</legend>
+                  <div className="plat-int__option-group plat-int__option-group--choices">
                     {KEY_SCOPES.map((scope) => (
                       <label key={scope} className="plat-int__check">
                         <input
@@ -334,17 +410,19 @@ export function IntegrationsPage({ session }: Props) {
                           disabled={busy}
                           onChange={() => toggleKeyScope(scope)}
                         />
-                        <span>{scope}</span>
+                        <span>{KEY_SCOPE_LABELS[scope]}</span>
                       </label>
                     ))}
                   </div>
                   {keyScopes.length === 0 ? (
-                    <span className="plat-int__field-hint">Select at least one scope.</span>
+                    <span className="plat-int__field-hint">
+                      Select at least one permission.
+                    </span>
                   ) : null}
                 </fieldset>
 
                 <label className="plat-settings__field" htmlFor="key-ip-allowlist">
-                  <span>IP allowlist (optional)</span>
+                  <span>Allowed IP addresses</span>
                   <textarea
                     id="key-ip-allowlist"
                     className="plat-settings__input mono"
@@ -354,125 +432,193 @@ export function IntegrationsPage({ session }: Props) {
                     rows={3}
                     placeholder={"203.0.113.10\n198.51.100.0/24"}
                   />
-                  <span className="plat-int__field-hint">One IP or CIDR per line.</span>
+                  <span className="plat-int__field-hint">
+                    Optional. One IP address or CIDR range per line.
+                  </span>
                 </label>
 
-                <label className="plat-settings__field" htmlFor="key-expires">
-                  <span>Expires (optional)</span>
-                  <input
-                    id="key-expires"
-                    type="datetime-local"
-                    className="plat-settings__input"
-                    value={keyExpiresAt}
-                    onChange={(e) => setKeyExpiresAt(e.target.value)}
-                    disabled={busy}
-                  />
-                </label>
-
-                <button
-                  className="btn-primary plat-settings__submit"
-                  type="submit"
-                  disabled={busy || !keyLabel.trim() || keyScopes.length === 0}
-                >
-                  Create API key
-                </button>
-              </form>
+                <div className="plat-int__expiry-row">
+                  <label
+                    className="plat-settings__field plat-int__expiry-field"
+                    htmlFor="key-expires"
+                  >
+                    <span>Expiration</span>
+                    <span className="plat-int__date-wrap">
+                      <input
+                        id="key-expires"
+                        type="datetime-local"
+                        className="plat-settings__input plat-int__datetime-input"
+                        value={keyExpiresAt}
+                        onChange={(e) => setKeyExpiresAt(e.target.value)}
+                        disabled={busy}
+                      />
+                      <span className="plat-int__date-icon" aria-hidden>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                          <rect
+                            x="2"
+                            y="3.5"
+                            width="12"
+                            height="10.5"
+                            rx="1.5"
+                            stroke="currentColor"
+                            strokeWidth="1.25"
+                          />
+                          <path
+                            d="M5 2v2.5M11 2v2.5M2 7h12"
+                            stroke="currentColor"
+                            strokeWidth="1.25"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </span>
+                  </label>
+                  <button
+                    className="btn-primary plat-settings__submit plat-int__generate-btn"
+                    type="submit"
+                    disabled={busy || !keyLabel.trim() || keyScopes.length === 0}
+                  >
+                    Generate API key
+                  </button>
+                </div>
+                <span className="plat-int__field-hint plat-int__expiry-hint">
+                  Optional.
+                </span>
+                </form>
+              </div>
+              )
             ) : (
               <p className="plat-settings__card-note">
-                Viewer access — create/revoke requires Owner or Administrator.
+                Read-only access. Creating or revoking keys requires Owner or
+                Administrator permissions.
               </p>
             )}
 
             {loading ? (
-              <p className="muted">Loading keys…</p>
+              <p className="muted">Loading API keys…</p>
             ) : keys.length === 0 ? (
-              <p className="plat-int__empty">No active API keys.</p>
+              <p className="plat-int__empty">No API keys have been created yet.</p>
             ) : (
-              <ul className="plat-int__list">
+              <div className="plat-int__list-section">
+                <h3 className="plat-int__section-title">Active keys</h3>
+                <ul className="plat-int__list">
                 {keys.map((k) => (
                   <li key={k.id} className="plat-int__item">
                     <div className="plat-int__item-main">
-                      <strong>{k.label}</strong>
-                      <code className="mono plat-int__meta">{k.keyId}</code>
-                      <span className="plat-int__meta">
-                        Created {formatShortTime(k.createdAt)}
-                        {k.lastUsedAt
-                          ? ` · Last used ${formatShortTime(k.lastUsedAt)}`
-                          : " · Never used"}
-                      </span>
-                      <span className="plat-int__meta">
-                        Scopes:{" "}
-                        {k.scopes && k.scopes.length > 0
-                          ? k.scopes.join(", ")
-                          : "—"}
-                      </span>
-                      <span className="plat-int__meta">
-                        IP allowlist:{" "}
-                        {k.ipAllowlist && k.ipAllowlist.length > 0
-                          ? k.ipAllowlist.join(", ")
-                          : "None"}
-                      </span>
-                      <span className="plat-int__meta">
-                        Expires:{" "}
-                        {k.expiresAt ? formatShortTime(k.expiresAt) : "Never"}
-                      </span>
-                    </div>
-                    {canManage ? (
-                      <div className="plat-int__actions">
-                        <button
-                          type="button"
-                          className="btn-ghost btn-tiny"
-                          disabled={busy}
-                          onClick={async () => {
-                            if (!orgId || !window.confirm(`Rotate key "${k.label}"?`))
-                              return;
-                            setBusy(true);
-                            try {
-                              const rotated = await rotateApiKey(k.id, { orgId });
-                              setSecretOnce({
-                                title: "Rotated API key secret",
-                                secret: rotated.secret,
-                                hint: "Old keyId stops working immediately.",
-                              });
-                              await load();
-                            } catch (err) {
-                              setError(
-                                err instanceof ApiError ? err.message : "Rotate failed",
-                              );
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                        >
-                          Rotate
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-ghost btn-tiny plat-int__danger"
-                          disabled={busy}
-                          onClick={async () => {
-                            if (!orgId || !window.confirm(`Revoke key "${k.label}"?`))
-                              return;
-                            setBusy(true);
-                            try {
-                              await revokeApiKey(k.id, orgId);
-                              await load();
-                            } catch (err) {
-                              setError(
-                                err instanceof ApiError ? err.message : "Revoke failed",
-                              );
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                        >
-                          Revoke
-                        </button>
+                      <div className="plat-int__item-head">
+                        <strong>{k.label}</strong>
+                        <code className="mono plat-int__item-key">{k.keyId}</code>
+                        {canManage ? (
+                          <div className="plat-int__actions">
+                            <button
+                              type="button"
+                              className="btn-ghost btn-tiny"
+                              disabled={busy}
+                              onClick={async () => {
+                                if (
+                                  !orgId ||
+                                  !window.confirm(
+                                    `Rotate the API key “${k.label}”? The current secret will stop working immediately.`,
+                                  )
+                                )
+                                  return;
+                                setBusy(true);
+                                try {
+                                  const rotated = await rotateApiKey(k.id, { orgId });
+                                  setSecretOnce({
+                                    title: "New API key secret",
+                                    secret: rotated.secret,
+                                    hint: "The previous key is now invalid. Copy and store this credential before closing.",
+                                  });
+                                  await load();
+                                } catch (err) {
+                                  setError(
+                                    err instanceof ApiError ? err.message : "Rotate failed",
+                                  );
+                                } finally {
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              Rotate
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-ghost btn-tiny plat-int__danger"
+                              disabled={busy}
+                              onClick={async () => {
+                                if (
+                                  !orgId ||
+                                  !window.confirm(
+                                    `Revoke the API key “${k.label}”? This action cannot be undone.`,
+                                  )
+                                )
+                                  return;
+                                setBusy(true);
+                                try {
+                                  await revokeApiKey(k.id, orgId);
+                                  await load();
+                                } catch (err) {
+                                  setError(
+                                    err instanceof ApiError ? err.message : "Revoke failed",
+                                  );
+                                } finally {
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+                      <dl className="plat-int__item-details">
+                        <div className="plat-int__detail">
+                          <dt>Created</dt>
+                          <dd>{formatShortTime(k.createdAt)}</dd>
+                        </div>
+                        <div className="plat-int__detail">
+                          <dt>Last used</dt>
+                          <dd>
+                            {k.lastUsedAt
+                              ? formatShortTime(k.lastUsedAt)
+                              : "Not used yet"}
+                          </dd>
+                        </div>
+                        <div className="plat-int__detail">
+                          <dt>Permissions</dt>
+                          <dd>
+                            {k.scopes && k.scopes.length > 0
+                              ? k.scopes
+                                  .map((scope) =>
+                                    scope in KEY_SCOPE_LABELS
+                                      ? KEY_SCOPE_LABELS[
+                                          scope as (typeof KEY_SCOPES)[number]
+                                        ]
+                                      : scope,
+                                  )
+                                  .join(", ")
+                              : "—"}
+                          </dd>
+                        </div>
+                        <div className="plat-int__detail">
+                          <dt>Allowed IPs</dt>
+                          <dd>
+                            {k.ipAllowlist && k.ipAllowlist.length > 0
+                              ? k.ipAllowlist.join(", ")
+                              : "Any"}
+                          </dd>
+                        </div>
+                        <div className="plat-int__detail">
+                          <dt>Expiration</dt>
+                          <dd>{k.expiresAt ? formatShortTime(k.expiresAt) : "None"}</dd>
+                        </div>
+                      </dl>
+                    </div>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </div>
             )}
           </div>
         </section>
@@ -480,17 +626,42 @@ export function IntegrationsPage({ session }: Props) {
         <section className="plat-settings__card plat-int__card">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Webhooks</h2>
+            <div className="plat-int__card-meta">
+              <span
+                className={`plat-int__budget${hooksAtLimit ? " is-full" : ""}`}
+                title={`Maximum ${MAX_WEBHOOKS} webhook endpoints`}
+              >
+                <strong>{loading ? "…" : hooks.length}</strong>
+                <span aria-hidden="true">/</span>
+                <span>{MAX_WEBHOOKS}</span>
+              </span>
+              <span className="plat-card-help plat-int__card-help">
+                <button
+                  type="button"
+                  className="plat-card-help__btn"
+                  aria-label={WEBHOOKS_HELP}
+                >
+                  ?
+                </button>
+                <span className="plat-card-help__tip" role="tooltip">
+                  {WEBHOOKS_HELP}
+                </span>
+              </span>
+            </div>
           </div>
           <div className="plat-settings__card-body">
-            <p className="plat-settings__card-copy">
-              HTTPS callbacks for payment-order events. Payloads are signed —
-              verify before fulfilling.
-            </p>
-
             {canManage ? (
-              <form className="plat-int__form" onSubmit={onRegisterHook}>
+              hooksAtLimit ? (
+                <p className="plat-settings__card-note">
+                  Limit reached ({MAX_WEBHOOKS} endpoints). Delete an unused
+                  webhook to add another.
+                </p>
+              ) : (
+              <div className="plat-int__form-panel">
+                <h3 className="plat-int__section-title">Add webhook</h3>
+                <form className="plat-int__form" onSubmit={onRegisterHook}>
                 <label className="plat-settings__field" htmlFor="hook-url">
-                  <span>Callback URL (HTTPS)</span>
+                  <span>Endpoint URL</span>
                   <input
                     id="hook-url"
                     className="plat-settings__input mono"
@@ -500,11 +671,14 @@ export function IntegrationsPage({ session }: Props) {
                     disabled={busy}
                     placeholder="https://example.com/webhooks/cryptogate"
                   />
+                  <span className="plat-int__field-hint">
+                    HTTPS required. Signed event notifications are posted to this URL.
+                  </span>
                 </label>
 
-                <fieldset className="plat-settings__field">
-                  <span>Events</span>
-                  <div className="plat-int__checks">
+                <fieldset className="plat-settings__field plat-int__fieldset">
+                  <legend className="plat-int__field-label">Notify on</legend>
+                  <div className="plat-int__option-group plat-int__option-group--choices plat-int__option-group--events">
                     {WEBHOOK_EVENTS.map((event) => (
                       <label key={event} className="plat-int__check">
                         <input
@@ -513,12 +687,14 @@ export function IntegrationsPage({ session }: Props) {
                           disabled={busy}
                           onChange={() => toggleHookEvent(event)}
                         />
-                        <span className="mono">{event}</span>
+                        <span>{WEBHOOK_EVENT_LABELS[event]}</span>
                       </label>
                     ))}
                   </div>
                   {hookEvents.length === 0 ? (
-                    <span className="plat-int__field-hint">Select at least one event.</span>
+                    <span className="plat-int__field-hint">
+                      Select at least one event.
+                    </span>
                   ) : null}
                 </fieldset>
 
@@ -527,17 +703,21 @@ export function IntegrationsPage({ session }: Props) {
                   type="submit"
                   disabled={busy || hookEvents.length === 0}
                 >
-                  Register webhook
+                  Add webhook
                 </button>
-              </form>
+                </form>
+              </div>
+              )
             ) : null}
 
             {loading ? (
               <p className="muted">Loading webhooks…</p>
             ) : hooks.length === 0 ? (
-              <p className="plat-int__empty">No webhook endpoints registered.</p>
+              <p className="plat-int__empty">No webhooks have been added yet.</p>
             ) : (
-              <ul className="plat-int__list">
+              <div className="plat-int__list-section">
+                <h3 className="plat-int__section-title">Active endpoints</h3>
+                <ul className="plat-int__list">
                 {hooks.map((h) => (
                   <li
                     key={h.id}
@@ -546,124 +726,136 @@ export function IntegrationsPage({ session }: Props) {
                     }`}
                   >
                     <div className="plat-int__item-main">
-                      <strong className="mono plat-int__url">{h.url}</strong>
-                      <span className="plat-int__meta">
-                        {h.events.length} event types ·{" "}
+                      <div className="plat-int__item-head">
+                        <strong className="mono plat-int__url">{h.url}</strong>
+                        <div className="plat-int__actions">
+                          <button
+                            type="button"
+                            className="btn-ghost btn-tiny"
+                            onClick={() => void loadDeliveries(h.id)}
+                          >
+                            Delivery history
+                          </button>
+                          {canManage ? (
+                            <>
+                              <button
+                                type="button"
+                                className="btn-ghost btn-tiny"
+                                disabled={busy}
+                                onClick={async () => {
+                                  if (!orgId) return;
+                                  setBusy(true);
+                                  setTestMsg(null);
+                                  try {
+                                    const r = await testWebhook({
+                                      webhookId: h.id,
+                                      orgId,
+                                    });
+                                    setTestMsg(
+                                      r.queued === 1
+                                        ? "Test notification queued."
+                                        : `${r.queued} test notifications queued.`,
+                                    );
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof ApiError
+                                        ? err.message
+                                        : "Unable to send test notification",
+                                    );
+                                  } finally {
+                                    setBusy(false);
+                                  }
+                                }}
+                              >
+                                Send test
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-ghost btn-tiny"
+                                disabled={busy}
+                                onClick={async () => {
+                                  if (
+                                    !orgId ||
+                                    !window.confirm(
+                                      "Rotate the signing secret for this webhook? The current secret will stop working immediately.",
+                                    )
+                                  )
+                                    return;
+                                  setBusy(true);
+                                  setError(null);
+                                  try {
+                                    const rotated = await rotateWebhookSecret(h.id, orgId);
+                                    setSecretOnce({
+                                      title: "New webhook signing secret",
+                                      secret: rotated.signingSecret,
+                                      hint: "Update your signature verification with this secret. The previous secret is no longer valid.",
+                                    });
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof ApiError
+                                        ? err.message
+                                        : "Unable to rotate signing secret",
+                                    );
+                                  } finally {
+                                    setBusy(false);
+                                  }
+                                }}
+                              >
+                                Rotate secret
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-ghost btn-tiny plat-int__danger"
+                                disabled={busy}
+                                onClick={async () => {
+                                  if (
+                                    !orgId ||
+                                    !window.confirm(
+                                      "Delete this webhook? Delivery history will no longer be available for this endpoint.",
+                                    )
+                                  )
+                                    return;
+                                  setBusy(true);
+                                  try {
+                                    await deleteWebhook(h.id, orgId);
+                                    if (selectedHook === h.id) {
+                                      setSelectedHook(null);
+                                      setDeliveries([]);
+                                    }
+                                    await load();
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof ApiError
+                                        ? err.message
+                                        : "Unable to delete webhook",
+                                    );
+                                  } finally {
+                                    setBusy(false);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                      <p className="plat-int__item-meta">
+                        {h.events.length}{" "}
+                        {h.events.length === 1 ? "event" : "events"} ·{" "}
                         <span
                           className={`plat-int__status is-${
                             h.enabled ? "on" : "off"
                           }`}
                         >
-                          {h.enabled ? "Enabled" : "Disabled"}
+                          {h.enabled ? "Active" : "Inactive"}
                         </span>
-                      </span>
-                    </div>
-                    <div className="plat-int__actions">
-                      <button
-                        type="button"
-                        className="btn-ghost btn-tiny"
-                        onClick={() => void loadDeliveries(h.id)}
-                      >
-                        Deliveries
-                      </button>
-                      {canManage ? (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-ghost btn-tiny"
-                            disabled={busy}
-                            onClick={async () => {
-                              if (!orgId) return;
-                              setBusy(true);
-                              setTestMsg(null);
-                              try {
-                                const r = await testWebhook({
-                                  webhookId: h.id,
-                                  orgId,
-                                });
-                                setTestMsg(`Queued ${r.queued} test delivery(ies).`);
-                              } catch (err) {
-                                setError(
-                                  err instanceof ApiError ? err.message : "Test failed",
-                                );
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            Test
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-ghost btn-tiny"
-                            disabled={busy}
-                            onClick={async () => {
-                              if (
-                                !orgId ||
-                                !window.confirm(
-                                  "Rotate webhook signing secret? The old secret stops working immediately.",
-                                )
-                              )
-                                return;
-                              setBusy(true);
-                              setError(null);
-                              try {
-                                const rotated = await rotateWebhookSecret(h.id, orgId);
-                                setSecretOnce({
-                                  title: "Rotated webhook signing secret",
-                                  secret: rotated.signingSecret,
-                                  hint: "Update your verifier with this secret. The previous secret is invalid.",
-                                });
-                              } catch (err) {
-                                setError(
-                                  err instanceof ApiError
-                                    ? err.message
-                                    : "Rotate secret failed",
-                                );
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            Rotate secret
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-ghost btn-tiny plat-int__danger"
-                            disabled={busy}
-                            onClick={async () => {
-                              if (
-                                !orgId ||
-                                !window.confirm("Remove this webhook endpoint?")
-                              )
-                                return;
-                              setBusy(true);
-                              try {
-                                await deleteWebhook(h.id, orgId);
-                                if (selectedHook === h.id) {
-                                  setSelectedHook(null);
-                                  setDeliveries([]);
-                                }
-                                await load();
-                              } catch (err) {
-                                setError(
-                                  err instanceof ApiError
-                                    ? err.message
-                                    : "Delete failed",
-                                );
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </>
-                      ) : null}
+                      </p>
                     </div>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </div>
             )}
           </div>
         </section>
@@ -673,7 +865,7 @@ export function IntegrationsPage({ session }: Props) {
         <section className="plat-settings__card plat-int__card plat-int__card--log">
           <div className="plat-settings__card-head">
             <div>
-              <h2 className="plat-settings__card-title">Delivery log</h2>
+              <h2 className="plat-settings__card-title">Delivery history</h2>
               <p className="plat-int__log-sub mono">{selectedHookUrl}</p>
             </div>
             <button
@@ -689,7 +881,7 @@ export function IntegrationsPage({ session }: Props) {
           </div>
           <div className="plat-settings__card-body">
             {deliveries.length === 0 ? (
-              <p className="plat-int__empty">No deliveries yet for this endpoint.</p>
+              <p className="plat-int__empty">No deliveries recorded for this webhook yet.</p>
             ) : (
               <div className="plat-int__table-wrap">
                 <table className="plat-int__table">
@@ -706,7 +898,7 @@ export function IntegrationsPage({ session }: Props) {
                   <tbody>
                     {deliveries.map((d) => (
                       <tr key={d.id}>
-                        <td className="mono">{d.eventType}</td>
+                        <td>{webhookEventLabel(d.eventType)}</td>
                         <td>
                           <span
                             className={`plat-int__badge is-${deliveryTone(d.status)}`}
@@ -744,7 +936,7 @@ export function IntegrationsPage({ session }: Props) {
                                   setError(
                                     err instanceof ApiError
                                       ? err.message
-                                      : "Resend failed",
+                                      : "Unable to resend delivery",
                                   );
                                 } finally {
                                   setBusy(false);

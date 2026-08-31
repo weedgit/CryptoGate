@@ -521,7 +521,7 @@ export async function refreshMerchantAlerts(
   let filtered = next;
   if (orgId && !cashierOnly) {
     try {
-      const prefs = await getNotificationPreferences(orgId);
+      const prefs = (await getNotificationPreferences(orgId)).items;
       const inAppOff = new Set(
         prefs.filter((p) => !p.inApp).map((p) => p.eventType),
       );

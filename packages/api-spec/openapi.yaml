@@ -4824,12 +4824,15 @@ components:
           type: boolean
     NotificationPreferenceList:
       type: object
-      required: [items]
+      required: [items, emailAvailable]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/NotificationPreference"
+        emailAvailable:
+          type: boolean
+          description: False when outbound SMTP is not configured; email toggles are disabled.
     UpdateNotificationPreferencesRequest:
       type: object
       required: [items]

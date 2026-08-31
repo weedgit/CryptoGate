@@ -794,6 +794,11 @@ export type NotificationPreference = {
   inApp: boolean;
 };
 
+export type NotificationPreferenceList = {
+  items: NotificationPreference[];
+  emailAvailable: boolean;
+};
+
 export async function listApiKeys(orgId?: string): Promise<ApiKey[]> {
   const q = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
   const res = await fetch(`${API_BASE}/api-keys${q}`, {
@@ -971,7 +976,7 @@ export async function resendWebhookDelivery(
 
 export async function getNotificationPreferences(
   orgId: string,
-): Promise<NotificationPreference[]> {
+): Promise<NotificationPreferenceList> {
   const res = await fetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/notification-preferences`,
     {
@@ -980,14 +985,17 @@ export async function getNotificationPreferences(
     },
   );
   if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: NotificationPreference[] };
-  return data.items ?? [];
+  const data = (await res.json()) as NotificationPreferenceList;
+  return {
+    items: data.items ?? [],
+    emailAvailable: data.emailAvailable === true,
+  };
 }
 
 export async function putNotificationPreferences(
   orgId: string,
   items: NotificationPreference[],
-): Promise<NotificationPreference[]> {
+): Promise<NotificationPreferenceList> {
   const res = await fetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/notification-preferences`,
     {
@@ -1001,8 +1009,11 @@ export async function putNotificationPreferences(
     },
   );
   if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: NotificationPreference[] };
-  return data.items ?? [];
+  const data = (await res.json()) as NotificationPreferenceList;
+  return {
+    items: data.items ?? [],
+    emailAvailable: data.emailAvailable === true,
+  };
 }
 
 export type OrgAccount = {

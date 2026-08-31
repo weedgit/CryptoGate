@@ -1390,10 +1390,11 @@ code {
 }
 
 .gate-mark {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  background: var(--accent);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: contain;
+  display: block;
 }
 
 .powered strong {

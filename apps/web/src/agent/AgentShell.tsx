@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { GateLogoMark } from "../auth/GateLogoMark";
 import {
   AgentsNavIcon,
   ArchitectureNavIcon,
@@ -163,7 +164,7 @@ export function AgentShell({
       />
       <aside id="portal-sidebar" className="sidebar" aria-label="Agent navigation">
         <div className="logo-row">
-          <div className="logo-mark">CG</div>
+          <GateLogoMark size={32} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
               <p className="logo-title">CryptoGate</p>

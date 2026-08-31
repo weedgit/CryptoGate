@@ -278,7 +278,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout showBrand>
+      <AuthLayout>
         <form className="login-card" onSubmit={onResetSubmit}>
           <div className="login-card-head">
             <h1>Reset password</h1>
@@ -354,7 +354,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout showBrand>
+      <AuthLayout>
         <form className="login-card" onSubmit={onForgotSubmit}>
           <div className="login-card-head">
             <h1>Forgot password</h1>
@@ -401,7 +401,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout showBrand footer={false}>
+      <AuthLayout footer={false}>
         {view === "backup" ? (
           <form
             className={loginCardClass("login-card--mfa")}
@@ -506,7 +506,7 @@ export function PortalLoginPage({
   return (
     <>
       {alarm}
-    <AuthLayout showBrand>
+    <AuthLayout>
       <form
         className={loginCardClass()}
         onSubmit={onLoginSubmit}

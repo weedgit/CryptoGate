@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ApiError, enrollMfa, verifyMfa } from "../merchant/api";
 import { AuthLayout } from "./AuthLayout";
 import { AuthToast } from "./AuthToast";
+import { GateLogoMark } from "./GateLogoMark";
 import { CopyIcon } from "./LoginIcons";
 import { MfaCodeInput } from "./MfaCodeInput";
 import { formatManualSecret } from "./passwordPolicy";
@@ -90,9 +91,7 @@ export function MfaEnrollmentWizard({
     <AuthLayout wide footer={false}>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div className="login-brand login-brand--compact">
-        <div className="login-logo-mark login-logo-mark--compact" aria-hidden>
-          CG
-        </div>
+        <GateLogoMark size={32} className="login-logo-mark-svg" />
         <span className="login-brand-name login-brand-name--compact">CryptoGate</span>
       </div>
 

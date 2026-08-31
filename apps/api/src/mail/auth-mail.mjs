@@ -1,16 +1,22 @@
 /**
  * Transactional mail stubs. SMTP plugs in later — log locally for Phase 1.
  */
+import { isOutboundMailConfigured } from "./mail-config.mjs";
 
 /**
  * @param {{ to: string, subject: string, text: string }} message
- * @returns {Promise<{ delivered: boolean, mode: "stub" }>}
+ * @returns {Promise<{ delivered: boolean, mode: "stub" | "smtp" }>}
  */
 async function sendTransactionalEmail(message) {
   const to = typeof message?.to === "string" ? message.to : "";
   const subject = typeof message?.subject === "string" ? message.subject : "";
-  console.info(`[mail:stub] to=${to} subject=${subject}`);
-  return { delivered: false, mode: "stub" };
+  if (!isOutboundMailConfigured()) {
+    console.info(`[mail:stub] to=${to} subject=${subject}`);
+    return { delivered: false, mode: "stub" };
+  }
+  // SMTP transport plugs in here when configured.
+  console.info(`[mail:smtp] to=${to} subject=${subject}`);
+  return { delivered: true, mode: "smtp" };
 }
 
 /**

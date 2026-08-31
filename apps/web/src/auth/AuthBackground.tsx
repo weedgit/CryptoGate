@@ -101,9 +101,12 @@ const TEXT = {
 } as const;
 
 /** Wordmark baseline + cap height in viewBox units. */
-const WORDMARK_X = 82;
+const WORDMARK_ICON = 72;
+const WORDMARK_ICON_X = 12;
+const WORDMARK_X = 92;
 const WORDMARK_Y = 104;
 const WORDMARK_SIZE = 58;
+const WORDMARK_ICON_Y = WORDMARK_Y - WORDMARK_SIZE * 0.92;
 
 /** Background typography — slightly larger for legibility. */
 const FS = {
@@ -687,6 +690,14 @@ export function AuthBackground() {
 
         {/* Text overlays — drawn after vignette so labels stay readable. */}
         <g className="auth-bg-labels">
+          <image
+            href="/brand/cryptogate-icon.png"
+            x={WORDMARK_ICON_X}
+            y={WORDMARK_ICON_Y}
+            width={WORDMARK_ICON}
+            height={WORDMARK_ICON}
+            className="auth-bg-wordmark-icon"
+          />
           <text
             x={WORDMARK_X}
             y={WORDMARK_Y}

@@ -14,6 +14,18 @@ import {
   listNotificationPreferences,
   upsertNotificationPreferences,
 } from "./notification-store.mjs";
+import { isOutboundMailConfigured } from "../mail/mail-config.mjs";
+
+function withEmailChannelState(items) {
+  const emailAvailable = isOutboundMailConfigured();
+  if (emailAvailable) {
+    return { items, emailAvailable };
+  }
+  return {
+    emailAvailable,
+    items: items.map((row) => ({ ...row, email: false })),
+  };
+}
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -58,7 +70,7 @@ export async function handleGetNotificationPreferences(req, res, orgId) {
     loaded.caller.userId,
     loaded.org.id,
   );
-  sendJson(res, 200, { items });
+  sendJson(res, 200, withEmailChannelState(items));
 }
 
 /**
@@ -82,10 +94,15 @@ export async function handlePutNotificationPreferences(req, res, orgId) {
     return;
   }
 
+  const emailAvailable = isOutboundMailConfigured();
+  const itemsInput = emailAvailable
+    ? validated.items
+    : validated.items.map((row) => ({ ...row, email: false }));
+
   const items = await upsertNotificationPreferences(
     loaded.caller.userId,
     loaded.org.id,
-    validated.items,
+    itemsInput,
   );
 
   await insertAuditEvent({
@@ -95,5 +112,5 @@ export async function handlePutNotificationPreferences(req, res, orgId) {
     metadata: { count: items.length },
   });
 
-  sendJson(res, 200, { items });
+  sendJson(res, 200, withEmailChannelState(items));
 }

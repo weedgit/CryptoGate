@@ -19,6 +19,7 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { GateLogoMark } from "../auth/GateLogoMark";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import {
   countUnreadMerchantAlerts,
@@ -227,7 +228,7 @@ export function MerchantShell({
       />
       <aside id="portal-sidebar" className="sidebar" aria-label="Merchant navigation">
         <div className="logo-row">
-          <div className="logo-mark">CG</div>
+          <GateLogoMark size={32} className="logo-mark" />
           <div className="logo-copy">
             <p className="logo-title">CryptoGate</p>
             <span className="logo-badge">

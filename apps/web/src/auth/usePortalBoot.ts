@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSession, loadPortalSession, type Session } from "../merchant/api";
+import { setUserTimezone } from "../shared/userTimezone";
 
 const DEFAULT_TIMEOUT_MIN = 30;
 
@@ -70,6 +71,10 @@ export function usePortalBoot() {
   }, []);
 
   useSessionKeepAlive(session, setSession);
+
+  useEffect(() => {
+    setUserTimezone(session?.timezone);
+  }, [session?.timezone]);
 
   function completeSignIn() {
     setMfaPending(false);
