@@ -20,8 +20,8 @@ describe("@cryptogate/web platform M4-30", () => {
       join(root, "src/platform/PlatformApp.tsx"),
       "utf8",
     );
-    assert.match(platform, /service-bills/);
-    assert.match(platform, /IssueServiceBillPage/);
+    assert.match(platform, /service-bills\/new/);
+    assert.match(platform, /issue=1/);
     assert.match(platform, /RequirePlatformOperator/);
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /issueServiceBill/);

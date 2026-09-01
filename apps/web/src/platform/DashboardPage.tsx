@@ -560,6 +560,7 @@ export function DashboardPage({ session }: Props) {
     () => peekPlatformOrgs() != null || peekPlatformOrders() != null,
   );
   const loadGen = useRef(0);
+  const initialLoad = useRef(true);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -638,7 +639,6 @@ export function DashboardPage({ session }: Props) {
   const load = useCallback(async () => {
     if (!startDate || !endDate) return;
     const gen = ++loadGen.current;
-    setLoading(true);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
@@ -687,9 +687,17 @@ export function DashboardPage({ session }: Props) {
     const cachedOrgs = peekPlatformOrgs();
     const cachedBills = peekPlatformServiceBills();
     const cachedOrders = peekPlatformOrders();
-    if (cachedOrgs || cachedOrders) {
+    const hadCache = Boolean(cachedOrgs || cachedOrders);
+    if (hadCache) {
       applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? []);
       setHasLoaded(true);
+    }
+
+    if (initialLoad.current) {
+      if (!hadCache) setLoading(true);
+      initialLoad.current = false;
+    } else {
+      setLoading(true);
     }
 
     const orgsPromise = getPlatformOrgs();

@@ -22685,6 +22685,29 @@ select {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Lazy route chunk load — center pending in the content viewport */
+.platform-shell .body:has(> .lazy-route-pending) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.platform-shell .lazy-route-pending {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100dvh - 160px);
+  padding: 24px 0;
+}
+
+.platform-shell .lazy-route-pending .plat-pending {
+  border: none;
+  background: transparent;
+  min-height: 0;
+}
+
 /* Shared platform pending / skeleton */
 .platform-shell .plat-pending {
   display: flex;

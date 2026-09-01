@@ -20,10 +20,10 @@ import { PlatformPending } from "../platform/ui/PlatformPending";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { platformFeeNetwork } from "../shared/platformFeePair";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import {
   ApiError,
   getAgentPayout,
-  listOrgs,
   putAgentPayout,
   type AgentPayoutAddress,
   type OrgAccount,
@@ -73,12 +73,16 @@ export function AgentSettingsPage({ session }: Props) {
     [],
   );
 
-  const [org, setOrg] = useState<OrgAccount | null>(null);
+  const [org, setOrg] = useState<OrgAccount | null>(() =>
+    agentId ? (peekAgentOrgs()?.find((o) => o.id === agentId) ?? null) : null,
+  );
   const [payout, setPayout] = useState<AgentPayoutAddress | null>(null);
   const [address, setAddress] = useState("");
   const [pendingMfa, setPendingMfa] = useState<PendingPayout | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !(agentId && peekAgentOrgs()?.some((o) => o.id === agentId)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
 
@@ -93,11 +97,11 @@ export function AgentSettingsPage({ session }: Props) {
       setError("No agent membership on this session");
       return;
     }
-    setLoading(true);
+    if (!peekAgentOrgs()?.some((o) => o.id === agentId)) setLoading(true);
     setError(null);
     try {
       const [orgs, payoutRow] = await Promise.all([
-        listOrgs(),
+        getAgentOrgs(),
         getAgentPayout(agentId).catch(() => null),
       ]);
       setOrg(orgs.find((o) => o.id === agentId) ?? null);

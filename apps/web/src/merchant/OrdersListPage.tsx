@@ -11,11 +11,13 @@ import {
 } from "../platform/ui/PlatformPending";
 import {
   ApiError,
-  listOrders,
   ordersCsvUrl,
   type PaymentOrder,
   type Session,
 } from "./api";
+import { getMerchantOrders, invalidateMerchantOrdersList, peekMerchantOrders } from "./merchantOrdersList";
+import { getMerchantOrder } from "./merchantOrderDetail";
+import { getMerchantOrderPayment } from "./merchantOrderPaymentDetails";
 import { matchingModeLabel } from "./matchingLabels";
 import {
   formatShortTime,
@@ -52,7 +54,6 @@ type SortDir = "asc" | "desc";
 type Props = { session: Session };
 
 const PAGE_SIZE = 20;
-const FETCH_LIMIT = 200;
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -506,8 +507,13 @@ export function OrdersListPage({ session }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<PaymentOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PaymentOrder[]>(
+    () => peekMerchantOrders() ?? [],
+  );
+  const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekMerchantOrders() != null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
@@ -520,18 +526,19 @@ export function OrdersListPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
-      const rows = await listOrders({ limit: FETCH_LIMIT });
+      const rows = await getMerchantOrders();
       setItems(rows);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load orders");
       setItems([]);
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -670,7 +677,7 @@ export function OrdersListPage({ session }: Props) {
         : null}
 
       <div className="plat-bills__table-wrap">
-        {loading ? (
+        {loading && !hasLoaded ? (
           <div className="plat-bills__pending">
             <PlatformPending
               compact
@@ -795,6 +802,14 @@ export function OrdersListPage({ session }: Props) {
                       tabIndex={0}
                       role="link"
                       aria-label={`Open order ${o.orderNumber}`}
+                      onMouseEnter={() => {
+                        void getMerchantOrder(o.id);
+                        void getMerchantOrderPayment(o.id);
+                      }}
+                      onFocus={() => {
+                        void getMerchantOrder(o.id);
+                        void getMerchantOrderPayment(o.id);
+                      }}
                       onClick={() => navigate(href)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {

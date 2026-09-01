@@ -373,7 +373,8 @@ export function SubAgentsListPage({ session }: Props) {
   }, [loading]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const hasCachedOrgs = peekAgentOrgs() != null;
+    if (!hasCachedOrgs) setLoading(true);
     setError(null);
     try {
       const [orgRows, billRows] = await Promise.all([
@@ -395,7 +396,24 @@ export function SubAgentsListPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const agents = useMemo(() => {
+    if (!agentId) return [];
+    return subAgentsInAgentSubtree(agentId, orgs);
+  }, [agentId, orgs]);
+
+  const agentIdsKey = useMemo(
+    () => agents.map((a) => a.id).sort().join("|"),
+    [agents],
+  );
+
   useEffect(() => {
+    if (!looksLikeEmailQuery(query)) {
+      setOrgEmailsByOrgId(new Map());
+      setEmailIndexLoading(false);
+      return;
+    }
+    if (agents.length === 0) return;
+
     let cancelled = false;
     setEmailIndexLoading(true);
     void listOrgMemberEmails()
@@ -411,12 +429,7 @@ export function SubAgentsListPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const agents = useMemo(() => {
-    if (!agentId) return [];
-    return subAgentsInAgentSubtree(agentId, orgs);
-  }, [agentId, orgs]);
+  }, [agentIdsKey, agents.length, query]);
 
   const byId = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs]);
 

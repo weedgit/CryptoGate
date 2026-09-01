@@ -16,13 +16,17 @@ import {
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { formatShortTime } from "../merchant/orderStatus";
 import {
+  getCachedServiceBill,
+  peekServiceBill,
+  primeServiceBill,
+} from "../shared/serviceBillDetailCache";
+import {
   ApiError,
-  getServiceBill,
   listOrgUsers,
-  listOrgs,
   type OrgAccount,
   type ServiceBill,
 } from "./api";
+import { getAgentOrgs } from "./agentOrgList";
 import { formatShortDate } from "./org";
 
 type TimelineStep = {
@@ -107,19 +111,25 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
 export function ServiceBillDetailPage() {
   const { id } = useParams<{ id: string }>();
   const invoiceRef = useRef<HTMLElement | null>(null);
-  const [bill, setBill] = useState<ServiceBill | null>(null);
+  const [bill, setBill] = useState<ServiceBill | null>(() =>
+    id ? peekServiceBill(id) : null,
+  );
   const [merchant, setMerchant] = useState<OrgAccount | null>(null);
   const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(id && peekServiceBill(id)));
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!peekServiceBill(id)) setLoading(true);
     setError(null);
     try {
-      const [row, orgs] = await Promise.all([getServiceBill(id), listOrgs()]);
+      const [row, orgs] = await Promise.all([
+        getCachedServiceBill(id),
+        getAgentOrgs(),
+      ]);
       const members = await listOrgUsers(row.orgId).catch(() => []);
+      primeServiceBill(id, row);
       setBill(row);
       setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
       const preferred =
@@ -132,6 +142,13 @@ export function ServiceBillDetailPage() {
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const seeded = peekServiceBill(id);
+    setBill(seeded);
+    if (!seeded) setLoading(true);
   }, [id]);
 
   useEffect(() => {

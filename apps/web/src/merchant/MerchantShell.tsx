@@ -1,5 +1,5 @@
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useMatch } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertSummaryToast } from "../shared/AlertSummaryToast";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
@@ -31,6 +31,7 @@ import {
   subscribeMerchantAlerts,
 } from "./merchantAlerts";
 import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
+import { prefetchMerchantRoute } from "./prefetchRoutes";
 import { merchantRoute } from "../shared/portalRouting";
 import type { Session } from "./api";
 
@@ -142,8 +143,11 @@ type Props = {
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
-  showCashierBanner?: boolean;
 };
+
+function navPrefetchKey(item: NavItem): string {
+  return item.to.replace(/^\//, "");
+}
 
 function navItemClass(
   pathname: string,
@@ -163,9 +167,10 @@ export function MerchantShell({
   children,
   onSignOut,
   onSessionRefresh,
-  showCashierBanner = false,
 }: Props) {
   const location = useLocation();
+  const onOrdersNew = useMatch({ path: merchantRoute("orders/new"), end: true });
+  const showCashierBanner = sessionIsCashierOnly(session) && Boolean(onOrdersNew);
   const cashier = sessionIsCashierOnly(session);
   const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
   const merchantId = primaryMerchantOrgId(session);
@@ -253,6 +258,10 @@ export function MerchantShell({
                     className={({ isActive }) =>
                       navItemClass(location.pathname, item, isActive)
                     }
+                    onMouseEnter={() =>
+                      prefetchMerchantRoute(navPrefetchKey(item))
+                    }
+                    onFocus={() => prefetchMerchantRoute(navPrefetchKey(item))}
                   >
                     <Icon />
                     <span>{item.label}</span>

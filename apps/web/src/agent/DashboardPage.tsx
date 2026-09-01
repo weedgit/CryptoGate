@@ -412,6 +412,7 @@ export function DashboardPage({ session }: Props) {
     () => peekAgentOrgs() != null || peekAgentOrders() != null,
   );
   const loadGen = useRef(0);
+  const initialLoad = useRef(true);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -491,7 +492,6 @@ export function DashboardPage({ session }: Props) {
       return;
     }
     const gen = ++loadGen.current;
-    setLoading(true);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
@@ -553,9 +553,17 @@ export function DashboardPage({ session }: Props) {
     const cachedOrgs = peekAgentOrgs();
     const cachedOrders = peekAgentOrders();
     const cachedBills = peekAgentServiceBills();
-    if (cachedOrgs || cachedOrders) {
+    const hadCache = Boolean(cachedOrgs || cachedOrders);
+    if (hadCache) {
       applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? [], null);
       setHasLoaded(true);
+    }
+
+    if (initialLoad.current) {
+      if (!hadCache) setLoading(true);
+      initialLoad.current = false;
+    } else {
+      setLoading(true);
     }
 
     try {

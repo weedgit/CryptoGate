@@ -11,6 +11,7 @@ import {
   type OrgDeletePreview,
   type Session,
 } from "./api";
+import { peekMerchantOrgs } from "./merchantOrgList";
 import { AuthToast } from "../auth/AuthToast";
 import { orgTypeLabel, sessionCanManageSites, truncateAddress } from "./org";
 import { SiteOverridesPanel } from "./SiteOverridesPanel";
@@ -19,8 +20,12 @@ export function SiteDetailPage({ session }: { session: Session }) {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const canManage = useMemo(() => sessionCanManageSites(session), [session]);
-  const [site, setSite] = useState<OrgAccount | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [site, setSite] = useState<OrgAccount | null>(() =>
+    id ? (peekMerchantOrgs()?.find((o) => o.id === id) ?? null) : null,
+  );
+  const [loading, setLoading] = useState(
+    () => !(id && peekMerchantOrgs()?.some((o) => o.id === id)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePreview, setDeletePreview] = useState<OrgDeletePreview | null>(null);
@@ -30,7 +35,7 @@ export function SiteDetailPage({ session }: { session: Session }) {
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!peekMerchantOrgs()?.some((o) => o.id === id)) setLoading(true);
     setError(null);
     try {
       setSite(await getOrg(id));

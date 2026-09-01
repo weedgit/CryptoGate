@@ -5,9 +5,7 @@ import {
   ApiError,
   cancelOrder,
   getOnChain,
-  getOrder,
   getOrg,
-  getPaymentDetails,
   listOrgUsers,
   listWebhookDeliveries,
   listWebhooks,
@@ -20,6 +18,16 @@ import {
   type Session,
   type WebhookDelivery,
 } from "./api";
+import {
+  getMerchantOrder,
+  peekMerchantOrder,
+  primeMerchantOrder,
+} from "./merchantOrderDetail";
+import {
+  getMerchantOrderPayment,
+  peekMerchantOrderPayment,
+  primeMerchantOrderPayment,
+} from "./merchantOrderPaymentDetails";
 import { matchingModeLabel } from "./matchingLabels";
 import { orderFulfillmentHint } from "./fulfillmentLabels";
 import {
@@ -116,12 +124,22 @@ export function OrderDetailPage({
     ? "platform-topbar-center"
     : "merchant-topbar-center";
 
-  const [order, setOrder] = useState<PaymentOrder | null>(null);
-  const [pay, setPay] = useState<PaymentDetails | null>(seededPay ?? null);
+  const [order, setOrder] = useState<PaymentOrder | null>(() =>
+    id ? peekMerchantOrder(id) : null,
+  );
+  const [pay, setPay] = useState<PaymentDetails | null>(
+    () => seededPay ?? (id ? peekMerchantOrderPayment(id) : null),
+  );
   const [chain, setChain] = useState<OnChainDetails | null>(null);
   const [sellerOrg, setSellerOrg] = useState<OrgAccount | null>(null);
   const [sellerContactEmail, setSellerContactEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () =>
+      !(
+        id &&
+        (peekMerchantOrder(id) || seededPay || peekMerchantOrderPayment(id))
+      ),
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [copied, setCopied] = useState(false);
@@ -147,16 +165,22 @@ export function OrderDetailPage({
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!peekMerchantOrder(id) && !seededPay && !peekMerchantOrderPayment(id)) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [o, p, c] = await Promise.all([
-        getOrder(id),
-        getPaymentDetails(id).catch(() => null),
+        getMerchantOrder(id),
+        getMerchantOrderPayment(id).catch(() => null),
         getOnChain(id).catch(() => null),
       ]);
+      primeMerchantOrder(id, o);
       setOrder(o);
-      if (p) setPay(p);
+      if (p) {
+        primeMerchantOrderPayment(id, p);
+        setPay(p);
+      }
       setChain(c);
 
       const orderOrgId = o.orgId ?? primaryMerchantOrgId(session) ?? null;
@@ -183,7 +207,7 @@ export function OrderDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [id, session]);
+  }, [id, seededPay, session]);
 
   /** Soft refresh — order/pay/on-chain only; no full-page loading flash. */
   const refreshLive = useCallback(async () => {
@@ -191,12 +215,16 @@ export function OrderDetailPage({
     setPolling(true);
     try {
       const [o, p, c] = await Promise.all([
-        getOrder(id),
-        getPaymentDetails(id).catch(() => null),
+        getMerchantOrder(id, { force: true }),
+        getMerchantOrderPayment(id, { force: true }).catch(() => null),
         getOnChain(id).catch(() => null),
       ]);
+      primeMerchantOrder(id, o);
       setOrder(o);
-      if (p) setPay(p);
+      if (p) {
+        primeMerchantOrderPayment(id, p);
+        setPay(p);
+      }
       setChain(c);
     } catch {
       /* keep last good snapshot while watching */
@@ -204,6 +232,17 @@ export function OrderDetailPage({
       setPolling(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const seeded = peekMerchantOrder(id);
+    setOrder(seeded);
+    if (!seededPay) {
+      const cachedPay = peekMerchantOrderPayment(id);
+      if (cachedPay) setPay(cachedPay);
+    }
+    if (!seeded && !seededPay && !peekMerchantOrderPayment(id)) setLoading(true);
+  }, [id, seededPay]);
 
   useEffect(() => {
     void load();
@@ -288,9 +327,15 @@ export function OrderDetailPage({
     setError(null);
     try {
       const updated = await cancelOrder(order.id);
+      primeMerchantOrder(order.id, updated);
       setOrder(updated);
-      const p = await getPaymentDetails(order.id).catch(() => null);
-      if (p) setPay(p);
+      const p = await getMerchantOrderPayment(order.id, { force: true }).catch(
+        () => null,
+      );
+      if (p) {
+        primeMerchantOrderPayment(order.id, p);
+        setPay(p);
+      }
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -317,10 +362,16 @@ export function OrderDetailPage({
     setError(null);
     try {
       const updated = await resolveOrderAnomaly(order.id, note);
+      primeMerchantOrder(order.id, updated);
       setOrder(updated);
       setResolveNote("");
-      const p = await getPaymentDetails(order.id).catch(() => null);
-      if (p) setPay(p);
+      const p = await getMerchantOrderPayment(order.id, { force: true }).catch(
+        () => null,
+      );
+      if (p) {
+        primeMerchantOrderPayment(order.id, p);
+        setPay(p);
+      }
       void refreshMerchantAlerts(session);
     } catch (err) {
       setError(

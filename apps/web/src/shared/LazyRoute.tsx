@@ -14,10 +14,12 @@ export function LazyRoute({
     <RouteErrorBoundary>
       <Suspense
         fallback={
-          <PlatformPending
-            title={title}
-            copy="Opening this view."
-          />
+          <div className="lazy-route-pending">
+            <PlatformPending
+              title={title}
+              copy="Opening this view."
+            />
+          </div>
         }
       >
         {children}

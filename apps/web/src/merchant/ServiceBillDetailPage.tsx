@@ -5,7 +5,6 @@ import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getOrg,
-  getServiceBill,
   getServiceBillCheckout,
   listOrgUsers,
   type OrgAccount,
@@ -13,6 +12,11 @@ import {
   type ServiceBillCheckout,
   type Session,
 } from "./api";
+import {
+  getCachedServiceBill,
+  peekServiceBill,
+  primeServiceBill,
+} from "../shared/serviceBillDetailCache";
 import {
   formatBillId,
   serviceBillStatusLabel,
@@ -59,11 +63,13 @@ export function ServiceBillDetailPage({ session }: Props) {
   );
   const invoiceRef = useRef<HTMLElement | null>(null);
 
-  const [bill, setBill] = useState<ServiceBill | null>(null);
+  const [bill, setBill] = useState<ServiceBill | null>(() =>
+    id ? peekServiceBill(id) : null,
+  );
   const [buyerOrg, setBuyerOrg] = useState<OrgAccount | null>(null);
   const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<ServiceBillCheckout | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(id && peekServiceBill(id)));
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -75,10 +81,11 @@ export function ServiceBillDetailPage({ session }: Props) {
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!peekServiceBill(id)) setLoading(true);
     setError(null);
     try {
-      const row = await getServiceBill(id);
+      const row = await getCachedServiceBill(id);
+      primeServiceBill(id, row);
       setBill(row);
       try {
         const [org, members] = await Promise.all([
@@ -102,6 +109,13 @@ export function ServiceBillDetailPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const seeded = peekServiceBill(id);
+    setBill(seeded);
+    if (!seeded) setLoading(true);
   }, [id]);
 
   useEffect(() => {

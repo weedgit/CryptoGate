@@ -26,10 +26,11 @@ import {
 } from "../platform/platformOrgTree";
 import { useOrgTreeOpsExtras } from "../platform/useOrgTreeOpsExtras";
 import { orgsInAgentSubtree } from "./agentSubtree";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import {
   ApiError,
   listOrgMemberEmails,
-  listOrgs,
+  type OrgAccount,
   type Session,
 } from "./api";
 import { orgTypeLabel, primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
@@ -584,18 +585,40 @@ const EMPTY_FOREST: PlatformOrgForest = {
   orphanCount: 0,
 };
 
+function agentForestFromOrgs(
+  agentId: string | null,
+  orgs: OrgAccount[] | null,
+): PlatformOrgForest {
+  if (!agentId || !orgs?.length) return EMPTY_FOREST;
+  const scoped = orgsInAgentSubtree(agentId, orgs);
+  return buildPlatformOrgForest(scoped, {
+    expectedRootIds: new Set([agentId]),
+  });
+}
+
 /** Agent subtree org hierarchy — read-only except onboard merchant. */
 export function ArchitecturePage({ session }: { session: Session }) {
   const pageRef = useRef<HTMLDivElement | null>(null);
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
+  const [hasLoaded, setHasLoaded] = useState(() => peekAgentOrgs() != null);
   const [error, setError] = useState<string | null>(null);
-  const [forest, setForest] = useState<PlatformOrgForest>(EMPTY_FOREST);
+  const [forest, setForest] = useState<PlatformOrgForest>(() =>
+    agentForestFromOrgs(agentId, peekAgentOrgs()),
+  );
   const [filter, setFilter] = useState<OrgTreeFilter>(EMPTY_FILTER);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const seeded = agentForestFromOrgs(agentId, peekAgentOrgs());
+    return seeded.roots.length > 0
+      ? defaultExpandedIds(seeded.roots)
+      : new Set();
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const seeded = agentForestFromOrgs(agentId, peekAgentOrgs());
+    return seeded.roots[0]?.id ?? null;
+  });
   const [ownerEmailByOrgId, setOwnerEmailByOrgId] = useState<Map<string, string>>(
     () => new Map(),
   );
@@ -645,11 +668,11 @@ export function ArchitecturePage({ session }: { session: Session }) {
       return;
     }
 
-    setLoading(true);
+    if (peekAgentOrgs() == null) setLoading(true);
     setError(null);
     try {
       const [orgs, emailRows] = await Promise.all([
-        listOrgs(),
+        getAgentOrgs(),
         listOrgMemberEmails().catch(() => [] as Awaited<
           ReturnType<typeof listOrgMemberEmails>
         >),
@@ -670,6 +693,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
       setError(err instanceof ApiError ? err.message : "Failed to load org tree");
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, [agentId]);
 
@@ -981,7 +1005,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
               }
               onKeyDown={onTreeKeyDown}
             >
-              {loading ? (
+              {loading && !hasLoaded ? (
                 <PlatformPending
                   className="org-architecture__empty"
                   title="Loading org tree"

@@ -25,10 +25,10 @@ import {
 import {
   ApiError,
   listAgentPayoutAddresses,
-  getPlatformOrgs,
   type OrgAccount,
   type Session,
 } from "./api";
+import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { orgDetailHref } from "./platformOrgTree";
 import { agentRoute, platformRoute } from "../shared/portalRouting";
 import { FundAmount } from "./FundAmount";
@@ -135,7 +135,7 @@ export function PlatformCommissionsPage({ session }: Props) {
     [session],
   );
 
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
   const [payoutAddressByAgent, setPayoutAddressByAgent] = useState<
     Map<string, { address: string; asset: string; network: string }>
   >(() => new Map());
@@ -145,7 +145,8 @@ export function PlatformCommissionsPage({ session }: Props) {
   const [cascadePayouts, setCascadePayouts] = useState<
     CommissionPayoutRecord[]
   >([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
+  const [hasLoaded, setHasLoaded] = useState(() => peekPlatformOrgs() != null);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
@@ -222,7 +223,7 @@ export function PlatformCommissionsPage({ session }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
       const [orgRows, payoutAddrs, payoutRows] = await Promise.all([
@@ -259,8 +260,9 @@ export function PlatformCommissionsPage({ session }: Props) {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -750,7 +752,7 @@ export function PlatformCommissionsPage({ session }: Props) {
       {tab === "invoices" ? (
         <>
           <div className="plat-bills__table-wrap">
-            {loading ? (
+            {loading && !hasLoaded ? (
               <div className="plat-bills__pending">
                 <PlatformPending
                   compact

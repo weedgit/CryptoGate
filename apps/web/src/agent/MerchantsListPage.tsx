@@ -395,7 +395,8 @@ export function MerchantsListPage({ session }: Props) {
   }, [loading]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const hasCachedOrgs = peekAgentOrgs() != null;
+    if (!hasCachedOrgs) setLoading(true);
     setError(null);
     try {
       const [orgRows, billRows, summary] = await Promise.all([
@@ -422,7 +423,26 @@ export function MerchantsListPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const merchants = useMemo(() => {
+    if (!agentId) return [];
+    return merchantsInAgentSubtree(agentId, orgs).filter(
+      (o) => o.type === "merchant",
+    );
+  }, [agentId, orgs]);
+
+  const merchantIdsKey = useMemo(
+    () => merchants.map((m) => m.id).sort().join("|"),
+    [merchants],
+  );
+
   useEffect(() => {
+    if (!looksLikeEmailQuery(query)) {
+      setOrgEmailsByOrgId(new Map());
+      setEmailIndexLoading(false);
+      return;
+    }
+    if (merchants.length === 0) return;
+
     let cancelled = false;
     setEmailIndexLoading(true);
     void listOrgMemberEmails()
@@ -438,14 +458,7 @@ export function MerchantsListPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const merchants = useMemo(() => {
-    if (!agentId) return [];
-    return merchantsInAgentSubtree(agentId, orgs).filter(
-      (o) => o.type === "merchant",
-    );
-  }, [agentId, orgs]);
+  }, [merchantIdsKey, merchants.length, query]);
 
   useEffect(() => {
     let cancelled = false;

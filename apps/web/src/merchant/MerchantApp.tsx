@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import "../styles/merchant.css";
 import "../styles/components.css";
 import { logout, type Session } from "./api";
@@ -26,14 +26,6 @@ const NetworksPage = lazyNamed(() => import("./NetworksPage"), "NetworksPage");
 const MerchantOrdersRoutes = lazyNamed(
   () => import("./MerchantOrdersRoutes"),
   "MerchantOrdersRoutes",
-);
-const OrderDetailPage = lazyNamed(
-  () => import("./OrderDetailPage"),
-  "OrderDetailPage",
-);
-const OrdersListPage = lazyNamed(
-  () => import("./OrdersListPage"),
-  "OrdersListPage",
 );
 const ReportsPage = lazyNamed(() => import("./ReportsPage"), "ReportsPage");
 const IntegrationsPage = lazyNamed(
@@ -65,30 +57,25 @@ const ServiceBillsListPage = lazyNamed(
   "ServiceBillsListPage",
 );
 
-type ShellProps = {
-  session: Session;
-  children: ReactNode;
-  onSignOut: () => void;
-  onSessionRefresh?: (session: Session) => void;
-  showCashierBanner?: boolean;
-};
-
-function Shell({
+function MerchantShellLayout({
   session,
-  children,
   onSignOut,
   onSessionRefresh,
-  showCashierBanner = false,
-}: ShellProps) {
+}: {
+  session: Session;
+  onSignOut: () => void | Promise<void>;
+  onSessionRefresh?: (session: Session) => void;
+}) {
   return (
     <RequireMerchantPortal session={session} onSignOut={onSignOut}>
       <MerchantShell
         session={session}
         onSignOut={onSignOut}
         onSessionRefresh={onSessionRefresh}
-        showCashierBanner={showCashierBanner}
       >
-        <LazyRoute>{children}</LazyRoute>
+        <LazyRoute>
+          <Outlet />
+        </LazyRoute>
       </MerchantShell>
     </RequireMerchantPortal>
   );
@@ -155,195 +142,125 @@ export function MerchantApp() {
     setSession(null);
   };
 
+  const shell = (
+    <MerchantShellLayout
+      session={session}
+      onSignOut={signOut}
+      onSessionRefresh={setSession}
+    />
+  );
 
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <DashboardPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="orders"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OrdersListPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="orders/new"
-        element={
-          <Shell
-            session={session}
-            onSignOut={signOut}
-            onSessionRefresh={setSession}
-            showCashierBanner={cashier}
-          >
-            <MerchantOrdersRoutes session={session} showCreateModal />
-          </Shell>
-        }
-      />
-      <Route
-        path="orders/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OrderDetailPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/integrations"
-        element={
-          <Shell
-            session={session}
-           
-            onSignOut={signOut}
-            onSessionRefresh={setSession}
-          >
+      <Route element={shell}>
+        <Route index element={<DashboardPage session={session} />} />
+        <Route
+          path="orders/*"
+          element={<MerchantOrdersRoutes session={session} />}
+        />
+        <Route
+          path="settings/integrations"
+          element={
             <OwnerOnly session={session} area="integrations">
               <IntegrationsPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/settlement"
-        element={
-          <Shell
-            session={session}
-           
-            onSignOut={signOut}
-            onSessionRefresh={setSession}
-          >
+          }
+        />
+        <Route
+          path="settings/settlement"
+          element={
             <OwnerOnly session={session} area="settlement settings">
               <SettlementPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/organization"
-        element={<Navigate to={merchantRoute("settings/team")} replace />}
-      />
-      <Route
-        path="settings/billing"
-        element={<Navigate to={merchantRoute("service-bills")} replace />}
-      />
-      <Route
-        path="settings/security"
-        element={<Navigate to={merchantRoute()} replace />}
-      />
-      <Route
-        path="settings/notifications"
-        element={
-          <Shell
-            session={session}
-           
-            onSignOut={signOut}
-            onSessionRefresh={setSession}
-          >
+          }
+        />
+        <Route
+          path="settings/organization"
+          element={<Navigate to={merchantRoute("settings/team")} replace />}
+        />
+        <Route
+          path="settings/billing"
+          element={<Navigate to={merchantRoute("service-bills")} replace />}
+        />
+        <Route
+          path="settings/security"
+          element={<Navigate to={merchantRoute()} replace />}
+        />
+        <Route
+          path="settings/notifications"
+          element={
             <OwnerOnly session={session} area="notification settings">
               <NotificationsSettingsPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/team"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="settings/team"
+          element={
             <OwnerOnly session={session} area="team settings">
               <TeamSettingsPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="networks"
-        element={
-          <Shell session={session} onSignOut={signOut} onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="networks"
+          element={
             <OwnerOnly session={session} area="network catalog">
               <NetworksPage />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/*"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="settings/*"
+          element={
             <OwnerOnly session={session} area="settings">
               <Navigate to={merchantRoute("settings/team")} replace />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="service-bills"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="service-bills"
+          element={
             <OwnerOnly session={session} area="service bills">
               <ServiceBillsListPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="service-bills/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="service-bills/:id"
+          element={
             <OwnerOnly session={session} area="service bills">
               <ServiceBillDetailPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="sites/*"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="sites/*"
+          element={
             <OwnerOnly session={session} area="sites">
               <MerchantSitesRoutes session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="reports/*"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="reports/*"
+          element={
             <OwnerOnly session={session} area="reports">
               <ReportsPage session={session} />
             </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="*"
-        element={
-          cashier ? (
-            <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            cashier ? (
               <CashierForbiddenPage area="this page" />
-            </Shell>
-          ) : (
-            <Navigate to={merchantRoute()} replace />
-          )
-        }
-      />
+            ) : (
+              <Navigate to={merchantRoute()} replace />
+            )
+          }
+        />
+      </Route>
     </Routes>
   );
 }

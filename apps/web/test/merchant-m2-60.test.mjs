@@ -16,9 +16,12 @@ describe("@cryptogate/web merchant M2-60", () => {
     assert.match(labels, /Amount fingerprint/);
     assert.match(labels, /Smart address/);
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /orders\/new/);
-    assert.match(app, /MerchantOrdersRoutes/);
-    assert.match(app, /showCreateModal/);
+    assert.match(app, /orders\/\*/);
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantOrdersRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(routes, /showCreateModal|orders\/new/);
     const modal = readFileSync(
       join(root, "src/merchant/CreateOrderModal.tsx"),
       "utf8",
@@ -67,10 +70,15 @@ describe("@cryptogate/web merchant M2-61/62/63 settlement", () => {
 describe("@cryptogate/web merchant D1-D3 orders shell", () => {
   it("wires dashboard, list, and detail routes", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /path="orders"/);
+    assert.match(app, /path="orders\/\*"/);
+    assert.match(app, /MerchantOrdersRoutes/);
     assert.match(app, /DashboardPage/);
-    assert.match(app, /OrdersListPage/);
-    assert.match(app, /OrderDetailPage/);
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantOrdersRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(routes, /OrdersListPage/);
+    assert.match(routes, /OrderDetailPage/);
     assert.match(app, /Navigate to=\{merchantRoute\(\)\}/);
   });
 
@@ -111,6 +119,7 @@ describe("@cryptogate/web merchant D17 cashier shell", () => {
     assert.match(shell, /CASHIER_GROUPS/);
     assert.match(shell, /My Orders/);
     assert.match(shell, /Create Order/);
+    assert.match(shell, /showCashierBanner/);
     const cashierNav =
       shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
     assert.doesNotMatch(cashierNav, /service-bills/i);
@@ -118,7 +127,6 @@ describe("@cryptogate/web merchant D17 cashier shell", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /RequireOwnerPortal/);
     assert.match(app, /CashierForbiddenPage/);
-    assert.match(app, /showCashierBanner/);
 
     const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
     assert.match(org, /sessionIsCashierOnly/);
@@ -158,7 +166,7 @@ describe("@cryptogate/web merchant D5-D6 service bills", () => {
       "utf8",
     );
     assert.match(list, /Platform SaaS invoices/);
-    assert.match(list, /listServiceBills/);
+    assert.match(list, /getMerchantServiceBills/);
     assert.doesNotMatch(list, /createOrder|listOrders/);
     const detail = readFileSync(
       join(root, "src/merchant/ServiceBillDetailPage.tsx"),

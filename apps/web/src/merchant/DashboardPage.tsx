@@ -6,7 +6,6 @@ import {
   getMerchantCommercial,
   getNetworksStatus,
   listActiveNetworkMaintenance,
-  listServiceBills,
   listSettlement,
   listXpub,
   type ActiveNetworkMaintenance,
@@ -19,6 +18,10 @@ import {
 } from "./api";
 import { getMerchantOrgs } from "./merchantOrgList";
 import { getMerchantOrders, peekMerchantOrders } from "./merchantOrdersList";
+import {
+  getMerchantServiceBills,
+  peekMerchantServiceBills,
+} from "./merchantServiceBillsList";
 import { matchingModeLabel } from "./matchingLabels";
 import {
   anomalyExplain,
@@ -115,6 +118,7 @@ export function DashboardPage({ session }: Props) {
     toDateInputValue(periodWindow("mtd").to),
   );
   const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
+  const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -148,14 +152,14 @@ export function DashboardPage({ session }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
 
     const ordersPromise = getMerchantOrders();
     const extraPromise =
       orgId && !cashierOnly
         ? Promise.all([
-            listServiceBills().catch(() => [] as ServiceBill[]),
+            getMerchantServiceBills().catch(() => [] as ServiceBill[]),
             getMerchantCommercial(orgId).catch(() => null),
             getMerchantOrgs().catch(() => [] as OrgAccount[]),
             listSettlement(orgId).catch(() => []),
@@ -220,8 +224,9 @@ export function DashboardPage({ session }: Props) {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, [orgId, parentId, cashierOnly]);
+  }, [orgId, parentId, cashierOnly, hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -514,7 +519,7 @@ export function DashboardPage({ session }: Props) {
         </div>
       ) : null}
 
-      {loading ? (
+      {loading && !hasLoaded ? (
         <p className="muted">Loading KPIs…</p>
       ) : (
         <div
@@ -750,7 +755,7 @@ export function DashboardPage({ session }: Props) {
               View all
             </Link>
           </div>
-          {loading ? (
+          {loading && !hasLoaded ? (
             <p className="muted plat-dash-merchants__empty">Loading orders…</p>
           ) : recent.length === 0 ? (
             <p className="muted plat-dash-merchants__empty">
@@ -819,7 +824,7 @@ export function DashboardPage({ session }: Props) {
               View all
             </Link>
           </div>
-          {loading ? (
+          {loading && !hasLoaded ? (
             <p className="muted plat-dash-merchants__empty">Loading…</p>
           ) : anomalyOrders.length === 0 ? (
             <p className="muted plat-dash-merchants__empty">

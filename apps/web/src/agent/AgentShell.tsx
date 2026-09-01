@@ -35,6 +35,7 @@ import {
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import { sessionIsAgentViewerOnly } from "./org";
 import { agentRoute } from "../shared/portalRouting";
+import { prefetchAgentRoute } from "./prefetchRoutes";
 
 const SIDEBAR_KEY = "cryptogate.agent.sidebarCollapsed";
 
@@ -98,6 +99,10 @@ type Props = {
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
 };
+
+function navPrefetchKey(item: NavItem): string {
+  return item.to.replace(/^\//, "");
+}
 
 export function AgentShell({
   session,
@@ -220,6 +225,8 @@ export function AgentShell({
                     const active = isActive || prefixActive;
                     return `nav-item${active ? " active" : ""}`;
                   }}
+                  onMouseEnter={() => prefetchAgentRoute(navPrefetchKey(item))}
+                  onFocus={() => prefetchAgentRoute(navPrefetchKey(item))}
                 >
                   <Icon />
                   {!navCollapsed ? <span>{item.label}</span> : null}

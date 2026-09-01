@@ -6,9 +6,9 @@ import { getAgentCommission } from "../agent/api";
 import { primaryAgentOrgId } from "../agent/org";
 import { getMerchantOrgs } from "../merchant/merchantOrgList";
 import { getMerchantOrders } from "../merchant/merchantOrdersList";
+import { getMerchantServiceBills } from "../merchant/merchantServiceBillsList";
 import {
   getMerchantCommercial,
-  listServiceBills as listMerchantServiceBills,
   listSettlement,
   listXpub,
 } from "../merchant/api";
@@ -86,7 +86,7 @@ export function prefetchPortalDashboardData(): void {
     if (session && !sessionIsCashierOnly(session)) {
       const orgId = primaryMerchantOrgId(session);
       if (orgId) {
-        void listMerchantServiceBills().catch(() => undefined);
+        void getMerchantServiceBills().catch(() => undefined);
         void getMerchantCommercial(orgId).catch(() => undefined);
         void listSettlement(orgId).catch(() => undefined);
         void listXpub(orgId).catch(() => undefined);

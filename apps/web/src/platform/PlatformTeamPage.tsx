@@ -1,18 +1,18 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { getOrgUsers, peekOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
   assignOrgUserRole,
   inviteOrgUser,
-  getPlatformOrgs,
   listOrgMemberEmails,
-  listOrgUsers,
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
   type OrgMember,
   type Session,
 } from "./api";
+import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
 import { SearchableSelect } from "../ui/SearchableSelect";
@@ -79,8 +79,16 @@ export function PlatformTeamPage({ session }: Props) {
     [session],
   );
 
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<OrgMember[]>(() => {
+    const orgId =
+      session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null;
+    return orgId ? (peekOrgUsers(orgId) ?? []) : [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const orgId =
+      session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null;
+    return !(orgId && peekOrgUsers(orgId));
+  });
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -93,7 +101,7 @@ export function PlatformTeamPage({ session }: Props) {
     (InviteOrgUserResult & { invitedEmail: string }) | null
   >(null);
   const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(null);
-  const [orgs, setOrgs] = useState<OrgRef[]>([]);
+  const [orgs, setOrgs] = useState<OrgRef[]>(() => peekPlatformOrgs() ?? []);
   const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
 
@@ -115,20 +123,21 @@ export function PlatformTeamPage({ session }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!peekPlatformOrgs()) setLoading(true);
+    else if (!peekOrgUsers(platformOrgId)) setLoading(true);
     setError(null);
     try {
-      let orgId = platformOrgId;
+      let resolvedOrgId = platformOrgId;
       try {
         const nextOrgs = await getPlatformOrgs();
         setOrgs(nextOrgs);
         const platform = nextOrgs.find((o) => o.type === "platform");
-        if (platform) orgId = platform.id;
+        if (platform) resolvedOrgId = platform.id;
       } catch {
         /* keep session org */
       }
-      setResolvedOrgId(orgId);
-      setMembers(await listOrgUsers(orgId));
+      setResolvedOrgId(resolvedOrgId);
+      setMembers(await getOrgUsers(resolvedOrgId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load team");
     } finally {

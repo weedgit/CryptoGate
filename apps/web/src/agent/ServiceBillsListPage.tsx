@@ -22,11 +22,11 @@ import {
 } from "../platform/ui/PlatformPending";
 import {
   ApiError,
-  listOrgs,
-  listServiceBills,
   type ServiceBill,
 } from "./api";
 import { formatShortDate } from "./org";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { getAgentServiceBills, peekAgentServiceBills } from "./agentServiceBillsList";
 
 type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
 
@@ -82,11 +82,19 @@ export function ServiceBillsListPage() {
     parseStatusParam(searchParams.get("status")),
   );
   const [periodFilter, setPeriodFilter] = useState("all");
-  const [items, setItems] = useState<ServiceBill[]>([]);
-  const [orgNames, setOrgNames] = useState<Map<string, string>>(() => new Map());
+  const [items, setItems] = useState<ServiceBill[]>(
+    () => peekAgentServiceBills() ?? [],
+  );
+  const [orgNames, setOrgNames] = useState<Map<string, string>>(() => {
+    const orgs = peekAgentOrgs();
+    return orgs ? orgNameMap(orgs) : new Map();
+  });
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekAgentServiceBills() == null);
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekAgentServiceBills() != null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
 
@@ -102,10 +110,13 @@ export function ServiceBillsListPage() {
   }, [searchParams]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
-      const [bills, orgs] = await Promise.all([listServiceBills(), listOrgs()]);
+      const [bills, orgs] = await Promise.all([
+        getAgentServiceBills(),
+        getAgentOrgs(),
+      ]);
       setItems(bills);
       setOrgNames(orgNameMap(orgs));
     } catch (err) {
@@ -114,8 +125,9 @@ export function ServiceBillsListPage() {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -267,7 +279,7 @@ export function ServiceBillsListPage() {
       </div>
 
       <div className="plat-bills__table-wrap">
-        {loading ? (
+        {loading && !hasLoaded ? (
           <div className="plat-bills__pending">
             <PlatformPending
               compact

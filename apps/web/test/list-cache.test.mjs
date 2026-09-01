@@ -48,5 +48,42 @@ describe("persisted list caches", () => {
     assert.match(prefetch, /getPlatformOrders/);
     assert.match(prefetch, /getAgentOrgs/);
     assert.match(prefetch, /getMerchantOrders/);
+
+    const navPrefetch = readFileSync(
+      join(root, "src/shared/prefetchPortalNavData.ts"),
+      "utf8",
+    );
+    assert.match(navPrefetch, /prefetchPlatformNavData/);
+    assert.match(navPrefetch, /prefetchAgentNavData/);
+    assert.match(navPrefetch, /prefetchMerchantNavData/);
+    assert.match(navPrefetch, /getPlatformOrgs/);
+    assert.match(navPrefetch, /getAgentOrgs/);
+    assert.match(navPrefetch, /getMerchantOrders/);
+    assert.match(navPrefetch, /getCachedServiceBill/);
+    assert.match(navPrefetch, /getMerchantOrder/);
+
+    const entityCache = readFileSync(
+      join(root, "src/shared/entityCache.ts"),
+      "utf8",
+    );
+    assert.match(entityCache, /createEntityCache/);
+
+    const orderDetail = readFileSync(
+      join(root, "src/merchant/merchantOrderDetail.ts"),
+      "utf8",
+    );
+    assert.match(orderDetail, /peekMerchantOrderInList/);
+
+    const paymentDetail = readFileSync(
+      join(root, "src/merchant/merchantOrderPaymentDetails.ts"),
+      "utf8",
+    );
+    assert.match(paymentDetail, /getMerchantOrderPayment/);
+
+    const orgUsers = readFileSync(
+      join(root, "src/shared/orgUsersCache.ts"),
+      "utf8",
+    );
+    assert.match(orgUsers, /getOrgUsers/);
   });
 });

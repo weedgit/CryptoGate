@@ -7,13 +7,13 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { getOrgUsers, peekOrgUsers } from "../shared/orgUsersCache";
+import { getAgentOrgs } from "./agentOrgList";
 import {
   ApiError,
   assignOrgUserRole,
   inviteOrgUser,
   listOrgMemberEmails,
-  listOrgUsers,
-  listOrgs,
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
@@ -83,8 +83,12 @@ export function TeamSettingsPage({ session }: Props) {
   const orgId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canManage = useMemo(() => sessionCanManageTeam(session), [session]);
 
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<OrgMember[]>(() =>
+    orgId ? (peekOrgUsers(orgId) ?? []) : [],
+  );
+  const [loading, setLoading] = useState(
+    () => !(orgId && peekOrgUsers(orgId)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -120,10 +124,10 @@ export function TeamSettingsPage({ session }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!peekOrgUsers(orgId)) setLoading(true);
     setError(null);
     try {
-      setMembers(await listOrgUsers(orgId));
+      setMembers(await getOrgUsers(orgId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load team");
     } finally {
@@ -132,7 +136,7 @@ export function TeamSettingsPage({ session }: Props) {
   }, [orgId]);
 
   useEffect(() => {
-    listOrgs()
+    void getAgentOrgs()
       .then(setOrgs)
       .catch(() => setOrgs([]));
   }, []);

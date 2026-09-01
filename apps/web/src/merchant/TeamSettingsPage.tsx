@@ -7,14 +7,13 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import { getOrgUsers, peekOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
   assignOrgUserRole,
-  getOrg,
   inviteOrgUser,
   listOrgMemberEmails,
-  listOrgUsers,
-  listOrgs,
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
@@ -106,9 +105,15 @@ export function TeamSettingsPage({ session }: Props) {
     [session, orgId],
   );
 
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [org, setOrg] = useState<OrgAccount | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<OrgMember[]>(() =>
+    orgId ? (peekOrgUsers(orgId) ?? []) : [],
+  );
+  const [org, setOrg] = useState<OrgAccount | null>(() =>
+    orgId ? (peekMerchantOrgs()?.find((o) => o.id === orgId) ?? null) : null,
+  );
+  const [loading, setLoading] = useState(
+    () => !(orgId && peekOrgUsers(orgId)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -144,12 +149,14 @@ export function TeamSettingsPage({ session }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!peekOrgUsers(orgId)) setLoading(true);
     setError(null);
     try {
       const [roster, account] = await Promise.all([
-        listOrgUsers(orgId),
-        getOrg(orgId),
+        getOrgUsers(orgId),
+        getMerchantOrgs().then(
+          (rows) => rows.find((o) => o.id === orgId) ?? null,
+        ),
       ]);
       setMembers(roster);
       setOrg(account);
@@ -161,7 +168,7 @@ export function TeamSettingsPage({ session }: Props) {
   }, [orgId]);
 
   useEffect(() => {
-    listOrgs()
+    void getMerchantOrgs()
       .then(setOrgs)
       .catch(() => setOrgs([]));
   }, []);

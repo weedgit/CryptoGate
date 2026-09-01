@@ -8,6 +8,7 @@ export type ListCache<T> = {
   peek: () => T | null;
   get: (opts?: { force?: boolean }) => Promise<T>;
   invalidate: () => void;
+  seed: (data: T) => void;
 };
 
 type ListCacheOptions<T> = {
@@ -89,5 +90,11 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
     return refresh();
   }
 
-  return { peek, get, invalidate };
+  function seed(data: T): void {
+    cached = data;
+    cachedAt = Date.now();
+    persist(data);
+  }
+
+  return { peek, get, invalidate, seed };
 }

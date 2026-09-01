@@ -10,16 +10,18 @@ import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
-  getPlatformOrgs,
   listOrders,
-  peekPlatformOrgs,
   type PaymentOrder,
 } from "./api";
+import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
+import { peekPlatformOrders } from "./platformOrdersList";
 import { FundAmount } from "./FundAmount";
 import { matchingModeLabel } from "../merchant/matchingLabels";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
+import { getMerchantOrder } from "../merchant/merchantOrderDetail";
+import { getMerchantOrderPayment } from "../merchant/merchantOrderPaymentDetails";
 import {
   SortHeader,
   compareDate,
@@ -30,6 +32,12 @@ import {
 } from "./ui/TableArrange";
 
 const ANOMALY_LIST_LIMIT = 200;
+
+function peekAnomalyOrders(): PaymentOrder[] {
+  return (
+    peekPlatformOrders()?.filter((o) => o.status === "payment_anomaly") ?? []
+  );
+}
 const PAGE_SIZE = 15;
 
 type SortKey =
@@ -176,7 +184,7 @@ function formatWhen(iso: string | undefined): string {
 
 /** Platform compliance — open payment anomalies queue (no Mark paid). */
 export function CompliancePage() {
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [orders, setOrders] = useState<PaymentOrder[]>(() => peekAnomalyOrders());
   const [orgNames, setOrgNames] = useState<Map<string, string>>(() => {
     const cached = peekPlatformOrgs();
     return cached ? new Map(cached.map((o) => [o.id, o.name])) : new Map();
@@ -189,7 +197,12 @@ export function CompliancePage() {
     dir: "desc",
   });
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => peekAnomalyOrders().length === 0 && peekPlatformOrgs() == null,
+  );
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekAnomalyOrders().length > 0 || peekPlatformOrgs() != null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -204,7 +217,7 @@ export function CompliancePage() {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded && peekAnomalyOrders().length === 0) setLoading(true);
     setError(null);
     try {
       const [anomalyOrders, orgs] = await Promise.all([
@@ -223,8 +236,9 @@ export function CompliancePage() {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -450,7 +464,7 @@ export function CompliancePage() {
       </div>
 
       <div className="plat-compliance__table-wrap">
-        {loading ? (
+        {loading && !hasLoaded ? (
           <div className="plat-compliance__pending">
             <PlatformPending
               compact
@@ -571,6 +585,14 @@ export function CompliancePage() {
                         className="plat-compliance__order"
                         to={platformRoute(`orders/${encodeURIComponent(order.id)}`)}
                         title={orderTitle}
+                        onMouseEnter={() => {
+                          void getMerchantOrder(order.id);
+                          void getMerchantOrderPayment(order.id);
+                        }}
+                        onFocus={() => {
+                          void getMerchantOrder(order.id);
+                          void getMerchantOrderPayment(order.id);
+                        }}
                       >
                         {order.orderNumber}
                       </Link>

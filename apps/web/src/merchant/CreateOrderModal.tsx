@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { invalidateMerchantOrdersList } from "./merchantOrdersList";
+import { primeMerchantOrder } from "./merchantOrderDetail";
+import { primeMerchantOrderPayment } from "./merchantOrderPaymentDetails";
 import {
   ApiError,
   createOrder,
@@ -274,7 +277,10 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
         validitySeconds,
         merchantReference: merchantReference.trim() || undefined,
       });
+      invalidateMerchantOrdersList();
+      primeMerchantOrder(order.id, order);
       const pay = await getPaymentDetails(order.id);
+      primeMerchantOrderPayment(order.id, pay);
       setAmountLock(null);
       onClose();
       navigate(merchantRoute(`orders/${order.id}`), {

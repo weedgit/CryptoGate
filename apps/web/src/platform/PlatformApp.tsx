@@ -30,10 +30,6 @@ const ArchitecturePage = lazyNamed(
   () => import("./ArchitecturePage"),
   "ArchitecturePage",
 );
-const IssueServiceBillPage = lazyNamed(
-  () => import("./IssueServiceBillPage"),
-  "IssueServiceBillPage",
-);
 const MerchantsListPage = lazyNamed(
   () => import("./MerchantsListPage"),
   "MerchantsListPage",
@@ -188,9 +184,15 @@ export function PlatformApp() {
           element={<ArchitecturePage session={session} />}
         />
         <Route
-          path="service-bills"
-          element={<ServiceBillsListPage session={session} />}
+          path="service-bills/new"
+          element={
+            <Navigate
+              to={`${platformRoute("service-bills")}?issue=1`}
+              replace
+            />
+          }
         />
+        <Route path="service-bills" element={<ServiceBillsListPage session={session} />} />
         <Route
           path="service-bills/:id"
           element={<ServiceBillDetailPage session={session} />}
@@ -231,14 +233,6 @@ export function PlatformApp() {
         <Route path="ops/health" element={<SystemHealthPage />} />
         <Route path="*" element={<Navigate to={platformRoute()} replace />} />
       </Route>
-      <Route
-        path="service-bills/new"
-        element={
-          <LazyRoute title="Loading bill">
-            <IssueServiceBillPage />
-          </LazyRoute>
-        }
-      />
     </Routes>
   );
 }

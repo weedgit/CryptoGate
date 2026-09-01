@@ -40,8 +40,6 @@ import {
   ApiError,
   listAgentCommissions,
   listAgentPayoutAddresses,
-  listOrgs,
-  listServiceBills,
   type OrgAccount,
   type Session,
 } from "./api";
@@ -49,6 +47,8 @@ import {
   merchantsInAgentSubtree,
   subAgentsInAgentSubtree,
 } from "./agentSubtree";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { getAgentServiceBills } from "./agentServiceBillsList";
 import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 
@@ -101,7 +101,8 @@ export function CommissionsPage({ session }: Props) {
   const [payoutAddrs, setPayoutAddrs] = useState<
     Map<string, { address: string; asset: string; network: string }>
   >(() => new Map());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
+  const [hasLoaded, setHasLoaded] = useState(() => peekAgentOrgs() != null);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
@@ -178,7 +179,7 @@ export function CommissionsPage({ session }: Props) {
       setError("No agent membership on this session");
       return;
     }
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
       const [
@@ -190,8 +191,8 @@ export function CommissionsPage({ session }: Props) {
         platformRows,
         parentRows,
       ] = await Promise.all([
-        listOrgs(),
-        listServiceBills(),
+        getAgentOrgs(),
+        getAgentServiceBills(),
         listAgentCommissions(),
         listAgentPayoutAddresses(),
         listCommissionPayouts({
@@ -245,8 +246,9 @@ export function CommissionsPage({ session }: Props) {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, [agentId]);
+  }, [agentId, hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -769,7 +771,7 @@ export function CommissionsPage({ session }: Props) {
 
       {tab === "current" ? (
         <>
-          {loading ? (
+          {loading && !hasLoaded ? (
             <div className="plat-bills__pending">
               <PlatformPending
                 compact

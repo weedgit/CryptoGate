@@ -1,9 +1,12 @@
-/** Warm lazy route chunks before navigation (nav hover / focus). */
+/** Warm lazy route chunks and list caches before navigation (nav hover / focus). */
+import { prefetchPlatformNavData } from "../shared/prefetchPortalNavData";
+
 const warm = (loader: () => Promise<unknown>) => {
   void loader();
 };
 
 export function prefetchPlatformRoute(path: string) {
+  prefetchPlatformNavData(path);
   if (path === "architecture") warm(() => import("./ArchitecturePage"));
   else if (path === "agents" || path.startsWith("agents/"))
     warm(() => import("./AgentsListPage"));

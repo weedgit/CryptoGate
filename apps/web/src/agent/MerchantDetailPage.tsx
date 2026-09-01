@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { getAgentOrders } from "./agentOrdersList";
+import { getAgentServiceBills } from "./agentServiceBillsList";
 import {
   ApiError,
   getMerchantCommercial,
-  listOrders,
-  listOrgs,
-  listServiceBills,
   listOrgMemberEmails,
   updateMerchantCommercial,
   type MerchantCommercialSettings,
@@ -65,7 +65,7 @@ export function MerchantDetailPage() {
   const state = (location.state ?? {}) as LocationState;
   const tab = parseTab(searchParams.get("tab"));
 
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekAgentOrgs() ?? []);
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(null);
@@ -73,7 +73,9 @@ export function MerchantDetailPage() {
   const [editVolume, setEditVolume] = useState("");
   const [editReason, setEditReason] = useState("");
   const [commercialBusy, setCommercialBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !(id && peekAgentOrgs()?.some((o) => o.id === id)),
+  );
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -122,10 +124,10 @@ export function MerchantDetailPage() {
 
   const loadCore = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!peekAgentOrgs()?.some((o) => o.id === id)) setLoading(true);
     setError(null);
     try {
-      const rows = await listOrgs();
+      const rows = await getAgentOrgs();
       setOrgs(rows);
       const found = rows.find((o) => o.id === id) ?? null;
       if (!found) {
@@ -210,10 +212,10 @@ export function MerchantDetailPage() {
     (async () => {
       try {
         if (tab === "service-bills") {
-          const rows = await listServiceBills({ orgId: id });
+          const rows = (await getAgentServiceBills()).filter((b) => b.orgId === id);
           if (!cancelled) setBills(rows);
         } else {
-          const rows = await listOrders({ orgId: id, limit: 200 });
+          const rows = (await getAgentOrders()).filter((o) => o.orgId === id);
           if (!cancelled) setOrders(rows);
         }
       } catch (err) {

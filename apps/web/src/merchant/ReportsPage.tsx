@@ -10,12 +10,13 @@ import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   ApiError,
   listOrders,
-  listOrgs,
   ordersCsvUrl,
   type OrgAccount,
   type PaymentOrder,
   type Session,
 } from "./api";
+import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import { getMerchantOrders, peekMerchantOrders } from "./merchantOrdersList";
 import { matchingModeLabel } from "./matchingLabels";
 import { orderStatusLabel, orderStatusTone } from "./orderStatus";
 import { sessionCanExportOrders, truncateAddress } from "./org";
@@ -125,11 +126,12 @@ function VolumeCell({
 
 export function ReportsPage({ session }: Props) {
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekMerchantOrgs() ?? []);
   const [preset, setPreset] = useState<DatePreset>("30d");
   const [siteOrgId, setSiteOrgId] = useState<string>("");
-  const [items, setItems] = useState<PaymentOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PaymentOrder[]>(() => peekMerchantOrders() ?? []);
+  const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
+  const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
   const [error, setError] = useState<string | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
@@ -168,18 +170,28 @@ export function ReportsPage({ session }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (siteOrgId) {
+      setLoading(true);
+    } else if (!hasLoaded) {
+      setLoading(true);
+    }
     setError(null);
     try {
-      const [rows, orgRows] = await Promise.all([
-        listOrders({
-          limit: 200,
-          orgId: siteOrgId || undefined,
-        }),
-        listOrgs().catch(() => [] as OrgAccount[]),
-      ]);
-      setItems(rows);
-      setOrgs(orgRows);
+      if (siteOrgId) {
+        const [rows, orgRows] = await Promise.all([
+          listOrders({ limit: 200, orgId: siteOrgId }),
+          getMerchantOrgs().catch(() => [] as OrgAccount[]),
+        ]);
+        setItems(rows);
+        setOrgs(orgRows);
+      } else {
+        const [rows, orgRows] = await Promise.all([
+          getMerchantOrders(),
+          getMerchantOrgs(),
+        ]);
+        setItems(rows);
+        setOrgs(orgRows);
+      }
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to load report data",
@@ -187,8 +199,9 @@ export function ReportsPage({ session }: Props) {
       setItems([]);
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, [siteOrgId]);
+  }, [siteOrgId, hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -398,7 +411,7 @@ export function ReportsPage({ session }: Props) {
           )
         : null}
 
-      {loading ? (
+      {loading && (!hasLoaded || siteOrgId) ? (
         <PlatformPending
           title="Loading report"
           copy="Aggregating payment orders for the selected range."

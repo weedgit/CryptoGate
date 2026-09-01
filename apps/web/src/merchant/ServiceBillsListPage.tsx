@@ -18,11 +18,15 @@ import {
   ApiError,
   getMerchantCommercial,
   getOrg,
-  listServiceBills,
   type MerchantCommercialSettings,
   type ServiceBill,
   type Session,
 } from "./api";
+import {
+  getMerchantServiceBills,
+  peekMerchantServiceBills,
+} from "./merchantServiceBillsList";
+import { getCachedServiceBill } from "../shared/serviceBillDetailCache";
 import { formatShortDate } from "../platform/org";
 import { tierLabel } from "../commercialLabels";
 import {
@@ -83,12 +87,17 @@ export function ServiceBillsListPage({ session }: Props) {
   const canPay = useMemo(() => sessionCanCheckoutServiceBill(session), [session]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<ServiceBill[]>([]);
+  const [items, setItems] = useState<ServiceBill[]>(
+    () => peekMerchantServiceBills() ?? [],
+  );
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
   );
   const [agentName, setAgentName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekMerchantServiceBills() == null);
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekMerchantServiceBills() != null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(
     null,
@@ -101,18 +110,19 @@ export function ServiceBillsListPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
-      const rows = await listServiceBills();
+      const rows = await getMerchantServiceBills();
       setItems(rows);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load service bills");
       setItems([]);
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -282,7 +292,7 @@ export function ServiceBillsListPage({ session }: Props) {
       </section>
 
       <div className="plat-bills__table-wrap">
-        {loading ? (
+        {loading && !hasLoaded ? (
           <div className="plat-bills__pending">
             <PlatformPending
               compact
@@ -326,6 +336,8 @@ export function ServiceBillsListPage({ session }: Props) {
                     tabIndex={0}
                     role="link"
                     aria-label={`Open bill ${formatBillId(bill.id)}`}
+                    onMouseEnter={() => void getCachedServiceBill(bill.id)}
+                    onFocus={() => void getCachedServiceBill(bill.id)}
                     onClick={() => navigate(href)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {

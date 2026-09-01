@@ -1,6 +1,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  getMerchantIntegrations,
+  peekMerchantIntegrations,
+} from "./merchantIntegrationsCache";
+import {
   ApiError,
   createApiKey,
   deleteWebhook,
@@ -171,11 +175,20 @@ export function IntegrationsPage({ session }: Props) {
   const canView = useMemo(() => sessionCanViewIntegrations(session), [session]);
   const canManage = useMemo(() => sessionCanManageIntegrations(session), [session]);
 
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [hooks, setHooks] = useState<WebhookEndpoint[]>([]);
+  const [keys, setKeys] = useState<ApiKey[]>(
+    () => (orgId ? peekMerchantIntegrations(orgId)?.keys : null) ?? [],
+  );
+  const [hooks, setHooks] = useState<WebhookEndpoint[]>(
+    () => (orgId ? peekMerchantIntegrations(orgId)?.hooks : null) ?? [],
+  );
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [selectedHook, setSelectedHook] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !(orgId && peekMerchantIntegrations(orgId)),
+  );
+  const [hasLoaded, setHasLoaded] = useState(
+    () => Boolean(orgId && peekMerchantIntegrations(orgId)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [keyLabel, setKeyLabel] = useState("");
   const [keyScopes, setKeyScopes] = useState<string[]>([...KEY_SCOPES]);
@@ -196,18 +209,19 @@ export function IntegrationsPage({ session }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
-      const [k, w] = await Promise.all([listApiKeys(orgId), listWebhooks(orgId)]);
-      setKeys(k);
-      setHooks(w);
+      const bundle = await getMerchantIntegrations(orgId);
+      setKeys(bundle.keys);
+      setHooks(bundle.hooks);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load integrations");
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, [canView, orgId]);
+  }, [canView, hasLoaded, orgId]);
 
   useEffect(() => {
     void load();
@@ -494,7 +508,7 @@ export function IntegrationsPage({ session }: Props) {
               </p>
             )}
 
-            {loading ? (
+            {loading && !hasLoaded ? (
               <p className="muted">Loading API keys…</p>
             ) : keys.length === 0 ? (
               <p className="plat-int__empty">No API keys have been created yet.</p>
@@ -710,7 +724,7 @@ export function IntegrationsPage({ session }: Props) {
               )
             ) : null}
 
-            {loading ? (
+            {loading && !hasLoaded ? (
               <p className="muted">Loading webhooks…</p>
             ) : hooks.length === 0 ? (
               <p className="plat-int__empty">No webhooks have been added yet.</p>
