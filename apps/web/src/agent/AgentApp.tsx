@@ -1,25 +1,65 @@
 import { type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import "../styles/merchant.css";
+import "../styles/components.css";
 import { logout, type Session } from "./api";
 import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PortalShellBoot } from "../auth/PortalShellBoot";
 import { AgentShell } from "./AgentShell";
-import { AgentSettingsPage } from "./AgentSettingsPage";
-import { CommissionsPage } from "./CommissionsPage";
-import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
-import { MerchantsListPage } from "./MerchantsListPage";
-import { OnboardMerchantPage } from "./OnboardMerchantPage";
-import { OnboardSubAgentPage } from "./OnboardSubAgentPage";
 import { RequireAgentOperator, RequireAgentPortal } from "./RequireAgentPortal";
-import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
-import { ServiceBillsListPage } from "./ServiceBillsListPage";
-import { SubAgentsListPage } from "./SubAgentsListPage";
-import { ArchitecturePage } from "./ArchitecturePage";
-import { TeamSettingsPage } from "./TeamSettingsPage";
+import { agentRoute } from "../shared/portalRouting";
+import { LazyRoute } from "../shared/LazyRoute";
+import { lazyNamed } from "../shared/lazyNamed";
+
+const DashboardPage = lazyNamed(
+  () => import("./DashboardPage"),
+  "DashboardPage",
+);
+
+const AgentSettingsPage = lazyNamed(
+  () => import("./AgentSettingsPage"),
+  "AgentSettingsPage",
+);
+const CommissionsPage = lazyNamed(
+  () => import("./CommissionsPage"),
+  "CommissionsPage",
+);
+const MerchantsListPage = lazyNamed(
+  () => import("./MerchantsListPage"),
+  "MerchantsListPage",
+);
+const OnboardMerchantPage = lazyNamed(
+  () => import("./OnboardMerchantPage"),
+  "OnboardMerchantPage",
+);
+const OnboardSubAgentPage = lazyNamed(
+  () => import("./OnboardSubAgentPage"),
+  "OnboardSubAgentPage",
+);
+const ServiceBillDetailPage = lazyNamed(
+  () => import("./ServiceBillDetailPage"),
+  "ServiceBillDetailPage",
+);
+const ServiceBillsListPage = lazyNamed(
+  () => import("./ServiceBillsListPage"),
+  "ServiceBillsListPage",
+);
+const SubAgentsListPage = lazyNamed(
+  () => import("./SubAgentsListPage"),
+  "SubAgentsListPage",
+);
+const ArchitecturePage = lazyNamed(
+  () => import("./ArchitecturePage"),
+  "ArchitecturePage",
+);
+const TeamSettingsPage = lazyNamed(
+  () => import("./TeamSettingsPage"),
+  "TeamSettingsPage",
+);
 
 type ShellProps = {
   session: Session;
@@ -35,13 +75,13 @@ function Shell({
   onSessionRefresh,
 }: ShellProps) {
   return (
-    <RequireAgentPortal session={session}>
+    <RequireAgentPortal session={session} onSignOut={onSignOut}>
       <AgentShell
         session={session}
         onSignOut={onSignOut}
         onSessionRefresh={onSessionRefresh}
       >
-        {children}
+        <LazyRoute>{children}</LazyRoute>
       </AgentShell>
     </RequireAgentPortal>
   );
@@ -53,12 +93,10 @@ export function AgentApp() {
 
   if (booting) {
     return (
-      <div className="login-wrap">
-        <PlatformPending
-          title="Loading agent portal"
-          copy="Checking session and preparing your workspace."
-        />
-      </div>
+      <PortalShellBoot
+        title="Loading agent portal"
+        copy="Verifying your session"
+      />
     );
   }
 
@@ -70,11 +108,7 @@ export function AgentApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate
-        session={session}
-        portalLabel="Agent portal"
-        onChanged={setSession}
-      />
+      <ForceChangePasswordGate onChanged={setSession} />
     );
   }
 
@@ -191,7 +225,7 @@ export function AgentApp() {
       />
       <Route
         path="settings/security"
-        element={<Navigate to="/agent/settings" replace />}
+        element={<Navigate to={agentRoute("settings")} replace />}
       />
       <Route
         path="commissions"
@@ -220,7 +254,7 @@ export function AgentApp() {
           </Shell>
         }
       />
-      <Route path="*" element={<Navigate to="/agent" replace />} />
+      <Route path="*" element={<Navigate to={agentRoute()} replace />} />
     </Routes>
   );
 }

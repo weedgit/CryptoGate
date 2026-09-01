@@ -4,12 +4,17 @@ import { displayNetworkForPair, networkShortLabel } from "../shared/assetNetwork
 /** Prefer merchant / merchant_site membership for settings org scope. */
 export function primaryMerchantOrgId(session: Session): string | null {
   const preferred = session.memberships.find(
-    (m) =>
-      m.orgType === "merchant" ||
-      m.orgType === "merchant_site" ||
-      m.orgType == null,
+    (m) => m.orgType === "merchant" || m.orgType === "merchant_site",
   );
-  return preferred?.orgId ?? session.memberships[0]?.orgId ?? null;
+  return preferred?.orgId ?? null;
+}
+
+export function sessionIsMerchantStaff(session: Session): boolean {
+  return session.memberships.some(
+    (m) =>
+      (m.orgType === "merchant" || m.orgType === "merchant_site") &&
+      ["owner", "administrator", "viewer", "cashier"].includes(m.role),
+  );
 }
 
 export function truncateAddress(address: string, head = 8, tail = 6): string {

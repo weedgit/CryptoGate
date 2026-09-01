@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import {
@@ -316,7 +317,7 @@ export function ServiceBillsListPage({ session }: Props) {
               {filtered.map((bill, index) => {
                 const overdue = bill.status === "overdue";
                 const payable = bill.status === "issued" || bill.status === "overdue";
-                const href = `/merchant/service-bills/${bill.id}`;
+                const href = merchantRoute(`service-bills/${bill.id}`);
                 return (
                   <tr
                     key={bill.id}

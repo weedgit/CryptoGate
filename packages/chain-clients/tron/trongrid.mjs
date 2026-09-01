@@ -4,9 +4,11 @@
  */
 
 import { fetchWithTimeout } from "../fetch-timeout.mjs";
+import { mapPool } from "../map-pool.mjs";
 import { minorToMajor } from "./amount.mjs";
 import {
   DEFAULT_TRON_MAX_ATTEMPTS,
+  TRON_ADDRESS_FETCH_CONCURRENCY,
   isRetryableTronStatus,
   parseRetryAfterMs,
   sleepMs,
@@ -141,11 +143,11 @@ export async function fetchTrc20TransfersForAddresses(input) {
 
   const watched = [...new Set(input.watchedAddresses.map((a) => a.trim()).filter(Boolean))];
   const limit = input.limit ?? 50;
-  /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }>} */
-  const transfers = [];
-
   let skippedInvalidRemote = 0;
-  for (const address of watched) {
+  const perAddress = await mapPool(
+    watched,
+    TRON_ADDRESS_FETCH_CONCURRENCY,
+    async (address) => {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions/trc20` +
       `?only_to=true&limit=${limit}` +
@@ -166,11 +168,12 @@ export async function fetchTrc20TransfersForAddresses(input) {
       // One bad address must not fail the whole network tick (seed / checksum rejects).
       if (isInvalidTronAddressHttpError(err)) {
         skippedInvalidRemote += 1;
-        continue;
+        return [];
       }
       throw err;
     }
     const rows = Array.isArray(json?.data) ? json.data : [];
+    const mappedRows = [];
     for (const row of rows) {
       const mapped = mapTrc20Row(/** @type {Record<string, unknown>} */ (row), {
         contractAddress: cfg.contractAddress,
@@ -178,9 +181,12 @@ export async function fetchTrc20TransfersForAddresses(input) {
         asset: cfg.asset,
         network: cfg.network,
       });
-      if (mapped) transfers.push(mapped);
+      if (mapped) mappedRows.push(mapped);
     }
-  }
+    return mappedRows;
+    },
+  );
+  const transfers = perAddress.flat();
 
   return {
     transfers,
@@ -208,11 +214,11 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
 
   const watched = new Set(input.watchedAddresses.map((a) => a.trim()).filter(Boolean));
   const limit = input.limit ?? 50;
-  /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string }>} */
-  const transfers = [];
   let skippedInvalidRemote = 0;
-
-  for (const address of watched) {
+  const perAddress = await mapPool(
+    [...watched],
+    TRON_ADDRESS_FETCH_CONCURRENCY,
+    async (address) => {
     const path =
       `/v1/accounts/${encodeURIComponent(address)}/transactions?only_to=true&limit=${limit}`;
     let json;
@@ -228,11 +234,12 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
     } catch (err) {
       if (isInvalidTronAddressHttpError(err)) {
         skippedInvalidRemote += 1;
-        continue;
+        return [];
       }
       throw err;
     }
     const rows = Array.isArray(json?.data) ? json.data : [];
+    const mappedRows = [];
     for (const row of rows) {
       const raw = /** @type {Record<string, unknown>} */ (row.raw_data ?? {});
       const contracts = Array.isArray(raw.contract) ? raw.contract : [];
@@ -258,7 +265,7 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         continue;
       }
 
-      transfers.push({
+      mappedRows.push({
         toAddress,
         fromAddress,
         amount,
@@ -268,7 +275,10 @@ export async function fetchNativeTrxTransfersForAddresses(input) {
         memoOrTag: undefined,
       });
     }
-  }
+    return mappedRows;
+    },
+  );
+  const transfers = perAddress.flat();
 
   return {
     transfers,

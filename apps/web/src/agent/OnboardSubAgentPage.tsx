@@ -25,13 +25,18 @@ import {
   type Session,
 } from "./api";
 import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
+import { agentRoute } from "../shared/portalRouting";
+
+function agentReturnPrefix(): string {
+  const base = agentRoute();
+  return base === "/" ? "/" : `${base}/`;
+}
 
 type Props = { session: Session };
 
 type WizardState = {
   legalName: string;
   displayName: string;
-  billingEmail: string;
   country: string;
   commissionPercent: string;
   ownerEmail: string;
@@ -52,7 +57,7 @@ function isValidEmail(value: string): boolean {
 
 function returnPath(searchParams: URLSearchParams): string {
   const raw = searchParams.get("returnTo")?.trim();
-  if (!raw || !raw.startsWith("/agent/")) return "/agent/agents";
+  if (!raw || !raw.startsWith(agentReturnPrefix())) return agentRoute("agents");
   return raw;
 }
 
@@ -114,7 +119,6 @@ export function OnboardSubAgentPage({ session }: Props) {
   const [form, setForm] = useState<WizardState>({
     legalName: "",
     displayName: "",
-    billingEmail: "",
     country: "",
     commissionPercent: DEFAULT_AGENT_COMMISSION_PERCENT,
     ownerEmail: "",
@@ -208,9 +212,6 @@ export function OnboardSubAgentPage({ session }: Props) {
       if (!form.legalName.trim() && !form.displayName.trim()) {
         return "Enter a legal or display name.";
       }
-      if (!form.billingEmail.trim() || !isValidEmail(form.billingEmail)) {
-        return "Enter a valid billing email.";
-      }
       if (!form.country.trim()) return "Country is required.";
     }
     if (step === 1) {
@@ -280,7 +281,6 @@ export function OnboardSubAgentPage({ session }: Props) {
         name: apiName,
         parentId,
         legalName: form.legalName.trim() || undefined,
-        billingEmail: form.billingEmail.trim(),
         country: form.country.trim(),
         commissionPercent: form.commissionPercent.trim() || undefined,
       });
@@ -288,7 +288,7 @@ export function OnboardSubAgentPage({ session }: Props) {
         email: form.ownerEmail.trim(),
         role: "owner",
       });
-      navigate(`/agent/agents/${created.id}`, {
+      navigate(agentRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
           displayName: form.displayName.trim() || apiName,
@@ -371,7 +371,7 @@ export function OnboardSubAgentPage({ session }: Props) {
                 merchants under this account.
               </p>
               <p>
-                <Link className="btn-primary" to="/agent/merchants/new">
+                <Link className="btn-primary" to={agentRoute("merchants/new")}>
                   Onboard merchant
                 </Link>{" "}
                 <Link className="btn-ghost" to={backTo}>
@@ -444,36 +444,18 @@ export function OnboardSubAgentPage({ session }: Props) {
                       />
                     </FieldControl>
                   </div>
-                  <div className="b4-field-row">
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="c4-billing">
-                        Billing email
-                      </label>
-                      <FieldControl icon="mail">
-                        <input
-                          id="c4-billing"
-                          type="email"
-                          className="b4-field__control"
-                          value={form.billingEmail}
-                          onChange={(e) =>
-                            patch("billingEmail", e.target.value)
-                          }
-                        />
-                      </FieldControl>
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="c4-country">
-                        Country
-                      </label>
-                      <FieldControl icon="globe">
-                        <input
-                          id="c4-country"
-                          className="b4-field__control"
-                          value={form.country}
-                          onChange={(e) => patch("country", e.target.value)}
-                        />
-                      </FieldControl>
-                    </div>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="c4-country">
+                      Country
+                    </label>
+                    <FieldControl icon="globe">
+                      <input
+                        id="c4-country"
+                        className="b4-field__control"
+                        value={form.country}
+                        onChange={(e) => patch("country", e.target.value)}
+                      />
+                    </FieldControl>
                   </div>
                 </>
               ) : null}
@@ -529,10 +511,6 @@ export function OnboardSubAgentPage({ session }: Props) {
                   <div className="b4-review__row">
                     <dt>Name</dt>
                     <dd>{apiName}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Billing</dt>
-                    <dd>{form.billingEmail}</dd>
                   </div>
                   <div className="b4-review__row">
                     <dt>Country</dt>

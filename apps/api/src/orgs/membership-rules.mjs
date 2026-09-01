@@ -10,8 +10,11 @@ const MANAGE_ORG_ROLES = new Set(["owner", "administrator"]);
  * @param {string} orgType
  */
 export function roleAllowedOnOrg(role, orgType) {
-  if (!USER_ROLES.includes(role)) return false;
-  if (role === "cashier") return CASHIER_ORG_TYPES.has(orgType);
+  const normalized = typeof role === "string" ? role.trim().toLowerCase() : "";
+  if (!USER_ROLES.includes(normalized)) return false;
+  if (normalized === "cashier") {
+    return CASHIER_ORG_TYPES.has(String(orgType ?? "").trim());
+  }
   return true;
 }
 

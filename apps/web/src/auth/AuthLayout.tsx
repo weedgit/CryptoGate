@@ -1,7 +1,10 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { AuthBackground } from "./AuthBackground";
 import { LoginBrandHeader } from "./LoginBrandHeader";
+
+const AuthBackground = lazy(() =>
+  import("./AuthBackground").then((m) => ({ default: m.AuthBackground })),
+);
 
 type Props = {
   children: ReactNode;
@@ -19,7 +22,9 @@ export function AuthLayout({
 }: Props) {
   return (
     <div className={`login-wrap${wide ? " login-wrap--wide" : ""}`}>
-      <AuthBackground />
+      <Suspense fallback={null}>
+        <AuthBackground />
+      </Suspense>
       <div className="login-stage">
         <div className={`login-column${wide ? " login-column--wide" : ""}`}>
           {showBrand ? (

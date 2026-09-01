@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthToast } from "../auth/AuthToast";
-import { MfaStepUpModal } from "../auth/MfaStepUpModal";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import {
   ApiError,
   decideSiteOverride,
@@ -314,7 +314,9 @@ export function SiteOverridesPanel({ session, siteId, parentId }: Props) {
       )}
 
       {pendingApproveId ? (
-        <MfaStepUpModal
+        <MfaStepUpGate
+          session={session}
+          actionLabel="approve override request"
           onClose={() => setPendingApproveId(null)}
           onVerify={verifyApproveMfa}
         />

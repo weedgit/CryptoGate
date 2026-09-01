@@ -4,6 +4,7 @@ export const AUDIT_ACTIONS = {
   mfaEnroll: "mfa_enroll",
   mfaVerifyEnroll: "mfa_verify_enroll",
   mfaVerifyLogin: "mfa_verify_login",
+  mfaReset: "mfa_reset",
   orgCreate: "org_create",
   orgStatus: "org_status",
   orgDelete: "org_delete",

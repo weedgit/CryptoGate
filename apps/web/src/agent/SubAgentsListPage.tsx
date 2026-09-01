@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   looksLikeEmailQuery,
@@ -29,11 +30,14 @@ import {
   type AgentPayoutStatus,
 } from "../platform/orgDetailSeeds";
 import { subAgentsInAgentSubtree } from "./agentSubtree";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import {
+  getAgentServiceBills,
+  peekAgentServiceBills,
+} from "./agentServiceBillsList";
 import {
   ApiError,
   listOrgMemberEmails,
-  listOrgs,
-  listServiceBills,
   type OrgAccount,
   type ServiceBill,
   type Session,
@@ -269,12 +273,12 @@ function SubAgentsListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-agents" && canOnboard && canCreateSubAgent ? (
-          <Link className="btn-primary btn-inline" to="/agent/agents/new">
+          <Link className="btn-primary btn-inline" to={agentRoute("agents/new")}>
             Onboard sub-agent
           </Link>
         ) : null}
         {variant === "no-agents" && canOnboard && !canCreateSubAgent ? (
-          <Link className="btn-primary btn-inline" to="/agent/merchants/new">
+          <Link className="btn-primary btn-inline" to={agentRoute("merchants/new")}>
             Onboard merchant
           </Link>
         ) : null}
@@ -302,8 +306,10 @@ export function SubAgentsListPage({ session }: Props) {
     [session],
   );
 
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
-  const [bills, setBills] = useState<ServiceBill[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekAgentOrgs() ?? []);
+  const [bills, setBills] = useState<ServiceBill[]>(
+    () => peekAgentServiceBills() ?? [],
+  );
   const canCreateSubAgent = useMemo(() => {
     if (!agentId || orgs.length === 0) return false;
     return canCreateAgentUnderParent(
@@ -321,7 +327,7 @@ export function SubAgentsListPage({ session }: Props) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [error, setError] = useState<string | null>(null);
 
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
@@ -370,10 +376,11 @@ export function SubAgentsListPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const orgRows = await listOrgs();
+      const [orgRows, billRows] = await Promise.all([
+        getAgentOrgs(),
+        getAgentServiceBills().catch(() => [] as ServiceBill[]),
+      ]);
       setOrgs(orgRows);
-      setLoading(false);
-      const billRows = await listServiceBills().catch(() => [] as ServiceBill[]);
       setBills(billRows);
     } catch (err) {
       setError(
@@ -528,7 +535,7 @@ export function SubAgentsListPage({ session }: Props) {
     loading,
     allIds: agentIds,
     filteredIds,
-    basePath: "/agent/agents",
+    basePath: agentRoute("agents"),
     navigate,
     emailIndexLoading,
     query,
@@ -549,7 +556,7 @@ export function SubAgentsListPage({ session }: Props) {
 
   const selectAgent = (id: string) => {
     startTransition(() => {
-      navigate(`/agent/agents/${id}`);
+      navigate(agentRoute(`agents/${id}`));
     });
     tableRef.current?.focus({ preventScroll: true });
     scrollOrgSplitPaneIntoView();
@@ -646,7 +653,7 @@ export function SubAgentsListPage({ session }: Props) {
               {canOnboard && canCreateSubAgent ? (
                 <Link
                   className="btn-primary org-agents__cta"
-                  to="/agent/agents/new"
+                  to={agentRoute("agents/new")}
                 >
                   Onboard sub-agent
                 </Link>

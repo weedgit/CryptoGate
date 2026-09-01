@@ -1,19 +1,22 @@
 import { FormEvent, useState } from "react";
 import { ApiError, changePassword, type Session } from "../merchant/api";
+import { AuthField } from "./AuthField";
+import { AuthLayout } from "./AuthLayout";
 import { AuthToast } from "./AuthToast";
 import { evaluatePasswordPolicy, passwordPolicyLabel } from "./passwordPolicy";
 
 type Props = {
-  session: Session;
-  portalLabel: string;
   onChanged: (session: Session) => void;
 };
 
 /** Blocks portal until mustChangePassword is cleared. */
-export function ForceChangePasswordGate({ session, portalLabel, onChanged }: Props) {
+export function ForceChangePasswordGate({ onChanged }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const policy = evaluatePasswordPolicy(newPassword);
@@ -41,47 +44,62 @@ export function ForceChangePasswordGate({ session, portalLabel, onChanged }: Pro
   }
 
   return (
-    <div className="login-wrap">
+    <>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      <form className="login-card" onSubmit={onSubmit}>
-        <h1>Change password</h1>
-        <p className="muted">
-          {portalLabel}: you must set a new password before continuing ({session.email}).
-        </p>
-        <label className="settings-filter">
-          <span>Current / temporary password</span>
-          <input
-            type="password"
-            required
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
-        </label>
-        <label className="settings-filter">
-          <span>New password</span>
-          <input
-            type="password"
-            required
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        </label>
-        <label className="settings-filter">
-          <span>Confirm new password</span>
-          <input
-            type="password"
-            required
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </label>
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? "Saving…" : "Save password"}
-        </button>
-      </form>
-    </div>
+      <AuthLayout>
+        <form className="login-card" onSubmit={onSubmit}>
+          <div className="login-card-head">
+            <h1>Change password</h1>
+          </div>
+          <div className="login-fields">
+            <AuthField
+              id="force-current-password"
+              label="Current / temporary password"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              type="password"
+              icon="lock"
+              showToggle
+              showPassword={showCurrent}
+              onTogglePassword={() => setShowCurrent((v) => !v)}
+              disabled={loading}
+              autoComplete="current-password"
+              required
+            />
+            <AuthField
+              id="force-new-password"
+              label="New password"
+              value={newPassword}
+              onChange={setNewPassword}
+              type="password"
+              icon="lock"
+              showToggle
+              showPassword={showNew}
+              onTogglePassword={() => setShowNew((v) => !v)}
+              disabled={loading}
+              autoComplete="new-password"
+              required
+            />
+            <AuthField
+              id="force-confirm-password"
+              label="Confirm new password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              type="password"
+              icon="lock"
+              showToggle
+              showPassword={showConfirm}
+              onTogglePassword={() => setShowConfirm((v) => !v)}
+              disabled={loading}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          <button type="submit" className="login-submit" disabled={loading}>
+            {loading ? "Saving…" : "Save password"}
+          </button>
+        </form>
+      </AuthLayout>
+    </>
   );
 }

@@ -28,7 +28,7 @@ export type InvoiceBill = {
 export type InvoiceBuyer = {
   name: string;
   legalName?: string | null;
-  billingEmail?: string | null;
+  contactEmail?: string | null;
   country?: string | null;
   orgId: string;
 };
@@ -89,6 +89,25 @@ export function platformInvoiceSeller(): InvoiceSeller {
     (import.meta.env.VITE_PLATFORM_INVOICE_SELLER_EMAIL as string | undefined)?.trim() ||
     null;
   return { name, email };
+}
+
+/** Prefer API invoice seller, then billing wallet, then env fallbacks. */
+export function resolveServiceBillInvoiceSeller(opts: {
+  bill?: { invoiceSeller?: InvoiceSeller | null } | null;
+  billing?: { sellerName?: string; sellerEmail?: string | null } | null;
+}): InvoiceSeller {
+  const env = platformInvoiceSeller();
+  const fromBill = opts.bill?.invoiceSeller;
+  if (fromBill) {
+    return {
+      name: fromBill.name?.trim() || env.name,
+      email: fromBill.email?.trim() || env.email,
+    };
+  }
+  return {
+    name: opts.billing?.sellerName?.trim() || env.name,
+    email: opts.billing?.sellerEmail?.trim() || env.email,
+  };
 }
 
 export function platformBillingPayToFallback(): string | null {
@@ -180,7 +199,7 @@ export function ServiceBillInvoiceFace({
             <p className="muted">Legal · {buyer.legalName}</p>
           ) : null}
           <p className="sb-invoice__party-email">
-            {buyer.billingEmail?.trim() || "—"}
+            {buyer.contactEmail?.trim() || "—"}
           </p>
           {buyer.country ? <p className="muted">{buyer.country}</p> : null}
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { platformRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -25,6 +26,7 @@ import {
   type XpubSettings,
 } from "./api";
 import { ComplianceOverrideModal } from "./ComplianceOverrideModal";
+import type { Session } from "../merchant/api";
 import { relativeAlertTime, upsertPlatformAlert } from "./platformAlerts";
 import {
   merchantSites,
@@ -122,7 +124,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
       {!loading ? (
         <Link
           className="b3-agent-detail__activity-audit b3-agent-detail__activity-audit--inline"
-          to="/platform/audit"
+          to={platformRoute("audit")}
           title="Open platform audit log"
         >
           Platform audit log
@@ -243,11 +245,13 @@ function SettlementHelpTip({ text }: { text: string }) {
 
 function MerchantCompliancePanel({
   org,
+  session,
   commercial,
   canManage,
   onApplied,
 }: {
   org: OrgAccount;
+  session: Session;
   commercial: MerchantCommercialSettings | null;
   canManage: boolean;
   onApplied: (result: { org?: OrgAccount }) => void;
@@ -298,6 +302,7 @@ function MerchantCompliancePanel({
         </div>
         <ComplianceOverrideModal
           org={org}
+          session={session}
           canApply={canManage}
           variant="inline"
           onApplied={(result) => {
@@ -360,7 +365,7 @@ function MerchantCompliancePanel({
             A custom Enterprise volume fee is awaiting Platform Owner approval
             before it applies to this merchant.
           </p>
-          <Link className="b3-compliance__link" to="/platform/settings/fee-tiers?tab=overrides">
+          <Link className="b3-compliance__link" to={platformRoute("settings/fee-tiers?tab=overrides")}>
             Review on Platform fees
           </Link>
         </section>
@@ -654,7 +659,6 @@ function siteContactEmail(
   return (
     row?.ownerEmail?.trim() ||
     row?.emails.find((e) => e.trim())?.trim() ||
-    site.billingEmail?.trim() ||
     "—"
   );
 }
@@ -662,6 +666,7 @@ function siteContactEmail(
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
+  session: Session;
   canManage: boolean;
   busy: boolean;
   initialTab?: TabId;
@@ -677,6 +682,7 @@ const VALID_TABS = new Set<string>(TABS.map((t) => t.id));
 export function MerchantDetailCard({
   org,
   orgs,
+  session,
   canManage,
   busy,
   initialTab,
@@ -721,8 +727,8 @@ export function MerchantDetailCard({
     [bills, org.id],
   );
   const profileEmail = useMemo(
-    () => preferredOrgEmail(team) ?? org.billingEmail?.trim() ?? "—",
-    [team, org.billingEmail],
+    () => preferredOrgEmail(team) ?? "—",
+    [team],
   );
   const periodStart = useMemo(
     () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
@@ -1146,7 +1152,7 @@ export function MerchantDetailCard({
                     </ul>
                     <Link
                       className="b3-agent-detail__activity-audit"
-                      to="/platform/audit"
+                      to={platformRoute("audit")}
                       title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
                     >
                       Platform audit log
@@ -1258,7 +1264,7 @@ export function MerchantDetailCard({
                         <td>
                           <Link
                             className="plat-bills__id"
-                            to={`/platform/service-bills/${bill.id}`}
+                            to={platformRoute(`service-bills/${bill.id}`)}
                           >
                             {formatBillId(bill.id)}
                           </Link>
@@ -1283,7 +1289,7 @@ export function MerchantDetailCard({
                           </span>
                         </td>
                         <td>
-                          <Link to={`/platform/service-bills/${bill.id}`}>View</Link>
+                          <Link to={platformRoute(`service-bills/${bill.id}`)}>View</Link>
                         </td>
                       </tr>
                     );
@@ -1297,6 +1303,7 @@ export function MerchantDetailCard({
         {tab === "compliance" ? (
           <MerchantCompliancePanel
             org={org}
+            session={session}
             commercial={commercial}
             canManage={canManage}
             onApplied={({ org: next }) => {
@@ -1311,7 +1318,7 @@ export function MerchantDetailCard({
                 tone: "warn",
                 /** Notice only — action already done; do not pin Action required dock. */
                 unresolved: false,
-                href: `/platform/merchants/${encodeURIComponent(org.id)}?tab=compliance`,
+                href: `${platformRoute(`merchants/${encodeURIComponent(org.id)}`)}?tab=compliance`,
                 hrefLabel: "Open merchant",
               });
             }}

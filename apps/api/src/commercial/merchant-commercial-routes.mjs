@@ -16,6 +16,7 @@ import {
   insertMerchantCommercial,
   applyMerchantCommercialImmediate,
   setEnterpriseApprovalPending,
+  listMerchantCommercialByOrgIds,
 } from "./merchant-commercial-store.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
@@ -59,6 +60,38 @@ export async function handleGetMerchantCommercial(req, res, orgId) {
     return;
   }
   sendJson(res, 200, toMerchantCommercialSettings(row, bandRow));
+}
+
+/**
+ * GET /v1/orgs/commercial-summaries?ids=uuid,uuid
+ */
+export async function handleListMerchantCommercialSummaries(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const raw = url.searchParams.get("ids")?.trim() ?? "";
+  const orgIds = raw
+    ? raw.split(",").map((id) => id.trim()).filter(Boolean)
+    : [];
+  if (orgIds.length === 0) {
+    sendJson(res, 200, { items: [] });
+    return;
+  }
+  if (orgIds.length > 200) {
+    sendError(res, 400, "invalid_request", "At most 200 org ids per request");
+    return;
+  }
+
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  const allowed = orgIds.filter((id) => isVisibleOrg(visible, id));
+  const rows = await listMerchantCommercialByOrgIds(allowed);
+  const items = [];
+  for (const row of rows) {
+    const bandRow = await findFeeTierBand(row.tier);
+    if (!bandRow) continue;
+    items.push(toMerchantCommercialSettings(row, bandRow));
+  }
+  sendJson(res, 200, { items });
 }
 
 /**

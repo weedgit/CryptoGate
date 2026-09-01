@@ -52,18 +52,11 @@ function parseRegistrationFields(input) {
     typeof input.country === "string" && input.country.trim()
       ? input.country.trim()
       : null;
-  const billingEmailRaw =
-    typeof input.billingEmail === "string"
-      ? input.billingEmail.trim()
-      : typeof input.billingContact === "string"
-        ? input.billingContact.trim()
-        : "";
-  const billingEmail = billingEmailRaw || null;
   const legalName =
     typeof input.legalName === "string" && input.legalName.trim()
       ? input.legalName.trim()
       : null;
-  return { country, billingEmail, legalName };
+  return { country, legalName };
 }
 
 function withRegistration(insert, input) {
@@ -71,7 +64,7 @@ function withRegistration(insert, input) {
 }
 
 /**
- * @param {{ type?: unknown, name?: unknown, parentId?: unknown, structure?: unknown, country?: unknown, billingEmail?: unknown, billingContact?: unknown, legalName?: unknown }} input
+ * @param {{ type?: unknown, name?: unknown, parentId?: unknown, structure?: unknown, country?: unknown, legalName?: unknown }} input
  * @param {{ parent: object | null, maxAgentDepth: number, agentDepthOfParent: number }} ctx
  * @returns {{ ok: true, insert: object } | { ok: false, status: number, code: string, message: string }}
  */

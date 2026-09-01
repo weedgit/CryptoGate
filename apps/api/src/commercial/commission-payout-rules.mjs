@@ -145,6 +145,15 @@ export function validateConfirmSentBody(body) {
 }
 
 /**
+ * Agent may issue sub-agent invoices only after receiving this period
+ * (platform or parent marked paid / settled).
+ * @param {string | null | undefined} payoutStatus
+ */
+export function parentPayoutAllowsSubInvoices(payoutStatus) {
+  return payoutStatus === "paid" || payoutStatus === "settled";
+}
+
+/**
  * @param {object} row
  */
 export function toCommissionPayout(row) {
@@ -187,4 +196,75 @@ export function toCommissionPayout(row) {
       ? new Date(row.created_at).toISOString()
       : undefined,
   };
+}
+
+/**
+ * Scope GET /commission-payouts for a non-platform agent caller.
+ * Allows listing slips they issue (payerOrgId) and slips they receive
+ * (payeeOrgId — platform → agent, or parent agent → sub-agent).
+ *
+ * @param {string[]} agentOrgIds
+ * @param {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} query
+ * @returns {{ ok: true, filter: { payer?: string, payeeOrgId?: string, payerOrgId?: string } } | { ok: false, status: number, code: string, message: string }}
+ */
+export function scopedCommissionPayoutListFilter(agentOrgIds, query) {
+  const payer = query.payer;
+  const payeeOrgId = query.payeeOrgId;
+  const payerOrgId = query.payerOrgId;
+  /** @type {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} */
+  const filter = {};
+
+  if (payer === "platform") {
+    if (payeeOrgId && !agentOrgIds.includes(payeeOrgId)) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "payeeOrgId outside your agent scope",
+      };
+    }
+    filter.payer = "platform";
+    filter.payeeOrgId =
+      payeeOrgId && agentOrgIds.includes(payeeOrgId)
+        ? payeeOrgId
+        : agentOrgIds[0];
+    return { ok: true, filter };
+  }
+
+  if (payeeOrgId) {
+    if (!agentOrgIds.includes(payeeOrgId)) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "payeeOrgId outside your agent scope",
+      };
+    }
+    filter.payer = payer ?? "agent";
+    filter.payeeOrgId = payeeOrgId;
+    if (payerOrgId && agentOrgIds.includes(payerOrgId)) {
+      filter.payerOrgId = payerOrgId;
+    }
+    return { ok: true, filter };
+  }
+
+  if (payerOrgId) {
+    if (!agentOrgIds.includes(payerOrgId)) {
+      return {
+        ok: false,
+        status: 403,
+        code: "forbidden",
+        message: "payerOrgId outside your agent scope",
+      };
+    }
+    filter.payerOrgId = payerOrgId;
+    if (payer) filter.payer = payer;
+    return { ok: true, filter };
+  }
+
+  if (payer === "agent" || !payer) {
+    filter.payerOrgId = agentOrgIds[0];
+    filter.payer = payer ?? "agent";
+  }
+  return { ok: true, filter };
 }

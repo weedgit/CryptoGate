@@ -4,7 +4,10 @@
  * Reorg / missing tx → payment_anomaly (never silent complete).
  */
 import { OrderStatus } from "@cryptogate/domain";
+import { mapPool } from "../map-pool.mjs";
 import { evaluateConfirmationObservation } from "./reorg.mjs";
+
+const DEFAULT_CONFIRM_CONCURRENCY = 8;
 
 /**
  * Pure decision when only a confirmation count is known (unit tests / stubs).
@@ -41,18 +44,18 @@ export function nextConfirmationStatus(order) {
  *     nextStatus: string | null,
  *     reorg?: boolean,
  *   }) => Promise<{ updated: number, skipped?: boolean, reason?: string, alreadyCurrent?: boolean }>,
+ *   concurrency?: number,
  * }} input
  */
 export async function processConfirmationBatch(input) {
-  const outcomes = [];
-  for (const order of input.orders) {
+  const concurrency = input.concurrency ?? DEFAULT_CONFIRM_CONCURRENCY;
+  return mapPool(input.orders, concurrency, async (order) => {
     if (!order.txHash) {
-      outcomes.push({
+      return {
         orderId: order.orderId,
         skipped: true,
         reason: "missing_tx_hash",
-      });
-      continue;
+      };
     }
 
     /** @type {{ confirmations: number, presence: string }} */
@@ -80,7 +83,7 @@ export async function processConfirmationBatch(input) {
     );
 
     if (decision.skipWrite) {
-      outcomes.push({
+      return {
         orderId: order.orderId,
         confirmations: decision.confirmations,
         nextStatus: null,
@@ -88,8 +91,7 @@ export async function processConfirmationBatch(input) {
         updated: 0,
         skipped: true,
         reorg: decision.reorg,
-      });
-      continue;
+      };
     }
 
     const applied = await input.apply({
@@ -99,7 +101,7 @@ export async function processConfirmationBatch(input) {
       reorg: decision.reorg,
     });
 
-    outcomes.push({
+    return {
       orderId: order.orderId,
       confirmations: decision.confirmations,
       nextStatus: decision.nextStatus,
@@ -108,9 +110,8 @@ export async function processConfirmationBatch(input) {
       skipped: applied.skipped === true || (applied.updated ?? 0) === 0,
       alreadyCurrent: applied.alreadyCurrent === true,
       reorg: decision.reorg,
-    });
-  }
-  return outcomes;
+    };
+  });
 }
 
 export { evaluateConfirmationObservation, REORG_CONFIRMATION_DROP_MIN } from "./reorg.mjs";

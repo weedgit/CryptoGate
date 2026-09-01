@@ -44,11 +44,18 @@ import type { OrgRef } from "../shared/registeredEmails";
 type Props = { session: Session };
 
 const INVITE_ROLES = ["administrator", "viewer", "cashier"] as const;
+const NON_CASHIER_INVITE_ROLES = ["administrator", "viewer"] as const;
 
-const ROLE_OPTIONS = INVITE_ROLES.map((r) => ({
-  id: r,
-  label: roleLabel(r),
-}));
+function inviteRoleOptions(orgType: string | undefined) {
+  const roles =
+    orgType === "merchant" || orgType === "merchant_site"
+      ? INVITE_ROLES
+      : NON_CASHIER_INVITE_ROLES;
+  return roles.map((r) => ({
+    id: r,
+    label: roleLabel(r),
+  }));
+}
 
 function roleBadgeText(role: string): string {
   return roleLabel(role);
@@ -181,13 +188,25 @@ export function TeamSettingsPage({ session }: Props) {
   function openInvite() {
     setInviteCreds(null);
     setInviteEmail("");
-    setInviteRole("cashier");
+    setInviteRole(
+      org?.type === "merchant" || org?.type === "merchant_site"
+        ? "cashier"
+        : "administrator",
+    );
     setInviteOpen(true);
   }
 
   async function onInvite(e: FormEvent) {
     e.preventDefault();
     if (!orgId || !canManage) return;
+    if (
+      inviteRole === "cashier" &&
+      org?.type !== "merchant" &&
+      org?.type !== "merchant_site"
+    ) {
+      showErr("Cashier is only valid on merchant or merchant-site accounts");
+      return;
+    }
     setBusy(true);
     setInviteCreds(null);
     try {
@@ -332,9 +351,6 @@ export function TeamSettingsPage({ session }: Props) {
               </span>
             </div>
           </div>
-          <p className="plat-team__org-note">
-            Legal name and structure are managed by CryptoGate.
-          </p>
         </header>
       ) : null}
 
@@ -417,7 +433,7 @@ export function TeamSettingsPage({ session }: Props) {
                           <div className="plat-team__role-picker">
                             <SearchableSelect
                               value={m.role}
-                              options={ROLE_OPTIONS}
+                              options={inviteRoleOptions(org?.type)}
                               onChange={(role) =>
                                 void onRoleChange(m.userId, role)
                               }
@@ -526,10 +542,13 @@ export function TeamSettingsPage({ session }: Props) {
               >
                 <header className="b3-commission-modal__head">
                   <div className="plat-team__invite-head-text">
-                    <h3 id="merchant-team-invite-title">Invite member</h3>
+                    <h3 id="merchant-team-invite-title">
+                      {inviteCreds ? "Member invited" : "Invite member"}
+                    </h3>
                     <p className="plat-team__invite-lede">
-                      Send a portal invite for Administrator, Viewer, or Cashier
-                      on this merchant org.
+                      {inviteCreds
+                        ? "Share sign-in details securely, then select Done."
+                        : "Send a portal invite for Administrator, Viewer, or Cashier on this merchant org."}
                     </p>
                   </div>
                   <button
@@ -571,7 +590,7 @@ export function TeamSettingsPage({ session }: Props) {
                       <SearchableSelect
                         id="merchant-team-invite-role"
                         value={inviteRole}
-                        options={ROLE_OPTIONS}
+                        options={inviteRoleOptions(org?.type)}
                         onChange={setInviteRole}
                         disabled={busy || Boolean(inviteCreds)}
                         allowEmpty={false}

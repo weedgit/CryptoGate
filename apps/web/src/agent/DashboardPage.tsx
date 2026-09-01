@@ -9,12 +9,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { AnimatedFundAmount } from "../shared/AnimatedFundAmount";
 import { AssetNetworkTables } from "../platform/AssetNetworkTables";
 import {
   VolumeChart,
   type VolumeChartZoomApi,
-} from "../platform/DashboardPage";
+} from "../platform/charts/VolumeChart";
 import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
 import {
   ChartMaximizeButton,
@@ -34,14 +36,14 @@ import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
 import {
   ApiError,
   getAgentCommission,
-  listOrders,
-  listOrgs,
-  listServiceBills,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
   type Session,
 } from "./api";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { getAgentOrders, peekAgentOrders } from "./agentOrdersList";
+import { getAgentServiceBills, peekAgentServiceBills } from "./agentServiceBillsList";
 import {
   merchantsInAgentSubtree,
   orgsInAgentSubtree,
@@ -239,7 +241,16 @@ function formatMoneyFigure(n: number): string {
 }
 
 function formatUsd(n: number): string {
-  return `$${formatMoneyFigure(n)}`;
+  return `${formatMoneyFigure(n)} USD`;
+}
+
+function PeriodUsd({ n }: { n: number }) {
+  return (
+    <>
+      {formatMoneyFigure(n)}
+      <span className="dash-chart-panel__period-unit">USD</span>
+    </>
+  );
 }
 
 function formatOnboarded(iso?: string): { label: string; at: number } {
@@ -337,14 +348,7 @@ function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
 
 function CardHelp({ text }: { text: string }) {
   return (
-    <span className="plat-card-help">
-      <button type="button" className="plat-card-help__btn" aria-label={text}>
-        ?
-      </button>
-      <span className="plat-card-help__tip" role="tooltip">
-        {text}
-      </span>
-    </span>
+    <ChartHelpButton text={text} label="About this card" openOnHover />
   );
 }
 
@@ -401,7 +405,13 @@ export function DashboardPage({ session }: Props) {
     toDateInputValue(periodWindow("7d").from),
   );
   const [endDate, setEndDate] = useState(() => toDateInputValue(periodWindow("7d").to));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => peekAgentOrgs() == null && peekAgentOrders() == null,
+  );
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekAgentOrgs() != null || peekAgentOrders() != null,
+  );
+  const loadGen = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -476,22 +486,23 @@ export function DashboardPage({ session }: Props) {
   const load = useCallback(async () => {
     if (!startDate || !endDate || !agentId) {
       setLoading(false);
+      setHasLoaded(true);
       setError(agentId ? null : "No agent membership on this session");
       return;
     }
+    const gen = ++loadGen.current;
     setLoading(true);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
     const dayKeys = buildDayKeys(from, to);
-    try {
-      const [allOrgs, allOrders, allBills, commission] = await Promise.all([
-        listOrgs(),
-        listOrders({ limit: 500 }).catch(() => [] as PaymentOrder[]),
-        listServiceBills().catch(() => [] as ServiceBill[]),
-        getAgentCommission(agentId).catch(() => null),
-      ]);
 
+    const applyCore = (
+      allOrgs: OrgAccount[],
+      allOrders: PaymentOrder[],
+      allBills: ServiceBill[],
+      commission: { commissionPercent?: string } | null,
+    ) => {
       const subtreeOrgs = orgsInAgentSubtree(agentId, allOrgs);
       const merchantRows = merchantsInAgentSubtree(agentId, allOrgs);
       const subAgentRows = subAgentsInAgentSubtree(agentId, allOrgs);
@@ -537,7 +548,30 @@ export function DashboardPage({ session }: Props) {
       setBills(bills);
       setOrgs(subtreeOrgs);
       setPeriodDayKeys(dayKeys);
+    };
+
+    const cachedOrgs = peekAgentOrgs();
+    const cachedOrders = peekAgentOrders();
+    const cachedBills = peekAgentServiceBills();
+    if (cachedOrgs || cachedOrders) {
+      applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? [], null);
+      setHasLoaded(true);
+    }
+
+    try {
+      const [allOrgs, allOrders, allBills, commission] = await Promise.all([
+        getAgentOrgs(),
+        getAgentOrders().catch(() => [] as PaymentOrder[]),
+        getAgentServiceBills().catch(() => [] as ServiceBill[]),
+        getAgentCommission(agentId).catch(() => null),
+      ]);
+
+      if (gen !== loadGen.current) return;
+
+      applyCore(allOrgs, allOrders, allBills, commission);
+      setHasLoaded(true);
     } catch (err) {
+      if (gen !== loadGen.current) return;
       const text =
         err instanceof ApiError
           ? err.code === "rate_limited"
@@ -546,7 +580,10 @@ export function DashboardPage({ session }: Props) {
           : "Failed to load dashboard";
       setError(text);
     } finally {
-      setLoading(false);
+      if (gen === loadGen.current) {
+        setLoading(false);
+        setHasLoaded(true);
+      }
     }
   }, [startDate, endDate, agentId]);
 
@@ -653,79 +690,94 @@ export function DashboardPage({ session }: Props) {
     });
   }, [orgs, orders, bills, chartWindow]);
 
-  if (loading) {
-    return <p className="muted">Loading agent overview…</p>;
+  const periodPortal = topbarSlot
+    ? createPortal(
+        <div
+          className="plat-period-controls plat-period-controls--topbar"
+          aria-label="Period"
+        >
+          <div
+            className="plat-period-pills plat-period-pills--topbar"
+            role="group"
+            aria-label="Quick periods"
+          >
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
+                onClick={() => onPeriodSelect(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div
+            className="plat-period-dates plat-period-dates--topbar"
+            aria-label="Date range"
+          >
+            <label className="plat-period-date">
+              <span className="plat-period-date__label">Start</span>
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => onStartDateChange(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </label>
+            <span className="plat-period-dates__sep" aria-hidden="true">
+              –
+            </span>
+            <label className="plat-period-date">
+              <span className="plat-period-date__label">End</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => onEndDateChange(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </label>
+          </div>
+          {loading && hasLoaded ? (
+            <span className="plat-period-refresh" role="status">
+              Updating…
+            </span>
+          ) : null}
+        </div>,
+        topbarSlot,
+      )
+    : null;
+
+  if (loading && !hasLoaded) {
+    return (
+      <>
+        {periodPortal}
+        <p className="muted">Loading agent overview…</p>
+      </>
+    );
   }
 
   return (
-    <div className="dash-page plat-dash">
+    <div
+      className={`dash-page plat-dash${loading ? " is-period-refresh" : ""}`}
+      aria-busy={loading}
+    >
       <AuthToast message={error} tone="error" onDismiss={dismissError} />
 
       {stats.overdueMerchants > 0 ? (
         <div className="plat-dash-actions" aria-label="Quick actions">
           <Link
             className="btn-ghost"
-            to="/agent/service-bills?status=overdue"
+            to={agentRoute("service-bills?status=overdue")}
           >
             Overdue bills ({stats.overdueMerchants})
           </Link>
         </div>
       ) : null}
 
-      {topbarSlot
-        ? createPortal(
-            <div
-              className="plat-period-controls plat-period-controls--topbar"
-              aria-label="Period"
-            >
-              <div
-                className="plat-period-pills plat-period-pills--topbar"
-                role="group"
-                aria-label="Quick periods"
-              >
-                {PERIOD_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
-                    onClick={() => onPeriodSelect(opt.id)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div
-                className="plat-period-dates plat-period-dates--topbar"
-                aria-label="Date range"
-              >
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">Start</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={endDate || undefined}
-                    onChange={(e) => onStartDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-                <span className="plat-period-dates__sep" aria-hidden="true">
-                  –
-                </span>
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">End</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate || undefined}
-                    onChange={(e) => onEndDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-              </div>
-            </div>,
-            topbarSlot,
-          )
-        : null}
+      {periodPortal}
 
       <div className="plat-overview-grid">
         <div className="panel plat-overview-card glass-tone-blue">
@@ -781,7 +833,7 @@ export function DashboardPage({ session }: Props) {
           <div className="plat-fund-rail__eyebrow">
             <span>Funds</span>
             <CardHelp
-              text={`Period settled volume / billed fees, and commission MTD for ${periodLabel}.`}
+              text={`Period settled volume and billed fees in USD (stables counted 1:1), plus commission MTD for ${periodLabel}.`}
             />
           </div>
           <div className="plat-fund-rail__primary">
@@ -792,52 +844,34 @@ export function DashboardPage({ session }: Props) {
                 <span>Fees</span>
               </p>
               <span className="plat-fund-rail__hint">
-                Settled volume / billed volume fees
+                Settled volume / billed volume fees · USD
               </span>
             </div>
-            <p className="plat-fund-rail__pair" aria-label="Volume and fees">
-              <span className="plat-fund-rail__total">
-                <span className="plat-fund-rail__currency" aria-hidden>
-                  $
-                </span>
-                <span className="fund-amount">
-                  {stats.volume.toLocaleString(undefined, {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-              </span>
+            <p className="plat-fund-rail__pair" aria-label="Volume and fees in US dollars">
+              <AnimatedFundAmount
+                className="plat-fund-rail__total"
+                value={stats.volume}
+                showUnit={false}
+              />
               <span className="plat-fund-rail__slash" aria-hidden>
                 /
               </span>
-              <span className="plat-fund-rail__fees">
-                <span className="plat-fund-rail__currency" aria-hidden>
-                  $
-                </span>
-                <span className="fund-amount">
-                  {stats.fees.toLocaleString(undefined, {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-              </span>
+              <AnimatedFundAmount className="plat-fund-rail__fees" value={stats.fees} />
             </p>
           </div>
           <div className="plat-fund-rail__secondary">
             <div className="plat-fund-rail__copy">
               <span className="plat-fund-rail__label">Commission</span>
-              <span className="plat-fund-rail__hint">Rebate MTD</span>
+              <span className="plat-fund-rail__hint">Rebate MTD · USD</span>
             </div>
-            <p className="plat-fund-rail__collected">
-              <span className="plat-fund-rail__currency" aria-hidden>
-                $
-              </span>
-              <span className="fund-amount">
-                {stats.commissionMtd.toLocaleString(undefined, {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}
-              </span>
+            <p
+              className="plat-fund-rail__collected-wrap"
+              aria-label="Commission in US dollars"
+            >
+              <AnimatedFundAmount
+                className="plat-fund-rail__collected"
+                value={stats.commissionMtd}
+              />
             </p>
           </div>
         </section>
@@ -863,7 +897,7 @@ export function DashboardPage({ session }: Props) {
                   aria-label="Period total volume"
                 >
                   <span className="dash-chart-panel__period-value">
-                    {formatUsd(chartPeriodTotal)}
+                    <PeriodUsd n={chartPeriodTotal} />
                   </span>
                 </p>
               </div>
@@ -948,7 +982,7 @@ export function DashboardPage({ session }: Props) {
                 aria-label="Period total volume"
               >
                 <span className="dash-chart-panel__period-value">
-                  {formatUsd(chartPeriodTotal)}
+                  <PeriodUsd n={chartPeriodTotal} />
                 </span>
               </p>
             </div>
@@ -1017,7 +1051,7 @@ export function DashboardPage({ session }: Props) {
               {merchantRows.length === 1 ? "merchant" : "merchants"} ·{" "}
               {periodLabel}
             </p>
-            <Link className="plat-dash-merchants__all" to="/agent/merchants">
+            <Link className="plat-dash-merchants__all" to={agentRoute("merchants")}>
               View all
             </Link>
           </div>
@@ -1036,6 +1070,16 @@ export function DashboardPage({ session }: Props) {
                 aria-label="Merchants"
               >
                 <table className="org-agents__table org-agents__table--compact">
+                  <colgroup>
+                    <col className="org-agents__col-num" />
+                    <col className="org-agents__col-name" />
+                    <col className="org-agents__col-onboarded" />
+                    <col className="org-agents__col-parent" />
+                    <col className="org-agents__col-volume" />
+                    <col className="org-agents__col-fee" />
+                    <col className="org-agents__col-bill" />
+                    <col className="org-agents__col-status" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="org-agents__th-num">#</th>
@@ -1044,7 +1088,7 @@ export function DashboardPage({ session }: Props) {
                       <th>Parent</th>
                       <th>Volume</th>
                       <th>Fees paid</th>
-                      <th>Bill</th>
+                      <th className="org-agents__th-bill">Bill</th>
                       <th className="org-agents__th-status">Status</th>
                     </tr>
                   </thead>
@@ -1053,7 +1097,7 @@ export function DashboardPage({ session }: Props) {
                       <tr
                         key={row.id}
                         className="org-agents__row"
-                        onClick={() => navigate(`/agent/merchants/${row.id}`)}
+                        onClick={() => navigate(agentRoute(`merchants/${row.id}`))}
                         style={{
                           animationDelay: `${Math.min(index, 40) * 40}ms`,
                           cursor: "pointer",

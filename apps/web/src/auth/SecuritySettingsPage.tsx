@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   changePassword,
+  getSession,
+  resetMfa,
   updateProfile,
   type Session,
 } from "../merchant/api";
@@ -12,6 +14,10 @@ import { sessionCanEnrollMfa } from "./mfaSession";
 import {
   evaluatePasswordPolicy,
 } from "./passwordPolicy";
+import {
+  sessionDisplayLabel,
+  sessionHasCustomDisplayName,
+} from "./profileIdentity";
 
 type Props = {
   session: Session;
@@ -92,6 +98,10 @@ function ProfileForm({
     return [...set];
   }, [timezone]);
 
+  const sidebarLabel = useMemo(() => sessionDisplayLabel(session), [session]);
+  const hasCustomName = sessionHasCustomDisplayName(session);
+  const namePlaceholder = hasCustomName ? "Display name" : sidebarLabel;
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!dirty || busy) return;
@@ -134,10 +144,16 @@ function ProfileForm({
                 onChange={(e) => setDisplayName(e.target.value)}
                 disabled={busy}
                 maxLength={120}
-                placeholder="Display name"
+                placeholder={namePlaceholder}
                 autoComplete="name"
               />
             </FieldControl>
+            {!hasCustomName ? (
+              <p className="plat-settings__row-hint profile-settings-card__name-hint">
+                Shown in the sidebar as{" "}
+                <strong>{sidebarLabel}</strong> until you save a display name.
+              </p>
+            ) : null}
           </label>
         </div>
         <div className="plat-settings__row plat-settings__row--stack">
@@ -211,9 +227,15 @@ function ProfileForm({
           onChange={(e) => setDisplayName(e.target.value)}
           disabled={busy}
           maxLength={120}
-          placeholder="Display name"
+          placeholder={namePlaceholder}
           autoComplete="name"
         />
+        {!hasCustomName ? (
+          <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+            Shown in the sidebar as <strong>{sidebarLabel}</strong> until you save
+            a display name.
+          </span>
+        ) : null}
       </label>
       <label className="field">
         <span>Email</span>
@@ -460,39 +482,60 @@ function ChangePasswordForm({
         onDismiss={() => setError(null)}
       />
       <h2>Change password</h2>
-      <label className="field">
+      <label className="field" htmlFor="settings-current-password">
         <span>Current password</span>
-        <input
-          className="field-control"
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          disabled={busy}
-          autoComplete="current-password"
-        />
+        <FieldControl
+          showPassword={showCurrent}
+          onTogglePassword={() => setShowCurrent((v) => !v)}
+          toggleDisabled={busy}
+        >
+          <input
+            id="settings-current-password"
+            className="field-control"
+            type={showCurrent ? "text" : "password"}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            disabled={busy}
+            autoComplete="current-password"
+          />
+        </FieldControl>
       </label>
-      <label className="field">
+      <label className="field" htmlFor="settings-new-password">
         <span>New password</span>
-        <input
-          className="field-control"
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          disabled={busy}
-          autoComplete="new-password"
-        />
+        <FieldControl
+          showPassword={showNew}
+          onTogglePassword={() => setShowNew((v) => !v)}
+          toggleDisabled={busy}
+        >
+          <input
+            id="settings-new-password"
+            className="field-control"
+            type={showNew ? "text" : "password"}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            disabled={busy}
+            autoComplete="new-password"
+          />
+        </FieldControl>
       </label>
       {passwordPolicyMeter}
-      <label className="field">
+      <label className="field" htmlFor="settings-confirm-password">
         <span>Confirm new password</span>
-        <input
-          className="field-control"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          disabled={busy}
-          autoComplete="new-password"
-        />
+        <FieldControl
+          showPassword={showConfirm}
+          onTogglePassword={() => setShowConfirm((v) => !v)}
+          toggleDisabled={busy}
+        >
+          <input
+            id="settings-confirm-password"
+            className="field-control"
+            type={showConfirm ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={busy}
+            autoComplete="new-password"
+          />
+        </FieldControl>
       </label>
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <button type="submit" className="btn-primary" disabled={busy || !canSubmit}>
@@ -510,6 +553,7 @@ export function SecuritySettingsPage({
 }: Props) {
   const canEnroll = sessionCanEnrollMfa(session);
   const enrolled = session.mfaEnrolled === true;
+  const enrollmentPending = session.mfaEnrollmentPending === true;
   const [wizardOpen, setWizardOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   /** Modal always uses platform card chrome for a consistent polish. */
@@ -523,9 +567,13 @@ export function SecuritySettingsPage({
         <MfaEnrollmentWizard
           onCancel={() => setWizardOpen(false)}
           onComplete={() => {
-            setWizardOpen(false);
-            setMessage("MFA enabled. You will need your authenticator on next sign-in.");
-            onSessionRefresh?.({ ...session, mfaEnrolled: true });
+            void getSession().then((next) => {
+              onSessionRefresh?.(next);
+              setWizardOpen(false);
+              setMessage(
+                "MFA enabled. You will need your authenticator on next sign-in.",
+              );
+            });
           }}
         />
       </div>
@@ -569,6 +617,7 @@ export function SecuritySettingsPage({
             onSessionRefresh={onSessionRefresh}
             canEnroll={canEnroll}
             enrolled={enrolled}
+            enrollmentPending={enrollmentPending}
             onStartEnrollment={() => {
               setMessage(null);
               setWizardOpen(true);
@@ -597,6 +646,7 @@ export function SecuritySettingsPage({
         onSessionRefresh={onSessionRefresh}
         canEnroll={canEnroll}
         enrolled={enrolled}
+        enrollmentPending={enrollmentPending}
         onStartEnrollment={() => {
           setMessage(null);
           setWizardOpen(true);
@@ -617,6 +667,7 @@ function SecurityPrefsForm({
   onSessionRefresh,
   canEnroll = false,
   enrolled = false,
+  enrollmentPending = false,
   onStartEnrollment,
 }: {
   session: Session;
@@ -624,26 +675,30 @@ function SecurityPrefsForm({
   onSessionRefresh?: (session: Session) => void;
   canEnroll?: boolean;
   enrolled?: boolean;
+  enrollmentPending?: boolean;
   onStartEnrollment?: () => void;
 }) {
   const [mfaEnforcement, setMfaEnforcement] = useState(
     session.mfaEnforcement === true,
   );
   const [sessionTimeoutMin, setSessionTimeoutMin] = useState(
-    session.sessionTimeoutMinutes ?? 30,
+    session.sessionTimeoutMinutes ?? 120,
   );
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replacePassword, setReplacePassword] = useState("");
+  const [showReplacePassword, setShowReplacePassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   useEffect(() => {
     setMfaEnforcement(session.mfaEnforcement === true);
-    setSessionTimeoutMin(session.sessionTimeoutMinutes ?? 30);
+    setSessionTimeoutMin(session.sessionTimeoutMinutes ?? 120);
   }, [session.mfaEnforcement, session.sessionTimeoutMinutes]);
 
   const dirty =
     mfaEnforcement !== (session.mfaEnforcement === true) ||
-    sessionTimeoutMin !== (session.sessionTimeoutMinutes ?? 30);
+    sessionTimeoutMin !== (session.sessionTimeoutMinutes ?? 120);
 
   async function onSave() {
     if (!dirty || busy) return;
@@ -665,6 +720,32 @@ function SecurityPrefsForm({
       setBusy(false);
     }
   }
+
+  async function onReplaceAuthenticator() {
+    if (!replacePassword.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      const next = await resetMfa(replacePassword);
+      onSessionRefresh?.(next);
+      setReplaceOpen(false);
+      setReplacePassword("");
+      onStartEnrollment?.();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Failed to replace authenticator",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const mfaBadge = enrolled
+    ? "enabled"
+    : enrollmentPending
+      ? "pending"
+      : "off";
 
   if (variant === "platform") {
     return (
@@ -732,10 +813,93 @@ function SecurityPrefsForm({
                   Only Owner or Administrator may enroll MFA for this account.
                 </p>
               ) : enrolled ? (
-                <p className="plat-settings__card-note">
-                  Two-step verification is enabled. You will be challenged with a
-                  6-digit code on each sign-in.
-                </p>
+                <>
+                  <p className="plat-settings__card-note">
+                    Two-step verification is enabled. You will be challenged with a
+                    6-digit code on each sign-in. The setup secret cannot be viewed
+                    after enrollment.
+                  </p>
+                  {!replaceOpen ? (
+                    <button
+                      type="button"
+                      className="plat-settings__link"
+                      disabled={busy}
+                      onClick={() => {
+                        setReplaceOpen(true);
+                        setError(null);
+                      }}
+                    >
+                      Replace authenticator
+                    </button>
+                  ) : (
+                    <div className="profile-mfa-replace">
+                      <p className="plat-settings__row-hint">
+                        Enter your password to reset MFA, then set up a new
+                        authenticator and copy the secret during setup.
+                      </p>
+                      <label
+                        className="plat-settings__field"
+                        htmlFor="profile-mfa-replace-password"
+                      >
+                        <span>Current password</span>
+                        <FieldControl
+                          icon="lock"
+                          showPassword={showReplacePassword}
+                          onTogglePassword={() =>
+                            setShowReplacePassword((v) => !v)
+                          }
+                          toggleDisabled={busy}
+                        >
+                          <input
+                            id="profile-mfa-replace-password"
+                            className="plat-settings__input"
+                            type={showReplacePassword ? "text" : "password"}
+                            value={replacePassword}
+                            onChange={(e) => setReplacePassword(e.target.value)}
+                            disabled={busy}
+                            autoComplete="current-password"
+                          />
+                        </FieldControl>
+                      </label>
+                      <div className="profile-mfa-replace__actions">
+                        <button
+                          type="button"
+                          className="login-btn-secondary profile-mfa-replace__cancel"
+                          disabled={busy}
+                          onClick={() => {
+                            setReplaceOpen(false);
+                            setReplacePassword("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="plat-settings__link"
+                          disabled={busy || !replacePassword.trim()}
+                          onClick={() => void onReplaceAuthenticator()}
+                        >
+                          {busy ? "Resetting…" : "Reset & set up again"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : enrollmentPending ? (
+                <>
+                  <p className="plat-settings__card-note">
+                    Setup is in progress. Reopen enrollment to view the QR code
+                    and copy the manual secret again (same code as before).
+                  </p>
+                  <button
+                    type="button"
+                    className="plat-settings__link"
+                    disabled={busy}
+                    onClick={onStartEnrollment}
+                  >
+                    Continue MFA setup
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
@@ -748,10 +912,20 @@ function SecurityPrefsForm({
               )}
             </div>
             <span
-              className={`plat-team__mfa${enrolled ? " is-on" : " is-pending"}`}
+              className={`plat-team__mfa${
+                mfaBadge === "enabled"
+                  ? " is-on"
+                  : mfaBadge === "pending"
+                    ? " is-pending"
+                    : ""
+              }`}
             >
               <span className="plat-team__mfa-dot" aria-hidden />
-              {enrolled ? "Enabled" : "Pending"}
+              {mfaBadge === "enabled"
+                ? "Enabled"
+                : mfaBadge === "pending"
+                  ? "Pending"
+                  : "Off"}
             </span>
           </div>
         </div>

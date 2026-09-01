@@ -25,6 +25,7 @@ import {
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { orgTypeLabel } from "./org";
 import { onboardReturnPath } from "./platformNav";
+import { agentRoute, platformRoute } from "../shared/portalRouting";
 
 type AgentKind = "agent" | "agent_sub";
 
@@ -33,7 +34,6 @@ type WizardState = {
   parentId: string;
   legalName: string;
   displayName: string;
-  billingEmail: string;
   country: string;
   commissionPercent: string;
   ownerEmail: string;
@@ -49,7 +49,7 @@ const STEPS = [
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type FieldKey = "legalName" | "billingEmail" | "country" | "ownerEmail" | "parentId";
+type FieldKey = "legalName" | "country" | "ownerEmail" | "parentId";
 
 function isValidEmail(value: string): boolean {
   return EMAIL_PATTERN.test(value.trim());
@@ -103,7 +103,7 @@ export function OnboardAgentPage() {
   >(() => new Map());
   const dismissToast = useCallback(() => setError(null), []);
   const cancelTo = useMemo(
-    () => onboardReturnPath(searchParams, "/platform/agents"),
+    () => onboardReturnPath(searchParams, platformRoute("agents")),
     [searchParams],
   );
   const [form, setForm] = useState<WizardState>(() => {
@@ -116,7 +116,6 @@ export function OnboardAgentPage() {
       parentId: kind === "agent_sub" ? parentParam : "",
       legalName: "",
       displayName: "",
-      billingEmail: "",
       country: "",
       commissionPercent: "15",
       ownerEmail: "",
@@ -213,12 +212,6 @@ export function OnboardAgentPage() {
       if (!apiName) {
         nextFieldErrors.legalName = "Legal or display name is required.";
       }
-      const billingEmail = form.billingEmail.trim();
-      if (!billingEmail) {
-        nextFieldErrors.billingEmail = "Billing email is required.";
-      } else if (!isValidEmail(billingEmail)) {
-        nextFieldErrors.billingEmail = "Enter a valid email address.";
-      }
       if (!form.country.trim()) {
         nextFieldErrors.country = "Country is required.";
       }
@@ -246,10 +239,6 @@ export function OnboardAgentPage() {
       return `Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) would be exceeded. Adjust platform settings (B13) or choose a higher parent.`;
     }
     if (!apiName) return "Legal or display name is required.";
-    const billingEmail = form.billingEmail.trim();
-    if (!billingEmail || !isValidEmail(billingEmail)) {
-      return "Enter a valid billing email address.";
-    }
     if (!form.country.trim()) return "Country is required.";
     const ownerEmail = form.ownerEmail.trim();
     if (!ownerEmail || !isValidEmail(ownerEmail)) {
@@ -306,7 +295,6 @@ export function OnboardAgentPage() {
         name: apiName,
         parentId,
         legalName: form.legalName.trim() || undefined,
-        billingEmail: form.billingEmail.trim(),
         country: form.country.trim(),
         commissionPercent: form.commissionPercent.trim() || undefined,
       });
@@ -315,7 +303,7 @@ export function OnboardAgentPage() {
         role: "owner",
       });
       invalidatePlatformOrgList();
-      navigate(`/platform/agents/${created.id}`, {
+      navigate(platformRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
           displayName: form.displayName.trim() || apiName,
@@ -449,7 +437,7 @@ export function OnboardAgentPage() {
                   {depthBlocked ? (
                     <p className="muted">
                       Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached for this parent.{" "}
-                      <Link to="/platform/settings/fee-tiers">Platform fees</Link>
+                      <Link to={platformRoute("settings/fee-tiers")}>Platform fees</Link>
                     </p>
                   ) : null}
                 </>
@@ -488,38 +476,20 @@ export function OnboardAgentPage() {
                       />
                     </FieldControl>
                   </div>
-                  <div className="b4-field-row">
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="billing-email">
-                        Billing email
-                      </label>
-                      <FieldControl icon="mail" invalid={Boolean(fieldErrors.billingEmail)}>
-                        <input
-                          id="billing-email"
-                          className={`b4-field__control${fieldErrors.billingEmail ? " is-invalid" : ""}`}
-                          type="email"
-                          value={form.billingEmail}
-                          onChange={(e) => patch("billingEmail", e.target.value)}
-                          placeholder="Name@company.com"
-                          autoComplete="email"
-                        />
-                      </FieldControl>
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="country">
-                        Country
-                      </label>
-                      <FieldControl icon="globe" invalid={Boolean(fieldErrors.country)}>
-                        <input
-                          id="country"
-                          className={`b4-field__control${fieldErrors.country ? " is-invalid" : ""}`}
-                          value={form.country}
-                          onChange={(e) => patch("country", e.target.value)}
-                          placeholder="Singapore (SG)"
-                          autoComplete="country-name"
-                        />
-                      </FieldControl>
-                    </div>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="country">
+                      Country
+                    </label>
+                    <FieldControl icon="globe" invalid={Boolean(fieldErrors.country)}>
+                      <input
+                        id="country"
+                        className={`b4-field__control${fieldErrors.country ? " is-invalid" : ""}`}
+                        value={form.country}
+                        onChange={(e) => patch("country", e.target.value)}
+                        placeholder="Singapore (SG)"
+                        autoComplete="country-name"
+                      />
+                    </FieldControl>
                   </div>
                 </>
               ) : null}
@@ -585,10 +555,6 @@ export function OnboardAgentPage() {
                   <div className="b4-review__row">
                     <dt>Display name</dt>
                     <dd>{form.displayName.trim() || "—"}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Billing email</dt>
-                    <dd>{form.billingEmail.trim() || "—"}</dd>
                   </div>
                   <div className="b4-review__row">
                     <dt>Country</dt>

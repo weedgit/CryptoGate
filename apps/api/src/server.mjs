@@ -4,6 +4,9 @@ import { handleRequest } from "./http/app.mjs";
 import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
 import { startServiceBillOverdueJob } from "./service-bills/service-bill-overdue-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
+import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
+
+assertWatchOnlyEnv();
 
 /**
  * HTTP entry. Background: order expiry (M2-14), service bill overdue, webhook fan-out + delivery (M3-14).

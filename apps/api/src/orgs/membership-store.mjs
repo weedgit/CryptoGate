@@ -86,14 +86,15 @@ export async function listMembershipsForOrg(orgId) {
   const { rows } = await pool.query(
     `SELECT m.org_id, m.user_id, m.role, m.status AS membership_status, o.type AS org_type,
             u.email, u.mfa_enrolled_at,
-            (
-              SELECT MAX(s.created_at)
-              FROM sessions s
-              WHERE s.user_id = u.id
-            ) AS last_login_at
+            login.last_login_at
      FROM org_memberships m
      JOIN org_accounts o ON o.id = m.org_id
      JOIN users u ON u.id = m.user_id
+     LEFT JOIN LATERAL (
+       SELECT MAX(s.created_at) AS last_login_at
+       FROM sessions s
+       WHERE s.user_id = u.id
+     ) login ON true
      WHERE m.org_id = $1
      ORDER BY m.created_at ASC`,
     [orgId],

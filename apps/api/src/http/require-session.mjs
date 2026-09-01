@@ -1,6 +1,7 @@
 import { findActiveSessionByToken } from "../auth/sessions.mjs";
 import { getSessionToken } from "./cookies.mjs";
 import { sendError } from "./json.mjs";
+import { touchSessionFromCookie } from "./session-touch.mjs";
 
 /**
  * Cookie session only (no MFA step-up gate). Used by MFA verify / logout.
@@ -19,5 +20,6 @@ export async function requireSession(req, res) {
     sendError(res, 401, "unauthenticated", "Not authenticated");
     return null;
   }
+  await touchSessionFromCookie(res, token, row.userId, row.expiresAt);
   return { token, userId: row.userId, mfaVerified: row.mfaVerified };
 }

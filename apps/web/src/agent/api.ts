@@ -1,3 +1,4 @@
+import { apiFetch } from "../auth/apiFetch";
 import {
   ApiError,
   getSession,
@@ -43,7 +44,6 @@ export type OrgAccount = {
   structure?: string | null;
   status?: "active" | "paused";
   country?: string | null;
-  billingEmail?: string | null;
   legalName?: string | null;
   createdAt?: string;
   orderCreateSuspended?: boolean;
@@ -70,6 +70,7 @@ export type ServiceBill = {
   paymentReference?: string | null;
   rxAddress?: string | null;
   remittancePayTo?: string | null;
+  invoiceSeller?: { name: string; email: string | null };
   txAddress?: string | null;
   createdAt?: string | null;
 };
@@ -104,7 +105,7 @@ async function parseError(res: Response): Promise<never> {
 }
 
 export async function listOrgs(): Promise<OrgAccount[]> {
-  const res = await fetch(`${API_BASE}/orgs`, {
+  const res = await apiFetch(`${API_BASE}/orgs`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -121,7 +122,7 @@ export async function listServiceBills(opts?: {
   if (opts?.status) q.set("status", opts.status);
   if (opts?.orgId) q.set("orgId", opts.orgId);
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/service-bills${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -133,7 +134,7 @@ export async function listServiceBills(opts?: {
 export async function getAgentCommission(
   orgId: string,
 ): Promise<{ orgId: string; commissionPercent: string }> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,
     {
       credentials: "include",
@@ -147,7 +148,7 @@ export async function getAgentCommission(
 export async function listAgentCommissions(): Promise<
   { orgId: string; commissionPercent: string }[]
 > {
-  const res = await fetch(`${API_BASE}/agent-commissions`, {
+  const res = await apiFetch(`${API_BASE}/agent-commissions`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -171,7 +172,7 @@ export type AgentPayoutAddress = {
 export async function getAgentPayout(
   orgId: string,
 ): Promise<AgentPayoutAddress | null> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
     {
       credentials: "include",
@@ -184,7 +185,7 @@ export async function getAgentPayout(
 }
 
 export async function listAgentPayoutAddresses(): Promise<AgentPayoutAddress[]> {
-  const res = await fetch(`${API_BASE}/agent-payout-addresses`, {
+  const res = await apiFetch(`${API_BASE}/agent-payout-addresses`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -197,7 +198,7 @@ export async function putAgentPayout(
   orgId: string,
   body: { asset: string; network: string; address: string; mfaCode: string },
 ): Promise<AgentPayoutAddress> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
     {
       method: "PUT",
@@ -214,7 +215,7 @@ export async function putAgentPayout(
 }
 
 export async function getServiceBill(billId: string): Promise<ServiceBill> {
-  const res = await fetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
+  const res = await apiFetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -238,7 +239,7 @@ export async function listAuditLog(opts?: {
   if (opts?.action) q.set("action", opts.action);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/audit${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/audit${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -272,7 +273,7 @@ export async function getFeeTierSettings(): Promise<{
   tiers: FeeTierBand[];
   updatedAt: string;
 }> {
-  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -283,7 +284,7 @@ export async function getFeeTierSettings(): Promise<{
 export async function getMerchantCommercial(
   orgId: string,
 ): Promise<MerchantCommercialSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
     {
       credentials: "include",
@@ -294,11 +295,27 @@ export async function getMerchantCommercial(
   return (await res.json()) as MerchantCommercialSettings;
 }
 
+export async function listMerchantCommercialSummaries(
+  orgIds: string[],
+): Promise<MerchantCommercialSettings[]> {
+  if (orgIds.length === 0) return [];
+  const q = new URLSearchParams({ ids: orgIds.join(",") });
+  const res = await apiFetch(`${API_BASE}/orgs/commercial-summaries?${q}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items: MerchantCommercialSettings[] };
+  return data.items ?? [];
+}
+
+export { getOrderSummary, type OrderSummary } from "../merchant/api";
+
 export async function updateMerchantCommercial(
   orgId: string,
   body: { tier?: string; volumeFeePercent?: string; reason?: string },
 ): Promise<MerchantCommercialSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
     {
       method: "PUT",
@@ -320,13 +337,11 @@ export async function createOrg(body: {
   parentId: string;
   structure?: string;
   country?: string;
-  billingEmail?: string;
-  billingContact?: string;
   legalName?: string;
   commercial?: { tier: string; volumeFeePercent: string };
   commissionPercent?: string;
 }): Promise<OrgAccount> {
-  const res = await fetch(`${API_BASE}/orgs`, {
+  const res = await apiFetch(`${API_BASE}/orgs`, {
     method: "POST",
     credentials: "include",
     headers: {

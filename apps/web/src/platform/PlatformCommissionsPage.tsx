@@ -4,7 +4,6 @@ import {
   useLayoutEffect,
   useMemo,
   useState,
-  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
@@ -15,10 +14,14 @@ import {
   listCommissionPayouts,
   generateCommissionInvoices,
   markCommissionPayoutPaid,
-  commissionPayoutRemittanceUri,
   defaultCommissionPeriodKey,
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
+import {
+  CommissionInvoiceModal,
+  destForInvoice,
+  remittanceNetwork,
+} from "../commercial/CommissionInvoiceModal";
 import {
   ApiError,
   listAgentPayoutAddresses,
@@ -27,13 +30,12 @@ import {
   type Session,
 } from "./api";
 import { orgDetailHref } from "./platformOrgTree";
+import { agentRoute, platformRoute } from "../shared/portalRouting";
 import { FundAmount } from "./FundAmount";
-import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { OrgListPagination } from "./OrgListPagination";
 import { sessionCanIssueServiceBill, sessionIsPlatformViewerOnly } from "./org";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
-import { serviceBillStatusLabel } from "./serviceBillStatus";
 import {
   SortHeader,
   compareDate,
@@ -43,14 +45,7 @@ import {
   type SortState,
 } from "./ui/TableArrange";
 
-function remittanceNetwork(record: {
-  network?: string | null;
-}): string {
-  const n = record.network?.trim().toLowerCase();
-  return n || "tron";
-}
-
-type Props = { session: Session };
+type CommissionsTab = "invoices" | "history" | "sub-agent";
 
 type InvoiceSortKey =
   | "period"
@@ -81,7 +76,7 @@ type CascadeSortKey =
   | "tx"
   | "status";
 
-type CommissionsTab = "invoices" | "history" | "sub-agent";
+type Props = { session: Session };
 
 const TABS: { id: CommissionsTab; label: string }[] = [
   { id: "invoices", label: "Invoices" },
@@ -126,53 +121,6 @@ function cascadePayoutStatusLabel(status: string): string {
   if (status === "paid") return "Paid";
   if (status === "settled") return "Settled";
   return status;
-}
-
-type SlipTimelineStep = {
-  id: string;
-  label: string;
-  state: "done" | "current" | "todo";
-};
-
-function slipLifecycleSteps(payoutStatus: string): SlipTimelineStep[] {
-  const issued =
-    payoutStatus === "issued" ||
-    payoutStatus === "paid" ||
-    payoutStatus === "settled";
-  const paid = payoutStatus === "paid" || payoutStatus === "settled";
-  const settled = payoutStatus === "settled";
-  return [
-    {
-      id: "issued",
-      label: "Issued",
-      state: settled || paid ? "done" : issued ? "current" : "todo",
-    },
-    {
-      id: "paid",
-      label: "Paid",
-      state: settled ? "done" : paid ? "current" : issued ? "todo" : "todo",
-    },
-    {
-      id: "settled",
-      label: "Settled",
-      state: settled ? "done" : "todo",
-    },
-  ];
-}
-
-function qrUrl(data: string): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data)}`;
-}
-
-function formatOnboardDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 /** B12 — Platform → agent monthly commission invoices & payout history. */
@@ -685,25 +633,8 @@ export function PlatformCommissionsPage({ session }: Props) {
   }
 
   const slipDest = slip
-    ? slip.payoutAddress
-      ? {
-          address: slip.payoutAddress,
-          asset: slip.asset ?? "USDT",
-          network: slip.network ?? "tron",
-        }
-      : (payoutAddressByAgent.get(slip.payeeOrgId) ?? null)
+    ? destForInvoice(slip, payoutAddressByAgent.get(slip.payeeOrgId) ?? null)
     : null;
-
-  const remittanceUri =
-    slip && slipDest?.address
-      ? commissionPayoutRemittanceUri({
-          address: slipDest.address,
-          amount: slip.commissionAmount,
-          asset: slipDest.asset,
-          network: slipDest.network,
-        })
-      : "";
-  const qrPayload = remittanceUri || slipDest?.address || "";
 
   return (
     <div className="plat-bills plat-commissions">
@@ -970,7 +901,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                           <td onClick={(e) => e.stopPropagation()}>
                             <Link
                               className="plat-commissions__agent-link"
-                              to={`/platform/agents/${row.payeeOrgId}`}
+                              to={platformRoute(`agents/${row.payeeOrgId}`)}
                             >
                               {row.payeeName}
                             </Link>
@@ -1173,7 +1104,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                       <td onClick={(e) => e.stopPropagation()}>
                         <Link
                           className="plat-commissions__agent-link"
-                          to={`/platform/agents/${h.payeeOrgId}`}
+                          to={platformRoute(`agents/${h.payeeOrgId}`)}
                         >
                           {h.payeeName}
                         </Link>
@@ -1328,7 +1259,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                       <td>
                         <Link
                           className="plat-commissions__agent-link"
-                          to={`/platform/agents/${h.payeeOrgId}`}
+                          to={platformRoute(`agents/${h.payeeOrgId}`)}
                         >
                           {h.payeeName}
                         </Link>
@@ -1337,7 +1268,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                         {h.payerOrgId ? (
                           <Link
                             className="plat-commissions__agent-link"
-                            to={`/platform/agents/${h.payerOrgId}`}
+                            to={platformRoute(`agents/${h.payerOrgId}`)}
                           >
                             {byId.get(h.payerOrgId)?.name ?? h.payerOrgId}
                           </Link>
@@ -1400,347 +1331,22 @@ export function PlatformCommissionsPage({ session }: Props) {
 
       {slip
         ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={closeSlip}
-            >
-              <div
-                className="b3-commission-modal plat-commissions-slip"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="plat-commission-invoice-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-commission-modal__head plat-commissions-slip__head">
-                  <div className="plat-commissions-slip__head-text">
-                    <p className="plat-commissions-slip__kicker">
-                      Platform → agent
-                    </p>
-                    <h3 id="plat-commission-invoice-title">
-                      Commission invoice ·{" "}
-                      {formatCommissionPeriodLabel(slip.periodKey)}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close"
-                    aria-label="Close"
-                    onClick={closeSlip}
-                  >
-                    ×
-                  </button>
-                </header>
-                <div className="b3-commission-modal__body plat-commissions-slip__body">
-                  <div className="plat-commissions-slip__layout">
-                    <div className="plat-commissions-slip__main">
-                      {slip.treeSnapshot?.merchants?.length ? (
-                        <section className="plat-commissions-slip__tree">
-                          <div className="plat-commissions-slip__tree-head">
-                            <h4 className="plat-commissions-slip__tree-title">
-                              Merchant tree snapshot
-                            </h4>
-                            <button
-                              type="button"
-                              className="plat-commissions-slip__print-btn no-print"
-                              onClick={() => window.print()}
-                            >
-                              Print
-                            </button>
-                          </div>
-                          <div className="plat-commissions-slip__tree-wrap">
-                            <table className="plat-commissions-slip__tree-table">
-                              <thead>
-                                <tr>
-                                  <th>Merchant / site</th>
-                                  <th>Onboarded</th>
-                                  <th>Bill status</th>
-                                  <th className="plat-commissions__th-num">
-                                    Volume fee
-                                  </th>
-                                  <th>Included</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {slip.treeSnapshot.merchants.map((line) => {
-                                  const parentId =
-                                    byId.get(line.orgId)?.parentId ?? null;
-                                  const href = orgDetailHref(
-                                    line.type,
-                                    line.orgId,
-                                    parentId,
-                                  );
-                                  return (
-                                  <tr key={line.orgId}>
-                                    <td>
-                                      {href ? (
-                                        <Link
-                                          className="plat-commissions-slip__tree-link"
-                                          to={href}
-                                          onClick={closeSlip}
-                                        >
-                                          {line.name}
-                                        </Link>
-                                      ) : (
-                                        line.name
-                                      )}
-                                    </td>
-                                    <td>
-                                      {formatOnboardDate(line.onboardedAt)}
-                                    </td>
-                                    <td>
-                                      {line.billStatus ? (
-                                        <span
-                                          className={`org-agents__bill is-${line.billStatus}`}
-                                        >
-                                          {serviceBillStatusLabel(
-                                            line.billStatus,
-                                          )}
-                                        </span>
-                                      ) : (
-                                        "—"
-                                      )}
-                                    </td>
-                                    <td className="plat-commissions__num">
-                                      <FundAmount
-                                        amount={line.volumeFeeAmount}
-                                      />
-                                    </td>
-                                    <td>
-                                      {line.includedInCommission ? "Y" : "N"}
-                                    </td>
-                                  </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </section>
-                      ) : (
-                        <p className="plat-commissions-slip__hint">
-                          No merchant tree snapshot for this invoice period.
-                        </p>
-                      )}
-                    </div>
-                    <aside className="plat-commissions-slip__aside">
-                      <section className="plat-commissions-slip__summary">
-                        <div className="plat-commissions-slip__summary-top">
-                          <div>
-                            <p className="plat-commissions-slip__label">
-                              Payee
-                            </p>
-                            <p className="plat-commissions-slip__payee">
-                              {slip.payeeName}
-                            </p>
-                          </div>
-                          <span
-                            className={`plat-commissions__status is-${platformPayoutTone(slip.payoutStatus)}`}
-                          >
-                            {platformPayoutStatusLabel(slip.payoutStatus)}
-                          </span>
-                        </div>
-
-                        <div className="plat-commissions-slip__amount-row">
-                          <div className="plat-commissions-slip__amount-block">
-                            <p className="plat-commissions-slip__label">
-                              Commission due
-                            </p>
-                            <p className="plat-commissions-slip__amount">
-                              <FundAmount amount={slip.commissionAmount} />
-                            </p>
-                          </div>
-                          <ol
-                            className="plat-commissions-slip__lifecycle"
-                            aria-label="Invoice lifecycle"
-                          >
-                            {slipLifecycleSteps(slip.payoutStatus).map(
-                              (step, i, arr) => {
-                                const next = arr[i + 1];
-                                const arrowTone =
-                                  step.state === "done" &&
-                                  next?.state === "done"
-                                    ? "is-done"
-                                    : (step.state === "done" &&
-                                          next?.state === "current") ||
-                                        (step.state === "current" &&
-                                          next?.state === "todo")
-                                      ? "is-flowing"
-                                      : "is-idle";
-                                return (
-                                  <li
-                                    key={step.id}
-                                    className={`plat-commissions-slip__life-step is-${step.state}`}
-                                    style={
-                                      {
-                                        "--step-delay": `${i * 90}ms`,
-                                      } as CSSProperties
-                                    }
-                                  >
-                                    <span className="plat-commissions-slip__life-dot" />
-                                    <span className="plat-commissions-slip__life-label">
-                                      {step.label}
-                                    </span>
-                                    {next ? (
-                                      <span
-                                        className={`plat-commissions-slip__life-arrow ${arrowTone}`}
-                                        aria-hidden
-                                      >
-                                        <span className="plat-commissions-slip__life-chevron">
-                                          &gt;
-                                        </span>
-                                        <span className="plat-commissions-slip__life-chevron">
-                                          &gt;
-                                        </span>
-                                        <span className="plat-commissions-slip__life-chevron">
-                                          &gt;
-                                        </span>
-                                      </span>
-                                    ) : null}
-                                  </li>
-                                );
-                              },
-                            )}
-                          </ol>
-                        </div>
-
-                        <dl className="plat-commissions-slip__facts">
-                          <div>
-                            <dt>Rate</dt>
-                            <dd>{slip.commissionPercent}%</dd>
-                          </div>
-                          <div>
-                            <dt>Platform fees</dt>
-                            <dd>
-                              <FundAmount amount={slip.platformFeeCollected} />
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Period</dt>
-                            <dd>
-                              {formatCommissionPeriodLabel(slip.periodKey)}
-                            </dd>
-                          </div>
-                        </dl>
-                      </section>
-
-                      {slipDest?.address ? (
-                        <section className="plat-commissions-slip__pay">
-                          <div className="plat-commissions-slip__qr-wrap">
-                            <img
-                              src={qrUrl(qrPayload)}
-                              alt="Agent payout remittance QR"
-                              width={148}
-                              height={148}
-                            />
-                            <p className="plat-commissions-slip__asset">
-                              <span className="plat-commissions-slip__asset-icons">
-                                <AssetIcon asset={slipDest.asset} />
-                                <NetworkIcon network={slipDest.network} />
-                              </span>
-                              <span className="plat-commissions-slip__asset-text">
-                                <span>{slipDest.asset}</span>
-                                <span aria-hidden>·</span>
-                                <span>{slipDest.network}</span>
-                              </span>
-                            </p>
-                          </div>
-                          <div className="plat-commissions-slip__dest">
-                            <div className="plat-commissions-slip__field">
-                              <span className="plat-commissions-slip__label">
-                                Payout address
-                              </span>
-                              <CopyableChainValue
-                                className="plat-commissions-slip__chain"
-                                value={slipDest.address}
-                                network={remittanceNetwork({
-                                  network: slipDest.network,
-                                })}
-                                kind="address"
-                              />
-                            </div>
-                            <div className="plat-commissions-slip__field">
-                              <span className="plat-commissions-slip__label">
-                                Tx hash
-                              </span>
-                              <CopyableChainValue
-                                className="plat-commissions-slip__chain"
-                                value={slip.txRef}
-                                network={remittanceNetwork(slip)}
-                                kind="tx"
-                              />
-                            </div>
-                            {slip.note?.trim() ? (
-                              <div className="plat-commissions-slip__field">
-                                <span className="plat-commissions-slip__label">
-                                  Note
-                                </span>
-                                <p className="plat-commissions-slip__note">
-                                  {slip.note.trim()}
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </section>
-                      ) : (
-                        <p className="banner banner-warn">
-                          No payout address on this agent yet. Set it on the
-                          agent detail page before sending funds.
-                        </p>
-                      )}
-
-                      {slip.payoutStatus === "paid" ? (
-                        <p className="plat-commissions-slip__paid-meta">
-                          Awaiting agent confirm
-                          {slip.paidAt
-                            ? ` · ${new Date(slip.paidAt).toLocaleString()}`
-                            : ""}
-                        </p>
-                      ) : slip.payoutStatus === "settled" && slip.settledAt ? (
-                        <p className="plat-commissions-slip__paid-meta">
-                          Settled ·{" "}
-                          {new Date(slip.settledAt).toLocaleString()}
-                        </p>
-                      ) : slip.paidAt ? (
-                        <p className="plat-commissions-slip__paid-meta">
-                          Paid · {new Date(slip.paidAt).toLocaleString()}
-                        </p>
-                      ) : null}
-
-                      {canPay && slip.payoutStatus === "issued" ? (
-                        <div className="plat-commissions-slip__confirm no-print">
-                          <label className="plat-commissions-slip__confirm-note">
-                            <span className="plat-commissions-slip__label">
-                              Note{" "}
-                              <span className="plat-commissions-slip__optional">
-                                (required)
-                              </span>
-                            </span>
-                            <textarea
-                              className="field-control plat-commissions-slip__note-input"
-                              value={paidNote}
-                              onChange={(e) => setPaidNote(e.target.value)}
-                              rows={2}
-                              maxLength={2000}
-                              placeholder="Payment reference or ops note"
-                            />
-                          </label>
-                          <div className="plat-commissions-slip__confirm-row">
-                            <button
-                              type="button"
-                              className="btn-primary plat-commissions-slip__confirm-btn"
-                              disabled={busy || !paidNote.trim()}
-                              onClick={() => void onConfirmPay()}
-                            >
-                              {busy ? "Saving…" : "Confirm & pay"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </aside>
-                  </div>
-                </div>
-              </div>
-            </div>,
+            <CommissionInvoiceModal
+              slip={slip}
+              dest={slipDest}
+              kicker="Platform → agent"
+              byId={byId}
+              orgHref={orgDetailHref}
+              canPay={canPay}
+              canConfirmReceipt={false}
+              paidNote={paidNote}
+              onPaidNoteChange={setPaidNote}
+              onConfirmPay={() => void onConfirmPay()}
+              onConfirmReceipt={() => {}}
+              busy={busy}
+              onClose={closeSlip}
+              missingAddressHint="No payout address on this agent yet. Set it on the agent detail page before sending funds."
+            />,
             document.body,
           )
         : null}

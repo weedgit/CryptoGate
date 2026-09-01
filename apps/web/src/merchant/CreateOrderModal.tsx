@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -276,7 +277,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
       const pay = await getPaymentDetails(order.id);
       setAmountLock(null);
       onClose();
-      navigate(`/merchant/orders/${order.id}`, {
+      navigate(merchantRoute(`orders/${order.id}`), {
         replace: false,
         state: { pay },
       });
@@ -374,7 +375,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                       <dt>First order</dt>
                       <dd>
                         <Link
-                          to={`/merchant/orders/${amountLock.blocking.id}`}
+                          to={merchantRoute(`orders/${amountLock.blocking.id}`)}
                           onClick={onClose}
                         >
                           #{amountLock.blocking.orderNumber}
@@ -407,7 +408,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                       </p>
                       <Link
                         className="btn-primary create-order-amount-lock__continue"
-                        to={`/merchant/orders/${amountLock.blocking.id}`}
+                        to={merchantRoute(`orders/${amountLock.blocking.id}`)}
                         onClick={onClose}
                       >
                         Open first order
@@ -547,7 +548,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                 ) : null}
                 <Link
                   className="plat-settings__nav-link"
-                  to="/merchant/settings/settlement"
+                  to={merchantRoute("settings/settlement")}
                   onClick={onClose}
                 >
                   Change in settlement settings

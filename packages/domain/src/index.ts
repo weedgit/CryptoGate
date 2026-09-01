@@ -301,8 +301,8 @@ export const USDT_TRON_NILE: AssetNetworkConfig = {
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
-  /** Testnet: 3 blocks (~9s) — mainnet Tron stays 19 for production safety. */
-  requiredConfirmations: 3,
+  /** Same depth as mainnet Tron so UAT timing matches production (19 blocks). */
+  requiredConfirmations: 19,
   memoSupported: false,
 };
 
@@ -589,6 +589,41 @@ export function toAssetNetwork(row: AssetNetworkConfig): AssetNetwork {
 
 /** First live Phase 1 pair. */
 export const DEFAULT_ASSET_NETWORK: AssetNetwork = toAssetNetwork(USDT_TRON);
+
+/**
+ * Platform SaaS bills and agent commission remittance — USDT TRC-20 only.
+ * Merchant guest collection may still use other catalogued pairs.
+ */
+export const PLATFORM_FEE_ASSET = AssetCode.USDT;
+/** Mainnet default; use {@link resolvePlatformFeeNetwork} at runtime. */
+export const PLATFORM_FEE_NETWORK = NetworkId.Tron;
+
+/** USDT remittance rail for service bills + commission payouts (Nile in testnet). */
+export function resolvePlatformFeeNetwork(
+  env?: string | null,
+): NetworkId {
+  return resolveChainEnvironment(env) === ChainEnvironment.Testnet
+    ? NetworkId.TronNile
+    : NetworkId.Tron;
+}
+
+export function isPlatformFeePair(
+  asset: string,
+  network: string,
+  env?: string | null,
+): boolean {
+  return (
+    asset === PLATFORM_FEE_ASSET &&
+    network === resolvePlatformFeeNetwork(env)
+  );
+}
+
+/** Public Tron receive address (TRC-20 / TRX). Not a checksum proof. */
+export function isTronReceiveAddress(address: string): boolean {
+  const a = address.trim();
+  if (a.startsWith("0x") || a.startsWith("0X")) return false;
+  return a.startsWith("T") && a.length >= 20 && a.length <= 48 && !/\s/.test(a);
+}
 
 /**
  * Money amount as a decimal string in major units (avoid float).

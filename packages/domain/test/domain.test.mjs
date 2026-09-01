@@ -9,6 +9,11 @@ import {
   FulfillmentPolicy,
   AddressSource,
   DEFAULT_ASSET_NETWORK,
+  PLATFORM_FEE_ASSET,
+  resolvePlatformFeeNetwork,
+  PLATFORM_FEE_NETWORK,
+  isPlatformFeePair,
+  isTronReceiveAddress,
   AssetCode,
   MerchantTier,
   DEFAULT_FEE_TIER_BANDS,
@@ -74,6 +79,16 @@ describe("@cryptogate/domain", () => {
     assert.equal(DEFAULT_ASSET_NETWORK.asset, AssetCode.USDT);
     assert.equal(DEFAULT_ASSET_NETWORK.network, NetworkId.Tron);
     assert.equal(DEFAULT_ASSET_NETWORK.contractAddress, USDT_TRON.contractAddress);
+    assert.equal(PLATFORM_FEE_ASSET, AssetCode.USDT);
+    assert.equal(PLATFORM_FEE_NETWORK, NetworkId.Tron);
+    assert.equal(resolvePlatformFeeNetwork("mainnet"), NetworkId.Tron);
+    assert.equal(resolvePlatformFeeNetwork("testnet"), NetworkId.TronNile);
+    assert.equal(isPlatformFeePair("USDT", "tron", "mainnet"), true);
+    assert.equal(isPlatformFeePair("USDT", "tron_nile", "testnet"), true);
+    assert.equal(isPlatformFeePair("USDT", "tron", "testnet"), false);
+    assert.equal(isPlatformFeePair("USDT", "ethereum"), false);
+    assert.equal(isTronReceiveAddress("TDemoAgentPayoutSeed0001"), true);
+    assert.equal(isTronReceiveAddress("0xabc"), false);
   });
 
   it("seeds Small/Mid/Enterprise fee bands from Business-Model", () => {
@@ -107,7 +122,11 @@ describe("@cryptogate/domain", () => {
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
     assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);
-    assert.equal(USDT_TRON_NILE.requiredConfirmations, 3);
+    assert.equal(USDT_TRON_NILE.requiredConfirmations, 19);
+    assert.equal(
+      USDT_TRON_NILE.requiredConfirmations,
+      USDT_TRON.requiredConfirmations,
+    );
     assert.equal(
       USDT_TRON_NILE.contractAddress,
       "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf",

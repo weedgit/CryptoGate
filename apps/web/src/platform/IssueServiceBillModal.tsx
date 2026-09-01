@@ -8,6 +8,7 @@ import {
   invalidatePlatformServiceBillsList,
   issueServiceBill,
 } from "./api";
+import { platformRoute } from "../shared/portalRouting";
 
 function defaultDueAt(): string {
   const d = new Date();
@@ -92,7 +93,7 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
       invalidatePlatformServiceBillsList();
       onIssued?.();
       onClose();
-      navigate(`/platform/service-bills/${bill.id}`);
+      navigate(platformRoute(`service-bills/${bill.id}`));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to issue bill");
     } finally {

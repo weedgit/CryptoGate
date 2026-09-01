@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
@@ -351,6 +352,150 @@ function PeriodMenu({
   );
 }
 
+type OrdersListEmptyVariant = "no-orders" | "no-results" | "no-filter";
+
+function statusFilterLabel(filter: StatusFilter): string {
+  return STATUS_PILLS.find((pill) => pill.id === filter)?.label.toLowerCase() ?? filter;
+}
+
+function periodFilterLabel(filter: PeriodFilter): string {
+  return PERIOD_OPTIONS.find((opt) => opt.id === filter)?.label.toLowerCase() ?? filter;
+}
+
+function OrdersListEmptyPanel({
+  variant,
+  query,
+  statusFilter,
+  periodFilter,
+  cashierOnly,
+  onClearSearch,
+  onClearFilters,
+}: {
+  variant: OrdersListEmptyVariant;
+  query?: string;
+  statusFilter: StatusFilter;
+  periodFilter: PeriodFilter;
+  cashierOnly: boolean;
+  onClearSearch?: () => void;
+  onClearFilters?: () => void;
+}) {
+  const statusActive = statusFilter !== "all";
+  const periodActive = periodFilter !== "all";
+
+  const title =
+    variant === "no-orders"
+      ? "No payment orders yet"
+      : variant === "no-results"
+        ? "No matching orders"
+        : statusActive && !periodActive
+          ? `No ${statusFilterLabel(statusFilter)} orders`
+          : !statusActive && periodActive
+            ? "No orders in this period"
+            : "No orders match these filters";
+
+  const copy =
+    variant === "no-orders"
+      ? cashierOnly
+        ? "Create a payment order to display a QR code at the terminal."
+        : "Create a payment order to generate a QR and track payment on-chain."
+      : variant === "no-results"
+        ? query
+          ? `Nothing matched “${query}”. Try order number, reference, address, or amount.`
+          : "Try a different search term or clear filters to see more orders."
+        : statusActive && periodActive
+          ? `No ${statusFilterLabel(statusFilter)} orders in ${periodFilterLabel(periodFilter)}. Adjust the status or time range above.`
+          : statusActive
+            ? `There are no ${statusFilterLabel(statusFilter)} orders right now. Switch to All or pick another status.`
+            : "No orders fall in this time range. Try All time or a wider period.";
+
+  return (
+    <div className="org-agents__list-empty b3-empty plat-orders__empty" role="status">
+      <div className="b3-empty__mark" aria-hidden>
+        {variant === "no-results" ? (
+          <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
+            <circle cx="20" cy="20" r="9" stroke="currentColor" strokeWidth="1.6" />
+            <path
+              d="M27 27 36 36"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+            <path
+              d="M16 20h8M20 16v8"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              opacity="0.45"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
+            <rect
+              x="12"
+              y="10"
+              width="24"
+              height="28"
+              rx="3"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+            <path
+              d="M18 18h12M18 24h8M18 30h10"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              opacity="0.55"
+            />
+            <path
+              d="M30 8v6h6"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </div>
+      <p className="b3-empty__title">{title}</p>
+      <p className="b3-empty__copy">{copy}</p>
+      <ul className="b3-empty__hints">
+        {variant === "no-results" ? (
+          <>
+            <li>Search by order number, reference, amount, or wallet address</li>
+            <li>Filter by status or time range in the top bar</li>
+          </>
+        ) : variant === "no-filter" ? (
+          <>
+            <li>Status pills show pending, verifying, completed, and more</li>
+            <li>Use All time or widen the period to see older orders</li>
+          </>
+        ) : (
+          <>
+            <li>Orders appear here once created and shared with payers</li>
+            <li>Track status from pending through on-chain confirmation</li>
+          </>
+        )}
+      </ul>
+      <div className="org-agents__list-empty-actions">
+        {variant === "no-results" && onClearSearch ? (
+          <button type="button" className="btn-ghost btn-inline" onClick={onClearSearch}>
+            Clear search
+          </button>
+        ) : null}
+        {variant === "no-filter" && onClearFilters ? (
+          <button type="button" className="btn-ghost btn-inline" onClick={onClearFilters}>
+            Show all orders
+          </button>
+        ) : null}
+        {variant === "no-orders" ? (
+          <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
+            {cashierOnly ? "Create order" : "Create payment order"}
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function OrdersListPage({ session }: Props) {
   const navigate = useNavigate();
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
@@ -516,7 +661,7 @@ export function OrdersListPage({ session }: Props) {
                   Export CSV
                 </button>
               ) : null}
-              <Link className="btn-primary btn-inline" to="/merchant/orders/new">
+              <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
                 + {cashierOnly ? "Create Order" : "Create Payment Order"}
               </Link>
             </div>,
@@ -537,13 +682,24 @@ export function OrdersListPage({ session }: Props) {
         ) : null}
 
         {!loading && sorted.length === 0 ? (
-          <p className="plat-bills__empty">
-            {query.trim() || statusFilter !== "all" || periodFilter !== "all"
-              ? "No payment orders match this search or filter."
-              : cashierOnly
-                ? "No orders yet. Create a payment order to show a QR at the terminal."
-                : "No payment orders yet. Create a payment order to show a QR and watch the chain."}
-          </p>
+          <OrdersListEmptyPanel
+            variant={
+              query.trim()
+                ? "no-results"
+                : statusFilter !== "all" || periodFilter !== "all"
+                  ? "no-filter"
+                  : "no-orders"
+            }
+            query={query}
+            statusFilter={statusFilter}
+            periodFilter={periodFilter}
+            cashierOnly={cashierOnly}
+            onClearSearch={() => setQuery("")}
+            onClearFilters={() => {
+              setStatusFilter("all");
+              setPeriodFilter("all");
+            }}
+          />
         ) : null}
 
         {!loading && sorted.length > 0 ? (
@@ -630,7 +786,7 @@ export function OrdersListPage({ session }: Props) {
                 {paged.map((o, index) => {
                   const tone = orderStatusTone(o.status, o);
                   const anomaly = o.status === "payment_anomaly";
-                  const href = `/merchant/orders/${o.id}`;
+                  const href = merchantRoute(`orders/${o.id}`);
                   return (
                     <tr
                       key={o.id}

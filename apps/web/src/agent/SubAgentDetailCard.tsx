@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -11,6 +12,7 @@ import {
 } from "./api";
 import { merchantsInAgentSubtree } from "./agentSubtree";
 import { formatShortDate, formatUsd, orgTypeLabel } from "./org";
+import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 
 const TABS = [
@@ -37,6 +39,23 @@ function initials(name: string): string {
   return name.trim().slice(0, 2).toUpperCase() || "AG";
 }
 
+function preferredOrgEmail(members: OrgMember[]): string | null {
+  const preferred =
+    members.find((m) => /owner/i.test(m.role)) ??
+    members.find((m) => /admin/i.test(m.role)) ??
+    members[0];
+  const email = preferred?.email?.trim();
+  return email || null;
+}
+
+function fieldText(raw: string | null | undefined): {
+  text: string;
+  empty: boolean;
+} {
+  const text = raw?.trim() ?? "";
+  return text ? { text, empty: false } : { text: "—", empty: true };
+}
+
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
@@ -48,6 +67,7 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
 
   const status = org.status ?? "active";
@@ -102,28 +122,33 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
   }, [org.id, orgs, tab]);
 
   useEffect(() => {
-    if (tab !== "team") return;
     let cancelled = false;
-    setTabLoading(true);
-    setTabError(null);
+    setTeamLoading(true);
     void listOrgUsers(org.id)
       .then((rows) => {
         if (!cancelled) setTeam(rows);
       })
       .catch((err) => {
         if (!cancelled) {
+          setTeam([]);
           setTabError(
             err instanceof ApiError ? err.message : "Failed to load team",
           );
         }
       })
       .finally(() => {
-        if (!cancelled) setTabLoading(false);
+        if (!cancelled) setTeamLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [org.id, tab]);
+  }, [org.id]);
+
+  const profileEmail = useMemo(
+    () => preferredOrgEmail(team) ?? "—",
+    [team],
+  );
+  const country = fieldText(org.country);
 
   return (
     <div className="b3-agent-detail">
@@ -149,7 +174,17 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
               </span>
             </div>
             <p className="b3-agent-detail__id">
-              <span className="mono">{org.id}</span>
+              {profileEmail !== "—" ? (
+                <a
+                  className="mono"
+                  href={`mailto:${profileEmail}`}
+                  title={profileEmail}
+                >
+                  {profileEmail}
+                </a>
+              ) : (
+                <span className="mono">{teamLoading ? "…" : "—"}</span>
+              )}
               <span> · {orgTypeLabel(org.type)}</span>
             </p>
           </div>
@@ -174,34 +209,81 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
       <div className="b3-agent-detail__body">
         {tab === "overview" ? (
           <>
-            <div className="b3-agent-detail__kpis">
-              <div className="b3-card b3-card--kpi">
-                <p className="b3-accounts__kpi-label">Merchants</p>
-                <p className="b3-accounts__kpi-value">{merchants.length}</p>
+            <div className="b3-agent-detail__kpis b3-agent-detail__kpis--2">
+              <div className="b3-card glass-tone-blue b3-card--kpi">
+                <p className="b3-card__label">Merchants</p>
+                <p className="b3-card__value">{merchants.length}</p>
               </div>
-              <div className="b3-card b3-card--kpi">
-                <p className="b3-accounts__kpi-label">Sites</p>
-                <p className="b3-accounts__kpi-value">{sites.length}</p>
+              <div className="b3-card glass-tone-slate b3-card--kpi">
+                <p className="b3-card__label">Sites</p>
+                <p className="b3-card__value">{sites.length}</p>
               </div>
             </div>
-            <div className="b3-card b3-card--section b3-card--flat">
-              <dl className="detail-grid">
-                <dt>Parent</dt>
-                <dd>{parent?.name ?? org.parentId ?? "—"}</dd>
-                <dt>Type</dt>
-                <dd>{orgTypeLabel(org.type)}</dd>
-                <dt>Status</dt>
-                <dd>{status === "paused" ? "Paused" : "Active"}</dd>
-                <dt>Country</dt>
-                <dd>{org.country?.trim() || "—"}</dd>
-                <dt>Billing email</dt>
-                <dd>{org.billingEmail?.trim() || "—"}</dd>
-              </dl>
-              <p style={{ color: "var(--muted)", marginTop: 16, marginBottom: 0 }}>
-                Pause, delete, and commission edits are platform-only. Onboard
-                merchants under this sub-agent from Architecture or Merchants.
-              </p>
+
+            <div className="b3-agent-detail__overview-stack">
+              <section className="b3-card b3-card--section b3-card--flat">
+                <div className="b3-profile__head">
+                  <h3 className="b3-card__heading">Profile</h3>
+                </div>
+                <div className="b3-profile">
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Parent</p>
+                    <p
+                      className={`b3-profile__value${
+                        parent?.name || org.parentId ? "" : " is-empty"
+                      }`}
+                    >
+                      {parent?.name ?? org.parentId ?? "—"}
+                    </p>
+                  </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Type</p>
+                    <span className="b3-profile__pill b3-profile__pill--tier">
+                      {orgTypeLabel(org.type)}
+                    </span>
+                  </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Status</p>
+                    <span
+                      className={`b3-profile__pill${
+                        status === "paused"
+                          ? " b3-profile__pill--paused"
+                          : " b3-profile__pill--ok"
+                      }`}
+                    >
+                      {status === "paused" ? "Paused" : "Active"}
+                    </span>
+                  </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Onboarded</p>
+                    <p
+                      className={`b3-profile__value${
+                        org.createdAt ? "" : " is-empty"
+                      }`}
+                    >
+                      {formatOnboardDate(org.createdAt)}
+                    </p>
+                  </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Country</p>
+                    <p
+                      className={`b3-profile__value${
+                        country.empty ? " is-empty" : ""
+                      }`}
+                    >
+                      {country.text}
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
+
+            <p className="b3-settlement__notice">
+              Pause, delete, and commission edits are platform-only. Onboard
+              merchants under this sub-agent from{" "}
+              <Link to={agentRoute("architecture")}>Architecture</Link> or{" "}
+              <Link to={agentRoute("merchants")}>Merchants</Link>.
+            </p>
           </>
         ) : null}
 
@@ -236,7 +318,12 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
                       </td>
                       <td>
                         {row.type === "merchant" ? (
-                          <Link to={`/agent/merchants/${row.id}`}>Open</Link>
+                          <Link
+                            className="b3-agent-detail__row-action"
+                            to={agentRoute(`merchants/${row.id}`)}
+                          >
+                            Open
+                          </Link>
                         ) : null}
                       </td>
                     </tr>
@@ -284,7 +371,12 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
                       <td>{STATUS_LABEL[bill.status] ?? bill.status}</td>
                       <td>{formatShortDate(bill.dueAt)}</td>
                       <td>
-                        <Link to={`/agent/service-bills/${bill.id}`}>View</Link>
+                        <Link
+                          className="b3-agent-detail__row-action"
+                          to={agentRoute(`service-bills/${bill.id}`)}
+                        >
+                          View
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -295,7 +387,7 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
         ) : null}
 
         {tab === "team" ? (
-          tabLoading ? (
+          teamLoading ? (
             <PlatformPending
               compact
               title="Loading team"

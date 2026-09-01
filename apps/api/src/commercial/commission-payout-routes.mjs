@@ -13,10 +13,12 @@ import {
 import {
   defaultCommissionPeriodKey,
   generateMonthlyCommissionInvoices,
+  generateSubAgentCommissionInvoices,
   validatePeriodKey,
 } from "./commission-invoice-generate.mjs";
 import {
   toCommissionPayout,
+  scopedCommissionPayoutListFilter,
   validateConfirmSentBody,
   validateMarkPaidBody,
   validateUpsertCommissionPayoutBody,
@@ -52,11 +54,11 @@ export async function handleListCommissionPayouts(req, res, url) {
   }
 
   /** @type {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} */
-  const filter = {};
+  let filter = {};
   if (payer) filter.payer = payer;
   if (payeeOrgId) filter.payeeOrgId = payeeOrgId;
 
-  // Non-platform: only own agent→sub rows (as payer) or platform→self slips.
+  // Non-platform: slips they issue, platform→self, or parent→self (sub-agent).
   if (!canReadAllCommissionPayouts(caller)) {
     const agentRoots = caller.memberships
       .filter(
@@ -69,21 +71,16 @@ export async function handleListCommissionPayouts(req, res, url) {
       sendJson(res, 200, { items: [] });
       return;
     }
-    if (payerOrgId) {
-      if (!agentRoots.includes(payerOrgId)) {
-        sendError(res, 403, "forbidden", "payerOrgId outside your agent scope");
-        return;
-      }
-      filter.payerOrgId = payerOrgId;
-    } else if (payer === "agent" || !payer) {
-      filter.payerOrgId = agentRoots[0];
-      filter.payer = filter.payer ?? "agent";
+    const scoped = scopedCommissionPayoutListFilter(agentRoots, {
+      payer,
+      payeeOrgId,
+      payerOrgId,
+    });
+    if (!scoped.ok) {
+      sendError(res, scoped.status, scoped.code, scoped.message);
+      return;
     }
-    if (payer === "platform") {
-      filter.payer = "platform";
-      filter.payeeOrgId = filter.payeeOrgId ?? agentRoots[0];
-      delete filter.payerOrgId;
-    }
+    filter = scoped.filter;
   } else if (payerOrgId) {
     filter.payerOrgId = payerOrgId;
   }
@@ -367,6 +364,79 @@ export async function handleGenerateCommissionInvoices(req, res) {
 }
 
 /**
+ * POST /v1/commission-payouts/generate-sub
+ * After the caller received this period, issue invoices to direct sub-agents.
+ */
+export async function handleGenerateSubAgentCommissionInvoices(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const payerOrgId =
+    typeof body?.payerOrgId === "string" && body.payerOrgId.trim()
+      ? body.payerOrgId.trim()
+      : (caller.memberships.find(
+          (m) =>
+            (m.orgType === "agent" || m.orgType === "agent_sub") &&
+            canManageAgentCommissionPayout(caller, m.orgId),
+        )?.orgId ?? "");
+
+  if (!canManageAgentCommissionPayout(caller, payerOrgId)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Not allowed to issue sub-agent commission invoices",
+    );
+    return;
+  }
+
+  const periodKey =
+    typeof body?.periodKey === "string" && body.periodKey.trim()
+      ? body.periodKey.trim()
+      : defaultCommissionPeriodKey();
+  const validated = validatePeriodKey(periodKey);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+
+  const result = await generateSubAgentCommissionInvoices(
+    payerOrgId,
+    periodKey,
+  );
+  if (!result.ok) {
+    sendError(res, result.status, result.code, result.message);
+    return;
+  }
+
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: payerOrgId,
+    action: AUDIT_ACTIONS.commissionPayoutGenerate,
+    metadata: {
+      periodKey: result.periodKey,
+      payer: "agent",
+      created: result.created.length,
+      skipped: result.skipped.length,
+    },
+  });
+  sendJson(res, 200, {
+    periodKey: result.periodKey,
+    periodLabel: result.periodLabel,
+    created: result.created.map(toCommissionPayout),
+    skipped: result.skipped,
+  });
+}
+
+/**
  * POST /v1/commission-payouts/{id}/agent-confirm
  * Agent acknowledges remittance → settled (Payout history).
  */
@@ -379,8 +449,8 @@ export async function handleAgentConfirmCommissionPayout(req, res, payoutId) {
     sendError(res, 404, "not_found", "Payout not found");
     return;
   }
-  if (existing.payer !== "platform") {
-    sendError(res, 400, "invalid_request", "Only platform → agent invoices use agent confirm");
+  if (existing.payer !== "platform" && existing.payer !== "agent") {
+    sendError(res, 400, "invalid_request", "Only commission invoices use payee confirm");
     return;
   }
 
@@ -401,7 +471,7 @@ export async function handleAgentConfirmCommissionPayout(req, res, payoutId) {
       res,
       409,
       "invalid_state",
-      "Confirm after platform marks the remittance paid",
+      "Confirm after the remittance is marked paid",
     );
     return;
   }

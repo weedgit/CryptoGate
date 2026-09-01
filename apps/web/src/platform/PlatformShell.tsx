@@ -40,6 +40,12 @@ import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
 } from "../shared/platformHealthAlerts";
+import {
+  ensureHealthPolling,
+  subscribeSharedHealth,
+} from "../shared/healthPolling";
+import { platformRoute } from "../shared/portalRouting";
+import { prefetchPlatformRoute } from "./prefetchRoutes";
 
 function TopbarStatusPill({
   label,
@@ -72,10 +78,8 @@ function TopbarStatusRail() {
   });
 
   useEffect(() => {
-    let cancelled = false;
-    const loadHealth = async () => {
-      const next = await fetchPlatformHealth();
-      if (cancelled) return;
+    ensureHealthPolling(true);
+    const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
       syncPlatformHealthAlerts(next);
       if (next === "unreachable") {
         setHealth({ api: false, database: false, webhook: false });
@@ -83,11 +87,11 @@ function TopbarStatusRail() {
         setHealth(next);
       }
     };
-    void loadHealth();
-    const id = window.setInterval(() => void loadHealth(), 15000);
+    const unsub = subscribeSharedHealth(sync);
+    void fetchPlatformHealth().then(sync);
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      unsub();
+      ensureHealthPolling(false);
     };
   }, []);
 
@@ -132,45 +136,45 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Core systems",
     items: [
       {
-        to: "/platform",
+        to: platformRoute(),
         label: "Dashboard",
         end: true,
         Icon: DashboardNavIcon,
       },
       {
-        to: "/platform/architecture",
+        to: platformRoute("architecture"),
         label: "Architecture",
-        matchPrefix: "/platform/architecture",
+        matchPrefix: platformRoute("architecture"),
         Icon: ArchitectureNavIcon,
       },
       {
-        to: "/platform/agents",
+        to: platformRoute("agents"),
         label: "Agents",
-        matchPrefix: "/platform/agents",
+        matchPrefix: platformRoute("agents"),
         Icon: AgentsNavIcon,
       },
       {
-        to: "/platform/merchants",
+        to: platformRoute("merchants"),
         label: "Merchants",
-        matchPrefix: "/platform/merchants",
+        matchPrefix: platformRoute("merchants"),
         Icon: MerchantsNavIcon,
       },
       {
-        to: "/platform/compliance",
+        to: platformRoute("compliance"),
         label: "Compliance",
-        matchPrefix: "/platform/compliance",
+        matchPrefix: platformRoute("compliance"),
         Icon: ComplianceNavIcon,
       },
       {
-        to: "/platform/service-bills",
+        to: platformRoute("service-bills"),
         label: "Bills",
-        matchPrefix: "/platform/service-bills",
+        matchPrefix: platformRoute("service-bills"),
         Icon: ServiceBillsNavIcon,
       },
       {
-        to: "/platform/commissions",
+        to: platformRoute("commissions"),
         label: "Commissions",
-        matchPrefix: "/platform/commissions",
+        matchPrefix: platformRoute("commissions"),
         Icon: FeesNavIcon,
       },
     ],
@@ -179,39 +183,33 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Infrastructure",
     items: [
       {
-        to: "/platform/settings",
-        label: "Settings",
-        matchPrefix: "/platform/settings",
-        Icon: TeamNavIcon,
-      },
-      {
-        to: "/platform/settings/networks",
+        to: platformRoute("settings/networks"),
         label: "Network",
-        matchPrefix: "/platform/settings/networks",
+        matchPrefix: platformRoute("settings/networks"),
         Icon: NetworkNavIcon,
       },
       {
-        to: "/platform/ops/health",
+        to: platformRoute("ops/health"),
         label: "Health",
-        matchPrefix: "/platform/ops/health",
+        matchPrefix: platformRoute("ops/health"),
         Icon: HealthNavIcon,
       },
       {
-        to: "/platform/settings/team",
+        to: platformRoute("settings/team"),
         label: "Team",
-        matchPrefix: "/platform/settings/team",
+        matchPrefix: platformRoute("settings/team"),
         Icon: TeamNavIcon,
       },
       {
-        to: "/platform/settings/fee-tiers",
+        to: platformRoute("settings/fee-tiers"),
         label: "Fees",
-        matchPrefix: "/platform/settings/fee-tiers",
+        matchPrefix: platformRoute("settings/fee-tiers"),
         Icon: FeesNavIcon,
       },
       {
-        to: "/platform/audit",
+        to: platformRoute("audit"),
         label: "Audit",
-        matchPrefix: "/platform/audit",
+        matchPrefix: platformRoute("audit"),
         Icon: AuditLogNavIcon,
       },
     ],
@@ -226,6 +224,10 @@ type Props = {
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
 };
+
+function navPrefetchKey(item: NavItem): string {
+  return item.to.replace(/^\//, "");
+}
 
 function navItemClass(
   pathname: string,
@@ -374,6 +376,8 @@ export function PlatformShell({
                     className={({ isActive }) =>
                       navItemClass(location.pathname, item, isActive)
                     }
+                    onMouseEnter={() => prefetchPlatformRoute(navPrefetchKey(item))}
+                    onFocus={() => prefetchPlatformRoute(navPrefetchKey(item))}
                   >
                     <Icon />
                     {!navCollapsed ? <span>{item.label}</span> : null}

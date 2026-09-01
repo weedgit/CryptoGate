@@ -18,10 +18,10 @@ export function sessionIsAgentViewerOnly(session: Session): boolean {
 
 /** Root agent org for this session (prefer top-level agent membership). */
 export function primaryAgentOrgId(session: Session): string | null {
-  const agent = session.memberships.find(
-    (m) => m.orgType === "agent" || m.orgType === "agent_sub",
-  );
-  return agent?.orgId ?? null;
+  const top = session.memberships.find((m) => m.orgType === "agent");
+  if (top) return top.orgId;
+  const sub = session.memberships.find((m) => m.orgType === "agent_sub");
+  return sub?.orgId ?? null;
 }
 
 /** Agent Owner may invite and manage team members (C11). Admin/Viewer read-only. */
@@ -51,10 +51,10 @@ export function orgTypeLabel(type: string): string {
 export function formatUsd(amount: string): string {
   const n = Number(amount);
   if (!Number.isFinite(n)) return amount;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(n);
+  return `${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} USD`;
 }
 
 export function formatShortDate(iso: string): string {

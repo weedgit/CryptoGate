@@ -14,7 +14,9 @@ import {
 /** Keys that leak from a developer `.env` and break hermetic stub / mainnet mocks. */
 const TRON_TEST_ENV_KEYS = [
   "TRON_RPC_URL",
+  "TRON_NILE_RPC_URL",
   "TRON_API_KEY",
+  "TRON_NILE_API_KEY",
   "TRON_USDT_CONTRACT",
   "CRYPTOGATE_CHAIN_ENV",
   "VITE_CRYPTOGATE_CHAIN_ENV",
@@ -70,6 +72,21 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     assert.equal(h.rpcConfigured, false);
   });
 
+  it("healthCheck({ network }) does not follow DEFAULT_NETWORK / testnet env", async () => {
+    const restoreHint = withEnv({
+      CRYPTOGATE_CHAIN_ENV: "testnet",
+      DEFAULT_NETWORK: "tron_nile",
+    });
+    try {
+      const main = await healthCheck({ network: "tron" });
+      const nile = await healthCheck({ network: "tron_nile" });
+      assert.equal(main.network, "tron");
+      assert.equal(nile.network, "tron_nile");
+    } finally {
+      restoreHint();
+    }
+  });
+
   it("getTronConfig includes USDT contract and confirmations (M3-31)", () => {
     const cfg = getTronConfig();
     assert.equal(cfg.network, "tron");
@@ -83,6 +100,59 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     const cfg = getTronConfig("USDT", "tron_nile");
     assert.equal(cfg.network, "tron_nile");
     assert.equal(cfg.contractAddress, "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf");
+  });
+
+  it("splits mainnet vs Nile TronGrid bases so both can complete in testnet env", () => {
+    const restore = withEnv({
+      TRON_RPC_URL: "https://api.trongrid.io",
+      TRON_NILE_RPC_URL: "https://nile.trongrid.io",
+      CRYPTOGATE_CHAIN_ENV: "testnet",
+    });
+    try {
+      const main = getTronConfig("USDT", "tron");
+      const nile = getTronConfig("USDT", "tron_nile");
+      assert.equal(main.network, "tron");
+      assert.equal(main.rpcUrl, "https://api.trongrid.io");
+      assert.equal(main.contractAddress, USDT_TRC20_CONTRACT);
+      assert.equal(main.requiredConfirmations, 19);
+      assert.equal(nile.network, "tron_nile");
+      assert.equal(nile.rpcUrl, "https://nile.trongrid.io");
+      assert.equal(nile.requiredConfirmations, 19);
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not send mainnet ingest to a Nile-only TRON_RPC_URL", () => {
+    const restore = withEnv({
+      TRON_RPC_URL: "https://nile.trongrid.io",
+      TRON_NILE_RPC_URL: undefined,
+      CRYPTOGATE_CHAIN_ENV: "testnet",
+    });
+    try {
+      const main = getTronConfig("USDT", "tron");
+      const nile = getTronConfig("USDT", "tron_nile");
+      assert.equal(main.rpcUrl, null);
+      assert.equal(nile.rpcUrl, "https://nile.trongrid.io");
+    } finally {
+      restore();
+    }
+  });
+
+  it("pairs public Nile with a mainnet TRON_RPC_URL when TRON_NILE_RPC_URL is unset", () => {
+    const restore = withEnv({
+      TRON_RPC_URL: "https://api.trongrid.io",
+      TRON_NILE_RPC_URL: undefined,
+      CRYPTOGATE_CHAIN_ENV: "testnet",
+    });
+    try {
+      const main = getTronConfig("USDT", "tron");
+      const nile = getTronConfig("USDT", "tron_nile");
+      assert.equal(main.rpcUrl, "https://api.trongrid.io");
+      assert.equal(nile.rpcUrl, "https://nile.trongrid.io");
+    } finally {
+      restore();
+    }
   });
 
   it("listRecentTransfers returns empty stub with watched count", async () => {

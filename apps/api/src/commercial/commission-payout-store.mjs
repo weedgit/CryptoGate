@@ -81,19 +81,30 @@ export async function findCommissionPayoutByKey(q) {
 }
 
 /**
- * Create or refresh an issued monthly invoice. No-op (null) if paid/settled.
+ * Create or refresh an issued monthly invoice (platform → agent or agent → sub).
+ * No-op (null) if paid/settled/verifying.
  * @param {object} input
  */
 export async function upsertIssuedCommissionInvoiceRow(input) {
+  const payer = input.payer === "agent" ? "agent" : "platform";
+  const payerOrgId = payer === "agent" ? input.payerOrgId ?? null : null;
+  if (payer === "agent" && !payerOrgId) {
+    throw new Error("payerOrgId is required for agent invoices");
+  }
+
   const cur = await findCommissionPayoutByKey({
-    payer: "platform",
+    payer,
     payeeOrgId: input.payeeOrgId,
     periodKey: input.periodKey,
-    payerOrgId: null,
+    payerOrgId,
   });
 
   if (cur) {
-    if (cur.payout_status === "paid" || cur.payout_status === "settled") {
+    if (
+      cur.payout_status === "paid" ||
+      cur.payout_status === "settled" ||
+      cur.payout_status === "verifying"
+    ) {
       return null;
     }
     const { rows } = await getPool().query(
@@ -136,12 +147,14 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
        commission_amount, payout_status, payout_address, asset, network,
        payment_link, tree_snapshot
      ) VALUES (
-       $1, $2, 'platform', NULL, $3, $4, $5, $6, $7, 'issued', $8, $9, $10, $11, $12::jsonb
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, 'issued', $10, $11, $12, $13, $14::jsonb
      )
      RETURNING ${SELECT}`,
     [
       input.payeeOrgId,
       input.payeeName,
+      payer,
+      payerOrgId,
       input.periodKey,
       input.periodLabel,
       input.platformFeeCollected,
@@ -155,6 +168,26 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
     ],
   );
   return rows[0];
+}
+
+/**
+ * Latest received (paid/settled) commission for a payee in a period —
+ * platform → agent, or parent agent → this org.
+ * @param {string} payeeOrgId
+ * @param {string} periodKey
+ */
+export async function findReceivedCommissionForPayee(payeeOrgId, periodKey) {
+  const { rows } = await getPool().query(
+    `SELECT ${SELECT}
+     FROM commission_payouts
+     WHERE payee_org_id = $1
+       AND period_key = $2
+       AND payout_status IN ('paid', 'settled')
+     ORDER BY CASE payer WHEN 'platform' THEN 0 ELSE 1 END, updated_at DESC
+     LIMIT 1`,
+    [payeeOrgId, periodKey],
+  );
+  return rows[0] ?? null;
 }
 
 /**
@@ -307,7 +340,6 @@ export async function markCommissionPayoutSettledRow(input) {
          agent_confirmed_by = $2,
          updated_at = now()
      WHERE id = $1
-       AND payer = 'platform'
        AND payout_status = 'paid'
      RETURNING ${SELECT}`,
     [input.id, input.userId],

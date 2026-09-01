@@ -1,3 +1,5 @@
+import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
+
 /**
  * OpenAPI Session.
  * @param {{
@@ -5,6 +7,7 @@
  *   email: string,
  *   mustChangePassword?: boolean,
  *   mfaEnrolled?: boolean,
+ *   mfaEnrollmentPending?: boolean,
  *   displayName?: string | null,
  *   locale?: string | null,
  *   timezone?: string | null,
@@ -14,7 +17,6 @@
  * @param {{ orgId: string, userId: string, role: string, orgType: string }[]} [memberships]
  */
 export function sessionFromUser(user, memberships = []) {
-  const timeout = Number(user.sessionTimeoutMinutes);
   return {
     userId: user.id,
     email: user.email,
@@ -23,11 +25,11 @@ export function sessionFromUser(user, memberships = []) {
     timezone: user.timezone || "UTC",
     mustChangePassword: user.mustChangePassword === true,
     mfaEnrolled: user.mfaEnrolled === true,
+    mfaEnrollmentPending: user.mfaEnrollmentPending === true,
     mfaEnforcement: user.mfaEnforcement === true,
-    sessionTimeoutMinutes:
-      timeout === 15 || timeout === 30 || timeout === 60 || timeout === 120
-        ? timeout
-        : 30,
+    sessionTimeoutMinutes: normalizeSessionTimeoutMinutes(
+      user.sessionTimeoutMinutes,
+    ),
     memberships,
   };
 }

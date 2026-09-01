@@ -20,6 +20,11 @@ import {
 } from "./api";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
+import { platformRoute } from "../shared/portalRouting";
+import {
+  auditResourceLabel,
+  summarizeAuditMetadata,
+} from "../shared/auditDetailFormat";
 
 const PAGE_SIZE = 10;
 const LIMIT_OPTIONS = [50, 100, 200, 500] as const;
@@ -78,6 +83,14 @@ function shortId(id: string | null | undefined): string {
   return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
 
+function actorLabel(row: AuditLogEntry): string {
+  return (
+    row.actorDisplayName?.trim() ||
+    row.actorEmail?.trim() ||
+    (row.actorUserId ? shortId(row.actorUserId) : "—")
+  );
+}
+
 function metadataIp(
   metadata: Record<string, string | number | boolean | null>,
 ): string {
@@ -101,22 +114,7 @@ function metadataRole(
 function metadataResource(
   metadata: Record<string, string | number | boolean | null>,
 ): string {
-  for (const key of [
-    "billId",
-    "orderId",
-    "resource",
-    "resourceId",
-    "targetUserId",
-    "email",
-    "name",
-  ]) {
-    const v = metadata[key];
-    if (v != null && String(v).trim()) {
-      const s = String(v);
-      return s.length > 36 ? `${s.slice(0, 36)}…` : s;
-    }
-  }
-  return "—";
+  return auditResourceLabel(metadata);
 }
 
 function toDateInputValue(d: Date): string {
@@ -128,11 +126,11 @@ function toDateInputValue(d: Date): string {
 
 function orgDetailPath(orgId: string, orgs: OrgAccount[]): string {
   const type = orgs.find((o) => o.id === orgId)?.type;
-  if (type === "merchant") return `/platform/merchants/${orgId}`;
+  if (type === "merchant") return platformRoute(`merchants/${orgId}`);
   if (type === "agent" || type === "agent_sub") {
-    return `/platform/agents/${orgId}`;
+    return platformRoute(`agents/${orgId}`);
   }
-  return "/platform/architecture";
+  return platformRoute("architecture");
 }
 
 function fromDateStart(isoDate: string): string | undefined {
@@ -176,7 +174,7 @@ function downloadAuditCsv(
         row.createdAt,
         row.action,
         row.actorUserId ?? "",
-        row.actorUserId ? (actorEmails.get(row.actorUserId) ?? "") : "",
+        row.actorUserId ? (row.actorEmail?.trim() ?? actorEmails.get(row.actorUserId) ?? "") : "",
         row.orgId ?? "",
         row.orgId ? (orgNames.get(row.orgId) ?? "") : "",
         metadataRole(row.metadata),
@@ -260,15 +258,26 @@ export function AuditLogPage() {
       setPage(1);
       setExpandedId(null);
 
+      const emailByUser = new Map<string, string>();
+      for (const row of rows) {
+        if (row.actorUserId && row.actorEmail?.trim()) {
+          emailByUser.set(row.actorUserId, row.actorEmail.trim());
+        }
+      }
       const platform = orgs.find((o) => o.type === "platform");
       if (platform) {
         try {
           const members = await listOrgUsers(platform.id);
-          setActorEmails(new Map(members.map((m) => [m.userId, m.email])));
+          for (const m of members) {
+            if (!emailByUser.has(m.userId)) {
+              emailByUser.set(m.userId, m.email);
+            }
+          }
         } catch {
-          /* actor emails stay empty */
+          /* keep emails from audit rows */
         }
       }
+      setActorEmails(emailByUser);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -293,12 +302,7 @@ export function AuditLogPage() {
       const org = row.orgId
         ? (orgNames.get(row.orgId) ?? row.orgId).toLowerCase()
         : "";
-      const actor = row.actorUserId
-        ? (
-            actorEmails.get(row.actorUserId) ??
-            row.actorUserId
-          ).toLowerCase()
-        : "";
+      const actor = actorLabel(row).toLowerCase();
       const meta = JSON.stringify(row.metadata).toLowerCase();
       return (
         actionLabel(row.action).toLowerCase().includes(q) ||
@@ -310,7 +314,7 @@ export function AuditLogPage() {
         metadataResource(row.metadata).toLowerCase().includes(q)
       );
     });
-  }, [items, query, orgNames, actorEmails]);
+  }, [items, query, orgNames]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = useMemo(() => {
@@ -403,15 +407,6 @@ export function AuditLogPage() {
             topbarActionsSlot,
           )
         : null}
-
-      <div className="plat-audit__banner" role="note">
-        <span className="plat-audit__banner-label">Append-only</span>
-        <p>
-          Platform audit trail is immutable — no delete or edit. Metadata is
-          redacted (secrets never appear). Role and IP show when recorded in
-          event metadata.
-        </p>
-      </div>
 
       <div className="plat-audit__filters" aria-label="Audit filters">
         <label className="plat-audit__field">
@@ -586,9 +581,7 @@ export function AuditLogPage() {
                 const orgName = row.orgId
                   ? (orgNames.get(row.orgId) ?? shortId(row.orgId))
                   : "—";
-                const actorEmail = row.actorUserId
-                  ? actorEmails.get(row.actorUserId)
-                  : null;
+                const actorEmail = actorLabel(row);
                 const resource = metadataResource(row.metadata);
                 const hasMeta = Object.keys(row.metadata).length > 0;
                 return (
@@ -605,9 +598,10 @@ export function AuditLogPage() {
                     <td>
                       <div className="plat-audit__actor">
                         <span className="plat-audit__actor-email">
-                          {actorEmail ?? shortId(row.actorUserId)}
+                          {actorEmail}
                         </span>
-                        {actorEmail && row.actorUserId ? (
+                        {row.actorUserId &&
+                        (row.actorEmail || row.actorDisplayName) ? (
                           <span className="plat-audit__actor-id">
                             {shortId(row.actorUserId)}
                           </span>
@@ -652,7 +646,7 @@ export function AuditLogPage() {
                             setExpandedId(expanded ? null : row.id)
                           }
                         >
-                          {expanded ? "Hide JSON" : "Show JSON"}
+                          {expanded ? "Hide detail" : "Show detail"}
                         </button>
                       ) : (
                         <span className="plat-audit__detail-empty">—</span>
@@ -669,15 +663,31 @@ export function AuditLogPage() {
         filtered.length > 0 &&
         expandedId &&
         paged.some((r) => r.id === expandedId) ? (
-          <div className="plat-audit__json-panel" role="region" aria-label="Event detail">
-            <pre>
-              {JSON.stringify(
-                paged.find((r) => r.id === expandedId)?.metadata ?? {},
-                null,
-                2,
-              )}
-            </pre>
-          </div>
+          (() => {
+            const row = paged.find((r) => r.id === expandedId);
+            if (!row) return null;
+            const detail = summarizeAuditMetadata(row.action, row.metadata);
+            return (
+              <div
+                className="plat-audit__json-panel"
+                role="region"
+                aria-label="Event detail"
+              >
+                <p className="plat-audit__detail-headline">{detail.headline}</p>
+                {detail.lines.length > 0 ? (
+                  <ul className="plat-audit__detail-lines">
+                    {detail.lines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <details className="plat-audit__detail-raw">
+                  <summary>Raw JSON</summary>
+                  <pre>{JSON.stringify(row.metadata, null, 2)}</pre>
+                </details>
+              </div>
+            );
+          })()
         ) : null}
 
         {!loading && filtered.length > 0 ? (
@@ -690,13 +700,6 @@ export function AuditLogPage() {
           />
         ) : null}
       </div>
-
-      <p className="plat-audit__footnote">
-        B14 · Read-only audit log ·{" "}
-        <Link to="/platform/service-bills">Service bills</Link>
-        {" · "}
-        <Link to="/platform/settings/team">Platform team</Link>
-      </p>
     </div>
   );
 }

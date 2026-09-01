@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import type { Session } from "./api";
 import { CreateOrderModal } from "./CreateOrderModal";
 import { OrdersListPage } from "./OrdersListPage";
@@ -19,7 +20,7 @@ export function MerchantOrdersRoutes({
     <>
       <OrdersListPage session={session} />
       {showCreateModal ? (
-        <CreateOrderModal onClose={() => navigate("/merchant/orders")} />
+        <CreateOrderModal onClose={() => navigate(merchantRoute("orders"))} />
       ) : null}
     </>
   );

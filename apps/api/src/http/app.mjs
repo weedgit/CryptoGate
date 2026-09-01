@@ -5,6 +5,7 @@ import {
   handleLogin,
   handleLogout,
   handleMfaEnroll,
+  handleMfaReset,
   handleMfaVerify,
   handleResetPassword,
   handleChangePassword,
@@ -30,6 +31,11 @@ import {
   handleGetPaymentOrderPayment,
 } from "../orders/order-routes.mjs";
 import { handleListPaymentOrders } from "../orders/order-list-routes.mjs";
+import {
+  handleGetAgentDashboardSummary,
+  handleGetOrderSummary,
+  handleGetPlatformDashboardSummary,
+} from "../dashboard/dashboard-summary-routes.mjs";
 import {
   handleGetSettlement,
   handlePutSettlement,
@@ -105,6 +111,7 @@ import {
 import {
   handleGetMerchantCommercial,
   handlePutMerchantCommercial,
+  handleListMerchantCommercialSummaries,
 } from "../commercial/merchant-commercial-routes.mjs";
 import {
   handleGetAgentPayout,
@@ -120,6 +127,7 @@ import {
   handleAgentConfirmCommissionPayout,
   handleConfirmCommissionPayoutSent,
   handleGenerateCommissionInvoices,
+  handleGenerateSubAgentCommissionInvoices,
   handleListCommissionPayouts,
   handleMarkCommissionPayoutPaid,
   handleUpsertCommissionPayout,
@@ -185,6 +193,11 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "POST" && path === "/v1/auth/mfa/reset") {
+    await handleMfaReset(req, res);
+    return;
+  }
+
   if (method === "POST" && path === "/v1/auth/forgot-password") {
     await handleForgotPassword(req, res);
     return;
@@ -219,6 +232,26 @@ export async function handleRequest(req, res) {
       await handleListPaymentOrders(req, res);
       return;
     }
+  }
+
+  if (path === "/v1/orders/summary" && method === "GET") {
+    await handleGetOrderSummary(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/platform/dashboard-summary" && method === "GET") {
+    await handleGetPlatformDashboardSummary(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/agent/dashboard-summary" && method === "GET") {
+    await handleGetAgentDashboardSummary(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/orgs/commercial-summaries" && method === "GET") {
+    await handleListMerchantCommercialSummaries(req, res, url);
+    return;
   }
 
   const paymentMatch = path.match(/^\/v1\/orders\/([^/]+)\/payment$/);
@@ -445,6 +478,11 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/commission-payouts/generate") {
     await handleGenerateCommissionInvoices(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/commission-payouts/generate-sub") {
+    await handleGenerateSubAgentCommissionInvoices(req, res);
     return;
   }
 

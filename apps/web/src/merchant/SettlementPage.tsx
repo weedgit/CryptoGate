@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { MfaStepUpModal } from "../auth/MfaStepUpModal";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { FieldControl } from "../ui/FieldControl";
@@ -49,6 +49,7 @@ import {
   uniqueAssetsFromRegistry,
 } from "../shared/assetNetworks";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
+import { merchantRoute } from "../shared/portalRouting";
 
 type Props = { session: Session };
 
@@ -418,7 +419,7 @@ export function SettlementPage({ session }: Props) {
           Inheriting parent merchant defaults. Wallet, matching mode, fulfillment
           policy, and xPub come from the parent until the parent Owner approves an
           override.{" "}
-          <Link to={`/merchant/sites/${orgId}`}>Request override</Link>
+          <Link to={merchantRoute(`sites/${orgId}`)}>Request override</Link>
         </p>
       ) : null}
 
@@ -1065,7 +1066,13 @@ export function SettlementPage({ session }: Props) {
       ) : null}
 
       {pendingMfa ? (
-        <MfaStepUpModal
+        <MfaStepUpGate
+          session={session}
+          actionLabel={
+            pendingMfa.kind === "address"
+              ? "save settlement address"
+              : "save extended public key"
+          }
           onClose={() => setPendingMfa(null)}
           onVerify={verifyPendingMfa}
         />

@@ -25,6 +25,7 @@ import {
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree, subAgentsUnderAgent } from "./agentSubtree";
 import { formatShortDate, orgTypeLabel } from "./org";
 import { FundAmount } from "./FundAmount";
+import { ChartHelpButton } from "./ui/ChartHelpButton";
 import {
   buildAgentAccountsForest,
   countAccountTreeNodes,
@@ -51,6 +52,7 @@ import {
   serviceBillStatusTone,
 } from "./serviceBillStatus";
 import { PlatformPending } from "./ui/PlatformPending";
+import { platformRoute } from "../shared/portalRouting";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -95,12 +97,7 @@ function relativeTime(iso: string): string {
 function KpiHelp({ text }: { text: string }) {
   return (
     <span className="plat-card-help plat-card-help--corner">
-      <button type="button" className="plat-card-help__btn" aria-label={text}>
-        ?
-      </button>
-      <span className="plat-card-help__tip" role="tooltip">
-        {text}
-      </span>
+      <ChartHelpButton text={text} label="About this metric" openOnHover />
     </span>
   );
 }
@@ -315,22 +312,6 @@ function ContactField({
   );
 }
 
-function ReadOnlyEmailField({
-  label,
-  email,
-}: {
-  label: string;
-  email: string | null | undefined;
-}) {
-  const trimmed = email?.trim() || null;
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd title={trimmed ?? undefined}>{trimmed ?? "—"}</dd>
-    </div>
-  );
-}
-
 function WalletAddressField({
   address,
   loading,
@@ -338,17 +319,47 @@ function WalletAddressField({
   address: string | null;
   loading: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
   const display = loading
-    ? "…"
+    ? "Loading…"
     : address
       ? truncateAddress(address)
       : "—";
+  const canCopy = Boolean(address) && !loading;
+
+  async function copyAddress() {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <div>
       <dt>Wallet address</dt>
-      <dd className="mono" title={address ?? undefined}>
-        {display}
+      <dd className="b3-accounts__contact">
+        <div
+          className={`b3-accounts__contact-chip${copied ? " is-copied" : ""}`}
+        >
+          <span className="mono" title={address ?? undefined}>
+            {display}
+          </span>
+          {canCopy ? (
+            <button
+              type="button"
+              className={`b3-profile__copy-icon${copied ? " is-copied" : ""}`}
+              onClick={() => void copyAddress()}
+              aria-label={copied ? "Wallet address copied" : "Copy wallet address"}
+              title={copied ? "Copied" : "Copy"}
+            >
+              <CopyIcon copied={copied} />
+            </button>
+          ) : null}
+        </div>
       </dd>
     </div>
   );
@@ -387,7 +398,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
       {!loading ? (
         <Link
           className="b3-agent-detail__activity-audit b3-agent-detail__activity-audit--inline"
-          to="/platform/audit"
+          to={platformRoute("audit")}
           title="Open platform audit log"
         >
           Platform audit log
@@ -511,11 +522,11 @@ function AccountDetailPanel({
     merchantChildren.length,
   ]);
   const detailHref = isSub
-    ? `/platform/agents/${node.id}`
+    ? platformRoute(`agents/${node.id}`)
     : node.type === "merchant"
-      ? `/platform/merchants/${node.id}`
+      ? platformRoute(`merchants/${node.id}`)
       : node.type === "merchant_site" && node.parentId
-        ? `/platform/merchants/${node.parentId}?tab=sites`
+        ? `${platformRoute(`merchants/${node.parentId}`)}?tab=sites`
         : null;
   const detailLabel = isSub
     ? "Open agent detail"
@@ -739,10 +750,7 @@ function AccountDetailPanel({
                   {matchingMode ? matchingModeLabel(matchingMode) : "—"}
                 </dd>
               </div>
-              <ReadOnlyEmailField
-                label="Billing email"
-                email={orgMeta?.billingEmail}
-              />
+              <ContactField email={contactEmail} loading={contactLoading} />
               <div>
                 <dt>Onboarded</dt>
                 <dd>{formatOnboardDate(orgMeta?.createdAt)}</dd>
@@ -762,10 +770,6 @@ function AccountDetailPanel({
           {isSub ? (
             <>
               <ContactField email={contactEmail} loading={contactLoading} />
-              <ReadOnlyEmailField
-                label="Billing email"
-                email={orgMeta?.billingEmail}
-              />
               <WalletAddressField
                 address={walletAddress}
                 loading={walletLoading}
@@ -1432,7 +1436,7 @@ export function AgentDetailCard({
                     </ul>
                     <Link
                       className="b3-agent-detail__activity-audit"
-                      to="/platform/audit"
+                      to={platformRoute("audit")}
                       title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
                     >
                       Platform audit log
@@ -1563,7 +1567,7 @@ export function AgentDetailCard({
                           <td>
                             <Link
                               className="plat-bills__id"
-                              to={`/platform/service-bills/${bill.id}`}
+                              to={platformRoute(`service-bills/${bill.id}`)}
                             >
                               {formatBillId(bill.id)}
                             </Link>
@@ -1589,7 +1593,7 @@ export function AgentDetailCard({
                             </span>
                           </td>
                           <td>
-                            <Link to={`/platform/service-bills/${bill.id}`}>
+                            <Link to={platformRoute(`service-bills/${bill.id}`)}>
                               View
                             </Link>
                           </td>

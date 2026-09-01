@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 
 export type PortalAccessLink = {
-  to: string;
+  /** Same-origin react-router target (legacy combined host). */
+  to?: string;
+  /** Cross-portal absolute URL (dedicated subdomain). */
+  href?: string;
   label: string;
   primary?: boolean;
 };
@@ -11,6 +14,7 @@ type Props = {
   description: string;
   roles: readonly string[];
   links: readonly PortalAccessLink[];
+  onSignOut?: () => void;
 };
 
 export function PortalAccessGate({
@@ -18,6 +22,7 @@ export function PortalAccessGate({
   description,
   roles,
   links,
+  onSignOut,
 }: Props) {
   return (
     <div className="login-wrap portal-access-gate-wrap">
@@ -55,25 +60,33 @@ export function PortalAccessGate({
             ))}
           </ul>
           <div className="portal-access-gate__actions">
-            {links.map((link) =>
-              link.primary ? (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="btn-primary portal-access-gate__btn"
-                >
+            {links.map((link) => {
+              const key = link.href ?? link.to ?? link.label;
+              const className = link.primary
+                ? "btn-primary portal-access-gate__btn"
+                : "btn-secondary portal-access-gate__btn";
+              if (link.href) {
+                return (
+                  <a key={key} href={link.href} className={className}>
+                    {link.label}
+                  </a>
+                );
+              }
+              return (
+                <Link key={key} to={link.to ?? "/"} className={className}>
                   {link.label}
                 </Link>
-              ) : (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="btn-secondary portal-access-gate__btn"
-                >
-                  {link.label}
-                </Link>
-              ),
-            )}
+              );
+            })}
+            {onSignOut ? (
+              <button
+                type="button"
+                className="portal-access-gate__sign-out"
+                onClick={onSignOut}
+              >
+                Sign out to switch account
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

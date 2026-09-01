@@ -6,7 +6,7 @@ One module per network. Do not put Tron/ETH/BTC switches in a single watcher fil
 
 | Module | Network id | Status |
 | --- | --- | --- |
-| `tron/` | `tron` | Live ingest (TronGrid when `TRON_RPC_URL` set) |
+| `tron/` | `tron` / `tron_nile` | Live ingest — `TRON_RPC_URL` (mainnet) + `TRON_NILE_RPC_URL` (Nile) |
 | `ethereum/` | `ethereum` | Client ready — enable after M3-32 staging smoke (`ETH_RPC_URL`) |
 | `bnb_smart_chain/` | `bnb_smart_chain` | Client ready (X-06) — stub until `BSC_RPC_URL`; create-order 422 until registry `enabled: true` |
 

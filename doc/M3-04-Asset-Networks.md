@@ -36,6 +36,7 @@ Local/staging only: `USDT` + `tron_nile` when `CRYPTOGATE_CHAIN_ENV=testnet` (ne
 | Asset | Network id | Guest label | Registry | Env URL |
 | --- | --- | --- | --- | --- |
 | USDT | `tron` | TRON TRC-20 | `USDT_TRON` | `TRON_RPC_URL` (+ optional `TRON_API_KEY`) |
+| USDT | `tron_nile` | TRON Nile (testnet) | `USDT_TRON_NILE` | `TRON_NILE_RPC_URL` (or Nile companion when `TRON_RPC_URL` is mainnet) |
 | USDT | `ethereum` | Ethereum ERC-20 | `USDT_ETHEREUM` | `ETH_RPC_URL` |
 | USDT | `bnb_smart_chain` | BNB Smart Chain BEP-20 | `USDT_BNB_SMART_CHAIN` | `BSC_RPC_URL` |
 | USDT | `polygon` | Polygon PoS | `USDT_POLYGON` | `POLYGON_RPC_URL` |
@@ -62,7 +63,7 @@ Native `TRX` / `ETH` / `BTC` are **not** interchangeable with USDT/USDC on the s
 | Pair | Decimals | Confirmations | Mode D (memo) |
 | --- | --- | --- | --- |
 | USDT Tron (mainnet) / TRX | 6 | 19 | Off |
-| USDT Nile (testnet) | 6 | 3 | Off |
+| USDT Nile (testnet) | 6 | 19 (same as mainnet Tron) | Off |
 | USDT Ethereum / Polygon / Arbitrum / Solana / TON | 6 | 12–64 | Off |
 | USDT BSC | **18** | 15 | Off |
 | USDC (all) | 6 | 12–64 | Off |

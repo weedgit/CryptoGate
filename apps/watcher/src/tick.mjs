@@ -19,6 +19,7 @@ import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
 import { getWatcherPool } from "./db/pool.mjs";
 import { persistTickHeartbeats } from "./health/heartbeat-store.mjs";
+import { mapPool } from "./map-pool.mjs";
 import { processTransferBatch } from "./match/inbound.mjs";
 import {
   applyConfirmationUpdate,
@@ -38,8 +39,10 @@ import {
 /**
  * @param {import("pg").Pool} pool
  * @param {{ asset: string, network: string }} filter
+ * @param {{ confirmConcurrency?: number }} [opts]
  */
-async function ingestScope(pool, filter) {
+async function ingestScope(pool, filter, opts = {}) {
+  const confirmConcurrency = opts.confirmConcurrency ?? 8;
   const chain = await loadChainClient(filter.network);
 
   const openOrders = await listOpenOrdersForMatch(pool, filter);
@@ -104,8 +107,17 @@ async function ingestScope(pool, filter) {
   });
 
   const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
+  const freshTx = new Set(
+    matchOutcomes
+      .filter((o) => o.status === "verifying" && o.txHash)
+      .map((o) => String(o.txHash).trim()),
+  );
+  const toConfirm = awaiting.filter((o) =>
+    freshTx.has(String(o.txHash ?? "").trim()),
+  );
   const confirmOutcomes = await processConfirmationBatch({
-    orders: awaiting,
+    orders: toConfirm,
+    concurrency: confirmConcurrency,
     getConfirmationState: (args) =>
       chain.getTransactionConfirmationState({
         ...args,
@@ -137,7 +149,7 @@ async function ingestScope(pool, filter) {
     matchOutcomes,
     fromAddressBackfilled: fromBackfill.updated,
     receivedAmountBackfilled: receivedBackfill.updated,
-    awaitingConfirmations: awaiting.length,
+    awaitingConfirmations: toConfirm.length,
     confirmOutcomes,
     restartSafe: true,
     reorgAware: true,
@@ -148,8 +160,11 @@ async function ingestScope(pool, filter) {
 /**
  * Fast confirmation pass for all verifying orders (before heavy per-scope ingest).
  * @param {import("pg").Pool} pool
+ * @param {{ confirmConcurrency?: number, scopeConcurrency?: number }} [opts]
  */
-async function processPriorityConfirmations(pool) {
+async function processPriorityConfirmations(pool, opts = {}) {
+  const confirmConcurrency = opts.confirmConcurrency ?? 8;
+  const scopeConcurrency = opts.scopeConcurrency ?? 4;
   const orders = await listAllOrdersAwaitingConfirmations(pool);
   if (orders.length === 0) {
     return { priorityConfirmations: 0, priorityConfirmOutcomes: [] };
@@ -164,13 +179,13 @@ async function processPriorityConfirmations(pool) {
     else byScope.set(key, [order]);
   }
 
-  /** @type {Array<Record<string, unknown>>} */
-  const priorityConfirmOutcomes = [];
-  for (const [key, group] of byScope) {
+  const groups = [...byScope.entries()];
+  const nested = await mapPool(groups, scopeConcurrency, async ([key, group]) => {
     const [asset, network] = key.split(":");
     const chain = await loadChainClient(network);
-    const outcomes = await processConfirmationBatch({
+    return processConfirmationBatch({
       orders: group,
+      concurrency: confirmConcurrency,
       getConfirmationState: (args) =>
         chain.getTransactionConfirmationState({
           ...args,
@@ -179,12 +194,11 @@ async function processPriorityConfirmations(pool) {
         }),
       apply: (args) => applyConfirmationUpdate(pool, args),
     });
-    priorityConfirmOutcomes.push(...outcomes);
-  }
+  });
 
   return {
     priorityConfirmations: orders.length,
-    priorityConfirmOutcomes,
+    priorityConfirmOutcomes: nested.flat(),
   };
 }
 
@@ -268,15 +282,29 @@ function aggregateIngest(scopeResults) {
  * @param {{ tick: number; startedAt: string; config: ReturnType<import('./config.mjs').loadWatcherConfig> }} ctx
  */
 export async function runTick(ctx) {
-  const tron = await tronHealthCheck();
-  const ethereum = await ethHealthCheck();
-  const bnbSmartChain = await bscHealthCheck();
-  const polygon = await polygonHealthCheck();
-  const arbitrumOne = await arbitrumHealthCheck();
-  const base = await baseHealthCheck();
-  const solana = await solanaHealthCheck();
-  const ton = await tonHealthCheck();
-  const bitcoin = await bitcoinHealthCheck();
+  const [
+    tron,
+    tronNile,
+    ethereum,
+    bnbSmartChain,
+    polygon,
+    arbitrumOne,
+    base,
+    solana,
+    ton,
+    bitcoin,
+  ] = await Promise.all([
+    tronHealthCheck({ network: "tron" }),
+    tronHealthCheck({ network: "tron_nile" }),
+    ethHealthCheck(),
+    bscHealthCheck(),
+    polygonHealthCheck(),
+    arbitrumHealthCheck(),
+    baseHealthCheck(),
+    solanaHealthCheck(),
+    tonHealthCheck(),
+    bitcoinHealthCheck(),
+  ]);
 
   /** @type {Record<string, unknown>} */
   let ingest = {
@@ -296,58 +324,67 @@ export async function runTick(ctx) {
   if (ctx.config.databaseUrl) {
     try {
       const pool = getWatcherPool();
-      const priorityConfirm = await processPriorityConfirmations(pool);
+      const confirmConcurrency = ctx.config.confirmConcurrency;
+      const scopeConcurrency = ctx.config.scopeConcurrency;
+      const priorityConfirm = await processPriorityConfirmations(pool, {
+        confirmConcurrency,
+        scopeConcurrency,
+      });
       const openScopes = ctx.config.multiNetwork
         ? await listDistinctWatchScopes(pool)
         : [];
       targets = resolveWatchScopes(ctx.config, openScopes);
 
-      /** @type {Array<Record<string, unknown>>} */
-      const scopeResults = [];
-      for (const filter of targets) {
-        try {
-          const result = await withScopeTimeout(
-            ingestScope(pool, filter),
-            ctx.config.scopeTimeoutMs,
-            filter,
-          );
-          scopeResults.push(result);
-          const prev = ingestByNetwork[filter.network];
-          if (!prev) {
-            ingestByNetwork[filter.network] = result;
-          } else {
-            ingestByNetwork[filter.network] = {
-              ...result,
-              openOrders:
-                (Number(prev.openOrders) || 0) +
-                (Number(result.openOrders) || 0),
-              transfersSeen:
-                (Number(prev.transfersSeen) || 0) +
-                (Number(result.transfersSeen) || 0),
-              awaitingConfirmations:
-                (Number(prev.awaitingConfirmations) || 0) +
-                (Number(result.awaitingConfirmations) || 0),
-              watchedAddresses:
-                (Number(prev.watchedAddresses) || 0) +
-                (Number(result.watchedAddresses) || 0),
-              assets: [
-                ...new Set([
-                  ...(Array.isArray(prev.assets) ? prev.assets : [prev.asset]),
-                  result.asset,
-                ]),
-              ],
+      const scopeResults = await mapPool(
+        targets,
+        scopeConcurrency,
+        async (filter) => {
+          try {
+            return await withScopeTimeout(
+              ingestScope(pool, filter, { confirmConcurrency }),
+              ctx.config.scopeTimeoutMs,
+              filter,
+            );
+          } catch (err) {
+            return {
+              asset: filter.asset,
+              network: filter.network,
+              mode: "error",
+              phase: "m3-40",
+              error: err instanceof Error ? err.message : String(err),
             };
           }
-        } catch (err) {
-          const failed = {
-            asset: filter.asset,
-            network: filter.network,
-            mode: "error",
-            phase: "m3-40",
-            error: err instanceof Error ? err.message : String(err),
+        },
+      );
+
+      for (const result of scopeResults) {
+        const network = String(result.network ?? "");
+        const prev = ingestByNetwork[network];
+        if (!prev) {
+          ingestByNetwork[network] = result;
+        } else if (result.mode === "error" && prev.mode !== "error") {
+          continue;
+        } else {
+          ingestByNetwork[network] = {
+            ...result,
+            openOrders:
+              (Number(prev.openOrders) || 0) + (Number(result.openOrders) || 0),
+            transfersSeen:
+              (Number(prev.transfersSeen) || 0) +
+              (Number(result.transfersSeen) || 0),
+            awaitingConfirmations:
+              (Number(prev.awaitingConfirmations) || 0) +
+              (Number(result.awaitingConfirmations) || 0),
+            watchedAddresses:
+              (Number(prev.watchedAddresses) || 0) +
+              (Number(result.watchedAddresses) || 0),
+            assets: [
+              ...new Set([
+                ...(Array.isArray(prev.assets) ? prev.assets : [prev.asset]),
+                result.asset,
+              ]),
+            ],
           };
-          scopeResults.push(failed);
-          ingestByNetwork[filter.network] = failed;
         }
       }
 
@@ -378,6 +415,7 @@ export async function runTick(ctx) {
     targets,
     chain: {
       tron,
+      tron_nile: tronNile,
       ethereum,
       bnb_smart_chain: bnbSmartChain,
       polygon,

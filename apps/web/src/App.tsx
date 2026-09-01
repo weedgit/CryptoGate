@@ -1,17 +1,55 @@
+import { Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AgentApp } from "./agent/AgentApp";
-import { MerchantApp } from "./merchant/MerchantApp";
-import { PlatformApp } from "./platform/PlatformApp";
+import { PortalShellBoot } from "./auth/PortalShellBoot";
+import { lazyNamed } from "./shared/lazyNamed";
+import { RouteErrorBoundary } from "./shared/RouteErrorBoundary";
+import { merchantRoute, portalFromHostname } from "./shared/portalRouting";
 
-export function App() {
+const PlatformApp = lazyNamed(
+  () => import("./platform/PlatformApp"),
+  "PlatformApp",
+);
+const AgentApp = lazyNamed(() => import("./agent/AgentApp"), "AgentApp");
+const MerchantApp = lazyNamed(
+  () => import("./merchant/MerchantApp"),
+  "MerchantApp",
+);
+
+function PortalFallback() {
+  return (
+    <PortalShellBoot title="Loading portal" copy="Opening your workspace" />
+  );
+}
+
+function LegacyPortalRoutes() {
   return (
     <Routes>
       <Route path="/platform/*" element={<PlatformApp />} />
       <Route path="/agent/*" element={<AgentApp />} />
       <Route path="/merchant/*" element={<MerchantApp />} />
-      <Route path="/login" element={<Navigate to="/merchant" replace />} />
-      <Route path="/" element={<Navigate to="/merchant" replace />} />
-      <Route path="*" element={<Navigate to="/merchant" replace />} />
+      <Route path="/login" element={<Navigate to={merchantRoute()} replace />} />
+      <Route path="/" element={<Navigate to={merchantRoute()} replace />} />
+      <Route path="*" element={<Navigate to={merchantRoute()} replace />} />
     </Routes>
+  );
+}
+
+export function App() {
+  const dedicatedPortal = portalFromHostname();
+
+  return (
+    <RouteErrorBoundary>
+      <Suspense fallback={<PortalFallback />}>
+        {dedicatedPortal === "platform" ? (
+          <PlatformApp />
+        ) : dedicatedPortal === "agent" ? (
+          <AgentApp />
+        ) : dedicatedPortal === "merchant" ? (
+          <MerchantApp />
+        ) : (
+          <LegacyPortalRoutes />
+        )}
+      </Suspense>
+    </RouteErrorBoundary>
   );
 }

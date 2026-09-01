@@ -71,7 +71,7 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
     assert.match(app, /DashboardPage/);
     assert.match(app, /OrdersListPage/);
     assert.match(app, /OrderDetailPage/);
-    assert.match(app, /Navigate to="\/merchant"/);
+    assert.match(app, /Navigate to=\{merchantRoute\(\)\}/);
   });
 
   it("lists and exports orders via API helpers", () => {
@@ -220,10 +220,11 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /NotificationsSettingsPage/);
     assert.match(app, /TeamSettingsPage/);
+    assert.match(app, /RequireMerchantPortal/);
     assert.match(app, /settings\/organization/);
     assert.match(app, /settings\/billing/);
-    assert.match(app, /Navigate to="\/merchant\/settings\/team"/);
-    assert.match(app, /Navigate to="\/merchant\/service-bills"/);
+    assert.match(app, /Navigate to=\{merchantRoute\("settings\/team"\)\}/);
+    assert.match(app, /Navigate to=\{merchantRoute\("service-bills"\)\}/);
     assert.match(app, /settings\/notifications/);
     assert.match(app, /settings\/team/);
     assert.doesNotMatch(app, /OrganizationSettingsPage/);
@@ -238,6 +239,10 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
     const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
     assert.match(team, /Only the Owner can add or remove team members/i);
     assert.match(team, /inviteOrgUser/);
+    assert.match(team, /inviteRoleOptions/);
+    const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
+    assert.match(org, /sessionIsMerchantStaff/);
+    assert.doesNotMatch(org, /orgType == null/);
     assert.match(team, /plat-team__org/);
     const bills = readFileSync(
       join(root, "src/merchant/ServiceBillsListPage.tsx"),
@@ -251,19 +256,26 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
 describe("@cryptogate/web merchant D7-D9 sites", () => {
   it("wires sites list, create, and detail routes", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /SitesListPage/);
-    assert.match(app, /CreateSitePage/);
-    assert.match(app, /SiteDetailPage/);
-    assert.match(app, /sites\/new/);
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantSitesRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(app, /MerchantSitesRoutes/);
+    assert.match(app, /sites\/\*/);
+    assert.match(routes, /SitesListPage/);
+    assert.match(routes, /CreateSiteModal/);
+    assert.match(routes, /SiteDetailPage/);
+    assert.match(routes, /sites\/new/);
   });
 
   it("creates merchant_site via org API", () => {
     const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
     assert.match(api, /createOrg/);
     assert.match(api, /deleteOrg/);
-    const create = readFileSync(join(root, "src/merchant/CreateSitePage.tsx"), "utf8");
+    const create = readFileSync(join(root, "src/merchant/CreateSiteModal.tsx"), "utf8");
     assert.match(create, /merchant_site/);
-    assert.match(create, /multi-location|inherit/i);
+    assert.match(create, /inherit/i);
+    assert.match(create, /b3-commission-modal/);
     const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
     assert.match(list, /multi_location/);
     const detail = readFileSync(join(root, "src/merchant/SiteDetailPage.tsx"), "utf8");

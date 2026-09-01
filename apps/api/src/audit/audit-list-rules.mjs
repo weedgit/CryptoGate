@@ -57,7 +57,17 @@ export function toAuditLogEntry(row) {
   if (row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)) {
     metadata = row.metadata;
   }
-  return {
+  /** @type {{
+   *   id: string,
+   *   actorUserId: string | null,
+   *   orgId: string | null,
+   *   action: string,
+   *   metadata: Record<string, string | number | boolean | null>,
+   *   createdAt: string,
+   *   actorEmail?: string,
+   *   actorDisplayName?: string,
+   * }} */
+  const entry = {
     id: row.id,
     actorUserId: row.actor_user_id ?? null,
     orgId: row.org_id ?? null,
@@ -68,4 +78,14 @@ export function toAuditLogEntry(row) {
         ? row.created_at.toISOString()
         : String(row.created_at),
   };
+  if (typeof row.actor_email === "string" && row.actor_email.trim()) {
+    entry.actorEmail = row.actor_email.trim();
+  }
+  if (
+    typeof row.actor_display_name === "string" &&
+    row.actor_display_name.trim()
+  ) {
+    entry.actorDisplayName = row.actor_display_name.trim();
+  }
+  return entry;
 }

@@ -38,7 +38,7 @@ export async function findActiveSessionByToken(token) {
   const tokenHash = hashSessionToken(token);
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, user_id, mfa_verified_at
+    `SELECT id, user_id, mfa_verified_at, expires_at
      FROM sessions
      WHERE token_hash = $1
        AND revoked_at IS NULL
@@ -51,6 +51,10 @@ export async function findActiveSessionByToken(token) {
     sessionId: row.id,
     userId: row.user_id,
     mfaVerified: row.mfa_verified_at != null,
+    expiresAt:
+      row.expires_at instanceof Date
+        ? row.expires_at
+        : new Date(String(row.expires_at)),
   };
 }
 

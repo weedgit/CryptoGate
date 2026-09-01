@@ -8,7 +8,6 @@ export type PlatformOrgTreeNode = {
   status: string;
   structure?: string | null;
   country?: string | null;
-  billingEmail?: string | null;
   legalName?: string | null;
   createdAt?: string | null;
   orderCreateSuspended?: boolean;
@@ -82,7 +81,6 @@ export function buildPlatformOrgForest(
       status: org.status ?? "active",
       structure: org.structure ?? null,
       country: org.country ?? null,
-      billingEmail: org.billingEmail ?? null,
       legalName: org.legalName ?? null,
       createdAt: org.createdAt ?? null,
       orderCreateSuspended: org.orderCreateSuspended === true,
@@ -260,17 +258,20 @@ export function childTypeCounts(node: PlatformOrgTreeNode): {
   return { agents, merchants, sites, total: node.children.length };
 }
 
+import { platformRoute } from "../shared/portalRouting";
+
 export function orgDetailHref(
   type: string,
   id: string,
   parentId?: string | null,
 ): string | null {
-  if (type === "platform") return "/platform/settings/team";
-  if (type === "agent" || type === "agent_sub") return `/platform/agents/${id}`;
-  if (type === "merchant") return `/platform/merchants/${id}`;
+  if (type === "platform") return platformRoute("settings/team");
+  if (type === "agent" || type === "agent_sub")
+    return platformRoute(`agents/${id}`);
+  if (type === "merchant") return platformRoute(`merchants/${id}`);
   if (type === "merchant_site") {
     if (!parentId) return null;
-    return `/platform/merchants/${parentId}?tab=sites`;
+    return `${platformRoute(`merchants/${parentId}`)}?tab=sites`;
   }
   return null;
 }
@@ -285,7 +286,7 @@ export function orgDetailLabel(type: string): string | null {
 
 /** Onboard route for a single child type (platform → agent only). */
 export function orgAddChildHref(type: string): string | null {
-  if (type === "platform") return "/platform/agents/new";
+  if (type === "platform") return platformRoute("agents/new");
   return null;
 }
 

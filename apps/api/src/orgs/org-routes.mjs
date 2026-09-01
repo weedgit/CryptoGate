@@ -13,6 +13,7 @@ import {
   deleteOrgCascade,
   summarizeOrgDeleteImpact,
 } from "./org-delete.mjs";
+import { invalidatePlatformOrgListCache } from "./org-list-cache.mjs";
 import {
   agentDepthOfParent,
   countChildOrgs,
@@ -411,6 +412,7 @@ export async function handleCreateOrg(req, res) {
     sendError(res, 403, "platform_exists", "Platform org already exists");
     return;
   }
+  invalidatePlatformOrgListCache();
 
   if (inserted.row.type === "platform") {
     await insertMembership({

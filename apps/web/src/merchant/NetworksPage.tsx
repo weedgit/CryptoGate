@@ -4,6 +4,7 @@ import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import {
   computeOrderabilityLamp,
+  pendingOrderabilityLamp,
   type NetworkLamp,
 } from "../shared/networkLamp";
 import { networkShortLabel, visibleRegistry } from "../shared/assetNetworks";
@@ -21,8 +22,10 @@ function shortContract(addr: string | null): string {
 function asLamp(
   raw: NetworkOrderabilityLamp | NetworkLamp | undefined,
   row: AssetNetworkConfig,
+  loaded: boolean,
 ): NetworkLamp {
   if (raw) return raw as NetworkLamp;
+  if (!loaded) return pendingOrderabilityLamp(row.enabled);
   return computeOrderabilityLamp({
     enabled: row.enabled,
     maintenanceActive: false,
@@ -64,7 +67,7 @@ export function NetworksPage() {
         }
         setLampByPair(byPair);
       } catch {
-        if (!cancelled) setLampByPair(null);
+        if (!cancelled) setLampByPair(new Map());
       }
     })();
     return () => {
@@ -79,6 +82,7 @@ export function NetworksPage() {
       const code = asLamp(
         lampByPair?.get(`${row.asset}:${row.network}`),
         row,
+        lampByPair !== null,
       ).code;
       if (code === "open") open += 1;
       else if (code === "paused") paused += 1;
@@ -185,6 +189,7 @@ export function NetworksPage() {
             const lamp = asLamp(
               lampByPair?.get(`${row.asset}:${row.network}`),
               row,
+              lampByPair !== null,
             );
             const dimmed = lamp.code === "off";
             return (

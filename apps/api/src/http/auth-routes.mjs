@@ -9,7 +9,11 @@ import {
 } from "../auth/users.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
 import { sessionFromUser } from "../auth/session-payload.mjs";
-import { activatePendingMfa, setPendingMfaSecret } from "../auth/mfa.mjs";
+import {
+  activatePendingMfa,
+  clearUserMfa,
+  setPendingMfaSecret,
+} from "../auth/mfa.mjs";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "../auth/totp.mjs";
 import {
   createPasswordResetToken,
@@ -19,15 +23,12 @@ import {
 import { validatePasswordReset } from "../auth/password-policy.mjs";
 import {
   createSession,
-  extendSessionByToken,
   findActiveSessionByToken,
   markSessionMfaVerified,
   revokeSessionByToken,
 } from "../auth/sessions.mjs";
-import {
-  ALLOWED_SESSION_TIMEOUT_MINUTES,
-  DEFAULT_SESSION_TIMEOUT_MINUTES,
-} from "../platform-settings/org-policy-store.mjs";
+import { ALLOWED_SESSION_TIMEOUT_MINUTES } from "../platform-settings/org-policy-store.mjs";
+import { ttlMsForUser } from "./session-ttl.mjs";
 import {
   clearSessionCookie,
   getSessionToken,
@@ -41,7 +42,10 @@ import { canEnrollMfa } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { sendPasswordResetEmail } from "../mail/auth-mail.mjs";
-import { passwordResetUrl } from "../mail/portal-links.mjs";
+import {
+  inviteRelativePathForToken,
+  passwordResetUrl,
+} from "../mail/portal-links.mjs";
 
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
 const INVALID_MFA = "Invalid MFA code";
@@ -51,35 +55,23 @@ function setSessionCookie(res, token, ttlMs) {
   res.setHeader("Set-Cookie", sessionCookie(token, { maxAgeSec }));
 }
 
-/**
- * @param {{ sessionTimeoutMinutes?: number } | null | undefined} user
- */
-function ttlMsForUser(user) {
-  const mins = Number(user?.sessionTimeoutMinutes);
-  if (ALLOWED_SESSION_TIMEOUT_MINUTES.includes(mins)) {
-    return mins * 60 * 1000;
-  }
-  return DEFAULT_SESSION_TIMEOUT_MINUTES * 60 * 1000;
-}
-
-async function sessionPayload(user) {
-  const memberships = await listMembershipsForUser(user.id);
-  const full = await findUserById(user.id);
+async function sessionPayload(user, memberships) {
+  const memberRows =
+    memberships ?? (await listMembershipsForUser(user.id));
   return sessionFromUser(
     {
       id: user.id,
       email: user.email,
-      mustChangePassword:
-        user.mustChangePassword === true || full?.mustChangePassword === true,
-      mfaEnrolled: user.mfaEnrolled === true || full?.mfaEnrolled === true,
-      displayName: full?.displayName ?? user.displayName ?? null,
-      locale: full?.locale ?? user.locale ?? "en",
-      timezone: full?.timezone ?? user.timezone ?? "UTC",
-      mfaEnforcement: full?.mfaEnforcement === true,
-      sessionTimeoutMinutes:
-        full?.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+      mustChangePassword: user.mustChangePassword === true,
+      mfaEnrolled: user.mfaEnrolled === true,
+      mfaEnrollmentPending: user.mfaEnrollmentPending === true,
+      displayName: user.displayName ?? null,
+      locale: user.locale ?? "en",
+      timezone: user.timezone ?? "UTC",
+      mfaEnforcement: user.mfaEnforcement === true,
+      sessionTimeoutMinutes: user.sessionTimeoutMinutes,
     },
-    memberships,
+    memberRows,
   );
 }
 
@@ -109,7 +101,7 @@ export async function handleLogin(req, res) {
     return;
   }
 
-  const ttlMs = await ttlMsForUser(await findUserById(user.id));
+  const ttlMs = ttlMsForUser(await findUserById(user.id));
   const created = await createSession({
     userId: user.id,
     ttlMs,
@@ -161,10 +153,7 @@ export async function handleGetSession(req, res) {
     return;
   }
 
-  const ttlMs = ttlMsForUser(user);
-  await extendSessionByToken(caller.token, { ttlMs });
-  setSessionCookie(res, caller.token, ttlMs);
-  sendJson(res, 200, await sessionPayload(user));
+  sendJson(res, 200, await sessionPayload(user, caller.memberships));
 }
 
 /**
@@ -191,6 +180,15 @@ export async function handleMfaEnroll(req, res) {
     return;
   }
 
+  if (user.mfaPendingSecret) {
+    sendJson(res, 200, {
+      secret: user.mfaPendingSecret,
+      otpauthUrl: otpauthUrl(user.email, user.mfaPendingSecret),
+      resumed: true,
+    });
+    return;
+  }
+
   const secret = generateTotpSecret();
   await setPendingMfaSecret(user.id, secret);
   await insertAuditEvent({
@@ -200,7 +198,61 @@ export async function handleMfaEnroll(req, res) {
   sendJson(res, 200, {
     secret,
     otpauthUrl: otpauthUrl(user.email, secret),
+    resumed: false,
   });
+}
+
+/**
+ * Replace authenticator — clears enrolled/pending MFA after password check.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handleMfaReset(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+
+  if (!canEnrollMfa(auth.memberships)) {
+    sendError(res, 403, "forbidden", "Only Owner or Administrator may reset MFA");
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const currentPassword =
+    typeof body?.currentPassword === "string" ? body.currentPassword : "";
+  if (!currentPassword) {
+    sendError(res, 400, "invalid_request", "currentPassword is required");
+    return;
+  }
+
+  const profile = await findUserById(auth.userId);
+  if (!profile) {
+    sendError(res, 401, "unauthorized", "Not authenticated");
+    return;
+  }
+  const user = await findUserByEmail(profile.email);
+  if (!user) {
+    sendError(res, 401, "unauthorized", "Not authenticated");
+    return;
+  }
+  const ok = await verifyPassword(currentPassword, user.passwordHash);
+  if (!ok) {
+    sendError(res, 401, "invalid_credentials", "Current password is incorrect");
+    return;
+  }
+
+  await clearUserMfa(user.id);
+  await insertAuditEvent({
+    actorUserId: user.id,
+    action: AUDIT_ACTIONS.mfaReset,
+  });
+  sendJson(res, 200, await sessionPayload({ id: user.id, email: user.email }));
 }
 
 /**
@@ -295,7 +347,7 @@ export async function handleForgotPassword(req, res) {
     await sendPasswordResetEmail({ to: user.email, resetUrl });
     if (process.env.PASSWORD_RESET_EXPOSE_LINK === "true") {
       sendJson(res, 200, {
-        resetPath: `/merchant/reset-password?token=${encodeURIComponent(rawToken)}`,
+        resetPath: inviteRelativePathForToken(rawToken),
         resetUrl,
       });
       return;

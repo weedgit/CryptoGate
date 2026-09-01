@@ -19,6 +19,7 @@ import { FundAmount } from "./FundAmount";
 import { matchingModeLabel } from "../merchant/matchingLabels";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
+import { platformRoute } from "../shared/portalRouting";
 import {
   SortHeader,
   compareDate,
@@ -568,7 +569,7 @@ export function CompliancePage() {
                     <td>
                       <Link
                         className="plat-compliance__order"
-                        to={`/platform/orders/${encodeURIComponent(order.id)}`}
+                        to={platformRoute(`orders/${encodeURIComponent(order.id)}`)}
                         title={orderTitle}
                       >
                         {order.orderNumber}
@@ -578,7 +579,7 @@ export function CompliancePage() {
                       {orgId ? (
                         <Link
                           className="plat-compliance__merchant"
-                          to={`/platform/merchants/${orgId}?tab=compliance`}
+                          to={`${platformRoute(`merchants/${orgId}`)}?tab=compliance`}
                           title={`Open ${merchantName}`}
                         >
                           {merchantName}

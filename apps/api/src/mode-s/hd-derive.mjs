@@ -4,6 +4,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { base58check } from "@scure/base";
 import { createHash } from "node:crypto";
+import { isWatchOnlyXpub } from "../security/spend-material.mjs";
 
 const b58check = base58check(sha256);
 
@@ -43,10 +44,16 @@ export function deriveTronAddressFromXpub(xpub, hdIndex) {
   if (!Number.isInteger(hdIndex) || hdIndex < 0) {
     throw new Error("hdIndex must be a non-negative integer");
   }
+  if (!isWatchOnlyXpub(xpub)) {
+    throw new Error("xPub is not a valid BIP32 public key");
+  }
   let root;
   try {
     root = HDKey.fromExtendedKey(xpub);
   } catch {
+    throw new Error("xPub is not a valid BIP32 public key");
+  }
+  if (root.privateKey) {
     throw new Error("xPub is not a valid BIP32 public key");
   }
   const child = root.derive(`m/0/${hdIndex}`);

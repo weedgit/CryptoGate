@@ -1,5 +1,6 @@
 /**
- * Tron chain client — TRC-20 + native TRX via TronGrid when TRON_RPC_URL is set.
+ * Tron chain client — TRC-20 + native TRX via TronGrid.
+ * Mainnet: TRON_RPC_URL. Nile: TRON_NILE_RPC_URL (or Nile companion when mainnet URL is set).
  * No imports from apps/api.
  */
 
@@ -31,8 +32,11 @@ export {
 
 /** @typedef {{ ok: boolean; network: string; mode: string; rpcConfigured: boolean; asset: string }} TronHealth */
 
-export async function healthCheck() {
-  const cfg = getTronRuntimeConfig(AssetCode.USDT);
+/**
+ * @param {{ asset?: string, network?: string }} [opts]
+ */
+export async function healthCheck(opts = {}) {
+  const cfg = getTronRuntimeConfig(opts.asset ?? AssetCode.USDT, opts.network);
   return {
     ok: true,
     network: cfg.network,

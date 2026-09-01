@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   platformBillingPayToFallback,
-  platformInvoiceSeller,
+  resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
 import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
@@ -17,6 +18,7 @@ import { formatShortTime } from "../merchant/orderStatus";
 import {
   ApiError,
   getServiceBill,
+  listOrgUsers,
   listOrgs,
   type OrgAccount,
   type ServiceBill,
@@ -107,6 +109,7 @@ export function ServiceBillDetailPage() {
   const invoiceRef = useRef<HTMLElement | null>(null);
   const [bill, setBill] = useState<ServiceBill | null>(null);
   const [merchant, setMerchant] = useState<OrgAccount | null>(null);
+  const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,8 +119,14 @@ export function ServiceBillDetailPage() {
     setError(null);
     try {
       const [row, orgs] = await Promise.all([getServiceBill(id), listOrgs()]);
+      const members = await listOrgUsers(row.orgId).catch(() => []);
       setBill(row);
       setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
+      const preferred =
+        members.find((m) => /owner/i.test(m.role)) ??
+        members.find((m) => /admin/i.test(m.role)) ??
+        members[0];
+      setBuyerContactEmail(preferred?.email?.trim() || null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load bill");
     } finally {
@@ -160,14 +169,14 @@ export function ServiceBillDetailPage() {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this service bill.</p>
-        <Link className="plat-bill-detail__back" to="/agent/service-bills">
+        <Link className="plat-bill-detail__back" to={agentRoute("service-bills")}>
           ← Back to bills
         </Link>
       </div>
     );
   }
 
-  const seller = platformInvoiceSeller();
+  const seller = resolveServiceBillInvoiceSeller({ bill });
   const payTo =
     bill.rxAddress?.trim() ||
     bill.remittancePayTo?.trim() ||
@@ -190,7 +199,7 @@ export function ServiceBillDetailPage() {
             Merchant: {merchant?.name ?? bill.orgId}
           </span>
         </div>
-        <Link className="plat-bill-detail__back-btn" to="/agent/service-bills">
+        <Link className="plat-bill-detail__back-btn" to={agentRoute("service-bills")}>
           ← Back to bills
         </Link>
       </header>
@@ -202,7 +211,7 @@ export function ServiceBillDetailPage() {
             buyer={{
               name: merchant?.name ?? bill.orgId,
               legalName: merchant?.legalName,
-              billingEmail: merchant?.billingEmail,
+              contactEmail: buyerContactEmail,
               country: merchant?.country,
               orgId: bill.orgId,
             }}

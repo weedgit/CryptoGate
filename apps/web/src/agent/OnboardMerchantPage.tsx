@@ -27,6 +27,12 @@ import {
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
+import { agentRoute } from "../shared/portalRouting";
+
+function agentReturnPrefix(): string {
+  const base = agentRoute();
+  return base === "/" ? "/" : `${base}/`;
+}
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,7 +41,7 @@ function agentOnboardReturnPath(
   fallback: string,
 ): string {
   const raw = searchParams.get("returnTo")?.trim();
-  if (!raw || !raw.startsWith("/agent/")) return fallback;
+  if (!raw || !raw.startsWith(agentReturnPrefix())) return fallback;
   return raw;
 }
 
@@ -45,7 +51,6 @@ type WizardState = {
   structure: MerchantStructure;
   name: string;
   country: string;
-  billingContact: string;
   commercial: { tier: MerchantTier; volumeFeePercent: string };
   ownerEmail: string;
 };
@@ -108,7 +113,7 @@ export function OnboardMerchantPage({ session }: Props) {
   const [searchParams] = useSearchParams();
   const parentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const cancelTo = useMemo(
-    () => agentOnboardReturnPath(searchParams, "/agent/merchants"),
+    () => agentOnboardReturnPath(searchParams, agentRoute("merchants")),
     [searchParams],
   );
   const [step, setStep] = useState(0);
@@ -123,7 +128,6 @@ export function OnboardMerchantPage({ session }: Props) {
     structure: "single_location",
     name: "",
     country: "",
-    billingContact: "",
     commercial: { tier: "mid", volumeFeePercent: "1.2" },
     ownerEmail: "",
   });
@@ -266,7 +270,6 @@ export function OnboardMerchantPage({ session }: Props) {
         parentId,
         structure: form.structure,
         country: form.country.trim() || undefined,
-        billingEmail: form.billingContact.trim() || undefined,
         commercial: {
           tier: form.commercial.tier,
           volumeFeePercent: form.commercial.volumeFeePercent.trim(),
@@ -276,7 +279,7 @@ export function OnboardMerchantPage({ session }: Props) {
         email: form.ownerEmail.trim(),
         role: "owner",
       });
-      navigate(`/agent/merchants/${created.id}`, {
+      navigate(agentRoute(`merchants/${created.id}`), {
         state: {
           invitationSent: true,
           enterprisePending: form.commercial.tier === "enterprise",
@@ -410,35 +413,19 @@ export function OnboardMerchantPage({ session }: Props) {
                       />
                     </FieldControl>
                   </div>
-                  <div className="b4-field-row">
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="country">
-                        Country
-                      </label>
-                      <FieldControl icon="globe">
-                        <input
-                          id="country"
-                          className="b4-field__control"
-                          value={form.country}
-                          onChange={(e) => patch("country", e.target.value)}
-                          placeholder="Singapore (SG)"
-                        />
-                      </FieldControl>
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="billing">
-                        Billing contact
-                      </label>
-                      <FieldControl icon="mail">
-                        <input
-                          id="billing"
-                          className="b4-field__control"
-                          value={form.billingContact}
-                          onChange={(e) => patch("billingContact", e.target.value)}
-                          placeholder="Name@company.com"
-                        />
-                      </FieldControl>
-                    </div>
+                  <div className="b4-field">
+                    <label className="b4-field__label" htmlFor="country">
+                      Country
+                    </label>
+                    <FieldControl icon="globe">
+                      <input
+                        id="country"
+                        className="b4-field__control"
+                        value={form.country}
+                        onChange={(e) => patch("country", e.target.value)}
+                        placeholder="Singapore (SG)"
+                      />
+                    </FieldControl>
                   </div>
                 </>
               ) : null}
@@ -550,10 +537,6 @@ export function OnboardMerchantPage({ session }: Props) {
                   <div className="b4-review__row">
                     <dt>Country</dt>
                     <dd>{form.country.trim() || "—"}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Billing contact</dt>
-                    <dd>{form.billingContact.trim() || "—"}</dd>
                   </div>
                   <div className="b4-review__row">
                     <dt>Tier</dt>

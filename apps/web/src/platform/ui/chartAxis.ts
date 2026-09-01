@@ -1,23 +1,28 @@
-/** Compact axis labels: 0, 250, 1.2k, 3.4M (optional $ prefix). */
+/** Compact axis labels: 0, 250, 1.2k, 3.4M (optional USD suffix). */
 export function formatAxisNumber(n: number, money = false): string {
-  const prefix = money ? "$" : "";
-  if (n === 0) return `${prefix}0`;
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) {
-    const v = n / 1_000_000;
-    return `${prefix}${v.toLocaleString(undefined, {
-      maximumFractionDigits: v >= 10 ? 0 : 1,
-    })}M`;
+  const suffix = money ? " USD" : "";
+  let body: string;
+  if (n === 0) {
+    body = "0";
+  } else {
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) {
+      const v = n / 1_000_000;
+      body = `${v.toLocaleString(undefined, {
+        maximumFractionDigits: v >= 10 ? 0 : 1,
+      })}M`;
+    } else if (abs >= 1_000) {
+      const v = n / 1_000;
+      body = `${v.toLocaleString(undefined, {
+        maximumFractionDigits: v >= 10 ? 0 : 1,
+      })}k`;
+    } else {
+      body = n.toLocaleString(undefined, {
+        maximumFractionDigits: abs >= 100 ? 0 : 1,
+      });
+    }
   }
-  if (abs >= 1_000) {
-    const v = n / 1_000;
-    return `${prefix}${v.toLocaleString(undefined, {
-      maximumFractionDigits: v >= 10 ? 0 : 1,
-    })}k`;
-  }
-  return `${prefix}${n.toLocaleString(undefined, {
-    maximumFractionDigits: abs >= 100 ? 0 : 1,
-  })}`;
+  return `${body}${suffix}`;
 }
 
 export function niceAxisTicks(maxValue: number, targetCount = 4): number[] {
@@ -36,4 +41,12 @@ export function niceAxisTicks(maxValue: number, targetCount = 4): number[] {
     ticks.push(Number(v.toPrecision(12)));
   }
   return ticks;
+}
+
+/** Sparkline Y max — never zero so all-zero series sit on the baseline. */
+export function chartScaleTop(maxValue: number, targetCount = 4): number {
+  const max = Math.max(maxValue, 0);
+  const ticks = niceAxisTicks(max, targetCount);
+  const tickTop = ticks[ticks.length - 1] ?? 0;
+  return Math.max(tickTop, max || 1);
 }

@@ -1,32 +1,23 @@
 import { useEffect, useState } from "react";
+import {
+  ensureHealthPolling,
+  fetchSharedHealth,
+  subscribeSharedHealth,
+} from "./healthPolling";
 
 export function ServerConnectionStatus() {
   const [ok, setOk] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-    const probe = async () => {
-      try {
-        const base =
-          (import.meta.env.VITE_API_ORIGIN as string | undefined)?.replace(
-            /\/$/,
-            "",
-          ) || "";
-        const res = await fetch(`${base}/health`, {
-          headers: { Accept: "application/json" },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const payload = (await res.json()) as { status?: string };
-        if (!cancelled) setOk(payload.status === "ok");
-      } catch {
-        if (!cancelled) setOk(false);
-      }
+    ensureHealthPolling(true);
+    const sync = (health: Awaited<ReturnType<typeof fetchSharedHealth>>) => {
+      setOk(health !== "unreachable" && health.api);
     };
-    void probe();
-    const id = window.setInterval(() => void probe(), 15000);
+    const unsub = subscribeSharedHealth(sync);
+    void fetchSharedHealth(true).then(sync);
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      unsub();
+      ensureHealthPolling(false);
     };
   }, []);
 

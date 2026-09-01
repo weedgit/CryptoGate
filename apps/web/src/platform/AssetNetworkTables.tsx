@@ -10,6 +10,7 @@ import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import {
   computeOrderabilityLamp,
   NETWORK_LAMP_SORT_RANK,
+  pendingOrderabilityLamp,
   type NetworkLamp,
 } from "../shared/networkLamp";
 import { getNetworksStatus, type NetworkOrderabilityLamp } from "./api";
@@ -49,22 +50,18 @@ function rowKey(row: AssetNetworkConfig): string {
   return `${row.asset}:${row.network}`;
 }
 
-function fallbackLamp(row: AssetNetworkConfig): NetworkLamp {
-  // Until /networks/status loads: enabled → Down (unknown ingest), else Off.
-  return computeOrderabilityLamp({
-    enabled: row.enabled,
-    maintenanceActive: false,
-    ingestStatus: "unknown",
-  });
-}
-
 function lampForRow(
   row: AssetNetworkConfig,
   byPair: Map<string, NetworkOrderabilityLamp> | null,
 ): NetworkLamp {
   const fromApi = byPair?.get(rowKey(row));
   if (fromApi) return fromApi as NetworkLamp;
-  return fallbackLamp(row);
+  if (!byPair) return pendingOrderabilityLamp(row.enabled);
+  return computeOrderabilityLamp({
+    enabled: row.enabled,
+    maintenanceActive: false,
+    ingestStatus: "unknown",
+  });
 }
 
 function sortRows(
@@ -212,7 +209,7 @@ export function AssetNetworkTables({
         }
         setLampByPair(map);
       } catch {
-        if (!cancelled) setLampByPair(null);
+        if (!cancelled) setLampByPair(new Map());
       }
     })();
     return () => {

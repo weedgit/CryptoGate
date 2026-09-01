@@ -47,6 +47,10 @@ export function loadWatcherConfig() {
      * Chain HTTP also uses CHAIN_FETCH_TIMEOUT_MS (default 15s).
      */
     scopeTimeoutMs: readInt("WATCHER_SCOPE_TIMEOUT_MS", 60_000),
+    /** Parallel confirmation RPCs per batch (one HTTP per verifying tx). */
+    confirmConcurrency: readInt("WATCHER_CONFIRM_CONCURRENCY", 8),
+    /** Parallel asset+network ingest scopes per tick. */
+    scopeConcurrency: readInt("WATCHER_SCOPE_CONCURRENCY", 4),
   };
 }
 

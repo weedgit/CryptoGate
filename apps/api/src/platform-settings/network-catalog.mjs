@@ -75,6 +75,11 @@ function ingestFromHeartbeat(hb) {
   };
 }
 
+/** @type {{ payload: object | null, expiresAt: number }} */
+const catalogCache = { payload: null, expiresAt: 0 };
+
+const CATALOG_TTL_MS = 20_000;
+
 /**
  * @returns {Promise<{
  *   chainEnv: string,
@@ -83,6 +88,17 @@ function ingestFromHeartbeat(hb) {
  * }>}
  */
 export async function buildNetworkCatalog() {
+  const now = Date.now();
+  if (catalogCache.payload && catalogCache.expiresAt > now) {
+    return catalogCache.payload;
+  }
+  const payload = await buildNetworkCatalogFresh();
+  catalogCache.payload = payload;
+  catalogCache.expiresAt = now + CATALOG_TTL_MS;
+  return payload;
+}
+
+async function buildNetworkCatalogFresh() {
   const registry = listAssetNetworkRegistry();
   const byNet = new Map();
   for (const row of registry) {

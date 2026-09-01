@@ -9,6 +9,7 @@ import {
   toAuditLogEntry,
 } from "./audit-list-rules.mjs";
 import { listAuditLog } from "./audit-list-store.mjs";
+import { enrichAuditLogRows } from "./audit-enrich.mjs";
 
 /**
  * GET /v1/audit
@@ -63,16 +64,18 @@ export async function handleListAuditLog(req, res, url) {
     }
   }
 
-  const rows = await listAuditLog({
-    kind: scope.kind === "all" ? "all" : "filter",
-    orgIds,
-    orgId,
-    actorUserId,
-    action: actionFilter.action,
-    from: fromFilter.value,
-    to: toFilter.value,
-    limit: limitFilter.limit,
-  });
+  const rows = await enrichAuditLogRows(
+    await listAuditLog({
+      kind: scope.kind === "all" ? "all" : "filter",
+      orgIds,
+      orgId,
+      actorUserId,
+      action: actionFilter.action,
+      from: fromFilter.value,
+      to: toFilter.value,
+      limit: limitFilter.limit,
+    }),
+  );
 
   sendJson(res, 200, { items: rows.map(toAuditLogEntry) });
 }

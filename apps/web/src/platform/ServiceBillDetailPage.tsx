@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
+import { platformRoute } from "../shared/portalRouting";
 import {
   ApiError,
   getBillingWalletSettings,
   getServiceBill,
   getPlatformOrgs,
+  listOrgUsers,
   type OrgAccount,
   type PlatformBillingWalletSettings,
   type ServiceBill,
@@ -20,7 +22,7 @@ import {
 import { PlatformPending } from "./ui/PlatformPending";
 import {
   platformBillingPayToFallback,
-  platformInvoiceSeller,
+  resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
 import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
@@ -113,6 +115,7 @@ export function ServiceBillDetailPage({ session }: Props) {
   const invoiceRef = useRef<HTMLElement | null>(null);
   const [bill, setBill] = useState<ServiceBill | null>(null);
   const [merchant, setMerchant] = useState<OrgAccount | null>(null);
+  const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
   const [billing, setBilling] = useState<PlatformBillingWalletSettings | null>(
     null,
   );
@@ -129,9 +132,15 @@ export function ServiceBillDetailPage({ session }: Props) {
         getPlatformOrgs(),
         getBillingWalletSettings().catch(() => null),
       ]);
+      const members = await listOrgUsers(row.orgId).catch(() => []);
       setBill(row);
       setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
       setBilling(wallet);
+      const preferred =
+        members.find((m) => /owner/i.test(m.role)) ??
+        members.find((m) => /admin/i.test(m.role)) ??
+        members[0];
+      setBuyerContactEmail(preferred?.email?.trim() || null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load bill");
     } finally {
@@ -175,18 +184,14 @@ export function ServiceBillDetailPage({ session }: Props) {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this service bill.</p>
-        <Link className="plat-bill-detail__back" to="/platform/service-bills">
+        <Link className="plat-bill-detail__back" to={platformRoute("service-bills")}>
           ← Back to bills
         </Link>
       </div>
     );
   }
 
-  const envSeller = platformInvoiceSeller();
-  const seller = {
-    name: billing?.sellerName?.trim() || envSeller.name,
-    email: billing?.sellerEmail ?? envSeller.email,
-  };
+  const seller = resolveServiceBillInvoiceSeller({ bill, billing });
   const payTo =
     bill.rxAddress?.trim() ||
     billing?.payTo?.trim() ||
@@ -210,7 +215,7 @@ export function ServiceBillDetailPage({ session }: Props) {
             Merchant: {merchant?.name ?? bill.orgId}
           </span>
         </div>
-        <Link className="plat-bill-detail__back-btn" to="/platform/service-bills">
+        <Link className="plat-bill-detail__back-btn" to={platformRoute("service-bills")}>
           ← Back to bills
         </Link>
       </header>
@@ -222,7 +227,7 @@ export function ServiceBillDetailPage({ session }: Props) {
             buyer={{
               name: merchant?.name ?? bill.orgId,
               legalName: merchant?.legalName,
-              billingEmail: merchant?.billingEmail,
+              contactEmail: buyerContactEmail,
               country: merchant?.country,
               orgId: bill.orgId,
             }}

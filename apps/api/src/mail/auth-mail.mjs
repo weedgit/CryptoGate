@@ -14,9 +14,11 @@ async function sendTransactionalEmail(message) {
     console.info(`[mail:stub] to=${to} subject=${subject}`);
     return { delivered: false, mode: "stub" };
   }
-  // SMTP transport plugs in here when configured.
-  console.info(`[mail:smtp] to=${to} subject=${subject}`);
-  return { delivered: true, mode: "smtp" };
+  // SMTP_HOST is reserved for a real transport. Do not claim delivery.
+  console.warn(
+    `[mail:unwired] SMTP_HOST is set but no mail transport is implemented; not sending to=${to} subject=${subject}`,
+  );
+  return { delivered: false, mode: "stub" };
 }
 
 /**

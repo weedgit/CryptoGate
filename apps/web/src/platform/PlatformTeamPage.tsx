@@ -467,10 +467,13 @@ export function PlatformTeamPage({ session }: Props) {
               >
                 <header className="b3-commission-modal__head">
                   <div className="plat-team__invite-head-text">
-                    <h3 id="plat-team-invite-title">Invite member</h3>
+                    <h3 id="plat-team-invite-title">
+                      {inviteCreds ? "Member invited" : "Invite member"}
+                    </h3>
                     <p className="plat-team__invite-lede">
-                      Send a portal invite for Administrator or Viewer on the
-                      platform org.
+                      {inviteCreds
+                        ? "Share sign-in details securely, then select Done."
+                        : "Send a portal invite for Administrator or Viewer on the platform org."}
                     </p>
                   </div>
                   <button

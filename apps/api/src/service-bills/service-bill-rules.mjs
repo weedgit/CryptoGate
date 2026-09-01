@@ -1,4 +1,9 @@
-import { BillingCurrency, ServiceBillStatus, ServiceBillUpdateAction } from "@cryptogate/domain";
+import {
+  BillingCurrency,
+  ServiceBillStatus,
+  ServiceBillUpdateAction,
+  resolvePlatformFeeNetwork,
+} from "@cryptogate/domain";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;
@@ -355,10 +360,11 @@ export function serviceBillQrPayload(payTo, totalAmount) {
   if (typeof payTo !== "string" || !payTo.startsWith("T") || payTo.length < 30) {
     return null;
   }
+  const network = resolvePlatformFeeNetwork();
   const q = new URLSearchParams({
     amount: totalAmount,
     asset: "USDT",
-    network: "tron",
+    network,
   });
   return `tron:${payTo}?${q.toString()}`;
 }

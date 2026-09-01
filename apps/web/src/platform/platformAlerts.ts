@@ -1,3 +1,4 @@
+import { platformRoute } from "../shared/portalRouting";
 import type { AlertItem } from "./ui/AlertsDrawer";
 
 type Listener = (items: AlertItem[]) => void;
@@ -16,13 +17,13 @@ export function normalizePlatformAlertHref(
   const q = href.indexOf("?");
   const path = q >= 0 ? href.slice(0, q) : href;
   const search = q >= 0 ? href.slice(q + 1) : "";
-  if (path !== "/platform/merchants" || !search) return href;
+  if (path !== platformRoute("merchants") || !search) return href;
   const params = new URLSearchParams(search);
   const id = params.get("id");
   if (!id) return href;
   params.delete("id");
   const rest = params.toString();
-  return `/platform/merchants/${encodeURIComponent(id)}${rest ? `?${rest}` : ""}`;
+  return `${platformRoute(`merchants/${encodeURIComponent(id)}`)}${rest ? `?${rest}` : ""}`;
 }
 
 function withNormalizedHref(alert: AlertItem): AlertItem {

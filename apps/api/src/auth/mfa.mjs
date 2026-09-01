@@ -32,3 +32,17 @@ export async function activatePendingMfa(userId) {
     [userId],
   );
 }
+
+/** Clear enrolled/pending MFA so the user can set up a new authenticator. */
+export async function clearUserMfa(userId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET mfa_secret = NULL,
+         mfa_pending_secret = NULL,
+         mfa_enrolled_at = NULL,
+         updated_at = now()
+     WHERE id = $1`,
+    [userId],
+  );
+}

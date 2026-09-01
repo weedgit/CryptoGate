@@ -7,6 +7,7 @@ import {
   getOrg,
   getServiceBill,
   getServiceBillCheckout,
+  listOrgUsers,
   type OrgAccount,
   type ServiceBill,
   type ServiceBillCheckout,
@@ -21,7 +22,7 @@ import { sessionCanCheckoutServiceBill } from "./org";
 import { formatShortTime } from "./orderStatus";
 import {
   platformBillingPayToFallback,
-  platformInvoiceSeller,
+  resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
 import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
@@ -29,7 +30,9 @@ import { StatusBadge } from "../shared/StatusBadge";
 
 type Props = { session: Session };
 
-const BACK_TO = "/merchant/service-bills";
+import { merchantRoute } from "../shared/portalRouting";
+
+const BACK_TO = merchantRoute("service-bills");
 
 /** 0 = Issued, 1 = Awaiting / Overdue, 2 = Paid. */
 function billTimelineIndex(status: string): number {
@@ -58,6 +61,7 @@ export function ServiceBillDetailPage({ session }: Props) {
 
   const [bill, setBill] = useState<ServiceBill | null>(null);
   const [buyerOrg, setBuyerOrg] = useState<OrgAccount | null>(null);
+  const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<ServiceBillCheckout | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -77,10 +81,19 @@ export function ServiceBillDetailPage({ session }: Props) {
       const row = await getServiceBill(id);
       setBill(row);
       try {
-        const org = await getOrg(row.orgId);
+        const [org, members] = await Promise.all([
+          getOrg(row.orgId),
+          listOrgUsers(row.orgId).catch(() => []),
+        ]);
         setBuyerOrg(org);
+        const preferred =
+          members.find((m) => /owner/i.test(m.role)) ??
+          members.find((m) => /admin/i.test(m.role)) ??
+          members[0];
+        setBuyerContactEmail(preferred?.email?.trim() || null);
       } catch {
         setBuyerOrg(null);
+        setBuyerContactEmail(null);
       }
     } catch (err) {
       setError(
@@ -245,11 +258,11 @@ export function ServiceBillDetailPage({ session }: Props) {
             buyer={{
               name: buyerOrg?.name ?? bill.orgId,
               legalName: buyerOrg?.legalName,
-              billingEmail: buyerOrg?.billingEmail,
+              contactEmail: buyerContactEmail,
               country: buyerOrg?.country,
               orgId: bill.orgId,
             }}
-            seller={platformInvoiceSeller()}
+            seller={resolveServiceBillInvoiceSeller({ bill })}
             remittance={{
               payTo,
               instructions: checkout?.instructions ?? null,

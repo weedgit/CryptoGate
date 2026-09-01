@@ -62,10 +62,10 @@ export function orgTypeLabel(type: string): string {
 export function formatUsd(amount: string): string {
   const n = Number(amount);
   if (!Number.isFinite(n)) return amount;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(n);
+  return `${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} USD`;
 }
 
 export function formatShortDate(iso: string): string {

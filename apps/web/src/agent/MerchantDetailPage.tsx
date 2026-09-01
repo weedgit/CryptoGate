@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -7,6 +8,7 @@ import {
   listOrders,
   listOrgs,
   listServiceBills,
+  listOrgMemberEmails,
   updateMerchantCommercial,
   type MerchantCommercialSettings,
   type OrgAccount,
@@ -44,6 +46,18 @@ function parseTab(raw: string | null): TabId {
   return TABS.find((t) => t.id === raw)?.id ?? "overview";
 }
 
+function siteContactEmail(
+  site: OrgAccount,
+  emailByOrg: Map<string, { emails: string[]; ownerEmail?: string | null }>,
+): string {
+  const row = emailByOrg.get(site.id);
+  return (
+    row?.ownerEmail?.trim() ||
+    row?.emails.find((e) => e.trim())?.trim() ||
+    "—"
+  );
+}
+
 export function MerchantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -67,6 +81,9 @@ export function MerchantDetailPage() {
   const [toastEnterprise, setToastEnterprise] = useState(
     state.enterprisePending === true,
   );
+  const [siteEmails, setSiteEmails] = useState<
+    Map<string, { emails: string[]; ownerEmail?: string | null }>
+  >(() => new Map());
 
   const org = useMemo(
     () => (id ? (orgs.find((o) => o.id === id) ?? null) : null),
@@ -126,6 +143,38 @@ export function MerchantDetailPage() {
   useEffect(() => {
     void loadCore();
   }, [loadCore]);
+
+  useEffect(() => {
+    if (!id || !org || loading) return;
+    if (tab !== "sites" || sites.length === 0) {
+      setSiteEmails(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    void listOrgMemberEmails({ types: ["merchant_site"] })
+      .then((items) => {
+        if (cancelled) return;
+        const map = new Map<
+          string,
+          { emails: string[]; ownerEmail?: string | null }
+        >();
+        for (const item of items) {
+          map.set(item.orgId, {
+            emails: item.emails ?? [],
+            ownerEmail: item.ownerEmail,
+          });
+        }
+        setSiteEmails(map);
+      })
+      .catch(() => {
+        if (!cancelled) setSiteEmails(new Map());
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, org, tab, loading, sites.length]);
 
   useEffect(() => {
     if (!id || !org || loading) return;
@@ -198,7 +247,7 @@ export function MerchantDetailPage() {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this merchant.</p>
-        <Link to="/agent/merchants">← Back to merchants</Link>
+        <Link to={agentRoute("merchants")}>← Back to merchants</Link>
       </div>
     );
   }
@@ -212,7 +261,7 @@ export function MerchantDetailPage() {
       />
       <div className="panel-head">
         <h2>{org.name}</h2>
-        <Link className="btn-secondary" to="/agent/merchants">
+        <Link className="btn-secondary" to={agentRoute("merchants")}>
           Back
         </Link>
       </div>
@@ -309,7 +358,7 @@ export function MerchantDetailPage() {
                 {sites.map((site) => (
                   <tr key={site.id}>
                     <td>{site.name}</td>
-                    <td>{site.billingEmail?.trim() || "—"}</td>
+                    <td>{siteContactEmail(site, siteEmails)}</td>
                     <td>
                       <span
                         className={`status-badge ${
@@ -379,7 +428,7 @@ export function MerchantDetailPage() {
                     <td>{STATUS_LABEL[bill.status] ?? bill.status}</td>
                     <td>{formatShortDate(bill.dueAt)}</td>
                     <td>
-                      <Link to={`/agent/service-bills/${bill.id}`}>View</Link>
+                      <Link to={agentRoute(`service-bills/${bill.id}`)}>View</Link>
                     </td>
                   </tr>
                 ))}

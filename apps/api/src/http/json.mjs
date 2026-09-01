@@ -14,6 +14,19 @@ export function sendJson(res, status, body) {
 /**
  * @param {import("node:http").ServerResponse} res
  * @param {number} status
+ * @param {unknown} body
+ * @param {{ maxAgeSec?: number, private?: boolean }} [cache]
+ */
+export function sendJsonCached(res, status, body, cache = {}) {
+  const maxAge = cache.maxAgeSec ?? 15;
+  const scope = cache.private === false ? "public" : "private";
+  res.setHeader("Cache-Control", `${scope}, max-age=${maxAge}`);
+  sendJson(res, status, body);
+}
+
+/**
+ * @param {import("node:http").ServerResponse} res
+ * @param {number} status
  * @param {string} code
  * @param {string} message
  */

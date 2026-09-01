@@ -64,10 +64,29 @@ describe("@cryptogate/web agent C10 commissions", () => {
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
     assert.match(page, /commissionHistoryFromBills/);
     assert.match(page, /listAgentCommissions/);
-    assert.match(page, /View service bills/);
     assert.match(page, /subtree service bills/);
+    assert.match(page, /parseCommissionsTab/);
+    assert.match(page, /From parent agent/);
+    assert.match(page, /payeeOrgId: agentId/);
+    assert.match(page, /CommissionInvoiceModal/);
+    assert.match(page, /generateSubAgentCommissionInvoices/);
+    assert.match(page, /Open invoice/);
+    assert.match(page, /Issue invoices/);
     assert.doesNotMatch(page, /issueServiceBill/);
     assert.doesNotMatch(page, /createOrder/);
+  });
+});
+
+describe("@cryptogate/web agent C12 settings", () => {
+  it("locks commission payout to USDT on Tron", () => {
+    const page = readFileSync(
+      join(root, "src/agent/AgentSettingsPage.tsx"),
+      "utf8",
+    );
+    assert.match(page, /PLATFORM_FEE_ASSET/);
+    assert.match(page, /platformFeeNetwork/);
+    assert.doesNotMatch(page, /uniqueAssetsFromRegistry/);
+    assert.doesNotMatch(page, /SearchableSelect/);
   });
 });
 

@@ -32,6 +32,17 @@ describe("xpub rules", () => {
     );
   });
 
+  it("rejects private extended keys", () => {
+    const rejected = validateXpubBody({
+      asset: "USDT",
+      network: "tron",
+      xPub: "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4fbQkV5Yxxxx",
+      mfaCode: "123456",
+    });
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.code, "invalid_xpub");
+  });
+
   it("never exposes the full xPub on GET shape", () => {
     const mapped = toXpubSettings({
       org_id: "org-1",

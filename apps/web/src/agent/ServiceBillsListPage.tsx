@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
@@ -298,7 +299,7 @@ export function ServiceBillsListPage() {
             <tbody>
               {paged.map((bill, index) => {
                 const overdue = bill.status === "overdue";
-                const href = `/agent/service-bills/${bill.id}`;
+                const href = agentRoute(`service-bills/${bill.id}`);
                 return (
                   <tr
                     key={bill.id}

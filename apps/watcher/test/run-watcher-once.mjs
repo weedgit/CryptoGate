@@ -13,7 +13,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const WATCHER_TEST_CLEAR_KEYS = [
   "DATABASE_URL",
   "TRON_RPC_URL",
+  "TRON_NILE_RPC_URL",
   "TRON_API_KEY",
+  "TRON_NILE_API_KEY",
   "TRON_USDT_CONTRACT",
   "ETH_RPC_URL",
   "BSC_RPC_URL",

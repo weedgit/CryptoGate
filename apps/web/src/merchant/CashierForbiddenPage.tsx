@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 
 type Props = {
   area?: string;
@@ -41,10 +42,10 @@ export function CashierForbiddenPage({ area = "this area" }: Props) {
           </li>
         </ul>
         <div className="portal-access-gate__actions">
-          <Link className="btn-primary portal-access-gate__btn" to="/merchant">
+          <Link className="btn-primary portal-access-gate__btn" to={merchantRoute()}>
             Back to dashboard
           </Link>
-          <Link className="btn-secondary portal-access-gate__btn" to="/merchant/orders">
+          <Link className="btn-secondary portal-access-gate__btn" to={merchantRoute("orders")}>
             My orders
           </Link>
         </div>

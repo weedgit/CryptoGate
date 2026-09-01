@@ -1,4 +1,10 @@
-import { getAssetNetworkConfig } from "@cryptogate/domain";
+import {
+  getAssetNetworkConfig,
+  isPlatformFeePair,
+  isTronReceiveAddress,
+  PLATFORM_FEE_ASSET,
+  resolvePlatformFeeNetwork,
+} from "@cryptogate/domain";
 
 const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 
@@ -45,6 +51,22 @@ export function validateAgentPayoutBody(body) {
       status: 400,
       code: "invalid_address",
       message: "Address must not contain whitespace",
+    };
+  }
+  if (!isPlatformFeePair(asset, network)) {
+    return {
+      ok: false,
+      status: 422,
+      code: "asset_network_disabled",
+      message: `Platform fees and commission payouts are ${PLATFORM_FEE_ASSET} on ${resolvePlatformFeeNetwork()} only`,
+    };
+  }
+  if (!isTronReceiveAddress(address)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_address",
+      message: "Payout address must be a Tron (TRC-20) receive address",
     };
   }
   if (mfaCode.length < 6 || mfaCode.length > 8) {

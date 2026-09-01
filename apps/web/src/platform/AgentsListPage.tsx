@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { platformRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -274,7 +275,7 @@ function AgentsListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-agents" && canManage ? (
-          <Link className="btn-primary btn-inline" to="/platform/agents/new">
+          <Link className="btn-primary btn-inline" to={platformRoute("agents/new")}>
             New Agent
           </Link>
         ) : null}
@@ -562,7 +563,7 @@ export function AgentsListPage({ session }: Props) {
     loading,
     allIds: agentIds,
     filteredIds,
-    basePath: "/platform/agents",
+    basePath: platformRoute("agents"),
     navigate,
     emailIndexLoading,
     query,
@@ -583,14 +584,14 @@ export function AgentsListPage({ session }: Props) {
 
   const selectAgent = (id: string) => {
     startTransition(() => {
-      navigate(`/platform/agents/${id}`);
+      navigate(platformRoute(`agents/${id}`));
     });
     tableRef.current?.focus({ preventScroll: true });
     scrollOrgSplitPaneIntoView();
   };
 
   const clearSelection = () => {
-    navigate("/platform/agents");
+    navigate(platformRoute("agents"));
   };
 
   async function onSetStatus(
@@ -715,7 +716,7 @@ export function AgentsListPage({ session }: Props) {
                 ))}
               </div>
               {canManage ? (
-                <Link className="btn-primary org-agents__cta" to="/platform/agents/new">
+                <Link className="btn-primary org-agents__cta" to={platformRoute("agents/new")}>
                   New Agent
                 </Link>
               ) : null}

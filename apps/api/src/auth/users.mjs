@@ -1,6 +1,7 @@
 import { getPool } from "../db/pool.mjs";
 import { hashPassword, verifyPassword } from "./password-hash.mjs";
 import { validatePassword } from "./password-policy.mjs";
+import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
 
 /**
  * Normalize email for storage and lookup (lower-case trim).
@@ -31,10 +32,10 @@ export async function createUser(input) {
   const pool = getPool();
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (email, password_hash)
-       VALUES ($1, $2)
+      `INSERT INTO users (email, password_hash, session_timeout_minutes)
+       VALUES ($1, $2, $3)
        RETURNING id, email`,
-      [email, passwordHash],
+      [email, passwordHash, normalizeSessionTimeoutMinutes()],
     );
     return { id: rows[0].id, email: rows[0].email };
   } catch (err) {
@@ -54,7 +55,7 @@ export async function createUser(input) {
 export async function findUserByEmail(email) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, password_hash, mfa_enrolled_at
+    `SELECT id, email, password_hash, mfa_enrolled_at, must_change_password
      FROM users
      WHERE email = $1`,
     [normalizeEmail(email)],
@@ -66,6 +67,7 @@ export async function findUserByEmail(email) {
     email: row.email,
     passwordHash: row.password_hash,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
+    mustChangePassword: row.must_change_password === true,
   };
 }
 
@@ -76,8 +78,8 @@ export async function findUserByEmail(email) {
 export async function findUserById(id) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, mfa_enrolled_at, display_name, locale, timezone,
-            mfa_enforcement, session_timeout_minutes
+    `SELECT id, email, mfa_enrolled_at, mfa_pending_secret, display_name, locale, timezone,
+            mfa_enforcement, session_timeout_minutes, must_change_password
      FROM users
      WHERE id = $1`,
     [id],
@@ -91,19 +93,20 @@ export async function findUserById(id) {
  * @param {Record<string, unknown>} row
  */
 function mapUserRow(row) {
-  const timeout = Number(row.session_timeout_minutes);
   return {
     id: row.id,
     email: row.email,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
+    mfaEnrollmentPending:
+      Boolean(row.mfa_pending_secret) && row.mfa_enrolled_at == null,
     displayName: row.display_name ?? null,
     locale: row.locale || "en",
     timezone: row.timezone || "UTC",
     mfaEnforcement: Boolean(row.mfa_enforcement),
-    sessionTimeoutMinutes:
-      timeout === 15 || timeout === 30 || timeout === 60 || timeout === 120
-        ? timeout
-        : 30,
+    sessionTimeoutMinutes: normalizeSessionTimeoutMinutes(
+      row.session_timeout_minutes,
+    ),
+    mustChangePassword: row.must_change_password === true,
   };
 }
 
@@ -215,7 +218,12 @@ export async function authenticateUser(email, password) {
   const hash = user?.passwordHash ?? (await getDummyPasswordHash());
   const ok = await verifyPassword(password, hash);
   if (!user || !ok) return null;
-  return { id: user.id, email: user.email, mfaEnrolled: user.mfaEnrolled };
+  return {
+    id: user.id,
+    email: user.email,
+    mfaEnrolled: user.mfaEnrolled,
+    mustChangePassword: user.mustChangePassword === true,
+  };
 }
 
 /**
@@ -233,7 +241,7 @@ export async function updateUserPassword(userId, password) {
   const pool = getPool();
   await pool.query(
     `UPDATE users
-     SET password_hash = $2, updated_at = now()
+     SET password_hash = $2, must_change_password = false, updated_at = now()
      WHERE id = $1`,
     [userId, passwordHash],
   );

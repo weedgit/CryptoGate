@@ -34,7 +34,7 @@ export type PoInvoiceOrder = {
 export type PoInvoiceSeller = {
   name: string;
   legalName?: string | null;
-  billingEmail?: string | null;
+  contactEmail?: string | null;
   orgId: string;
 };
 
@@ -197,8 +197,8 @@ export function PaymentOrderInvoiceFace({
           {seller.legalName ? (
             <p className="muted">Legal · {seller.legalName}</p>
           ) : null}
-          {seller.billingEmail ? (
-            <p className="muted">{seller.billingEmail}</p>
+          {seller.contactEmail ? (
+            <p className="muted">{seller.contactEmail}</p>
           ) : null}
         </div>
         <div className="sb-invoice__party">

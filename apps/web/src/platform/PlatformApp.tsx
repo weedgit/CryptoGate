@@ -1,52 +1,108 @@
-import { type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import "../styles/merchant.css";
+import "../styles/components.css";
 import { logout, type Session } from "./api";
 import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
-import { AgentsListPage } from "./AgentsListPage";
-import { ArchitecturePage } from "./ArchitecturePage";
-import { DashboardPage } from "./DashboardPage";
-import { IssueServiceBillPage } from "./IssueServiceBillPage";
 import { LoginPage } from "./LoginPage";
-import { MerchantsListPage } from "./MerchantsListPage";
-import { OnboardMerchantPage } from "./OnboardMerchantPage";
-import { OnboardAgentPage } from "./OnboardAgentPage";
 import { PlatformShell } from "./PlatformShell";
 import {
   RequirePlatformOperator,
   RequirePlatformPortal,
 } from "./RequirePlatformPortal";
-import { AuditLogPage } from "./AuditLogPage";
-import { CompliancePage } from "./CompliancePage";
-import { FeeTiersSettingsPage } from "./FeeTiersSettingsPage";
-import { PlatformSettingsPage } from "./PlatformSettingsPage";
-import { PlatformPending } from "./ui/PlatformPending";
-import { NetworkCatalogPage } from "./NetworkCatalogPage";
-import { PlatformTeamPage } from "./PlatformTeamPage";
-import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
-import { ServiceBillsListPage } from "./ServiceBillsListPage";
-import { SystemHealthPage } from "./SystemHealthPage";
-import { PlatformCommissionsPage } from "./PlatformCommissionsPage";
-import { OrderDetailPage } from "../merchant/OrderDetailPage";
+import { PortalShellBoot } from "../auth/PortalShellBoot";
+import { platformRoute } from "../shared/portalRouting";
+import { LazyRoute } from "../shared/LazyRoute";
+import { lazyNamed } from "../shared/lazyNamed";
 
-type ShellProps = {
+const DashboardPage = lazyNamed(
+  () => import("./DashboardPage"),
+  "DashboardPage",
+);
+
+const AgentsListPage = lazyNamed(
+  () => import("./AgentsListPage"),
+  "AgentsListPage",
+);
+const ArchitecturePage = lazyNamed(
+  () => import("./ArchitecturePage"),
+  "ArchitecturePage",
+);
+const IssueServiceBillPage = lazyNamed(
+  () => import("./IssueServiceBillPage"),
+  "IssueServiceBillPage",
+);
+const MerchantsListPage = lazyNamed(
+  () => import("./MerchantsListPage"),
+  "MerchantsListPage",
+);
+const OnboardMerchantPage = lazyNamed(
+  () => import("./OnboardMerchantPage"),
+  "OnboardMerchantPage",
+);
+const OnboardAgentPage = lazyNamed(
+  () => import("./OnboardAgentPage"),
+  "OnboardAgentPage",
+);
+const AuditLogPage = lazyNamed(() => import("./AuditLogPage"), "AuditLogPage");
+const CompliancePage = lazyNamed(
+  () => import("./CompliancePage"),
+  "CompliancePage",
+);
+const FeeTiersSettingsPage = lazyNamed(
+  () => import("./FeeTiersSettingsPage"),
+  "FeeTiersSettingsPage",
+);
+const NetworkCatalogPage = lazyNamed(
+  () => import("./NetworkCatalogPage"),
+  "NetworkCatalogPage",
+);
+const PlatformTeamPage = lazyNamed(
+  () => import("./PlatformTeamPage"),
+  "PlatformTeamPage",
+);
+const ServiceBillDetailPage = lazyNamed(
+  () => import("./ServiceBillDetailPage"),
+  "ServiceBillDetailPage",
+);
+const ServiceBillsListPage = lazyNamed(
+  () => import("./ServiceBillsListPage"),
+  "ServiceBillsListPage",
+);
+const SystemHealthPage = lazyNamed(
+  () => import("./SystemHealthPage"),
+  "SystemHealthPage",
+);
+const PlatformCommissionsPage = lazyNamed(
+  () => import("./PlatformCommissionsPage"),
+  "PlatformCommissionsPage",
+);
+const OrderDetailPage = lazyNamed(
+  () => import("../merchant/OrderDetailPage"),
+  "OrderDetailPage",
+);
+
+function PlatformShellLayout({
+  session,
+  onSignOut,
+  onSessionRefresh,
+}: {
   session: Session;
-  children: ReactNode;
-  onSignOut: () => void;
+  onSignOut: () => void | Promise<void>;
   onSessionRefresh?: (session: Session) => void;
-};
-
-function Shell({ session, children, onSignOut, onSessionRefresh }: ShellProps) {
+}) {
   return (
-    <RequirePlatformPortal session={session}>
+    <RequirePlatformPortal session={session} onSignOut={onSignOut}>
       <PlatformShell
         session={session}
         onSignOut={onSignOut}
         onSessionRefresh={onSessionRefresh}
       >
-        {children}
+        <LazyRoute>
+          <Outlet />
+        </LazyRoute>
       </PlatformShell>
     </RequirePlatformPortal>
   );
@@ -58,12 +114,10 @@ export function PlatformApp() {
 
   if (booting) {
     return (
-      <div className="login-wrap">
-        <PlatformPending
-          title="Starting platform"
-          copy="Checking your session."
-        />
-      </div>
+      <PortalShellBoot
+        title="Loading platform"
+        copy="Verifying your session"
+      />
     );
   }
 
@@ -75,11 +129,7 @@ export function PlatformApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate
-        session={session}
-        portalLabel="Platform portal"
-        onChanged={setSession}
-      />
+      <ForceChangePasswordGate onChanged={setSession} />
     );
   }
 
@@ -98,198 +148,97 @@ export function PlatformApp() {
     setSession(null);
   };
 
+  const shell = (
+    <PlatformShellLayout
+      session={session}
+      onSignOut={signOut}
+      onSessionRefresh={setSession}
+    />
+  );
+
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <DashboardPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="agents/new"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
+      <Route element={shell}>
+        <Route index element={<DashboardPage session={session} />} />
+        <Route
+          path="agents/new"
+          element={
             <RequirePlatformOperator session={session}>
               <OnboardAgentPage />
             </RequirePlatformOperator>
-          </Shell>
-        }
-      />
-      <Route
-        path="agents/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <AgentsListPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="agents"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <AgentsListPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="merchants/new"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
+          }
+        />
+        <Route path="agents/:id" element={<AgentsListPage session={session} />} />
+        <Route path="agents" element={<AgentsListPage session={session} />} />
+        <Route
+          path="merchants/new"
+          element={
             <RequirePlatformOperator session={session}>
               <OnboardMerchantPage session={session} />
             </RequirePlatformOperator>
-          </Shell>
-        }
-      />
-      <Route
-        path="merchants/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <MerchantsListPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="merchants"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <MerchantsListPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="architecture"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <ArchitecturePage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="service-bills"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <ServiceBillsListPage session={session} />
-          </Shell>
-        }
-      />
+          }
+        />
+        <Route
+          path="merchants/:id"
+          element={<MerchantsListPage session={session} />}
+        />
+        <Route path="merchants" element={<MerchantsListPage session={session} />} />
+        <Route
+          path="architecture"
+          element={<ArchitecturePage session={session} />}
+        />
+        <Route
+          path="service-bills"
+          element={<ServiceBillsListPage session={session} />}
+        />
+        <Route
+          path="service-bills/:id"
+          element={<ServiceBillDetailPage session={session} />}
+        />
+        <Route
+          path="commissions"
+          element={<PlatformCommissionsPage session={session} />}
+        />
+        <Route path="audit" element={<AuditLogPage />} />
+        <Route
+          path="orders/:id"
+          element={<OrderDetailPage session={session} variant="platform" />}
+        />
+        <Route path="compliance" element={<CompliancePage />} />
+        <Route path="settings" element={<Navigate to={platformRoute()} replace />} />
+        <Route
+          path="settings/security"
+          element={<Navigate to={platformRoute()} replace />}
+        />
+        <Route
+          path="settings/fee-tiers"
+          element={<FeeTiersSettingsPage session={session} />}
+        />
+        <Route
+          path="settings/billing-wallet"
+          element={
+            <Navigate
+              to={`${platformRoute("settings/fee-tiers")}?tab=remittance`}
+              replace
+            />
+          }
+        />
+        <Route
+          path="settings/networks"
+          element={<NetworkCatalogPage session={session} />}
+        />
+        <Route path="settings/team" element={<PlatformTeamPage session={session} />} />
+        <Route path="ops/health" element={<SystemHealthPage />} />
+        <Route path="*" element={<Navigate to={platformRoute()} replace />} />
+      </Route>
       <Route
         path="service-bills/new"
-        element={<IssueServiceBillPage />}
-      />
-      <Route
-        path="service-bills/:id"
         element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <ServiceBillDetailPage session={session} />
-          </Shell>
+          <LazyRoute title="Loading bill">
+            <IssueServiceBillPage />
+          </LazyRoute>
         }
       />
-      <Route
-        path="commissions"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <PlatformCommissionsPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="audit"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <AuditLogPage />
-          </Shell>
-        }
-      />
-      <Route
-        path="orders/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <OrderDetailPage session={session} variant="platform" />
-          </Shell>
-        }
-      />
-      <Route
-        path="compliance"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <CompliancePage />
-          </Shell>
-        }
-      />
-      <Route
-        path="settings"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <PlatformSettingsPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/security"
-        element={<Navigate to="/platform" replace />}
-      />
-      <Route
-        path="settings/fee-tiers"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <FeeTiersSettingsPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/billing-wallet"
-        element={
-          <Navigate to="/platform/settings/fee-tiers?tab=remittance" replace />
-        }
-      />
-      <Route
-        path="settings/networks"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <NetworkCatalogPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="settings/team"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <PlatformTeamPage session={session} />
-          </Shell>
-        }
-      />
-      <Route
-        path="ops/health"
-        element={
-          <Shell session={session} onSignOut={signOut}
-          onSessionRefresh={setSession}>
-            <SystemHealthPage />
-          </Shell>
-        }
-      />
-      <Route path="*" element={<Navigate to="/platform" replace />} />
     </Routes>
   );
 }

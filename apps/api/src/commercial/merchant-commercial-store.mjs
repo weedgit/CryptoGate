@@ -16,6 +16,23 @@ export async function findMerchantCommercial(orgId) {
 }
 
 /**
+ * Bulk commercial lookup for list pages (avoids N+1).
+ * @param {string[]} orgIds
+ */
+export async function listMerchantCommercialByOrgIds(orgIds) {
+  if (orgIds.length === 0) return [];
+  const { rows } = await getPool().query(
+    `SELECT org_id, tier, volume_fee_percent, pending_volume_fee_percent,
+            pending_tier, effective_from, pending_effective_from,
+            enterprise_approval_status, created_at, updated_at
+     FROM merchant_commercial
+     WHERE org_id = ANY($1::uuid[])`,
+    [orgIds],
+  );
+  return rows;
+}
+
+/**
  * @param {{
  *   orgId: string,
  *   tier: string,

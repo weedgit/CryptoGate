@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
 import {
   ApiError,
@@ -78,7 +79,7 @@ export function SiteDetailPage({ session }: { session: Session }) {
     setDeleteError(null);
     try {
       await deleteOrg(site.id, { cascade: true });
-      navigate("/merchant/sites", { replace: true });
+      navigate(merchantRoute("sites"), { replace: true });
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : "Delete failed");
     } finally {
@@ -96,7 +97,7 @@ export function SiteDetailPage({ session }: { session: Session }) {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this site.</p>
-        <Link className="btn-ghost btn-inline" to="/merchant/sites">
+        <Link className="btn-ghost btn-inline" to={merchantRoute("sites")}>
           ← Back to sites
         </Link>
       </div>
@@ -108,7 +109,7 @@ export function SiteDetailPage({ session }: { session: Session }) {
     <div className="sites-page dash-page">
       <div className="orders-toolbar">
         <p className="dash-welcome">{orgTypeLabel(site.type)} overview</p>
-        <Link className="btn-ghost btn-inline" to="/merchant/sites">
+        <Link className="btn-ghost btn-inline" to={merchantRoute("sites")}>
           All sites
         </Link>
       </div>
@@ -149,13 +150,13 @@ export function SiteDetailPage({ session }: { session: Session }) {
       />
 
       <div className="orders-actions">
-        <Link className="btn-primary btn-inline" to="/merchant/settings/settlement">
+        <Link className="btn-primary btn-inline" to={merchantRoute("settings/settlement")}>
           Parent settlement
         </Link>
-        <Link className="btn-ghost btn-inline" to="/merchant/orders">
+        <Link className="btn-ghost btn-inline" to={merchantRoute("orders")}>
           All orders
         </Link>
-        <Link className="btn-ghost btn-inline" to="/merchant/reports">
+        <Link className="btn-ghost btn-inline" to={merchantRoute("reports")}>
           Reports
         </Link>
       </div>

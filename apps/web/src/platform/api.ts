@@ -1,3 +1,4 @@
+import { apiFetch } from "../auth/apiFetch";
 import {
   ApiError,
   getSession,
@@ -32,6 +33,7 @@ export {
   login,
   logout,
   listOrders,
+  getOrderSummary,
   getMatchingMode,
   listSettlement,
   listXpub,
@@ -61,7 +63,6 @@ export type OrgAccount = {
   orderCreateSuspended?: boolean;
   structure?: string | null;
   country?: string | null;
-  billingEmail?: string | null;
   legalName?: string | null;
   createdAt?: string;
 };
@@ -87,6 +88,7 @@ export type ServiceBill = {
   paymentReference?: string | null;
   rxAddress?: string | null;
   remittancePayTo?: string | null;
+  invoiceSeller?: { name: string; email: string | null };
   txAddress?: string | null;
   createdAt?: string | null;
 };
@@ -94,6 +96,8 @@ export type ServiceBill = {
 export type AuditLogEntry = {
   id: string;
   actorUserId: string | null;
+  actorEmail?: string | null;
+  actorDisplayName?: string | null;
   orgId: string | null;
   action: string;
   metadata: Record<string, string | number | boolean | null>;
@@ -113,7 +117,7 @@ export async function listPlatformOrgMemberEmails(opts?: {
   const q = new URLSearchParams();
   if (opts?.types?.length) q.set("types", opts.types.join(","));
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/platform/org-member-emails${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/platform/org-member-emails${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -135,7 +139,7 @@ export type OrgOverview = {
 };
 
 export async function getOrgOverview(orgId: string): Promise<OrgOverview> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/overview`,
     {
       credentials: "include",
@@ -146,6 +150,11 @@ export async function getOrgOverview(orgId: string): Promise<OrgOverview> {
   return (await res.json()) as OrgOverview;
 }
 
+export {
+  getPlatformOrders,
+  invalidatePlatformOrdersList,
+  peekPlatformOrders,
+} from "./platformOrdersList";
 export {
   getPlatformOrgs,
   invalidatePlatformOrgList,
@@ -180,7 +189,7 @@ async function parseError(res: Response): Promise<never> {
 }
 
 export async function listOrgs(): Promise<OrgAccount[]> {
-  const res = await fetch(`${API_BASE}/orgs`, {
+  const res = await apiFetch(`${API_BASE}/orgs`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -197,7 +206,7 @@ export async function setOrgStatus(
   const body: { status: "active" | "paused"; reason?: string } = { status };
   const reason = opts?.reason?.trim();
   if (reason) body.reason = reason;
-  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`, {
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`, {
     method: "PUT",
     credentials: "include",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -212,7 +221,7 @@ export async function deleteOrg(
   opts?: { cascade?: boolean },
 ): Promise<void> {
   const q = opts?.cascade ? "?cascade=1" : "";
-  const res = await fetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
     method: "DELETE",
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -231,7 +240,7 @@ export type OrgDeletePreview = {
 };
 
 export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
     {
       credentials: "include",
@@ -255,7 +264,7 @@ export async function listServiceBills(opts?: {
   if (opts?.orgId) q.set("orgId", opts.orgId);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/service-bills${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -265,7 +274,7 @@ export async function listServiceBills(opts?: {
 }
 
 export async function getServiceBill(billId: string): Promise<ServiceBill> {
-  const res = await fetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
+  const res = await apiFetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -281,7 +290,7 @@ export async function issueServiceBill(input: {
   volumeFeeAmount: string;
   dueAt: string;
 }): Promise<ServiceBill> {
-  const res = await fetch(`${API_BASE}/service-bills`, {
+  const res = await apiFetch(`${API_BASE}/service-bills`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -311,7 +320,7 @@ export async function generateServiceBills(input?: {
   periodStart?: string;
   periodEnd?: string;
 }): Promise<GenerateServiceBillsResult> {
-  const res = await fetch(`${API_BASE}/service-bills/generate`, {
+  const res = await apiFetch(`${API_BASE}/service-bills/generate`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -330,13 +339,11 @@ export async function createOrg(body: {
   parentId: string;
   structure?: string;
   country?: string;
-  billingEmail?: string;
-  billingContact?: string;
   legalName?: string;
   commissionPercent?: string;
   commercial?: { tier: string; volumeFeePercent: string };
 }): Promise<OrgAccount> {
-  const res = await fetch(`${API_BASE}/orgs`, {
+  const res = await apiFetch(`${API_BASE}/orgs`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -360,7 +367,7 @@ export async function updateServiceBill(
     txAddress?: string;
   },
 ): Promise<ServiceBill> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/service-bills/${encodeURIComponent(billId)}`,
     {
       method: "PATCH",
@@ -392,7 +399,7 @@ export async function listAuditLog(opts?: {
   if (opts?.action) q.set("action", opts.action);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/audit${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/audit${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -433,7 +440,7 @@ export type EnterpriseRateApproval = {
 };
 
 export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
-  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -444,7 +451,7 @@ export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
 export async function updateFeeTierSettings(body: {
   tiers: FeeTierBand[];
 }): Promise<PlatformFeeTierSettings> {
-  const res = await fetch(`${API_BASE}/platform/settings/fee-tiers`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
     method: "PUT",
     credentials: "include",
     headers: {
@@ -458,7 +465,7 @@ export async function updateFeeTierSettings(body: {
 }
 
 export async function getPlatformOrgPolicy(): Promise<PlatformOrgPolicy> {
-  const res = await fetch(`${API_BASE}/platform/settings/org-policy`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/org-policy`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -471,7 +478,7 @@ export async function updatePlatformOrgPolicy(body: {
   mfaEnforcement: boolean;
   sessionTimeoutMinutes: number;
 }): Promise<PlatformOrgPolicy> {
-  const res = await fetch(`${API_BASE}/platform/settings/org-policy`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/org-policy`, {
     method: "PUT",
     credentials: "include",
     headers: {
@@ -486,13 +493,14 @@ export async function updatePlatformOrgPolicy(body: {
 
 export type PlatformBillingWalletSettings = {
   sellerName: string;
+  /** Read-only — derived from platform Owner account. */
   sellerEmail: string | null;
   payTo: string | null;
   updatedAt: string;
 };
 
 export async function getBillingWalletSettings(): Promise<PlatformBillingWalletSettings> {
-  const res = await fetch(`${API_BASE}/platform/settings/billing-wallet`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/billing-wallet`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -502,10 +510,9 @@ export async function getBillingWalletSettings(): Promise<PlatformBillingWalletS
 
 export async function updateBillingWalletSettings(body: {
   sellerName: string;
-  sellerEmail?: string | null;
   payTo?: string | null;
 }): Promise<PlatformBillingWalletSettings> {
-  const res = await fetch(`${API_BASE}/platform/settings/billing-wallet`, {
+  const res = await apiFetch(`${API_BASE}/platform/settings/billing-wallet`, {
     method: "PUT",
     credentials: "include",
     headers: {
@@ -518,13 +525,34 @@ export async function updateBillingWalletSettings(body: {
   return (await res.json()) as PlatformBillingWalletSettings;
 }
 
+export type PlatformDashboardSummary = {
+  orders: import("../merchant/api").OrderSummary;
+  signups: { newMerchants: number; newAgents: number; newCashiers: number };
+};
+
+export async function getPlatformDashboardSummary(
+  from: string,
+  to: string,
+): Promise<PlatformDashboardSummary> {
+  const q = new URLSearchParams({ from, to });
+  const res = await apiFetch(
+    `${API_BASE}/platform/dashboard-summary?${q}`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PlatformDashboardSummary;
+}
+
 export async function listEnterpriseRateApprovals(opts?: {
   status?: string;
 }): Promise<EnterpriseRateApproval[]> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/platform/enterprise-rate-approvals${suffix}`,
     {
       credentials: "include",
@@ -565,7 +593,7 @@ export type WatcherHealthList = {
 };
 
 export async function getWatcherHealth(): Promise<WatcherHealthList> {
-  const res = await fetch(`${API_BASE}/platform/watcher-health`, {
+  const res = await apiFetch(`${API_BASE}/platform/watcher-health`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -652,7 +680,7 @@ export type NetworksStatus = {
 };
 
 export async function getNetworkCatalog(): Promise<NetworkCatalog> {
-  const res = await fetch(`${API_BASE}/platform/networks/catalog`, {
+  const res = await apiFetch(`${API_BASE}/platform/networks/catalog`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -661,7 +689,7 @@ export async function getNetworkCatalog(): Promise<NetworkCatalog> {
 }
 
 export async function getNetworksStatus(): Promise<NetworksStatus> {
-  const res = await fetch(`${API_BASE}/networks/status`, {
+  const res = await apiFetch(`${API_BASE}/networks/status`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -680,7 +708,7 @@ export async function putNetworkMaintenance(
   endsAt: string | null;
   updatedAt: string;
 }> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/platform/networks/${encodeURIComponent(network)}/maintenance`,
     {
       method: "PUT",
@@ -714,7 +742,7 @@ export async function listActiveNetworkMaintenance(): Promise<{
   items: ActiveNetworkMaintenance[];
   checkedAt: string;
 }> {
-  const res = await fetch(`${API_BASE}/network-maintenance`, {
+  const res = await apiFetch(`${API_BASE}/network-maintenance`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -740,7 +768,7 @@ export type MerchantCommercialSettings = {
 export async function getMerchantCommercial(
   orgId: string,
 ): Promise<MerchantCommercialSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
     {
       credentials: "include",
@@ -755,7 +783,7 @@ export async function updateMerchantCommercial(
   orgId: string,
   body: { tier?: string; volumeFeePercent?: string; reason?: string },
 ): Promise<MerchantCommercialSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
     {
       method: "PUT",
@@ -791,7 +819,7 @@ export type AgentCommissionSettings = {
 export async function getAgentPayout(
   orgId: string,
 ): Promise<AgentPayoutAddress | null> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
     {
       credentials: "include",
@@ -805,7 +833,7 @@ export async function getAgentPayout(
 
 /** Batch list — commissions board (avoids N× getAgentPayout). */
 export async function listAgentPayoutAddresses(): Promise<AgentPayoutAddress[]> {
-  const res = await fetch(`${API_BASE}/agent-payout-addresses`, {
+  const res = await apiFetch(`${API_BASE}/agent-payout-addresses`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -818,7 +846,7 @@ export async function putAgentPayout(
   orgId: string,
   body: { asset: string; network: string; address: string; mfaCode: string },
 ): Promise<AgentPayoutAddress> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
     {
       method: "PUT",
@@ -837,7 +865,7 @@ export async function putAgentPayout(
 export async function getAgentCommission(
   orgId: string,
 ): Promise<AgentCommissionSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,
     {
       credentials: "include",
@@ -850,7 +878,7 @@ export async function getAgentCommission(
 
 /** Batch list — commissions board (avoids N× getAgentCommission). */
 export async function listAgentCommissions(): Promise<AgentCommissionSettings[]> {
-  const res = await fetch(`${API_BASE}/agent-commissions`, {
+  const res = await apiFetch(`${API_BASE}/agent-commissions`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -863,7 +891,7 @@ export async function putAgentCommission(
   orgId: string,
   body: { commissionPercent: string },
 ): Promise<AgentCommissionSettings> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,
     {
       method: "PUT",
@@ -883,7 +911,7 @@ export async function decideEnterpriseRateApproval(
   approvalId: string,
   body: { decision: "approve" | "deny"; reason?: string },
 ): Promise<EnterpriseRateApproval> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/platform/enterprise-rate-approvals/${encodeURIComponent(approvalId)}`,
     {
       method: "PATCH",
@@ -936,7 +964,7 @@ export type ComplianceOverrideRequest = {
 export async function listComplianceOverrides(
   orgId: string,
 ): Promise<{ items: ComplianceOverride[]; softEmpty?: boolean }> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/platform/orgs/${encodeURIComponent(orgId)}/compliance-overrides`,
     {
       credentials: "include",
@@ -954,7 +982,7 @@ export async function applyComplianceOverride(
   orgId: string,
   body: ComplianceOverrideRequest,
 ): Promise<{ override: ComplianceOverride; org?: OrgAccount }> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/platform/orgs/${encodeURIComponent(orgId)}/compliance-override`,
     {
       method: "POST",

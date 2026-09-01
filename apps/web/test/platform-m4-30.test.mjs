@@ -11,6 +11,7 @@ describe("@cryptogate/web platform M4-30", () => {
     const app = readFileSync(join(root, "src/App.tsx"), "utf8");
     assert.match(app, /\/platform\/\*/);
     assert.match(app, /PlatformApp/);
+    assert.match(app, /lazyNamed/);
     assert.match(app, /\/merchant\/\*/);
   });
 
@@ -148,7 +149,7 @@ describe("@cryptogate/web platform B6 merchant detail", () => {
       "utf8",
     );
     assert.match(list, /MerchantDetailCard/);
-    assert.match(list, /\/platform\/merchants\/\$\{id\}/);
+    assert.match(list, /platformRoute\(`merchants\/\$\{id\}`\)/);
   });
 });
 
@@ -162,7 +163,7 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /settings\/fee-tiers/);
     assert.match(app, /settings\/security/);
-    assert.match(app, /Navigate to="\/platform"/);
+    assert.match(app, /Navigate to=\{platformRoute\(\)\}/);
 
     const shell = readFileSync(
       join(root, "src/platform/PlatformShell.tsx"),
@@ -170,6 +171,7 @@ describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
     );
     assert.match(shell, /SidebarProfileMenu/);
     assert.doesNotMatch(shell, /label: "Profile"/);
+    assert.doesNotMatch(shell, /label: "Settings"/);
 
     const b8 = readFileSync(
       join(root, "src/platform/FeeTiersSettingsPage.tsx"),

@@ -28,8 +28,13 @@ import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
 } from "../shared/platformHealthAlerts";
+import {
+  ensureHealthPolling,
+  subscribeSharedHealth,
+} from "../shared/healthPolling";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import { sessionIsAgentViewerOnly } from "./org";
+import { agentRoute } from "../shared/portalRouting";
 
 const SIDEBAR_KEY = "cryptogate.agent.sidebarCollapsed";
 
@@ -42,45 +47,45 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { to: "/agent", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+  { to: agentRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
   {
-    to: "/agent/architecture",
+    to: agentRoute("architecture"),
     label: "Architecture",
-    matchPrefix: "/agent/architecture",
+    matchPrefix: agentRoute("architecture"),
     Icon: ArchitectureNavIcon,
   },
   {
-    to: "/agent/merchants",
+    to: agentRoute("merchants"),
     label: "Merchants",
-    matchPrefix: "/agent/merchants",
+    matchPrefix: agentRoute("merchants"),
     Icon: MerchantsNavIcon,
   },
   {
-    to: "/agent/agents",
+    to: agentRoute("agents"),
     label: "Sub-agents",
-    matchPrefix: "/agent/agents",
+    matchPrefix: agentRoute("agents"),
     Icon: AgentsNavIcon,
   },
   {
-    to: "/agent/service-bills",
+    to: agentRoute("service-bills"),
     label: "Service Bills",
-    matchPrefix: "/agent/service-bills",
+    matchPrefix: agentRoute("service-bills"),
     Icon: ServiceBillsNavIcon,
   },
   {
-    to: "/agent/commissions",
+    to: agentRoute("commissions"),
     label: "Commissions",
-    matchPrefix: "/agent/commissions",
+    matchPrefix: agentRoute("commissions"),
     Icon: FeesNavIcon,
   },
   {
-    to: "/agent/settings/team",
+    to: agentRoute("settings/team"),
     label: "Team",
-    matchPrefix: "/agent/settings/team",
+    matchPrefix: agentRoute("settings/team"),
     Icon: TeamNavIcon,
   },
   {
-    to: "/agent/settings",
+    to: agentRoute("settings"),
     label: "Settings",
     end: true,
     Icon: SettingsNavIcon,
@@ -129,17 +134,15 @@ export function AgentShell({
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadHealth = async () => {
-      const next = await fetchPlatformHealth();
-      if (cancelled) return;
+    ensureHealthPolling(true);
+    const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
       syncPlatformHealthAlerts(next);
     };
-    void loadHealth();
-    const id = window.setInterval(() => void loadHealth(), 15000);
+    const unsub = subscribeSharedHealth(sync);
+    void fetchPlatformHealth().then(sync);
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      unsub();
+      ensureHealthPolling(false);
     };
   }, []);
 

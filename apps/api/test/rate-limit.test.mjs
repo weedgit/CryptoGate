@@ -97,6 +97,13 @@ describe("rate-limit rules (M3-11)", () => {
       "203.0.113.1",
     );
   });
+
+  it("ignores spoofed X-Forwarded-For from a non-loopback peer", () => {
+    assert.equal(
+      clientIp({ "x-forwarded-for": "203.0.113.9" }, "198.51.100.10"),
+      "198.51.100.10",
+    );
+  });
 });
 
 describe("applyRateLimits", () => {

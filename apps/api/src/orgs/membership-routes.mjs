@@ -1,6 +1,7 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
+import { findUserById } from "../auth/users.mjs";
 import { findOrgById } from "./org-store.mjs";
 import {
   canAssignOrgRole,
@@ -34,11 +35,15 @@ import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { createPasswordResetToken } from "../auth/password-reset-store.mjs";
 import { sendInviteEmail } from "../mail/auth-mail.mjs";
 import {
-  invitePathForToken,
+  inviteRelativePathForToken,
   inviteUrlForToken,
-  portalSlugForOrgType,
-  webBaseUrl,
+  portalLoginUrl,
 } from "../mail/portal-links.mjs";
+
+async function memberEmailForAudit(userId) {
+  const user = await findUserById(userId);
+  return user?.email?.trim() || null;
+}
 
 /**
  * Shared org visibility + existence for membership routes.
@@ -128,7 +133,8 @@ export async function handleInviteOrgUser(req, res, orgId) {
   }
 
   const email = typeof body?.email === "string" ? body.email : "";
-  const role = typeof body?.role === "string" ? body.role : "";
+  const role =
+    typeof body?.role === "string" ? body.role.trim().toLowerCase() : "";
   if (!email || !role) {
     sendError(res, 400, "invalid_request", "Email and role are required");
     return;
@@ -138,7 +144,14 @@ export async function handleInviteOrgUser(req, res, orgId) {
     return;
   }
   if (!roleAllowedOnOrg(role, org.type)) {
-    sendError(res, 400, "invalid_role", "Cashier is only valid on merchant orgs");
+    sendError(
+      res,
+      400,
+      "invalid_role",
+      role === "cashier"
+        ? "Cashier is only valid on merchant or merchant-site accounts"
+        : "That role is not allowed on this organization",
+    );
     return;
   }
 
@@ -169,6 +182,7 @@ export async function handleInviteOrgUser(req, res, orgId) {
   }
 
   const user = { id: provisioned.id, email: provisioned.email };
+  const profile = await findUserById(user.id);
 
   if (!provisioned.created) {
     const memberships = await listMembershipsForUser(user.id);
@@ -217,9 +231,9 @@ export async function handleInviteOrgUser(req, res, orgId) {
 
   if (provisioned.created && temporaryPassword) {
     const rawToken = await createPasswordResetToken(user.id);
-    invitePath = invitePathForToken(org.type, rawToken);
+    invitePath = inviteRelativePathForToken(rawToken);
     inviteUrl = inviteUrlForToken(org.type, rawToken);
-    const loginUrl = `${webBaseUrl()}/${portalSlugForOrgType(org.type)}/login`;
+    const loginUrl = portalLoginUrl(org.type);
     const mail = await sendInviteEmail({
       to: user.email,
       orgName: org.name ?? org.type,
@@ -236,6 +250,8 @@ export async function handleInviteOrgUser(req, res, orgId) {
     orgId,
     action: AUDIT_ACTIONS.orgUserInvite,
     metadata: {
+      email: user.email,
+      displayName: profile?.displayName ?? null,
       invitedUserId: user.id,
       role,
       provisioned: provisioned.created,
@@ -308,11 +324,12 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
   }
 
   await updateMembershipRole(orgId, userId, role);
+  const targetEmail = await memberEmailForAudit(userId);
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId,
     action: AUDIT_ACTIONS.orgUserRole,
-    metadata: { targetUserId: userId, role },
+    metadata: { targetUserId: userId, email: targetEmail, role },
   });
   sendJson(
     res,
@@ -401,12 +418,13 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
 
   await updateMembershipStatus(orgId, userId, status);
   await revokeAllSessionsForUser(userId);
+  const targetEmail = await memberEmailForAudit(userId);
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId,
     action:
       status === "paused" ? AUDIT_ACTIONS.orgUserPause : AUDIT_ACTIONS.orgUserResume,
-    metadata: { targetUserId: userId, status },
+    metadata: { targetUserId: userId, email: targetEmail, status },
   });
 
   sendJson(
@@ -465,11 +483,17 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
 
   await deleteMembership(orgId, userId);
   await revokeAllSessionsForUser(userId);
+  const targetEmail = await memberEmailForAudit(userId);
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId,
     action: AUDIT_ACTIONS.orgUserRemove,
-    metadata: { targetUserId: userId, priorRole: existing.role, priorStatus: existing.status },
+    metadata: {
+      targetUserId: userId,
+      email: targetEmail,
+      priorRole: existing.role,
+      priorStatus: existing.status,
+    },
   });
 
   res.writeHead(204);

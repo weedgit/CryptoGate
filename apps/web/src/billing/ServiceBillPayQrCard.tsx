@@ -3,14 +3,18 @@ import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
 import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import {
+  platformFeeAsset,
+  platformFeeNetwork,
+} from "../shared/platformFeePair";
+import {
   AssetIcon,
   NetworkIcon,
   QrCenterNetworkMark,
 } from "../platform/cryptoIcons";
 
-/** Phase 1 service-bill remittance is USDT on Tron (platform billing wallet). */
-export const SERVICE_BILL_ASSET = "USDT";
-export const SERVICE_BILL_NETWORK = "tron";
+/** Phase 1 service-bill remittance is USDT on Tron (or Nile in testnet). */
+export const SERVICE_BILL_ASSET = platformFeeAsset();
+export const SERVICE_BILL_NETWORK = platformFeeNetwork();
 
 /**
  * Wallet URI for service-bill remittance (matches API `serviceBillQrPayload`).

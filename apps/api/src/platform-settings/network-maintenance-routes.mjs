@@ -1,4 +1,4 @@
-import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
+import { readJsonBody, sendError, sendJson, sendJsonCached } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
@@ -122,7 +122,7 @@ export async function handleGetNetworksStatus(req, res) {
   if (!caller) return;
   try {
     const catalog = await buildNetworkCatalog();
-    sendJson(res, 200, {
+    sendJsonCached(res, 200, {
       chainEnv: catalog.chainEnv,
       checkedAt: catalog.checkedAt,
       items: catalog.items.map((card) => ({
@@ -141,7 +141,7 @@ export async function handleGetNetworksStatus(req, res) {
           displayNetwork: p.displayNetwork,
         })),
       })),
-    });
+    }, { maxAgeSec: 15 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[networks-status]", message);

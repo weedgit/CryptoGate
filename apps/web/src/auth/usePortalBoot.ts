@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSession, loadPortalSession, type Session } from "../merchant/api";
 import { setUserTimezone } from "../shared/userTimezone";
+import { prefetchCurrentPortalRoute } from "../shared/prefetchCurrentRoute";
+import { prefetchPortalDashboardData } from "../shared/prefetchPortalDashboardData";
+import {
+  registerSessionAuthHandlers,
+  setSessionAuthActive,
+} from "./apiFetch";
+import { clearChunkReloadFlag } from "../shared/lazyChunkRecovery";
+import { readCachedSession, writeCachedSession } from "./sessionCache";
 
-const DEFAULT_TIMEOUT_MIN = 30;
+const DEFAULT_TIMEOUT_MIN = 120;
 
 /**
  * Sliding keep-alive: refresh session TTL on an interval derived from
@@ -52,11 +60,23 @@ function useSessionKeepAlive(
  * A 401 mfa_required must not be treated as a missing cookie.
  */
 export function usePortalBoot() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSessionState] = useState<Session | null>(() =>
+    readCachedSession(),
+  );
   const [mfaPending, setMfaPending] = useState(false);
-  const [booting, setBooting] = useState(true);
+  const [booting, setBooting] = useState(() => readCachedSession() == null);
+
+  const setSession = useCallback((next: Session | null) => {
+    setSessionState(next);
+    writeCachedSession(next);
+  }, []);
 
   useEffect(() => {
+    if (readCachedSession()) {
+      prefetchCurrentPortalRoute();
+      prefetchPortalDashboardData();
+    }
+
     loadPortalSession()
       .then((boot) => {
         if (boot.status === "ok") {
@@ -67,8 +87,29 @@ export function usePortalBoot() {
         setSession(null);
         setMfaPending(boot.status === "mfa_required");
       })
-      .finally(() => setBooting(false));
+      .finally(() => {
+        setBooting(false);
+        clearChunkReloadFlag();
+      });
+  }, [setSession]);
+
+  useEffect(() => {
+    registerSessionAuthHandlers({
+      onSessionExpired: () => {
+        setSession(null);
+        setMfaPending(false);
+      },
+      onMfaRequired: () => {
+        setSession(null);
+        setMfaPending(true);
+      },
+    });
+    return () => registerSessionAuthHandlers({});
   }, []);
+
+  useEffect(() => {
+    setSessionAuthActive(session != null);
+  }, [session]);
 
   useSessionKeepAlive(session, setSession);
 

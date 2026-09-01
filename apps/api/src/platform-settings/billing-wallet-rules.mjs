@@ -1,11 +1,11 @@
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { looksLikeSpendKey } from "../security/spend-material.mjs";
+import { isTronReceiveAddress } from "@cryptogate/domain";
 
 /**
  * @param {unknown} body
  * @returns {{
  *   ok: true,
  *   sellerName: string,
- *   sellerEmail: string | null,
  *   payTo: string | null,
  * } | {
  *   ok: false,
@@ -35,30 +35,6 @@ export function validateUpdateBillingWalletBody(body) {
     };
   }
 
-  let sellerEmail = null;
-  if (body.sellerEmail !== undefined && body.sellerEmail !== null) {
-    if (typeof body.sellerEmail !== "string") {
-      return {
-        ok: false,
-        status: 400,
-        code: "invalid_request",
-        message: "sellerEmail must be a string or null",
-      };
-    }
-    const email = body.sellerEmail.trim();
-    if (email) {
-      if (email.length > 254 || !EMAIL_RE.test(email)) {
-        return {
-          ok: false,
-          status: 400,
-          code: "invalid_request",
-          message: "sellerEmail must be a valid email",
-        };
-      }
-      sellerEmail = email;
-    }
-  }
-
   let payTo = null;
   if (body.payTo !== undefined && body.payTo !== null) {
     if (typeof body.payTo !== "string") {
@@ -79,9 +55,26 @@ export function validateUpdateBillingWalletBody(body) {
           message: "payTo must be at most 500 characters",
         };
       }
+      if (looksLikeSpendKey(raw)) {
+        return {
+          ok: false,
+          status: 400,
+          code: "invalid_request",
+          message:
+            "payTo must be a public receive address — private keys and mnemonics are rejected",
+        };
+      }
+      if (!isTronReceiveAddress(raw)) {
+        return {
+          ok: false,
+          status: 400,
+          code: "invalid_request",
+          message: "payTo must be a Tron (TRC-20) USDT receive address",
+        };
+      }
       payTo = raw;
     }
   }
 
-  return { ok: true, sellerName, sellerEmail, payTo };
+  return { ok: true, sellerName, payTo };
 }

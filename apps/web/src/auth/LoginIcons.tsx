@@ -154,7 +154,20 @@ export function ShieldIcon({ className }: IconProps) {
   );
 }
 
-export function CopyIcon({ className }: IconProps) {
+export function CopyIcon({ className, copied }: IconProps & { copied?: boolean }) {
+  if (copied) {
+    return (
+      <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <path
+          d="M3.5 8.5 6.5 11.5 12.5 4.5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
   return (
     <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path

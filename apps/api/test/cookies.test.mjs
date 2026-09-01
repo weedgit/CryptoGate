@@ -60,7 +60,7 @@ describe("session payload", () => {
     assert.equal(session.mfaEnrolled, false);
     assert.equal(session.mustChangePassword, false);
     assert.equal(session.mfaEnforcement, false);
-    assert.equal(session.sessionTimeoutMinutes, 30);
+    assert.equal(session.sessionTimeoutMinutes, 120);
   });
 
   it("accepts user security preference fields", () => {

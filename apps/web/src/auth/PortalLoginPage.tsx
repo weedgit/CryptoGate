@@ -21,6 +21,7 @@ import {
   loadRememberedEmail,
   persistRememberedEmail,
 } from "./loginEnv";
+import { consumeSessionNotice } from "./apiFetch";
 
 type Props = {
   portalSubtitle: string;
@@ -101,6 +102,14 @@ export function PortalLoginPage({
   const dismissToast = useCallback(() => setToast(null), []);
 
   useEffect(() => () => clearToastDelay(), [clearToastDelay]);
+
+  useEffect(() => {
+    const notice = consumeSessionNotice();
+    if (notice) {
+      setToast(notice);
+      setError(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (location.pathname.endsWith("/reset-password")) {

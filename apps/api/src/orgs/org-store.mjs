@@ -116,7 +116,7 @@ export async function insertOrgAccount(insert) {
         insert.structure,
         insert.maxAgentDepth,
         insert.country ?? null,
-        insert.billingEmail ?? null,
+        null,
         insert.legalName ?? null,
         isPlatform ? true : null,
         isPlatform ? 30 : null,
@@ -141,7 +141,7 @@ export async function insertOrgAccount(insert) {
             insert.structure,
             insert.maxAgentDepth,
             insert.country ?? null,
-            insert.billingEmail ?? null,
+            null,
             insert.legalName ?? null,
           ],
         );

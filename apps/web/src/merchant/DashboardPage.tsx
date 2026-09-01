@@ -6,8 +6,6 @@ import {
   getMerchantCommercial,
   getNetworksStatus,
   listActiveNetworkMaintenance,
-  listOrders,
-  listOrgs,
   listServiceBills,
   listSettlement,
   listXpub,
@@ -19,6 +17,8 @@ import {
   type ServiceBill,
   type Session,
 } from "./api";
+import { getMerchantOrgs } from "./merchantOrgList";
+import { getMerchantOrders, peekMerchantOrders } from "./merchantOrdersList";
 import { matchingModeLabel } from "./matchingLabels";
 import {
   anomalyExplain,
@@ -36,8 +36,9 @@ import { AuthToast } from "../auth/AuthToast";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { networkShortLabel, visibleRegistry } from "../shared/assetNetworks";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
-import { computeOrderabilityLamp } from "../shared/networkLamp";
+import { computeOrderabilityLamp, pendingOrderabilityLamp, type NetworkLamp } from "../shared/networkLamp";
 import { StatusBadge } from "../shared/StatusBadge";
+import { merchantRoute } from "../shared/portalRouting";
 import {
   DASHBOARD_PERIOD_OPTIONS,
   inWindow,
@@ -88,7 +89,9 @@ export function DashboardPage({ session }: Props) {
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
 
-  const [items, setItems] = useState<PaymentOrder[]>([]);
+  const [items, setItems] = useState<PaymentOrder[]>(
+    () => peekMerchantOrders() ?? [],
+  );
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [sites, setSites] = useState<OrgAccount[]>([]);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
@@ -111,7 +114,7 @@ export function DashboardPage({ session }: Props) {
   const [endDate, setEndDate] = useState(() =>
     toDateInputValue(periodWindow("mtd").to),
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -147,52 +150,50 @@ export function DashboardPage({ session }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const orders = await listOrders({ limit: 500 });
-      setItems(orders);
 
-      if (orgId && !cashierOnly) {
-        const [billList, commercialSettings, orgs, settlement, xpubs] =
-          await Promise.all([
+    const ordersPromise = getMerchantOrders();
+    const extraPromise =
+      orgId && !cashierOnly
+        ? Promise.all([
             listServiceBills().catch(() => [] as ServiceBill[]),
             getMerchantCommercial(orgId).catch(() => null),
-            listOrgs().catch(() => [] as OrgAccount[]),
+            getMerchantOrgs().catch(() => [] as OrgAccount[]),
             listSettlement(orgId).catch(() => []),
             listXpub(orgId).catch(() => []),
-          ]);
-        setBills(billList);
-        setCommercial(commercialSettings);
-        const root = parentId ?? orgId;
-        setSites(
-          orgs.filter(
-            (o) =>
-              o.type === "merchant" &&
-              o.parentId === root &&
-              o.id !== root,
-          ),
-        );
-        setSettlementCooldown(
-          settlement.filter((r) => r.status === "pending_cool_down").length,
-        );
-        setXpubCooldown(
-          xpubs.filter((r) => r.status === "pending_cool_down").length,
-        );
-      } else {
-        setBills([]);
-        setCommercial(null);
-        setSites([]);
-        setSettlementCooldown(0);
-        setXpubCooldown(0);
-      }
-
-      try {
-        setMaintenance(await listActiveNetworkMaintenance());
-      } catch {
+          ]).then(([billList, commercialSettings, orgs, settlement, xpubs]) => {
+            setBills(billList);
+            setCommercial(commercialSettings);
+            const root = parentId ?? orgId;
+            setSites(
+              orgs.filter(
+                (o) =>
+                  o.type === "merchant" &&
+                  o.parentId === root &&
+                  o.id !== root,
+              ),
+            );
+            setSettlementCooldown(
+              settlement.filter((r) => r.status === "pending_cool_down")
+                .length,
+            );
+            setXpubCooldown(
+              xpubs.filter((r) => r.status === "pending_cool_down").length,
+            );
+          })
+        : Promise.resolve().then(() => {
+            setBills([]);
+            setCommercial(null);
+            setSites([]);
+            setSettlementCooldown(0);
+            setXpubCooldown(0);
+          });
+    const maintPromise = listActiveNetworkMaintenance()
+      .then(setMaintenance)
+      .catch(() => {
         setMaintenance([]);
-      }
-
-      try {
-        const status = await getNetworksStatus();
+      });
+    const lampsPromise = getNetworksStatus()
+      .then((status) => {
         const byPair = new Map<string, NetworkOrderabilityLamp>();
         for (const net of status.items) {
           for (const pair of net.pairs) {
@@ -200,11 +201,23 @@ export function DashboardPage({ session }: Props) {
           }
         }
         setLampByPair(byPair);
-      } catch {
-        setLampByPair(null);
-      }
+      })
+      .catch(() => {
+        setLampByPair(new Map());
+      });
+
+    try {
+      const [orders] = await Promise.all([
+        ordersPromise,
+        extraPromise,
+        maintPromise,
+        lampsPromise,
+      ]);
+      setItems(orders);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load dashboard");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to load dashboard",
+      );
     } finally {
       setLoading(false);
     }
@@ -349,7 +362,7 @@ export function DashboardPage({ session }: Props) {
         id: "settlement-cooldown",
         tone: "warn",
         body: `Settlement address cool-down pending (${settlementCooldown}).`,
-        to: "/merchant/settlement",
+        to: merchantRoute("settlement"),
       });
     }
     if (xpubCooldown > 0) {
@@ -357,7 +370,7 @@ export function DashboardPage({ session }: Props) {
         id: "xpub-cooldown",
         tone: "warn",
         body: `xPub change cool-down pending (${xpubCooldown}).`,
-        to: "/merchant/settlement",
+        to: merchantRoute("settlement"),
       });
     }
     for (const m of maintenance) {
@@ -368,7 +381,7 @@ export function DashboardPage({ session }: Props) {
           m.message?.trim() ||
           "Deposits paused — network maintenance. New orders on this network are blocked."
         }${m.endsAt ? ` Until ${new Date(m.endsAt).toLocaleString()}.` : ""}`,
-        to: "/merchant/networks",
+        to: merchantRoute("networks"),
       });
     }
     if (!cashierOnly && kpis.overdueBills > 0) {
@@ -376,7 +389,7 @@ export function DashboardPage({ session }: Props) {
         id: "overdue-bills",
         tone: "danger",
         body: `${kpis.overdueBills} overdue service bill${kpis.overdueBills === 1 ? "" : "s"} — pay platform fees promptly.`,
-        to: "/merchant/service-bills",
+        to: merchantRoute("service-bills"),
       });
     }
     if (kpis.anomalies > 0) {
@@ -384,7 +397,7 @@ export function DashboardPage({ session }: Props) {
         id: "anomalies",
         tone: "danger",
         body: `${kpis.anomalies} payment anomal${kpis.anomalies === 1 ? "y" : "ies"} need review — Resolve with a note (no Mark paid).`,
-        to: "/merchant/orders",
+        to: merchantRoute("orders"),
       });
     }
     return rows;
@@ -410,16 +423,16 @@ export function DashboardPage({ session }: Props) {
               {!cashierOnly ? (
                 <Link
                   className="btn-ghost btn-inline"
-                  to="/merchant/service-bills"
+                  to={merchantRoute("service-bills")}
                 >
                   Service Bills
                 </Link>
               ) : (
-                <Link className="btn-ghost btn-inline" to="/merchant/orders">
+                <Link className="btn-ghost btn-inline" to={merchantRoute("orders")}>
                   My orders
                 </Link>
               )}
-              <Link className="btn-primary btn-inline" to="/merchant/orders/new">
+              <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
                 + {cashierOnly ? "Create Order" : "Create Payment Order"}
               </Link>
             </div>,
@@ -691,21 +704,22 @@ export function DashboardPage({ session }: Props) {
         <section className="merchant-dash__networks" aria-label="Network status">
           <div className="plat-dash-merchants__head">
             <h2>Network status</h2>
-            <Link className="plat-dash-merchants__all" to="/merchant/networks">
+            <Link className="plat-dash-merchants__all" to={merchantRoute("networks")}>
               View networks
             </Link>
           </div>
           <div className="merchant-dash__net-strip">
             {networkPairs.map((pair) => {
-              const lamp =
-                lampByPair?.get(`${pair.asset}:${pair.network}`) ??
-                computeOrderabilityLamp({
-                  enabled: pair.enabled,
-                  maintenanceActive: maintenance.some(
-                    (m) => m.network === pair.network,
-                  ),
-                  ingestStatus: "unknown",
-                });
+              const lamp: NetworkLamp = lampByPair
+                ? ((lampByPair.get(`${pair.asset}:${pair.network}`) ??
+                    computeOrderabilityLamp({
+                      enabled: pair.enabled,
+                      maintenanceActive: maintenance.some(
+                        (m) => m.network === pair.network,
+                      ),
+                      ingestStatus: "unknown",
+                    })) as NetworkLamp)
+                : pendingOrderabilityLamp(pair.enabled);
               return (
                 <div
                   key={`${pair.asset}:${pair.network}`}
@@ -732,7 +746,7 @@ export function DashboardPage({ session }: Props) {
         <section className="merchant-dash-orders">
           <div className="plat-dash-merchants__head">
             <h2>Recent payment orders</h2>
-            <Link className="plat-dash-merchants__all" to="/merchant/orders">
+            <Link className="plat-dash-merchants__all" to={merchantRoute("orders")}>
               View all
             </Link>
           </div>
@@ -762,7 +776,7 @@ export function DashboardPage({ session }: Props) {
                   type="button"
                   className="orders-row"
                   role="row"
-                  onClick={() => navigate(`/merchant/orders/${o.id}`)}
+                  onClick={() => navigate(merchantRoute(`orders/${o.id}`))}
                 >
                   <span className="mono">{o.orderNumber}</span>
                   <span className="muted">
@@ -800,7 +814,7 @@ export function DashboardPage({ session }: Props) {
             <h2>Open anomalies</h2>
             <Link
               className="plat-dash-merchants__all"
-              to="/merchant/orders"
+              to={merchantRoute("orders")}
             >
               View all
             </Link>
@@ -826,7 +840,7 @@ export function DashboardPage({ session }: Props) {
                     <button
                       type="button"
                       className="merchant-dash-anomalies__row"
-                      onClick={() => navigate(`/merchant/orders/${o.id}`)}
+                      onClick={() => navigate(merchantRoute(`orders/${o.id}`))}
                     >
                       <div className="merchant-dash-anomalies__top">
                         <span className="mono">#{o.orderNumber}</span>
@@ -857,7 +871,7 @@ export function DashboardPage({ session }: Props) {
         <section className="merchant-dash-sites">
           <div className="plat-dash-merchants__head">
             <h2>Sites</h2>
-            <Link className="plat-dash-merchants__all" to="/merchant/sites">
+            <Link className="plat-dash-merchants__all" to={merchantRoute("sites")}>
               View sites
             </Link>
           </div>
@@ -875,7 +889,7 @@ export function DashboardPage({ session }: Props) {
                 type="button"
                 className="orders-row merchant-dash-sites__row"
                 role="row"
-                onClick={() => navigate(`/merchant/sites/${s.id}`)}
+                onClick={() => navigate(merchantRoute(`sites/${s.id}`))}
               >
                 <span>{s.name}</span>
                 <span className="mono">{s.orders}</span>

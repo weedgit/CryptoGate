@@ -14,7 +14,10 @@ import {
 } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
-import { resolvePlatformBillingPayTo } from "../platform-settings/billing-wallet-store.mjs";
+import {
+  resolvePlatformBillingPayTo,
+  resolvePlatformInvoiceSeller,
+} from "../platform-settings/billing-wallet-store.mjs";
 import {
   parseServiceBillStatusFilter,
   toServiceBill,
@@ -269,6 +272,7 @@ export async function handleGetServiceBill(req, res, billId) {
   if (remittancePayTo) {
     bill.remittancePayTo = remittancePayTo;
   }
+  bill.invoiceSeller = await resolvePlatformInvoiceSeller();
   sendJson(res, 200, bill);
 }
 

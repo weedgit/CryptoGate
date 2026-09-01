@@ -40,6 +40,7 @@ import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
+import { platformRoute } from "../shared/portalRouting";
 
 type Props = { session: Session };
 
@@ -311,7 +312,7 @@ function MerchantsListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-merchants" && canManage ? (
-          <Link className="btn-primary btn-inline" to="/platform/merchants/new">
+          <Link className="btn-primary btn-inline" to={platformRoute("merchants/new")}>
             Onboard merchant
           </Link>
         ) : null}
@@ -600,7 +601,7 @@ export function MerchantsListPage({ session }: Props) {
     loading,
     allIds: merchantIds,
     filteredIds,
-    basePath: "/platform/merchants",
+    basePath: platformRoute("merchants"),
     navigate,
     emailIndexLoading,
     query,
@@ -620,13 +621,13 @@ export function MerchantsListPage({ session }: Props) {
   }, [selectedId, filtered]);
 
   const selectMerchant = (id: string) => {
-    navigate(`/platform/merchants/${id}`);
+    navigate(platformRoute(`merchants/${id}`));
     tableRef.current?.focus({ preventScroll: true });
     scrollOrgSplitPaneIntoView();
   };
 
   const clearSelection = () => {
-    navigate("/platform/merchants");
+    navigate(platformRoute("merchants"));
   };
 
   async function onSetStatus(
@@ -751,7 +752,7 @@ export function MerchantsListPage({ session }: Props) {
                 ))}
               </div>
               {canManage ? (
-                <Link className="btn-primary org-agents__cta" to="/platform/merchants/new">
+                <Link className="btn-primary org-agents__cta" to={platformRoute("merchants/new")}>
                   Onboard merchant
                 </Link>
               ) : null}
@@ -931,6 +932,7 @@ export function MerchantsListPage({ session }: Props) {
             <MerchantDetailCard
               org={selected}
               orgs={orgs}
+              session={session}
               canManage={canManage}
               busy={busyId === selected.id}
               initialTab={

@@ -44,14 +44,27 @@ export function rateLimitDecision(timestamps, now, windowMs, limit) {
 }
 
 /**
+ * Trust X-Forwarded-For only from loopback (nginx). Spoofed XFF from a
+ * non-local peer must not rewrite the client IP used for rate limits.
+ * @param {string | undefined} remoteAddress
+ */
+function isLoopbackRemote(remoteAddress) {
+  if (!remoteAddress) return false;
+  const addr = remoteAddress.replace(/^::ffff:/, "");
+  return addr === "127.0.0.1" || addr === "::1" || addr === "localhost";
+}
+
+/**
  * @param {import("node:http").IncomingHttpHeaders} headers
  * @param {string | undefined} remoteAddress
  */
 export function clientIp(headers, remoteAddress) {
-  const forwarded = headers["x-forwarded-for"];
-  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  if (typeof value === "string" && value.trim()) {
-    return value.split(",")[0].trim();
+  if (isLoopbackRemote(remoteAddress)) {
+    const forwarded = headers["x-forwarded-for"];
+    const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    if (typeof value === "string" && value.trim()) {
+      return value.split(",")[0].trim();
+    }
   }
   if (typeof remoteAddress === "string" && remoteAddress) {
     return remoteAddress;

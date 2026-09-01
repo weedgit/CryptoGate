@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { PlatformPending } from "../platform/ui/PlatformPending";
@@ -15,10 +16,10 @@ import {
   ApiError,
   getOrg,
   listOrgMemberEmails,
-  listOrgs,
   type OrgAccount,
   type Session,
 } from "./api";
+import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
 import {
   parentMerchantOrgId,
   sessionCanManageSites,
@@ -36,7 +37,6 @@ function siteContactEmail(
   return (
     row?.ownerEmail?.trim() ||
     row?.emails.find((e) => e.trim())?.trim() ||
-    site.billingEmail?.trim() ||
     "—"
   );
 }
@@ -44,12 +44,28 @@ function siteContactEmail(
 export function SitesListPage({ session }: Props) {
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const canManage = useMemo(() => sessionCanManageSites(session), [session]);
-  const [parent, setParent] = useState<OrgAccount | null>(null);
-  const [sites, setSites] = useState<OrgAccount[]>([]);
+  const cachedOrgs = peekMerchantOrgs();
+  const initialParent =
+    parentId && cachedOrgs
+      ? (cachedOrgs.find((o) => o.id === parentId) ?? null)
+      : null;
+  const initialSites =
+    parentId && cachedOrgs
+      ? cachedOrgs.filter(
+          (o) => o.type === "merchant_site" && o.parentId === parentId,
+        )
+      : [];
+  const [parent, setParent] = useState<OrgAccount | null>(initialParent);
+  const [sites, setSites] = useState<OrgAccount[]>(initialSites);
   const [siteEmails, setSiteEmails] = useState<
     Map<string, { emails: string[]; ownerEmail?: string | null }>
   >(() => new Map());
-  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(
+    () => cachedOrgs != null && initialParent != null,
+  );
+  const [loading, setLoading] = useState(
+    () => !cachedOrgs && parentId != null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
@@ -59,12 +75,12 @@ export function SitesListPage({ session }: Props) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!hasLoaded) setLoading(true);
     setError(null);
     try {
       const [merchant, all, emails] = await Promise.all([
         getOrg(parentId),
-        listOrgs(),
+        getMerchantOrgs(),
         listOrgMemberEmails({ types: ["merchant_site"] }).catch(() => []),
       ]);
       setParent(merchant);
@@ -89,8 +105,9 @@ export function SitesListPage({ session }: Props) {
       setSiteEmails(new Map());
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, [parentId]);
+  }, [parentId, hasLoaded]);
 
   useEffect(() => {
     void load();
@@ -119,7 +136,7 @@ export function SitesListPage({ session }: Props) {
         ? createPortal(
             <Link
               className="btn-primary btn-inline"
-              to="/merchant/sites/new"
+              to={merchantRoute("sites/new")}
             >
               + Add site
             </Link>,
@@ -127,7 +144,7 @@ export function SitesListPage({ session }: Props) {
           )
         : null}
 
-      {loading ? (
+      {loading && !hasLoaded ? (
         <PlatformPending
           title="Loading sites"
           copy="Fetching merchant (site) accounts under this parent."
@@ -163,7 +180,7 @@ export function SitesListPage({ session }: Props) {
             </p>
             <Link
               className="btn-secondary btn-inline merchant-sites__empty-action"
-              to="/merchant/settings/team"
+              to={merchantRoute("settings/team")}
             >
               View team &amp; organization
             </Link>
@@ -269,7 +286,7 @@ export function SitesListPage({ session }: Props) {
                 {canManage ? (
                   <Link
                     className="btn-primary btn-inline merchant-sites__empty-action"
-                    to="/merchant/sites/new"
+                    to={merchantRoute("sites/new")}
                   >
                     Add merchant site
                   </Link>
@@ -302,7 +319,7 @@ export function SitesListPage({ session }: Props) {
                       key={site.id}
                       className="merchant-sites__row"
                       role="row"
-                      to={`/merchant/sites/${site.id}`}
+                      to={merchantRoute(`sites/${site.id}`)}
                     >
                       <span className="merchant-sites__name">{site.name}</span>
                       <span className="merchant-sites__email">

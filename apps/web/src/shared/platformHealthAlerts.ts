@@ -3,6 +3,7 @@ import {
   relativeAlertTime,
   upsertPlatformAlert,
 } from "../platform/platformAlerts";
+import { platformRoute } from "./portalRouting";
 
 export type PlatformHealthSnapshot = {
   api: boolean;
@@ -10,7 +11,7 @@ export type PlatformHealthSnapshot = {
   webhook: boolean;
 };
 
-const HEALTH_HREF = "/platform/ops/health";
+const HEALTH_HREF = platformRoute("ops/health");
 
 /**
  * Upsert / clear system alerts from a health probe.
@@ -120,28 +121,6 @@ export function syncPlatformHealthAlerts(
 export async function fetchPlatformHealth(): Promise<
   PlatformHealthSnapshot | "unreachable"
 > {
-  try {
-    const base =
-      (import.meta.env.VITE_API_ORIGIN as string | undefined)?.replace(
-        /\/$/,
-        "",
-      ) || "";
-    const res = await fetch(`${base}/health`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return "unreachable";
-    const payload = (await res.json()) as {
-      status?: string;
-      db?: string;
-      webhook?: string;
-    };
-    return {
-      api: payload.status === "ok",
-      database: payload.db === "ok",
-      // Real worker/queue status from API — not a copy of API status.
-      webhook: payload.webhook === "ok",
-    };
-  } catch {
-    return "unreachable";
-  }
+  const { fetchSharedHealth } = await import("./healthPolling");
+  return fetchSharedHealth();
 }

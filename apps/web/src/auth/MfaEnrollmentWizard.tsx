@@ -24,6 +24,7 @@ export function MfaEnrollmentWizard({
   const [step, setStep] = useState<Step>("loading");
   const [secret, setSecret] = useState("");
   const [otpauthUrl, setOtpauthUrl] = useState("");
+  const [resumedSetup, setResumedSetup] = useState(false);
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export function MfaEnrollmentWizard({
         }
         setSecret(payload.secret);
         setOtpauthUrl(payload.otpauthUrl);
+        setResumedSetup(payload.resumed === true);
         setStep("scan");
       })
       .catch((err) => {
@@ -113,10 +115,11 @@ export function MfaEnrollmentWizard({
               <span className="mfa-enroll-step-dot" aria-hidden />
               Step 2 of 3: Authenticator App
             </div>
-            <h1>Secure your operator account</h1>
+            <h1>{resumedSetup ? "Continue authenticator setup" : "Secure your operator account"}</h1>
             <p>
-              Scan the QR code with Google Authenticator or 1Password to enroll your
-              device in Multi-Factor Authentication.
+              {resumedSetup
+                ? "Your existing setup code is shown below. Scan the QR code or copy the manual secret, then continue to verification."
+                : "Scan the QR code with Google Authenticator or 1Password to enroll your device in Multi-Factor Authentication."}
             </p>
           </div>
 
@@ -132,14 +135,14 @@ export function MfaEnrollmentWizard({
               <code>{formatManualSecret(secret)}</code>
               <button
                 type="button"
-                className="mfa-enroll-copy"
+                className={`mfa-enroll-copy${copied ? " is-copied" : ""}`}
                 onClick={() => void onCopySecret()}
-                aria-label="Copy secret key"
+                aria-label={copied ? "Copied" : "Copy secret key"}
+                title={copied ? "Copied" : "Copy secret key"}
               >
-                <CopyIcon />
+                <CopyIcon copied={copied} />
               </button>
             </div>
-            {copied ? <span className="mfa-enroll-copied">Copied</span> : null}
           </div>
 
           <div className="mfa-enroll-actions">

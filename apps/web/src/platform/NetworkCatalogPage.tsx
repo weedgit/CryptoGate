@@ -66,6 +66,57 @@ function formatLag(ms: number | null): string {
   return `${Math.round(ms / 60_000)} m`;
 }
 
+type MaintenancePatch = {
+  active: boolean;
+  message: string | null;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  updatedAt?: string | null;
+};
+
+function applyMaintenanceToCard(
+  card: NetworkCatalogCard,
+  maint: MaintenancePatch,
+): NetworkCatalogCard {
+  const underMaintenance = maint.active;
+  const status: NetworkCatalogCard["status"] = underMaintenance
+    ? "maintenance"
+    : card.enabledCount > 0
+      ? "active"
+      : "catalogued";
+  const lamp = computeOrderabilityLamp({
+    enabled: card.enabledCount > 0,
+    maintenanceActive: underMaintenance,
+    ingestStatus: card.ingest.ingestStatus,
+  });
+  return {
+    ...card,
+    status,
+    lamp,
+    maintenance: {
+      active: underMaintenance,
+      message: underMaintenance ? maint.message : null,
+      startedAt: underMaintenance ? (maint.startedAt ?? null) : null,
+      endsAt: underMaintenance ? (maint.endsAt ?? null) : null,
+      updatedAt: maint.updatedAt ?? new Date().toISOString(),
+    },
+  };
+}
+
+function patchCatalogCard(
+  catalog: NetworkCatalog,
+  network: string,
+  patch: (card: NetworkCatalogCard) => NetworkCatalogCard,
+): NetworkCatalog {
+  return {
+    ...catalog,
+    checkedAt: new Date().toISOString(),
+    items: catalog.items.map((card) =>
+      card.network === network ? patch(card) : card,
+    ),
+  };
+}
+
 /** B16 — Network & asset catalog (trustworthy values from API). */
 export function NetworkCatalogPage({ session }: Props) {
   const canToggle = useMemo(
@@ -77,8 +128,10 @@ export function NetworkCatalogPage({ session }: Props) {
   const [busyNetwork, setBusyNetwork] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       setCatalog(await getNetworkCatalog());
@@ -91,7 +144,9 @@ export function NetworkCatalogPage({ session }: Props) {
             : "Failed to load network catalog",
       );
     } finally {
-      setLoading(false);
+      if (!opts?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -100,19 +155,52 @@ export function NetworkCatalogPage({ session }: Props) {
   }, [load]);
 
   async function onToggleMaintenance(card: NetworkCatalogCard) {
-    if (!canToggle) return;
+    if (!canToggle || !catalog) return;
     const nextActive = !card.maintenance.active;
+    const message = nextActive
+      ? `${card.title} deposits paused — platform maintenance.`
+      : null;
+    const snapshot = catalog;
+
+    setCatalog((prev) =>
+      prev
+        ? patchCatalogCard(
+            prev,
+            card.network,
+            (row) =>
+              applyMaintenanceToCard(row, {
+                active: nextActive,
+                message,
+                startedAt: nextActive ? new Date().toISOString() : null,
+                endsAt: null,
+              }),
+          )
+        : prev,
+    );
     setBusyNetwork(card.network);
     setError(null);
+
     try {
-      await putNetworkMaintenance(card.network, {
+      const result = await putNetworkMaintenance(card.network, {
         active: nextActive,
-        message: nextActive
-          ? `${card.title} deposits paused — platform maintenance.`
-          : null,
+        message,
       });
-      await load();
+      setCatalog((prev) =>
+        prev
+          ? patchCatalogCard(prev, card.network, (row) =>
+              applyMaintenanceToCard(row, {
+                active: result.active,
+                message: result.message,
+                startedAt: result.startedAt,
+                endsAt: result.endsAt,
+                updatedAt: result.updatedAt,
+              }),
+            )
+          : prev,
+      );
+      void load({ silent: true });
     } catch (err) {
+      setCatalog(snapshot);
       setError(
         err instanceof ApiError
           ? err.message
@@ -286,9 +374,10 @@ export function NetworkCatalogPage({ session }: Props) {
                   </span>
                   <button
                     type="button"
-                    className={`plat-network-toggle${isMaint ? " is-on" : ""}`}
+                    className={`plat-network-toggle${card.maintenance.active ? " is-on" : ""}`}
                     role="switch"
-                    aria-checked={isMaint}
+                    aria-checked={card.maintenance.active}
+                    aria-busy={busyNetwork === card.network}
                     disabled={
                       !canToggle ||
                       busyNetwork === card.network ||

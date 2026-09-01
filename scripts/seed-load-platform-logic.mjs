@@ -35,6 +35,8 @@ const NAMED_AGENT_COMMISSION = {
   "Demo Agent": "15",
   "Demo Sub-Agent": "10",
 };
+/** Local review invoices for these orgs live in seed-local — do not overwrite. */
+const REVIEW_NAMED_ORGS = new Set(["Demo Agent", "Demo Sub-Agent"]);
 const LOGIC_BILL_REF_PREFIX = "logic-bill-";
 /** Monthly bills aligned to commission period keys (YYYY-MM). */
 const COMMISSION_BILL_MONTHS = 8;
@@ -362,10 +364,13 @@ async function upsertCommissionPayoutSeed(pool, row) {
       ? [row.payeeOrgId, row.periodKey]
       : [row.payerOrgId, row.payeeOrgId, row.periodKey];
   const { rows: existing } = await pool.query(findSql, findParams);
-  const seededPaid =
-    existing[0]?.payout_status === "paid" &&
-    String(existing[0]?.tx_ref ?? "").startsWith("seed-");
-  if (existing[0]?.payout_status === "paid" && !seededPaid) return "skip";
+  const seededRef = String(existing[0]?.tx_ref ?? "").startsWith("seed-");
+  const locked =
+    existing[0] &&
+    (existing[0].payout_status === "paid" ||
+      existing[0].payout_status === "settled") &&
+    !seededRef;
+  if (locked) return "skip";
 
   if (existing[0]) {
     await pool.query(
@@ -382,6 +387,7 @@ async function upsertCommissionPayoutSeed(pool, row) {
            payment_link = $11,
            tx_ref = COALESCE($12, tx_ref),
            paid_at = COALESCE($13, paid_at),
+           settled_at = COALESCE($14, settled_at),
            updated_at = now()
        WHERE id = $1`,
       [
@@ -398,6 +404,7 @@ async function upsertCommissionPayoutSeed(pool, row) {
         row.paymentLink,
         row.txRef,
         row.paidAt,
+        row.settledAt ?? null,
       ],
     );
     return "update";
@@ -408,12 +415,12 @@ async function upsertCommissionPayoutSeed(pool, row) {
        payee_org_id, payee_name, payer, payer_org_id,
        period_key, period_label, platform_fee_collected, commission_percent,
        commission_amount, payout_status, payout_address, asset, network,
-       payment_link, tx_ref, paid_at
+       payment_link, tx_ref, paid_at, settled_at
      ) VALUES (
        $1, $2, $3, $4,
        $5, $6, $7, $8,
        $9, $10, $11, $12, $13,
-       $14, $15, $16
+       $14, $15, $16, $17
      )`,
     [
       row.payeeOrgId,
@@ -432,6 +439,7 @@ async function upsertCommissionPayoutSeed(pool, row) {
       row.paymentLink,
       row.txRef,
       row.paidAt,
+      row.settledAt ?? null,
     ],
   );
   return "insert";
@@ -744,6 +752,7 @@ async function main() {
   const subAgents = agents.filter((a) => a.type === "agent_sub");
 
   for (const agent of topLevelAgents) {
+    if (REVIEW_NAMED_ORGS.has(agent.name)) continue;
     const merchantIds = await merchantIdsInSubtree(pool, agent.id);
     const bills = await loadBillsForMerchants(pool, merchantIds);
     const pct = commissionByOrg.get(agent.id) ?? "15";
@@ -752,10 +761,10 @@ async function main() {
     for (const stmt of statements) {
       if (stmt.platformFeeCollected <= 0 && stmt.commissionAmount <= 0) continue;
       const isCurrent = stmt.periodKey === currentMonthKey;
-      const paidAt =
-        !isCurrent && stmt.hasPaid
-          ? daysAgo(5 + (indexFromName(agent.name) % 10)).toISOString()
-          : null;
+      const settled = !isCurrent && stmt.hasPaid;
+      const paidAt = settled
+        ? daysAgo(5 + (indexFromName(agent.name) % 10)).toISOString()
+        : null;
       const result = await upsertCommissionPayoutSeed(pool, {
         payeeOrgId: agent.id,
         payeeName: agent.name,
@@ -766,22 +775,23 @@ async function main() {
         platformFeeCollected: stmt.platformFeeCollected,
         commissionPercent: stmt.commissionPercent,
         commissionAmount: stmt.commissionAmount,
-        payoutStatus: isCurrent ? "ready" : stmt.hasPaid ? "paid" : "ready",
+        payoutStatus: isCurrent ? "issued" : settled ? "settled" : "issued",
         payoutAddress: dest?.address ?? null,
         asset: dest?.asset ?? "USDT",
         network: dest?.network ?? "tron",
         paymentLink: `/platform/commissions?payee=${encodeURIComponent(agent.id)}&period=${encodeURIComponent(stmt.periodKey)}`,
-        txRef:
-          !isCurrent && stmt.hasPaid
-            ? `seed-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`
-            : null,
+        txRef: settled
+          ? `seed-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`
+          : null,
         paidAt,
+        settledAt: settled ? paidAt : null,
       });
       if (result === "insert" || result === "update") commissionPayouts += 1;
     }
   }
 
   for (const sub of subAgents) {
+    if (REVIEW_NAMED_ORGS.has(sub.name)) continue;
     const parentId = orgById.get(sub.id)?.parent_id;
     const parent = parentId ? orgById.get(parentId) : null;
     if (!parent || parent.type !== "agent") continue;

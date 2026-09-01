@@ -12,6 +12,9 @@
  * Agent (Demo Agent):
  *   administrator.agent@cryptogate.io     — Administrator
  *
+ * Sub-agent (Demo Sub-Agent):
+ *   administrator.subagent@cryptogate.io  — Administrator
+ *
  * Single-location (Demo Merchant):
  *   owner.singlemerchant@cryptogate.io        — Owner
  *   administrator.singlemerchant@cryptogate.io — Administrator
@@ -30,6 +33,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createUser, findUserByEmail } from "../apps/api/src/auth/users.mjs";
+
+/** USDT network for seeds — Nile when CRYPTOGATE_CHAIN_ENV=testnet. */
+function seedUsdtNetwork() {
+  const env = (process.env.CRYPTOGATE_CHAIN_ENV || "").trim().toLowerCase();
+  if (env === "testnet") return "tron_nile";
+  const def = (process.env.DEFAULT_NETWORK || "tron").trim();
+  return def || "tron";
+}
 import { hashPassword } from "../apps/api/src/auth/password-hash.mjs";
 import { closePool } from "../apps/api/src/db/pool.mjs";
 import { bootstrapMerchantCommercial } from "../apps/api/src/commercial/merchant-commercial-routes.mjs";
@@ -45,6 +56,7 @@ const SEED_EMAIL = {
   platformAdministrator: "administrator.platform@cryptogate.io",
   platformViewer: "viewer.platform@cryptogate.io",
   agentAdministrator: "administrator.agent@cryptogate.io",
+  subAgentAdministrator: "administrator.subagent@cryptogate.io",
   singleMerchantOwner: "owner.singlemerchant@cryptogate.io",
   singleMerchantAdministrator: "administrator.singlemerchant@cryptogate.io",
   multiMerchantOwner: "owner.multmerchant@cryptogate.io",
@@ -74,6 +86,11 @@ const USERS = [
     email: SEED_EMAIL.agentAdministrator,
     password: SEED_PASSWORD,
     label: "Agent Administrator (Demo Agent)",
+  },
+  {
+    email: SEED_EMAIL.subAgentAdministrator,
+    password: SEED_PASSWORD,
+    label: "Sub-agent Administrator (Demo Sub-Agent)",
   },
   {
     email: SEED_EMAIL.singleMerchantOwner,
@@ -138,7 +155,9 @@ async function ensureUser(email, password) {
     await resetPassword(existing.id, password);
     return existing;
   }
-  return createUser({ email, password });
+  const created = await createUser({ email, password });
+  await resetPassword(created.id, password);
+  return created;
 }
 
 async function resetPassword(userId, password) {
@@ -179,6 +198,272 @@ function daysAgo(days, hours = 0) {
   d.setDate(d.getDate() - days);
   d.setHours(d.getHours() - hours);
   return d;
+}
+
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function utcPeriodKey(monthsBack) {
+  const d = new Date();
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCMonth(d.getUTCMonth() - monthsBack);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function periodLabel(periodKey) {
+  const [yRaw, mRaw] = periodKey.split("-");
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+    return periodKey;
+  }
+  return `${MONTH_LABELS[m - 1]} ${y}`;
+}
+
+/**
+ * Demo commission invoices for platform / agent / sub-agent review.
+ * Status mix matches Current vs History queues:
+ *   platform → agent: issued | paid | settled
+ *   agent → sub:      issued after parent received; paid; settled
+ * @param {import("pg").Pool} pool
+ */
+async function seedCommissionReviewFixtures(pool, {
+  agentId,
+  subAgentId,
+  agentPayoutAddress,
+  subPayoutAddress,
+}) {
+  const { rows: table } = await pool.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'commission_payouts'
+     LIMIT 1`,
+  );
+  if (table.length === 0) {
+    console.warn(
+      "  Skipping commission review fixtures — commission_payouts missing",
+    );
+    return 0;
+  }
+
+  const plans = [
+    {
+      monthsBack: 0,
+      payer: "platform",
+      payee: "agent",
+      status: "issued",
+      fee: "150.00",
+      pct: "15",
+      amount: "22.50",
+    },
+    {
+      monthsBack: 1,
+      payer: "platform",
+      payee: "agent",
+      status: "paid",
+      fee: "150.00",
+      pct: "15",
+      amount: "22.50",
+    },
+    {
+      monthsBack: 2,
+      payer: "platform",
+      payee: "agent",
+      status: "settled",
+      fee: "140.00",
+      pct: "15",
+      amount: "21.00",
+    },
+    {
+      monthsBack: 1,
+      payer: "agent",
+      payee: "sub",
+      status: "issued",
+      fee: "50.00",
+      pct: "10",
+      amount: "5.00",
+    },
+    {
+      monthsBack: 2,
+      payer: "agent",
+      payee: "sub",
+      status: "paid",
+      fee: "45.00",
+      pct: "10",
+      amount: "4.50",
+    },
+    {
+      monthsBack: 3,
+      payer: "agent",
+      payee: "sub",
+      status: "settled",
+      fee: "40.00",
+      pct: "10",
+      amount: "4.00",
+    },
+  ];
+
+  let n = 0;
+  for (const plan of plans) {
+    const periodKey = utcPeriodKey(plan.monthsBack);
+    const payeeOrgId = plan.payee === "agent" ? agentId : subAgentId;
+    const payeeName = plan.payee === "agent" ? "Demo Agent" : "Demo Sub-Agent";
+    const payerOrgId = plan.payer === "agent" ? agentId : null;
+    const dest =
+      plan.payee === "agent" ? agentPayoutAddress : subPayoutAddress;
+    const terminal =
+      plan.status === "paid" ||
+      plan.status === "settled" ||
+      plan.status === "verifying";
+    const paidAt =
+      plan.status === "paid" || plan.status === "settled"
+        ? daysAgo(4 + plan.monthsBack).toISOString()
+        : null;
+    const settledAt =
+      plan.status === "settled" ? daysAgo(2 + plan.monthsBack).toISOString() : null;
+    const txRef = terminal
+      ? `seed-${plan.payer}-${payeeOrgId.slice(0, 8)}-${periodKey}`
+      : null;
+    const paymentLink =
+      plan.payer === "platform"
+        ? `/platform/commissions?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`
+        : `/agent/commissions?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
+
+    const findSql =
+      plan.payer === "platform"
+        ? `SELECT id FROM commission_payouts
+           WHERE payer = 'platform' AND payee_org_id = $1 AND period_key = $2
+           LIMIT 1`
+        : `SELECT id FROM commission_payouts
+           WHERE payer = 'agent'
+             AND payer_org_id = $1
+             AND payee_org_id = $2
+             AND period_key = $3
+           LIMIT 1`;
+    const findParams =
+      plan.payer === "platform"
+        ? [payeeOrgId, periodKey]
+        : [payerOrgId, payeeOrgId, periodKey];
+    const { rows: existing } = await pool.query(findSql, findParams);
+
+    if (existing[0]) {
+      await pool.query(
+        `UPDATE commission_payouts
+         SET payee_name = $2,
+             period_label = $3,
+             platform_fee_collected = $4,
+             commission_percent = $5,
+             commission_amount = $6,
+             payout_status = $7,
+             payout_address = $8,
+             asset = 'USDT',
+             network = $13,
+             payment_link = $9,
+             tx_ref = $10,
+             paid_at = $11,
+             settled_at = $12,
+             updated_at = now()
+         WHERE id = $1`,
+        [
+          existing[0].id,
+          payeeName,
+          periodLabel(periodKey),
+          plan.fee,
+          plan.pct,
+          plan.amount,
+          plan.status,
+          dest,
+          paymentLink,
+          txRef,
+          paidAt,
+          settledAt,
+          seedUsdtNetwork(),
+        ],
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO commission_payouts (
+           payee_org_id, payee_name, payer, payer_org_id,
+           period_key, period_label, platform_fee_collected, commission_percent,
+           commission_amount, payout_status, payout_address, asset, network,
+           payment_link, tx_ref, paid_at, settled_at
+         ) VALUES (
+           $1, $2, $3, $4,
+           $5, $6, $7, $8,
+           $9, $10, $11, 'USDT', $12,
+           $13, $14, $15, $16
+         )`,
+        [
+          payeeOrgId,
+          payeeName,
+          plan.payer,
+          payerOrgId,
+          periodKey,
+          periodLabel(periodKey),
+          plan.fee,
+          plan.pct,
+          plan.amount,
+          plan.status,
+          dest,
+          seedUsdtNetwork(),
+          paymentLink,
+          txRef,
+          paidAt,
+          settledAt,
+        ],
+      );
+    }
+    n += 1;
+  }
+
+  const keepPlatformKeys = [
+    ...new Set(
+      plans
+        .filter((p) => p.payer === "platform")
+        .map((p) => utcPeriodKey(p.monthsBack)),
+    ),
+  ];
+  const keepAgentKeys = [
+    ...new Set(
+      plans
+        .filter((p) => p.payer === "agent")
+        .map((p) => utcPeriodKey(p.monthsBack)),
+    ),
+  ];
+  await pool.query(
+    `DELETE FROM commission_payouts
+     WHERE payer = 'platform'
+       AND payee_org_id = $1
+       AND NOT (period_key = ANY($2::text[]))`,
+    [agentId, keepPlatformKeys],
+  );
+  await pool.query(
+    `DELETE FROM commission_payouts
+     WHERE payer = 'platform' AND payee_org_id = $1`,
+    [subAgentId],
+  );
+  await pool.query(
+    `DELETE FROM commission_payouts
+     WHERE payer = 'agent'
+       AND payer_org_id = $1
+       AND payee_org_id = $2
+       AND NOT (period_key = ANY($3::text[]))`,
+    [agentId, subAgentId, keepAgentKeys],
+  );
+
+  return n;
 }
 
 /**
@@ -233,8 +518,7 @@ async function seedMultiLocationMerchant(pool, {
 
   await pool.query(
     `UPDATE org_accounts
-     SET billing_email = COALESCE(NULLIF(billing_email, ''), 'billing@demo-retail.local'),
-         country = COALESCE(NULLIF(country, ''), 'SG'),
+     SET country = COALESCE(NULLIF(country, ''), 'SG'),
          updated_at = now()
      WHERE id = $1`,
     [merchantId],
@@ -250,9 +534,9 @@ async function seedMultiLocationMerchant(pool, {
   const settlementAddr = fakeAddress(`demo-retail-settlement-${merchantId}`);
   await pool.query(
     `INSERT INTO settlement_addresses (org_id, asset, network, address)
-     VALUES ($1, 'USDT', 'tron', $2)
+     VALUES ($1, 'USDT', $3, $2)
      ON CONFLICT (org_id, asset, network) DO NOTHING`,
-    [merchantId, settlementAddr],
+    [merchantId, settlementAddr, seedUsdtNetwork()],
   );
 
   /** @type {Map<string, string>} site name → org id */
@@ -280,21 +564,15 @@ async function seedMultiLocationMerchant(pool, {
     if (site.ok) siteIds.set(siteName, site.row.id);
   }
 
-  const siteBillingEmails = {
-    "Downtown Store": "downtown@demo-retail.local",
-    "Airport Kiosk": "airport@demo-retail.local",
-    "Marina Branch": "marina@demo-retail.local",
-  };
-  for (const [siteName, email] of Object.entries(siteBillingEmails)) {
+  for (const siteName of ["Downtown Store", "Airport Kiosk", "Marina Branch"]) {
     const siteId = siteIds.get(siteName);
     if (!siteId) continue;
     await pool.query(
       `UPDATE org_accounts
-       SET billing_email = COALESCE(NULLIF(billing_email, ''), $2),
-           country = COALESCE(NULLIF(country, ''), 'SG'),
+       SET country = COALESCE(NULLIF(country, ''), 'SG'),
            updated_at = now()
        WHERE id = $1`,
-      [siteId, email],
+      [siteId],
     );
   }
 
@@ -367,7 +645,7 @@ async function seedMultiLocationMerchant(pool, {
          $1, $2,
          'CG-MULTI-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
          $3, 'B', $4, $5, 'main', NULL, NULL,
-         'USDT', 'tron', $6, 19,
+         'USDT', '${seedUsdtNetwork()}', $6, 19,
          $7, $8, $9::jsonb,
          $10, $10,
          $11, $12, $13
@@ -406,8 +684,7 @@ async function seedDemoMerchantPortal(pool, {
 }) {
   await pool.query(
     `UPDATE org_accounts
-     SET billing_email = COALESCE(NULLIF(billing_email, ''), 'billing@demo-merchant.local'),
-         country = COALESCE(NULLIF(country, ''), 'SG'),
+     SET country = COALESCE(NULLIF(country, ''), 'SG'),
          updated_at = now()
      WHERE id = $1`,
     [merchantId],
@@ -426,9 +703,9 @@ async function seedDemoMerchantPortal(pool, {
   const settlementAddr = fakeAddress(`demo-merchant-settlement-${merchantId}`);
   await pool.query(
     `INSERT INTO settlement_addresses (org_id, asset, network, address)
-     VALUES ($1, 'USDT', 'tron', $2)
+     VALUES ($1, 'USDT', $3, $2)
      ON CONFLICT (org_id, asset, network) DO NOTHING`,
-    [merchantId, settlementAddr],
+    [merchantId, settlementAddr, seedUsdtNetwork()],
   );
 
   const orderPlans = [
@@ -468,7 +745,7 @@ async function seedDemoMerchantPortal(pool, {
          $1, $2,
          'CG-DEMO-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
          $3, 'B', $4, $5, 'main', NULL, NULL,
-         'USDT', 'tron', $6, 19,
+         'USDT', '${seedUsdtNetwork()}', $6, 19,
          $7, $8, '{"seed":"demo-merchant"}'::jsonb,
          $9, $9,
          $10, $11, $12
@@ -532,6 +809,10 @@ async function main() {
   );
   const agentAdministrator = await ensureUser(
     SEED_EMAIL.agentAdministrator,
+    SEED_PASSWORD,
+  );
+  const subAgentAdministrator = await ensureUser(
+    SEED_EMAIL.subAgentAdministrator,
     SEED_PASSWORD,
   );
   const merchantOwner = await ensureUser(
@@ -611,6 +892,7 @@ async function main() {
     subAgentId = created.row.id;
   }
   await ensureMembership(subAgentId, platformOwner.id, "owner");
+  await ensureMembership(subAgentId, subAgentAdministrator.id, "administrator");
 
   const { rows: merchants } = await pool.query(
     `SELECT id FROM org_accounts WHERE type = 'merchant' AND name = 'Demo Merchant' LIMIT 1`,
@@ -639,8 +921,10 @@ async function main() {
   await ensureDisplayName(merchantOwner.id, "Single Merchant Owner");
   await ensureDisplayName(merchantAdministrator.id, "Single Merchant Admin");
   await ensureDisplayName(cashier.id, "Cashier One");
+  await ensureDisplayName(platformOwner.id, "Platform Owner");
   await ensureDisplayName(platformAdministrator.id, "Platform Administrator");
   await ensureDisplayName(agentAdministrator.id, "Agent Administrator");
+  await ensureDisplayName(subAgentAdministrator.id, "Sub-Agent Administrator");
 
   await seedDemoMerchantPortal(pool, {
     merchantId,
@@ -709,11 +993,12 @@ async function main() {
     );
     await pool.query(
       `INSERT INTO agent_payout_addresses (org_id, asset, network, address)
-       VALUES ($1, 'USDT', 'tron', $2)
+       VALUES ($1, 'USDT', $3, $2)
        ON CONFLICT (org_id) DO NOTHING`,
       [
         orgId,
         orgId === agentId ? "TDemoAgentPayoutSeed0001" : "TDemoSubAgentPaySeed01",
+        seedUsdtNetwork(),
       ],
     );
   }
@@ -792,6 +1077,16 @@ async function main() {
     }
   }
 
+  const reviewPayouts = await seedCommissionReviewFixtures(pool, {
+    agentId,
+    subAgentId,
+    agentPayoutAddress: "TDemoAgentPayoutSeed0001",
+    subPayoutAddress: "TDemoSubAgentPaySeed01",
+  });
+  if (reviewPayouts) {
+    console.log(`  Commission review invoices: ${reviewPayouts}`);
+  }
+
   console.log(`  Password (all): ${SEED_PASSWORD}\n`);
   console.log(
     "  Portal        Role            Email                              Org",
@@ -810,6 +1105,12 @@ async function main() {
     ["Platform", "Viewer", SEED_EMAIL.platformViewer, "CryptoGate Local"],
     ["Agent", "Owner*", SEED_EMAIL.platformOwner, "Demo Agent"],
     ["Agent", "Administrator", SEED_EMAIL.agentAdministrator, "Demo Agent"],
+    [
+      "Sub-agent",
+      "Administrator",
+      SEED_EMAIL.subAgentAdministrator,
+      "Demo Sub-Agent",
+    ],
     ["Merchant", "Owner", SEED_EMAIL.singleMerchantOwner, "Demo Merchant"],
     [
       "Merchant",
@@ -839,6 +1140,12 @@ async function main() {
     );
   }
   console.log("\n  * admin.platform also owns Demo Agent / Demo Sub-Agent");
+  console.log("\nCommission review:");
+  console.log("  Platform   /platform/commissions   (admin.platform / administrator.platform)");
+  console.log("  Platform   https://platform-cg.boostbunny.io/  (admin.platform@cryptogate.io)");
+  console.log("  Agent      https://agent-cg.boostbunny.io/      (administrator.agent@cryptogate.io)");
+  console.log("  Sub-agent  https://agent-cg.boostbunny.io/      (administrator.subagent@cryptogate.io)");
+  console.log("  Merchant   https://merchant-cg.boostbunny.io/  (owner.singlemerchant@cryptogate.io)");
   console.log("\nPortals (web dev server):");
   console.log("  Platform  http://127.0.0.1:5174/platform");
   console.log("  Agent     http://127.0.0.1:5174/agent");

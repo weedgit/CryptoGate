@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   looksLikeEmailQuery,
@@ -22,16 +23,18 @@ import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import { merchantsInAgentSubtree } from "./agentSubtree";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import {
+  getAgentServiceBills,
+  peekAgentServiceBills,
+} from "./agentServiceBillsList";
 import {
   ApiError,
-  getMerchantCommercial,
-  listOrders,
+  getOrderSummary,
+  listMerchantCommercialSummaries,
   listOrgMemberEmails,
-  listOrgs,
-  listServiceBills,
   type MerchantCommercialSettings,
   type OrgAccount,
-  type PaymentOrder,
   type ServiceBill,
   type Session,
 } from "./api";
@@ -298,7 +301,7 @@ function MerchantsListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-merchants" && canOnboard ? (
-          <Link className="btn-primary btn-inline" to="/agent/merchants/new">
+          <Link className="btn-primary btn-inline" to={agentRoute("merchants/new")}>
             Onboard merchant
           </Link>
         ) : null}
@@ -328,9 +331,13 @@ export function MerchantsListPage({ session }: Props) {
     [session],
   );
 
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
-  const [bills, setBills] = useState<ServiceBill[]>([]);
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekAgentOrgs() ?? []);
+  const [bills, setBills] = useState<ServiceBill[]>(
+    () => peekAgentServiceBills() ?? [],
+  );
+  const [volumeByOrg, setVolumeByOrg] = useState<
+    { orgId: string; volume: string }[]
+  >([]);
   const [commercialById, setCommercialById] = useState<
     Map<string, MerchantCommercialSettings>
   >(() => new Map());
@@ -342,7 +349,7 @@ export function MerchantsListPage({ session }: Props) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [error, setError] = useState<string | null>(null);
 
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
@@ -391,15 +398,17 @@ export function MerchantsListPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const orgRows = await listOrgs();
-      setOrgs(orgRows);
-      setLoading(false);
-      const [billRows, orderRows] = await Promise.all([
-        listServiceBills().catch(() => [] as ServiceBill[]),
-        listOrders({ limit: 500 }).catch(() => [] as PaymentOrder[]),
+      const [orgRows, billRows, summary] = await Promise.all([
+        getAgentOrgs(),
+        getAgentServiceBills().catch(() => [] as ServiceBill[]),
+        getOrderSummary(
+          new Date(Date.now() - 90 * 86400000).toISOString(),
+          new Date().toISOString(),
+        ).catch(() => null),
       ]);
+      setOrgs(orgRows);
       setBills(billRows);
-      setOrders(orderRows);
+      setVolumeByOrg(summary?.volumeByOrg ?? []);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to load merchants",
@@ -444,23 +453,16 @@ export function MerchantsListPage({ session }: Props) {
       setCommercialById(new Map());
       return;
     }
-    void Promise.all(
-      merchants.map(async (m) => {
-        try {
-          const row = await getMerchantCommercial(m.id);
-          return [m.id, row] as const;
-        } catch {
-          return null;
-        }
-      }),
-    ).then((entries) => {
-      if (cancelled) return;
-      const map = new Map<string, MerchantCommercialSettings>();
-      for (const entry of entries) {
-        if (entry) map.set(entry[0], entry[1]);
-      }
-      setCommercialById(map);
-    });
+    void listMerchantCommercialSummaries(merchants.map((m) => m.id))
+      .then((rows) => {
+        if (cancelled) return;
+        const map = new Map<string, MerchantCommercialSettings>();
+        for (const row of rows) map.set(row.orgId, row);
+        setCommercialById(map);
+      })
+      .catch(() => {
+        if (!cancelled) setCommercialById(new Map());
+      });
     return () => {
       cancelled = true;
     };
@@ -469,25 +471,18 @@ export function MerchantsListPage({ session }: Props) {
   const volumeByMerchantId = useMemo(() => {
     const byIdLocal = new Map(orgs.map((o) => [o.id, o]));
     const map = new Map<string, number>();
-    for (const o of orders) {
-      if (
-        o.status !== "completed" &&
-        o.status !== "confirmed"
-      ) {
-        continue;
-      }
-      if (!o.orgId) continue;
-      let merchantId = o.orgId;
-      const org = byIdLocal.get(o.orgId);
+    for (const row of volumeByOrg) {
+      let merchantId = row.orgId;
+      const org = byIdLocal.get(row.orgId);
       if (org?.type === "merchant_site" && org.parentId) {
         merchantId = org.parentId;
       }
-      const n = Number(o.payableAmount.amount);
+      const n = Number(row.volume);
       if (!Number.isFinite(n)) continue;
       map.set(merchantId, (map.get(merchantId) ?? 0) + n);
     }
     return map;
-  }, [orders, orgs]);
+  }, [volumeByOrg, orgs]);
 
   const billStatusByMerchantId = useMemo(() => {
     const byOrg = new Map<string, ServiceBill[]>();
@@ -600,7 +595,7 @@ export function MerchantsListPage({ session }: Props) {
     loading,
     allIds: merchantIds,
     filteredIds,
-    basePath: "/agent/merchants",
+    basePath: agentRoute("merchants"),
     navigate,
     emailIndexLoading,
     query,
@@ -620,7 +615,7 @@ export function MerchantsListPage({ session }: Props) {
   }, [selectedId, filtered]);
 
   const selectMerchant = (id: string) => {
-    navigate(`/agent/merchants/${id}`);
+    navigate(agentRoute(`merchants/${id}`));
     tableRef.current?.focus({ preventScroll: true });
     scrollOrgSplitPaneIntoView();
   };
@@ -716,7 +711,7 @@ export function MerchantsListPage({ session }: Props) {
               {canOnboard ? (
                 <Link
                   className="btn-primary org-agents__cta"
-                  to="/agent/merchants/new"
+                  to={agentRoute("merchants/new")}
                 >
                   Onboard merchant
                 </Link>

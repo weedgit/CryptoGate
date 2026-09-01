@@ -1,4 +1,5 @@
 import { getAssetNetworkConfig } from "@cryptogate/domain";
+import { isWatchOnlyXpub, looksLikeSpendKey } from "../security/spend-material.mjs";
 import { settlementCooldownMs } from "../settlement/settlement-rules.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
@@ -44,6 +45,14 @@ export function validateXpubBody(body) {
       status: 400,
       code: "invalid_xpub",
       message: "xPub is too short",
+    };
+  }
+  if (looksLikeSpendKey(xPub) || !isWatchOnlyXpub(xPub)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_xpub",
+      message: "Watch-only xPub required — private keys and mnemonics are rejected",
     };
   }
   if (mfaCode.length < 6 || mfaCode.length > 8) {

@@ -1,4 +1,5 @@
 import type { CommissionStatementRow } from "./commissionStatements";
+import { agentRoute, platformRoute } from "../shared/portalRouting";
 
 export type CommissionTreeMerchantLine = {
   orgId: string;
@@ -108,6 +109,36 @@ export async function generateCommissionInvoices(periodKey?: string): Promise<{
   };
 }
 
+export async function generateSubAgentCommissionInvoices(opts: {
+  periodKey?: string;
+  payerOrgId?: string;
+}): Promise<{
+  periodKey: string;
+  periodLabel: string;
+  created: CommissionPayoutRecord[];
+  skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
+}> {
+  const res = await fetch(`${API_BASE}/commission-payouts/generate-sub`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      periodKey: opts.periodKey,
+      payerOrgId: opts.payerOrgId,
+    }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    periodKey: string;
+    periodLabel: string;
+    created: CommissionPayoutRecord[];
+    skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
+  };
+}
+
 export async function upsertCommissionPayout(
   input: Omit<CommissionPayoutRecord, "id" | "updatedAt" | "treeSnapshot" | "settledAt" | "agentConfirmedBy"> & {
     id?: string;
@@ -207,14 +238,14 @@ export function paymentLinkForPlatformPayout(
   payeeOrgId: string,
   periodKey: string,
 ): string {
-  return `/platform/commissions?tab=invoices&payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
+  return `${platformRoute("commissions")}?tab=invoices&payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
 }
 
 export function paymentLinkForAgentSubPayout(
   payeeOrgId: string,
   periodKey: string,
 ): string {
-  return `/agent/commissions?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
+  return `${agentRoute("commissions")}?payee=${encodeURIComponent(payeeOrgId)}&period=${encodeURIComponent(periodKey)}`;
 }
 
 /**
@@ -232,9 +263,11 @@ export function commissionPayoutRemittanceUri(opts: {
   const asset = (opts.asset ?? "USDT").trim().toUpperCase() || "USDT";
   const network = (opts.network ?? "tron").trim().toLowerCase() || "tron";
   const amount = String(opts.amount).trim();
-  if (network === "tron" && address.startsWith("T") && address.length >= 30) {
-    const q = new URLSearchParams({ amount, asset, network });
-    return `tron:${address}?${q.toString()}`;
+  if (network === "tron" || network === "tron_nile") {
+    if (address.startsWith("T") && address.length >= 30) {
+      const q = new URLSearchParams({ amount, asset, network });
+      return `tron:${address}?${q.toString()}`;
+    }
   }
   return address;
 }

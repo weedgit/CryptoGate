@@ -13,6 +13,7 @@ import type { Session } from "../merchant/api";
 import { roleLabel } from "../merchant/org";
 import { platformRoleLabel } from "../platform/org";
 import { ProfileNavIcon, SignOutNavIcon } from "../platform/NavIcons";
+import { sessionDisplayLabel } from "./profileIdentity";
 import { SecuritySettingsPage } from "./SecuritySettingsPage";
 
 type Props = {
@@ -29,8 +30,7 @@ function profileIdentity(
   variant: "platform" | "agent" | "merchant",
 ): { name: string; role: string; email: string; initials: string } {
   const email = session.email;
-  const local = email.split("@")[0] || "User";
-  const name = (session.displayName ?? "").trim() || local;
+  const name = sessionDisplayLabel(session);
 
   let role = "Member";
   if (variant === "platform") {

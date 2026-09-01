@@ -21,7 +21,7 @@ import {
   formatChartDay,
   useLineChartHover,
 } from "./ChartHover";
-import { formatAxisNumber, niceAxisTicks } from "./chartAxis";
+import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "./chartAxis";
 import { hexToRgba } from "./chartColors";
 
 export type OverviewChartCard = {
@@ -124,7 +124,7 @@ export function Sparkline({
   const fillId = `metricFill-${reactId}`;
   const fullscreen = size === "fullscreen";
   const h = fullscreen ? 360 : 256;
-  const padLeft = fullscreen ? 48 : 40;
+  const padLeft = fullscreen ? 68 : 56;
   const padRight = fullscreen ? 14 : 10;
   const padTop = fullscreen ? 16 : 12;
   const padBottom = fullscreen ? 32 : 28;
@@ -154,8 +154,8 @@ export function Sparkline({
   const safe = values.length ? values : [0, 0];
   const max = Math.max(...safe, 0);
   const yTicks = niceAxisTicks(max, fullscreen ? 5 : 4);
-  const yTop = yTicks[yTicks.length - 1] ?? Math.max(max, 1);
-  const moneyAxis = /fee|volume|\$/i.test(metric);
+  const yTop = chartScaleTop(max, fullscreen ? 5 : 4);
+  const moneyAxis = /fee|volume|\$|usd/i.test(metric);
   const pts = safe.map((v, i) => {
     const x =
       safe.length <= 1

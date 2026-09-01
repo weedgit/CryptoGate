@@ -7,7 +7,6 @@ describe("billing wallet B11-lite", () => {
   it("validates seller + payTo body", () => {
     const ok = validateUpdateBillingWalletBody({
       sellerName: "CryptoGate Ops",
-      sellerEmail: "billing@example.com",
       payTo: "TPlatformWallet1234567890123456789012",
     });
     assert.equal(ok.ok, true);
@@ -16,11 +15,17 @@ describe("billing wallet B11-lite", () => {
       assert.equal(ok.payTo, "TPlatformWallet1234567890123456789012");
     }
 
-    const badEmail = validateUpdateBillingWalletBody({
+    const spend = validateUpdateBillingWalletBody({
       sellerName: "X",
-      sellerEmail: "not-an-email",
+      payTo: "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4fbQkV5Yxxxx",
     });
-    assert.equal(badEmail.ok, false);
+    assert.equal(spend.ok, false);
+
+    const eth = validateUpdateBillingWalletBody({
+      sellerName: "X",
+      payTo: "0x0000000000000000000000000000000000000001",
+    });
+    assert.equal(eth.ok, false);
   });
 
   it("checkout prefers explicit payTo over env", () => {

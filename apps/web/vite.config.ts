@@ -9,6 +9,31 @@ export default defineConfig({
   plugins: [react()],
   // Load CRYPTOGATE / VITE_CRYPTOGATE from monorepo root `.env` (single source of truth).
   envDir: repoRoot,
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/")
+          ) {
+            return "react";
+          }
+          if (id.includes("react-router")) {
+            return "router";
+          }
+          if (id.includes("qrcode")) {
+            return "qrcode";
+          }
+          if (id.includes("@cryptogate/domain")) {
+            return "domain";
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 5174,
     proxy: {

@@ -85,4 +85,41 @@ describe("@cryptogate/watcher confirmations (M3-42)", () => {
     });
     assert.equal(outcomes[0].skipped, true);
   });
+
+  it("confirms several orders in input order under concurrency", async () => {
+    const seen = [];
+    const outcomes = await processConfirmationBatch({
+      concurrency: 4,
+      orders: [
+        {
+          orderId: "a",
+          status: "verifying",
+          txHash: "0xa",
+          confirmations: 0,
+          requiredConfirmations: 1,
+          network: "tron",
+        },
+        {
+          orderId: "b",
+          status: "verifying",
+          txHash: "0xb",
+          confirmations: 0,
+          requiredConfirmations: 1,
+          network: "tron",
+        },
+      ],
+      getConfirmations: async ({ txHash }) => {
+        seen.push(txHash);
+        return 19;
+      },
+      apply: async (args) => ({ updated: 1, ...args }),
+    });
+    assert.deepEqual(
+      outcomes.map((o) => o.orderId),
+      ["a", "b"],
+    );
+    assert.equal(outcomes[0].nextStatus, "completed");
+    assert.equal(outcomes[1].nextStatus, "completed");
+    assert.equal(seen.length, 2);
+  });
 });

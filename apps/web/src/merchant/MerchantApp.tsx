@@ -1,30 +1,69 @@
 import { useMemo, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import "../styles/merchant.css";
+import "../styles/components.css";
 import { logout, type Session } from "./api";
+import { PortalShellBoot } from "../auth/PortalShellBoot";
 import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
-import { CashierForbiddenPage } from "./CashierForbiddenPage";
-import { NetworksPage } from "./NetworksPage";
-import { MerchantOrdersRoutes } from "./MerchantOrdersRoutes";
-import { DashboardPage } from "./DashboardPage";
 import { LoginPage } from "./LoginPage";
 import { MerchantShell } from "./MerchantShell";
-import { OrderDetailPage } from "./OrderDetailPage";
-import { OrdersListPage } from "./OrdersListPage";
 import { RequireOwnerPortal } from "./RequireOwnerPortal";
-import { ReportsPage } from "./ReportsPage";
-import { IntegrationsPage } from "./IntegrationsPage";
-import { NotificationsSettingsPage } from "./NotificationsSettingsPage";
-import { TeamSettingsPage } from "./TeamSettingsPage";
-import { SettlementPage } from "./SettlementPage";
-import { ServiceBillDetailPage } from "./ServiceBillDetailPage";
-import { CreateSitePage } from "./CreateSitePage";
-import { SiteDetailPage } from "./SiteDetailPage";
-import { SitesListPage } from "./SitesListPage";
-import { ServiceBillsListPage } from "./ServiceBillsListPage";
+import { RequireMerchantPortal } from "./RequireMerchantPortal";
+import { CashierForbiddenPage } from "./CashierForbiddenPage";
 import { sessionIsCashierOnly } from "./org";
+import { merchantRoute } from "../shared/portalRouting";
+import { LazyRoute } from "../shared/LazyRoute";
+import { lazyNamed } from "../shared/lazyNamed";
+
+const DashboardPage = lazyNamed(
+  () => import("./DashboardPage"),
+  "DashboardPage",
+);
+const NetworksPage = lazyNamed(() => import("./NetworksPage"), "NetworksPage");
+const MerchantOrdersRoutes = lazyNamed(
+  () => import("./MerchantOrdersRoutes"),
+  "MerchantOrdersRoutes",
+);
+const OrderDetailPage = lazyNamed(
+  () => import("./OrderDetailPage"),
+  "OrderDetailPage",
+);
+const OrdersListPage = lazyNamed(
+  () => import("./OrdersListPage"),
+  "OrdersListPage",
+);
+const ReportsPage = lazyNamed(() => import("./ReportsPage"), "ReportsPage");
+const IntegrationsPage = lazyNamed(
+  () => import("./IntegrationsPage"),
+  "IntegrationsPage",
+);
+const NotificationsSettingsPage = lazyNamed(
+  () => import("./NotificationsSettingsPage"),
+  "NotificationsSettingsPage",
+);
+const TeamSettingsPage = lazyNamed(
+  () => import("./TeamSettingsPage"),
+  "TeamSettingsPage",
+);
+const SettlementPage = lazyNamed(
+  () => import("./SettlementPage"),
+  "SettlementPage",
+);
+const ServiceBillDetailPage = lazyNamed(
+  () => import("./ServiceBillDetailPage"),
+  "ServiceBillDetailPage",
+);
+const MerchantSitesRoutes = lazyNamed(
+  () => import("./MerchantSitesRoutes"),
+  "MerchantSitesRoutes",
+);
+const ServiceBillsListPage = lazyNamed(
+  () => import("./ServiceBillsListPage"),
+  "ServiceBillsListPage",
+);
 
 type ShellProps = {
   session: Session;
@@ -42,14 +81,16 @@ function Shell({
   showCashierBanner = false,
 }: ShellProps) {
   return (
-    <MerchantShell
-      session={session}
-      onSignOut={onSignOut}
-      onSessionRefresh={onSessionRefresh}
-      showCashierBanner={showCashierBanner}
-    >
-      {children}
-    </MerchantShell>
+    <RequireMerchantPortal session={session} onSignOut={onSignOut}>
+      <MerchantShell
+        session={session}
+        onSignOut={onSignOut}
+        onSessionRefresh={onSessionRefresh}
+        showCashierBanner={showCashierBanner}
+      >
+        <LazyRoute>{children}</LazyRoute>
+      </MerchantShell>
+    </RequireMerchantPortal>
   );
 }
 
@@ -80,9 +121,10 @@ export function MerchantApp() {
 
   if (booting) {
     return (
-      <div className="login-wrap">
-        <p className="login-boot">Loading merchant portal…</p>
-      </div>
+      <PortalShellBoot
+        title="Loading merchant portal"
+        copy="Verifying your session"
+      />
     );
   }
 
@@ -94,11 +136,7 @@ export function MerchantApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate
-        session={session}
-        portalLabel="Merchant portal"
-        onChanged={setSession}
-      />
+      <ForceChangePasswordGate onChanged={setSession} />
     );
   }
 
@@ -192,15 +230,15 @@ export function MerchantApp() {
       />
       <Route
         path="settings/organization"
-        element={<Navigate to="/merchant/settings/team" replace />}
+        element={<Navigate to={merchantRoute("settings/team")} replace />}
       />
       <Route
         path="settings/billing"
-        element={<Navigate to="/merchant/service-bills" replace />}
+        element={<Navigate to={merchantRoute("service-bills")} replace />}
       />
       <Route
         path="settings/security"
-        element={<Navigate to="/merchant" replace />}
+        element={<Navigate to={merchantRoute()} replace />}
       />
       <Route
         path="settings/notifications"
@@ -244,7 +282,7 @@ export function MerchantApp() {
           <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="settings">
-              <Navigate to="/merchant/settings/team" replace />
+              <Navigate to={merchantRoute("settings/team")} replace />
             </OwnerOnly>
           </Shell>
         }
@@ -272,34 +310,12 @@ export function MerchantApp() {
         }
       />
       <Route
-        path="sites"
+        path="sites/*"
         element={
           <Shell session={session} onSignOut={signOut}
             onSessionRefresh={setSession}>
             <OwnerOnly session={session} area="sites">
-              <SitesListPage session={session} />
-            </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="sites/new"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OwnerOnly session={session} area="sites">
-              <CreateSitePage session={session} />
-            </OwnerOnly>
-          </Shell>
-        }
-      />
-      <Route
-        path="sites/:id"
-        element={
-          <Shell session={session} onSignOut={signOut}
-            onSessionRefresh={setSession}>
-            <OwnerOnly session={session} area="sites">
-              <SiteDetailPage session={session} />
+              <MerchantSitesRoutes session={session} />
             </OwnerOnly>
           </Shell>
         }
@@ -324,7 +340,7 @@ export function MerchantApp() {
               <CashierForbiddenPage area="this page" />
             </Shell>
           ) : (
-            <Navigate to="/merchant" replace />
+            <Navigate to={merchantRoute()} replace />
           )
         }
       />

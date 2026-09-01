@@ -16,3 +16,8 @@ export function sessionNeedsForcedMfa(session: Session): boolean {
   if (session.mfaEnrolled === true) return false;
   return sessionCanEnrollMfa(session);
 }
+
+/** True when the user has finished TOTP enrollment and can step up privileged actions. */
+export function sessionMfaEnrolled(session: Session): boolean {
+  return session.mfaEnrolled === true;
+}

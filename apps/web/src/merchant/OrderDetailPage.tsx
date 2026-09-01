@@ -8,6 +8,7 @@ import {
   getOrder,
   getOrg,
   getPaymentDetails,
+  listOrgUsers,
   listWebhookDeliveries,
   listWebhooks,
   resendWebhookDelivery,
@@ -40,6 +41,7 @@ import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
 import { AuthToast } from "../auth/AuthToast";
 import { PaymentOrderInvoiceFace } from "../billing/PaymentOrderInvoiceFace";
 import { AssetIcon, NetworkIcon, QrCenterNetworkMark } from "../platform/cryptoIcons";
+import { merchantRoute, platformRoute } from "../shared/portalRouting";
 
 /** Latest reached step in the order payment timeline (0 = Created … 3 = Confirmed). */
 function orderTimelineStepIndex(status: string, hasTx: boolean): number {
@@ -108,7 +110,7 @@ export function OrderDetailPage({
   const invoiceRef = useRef<HTMLElement | null>(null);
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
   const isPlatform = variant === "platform";
-  const backTo = isPlatform ? "/platform/compliance" : "/merchant/orders";
+  const backTo = isPlatform ? platformRoute("compliance") : merchantRoute("orders");
   const backLabel = isPlatform ? "← Back to compliance" : "← Back to orders";
   const topbarCenterId = isPlatform
     ? "platform-topbar-center"
@@ -118,6 +120,7 @@ export function OrderDetailPage({
   const [pay, setPay] = useState<PaymentDetails | null>(seededPay ?? null);
   const [chain, setChain] = useState<OnChainDetails | null>(null);
   const [sellerOrg, setSellerOrg] = useState<OrgAccount | null>(null);
+  const [sellerContactEmail, setSellerContactEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
@@ -159,14 +162,21 @@ export function OrderDetailPage({
       const orderOrgId = o.orgId ?? primaryMerchantOrgId(session) ?? null;
       if (orderOrgId) {
         const siteOrMerchant = await getOrg(orderOrgId).catch(() => null);
+        let seller: OrgAccount | null = siteOrMerchant;
         if (siteOrMerchant?.type === "merchant_site" && siteOrMerchant.parentId) {
-          const parent = await getOrg(siteOrMerchant.parentId).catch(() => null);
-          setSellerOrg(parent ?? siteOrMerchant);
-        } else {
-          setSellerOrg(siteOrMerchant);
+          seller = await getOrg(siteOrMerchant.parentId).catch(() => siteOrMerchant);
         }
+        setSellerOrg(seller);
+        const sellerId = seller?.id ?? orderOrgId;
+        const members = await listOrgUsers(sellerId).catch(() => []);
+        const preferred =
+          members.find((m) => /owner/i.test(m.role)) ??
+          members.find((m) => /admin/i.test(m.role)) ??
+          members[0];
+        setSellerContactEmail(preferred?.email?.trim() || null);
       } else {
         setSellerOrg(null);
+        setSellerContactEmail(null);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load order");
@@ -506,7 +516,7 @@ export function OrderDetailPage({
             seller={{
               name: sellerOrg?.name ?? "Merchant",
               legalName: sellerOrg?.legalName,
-              billingEmail: sellerOrg?.billingEmail,
+              contactEmail: sellerContactEmail,
               orgId: sellerOrgId,
             }}
             onChain={
@@ -974,18 +984,18 @@ export function OrderDetailPage({
                 </button>
               ) : null}
               {!isPlatform ? (
-                <Link className="order-detail-page__cta" to="/merchant/orders/new">
+                <Link className="order-detail-page__cta" to={merchantRoute("orders/new")}>
                   Create another payment order
                 </Link>
               ) : order?.orgId ? (
                 <Link
                   className="order-detail-page__cta"
-                  to={`/platform/merchants/${encodeURIComponent(order.orgId)}?tab=compliance`}
+                  to={`${platformRoute(`merchants/${order.orgId}`)}?tab=compliance`}
                 >
                   Open merchant
                 </Link>
               ) : (
-                <Link className="order-detail-page__cta" to="/platform/compliance">
+                <Link className="order-detail-page__cta" to={platformRoute("compliance")}>
                   Back to compliance
                 </Link>
               )}

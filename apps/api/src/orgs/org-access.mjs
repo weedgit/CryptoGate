@@ -1,6 +1,7 @@
 import { listMembershipsForUser } from "./membership-store.mjs";
 import { isPlatformOperator, isPlatformStaff } from "./membership-rules.mjs";
 import { listOrgAccounts } from "./org-store.mjs";
+import { cachedPlatformOrgList } from "./org-list-cache.mjs";
 import { listOrgsInSubtree } from "./org-scope.mjs";
 
 /**
@@ -36,7 +37,7 @@ export async function loadCaller(userId) {
  */
 export async function listVisibleOrgs(platformOperator, memberships) {
   if (platformOperator || isPlatformStaff(memberships)) {
-    return listOrgAccounts();
+    return cachedPlatformOrgList(() => listOrgAccounts());
   }
   return listOrgsInSubtree(memberships.map((m) => m.orgId));
 }

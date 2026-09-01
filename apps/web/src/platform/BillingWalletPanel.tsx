@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { Link } from "react-router-dom";
+import { platformRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   SERVICE_BILL_ASSET,
@@ -37,10 +38,8 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
     [],
   );
   const [sellerName, setSellerName] = useState("CryptoGate");
-  const [sellerEmail, setSellerEmail] = useState("");
   const [payTo, setPayTo] = useState("");
   const [savedSellerName, setSavedSellerName] = useState("CryptoGate");
-  const [savedSellerEmail, setSavedSellerEmail] = useState("");
   const [savedPayTo, setSavedPayTo] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,10 +47,7 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const dirty =
-    sellerName !== savedSellerName ||
-    sellerEmail !== savedSellerEmail ||
-    payTo !== savedPayTo;
+  const dirty = sellerName !== savedSellerName || payTo !== savedPayTo;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -64,8 +60,6 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
       const settings = await getBillingWalletSettings();
       setSellerName(settings.sellerName);
       setSavedSellerName(settings.sellerName);
-      setSellerEmail(settings.sellerEmail ?? "");
-      setSavedSellerEmail(settings.sellerEmail ?? "");
       setPayTo(settings.payTo ?? "");
       setSavedPayTo(settings.payTo ?? "");
       setUpdatedAt(settings.updatedAt);
@@ -106,13 +100,10 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
     try {
       const settings = await updateBillingWalletSettings({
         sellerName: name,
-        sellerEmail: sellerEmail.trim() || null,
         payTo: payTo.trim() || null,
       });
       setSellerName(settings.sellerName);
       setSavedSellerName(settings.sellerName);
-      setSellerEmail(settings.sellerEmail ?? "");
-      setSavedSellerEmail(settings.sellerEmail ?? "");
       setPayTo(settings.payTo ?? "");
       setSavedPayTo(settings.payTo ?? "");
       setUpdatedAt(settings.updatedAt);
@@ -166,7 +157,7 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
             <header className="plat-fee-billing__card-head">
               <div>
                 <h3>Invoice seller</h3>
-                <p>Your platform name and contact as they appear on fee invoices.</p>
+                <p>Your platform business name as it appears on fee invoices.</p>
               </div>
             </header>
             <div className="plat-fee-billing__fields">
@@ -186,27 +177,6 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                   />
                 </FieldControl>
               </div>
-              <div className="b4-field">
-                <label className="b4-field__label" htmlFor="billing-seller-email">
-                  Contact email
-                </label>
-                <FieldControl icon="mail">
-                  <input
-                    id="billing-seller-email"
-                    className="b4-field__control"
-                    type="email"
-                    value={sellerEmail}
-                    disabled={!canEdit || busy}
-                    onChange={(e) => setSellerEmail(e.target.value)}
-                    maxLength={254}
-                    placeholder="finance@example.com"
-                    autoComplete="email"
-                  />
-                </FieldControl>
-                <p className="b4-field__hint">
-                  Shown on invoices only — this does not create a login.
-                </p>
-              </div>
             </div>
           </section>
 
@@ -215,10 +185,11 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
               <div>
                 <h3>Platform wallet address</h3>
                 <p>
-                  Merchants pay platform fees in{" "}
-                  <strong>USDT on {feeNetworkLabel}</strong>. Paste the Tron
-                  wallet that should receive those transfers — separate from
-                  guest payment pages.
+                  Merchants pay <strong>SaaS service bills</strong> in{" "}
+                  <strong>USDT on {feeNetworkLabel}</strong>. Paste a public
+                  receive address you control. This is not a custody vault —
+                  CryptoGate never holds merchant or payer spend keys, and
+                  guest payments still go to the merchant wallet.
                 </p>
                 <div
                   className="plat-fee-billing__rail"
@@ -258,6 +229,16 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                     placeholder="Paste Tron USDT wallet address (starts with T)"
                   />
                 </FieldControl>
+                <p className="b4-field__hint">
+                  Public address only. Never paste a private key, mnemonic, or
+                  xprv. Leave empty until you have a wallet you control.
+                </p>
+                {canEdit && !payTo.trim() && !dirty ? (
+                  <p className="b4-field__hint" role="status">
+                    No fee address yet — merchants cannot pay service bills
+                    on-chain until you save one.
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
@@ -270,7 +251,7 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
               : updatedAt
                 ? `Last saved ${new Date(updatedAt).toLocaleString()}`
                 : "Fee wallet matches the saved settings."}{" "}
-            <Link className="plat-fee-billing__bills-link" to="/platform/service-bills">
+            <Link className="plat-fee-billing__bills-link" to={platformRoute("service-bills")}>
               View service bills
             </Link>
           </p>

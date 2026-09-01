@@ -27,7 +27,7 @@ android {
         (project.findProperty("cryptogate.stagingApi") as String?)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-            ?: "http://10.0.2.2:3000/v1"
+            ?: "https://api-cg.boostbunny.io/v1"
     val prodApi =
         (project.findProperty("cryptogate.prodApi") as String?)
             ?.trim()

@@ -21,7 +21,7 @@ const ASSET_NETWORK_UI = {
   "USDT:tron_nile": {
     displayNetwork: "TRON Nile (testnet)",
     memoSupported: false,
-    requiredConfirmations: 3,
+    requiredConfirmations: 19,
   },
   "USDT:ethereum": {
     displayNetwork: "Ethereum ERC-20",

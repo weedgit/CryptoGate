@@ -1,8 +1,9 @@
 import type { AlertItem, AlertsSource } from "../platform/ui/AlertsDrawer";
+import { merchantRoute } from "../shared/portalRouting";
 import type { Session } from "./api";
 import {
   getNotificationPreferences,
-  listOrders,
+  getOrderSummary,
   listOrgs,
   listServiceBills,
   listSettlement,
@@ -124,7 +125,7 @@ function anomalyAlert(order: PaymentOrder, actionable: boolean): AlertItem {
       .filter(Boolean)
       .join(" "),
     at: formatShortTime(order.createdAt ?? order.expiresAt),
-    href: `/merchant/orders/${order.id}`,
+    href: merchantRoute(`orders/${order.id}`),
     hrefLabel: actionable ? "Review order" : "View order",
     tone: "anomaly",
     urgent: true,
@@ -148,7 +149,7 @@ function settlementCooldownAlert(
       ? `New ${asset} (${network}) receive address activates in ${remaining}. Until then, open orders still use the current address.`
       : `New ${asset} (${network}) receive address activates ${formatShortTime(activatesAt)}. Until then, open orders still use the current address.`,
     at: formatShortTime(activatesAt),
-    href: "/merchant/settings/settlement",
+    href: merchantRoute("settings/settlement"),
     hrefLabel: "Settlement",
     tone: "warn",
     urgent: true,
@@ -173,7 +174,7 @@ function xpubCooldownAlert(
       ? `Mode S watch-only xPub for ${asset} (${network}) activates in ${remaining}. New HD addresses wait until then.`
       : `Mode S watch-only xPub for ${asset} (${network}) activates ${formatShortTime(activatesAt)}.`,
     at: formatShortTime(activatesAt),
-    href: "/merchant/settings/settlement",
+    href: merchantRoute("settings/settlement"),
     hrefLabel: "Settlement",
     tone: "warn",
     urgent: true,
@@ -197,7 +198,7 @@ function serviceBillAlert(bill: ServiceBill, canPay: boolean): AlertItem {
         ? `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is unpaid — due ${formatShortTime(bill.dueAt)}. This is platform fees, not a customer payment order.`
         : `Bill ${ref} · ${bill.totalAmount} ${bill.currency} is unpaid — due ${formatShortTime(bill.dueAt)}. An Owner or Administrator must pay.`,
     at: formatShortTime(bill.dueAt),
-    href: `/merchant/service-bills/${bill.id}`,
+    href: merchantRoute(`service-bills/${bill.id}`),
     hrefLabel: canPay ? "Pay bill" : "View bill",
     tone: "warn",
     urgent: true,
@@ -218,7 +219,7 @@ function siteOverridePendingForParent(
     title: "Site asked to change settings",
     body: `${siteName} requested a ${kind} change — approve or deny on the site page.`,
     at: formatShortTime(row.createdAt),
-    href: `/merchant/sites/${siteId}`,
+    href: merchantRoute(`sites/${siteId}`),
     hrefLabel: "Review",
     tone: "warn",
     urgent: true,
@@ -235,7 +236,7 @@ function siteOverridePendingForSite(row: SiteSettingOverride): AlertItem {
     title: "Waiting for parent approval",
     body: `Your ${kind} change is waiting for the parent merchant Owner to approve.`,
     at: formatShortTime(row.createdAt),
-    href: `/merchant/settings/settlement`,
+    href: merchantRoute("settings/settlement"),
     hrefLabel: "Settings",
     tone: "info",
     urgent: false,
@@ -258,7 +259,7 @@ function siteOverrideDecidedAlert(
       ? `Parent merchant approved your ${kind} change.`
       : `Parent merchant denied your ${kind} change. Ask them if you need a different setting.`,
     at: formatShortTime(row.decidedAt ?? row.createdAt),
-    href: `/merchant/settings/settlement`,
+    href: merchantRoute("settings/settlement"),
     hrefLabel: "Settings",
     tone: approved ? "ok" : "warn",
     urgent: false,
@@ -287,7 +288,7 @@ function webhookFailureAlert(
     title: "Webhook not reaching your server",
     body: `${host} failed ${attempts} times — check that your endpoint is up and verifies the signed payload.`,
     at: at ? formatShortTime(at) : "Recent",
-    href: "/merchant/settings/integrations",
+    href: merchantRoute("settings/integrations"),
     hrefLabel: "Integrations",
     tone: "warn",
     urgent: true,
@@ -439,15 +440,21 @@ async function loadSiteOverrideAlerts(
     const sites = orgs.filter(
       (o) => o.type === "merchant_site" && o.parentId === parentId,
     );
-    for (const site of sites) {
-      let rows: SiteSettingOverride[] = [];
-      try {
-        rows = await listSiteOverrides(site.id);
-      } catch {
-        continue;
-      }
-      for (const row of rows.filter((r) => r.status === "pending")) {
-        next.push(siteOverridePendingForParent(site.name, site.id, row));
+    const siteRows = await Promise.all(
+      sites.map(async (site) => {
+        try {
+          return { site, rows: await listSiteOverrides(site.id) };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const item of siteRows) {
+      if (!item) continue;
+      for (const row of item.rows.filter((r) => r.status === "pending")) {
+        next.push(
+          siteOverridePendingForParent(item.site.name, item.site.id, row),
+        );
       }
     }
   } catch {
@@ -458,14 +465,19 @@ async function loadSiteOverrideAlerts(
 async function loadWebhookFailureAlerts(orgId: string, next: AlertItem[]): Promise<void> {
   try {
     const hooks = await listWebhooks(orgId);
-    for (const hook of hooks) {
-      if (!hook.enabled) continue;
-      let deliveries;
-      try {
-        deliveries = await listWebhookDeliveries(hook.id, orgId);
-      } catch {
-        continue;
-      }
+    const enabled = hooks.filter((hook) => hook.enabled);
+    const latestByHook = await Promise.all(
+      enabled.map(async (hook) => {
+        try {
+          return { hook, deliveries: await listWebhookDeliveries(hook.id, orgId) };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const item of latestByHook) {
+      if (!item) continue;
+      const { hook, deliveries } = item;
       if (deliveries.length === 0) continue;
       const sorted = [...deliveries].sort((a, b) => {
         const ta = Date.parse(a.deliveredAt ?? a.createdAt ?? "");
@@ -496,6 +508,10 @@ export async function refreshMerchantAlerts(
   const cashierOnly = sessionIsCashierOnly(session);
   const canPay = sessionCanCheckoutServiceBill(session);
   const canManageHooks = sessionCanManageIntegrations(session);
+  const ordersPromise = getOrderSummary(
+    new Date(0).toISOString(),
+    new Date().toISOString(),
+  );
   const next: AlertItem[] = [];
 
   if (orgId && !cashierOnly) {
@@ -509,8 +525,8 @@ export async function refreshMerchantAlerts(
   }
 
   try {
-    const orders = await listOrders({ limit: 500 });
-    for (const order of orders.filter((o) => o.status === "payment_anomaly")) {
+    const summary = await ordersPromise;
+    for (const order of summary.anomalies) {
       next.push(anomalyAlert(order, canResolveAnomaly(session, order)));
     }
   } catch {

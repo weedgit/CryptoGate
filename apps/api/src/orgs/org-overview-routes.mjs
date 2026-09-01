@@ -1,6 +1,7 @@
 import { sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { toAuditLogEntry } from "../audit/audit-list-rules.mjs";
+import { enrichAuditLogRows } from "../audit/audit-enrich.mjs";
 import { listAuditLog } from "../audit/audit-list-store.mjs";
 import { toAgentPayoutAddress } from "../commercial/agent-payout-rules.mjs";
 import { findAgentPayoutAddress } from "../commercial/agent-payout-store.mjs";
@@ -69,12 +70,14 @@ export async function handleGetOrgOverview(req, res, orgId) {
       }
     }
     if (auditScope.kind === "all" || (auditOrgIds && auditOrgIds.length > 0)) {
-      auditRows = await listAuditLog({
-        kind: auditScope.kind === "all" ? "all" : "filter",
-        orgIds: auditOrgIds,
-        orgId,
-        limit: OVERVIEW_AUDIT_LIMIT,
-      });
+      auditRows = await enrichAuditLogRows(
+        await listAuditLog({
+          kind: auditScope.kind === "all" ? "all" : "filter",
+          orgIds: auditOrgIds,
+          orgId,
+          limit: OVERVIEW_AUDIT_LIMIT,
+        }),
+      );
     }
   }
 

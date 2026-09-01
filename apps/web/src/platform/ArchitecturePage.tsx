@@ -39,6 +39,7 @@ import {
 } from "./platformOrgTree";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { useOrgTreeOpsExtras } from "./useOrgTreeOpsExtras";
+import { platformRoute } from "../shared/portalRouting";
 
 const STATUS_PILLS: { id: OrgTreeFilter["status"]; label: string }[] = [
   { id: "all", label: "All" },
@@ -96,8 +97,6 @@ function CopyOrgId({ id }: { id: string }) {
 
 const REGISTRATION_HELP: Record<string, string> = {
   Country: "Country captured on the onboard Details step.",
-  "Billing email":
-    "Finance contact for service bills and billing notices. Stored on the org account — does not create a login.",
   "Owner email":
     "Portal Owner invite when present; otherwise the first team member on this account (for example Cashier on load-seed merchants).",
 };
@@ -336,16 +335,11 @@ function OrgTreeDetail({
     },
     { label: "Legal name", value: node.legalName, always: false },
     { label: "Country", value: node.country, always: false },
-    { label: "Billing email", value: node.billingEmail, always: false },
     { label: "Owner email", value: ownerEmail, always: false },
   ];
   const filledContact = contactRows.filter(
     (r) => r.always || (r.value && String(r.value).trim() && String(r.value) !== "—"),
   );
-  const missingContact =
-    !node.legalName?.trim() &&
-    !node.country?.trim() &&
-    !node.billingEmail?.trim();
 
   const showStatStrip =
     counts.agents > 0 ||
@@ -401,7 +395,7 @@ function OrgTreeDetail({
                               setAddMenuOpen(false);
                               navigate(
                                 withReturnTo(
-                                  `/platform/agents/new?kind=agent_sub&parentId=${encodeURIComponent(node.id)}`,
+                                  `${platformRoute("agents/new")}?kind=agent_sub&parentId=${encodeURIComponent(node.id)}`,
                                 ),
                               );
                             }}
@@ -417,7 +411,7 @@ function OrgTreeDetail({
                             setAddMenuOpen(false);
                             navigate(
                               withReturnTo(
-                                `/platform/merchants/new?parentId=${encodeURIComponent(node.id)}`,
+                                `${platformRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
                               ),
                             );
                           }}
@@ -608,11 +602,6 @@ function OrgTreeDetail({
               />
             ))}
           </dl>
-          {missingContact ? (
-            <p className="org-architecture__empty-note">
-              No legal name, country, or billing email on file yet.
-            </p>
-          ) : null}
         </section>
       </div>
 

@@ -11,18 +11,27 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { platformRoute } from "../shared/portalRouting";
+import { AnimatedFundAmount } from "../shared/AnimatedFundAmount";
 import {
   ApiError,
-  listAuditLog,
-  listOrders,
+  getPlatformDashboardSummary,
   getPlatformOrgs,
+  getPlatformOrders,
   getPlatformServiceBills,
+  peekPlatformOrgs,
+  peekPlatformOrders,
+  peekPlatformServiceBills,
   type AuditLogEntry,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
   type Session,
 } from "./api";
+import {
+  feeAccruedFromBills,
+  invoiceStatsFromBills,
+} from "./dashboardBillPeriod";
 import { PlatformPending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
@@ -46,7 +55,8 @@ import {
   formatChartDateTime,
   useLineChartHover,
 } from "./ui/ChartHover";
-import { formatAxisNumber, niceAxisTicks } from "./ui/chartAxis";
+import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "./ui/chartAxis";
+import { VolumeChart, type VolumeChartZoomApi } from "./charts/VolumeChart";
 import { OverviewTable, type OverviewChartCard } from "./ui/OverviewTable";
 import {
   METRIC_CHART_COLORS,
@@ -368,14 +378,11 @@ function orgVolumeTotal(
 function volFeeValue(volume: number, fees: number) {
   return (
     <span className="plat-vol-fee plat-vol-fee--card">
-      <span className="fund-amount">
-        {formatMoneyFigure(volume)}
-        <span className="plat-fund-currency">$</span>
-      </span>
+      <span className="fund-amount">{formatMoneyFigure(volume)}</span>
       <span className="plat-vol-fee__sep">/</span>
       <span className="fund-amount">
         {formatMoneyFigure(fees)}
-        <span className="plat-fund-currency">$</span>
+        <span className="plat-fund-currency">USD</span>
       </span>
     </span>
   );
@@ -412,13 +419,13 @@ function buildOrgOverviewCard(args: {
     series: buckets,
     seriesLabels: keys,
     seriesMetric: "Volume",
-    formatSeriesValue: (n: number) => `$${formatMoneyFigure(n)}`,
+    formatSeriesValue: (n: number) => `${formatMoneyFigure(n)} USD`,
     chartColor: orgMetricChartColor(overviewId, kind),
     seriesStatus: "ready",
     moreHref:
       kind === "merchant"
-        ? `/platform/merchants/${org.id}`
-        : `/platform/agents/${org.id}`,
+        ? platformRoute(`merchants/${org.id}`)
+        : platformRoute(`agents/${org.id}`),
   };
 }
 
@@ -428,20 +435,6 @@ function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
     if (!isSettledOrder(o.status)) continue;
     if (!inWindow(o.expiresAt, from, to)) continue;
     const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
-}
-
-/** Volume fees billed in period (not void) — accrued platform fees. */
-function feeAccrued(bills: ServiceBill[], from: Date, to: Date): number {
-  let total = 0;
-  for (const b of bills) {
-    if (b.status === "void") continue;
-    if (!inWindow(b.dueAt, from, to) && !inWindow(b.periodStart, from, to)) {
-      continue;
-    }
-    const n = Number(b.volumeFeeAmount);
     if (Number.isFinite(n)) total += n;
   }
   return total;
@@ -460,22 +453,7 @@ function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
 }
 
 function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
-  let issued = 0;
-  let paid = 0;
-  let overdue = 0;
-  for (const b of bills) {
-    if (b.status === "void") continue;
-    if (inWindow(b.dueAt, from, to) || inWindow(b.periodStart, from, to)) {
-      issued += 1;
-    }
-    if (b.status === "paid" && inWindow(b.paidAt ?? b.dueAt, from, to)) {
-      paid += 1;
-    }
-    if (b.status === "overdue") {
-      overdue += 1;
-    }
-  }
-  return { issued, paid, overdue };
+  return invoiceStatsFromBills(bills, from, to);
 }
 
 function newSignupStats(events: AuditLogEntry[], from: Date, to: Date) {
@@ -500,595 +478,25 @@ function formatMoneyFigure(n: number): string {
 }
 
 function formatUsd(n: number): string {
-  return `$${formatMoneyFigure(n)}`;
+  return `${formatMoneyFigure(n)} USD`;
+}
+
+function PeriodUsd({ n }: { n: number }) {
+  return (
+    <>
+      {formatMoneyFigure(n)}
+      <span className="dash-chart-panel__period-unit">USD</span>
+    </>
+  );
 }
 
 function formatAxisUsd(n: number): string {
   return formatAxisNumber(n, true);
 }
 
-type ChartViewWindow = { start: number; end: number };
-
-export type VolumeChartZoomApi = {
-  reset: () => void;
-  zoomIn: () => void;
-  zoomOut: () => void;
-};
-
-function clampViewWindow(
-  start: number,
-  end: number,
-  lastIndex: number,
-  minSpan: number,
-): ChartViewWindow {
-  let span = Math.max(end - start, minSpan);
-  span = Math.min(span, Math.max(lastIndex, minSpan));
-  let nextStart = start;
-  let nextEnd = start + span;
-  if (nextStart < 0) {
-    nextStart = 0;
-    nextEnd = span;
-  }
-  if (nextEnd > lastIndex) {
-    nextEnd = lastIndex;
-    nextStart = Math.max(0, lastIndex - span);
-  }
-  return { start: nextStart, end: nextEnd };
-}
-
-function clientToSvgX(
-  svg: SVGSVGElement,
-  clientX: number,
-  clientY: number,
-): number | null {
-  const ctm = svg.getScreenCTM();
-  if (!ctm) return null;
-  const pt = svg.createSVGPoint();
-  pt.x = clientX;
-  pt.y = clientY;
-  return pt.matrixTransform(ctm.inverse()).x;
-}
-
-export function VolumeChart({
-  values,
-  labels,
-  size = "default",
-  showZoomBar = true,
-  onZoomedChange,
-  zoomApiRef,
-}: {
-  values: number[];
-  labels: string[];
-  size?: "default" | "fullscreen";
-  /** When false, parent renders zoom controls (e.g. beside chart help). */
-  showZoomBar?: boolean;
-  onZoomedChange?: (zoomed: boolean) => void;
-  zoomApiRef?: { current: VolumeChartZoomApi | null };
-}) {
-  const reactId = useId().replace(/:/g, "");
-  const fillId = `platVolFill-${reactId}`;
-  const fullscreen = size === "fullscreen";
-  const h = fullscreen ? 360 : 360;
-  const padLeft = fullscreen ? 56 : 52;
-  const padRight = fullscreen ? 16 : 14;
-  const padTop = fullscreen ? 14 : 14;
-  const padBottom = fullscreen ? 36 : 28;
-  const baseline = h - padBottom;
-  const lastIndex = Math.max(values.length - 1, 0);
-  const minSpan = Math.min(2, Math.max(lastIndex, 1));
-
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [vbW, setVbW] = useState(fullscreen ? 1120 : 680);
-  const [layoutReady, setLayoutReady] = useState(false);
-
-  useLayoutEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const sync = () => {
-      const { width, height } = el.getBoundingClientRect();
-      if (width < 40 || height < 40) return;
-      // Match viewBox aspect to the painted box so the chart fills width
-      // without letterboxing or stretching axis text.
-      setVbW(Math.max(280, Math.round((width / height) * h)));
-      setLayoutReady(true);
-    };
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [h]);
-
-  const w = vbW;
-  const plotW = w - padLeft - padRight;
-  const plotH = h - padTop - padBottom;
-
-  const [view, setView] = useState<ChartViewWindow>({ start: 0, end: lastIndex });
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  const dragRef = useRef<{
-    pointerId: number;
-    svgX: number;
-    start: number;
-    end: number;
-    moved: boolean;
-  } | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  useEffect(() => {
-    setView({ start: 0, end: Math.max(values.length - 1, 0) });
-  }, [values.length, labels[0], labels[labels.length - 1]]);
-
-  const zoomed = view.start > 0.01 || view.end < lastIndex - 0.01;
-
-  useEffect(() => {
-    onZoomedChange?.(zoomed);
-  }, [zoomed, onZoomedChange]);
-
-  const resetView = useCallback(() => {
-    setView({ start: 0, end: lastIndex });
-  }, [lastIndex]);
-
-  const zoomBy = useCallback(
-    (factor: number) => {
-      if (lastIndex <= 0) return;
-      const { start, end } = viewRef.current;
-      const span = Math.max(end - start, 1e-6);
-      const focus = (start + end) / 2;
-      setView(
-        clampViewWindow(
-          focus - (span * factor) / 2,
-          focus + (span * factor) / 2,
-          lastIndex,
-          minSpan,
-        ),
-      );
-    },
-    [lastIndex, minSpan],
-  );
-
-  useEffect(() => {
-    if (!zoomApiRef) return;
-    zoomApiRef.current = {
-      reset: resetView,
-      zoomIn: () => zoomBy(1 / 1.35),
-      zoomOut: () => zoomBy(1.35),
-    };
-    return () => {
-      zoomApiRef.current = null;
-    };
-  }, [zoomApiRef, resetView, zoomBy]);
-
-  const visible = useMemo(() => {
-    if (values.length === 0) {
-      return { idxs: [] as number[], max: 1 };
-    }
-    const lo = Math.max(0, Math.floor(view.start));
-    const hi = Math.min(lastIndex, Math.ceil(view.end));
-    const idxs: number[] = [];
-    for (let i = lo; i <= hi; i++) idxs.push(i);
-    if (idxs.length === 0) idxs.push(0);
-    let max = 1;
-    for (const i of idxs) max = Math.max(max, values[i] ?? 0);
-    return { idxs, max };
-  }, [values, view.start, view.end, lastIndex]);
-
-  const yTicks = useMemo(
-    () => niceAxisTicks(visible.max, fullscreen ? 5 : 4),
-    [visible.max, fullscreen],
-  );
-  const yTop = yTicks[yTicks.length - 1] ?? Math.max(visible.max, 1);
-
-  const indexToX = useCallback(
-    (i: number) => {
-      const span = Math.max(view.end - view.start, 1e-6);
-      if (lastIndex === 0) return padLeft + plotW / 2;
-      return padLeft + ((i - view.start) / span) * plotW;
-    },
-    [view.start, view.end, lastIndex, padLeft, plotW],
-  );
-
-  const valueToY = useCallback(
-    (v: number) => baseline - (v / yTop) * plotH,
-    [baseline, yTop, plotH],
-  );
-
-  const pts = useMemo(
-    () =>
-      visible.idxs.map((i) => ({
-        i,
-        x: indexToX(i),
-        y: valueToY(values[i] ?? 0),
-      })),
-    [visible.idxs, indexToX, valueToY, values],
-  );
-
-  const hoverPts = useMemo(() => pts.map((p) => ({ x: p.x, y: p.y })), [pts]);
-  const { svgRef, hover, onMouseMove, onMouseLeave } = useLineChartHover(hoverPts);
-
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const onWheel = (e: WheelEvent) => {
-      if (lastIndex <= 0) return;
-      const { start, end } = viewRef.current;
-      const isZoomed = start > 0.01 || end < lastIndex - 0.01;
-      if (!isZoomed) return;
-
-      // Trackpad horizontal scroll / shift+wheel → pan when already zoomed.
-      // Vertical wheel does not zoom (use +/- controls).
-      const panDelta =
-        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
-      if (panDelta === 0) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      const span = Math.max(end - start, 1e-6);
-      const dIndex = (panDelta / Math.max(plotW, 1)) * span * 0.0025 * plotW;
-      setView(
-        clampViewWindow(start + dIndex, end + dIndex, lastIndex, minSpan),
-      );
-    };
-    wrap.addEventListener("wheel", onWheel, { passive: false });
-    return () => wrap.removeEventListener("wheel", onWheel);
-  }, [lastIndex, minSpan, plotW]);
-
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const area =
-    pts.length > 0
-      ? `${line} L ${pts[pts.length - 1].x} ${baseline} L ${pts[0].x} ${baseline} Z`
-      : "";
-  const frame =
-    pts.length > 0
-      ? `M ${pts[0].x} ${pts[0].y} L ${pts[0].x} ${baseline} L ${pts[pts.length - 1].x} ${baseline} L ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`
-      : "";
-
-  const seriesAnimKey = `${labels[0] ?? ""}|${labels[labels.length - 1] ?? ""}|${values.length}|${Math.round(values[0] ?? 0)}|${Math.round(values[values.length - 1] ?? 0)}`;
-  const prevSeriesAnimKey = useRef("");
-  /** axis = X wipe first; series = clip wipe of line/fill; idle = done */
-  const [revealPhase, setRevealPhase] = useState<"axis" | "series" | "idle">(
-    "idle",
-  );
-  const AXIS_REVEAL_MS = 520;
-  const SERIES_REVEAL_MS = 900;
-
-  useLayoutEffect(() => {
-    if (!layoutReady || !line) {
-      if (!line) setRevealPhase("idle");
-      return;
-    }
-
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    // Zoom/pan rewrite path coords — only replay when the series itself changes.
-    if (prevSeriesAnimKey.current === seriesAnimKey || reduceMotion) {
-      setRevealPhase("idle");
-      if (reduceMotion) prevSeriesAnimKey.current = seriesAnimKey;
-      return;
-    }
-
-    let cancelled = false;
-    setRevealPhase("axis");
-
-    const startSeries = window.setTimeout(() => {
-      if (!cancelled) setRevealPhase("series");
-    }, AXIS_REVEAL_MS);
-
-    const done = window.setTimeout(() => {
-      if (cancelled) return;
-      setRevealPhase("idle");
-      prevSeriesAnimKey.current = seriesAnimKey;
-    }, AXIS_REVEAL_MS + SERIES_REVEAL_MS + 50);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(startSeries);
-      window.clearTimeout(done);
-      setRevealPhase("idle");
-    };
-  }, [seriesAnimKey, layoutReady]);
-
-  const active = !dragging && revealPhase === "idle" && hover ? pts[hover.index] : null;
-  const activeValue =
-    active != null ? values[active.i] : undefined;
-  const activeLabel =
-    active != null ? labels[active.i] : undefined;
-
-  /** Points whose X sits inside the plot — grids/labels must not spill into gutters when zoomed. */
-  const inPlotPts = useMemo(
-    () => pts.filter((p) => p.x >= padLeft - 0.01 && p.x <= w - padRight + 0.01),
-    [pts, padLeft, w, padRight],
-  );
-
-  const xLabelStep = Math.max(1, Math.ceil(inPlotPts.length / (fullscreen ? 10 : 7)));
-
-  const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
-    if (e.button !== 0 || lastIndex <= 0) return;
-    const { start, end } = viewRef.current;
-    const isZoomed = start > 0.01 || end < lastIndex - 0.01;
-    if (!isZoomed) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const localX = clientToSvgX(svg, e.clientX, e.clientY);
-    if (localX == null) return;
-    e.preventDefault();
-    window.getSelection()?.removeAllRanges();
-    svg.setPointerCapture(e.pointerId);
-    dragRef.current = {
-      pointerId: e.pointerId,
-      svgX: localX,
-      start,
-      end,
-      moved: false,
-    };
-  };
-
-  const onPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) {
-      if (!dragging) onMouseMove(e);
-      return;
-    }
-    const svg = svgRef.current;
-    if (!svg) return;
-    const localX = clientToSvgX(svg, e.clientX, e.clientY);
-    if (localX == null) return;
-    const dx = localX - drag.svgX;
-    if (!drag.moved && Math.abs(dx) < 3) {
-      onMouseMove(e);
-      return;
-    }
-    e.preventDefault();
-    if (!drag.moved) {
-      drag.moved = true;
-      setDragging(true);
-      window.getSelection()?.removeAllRanges();
-    }
-    const span = Math.max(drag.end - drag.start, 1e-6);
-    const dIndex = -(dx / plotW) * span;
-    setView(
-      clampViewWindow(
-        drag.start + dIndex,
-        drag.end + dIndex,
-        lastIndex,
-        minSpan,
-      ),
-    );
-  };
-
-  const endDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    dragRef.current = null;
-    setDragging(false);
-    try {
-      svgRef.current?.releasePointerCapture(e.pointerId);
-    } catch {
-      /* already released */
-    }
-  };
-
-  const focusDateTime = useMemo(() => {
-    if (active && activeLabel) return formatChartDateTime(activeLabel);
-    if (pts.length === 0 || labels.length === 0) return "—";
-    const first = labels[pts[0]!.i];
-    const last = labels[pts[pts.length - 1]!.i];
-    if (!first || !last) return "—";
-    if (first === last) return formatChartDateTime(first);
-    return `${formatChartDateTime(first)} – ${formatChartDateTime(last)}`;
-  }, [active, activeLabel, pts, labels]);
-
-  return (
-    <div
-      ref={wrapRef}
-      className={`chart-hover${zoomed ? " chart-hover--zoomed" : ""}`}
-    >
-      {showZoomBar && zoomed ? (
-        <div className="volume-chart__zoom-bar">
-          <span className="volume-chart__zoom-hint">Drag to pan</span>
-          <button type="button" className="volume-chart__zoom-reset" onClick={resetView}>
-            Reset
-          </button>
-        </div>
-      ) : null}
-      <svg
-        ref={svgRef}
-        className={`volume-chart volume-chart--plat-ref${fullscreen ? " volume-chart--fullscreen" : ""}${dragging ? " is-dragging" : ""}${zoomed ? " is-zoomed" : ""}${revealPhase === "axis" ? " is-axis-revealing" : ""}`}
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label="Volume. Use plus and minus to zoom, drag to pan, double-click to reset."
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onMouseLeave={() => {
-          if (!dragRef.current) {
-            setDragging(false);
-            onMouseLeave();
-          }
-        }}
-        onDoubleClick={(e) => {
-          e.preventDefault();
-          resetView();
-        }}
-      >
-        <defs>
-          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(52, 211, 153, 0.18)" />
-            <stop offset="100%" stopColor="rgba(52, 211, 153, 0)" />
-          </linearGradient>
-          <clipPath id={`platVolClip-${reactId}`}>
-            <rect x={padLeft} y={padTop - 2} width={plotW} height={plotH + 4} />
-          </clipPath>
-          <clipPath id={`platVolLabelClip-${reactId}`}>
-            <rect x={padLeft} y={baseline} width={plotW} height={padBottom} />
-          </clipPath>
-        </defs>
-        {yTicks.map((tick) => {
-          const y = valueToY(tick);
-          return (
-            <g key={`yt-${tick}`}>
-              <line
-                className="volume-chart__grid volume-chart__grid--y"
-                x1={padLeft}
-                x2={w - padRight}
-                y1={y}
-                y2={y}
-              />
-              <text
-                className="volume-chart__ylabel"
-                x={padLeft - 8}
-                y={y}
-                textAnchor="end"
-                dominantBaseline="middle"
-                fontSize={fullscreen ? 11 : 9}
-                fontFamily="var(--font-mono)"
-              >
-                {formatAxisUsd(tick)}
-              </text>
-            </g>
-          );
-        })}
-        <g clipPath={`url(#platVolClip-${reactId})`}>
-          {inPlotPts.map((p, idx) => {
-            const show =
-              inPlotPts.length <= 8 ||
-              idx === 0 ||
-              idx === inPlotPts.length - 1 ||
-              idx % xLabelStep === 0;
-            if (!show) return null;
-            return (
-              <line
-                key={`xg-${p.i}`}
-                className="volume-chart__grid volume-chart__grid--x"
-                x1={p.x}
-                x2={p.x}
-                y1={padTop}
-                y2={baseline}
-              />
-            );
-          })}
-          <g
-            className={[
-              "volume-chart__series",
-              revealPhase === "axis" ? "volume-chart__series--hidden" : "",
-              revealPhase === "series" ? "volume-chart__series--drawing" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {area ? (
-              <path
-                className="volume-chart__history-fill"
-                d={area}
-                fill={`url(#${fillId})`}
-                stroke="none"
-              />
-            ) : null}
-            {frame ? (
-              <path className="volume-chart__frame" d={frame} fill="none" />
-            ) : null}
-            <path
-              className="volume-chart__line"
-              d={line}
-              fill="none"
-              strokeWidth={fullscreen ? 3 : 2.5}
-            />
-            {pts.map((p) => (
-              <circle
-                key={p.i}
-                className="volume-chart__point"
-                cx={p.x}
-                cy={p.y}
-                r={fullscreen ? 5.5 : 4.75}
-                opacity={
-                  revealPhase === "idle" && active && active.i !== p.i ? 0.4 : 1
-                }
-              />
-            ))}
-          </g>
-          {active &&
-          active.x >= padLeft &&
-          active.x <= w - padRight ? (
-            <>
-              <line
-                className="chart-hover__crosshair"
-                x1={active.x}
-                x2={active.x}
-                y1={padTop}
-                y2={baseline}
-              />
-              <circle
-                className="chart-hover__dot-ring"
-                cx={active.x}
-                cy={active.y}
-                r={fullscreen ? 12 : 10}
-              />
-              <circle
-                className="chart-hover__dot"
-                cx={active.x}
-                cy={active.y}
-                r={fullscreen ? 6 : 5}
-              />
-            </>
-          ) : null}
-        </g>
-        <g clipPath={`url(#platVolLabelClip-${reactId})`}>
-          {inPlotPts.map((p, idx) => {
-            const show =
-              inPlotPts.length <= 8 ||
-              idx === 0 ||
-              idx === inPlotPts.length - 1 ||
-              idx % xLabelStep === 0;
-            if (!show) return null;
-            const label = labels[p.i] ?? "";
-            const nearLeft = p.x <= padLeft + 18;
-            const nearRight = p.x >= w - padRight - 18;
-            const anchor = nearLeft ? "start" : nearRight ? "end" : "middle";
-            const x = nearLeft ? padLeft : nearRight ? w - padRight : p.x;
-            return (
-              <text
-                key={`xl-${p.i}`}
-                className="volume-chart__xlabel"
-                x={x}
-                y={h - 8}
-                textAnchor={anchor}
-                fontSize={fullscreen ? 11 : 9}
-                fontFamily="var(--font-mono)"
-              >
-                {label.slice(5)}
-              </text>
-            );
-          })}
-        </g>
-      </svg>
-      <p className="volume-chart__datetime" aria-live="polite">
-        {focusDateTime}
-      </p>
-      {active && activeLabel != null && activeValue != null && hover ? (
-        <ChartHoverTip clientX={hover.clientX} clientY={hover.clientY}>
-          <p className="chart-hover__tip-row">
-            <span className="chart-hover__tip-k">Volume</span>
-            <span className="chart-hover__tip-v">{formatUsd(activeValue)}</span>
-          </p>
-        </ChartHoverTip>
-      ) : null}
-    </div>
-  );
-}
-
 function CardHelp({ text }: { text: string }) {
   return (
-    <span className="plat-card-help">
-      <button type="button" className="plat-card-help__btn" aria-label={text}>
-        ?
-      </button>
-      <span className="plat-card-help__tip" role="tooltip">
-        {text}
-      </span>
-    </span>
+    <ChartHelpButton text={text} label="About this card" openOnHover />
   );
 }
 
@@ -1145,7 +553,13 @@ export function DashboardPage({ session }: Props) {
     toDateInputValue(periodWindow("7d").from),
   );
   const [endDate, setEndDate] = useState(() => toDateInputValue(periodWindow("7d").to));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => peekPlatformOrgs() == null && peekPlatformOrders() == null,
+  );
+  const [hasLoaded, setHasLoaded] = useState(
+    () => peekPlatformOrgs() != null || peekPlatformOrders() != null,
+  );
+  const loadGen = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -1223,57 +637,95 @@ export function DashboardPage({ session }: Props) {
 
   const load = useCallback(async () => {
     if (!startDate || !endDate) return;
+    const gen = ++loadGen.current;
     setLoading(true);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
     const dayKeys = buildDayKeys(from, to);
-    try {
-      const [orgs, orders, allBills, createEvents, inviteEvents] =
-        await Promise.all([
-          getPlatformOrgs(),
-          listOrders({ limit: 500 }),
-          getPlatformServiceBills().catch(() => [] as ServiceBill[]),
-          listAuditLog({
-            action: "org_create",
-            from: from.toISOString(),
-            to: to.toISOString(),
-            limit: 200,
-          }).catch(() => [] as AuditLogEntry[]),
-          listAuditLog({
-            action: "org_user_invite",
-            from: from.toISOString(),
-            to: to.toISOString(),
-            limit: 200,
-          }).catch(() => [] as AuditLogEntry[]),
-        ]);
 
-      const children = buildChildrenMap(orgs);
-      const leaves = activeOrgIds(orders, from, to);
-      const pausedOrgIds = pausedOrgIdsFromOrgs(orgs);
-      const merchants = accountSlice(orgs, isMerchantType, leaves, children, pausedOrgIds);
-      const agents = accountSlice(orgs, isAgentType, leaves, children, pausedOrgIds);
-      const signups = newSignupStats([...createEvents, ...inviteEvents], from, to);
-      const invoices = invoiceStats(allBills, from, to);
-
-      setStats({
-        merchants,
-        agents,
-        newMerchants: signups.newMerchants,
-        newAgents: signups.newAgents,
-        newCashiers: signups.newCashiers,
+    const applyCore = (
+      nextOrgs: OrgAccount[],
+      nextOrders: PaymentOrder[],
+      nextBills: ServiceBill[],
+    ) => {
+      const children = buildChildrenMap(nextOrgs);
+      const leaves = activeOrgIds(nextOrders, from, to);
+      const pausedOrgIds = pausedOrgIdsFromOrgs(nextOrgs);
+      const invoices = invoiceStats(nextBills, from, to);
+      setStats((prev) => ({
+        merchants: accountSlice(
+          nextOrgs,
+          isMerchantType,
+          leaves,
+          children,
+          pausedOrgIds,
+        ),
+        agents: accountSlice(
+          nextOrgs,
+          isAgentType,
+          leaves,
+          children,
+          pausedOrgIds,
+        ),
+        newMerchants: prev.newMerchants,
+        newAgents: prev.newAgents,
+        newCashiers: prev.newCashiers,
         invoicesIssued: invoices.issued,
         invoicesPaid: invoices.paid,
         invoicesOverdue: invoices.overdue,
-        volume: periodVolume(orders, from, to),
-        fees: feeAccrued(allBills, from, to),
-        collected: feeCollected(allBills, from, to),
-      });
-      setOrders(orders);
-      setBills(allBills);
-      setOrgs(orgs);
+        volume: periodVolume(nextOrders, from, to),
+        fees: feeAccruedFromBills(nextBills, from, to),
+        collected: feeCollected(nextBills, from, to),
+      }));
+      setOrders(nextOrders);
+      setBills(nextBills);
+      setOrgs(nextOrgs);
       setPeriodDayKeys(dayKeys);
+    };
+
+    const cachedOrgs = peekPlatformOrgs();
+    const cachedBills = peekPlatformServiceBills();
+    const cachedOrders = peekPlatformOrders();
+    if (cachedOrgs || cachedOrders) {
+      applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? []);
+      setHasLoaded(true);
+    }
+
+    const orgsPromise = getPlatformOrgs();
+    const ordersPromise = getPlatformOrders();
+    const billsPromise = getPlatformServiceBills().catch(
+      () => [] as ServiceBill[],
+    );
+    const summaryPromise = getPlatformDashboardSummary(
+      from.toISOString(),
+      to.toISOString(),
+    ).catch(() => null);
+
+    try {
+      const [nextOrgs, nextOrders, nextBills, summary] = await Promise.all([
+        orgsPromise,
+        ordersPromise,
+        billsPromise,
+        summaryPromise,
+      ]);
+      if (gen !== loadGen.current) return;
+      applyCore(nextOrgs, nextOrders, nextBills);
+      setHasLoaded(true);
+      setLoading(false);
+
+      if (summary) {
+        setStats((prev) => ({
+          ...prev,
+          newMerchants: summary.signups.newMerchants,
+          newAgents: summary.signups.newAgents,
+          newCashiers: summary.signups.newCashiers,
+          volume:
+            Number(summary.orders.periodVolume) || periodVolume(nextOrders, from, to),
+        }));
+      }
     } catch (err) {
+      if (gen !== loadGen.current) return;
       const text =
         err instanceof ApiError
           ? err.code === "rate_limited"
@@ -1282,7 +734,10 @@ export function DashboardPage({ session }: Props) {
           : "Failed to load dashboard";
       setError(text);
     } finally {
-      setLoading(false);
+      if (gen === loadGen.current) {
+        setLoading(false);
+        setHasLoaded(true);
+      }
     }
   }, [startDate, endDate]);
 
@@ -1335,16 +790,16 @@ export function DashboardPage({ session }: Props) {
     };
   }, [orders, chartWindow, volumeFilter]);
 
-  const chartCatalog: OverviewChartCard[] = useMemo(() => {
-    const { from, to, keys } = chartWindow;
+  const baseChartCatalog: OverviewChartCard[] = useMemo(() => {
+    const { keys } = chartWindow;
     const labels = keys.length ? keys : dayLabels;
     const money = (n: number) => (
       <span className="fund-amount">
         {formatMoneyFigure(n)}
-        <span className="plat-fund-currency">$</span>
+        <span className="plat-fund-currency">USD</span>
       </span>
     );
-    const fmtMoney = (n: number) => `$${formatMoneyFigure(n)}`;
+    const fmtMoney = (n: number) => `${formatMoneyFigure(n)} USD`;
     const fmtCount = (n: number) =>
       Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
     const feeBuckets =
@@ -1368,7 +823,7 @@ export function DashboardPage({ session }: Props) {
         formatSeriesValue: fmtCount,
         chartColor: METRIC_CHART_COLORS.invoices,
         seriesStatus: "ready",
-        moreHref: "/platform/service-bills",
+        moreHref: platformRoute("service-bills"),
       },
       {
         id: "fees",
@@ -1383,7 +838,7 @@ export function DashboardPage({ session }: Props) {
         formatSeriesValue: fmtMoney,
         chartColor: METRIC_CHART_COLORS.fees,
         seriesStatus: "ready",
-        moreHref: "/platform/service-bills",
+        moreHref: platformRoute("service-bills"),
       },
       {
         id: "accounts",
@@ -1403,40 +858,54 @@ export function DashboardPage({ session }: Props) {
       },
     ];
 
-    const children = buildChildrenMap(orgs);
-    const orgCards: OverviewChartCard[] = [];
-    for (const id of overviewIds) {
-      const parsed = parseOrgOverviewId(id);
-      if (!parsed) continue;
-      const org = orgs.find((o) => o.id === parsed.orgId);
-      if (!org) continue;
-      orgCards.push(
-        buildOrgOverviewCard({
-          overviewId: id,
-          kind: parsed.kind,
-          org,
-          orders,
-          bills,
-          from,
-          to,
-          keys: labels,
-          children,
-        }),
-      );
-    }
+    return base;
+  }, [chartWindow, dayLabels, series, stats, periodLabel]);
 
-    return [...base, ...orgCards];
-  }, [
-    chartWindow,
-    dayLabels,
-    series,
-    stats,
-    periodLabel,
-    orgs,
-    overviewIds,
-    orders,
-    bills,
-  ]);
+  const [orgChartCards, setOrgChartCards] = useState<OverviewChartCard[]>([]);
+  useEffect(() => {
+    const orgIds = overviewIds.filter(isOrgOverviewId);
+    if (orgIds.length === 0 || orgs.length === 0) {
+      setOrgChartCards([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      const { from, to, keys } = chartWindow;
+      const labels = keys.length ? keys : dayLabels;
+      const children = buildChildrenMap(orgs);
+      const cards: OverviewChartCard[] = [];
+      for (const id of orgIds) {
+        const parsed = parseOrgOverviewId(id);
+        if (!parsed) continue;
+        const org = orgs.find((o) => o.id === parsed.orgId);
+        if (!org) continue;
+        cards.push(
+          buildOrgOverviewCard({
+            overviewId: id,
+            kind: parsed.kind,
+            org,
+            orders,
+            bills,
+            from,
+            to,
+            keys: labels,
+            children,
+          }),
+        );
+      }
+      setOrgChartCards(cards);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [overviewIds, orgs, orders, bills, chartWindow, dayLabels]);
+
+  const chartCatalog = useMemo(
+    () => [...baseChartCatalog, ...orgChartCards],
+    [baseChartCatalog, orgChartCards],
+  );
 
   const platformCards = useMemo(
     () => chartCatalog.filter((c) => !isOrgOverviewId(c.id)),
@@ -1517,17 +986,73 @@ export function DashboardPage({ session }: Props) {
     [overviewIds, persistOverviewIds],
   );
 
-  if (loading) {
+  const periodPortal = topbarSlot
+    ? createPortal(
+        <div className="plat-period-controls plat-period-controls--topbar" aria-label="Period">
+          <div className="plat-period-pills plat-period-pills--topbar" role="group" aria-label="Quick periods">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
+                onClick={() => onPeriodSelect(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="plat-period-dates plat-period-dates--topbar" aria-label="Date range">
+            <label className="plat-period-date">
+              <span className="plat-period-date__label">Start</span>
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => onStartDateChange(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </label>
+            <span className="plat-period-dates__sep" aria-hidden="true">
+              –
+            </span>
+            <label className="plat-period-date">
+              <span className="plat-period-date__label">End</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => onEndDateChange(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </label>
+          </div>
+          {loading && hasLoaded ? (
+            <span className="plat-period-refresh" role="status">
+              Updating…
+            </span>
+          ) : null}
+        </div>,
+        topbarSlot,
+      )
+    : null;
+
+  if (loading && !hasLoaded) {
     return (
-      <PlatformPending
-        title="Loading platform overview"
-        copy="Gathering volume, orders, and service-bill metrics."
-      />
+      <>
+        {periodPortal}
+        <PlatformPending
+          title="Loading platform overview"
+          copy="Gathering volume, orders, and service-bill metrics."
+        />
+      </>
     );
   }
 
   return (
-    <div className="dash-page plat-dash">
+    <div
+      className={`dash-page plat-dash${loading ? " is-period-refresh" : ""}`}
+      aria-busy={loading}
+    >
       <AuthToast message={error} tone="error" onDismiss={dismissError} />
       {isViewer ? (
         <div className="alert-card tone-info">
@@ -1536,50 +1061,7 @@ export function DashboardPage({ session }: Props) {
         </div>
       ) : null}
 
-      {topbarSlot
-        ? createPortal(
-            <div className="plat-period-controls plat-period-controls--topbar" aria-label="Period">
-              <div className="plat-period-pills plat-period-pills--topbar" role="group" aria-label="Quick periods">
-                {PERIOD_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
-                    onClick={() => onPeriodSelect(opt.id)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="plat-period-dates plat-period-dates--topbar" aria-label="Date range">
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">Start</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={endDate || undefined}
-                    onChange={(e) => onStartDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-                <span className="plat-period-dates__sep" aria-hidden="true">
-                  –
-                </span>
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">End</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate || undefined}
-                    onChange={(e) => onEndDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-              </div>
-            </div>,
-            topbarSlot,
-          )
-        : null}
+      {periodPortal}
 
       <div className="plat-overview-grid">
         <div className="plat-overview-card glass-tone-blue">
@@ -1623,7 +1105,7 @@ export function DashboardPage({ session }: Props) {
           <div className="plat-fund-rail__eyebrow">
             <span>Funds</span>
             <CardHelp
-              text={`Period settled volume / billed fees, and fees collected in ${periodLabel}.`}
+              text={`Settled payment-order volume in ${periodLabel}. Fees are volume-fee line items on service bills issued, due, or with a billing period overlapping this range — not estimated from live volume.`}
             />
           </div>
           <div className="plat-fund-rail__primary">
@@ -1634,52 +1116,34 @@ export function DashboardPage({ session }: Props) {
                 <span>Fees</span>
               </p>
               <span className="plat-fund-rail__hint">
-                Settled volume / billed volume fees
+                Settled order volume / service bill volume fees · USD
               </span>
             </div>
-            <p className="plat-fund-rail__pair" aria-label="Total and fees">
-              <span className="plat-fund-rail__total">
-                <span className="plat-fund-rail__currency" aria-hidden>
-                  $
-                </span>
-                <span className="fund-amount">
-                  {stats.volume.toLocaleString(undefined, {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-              </span>
+            <p className="plat-fund-rail__pair" aria-label="Total and fees in US dollars">
+              <AnimatedFundAmount
+                className="plat-fund-rail__total"
+                value={stats.volume}
+                showUnit={false}
+              />
               <span className="plat-fund-rail__slash" aria-hidden>
                 /
               </span>
-              <span className="plat-fund-rail__fees">
-                <span className="plat-fund-rail__currency" aria-hidden>
-                  $
-                </span>
-                <span className="fund-amount">
-                  {stats.fees.toLocaleString(undefined, {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                </span>
-              </span>
+              <AnimatedFundAmount className="plat-fund-rail__fees" value={stats.fees} />
             </p>
           </div>
           <div className="plat-fund-rail__secondary">
             <div className="plat-fund-rail__copy">
               <span className="plat-fund-rail__label">Collected</span>
-              <span className="plat-fund-rail__hint">Paid volume fees</span>
+              <span className="plat-fund-rail__hint">Paid volume fees · USD</span>
             </div>
-            <p className="plat-fund-rail__collected">
-              <span className="plat-fund-rail__currency" aria-hidden>
-                $
-              </span>
-              <span className="fund-amount">
-                {stats.collected.toLocaleString(undefined, {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}
-              </span>
+            <p
+              className="plat-fund-rail__collected-wrap"
+              aria-label="Collected in US dollars"
+            >
+              <AnimatedFundAmount
+                className="plat-fund-rail__collected"
+                value={stats.collected}
+              />
             </p>
           </div>
         </section>
@@ -1702,7 +1166,7 @@ export function DashboardPage({ session }: Props) {
               <div className="dash-chart-panel__title-main">
                 <p className="dash-chart-panel__period-total" aria-label="Period total volume">
                   <span className="dash-chart-panel__period-value">
-                    {formatUsd(chartPeriodTotal)}
+                    <PeriodUsd n={chartPeriodTotal} />
                   </span>
                 </p>
               </div>
@@ -1784,7 +1248,7 @@ export function DashboardPage({ session }: Props) {
             <div className="dash-chart-panel__title-main">
               <p className="dash-chart-panel__period-total" aria-label="Period total volume">
                 <span className="dash-chart-panel__period-value">
-                  {formatUsd(chartPeriodTotal)}
+                  <PeriodUsd n={chartPeriodTotal} />
                 </span>
               </p>
             </div>

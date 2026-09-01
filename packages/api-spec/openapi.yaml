@@ -4428,10 +4428,6 @@ components:
         country:
           type: string
           description: Country captured at onboard
-        billingEmail:
-          type: string
-          format: email
-          description: Billing contact email captured at onboard
         legalName:
           type: string
           description: Legal entity name when different from display name
@@ -4461,14 +4457,6 @@ components:
         country:
           type: string
           description: Country captured at onboard
-        billingEmail:
-          type: string
-          format: email
-          description: Billing contact email captured at onboard
-        billingContact:
-          type: string
-          format: email
-          description: Alias for billingEmail (merchant onboard forms)
         legalName:
           type: string
           description: Legal entity name when different from display name
@@ -4504,11 +4492,12 @@ components:
             invitePath:
               type: string
               nullable: true
-              description: Relative portal path for set-password invite link
+              description: Relative set-password path on the portal host (/reset-password?token=…)
             inviteUrl:
               type: string
               format: uri
               nullable: true
+              description: Absolute invite URL on the portal subdomain (platform-cg / agent-cg / merchant-cg)
             emailDelivery:
               type: object
               properties:
@@ -5187,6 +5176,19 @@ components:
           description: >
             Effective remittance destination for invoice / pay card display —
             rxAddress when set, otherwise live platform billing wallet payTo.
+        invoiceSeller:
+          type: object
+          nullable: true
+          description: >
+            Invoice "From" seller — business name from billing settings plus
+            platform Owner contact email (GET detail only).
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+              nullable: true
         txAddress:
           type: string
           nullable: true
@@ -5413,6 +5415,10 @@ components:
           type: string
           format: email
           nullable: true
+          readOnly: true
+          description: >
+            Platform Owner contact email shown on invoices. Derived from team
+            membership — not editable via this API.
         payTo:
           type: string
           nullable: true
@@ -5431,10 +5437,6 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-        sellerEmail:
-          type: string
-          format: email
-          nullable: true
         payTo:
           type: string
           maxLength: 500

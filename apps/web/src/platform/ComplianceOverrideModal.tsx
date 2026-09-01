@@ -1,7 +1,8 @@
 import { FormEvent, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { MfaStepUpModal } from "../auth/MfaStepUpModal";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
+import type { Session } from "../merchant/api";
 import {
   ApiError,
   applyComplianceOverride,
@@ -12,6 +13,7 @@ import {
 
 type Props = {
   org: OrgAccount;
+  session: Session;
   canApply: boolean;
   /** Modal dialog (legacy) or embedded panel on Compliance tab. */
   variant?: "modal" | "inline";
@@ -45,6 +47,7 @@ type PendingOverride = {
 /** B7 — Compliance override form (modal or inline on Compliance tab). */
 export function ComplianceOverrideModal({
   org,
+  session,
   canApply,
   variant = "modal",
   onClose,
@@ -317,7 +320,9 @@ export function ComplianceOverrideModal({
 
   const mfa =
     pendingMfa != null ? (
-      <MfaStepUpModal
+      <MfaStepUpGate
+        session={session}
+        actionLabel="apply compliance override"
         onClose={() => setPendingMfa(null)}
         onVerify={verifyMfa}
       />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { PlatformPending } from "../platform/ui/PlatformPending";
@@ -62,8 +63,6 @@ function displayOrDash(value: string | null | undefined): string {
 
 const REGISTRATION_HELP: Record<string, string> = {
   Country: "Country captured on the onboard Details step.",
-  "Billing email":
-    "Finance contact for service bills and billing notices. Stored on the org account — does not create a login.",
   "Owner email":
     "Portal Owner invite when present; otherwise the first team member on this account (for example Cashier on load-seed merchants).",
 };
@@ -142,10 +141,10 @@ function treeBadgeIcon(type: string): string {
 
 function agentDetailHref(type: string, id: string): string | null {
   if (type === "merchant" || type === "merchant_site") {
-    return `/agent/merchants/${id}`;
+    return agentRoute(`merchants/${id}`);
   }
-  if (type === "agent_sub") return `/agent/agents/${id}`;
-  if (type === "agent") return "/agent/agents";
+  if (type === "agent_sub") return agentRoute(`agents/${id}`);
+  if (type === "agent") return agentRoute("agents");
   return null;
 }
 
@@ -333,16 +332,11 @@ function OrgTreeDetail({
     },
     { label: "Legal name", value: node.legalName, always: false },
     { label: "Country", value: node.country, always: false },
-    { label: "Billing email", value: node.billingEmail, always: false },
     { label: "Owner email", value: ownerEmail, always: false },
   ];
   const filledContact = contactRows.filter(
     (r) => r.always || (r.value && String(r.value).trim() && String(r.value) !== "—"),
   );
-  const missingContact =
-    !node.legalName?.trim() &&
-    !node.country?.trim() &&
-    !node.billingEmail?.trim();
 
   const showStatStrip =
     counts.agents > 0 ||
@@ -394,7 +388,7 @@ function OrgTreeDetail({
                         onClick={() => {
                           setAddMenuOpen(false);
                           navigate(
-                            `/agent/agents/new?parentId=${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent("/agent/architecture")}`,
+                            `${agentRoute("agents/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
                           );
                         }}
                       >
@@ -408,7 +402,7 @@ function OrgTreeDetail({
                       onClick={() => {
                         setAddMenuOpen(false);
                         navigate(
-                          `/agent/merchants/new?parentId=${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent("/agent/architecture")}`,
+                          `${agentRoute("merchants/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
                         );
                       }}
                     >
@@ -555,11 +549,6 @@ function OrgTreeDetail({
               />
             ))}
           </dl>
-          {missingContact ? (
-            <p className="org-architecture__empty-note">
-              No legal name, country, or billing email on file yet.
-            </p>
-          ) : null}
         </section>
       </div>
 

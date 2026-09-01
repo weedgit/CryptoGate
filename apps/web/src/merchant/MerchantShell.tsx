@@ -31,6 +31,7 @@ import {
   subscribeMerchantAlerts,
 } from "./merchantAlerts";
 import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
+import { merchantRoute } from "../shared/portalRouting";
 import type { Session } from "./api";
 
 type NavItem = {
@@ -51,47 +52,47 @@ const OWNER_GROUPS: NavGroup[] = [
   {
     label: "Portal controls",
     items: [
-      { to: "/merchant", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+      { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
       {
-        to: "/merchant/orders",
+        to: merchantRoute("orders"),
         label: "Orders",
-        matchPrefix: "/merchant/orders",
+        matchPrefix: merchantRoute("orders"),
         Icon: OrdersNavIcon,
       },
       {
-        to: "/merchant/service-bills",
+        to: merchantRoute("service-bills"),
         label: "Service Bills",
-        matchPrefix: "/merchant/service-bills",
+        matchPrefix: merchantRoute("service-bills"),
         Icon: BillsNavIcon,
       },
       {
-        to: "/merchant/sites",
+        to: merchantRoute("sites"),
         label: "Sites",
-        matchPrefix: "/merchant/sites",
+        matchPrefix: merchantRoute("sites"),
         Icon: SitesNavIcon,
       },
       {
-        to: "/merchant/reports",
+        to: merchantRoute("reports"),
         label: "Reports",
-        matchPrefix: "/merchant/reports",
+        matchPrefix: merchantRoute("reports"),
         Icon: ReportsNavIcon,
       },
       {
-        to: "/merchant/networks",
+        to: merchantRoute("networks"),
         label: "Networks",
-        matchPrefix: "/merchant/networks",
+        matchPrefix: merchantRoute("networks"),
         Icon: IntegrationsNavIcon,
       },
       {
-        to: "/merchant/settings/settlement",
+        to: merchantRoute("settings/settlement"),
         label: "Settlement",
-        matchPrefix: "/merchant/settings/settlement",
+        matchPrefix: merchantRoute("settings/settlement"),
         Icon: SettlementNavIcon,
       },
       {
-        to: "/merchant/settings/team",
+        to: merchantRoute("settings/team"),
         label: "Team",
-        matchPrefix: "/merchant/settings/team",
+        matchPrefix: merchantRoute("settings/team"),
         Icon: TeamNavIcon,
       },
     ],
@@ -100,15 +101,15 @@ const OWNER_GROUPS: NavGroup[] = [
     label: "Settings",
     items: [
       {
-        to: "/merchant/settings/integrations",
+        to: merchantRoute("settings/integrations"),
         label: "Integrations",
-        matchPrefix: "/merchant/settings/integrations",
+        matchPrefix: merchantRoute("settings/integrations"),
         Icon: IntegrationsNavIcon,
       },
       {
-        to: "/merchant/settings/notifications",
+        to: merchantRoute("settings/notifications"),
         label: "Alerts",
-        matchPrefix: "/merchant/settings/notifications",
+        matchPrefix: merchantRoute("settings/notifications"),
         Icon: AlertsNavIcon,
       },
     ],
@@ -119,16 +120,16 @@ const CASHIER_GROUPS: NavGroup[] = [
   {
     label: "Cashier terminal",
     items: [
-      { to: "/merchant", label: "Dashboard", end: true, Icon: DashboardNavIcon },
+      { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
       {
-        to: "/merchant/orders",
+        to: merchantRoute("orders"),
         label: "My Orders",
-        matchPrefix: "/merchant/orders",
-        exclude: "/merchant/orders/new",
+        matchPrefix: merchantRoute("orders"),
+        exclude: merchantRoute("orders/new"),
         Icon: OrdersNavIcon,
       },
       {
-        to: "/merchant/orders/new",
+        to: merchantRoute("orders/new"),
         label: "Create Order",
         Icon: OrdersNavIcon,
       },
@@ -192,8 +193,10 @@ export function MerchantShell({
 
   useEffect(() => {
     let cancelled = false;
+    const pageVisible = () => document.visibilityState === "visible";
 
     const run = async () => {
+      if (!pageVisible()) return;
       const { urgentUnread } = await refreshMerchantAlerts(session);
       if (cancelled || urgentUnread <= 0) return;
       const toastKey = merchantAlertsToastKey(session.email);

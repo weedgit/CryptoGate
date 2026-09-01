@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -97,7 +98,6 @@ function siteContactEmail(
   return (
     row?.ownerEmail?.trim() ||
     row?.emails.find((e) => e.trim())?.trim() ||
-    site.billingEmail?.trim() ||
     "—"
   );
 }
@@ -258,8 +258,8 @@ export function MerchantDetailCard({
     [org.parentId, orgs],
   );
   const profileEmail = useMemo(
-    () => preferredOrgEmail(team) ?? org.billingEmail?.trim() ?? "—",
-    [team, org.billingEmail],
+    () => preferredOrgEmail(team) ?? "—",
+    [team],
   );
   const periodStart = useMemo(
     () =>
@@ -750,7 +750,7 @@ export function MerchantDetailCard({
                       <td>{STATUS_LABEL[bill.status] ?? bill.status}</td>
                       <td>{formatShortDate(bill.dueAt)}</td>
                       <td>
-                        <Link to={`/agent/service-bills/${bill.id}`}>View</Link>
+                        <Link to={agentRoute(`service-bills/${bill.id}`)}>View</Link>
                       </td>
                     </tr>
                   ))}

@@ -1,4 +1,9 @@
-const ALLOWED_RETURN_PREFIX = "/platform/";
+import { platformRoute } from "../shared/portalRouting";
+
+function platformReturnPrefix(): string {
+  const base = platformRoute();
+  return base === "/" ? "/" : `${base}/`;
+}
 
 /** Cancel target for onboard wizards — only in-app platform paths are allowed. */
 export function onboardReturnPath(
@@ -6,11 +11,11 @@ export function onboardReturnPath(
   fallback: string,
 ): string {
   const raw = searchParams.get("returnTo")?.trim();
-  if (!raw || !raw.startsWith(ALLOWED_RETURN_PREFIX)) return fallback;
+  if (!raw || !raw.startsWith(platformReturnPrefix())) return fallback;
   return raw;
 }
 
-export const ARCHITECTURE_RETURN_TO = "/platform/architecture";
+export const ARCHITECTURE_RETURN_TO = platformRoute("architecture");
 
 export function withReturnTo(href: string, returnTo = ARCHITECTURE_RETURN_TO): string {
   const [path, query = ""] = href.split("?");

@@ -1,6 +1,20 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { canListOrgUsers } from "../src/orgs/membership-rules.mjs";
+import {
+  canListOrgUsers,
+  roleAllowedOnOrg,
+} from "../src/orgs/membership-rules.mjs";
+
+describe("roleAllowedOnOrg", () => {
+  it("allows cashier on merchant and merchant_site only", () => {
+    assert.equal(roleAllowedOnOrg("cashier", "merchant"), true);
+    assert.equal(roleAllowedOnOrg("cashier", "merchant_site"), true);
+    assert.equal(roleAllowedOnOrg("Cashier", "merchant"), true);
+    assert.equal(roleAllowedOnOrg("cashier", "agent"), false);
+    assert.equal(roleAllowedOnOrg("cashier", "platform"), false);
+    assert.equal(roleAllowedOnOrg("administrator", "agent"), true);
+  });
+});
 
 describe("org membership list rules", () => {
   it("allows platform operators", () => {

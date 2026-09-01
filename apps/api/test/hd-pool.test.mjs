@@ -41,6 +41,10 @@ describe("hd derive (watch-only Tron)", () => {
   it("rejects invalid xPub and index", () => {
     assert.throws(() => deriveTronAddressFromXpub("not-an-xpub", 0), /BIP32/);
     assert.throws(() => deriveTronAddressFromXpub(VECTOR_XPUB, -1), /hdIndex/);
+    const xprv = HDKey.fromMasterSeed(
+      Uint8Array.from(Buffer.from("000102030405060708090a0b0c0d0e0f", "hex")),
+    ).privateExtendedKey;
+    assert.throws(() => deriveTronAddressFromXpub(xprv, 0), /BIP32/);
   });
 
   it("encodes a Tron address from a compressed public key", () => {

@@ -522,7 +522,13 @@ export function FeeTiersSettingsPage({ session }: Props) {
       ) : (
         <section className="plat-fee-tiers__overrides" id="fee-tier-overrides">
           <div className="plat-fee-tiers__overrides-head">
-            <h2>Custom merchant rate overrides</h2>
+            <div className="plat-fee-tiers__overrides-titles">
+              <h2>Custom merchant rate overrides</h2>
+              <p className="plat-fee-tiers__overrides-lede">
+                Enterprise volume fees requested by agents at merchant onboard.
+                Approved rates stay here until you change or revoke them.
+              </p>
+            </div>
             {pendingOverrideCount > 0 ? (
               <span className="plat-fee-tiers__overrides-pending">
                 {pendingOverrideCount} pending
@@ -534,13 +540,61 @@ export function FeeTiersSettingsPage({ session }: Props) {
               Platform Owner approves or denies pending Enterprise rates.
             </p>
           ) : null}
-          <div className="plat-fee-tiers__table-wrap">
-            {approvals.length === 0 ? (
-              <p className="muted plat-fee-tiers__empty">
-                No enterprise rate overrides yet. Agents request custom
-                Enterprise rates during merchant onboard.
+          {approvals.length === 0 ? (
+            <div className="plat-fee-tiers__empty" role="status">
+              <div className="plat-fee-tiers__empty-mark" aria-hidden>
+                <svg viewBox="0 0 48 48" width="32" height="32" fill="none">
+                  <rect
+                    x="10"
+                    y="8"
+                    width="28"
+                    height="32"
+                    rx="3"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M16 18h16M16 24h10"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx="18"
+                    cy="33"
+                    r="2.2"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <circle
+                    cx="30"
+                    cy="33"
+                    r="2.2"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M20 35.5 28 30.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <h3 className="plat-fee-tiers__empty-title">
+                No enterprise rate overrides yet
+              </h3>
+              <p className="plat-fee-tiers__empty-copy">
+                When an agent requests a custom Enterprise rate during merchant
+                onboard, the request lands in this queue for review.
               </p>
-            ) : (
+              <ul className="plat-fee-tiers__empty-hints">
+                <li>Requested on merchant onboard — not from this page</li>
+                <li>Platform Owner approves or denies pending rates</li>
+              </ul>
+            </div>
+          ) : (
+            <div className="plat-fee-tiers__table-wrap">
               <table className="plat-fee-tiers__table">
                 <thead>
                   <tr>
@@ -602,15 +656,15 @@ export function FeeTiersSettingsPage({ session }: Props) {
                   ))}
                 </tbody>
               </table>
-            )}
-            <OrgListPagination
-              page={overridesPage}
-              pageCount={overridesPageCount}
-              total={approvals.length}
-              pageSize={OVERRIDES_PAGE_SIZE}
-              onPageChange={setOverridesPage}
-            />
-          </div>
+              <OrgListPagination
+                page={overridesPage}
+                pageCount={overridesPageCount}
+                total={approvals.length}
+                pageSize={OVERRIDES_PAGE_SIZE}
+                onPageChange={setOverridesPage}
+              />
+            </div>
+          )}
         </section>
       )}
     </div>

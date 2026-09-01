@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { PortalLoginPage } from "./PortalLoginPage";
+import { InviteLegacyRedirect } from "./InviteLegacyRedirect";
 
 type Props = {
   portalSubtitle: string;
@@ -14,6 +15,7 @@ export function UnauthenticatedPortal({
 }: Props) {
   return (
     <Routes>
+      <Route path="invite" element={<InviteLegacyRedirect />} />
       <Route
         path="forgot-password"
         element={

@@ -32,6 +32,7 @@ import {
 } from "./serviceBillStatus";
 import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
+import { platformRoute } from "../shared/portalRouting";
 import {
   SortHeader,
   compareDate,
@@ -517,7 +518,7 @@ export function ServiceBillsListPage({ session }: Props) {
             <tbody>
               {paged.map((bill, index) => {
                 const overdue = bill.status === "overdue";
-                const href = `/platform/service-bills/${bill.id}`;
+                const href = platformRoute(`service-bills/${bill.id}`);
                 const txHash = bill.paymentReference?.trim() || "";
                 const rowRx = bill.rxAddress?.trim() || rxAddress || "";
                 const rowTx = bill.txAddress?.trim() || "";

@@ -287,7 +287,6 @@ export async function handlePutBillingWalletSettings(req, res) {
   }
   const settings = await updatePlatformBillingSettings({
     sellerName: validated.sellerName,
-    sellerEmail: validated.sellerEmail,
     payTo: validated.payTo,
   });
   await insertAuditEvent({
@@ -296,7 +295,6 @@ export async function handlePutBillingWalletSettings(req, res) {
     action: AUDIT_ACTIONS.billingWalletPut,
     metadata: {
       sellerName: settings.sellerName,
-      hasSellerEmail: Boolean(settings.sellerEmail),
       hasPayTo: Boolean(settings.payTo),
     },
   });
