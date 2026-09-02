@@ -80,7 +80,7 @@ npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
 # → /pos/                  (cashier POS wireframes)
 ```
 
-Demo login: run `node scripts/seed-local.mjs` — `ower.platform@paymentgate.io` / `User1234567!` (platform owner only). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
+Demo login: run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` / `User1234567890!` (platform owner only). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 
 ## Invariants
 

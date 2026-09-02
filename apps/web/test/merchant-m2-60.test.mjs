@@ -64,6 +64,14 @@ describe("@paymentgate/web merchant M2-61/62/63 settlement", () => {
     );
     assert.match(labels, /MATCHING_MODE_CARDS/);
     assert.match(labels, /Memo tag/);
+    assert.match(labels, /matchingModeCardDisabled/);
+    assert.match(labels, /MODE_D_PHASE1_UNAVAILABLE_REASON/);
+    const settlement = readFileSync(
+      join(root, "src/merchant/SettlementPage.tsx"),
+      "utf8",
+    );
+    assert.match(settlement, /matchingModeCardDisabled/);
+    assert.match(settlement, /is-unavailable/);
   });
 });
 

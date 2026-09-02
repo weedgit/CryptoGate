@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -119,6 +119,7 @@ export function DashboardPage({ session }: Props) {
   );
   const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
+  const initialLoadRef = useRef(hasLoaded);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -152,51 +153,67 @@ export function DashboardPage({ session }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    if (!hasLoaded) setLoading(true);
+    if (!initialLoadRef.current) setLoading(true);
     setError(null);
 
-    const ordersPromise = getMerchantOrders();
-    const extraPromise =
-      orgId && !cashierOnly
-        ? Promise.all([
-            getMerchantServiceBills().catch(() => [] as ServiceBill[]),
-            getMerchantCommercial(orgId).catch(() => null),
-            getMerchantOrgs().catch(() => [] as OrgAccount[]),
-            listSettlement(orgId).catch(() => []),
-            listXpub(orgId).catch(() => []),
-          ]).then(([billList, commercialSettings, orgs, settlement, xpubs]) => {
-            setBills(billList);
-            setCommercial(commercialSettings);
-            const root = parentId ?? orgId;
-            setSites(
-              orgs.filter(
-                (o) =>
-                  o.type === "merchant" &&
-                  o.parentId === root &&
-                  o.id !== root,
-              ),
-            );
-            setSettlementCooldown(
-              settlement.filter((r) => r.status === "pending_cool_down")
-                .length,
-            );
-            setXpubCooldown(
-              xpubs.filter((r) => r.status === "pending_cool_down").length,
-            );
-          })
-        : Promise.resolve().then(() => {
-            setBills([]);
-            setCommercial(null);
-            setSites([]);
-            setSettlementCooldown(0);
-            setXpubCooldown(0);
-          });
-    const maintPromise = listActiveNetworkMaintenance()
+    void getMerchantOrders()
+      .then((orders) => {
+        setItems(orders);
+      })
+      .catch((err) => {
+        setError(
+          err instanceof ApiError ? err.message : "Failed to load dashboard",
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+        initialLoadRef.current = true;
+        setHasLoaded(true);
+      });
+
+    if (orgId && !cashierOnly) {
+      void Promise.all([
+        getMerchantServiceBills().catch(() => [] as ServiceBill[]),
+        getMerchantCommercial(orgId).catch(() => null),
+        getMerchantOrgs().catch(() => [] as OrgAccount[]),
+        listSettlement(orgId).catch(() => []),
+        listXpub(orgId).catch(() => []),
+      ])
+        .then(([billList, commercialSettings, orgs, settlement, xpubs]) => {
+          setBills(billList);
+          setCommercial(commercialSettings);
+          const root = parentId ?? orgId;
+          setSites(
+            orgs.filter(
+              (o) =>
+                o.type === "merchant" &&
+                o.parentId === root &&
+                o.id !== root,
+            ),
+          );
+          setSettlementCooldown(
+            settlement.filter((r) => r.status === "pending_cool_down").length,
+          );
+          setXpubCooldown(
+            xpubs.filter((r) => r.status === "pending_cool_down").length,
+          );
+        })
+        .catch(() => undefined);
+    } else {
+      setBills([]);
+      setCommercial(null);
+      setSites([]);
+      setSettlementCooldown(0);
+      setXpubCooldown(0);
+    }
+
+    void listActiveNetworkMaintenance()
       .then(setMaintenance)
       .catch(() => {
         setMaintenance([]);
       });
-    const lampsPromise = getNetworksStatus()
+
+    void getNetworksStatus()
       .then((status) => {
         const byPair = new Map<string, NetworkOrderabilityLamp>();
         for (const net of status.items) {
@@ -209,24 +226,7 @@ export function DashboardPage({ session }: Props) {
       .catch(() => {
         setLampByPair(new Map());
       });
-
-    try {
-      const [orders] = await Promise.all([
-        ordersPromise,
-        extraPromise,
-        maintPromise,
-        lampsPromise,
-      ]);
-      setItems(orders);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Failed to load dashboard",
-      );
-    } finally {
-      setLoading(false);
-      setHasLoaded(true);
-    }
-  }, [orgId, parentId, cashierOnly, hasLoaded]);
+  }, [orgId, parentId, cashierOnly]);
 
   useEffect(() => {
     void load();

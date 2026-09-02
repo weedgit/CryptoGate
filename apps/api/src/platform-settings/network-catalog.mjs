@@ -1,7 +1,7 @@
 /**
  * Build B16 network catalog cards from domain registry + maintenance + watcher heartbeats.
  */
-import { listAssetNetworkRegistry, NetworkId } from "@paymentgate/domain";
+import { listAssetNetworkRegistry, NetworkId, resolveChainEnvironment } from "@paymentgate/domain";
 import { listNetworkMaintenanceRows } from "./network-maintenance-store.mjs";
 import { isMaintenanceEffective } from "./network-maintenance-rules.mjs";
 import { listWatcherHeartbeats } from "../ops/watcher-health-store.mjs";
@@ -99,7 +99,8 @@ export async function buildNetworkCatalog() {
 }
 
 async function buildNetworkCatalogFresh() {
-  const registry = listAssetNetworkRegistry();
+  const chainEnv = resolveChainEnvironment();
+  const registry = listAssetNetworkRegistry(chainEnv);
   const byNet = new Map();
   for (const row of registry) {
     const list = byNet.get(row.network) ?? [];
@@ -191,7 +192,7 @@ async function buildNetworkCatalogFresh() {
   items.sort((a, b) => a.title.localeCompare(b.title));
 
   return {
-    chainEnv: process.env.PAYMENTGATE_CHAIN_ENV?.trim() || "mainnet",
+    chainEnv,
     checkedAt: new Date().toISOString(),
     items,
   };

@@ -74,42 +74,21 @@ describe("portal invite links", () => {
     else process.env.MERCHANT_WEB_ORIGIN = prev.merchant;
   });
 
-  it("normalizes legacy app-cg /agent origins to agent subdomain", () => {
-    process.env.AGENT_WEB_ORIGIN = "https://app-cg.boostbunny.io/agent";
-    try {
-      assert.equal(
-        normalizePortalOrigin("https://app-cg.boostbunny.io/agent", "agent"),
-        "https://agent-cg.boostbunny.io",
-      );
-      assert.equal(
-        normalizePortalOrigin("https://app-cg.boostbunny.io", "merchant"),
-        "https://merchant-cg.boostbunny.io",
-      );
-      assert.equal(
-        normalizePortalOrigin("https://app-cg.boostbunny.io", "platform"),
-        "https://platform-cg.boostbunny.io",
-      );
-      assert.equal(
-        inviteUrlForToken("agent", "tok"),
-        "https://agent-cg.boostbunny.io/reset-password?token=tok",
-      );
-    } finally {
-      if (prev.agent === undefined) delete process.env.AGENT_WEB_ORIGIN;
-      else process.env.AGENT_WEB_ORIGIN = prev.agent;
-    }
-  });
-
-  it("rewrites legacy combined-app /platform/invite URLs", () => {
+  it("normalizes path-prefixed portal origins", () => {
     assert.equal(
-      normalizeInviteUrl(
-        "https://app-cg.boostbunny.io/platform/invite?token=abc123",
-        "platform",
-      ),
-      "https://platform-cg.boostbunny.io/reset-password?token=abc123",
+      normalizePortalOrigin("http://localhost:5174/agent", "agent"),
+      "http://localhost:5174",
     );
     assert.equal(
+      normalizePortalOrigin("https://platform-cg.example.test/platform", "platform"),
+      "https://platform-cg.example.test",
+    );
+  });
+
+  it("rewrites invite URLs with stray whitespace", () => {
+    assert.equal(
       normalizeInviteUrl(
-        "https://app-cg.boostbunny.io /platform/ invite?token=abc123",
+        "https://platform-cg.boostbunny.io /reset-password?token=abc123",
         "platform",
       ),
       "https://platform-cg.boostbunny.io/reset-password?token=abc123",

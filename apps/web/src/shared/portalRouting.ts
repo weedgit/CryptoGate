@@ -6,21 +6,11 @@ const PORTAL_HOST_PREFIX: Record<PortalId, string> = {
   merchant: "merchant",
 };
 
-const LEGACY_APP_HOSTS = new Set(["app-cg.boostbunny.io"]);
-
 function normalizeConfiguredOrigin(raw: string, portal: PortalId): string {
   const text = raw.trim().replace(/\/$/, "");
   if (!text) return text;
   try {
     const u = new URL(text);
-    const host = u.hostname.toLowerCase();
-    if (LEGACY_APP_HOSTS.has(host)) {
-      if (host === "localhost" || host === "127.0.0.1") {
-        const suffix = u.port ? `:${u.port}` : "";
-        return `${u.protocol}//${PORTAL_HOST_PREFIX[portal]}.localhost${suffix}`;
-      }
-      return `https://${PORTAL_HOST_PREFIX[portal]}-cg.boostbunny.io`;
-    }
     const legacyPath = u.pathname.replace(/\/$/, "");
     const portalPath = `/${portal}`;
     if (legacyPath === portalPath || legacyPath.startsWith(`${portalPath}/`)) {
@@ -93,7 +83,7 @@ export function isDedicatedPortalHost(
   return portalFromHostname(hostname) !== null;
 }
 
-/** Active portal: subdomain host, else first path segment on legacy app host. */
+/** Active portal: subdomain host, else first path segment on combined dev host. */
 export function getPortal(
   pathname = typeof window !== "undefined" ? window.location.pathname : "/",
   hostname = typeof window !== "undefined" ? window.location.hostname : "",
@@ -151,14 +141,4 @@ export function portalHref(portal: PortalId, subpath = ""): string {
   const origin = portalOrigin(portal);
   const path = portalRoute(portal, subpath);
   return `${origin}${path === "/" ? "" : path}`;
-}
-
-/** Legacy combined app host — redirects only. */
-export function legacyAppOrigin(): string {
-  const raw = import.meta.env.VITE_LEGACY_WEB_ORIGIN as string | undefined;
-  if (raw?.trim()) return raw.trim().replace(/\/$/, "");
-  if (typeof window !== "undefined" && !isDedicatedPortalHost()) {
-    return window.location.origin;
-  }
-  return "https://app-cg.boostbunny.io";
 }

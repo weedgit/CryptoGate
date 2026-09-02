@@ -501,7 +501,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
                     ? "You have unsaved band changes."
                     : updatedAt
                       ? `Last saved ${new Date(updatedAt).toLocaleString()}`
-                      : "All bands match the saved configuration."}
+                      : "Showing platform defaults — save once to persist."}
                 </p>
                 <div className="plat-fee-bands__actions-buttons">
                   <button

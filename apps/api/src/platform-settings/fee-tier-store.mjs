@@ -1,7 +1,8 @@
+import { DEFAULT_FEE_TIER_BANDS } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 
 /**
- * @returns {Promise<{ tiers: object[], updatedAt: string }>}
+ * @returns {Promise<{ tiers: object[], updatedAt: string | null }>}
  */
 export async function getFeeTierSettings() {
   const { rows } = await getPool().query(
@@ -11,6 +12,13 @@ export async function getFeeTierSettings() {
      ORDER BY CASE tier
        WHEN 'small' THEN 1 WHEN 'mid' THEN 2 WHEN 'enterprise' THEN 3 ELSE 4 END`,
   );
+  if (rows.length === 0) {
+    return {
+      tiers: DEFAULT_FEE_TIER_BANDS.map((band) => ({ ...band })),
+      updatedAt: null,
+    };
+  }
+
   const updatedAt = rows.reduce((max, r) => {
     const t = r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at);
     return t > max ? t : max;

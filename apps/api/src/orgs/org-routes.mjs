@@ -7,6 +7,7 @@ import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
   canBootstrapPlatform,
   canCreateOrgUnderParent,
+  canManagePlatform,
   canDeleteMerchantSite,
   canManageDirectChildOrg,
 } from "./role-policy.mjs";
@@ -392,6 +393,15 @@ export async function handleCreateOrg(req, res) {
       return;
     }
   } else if (parent) {
+    if (parent.type === "platform" && !canManagePlatform(caller)) {
+      sendError(
+        res,
+        403,
+        "forbidden",
+        "Platform Owner or Administrator required to onboard under Platform",
+      );
+      return;
+    }
     const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
     if (!caller.platformOperator && !isVisibleOrg(visible, parent.id)) {
       sendError(res, 404, "not_found", "Parent org not found");

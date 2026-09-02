@@ -7,6 +7,14 @@ export type EntityCache<T> = {
   prime: (id: string, data: T) => void;
 };
 
+const entityCaches: Array<{ invalidateAll: () => void }> = [];
+
+export function invalidateAllEntityCaches(): void {
+  for (const cache of entityCaches) {
+    cache.invalidateAll();
+  }
+}
+
 export function createEntityCache<T>(opts: {
   storageKeyPrefix: string;
   fetch: (id: string) => Promise<T>;
@@ -29,10 +37,21 @@ export function createEntityCache<T>(opts: {
     return store;
   }
 
-  return {
+  function invalidateAll(): void {
+    for (const store of stores.values()) {
+      store.invalidate();
+    }
+    stores.clear();
+  }
+
+  const cache: EntityCache<T> & { invalidateAll: () => void } = {
     peek: (id) => storeFor(id).peek(),
     get: (id, options) => storeFor(id).get(options),
     invalidate: (id) => storeFor(id).invalidate(),
     prime: (id, data) => storeFor(id).seed(data),
+    invalidateAll,
   };
+
+  entityCaches.push(cache);
+  return cache;
 }

@@ -4,10 +4,14 @@ import { HDKey } from "@scure/bip32";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import {
   HD_DERIVE_PATH_TEMPLATE,
+  deriveReceiveAddressFromXpub,
   deriveTronAddressFromXpub,
+  deriveEvmAddressFromXpub,
+  deriveBitcoinAddressFromXpub,
   tronAddressFromPublicKey,
   xpubFingerprint,
 } from "../src/mode-s/hd-derive.mjs";
+import { hdMaterialFingerprint } from "../src/security/spend-material.mjs";
 import {
   hdPoolCooldownMs,
   toHdPoolAddress,
@@ -20,11 +24,12 @@ const VECTOR_XPUB = HDKey.fromMasterSeed(
   Uint8Array.from(Buffer.from("000102030405060708090a0b0c0d0e0f", "hex")),
 ).publicExtendedKey;
 
-describe("hd derive (watch-only Tron)", () => {
+describe("hd derive (watch-only)", () => {
   it("fingerprints xPub without echoing it", () => {
     const fp = xpubFingerprint(VECTOR_XPUB);
     assert.equal(fp.length, 16);
     assert.equal(fp.includes("xpub"), false);
+    assert.equal(hdMaterialFingerprint(VECTOR_XPUB), fp);
   });
 
   it("derives a stable Tron address at 0/{index}", () => {
@@ -36,6 +41,30 @@ describe("hd derive (watch-only Tron)", () => {
     assert.match(a0, /^T[1-9A-HJ-NP-Za-km-z]{33}$/);
     assert.match(a1, /^T[1-9A-HJ-NP-Za-km-z]{33}$/);
     assert.equal(HD_DERIVE_PATH_TEMPLATE, "0/{index}");
+  });
+
+  it("derives EVM checksum addresses", () => {
+    const a0 = deriveEvmAddressFromXpub(VECTOR_XPUB, 0);
+    assert.match(a0, /^0x[0-9a-fA-F]{40}$/);
+    assert.match(a0, /[A-F]/);
+    assert.notEqual(a0, deriveEvmAddressFromXpub(VECTOR_XPUB, 1));
+  });
+
+  it("derives Bitcoin P2PKH from xpub", () => {
+    const a0 = deriveBitcoinAddressFromXpub(VECTOR_XPUB, 0);
+    assert.match(a0, /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/);
+  });
+
+  it("routes deriveReceiveAddressFromXpub by network family", () => {
+    const tron = deriveReceiveAddressFromXpub("tron", VECTOR_XPUB, 0);
+    const nile = deriveReceiveAddressFromXpub("tron_nile", VECTOR_XPUB, 0);
+    const eth = deriveReceiveAddressFromXpub("ethereum", VECTOR_XPUB, 0);
+    const bsc = deriveReceiveAddressFromXpub("bnb_smart_chain", VECTOR_XPUB, 0);
+    const btc = deriveReceiveAddressFromXpub("bitcoin", VECTOR_XPUB, 0);
+    assert.equal(tron, nile);
+    assert.match(eth, /^0x/);
+    assert.match(bsc, /^0x/);
+    assert.match(btc, /^[13]/);
   });
 
   it("rejects invalid xPub and index", () => {
@@ -62,21 +91,26 @@ describe("hd pool rules", () => {
     if (prev === undefined) delete process.env.HD_POOL_COOLDOWN_MS;
     else process.env.HD_POOL_COOLDOWN_MS = prev;
 
-    const list = toHdPoolList([
-      {
-        id: "p1",
-        org_id: "o1",
-        asset: "USDT",
-        network: "tron",
-        hd_index: 0,
-        receive_address: "Taddr",
-        status: "IN_USE",
-        cooldown_until: null,
-        last_order_id: "ord-1",
-      },
-    ]);
+    const list = toHdPoolList(
+      [
+        {
+          id: "p1",
+          org_id: "o1",
+          asset: "USDT",
+          network: "tron",
+          hd_index: 0,
+          receive_address: "Taddr",
+          status: "IN_USE",
+          cooldown_until: null,
+          last_order_id: "ord-1",
+        },
+      ],
+      { network: "tron" },
+    );
     assert.equal(list.derivationPath, "0/{index}");
     assert.equal(list.items[0].status, "IN_USE");
+    const tonList = toHdPoolList([], { network: "ton" });
+    assert.equal(tonList.derivationPath, "subwallet/{index}");
     const mapped = toHdPoolAddress({
       id: "p1",
       org_id: "o1",
@@ -100,7 +134,9 @@ describe("mapAssignError HD pool", () => {
     assert.equal(invalid.code, "invalid_xpub");
     const missing = mapAssignError(new Error("claimHdPoolAddress is required"));
     assert.equal(missing.code, "matching_mode_unavailable");
-    const tron = mapAssignError(new Error("HD pool derivation is only available for tron"));
-    assert.equal(tron.code, "hd_pool_unavailable");
+    const pool = mapAssignError(
+      new Error("HD pool derivation is not available for solana"),
+    );
+    assert.equal(pool.code, "hd_pool_unavailable");
   });
 });

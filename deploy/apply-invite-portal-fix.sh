@@ -19,7 +19,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 updates = {
-    "WEB_BASE_URL": "https://app-cg.boostbunny.io",
+    "WEB_BASE_URL": "https://merchant-cg.boostbunny.io",
     "PLATFORM_WEB_ORIGIN": "https://platform-cg.boostbunny.io",
     "AGENT_WEB_ORIGIN": "https://agent-cg.boostbunny.io",
     "MERCHANT_WEB_ORIGIN": "https://merchant-cg.boostbunny.io",

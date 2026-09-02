@@ -14,14 +14,15 @@ describe("persisted list caches", () => {
     );
     assert.match(listCache, /readPersistedCache/);
     assert.match(listCache, /writePersistedCache/);
-    assert.match(listCache, /void refresh\(\)\.catch/);
+    assert.match(listCache, /generation/);
 
     const platformOrgs = readFileSync(
       join(root, "src/platform/platformOrgList.ts"),
       "utf8",
     );
     assert.match(platformOrgs, /createListCache/);
-    assert.match(platformOrgs, /paymentgate\.platform\.orgs/);
+    assert.match(platformOrgs, /refreshPlatformOrgList/);
+    assert.match(platformOrgs, /PLATFORM_ORGS_UPDATED_EVENT/);
 
     const agentOrgs = readFileSync(
       join(root, "src/agent/agentOrgList.ts"),

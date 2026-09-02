@@ -1,10 +1,16 @@
 import { getPortal, type PortalId } from "./portalRouting";
+import { readCachedSession } from "../auth/sessionCache";
 
 export type PersistedEntry<T> = {
   portal: PortalId;
+  userId?: string;
   savedAt: number;
   data: T;
 };
+
+function currentCacheUserId(): string | null {
+  return readCachedSession()?.userId ?? null;
+}
 
 export function readPersistedCache<T>(
   key: string,
@@ -16,6 +22,10 @@ export function readPersistedCache<T>(
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedEntry<T>;
     if (parsed.portal !== portal || parsed.savedAt == null) return null;
+    const userId = currentCacheUserId();
+    if (userId) {
+      if (!parsed.userId || parsed.userId !== userId) return null;
+    }
     if (Date.now() - parsed.savedAt > maxAgeMs) return null;
     return parsed.data;
   } catch {
@@ -29,8 +39,10 @@ export function writePersistedCache<T>(
   portal: PortalId = getPortal(),
 ): void {
   try {
+    const userId = currentCacheUserId();
     const payload: PersistedEntry<T> = {
       portal,
+      userId: userId ?? undefined,
       savedAt: Date.now(),
       data,
     };

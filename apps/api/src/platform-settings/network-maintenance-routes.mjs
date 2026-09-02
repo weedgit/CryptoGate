@@ -2,9 +2,7 @@ import { readJsonBody, sendError, sendJson, sendJsonCached } from "../http/json.
 import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
-import {
-  canReadPlatformOrgPolicy,
-} from "../orgs/role-policy.mjs";
+import { canManagePlatform, canReadPlatformOrgPolicy } from "../orgs/role-policy.mjs";
 import { buildNetworkCatalog } from "./network-catalog.mjs";
 import {
   isKnownNetworkId,
@@ -41,7 +39,7 @@ export async function handleGetNetworkCatalog(req, res) {
 export async function handlePutNetworkMaintenance(req, res, networkRaw) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
-  if (caller.platformOperator !== true) {
+  if (!canManagePlatform(caller)) {
     sendError(
       res,
       403,

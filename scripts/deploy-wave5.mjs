@@ -381,7 +381,7 @@ function printLocalUrls() {
   console.log(`Merchant   ${webOrigin}/merchant`);
   console.log(`Guest pay  ${payOrigin}/pay/{orderId}`);
   console.log(`API health ${apiBase}/health`);
-  console.log(`Login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567! (platform owner)`);
+  console.log(`Login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567890! (platform owner)`);
   console.log("Stop:  node scripts/deploy-wave5.mjs --down\n");
 }
 

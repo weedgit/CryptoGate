@@ -6,9 +6,9 @@ import {
   createOrg,
   getFeeTierSettings,
   getPlatformOrgs,
-  invalidatePlatformOrgList,
   inviteOrgUser,
   listOrgMemberEmails,
+  refreshPlatformOrgList,
   type FeeTierBand,
   type OrgAccount,
   type Session,
@@ -17,7 +17,7 @@ import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
 import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import { tierLabel } from "../commercialLabels";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
-import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
+import { orgTypeLabel, sessionCanManagePlatform } from "./org";
 import { onboardReturnPath } from "./platformNav";
 import {
   registeredEmailConflict,
@@ -103,7 +103,7 @@ function StepIndicator({ step }: { step: number }) {
 export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const canManage = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const cancelTo = useMemo(
     () => onboardReturnPath(searchParams, platformRoute("merchants")),
     [searchParams],
@@ -313,7 +313,7 @@ export function OnboardMerchantPage({ session }: Props) {
         email: form.ownerEmail.trim(),
         role: "owner",
       });
-      invalidatePlatformOrgList();
+      await refreshPlatformOrgList();
       navigate(platformRoute(`merchants/${created.id}`), {
         state: {
           invitationSent: true,

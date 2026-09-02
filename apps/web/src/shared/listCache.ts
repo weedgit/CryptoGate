@@ -64,7 +64,7 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
       .then((data) => {
         if (requestGeneration !== generation) {
           inflight = null;
-          return data;
+          return refresh();
         }
         cached = data;
         cachedAt = Date.now();

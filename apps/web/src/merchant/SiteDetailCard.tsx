@@ -19,7 +19,7 @@ import {
   type PaymentOrder,
   type Session,
 } from "./api";
-import { peekMerchantOrgs } from "./merchantOrgList";
+import { invalidateMerchantOrgList, peekMerchantOrgs } from "./merchantOrgList";
 import { AuthToast } from "../auth/AuthToast";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { sessionCanManageSites } from "./org";
@@ -189,6 +189,7 @@ export function SiteDetailCard({
     setDeleteError(null);
     try {
       await deleteOrg(site.id, { cascade: true });
+      invalidateMerchantOrgList();
       onDeleted?.();
       navigate(merchantRoute("sites"), { replace: true });
     } catch (err) {

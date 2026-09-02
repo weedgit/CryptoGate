@@ -4,7 +4,12 @@
  * Mode is singular (B|C|D|S); secondary flags catch illegal stacked collision strategies.
  */
 import { majorToMinor } from "./amount.js";
-import { MatchingMode, type MatchingMode as MatchingModeType } from "@paymentgate/domain";
+import {
+  isMatchingModeSelectable,
+  MatchingMode,
+  MODE_D_PHASE1_UNAVAILABLE_REASON,
+  type MatchingMode as MatchingModeType,
+} from "@paymentgate/domain";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
@@ -52,6 +57,14 @@ export function validateMatchingSettings(
       ok: false,
       code: "invalid_matching_mode",
       message: `unknown matching mode: ${String(input.mode)}`,
+    };
+  }
+
+  if (input.mode === MatchingMode.D && !isMatchingModeSelectable(MatchingMode.D)) {
+    return {
+      ok: false,
+      code: "mode_d_unavailable_phase1",
+      message: MODE_D_PHASE1_UNAVAILABLE_REASON,
     };
   }
 

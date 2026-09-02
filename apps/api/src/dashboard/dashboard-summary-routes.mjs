@@ -1,8 +1,6 @@
 import { sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { listVisibleOrgs } from "../orgs/org-access.mjs";
-import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
-import { isMerchantOrgType, paymentOrderListScope } from "../orgs/role-policy.mjs";
+import { paymentOrderListScope } from "../orgs/role-policy.mjs";
 import { expandPaymentOrderReadFilter } from "../orders/order-list-scope.mjs";
 import { summarizePaymentOrders } from "../orders/order-summary-store.mjs";
 import { listAuditLog } from "../audit/audit-list-store.mjs";
@@ -33,18 +31,41 @@ function parseIsoRange(url) {
 
 /**
  * @param {object} caller
+ * @param {Date} from
+ * @param {Date} to
  */
-async function scopedOrgIds(caller) {
+async function summarizeForCaller(caller, from, to) {
   const scope = paymentOrderListScope(caller);
-  if (scope.kind === "none") return { ok: false, orgIds: [] };
-  if (scope.kind === "all") return { ok: true, orgIds: null };
+  if (scope.kind === "none") {
+    return { ok: false };
+  }
+
+  if (scope.kind === "all") {
+    return {
+      ok: true,
+      summary: await summarizePaymentOrders({ kind: "all", from, to }),
+    };
+  }
+
   const filter = await expandPaymentOrderReadFilter(scope);
-  if (filter.kind === "all") return { ok: true, orgIds: null };
-  const ids = new Set([
-    ...(filter.treeOrgIds ?? []),
-    ...(filter.cashierOrgIds ?? []),
-  ]);
-  return { ok: true, orgIds: [...ids] };
+  if (filter.kind === "all") {
+    return {
+      ok: true,
+      summary: await summarizePaymentOrders({ kind: "all", from, to }),
+    };
+  }
+
+  return {
+    ok: true,
+    summary: await summarizePaymentOrders({
+      kind: "filter",
+      treeOrgIds: filter.treeOrgIds,
+      cashierOrgIds: filter.cashierOrgIds,
+      createdBy: filter.createdBy,
+      from,
+      to,
+    }),
+  };
 }
 
 /**
@@ -60,18 +81,13 @@ export async function handleGetOrderSummary(req, res, url) {
     return;
   }
 
-  const scoped = await scopedOrgIds(caller);
-  if (!scoped.ok) {
+  const result = await summarizeForCaller(caller, range.from, range.to);
+  if (!result.ok) {
     sendError(res, 403, "forbidden", "Outside merchant scope");
     return;
   }
 
-  const summary = await summarizePaymentOrders({
-    orgIds: scoped.orgIds,
-    from: range.from,
-    to: range.to,
-  });
-  sendJson(res, 200, summary);
+  sendJson(res, 200, result.summary);
 }
 
 /**
@@ -92,7 +108,7 @@ export async function handleGetPlatformDashboardSummary(req, res, url) {
   }
 
   const [orderSummary, createEvents, inviteEvents] = await Promise.all([
-    summarizePaymentOrders({ orgIds: null, from: range.from, to: range.to }),
+    summarizePaymentOrders({ kind: "all", from: range.from, to: range.to }),
     listAuditLog({
       kind: "all",
       action: "org_create",
@@ -140,27 +156,11 @@ export async function handleGetAgentDashboardSummary(req, res, url) {
     return;
   }
 
-  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
-  const merchantIds = new Set();
-  const agentRoots = visible.filter(
-    (o) => o.type === "agent" || o.type === "agent_sub",
-  );
-  for (const root of agentRoots) {
-    const subtree = await listOrgsInSubtree([root.id]);
-    for (const row of subtree) {
-      if (isMerchantOrgType(row.type)) merchantIds.add(row.id);
-    }
-  }
-  for (const m of caller.memberships) {
-    if (m.orgType === "merchant" || m.orgType === "merchant_site") {
-      merchantIds.add(m.orgId);
-    }
+  const result = await summarizeForCaller(caller, range.from, range.to);
+  if (!result.ok) {
+    sendError(res, 403, "forbidden", "Outside merchant scope");
+    return;
   }
 
-  const summary = await summarizePaymentOrders({
-    orgIds: [...merchantIds],
-    from: range.from,
-    to: range.to,
-  });
-  sendJson(res, 200, { orders: summary });
+  sendJson(res, 200, { orders: result.summary });
 }

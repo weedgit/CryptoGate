@@ -11,8 +11,9 @@ import {
 import { createPortal } from "react-dom";
 import type { Session } from "../merchant/api";
 import { roleLabel } from "../merchant/org";
-import { platformRoleLabel } from "../platform/org";
+import { platformRoleKey, platformRoleLabel } from "../platform/org";
 import { ProfileNavIcon, SignOutNavIcon } from "../platform/NavIcons";
+import { RoleBadge } from "../shared/RoleBadge";
 import { sessionDisplayLabel } from "./profileIdentity";
 import { SecuritySettingsPage } from "./SecuritySettingsPage";
 
@@ -28,23 +29,33 @@ type Props = {
 function profileIdentity(
   session: Session,
   variant: "platform" | "agent" | "merchant",
-): { name: string; role: string; email: string; initials: string } {
+): {
+  name: string;
+  role: string;
+  roleKey: string;
+  email: string;
+  initials: string;
+} {
   const email = session.email;
   const name = sessionDisplayLabel(session);
 
   let role = "Member";
+  let roleKey = "viewer";
   if (variant === "platform") {
+    roleKey = platformRoleKey(session);
     role = platformRoleLabel(session);
   } else if (variant === "agent") {
     const m = session.memberships.find(
       (x) => x.orgType === "agent" || x.orgType === "agent_sub",
     );
+    roleKey = m?.role ?? "viewer";
     role = m ? roleLabel(m.role) : "Agent";
   } else {
     const m =
       session.memberships.find((x) => x.orgType === "merchant") ||
       session.memberships.find((x) => x.orgType === "merchant_site") ||
       session.memberships[0];
+    roleKey = m?.role ?? "viewer";
     role = m ? roleLabel(m.role) : "Merchant";
   }
 
@@ -54,7 +65,7 @@ function profileIdentity(
       ? `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase()
       : name.slice(0, 2).toUpperCase();
 
-  return { name, role, email, initials };
+  return { name, role, roleKey, email, initials };
 }
 
 export function SidebarProfileMenu({
@@ -184,7 +195,11 @@ export function SidebarProfileMenu({
         {!collapsed ? (
           <span className="sidebar-profile__meta">
             <span className="sidebar-profile__name">{identity.name}</span>
-            <span className="sidebar-profile__role">{identity.role}</span>
+            <RoleBadge
+              role={identity.roleKey}
+              label={identity.role}
+              className="sidebar-profile__role-badge"
+            />
             <span className="sidebar-profile__email">{identity.email}</span>
           </span>
         ) : null}

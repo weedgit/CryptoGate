@@ -15,15 +15,11 @@ const platformDash = readFileSync(
 const agentDash = readFileSync(join(root, "src/agent/DashboardPage.tsx"), "utf8");
 
 describe("merchant dashboard first paint", () => {
-  it("starts orders, extras, maintenance, and network status in parallel", () => {
-    assert.match(dash, /const ordersPromise = getMerchantOrders/);
-    assert.match(dash, /const extraPromise/);
-    assert.match(dash, /const lampsPromise = getNetworksStatus/);
-    const parallelAwait = dash.indexOf("await Promise.all([");
-    const ordersPromise = dash.indexOf("const ordersPromise = getMerchantOrders");
-    const lampsPromise = dash.indexOf("const lampsPromise = getNetworksStatus");
-    assert.ok(ordersPromise >= 0 && lampsPromise > ordersPromise);
-    assert.ok(parallelAwait > lampsPromise);
+  it("loads orders independently from dashboard extras", () => {
+    assert.match(dash, /void getMerchantOrders\(\)/);
+    assert.match(dash, /getMerchantServiceBills/);
+    assert.match(dash, /getNetworksStatus/);
+    assert.doesNotMatch(dash, /await Promise\.all\(\[\s*ordersPromise/);
   });
 
   it("does not paint unknown ingest as Down while status is loading", () => {

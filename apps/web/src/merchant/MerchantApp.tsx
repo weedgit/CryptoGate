@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import "../styles/merchant.css";
 import "../styles/components.css";
 import { logout, type Session } from "./api";
+import { invalidateAllPortalDataCaches } from "../shared/portalDataCaches";
 import { PortalShellBoot } from "../auth/PortalShellBoot";
 import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
@@ -134,6 +135,7 @@ export function MerchantApp() {
 
   const signOut = async () => {
     await logout();
+    invalidateAllPortalDataCaches();
     setSession(null);
   };
 

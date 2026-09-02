@@ -21,7 +21,7 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
-import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import { getMerchantOrgs, invalidateMerchantOrgList, peekMerchantOrgs } from "./merchantOrgList";
 import {
   parentMerchantOrgId,
   sessionCanManageSites,
@@ -127,7 +127,12 @@ export function SitesListPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [parentId, hasLoaded]);
+  }, [parentId]);
+
+  const reloadSites = useCallback(() => {
+    invalidateMerchantOrgList();
+    void load();
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -436,7 +441,7 @@ export function SitesListPage({ session }: Props) {
                 session={session}
                 site={selected}
                 contactEmail={siteContactEmail(selected, siteEmails)}
-                onDeleted={() => void load()}
+                onDeleted={reloadSites}
               />
             ) : (
               <div

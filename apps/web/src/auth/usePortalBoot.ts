@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getSession, loadPortalSession, type Session } from "../merchant/api";
 import { setUserTimezone } from "../shared/userTimezone";
 import { prefetchCurrentPortalRoute } from "../shared/prefetchCurrentRoute";
 import { prefetchPortalDashboardData } from "../shared/prefetchPortalDashboardData";
+import { invalidateAllPortalDataCaches } from "../shared/portalDataCaches";
 import {
   registerSessionAuthHandlers,
   setSessionAuthActive,
@@ -67,7 +68,12 @@ export function usePortalBoot() {
   const [booting, setBooting] = useState(() => readCachedSession() == null);
 
   const setSession = useCallback((next: Session | null) => {
-    setSessionState(next);
+    setSessionState((prev) => {
+      if (prev?.userId !== next?.userId) {
+        invalidateAllPortalDataCaches();
+      }
+      return next;
+    });
     writeCachedSession(next);
   }, []);
 
@@ -96,10 +102,12 @@ export function usePortalBoot() {
   useEffect(() => {
     registerSessionAuthHandlers({
       onSessionExpired: () => {
+        invalidateAllPortalDataCaches();
         setSession(null);
         setMfaPending(false);
       },
       onMfaRequired: () => {
+        invalidateAllPortalDataCaches();
         setSession(null);
         setMfaPending(true);
       },

@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   getMerchantIntegrations,
+  invalidateMerchantIntegrations,
   peekMerchantIntegrations,
 } from "./merchantIntegrationsCache";
 import {
@@ -221,7 +222,13 @@ export function IntegrationsPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [canView, hasLoaded, orgId]);
+  }, [canView, orgId]);
+
+  const reloadAfterMutation = useCallback(async () => {
+    if (!orgId) return;
+    invalidateMerchantIntegrations(orgId);
+    await load();
+  }, [load, orgId]);
 
   useEffect(() => {
     void load();
@@ -277,7 +284,7 @@ export function IntegrationsPage({ session }: Props) {
       setKeyScopes([...KEY_SCOPES]);
       setKeyIpAllowlist("");
       setKeyExpiresAt("");
-      await load();
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Create key failed");
     } finally {
@@ -309,7 +316,7 @@ export function IntegrationsPage({ session }: Props) {
       });
       setHookUrl("https://");
       setHookEvents([...WEBHOOK_EVENTS]);
-      await load();
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to add webhook");
     } finally {
@@ -544,7 +551,7 @@ export function IntegrationsPage({ session }: Props) {
                                     secret: rotated.secret,
                                     hint: "The previous key is now invalid. Copy and store this credential before closing.",
                                   });
-                                  await load();
+                                  await reloadAfterMutation();
                                 } catch (err) {
                                   setError(
                                     err instanceof ApiError ? err.message : "Rotate failed",
@@ -571,7 +578,7 @@ export function IntegrationsPage({ session }: Props) {
                                 setBusy(true);
                                 try {
                                   await revokeApiKey(k.id, orgId);
-                                  await load();
+                                  await reloadAfterMutation();
                                 } catch (err) {
                                   setError(
                                     err instanceof ApiError ? err.message : "Revoke failed",
@@ -836,7 +843,7 @@ export function IntegrationsPage({ session }: Props) {
                                       setSelectedHook(null);
                                       setDeliveries([]);
                                     }
-                                    await load();
+                                    await reloadAfterMutation();
                                   } catch (err) {
                                     setError(
                                       err instanceof ApiError

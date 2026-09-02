@@ -1,5 +1,11 @@
-import { getAssetNetworkConfig } from "@paymentgate/domain";
-import { isWatchOnlyXpub, looksLikeSpendKey } from "../security/spend-material.mjs";
+import { getAssetNetworkConfig, supportsModeSHdDerivation } from "@paymentgate/domain";
+import {
+  isWatchOnlyEd25519ExtendedPubkey,
+  isWatchOnlyEd25519MasterPubkey,
+  isWatchOnlyXpubForNetwork,
+  looksLikeSpendKey,
+} from "../security/spend-material.mjs";
+import { deriveReceiveAddressFromXpub } from "../mode-s/hd-derive.mjs";
 import { settlementCooldownMs } from "../settlement/settlement-rules.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
@@ -39,7 +45,7 @@ export function validateXpubBody(body) {
       message: "xPub must not contain whitespace",
     };
   }
-  if (xPub.length < 20) {
+  if (xPub.length < 20 && !/^[0-9a-fA-F]{64}$/.test(xPub)) {
     return {
       ok: false,
       status: 400,
@@ -47,12 +53,27 @@ export function validateXpubBody(body) {
       message: "xPub is too short",
     };
   }
-  if (looksLikeSpendKey(xPub) || !isWatchOnlyXpub(xPub)) {
+  if (
+    !isWatchOnlyEd25519MasterPubkey(xPub) &&
+    !isWatchOnlyEd25519ExtendedPubkey(xPub) &&
+    looksLikeSpendKey(xPub)
+  ) {
     return {
       ok: false,
       status: 400,
       code: "invalid_xpub",
       message: "Watch-only xPub required — private keys and mnemonics are rejected",
+    };
+  }
+  if (!isWatchOnlyXpubForNetwork(xPub, network)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_xpub",
+      message:
+        supportsModeSHdDerivation(network)
+          ? "Watch-only key material is invalid for this network (BIP32 xPub for Tron/EVM/Bitcoin; ed25519 public key for TON/Solana)"
+          : "Watch-only xPub required — private keys and mnemonics are rejected",
     };
   }
   if (mfaCode.length < 6 || mfaCode.length > 8) {
@@ -72,6 +93,22 @@ export function validateXpubBody(body) {
       code: "asset_network_disabled",
       message: "Asset and network are not enabled",
     };
+  }
+
+  if (supportsModeSHdDerivation(network)) {
+    try {
+      deriveReceiveAddressFromXpub(network, xPub, 0);
+    } catch (err) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_xpub",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Configured watch-only key cannot derive a receive address",
+      };
+    }
   }
 
   return { ok: true, parsed: { asset, network, xPub, mfaCode } };

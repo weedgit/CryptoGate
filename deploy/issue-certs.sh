@@ -6,7 +6,6 @@ set -euo pipefail
 DOMAINS=(
   api-cg.boostbunny.io
   pay-cg.boostbunny.io
-  app-cg.boostbunny.io
   platform-cg.boostbunny.io
   agent-cg.boostbunny.io
   merchant-cg.boostbunny.io
@@ -16,7 +15,7 @@ WEBROOT="/var/www/letsencrypt"
 STAMP_FILE="/etc/paymentgate/tls/letsencrypt.ok"
 
 live_dir_for_cg() {
-  for name in api-cg.boostbunny.io pay-cg.boostbunny.io app-cg.boostbunny.io platform-cg.boostbunny.io agent-cg.boostbunny.io merchant-cg.boostbunny.io; do
+  for name in api-cg.boostbunny.io pay-cg.boostbunny.io platform-cg.boostbunny.io agent-cg.boostbunny.io merchant-cg.boostbunny.io; do
     if [[ -f "/etc/letsencrypt/live/$name/fullchain.pem" ]]; then
       echo "/etc/letsencrypt/live/$name"
       return 0

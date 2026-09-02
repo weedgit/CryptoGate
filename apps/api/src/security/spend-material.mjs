@@ -3,6 +3,10 @@
  * PaymentGate is watch-only SaaS — receive addresses and xPubs only.
  */
 
+import { createHash } from "node:crypto";
+import { base58 } from "@scure/base";
+import { resolveHdDerivationFamily } from "@paymentgate/domain";
+
 const PRIVATE_EXTENDED = /^(xprv|tprv|yprv|zprv|uprv|vprv|Yprv|Zprv)/i;
 const HEX_PRIV = /^(0x)?[0-9a-fA-F]{64}$/;
 const ENV_SPEND_KEYS = [
@@ -43,6 +47,54 @@ export function isWatchOnlyXpub(xpub) {
   if (!raw) return false;
   if (looksLikeSpendKey(raw)) return false;
   return /^(xpub|tpub|ypub|zpub|upub|vpub|Ypub|Zpub)/i.test(raw);
+}
+
+/** 32-byte ed25519 master public key — hex (64 chars) or Solana base58. */
+export function isWatchOnlyEd25519MasterPubkey(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return false;
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) return true;
+  if (looksLikeSpendKey(raw)) return false;
+  if (/^(xpub|tpub|ypub|zpub)/i.test(raw)) return false;
+  try {
+    return base58.decode(raw).length === 32;
+  } catch {
+    return false;
+  }
+}
+
+/** SLIP-0010 extended public key — 32-byte pubkey + 32-byte chain code (hex). */
+export function isWatchOnlyEd25519ExtendedPubkey(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || looksLikeSpendKey(raw)) return false;
+  return /^[0-9a-fA-F]{128}$/.test(raw);
+}
+
+/**
+ * Network-aware watch-only key validation for merchant xPub registration.
+ * @param {string} material
+ * @param {string} network
+ */
+export function isWatchOnlyXpubForNetwork(material, network) {
+  const family = resolveHdDerivationFamily(network);
+  if (family === "solana") {
+    return (
+      isWatchOnlyEd25519ExtendedPubkey(material) ||
+      isWatchOnlyEd25519MasterPubkey(material)
+    );
+  }
+  if (family === "ton") {
+    return isWatchOnlyEd25519MasterPubkey(material);
+  }
+  return isWatchOnlyXpub(material);
+}
+
+/**
+ * Fingerprint watch-only material for HD pool rows (any network family).
+ * @param {string} material
+ */
+export function hdMaterialFingerprint(material) {
+  return createHash("sha256").update(String(material ?? ""), "utf8").digest("hex").slice(0, 16);
 }
 
 /**

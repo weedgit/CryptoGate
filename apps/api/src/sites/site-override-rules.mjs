@@ -1,4 +1,5 @@
 import { FulfillmentPolicy, MatchingMode } from "@paymentgate/domain";
+import { validateMatchingSettings } from "@paymentgate/matching";
 
 /** No site-level overrides — wallet and ops settings always inherit. */
 export const SITE_OVERRIDE_KINDS = [];
@@ -75,6 +76,15 @@ export function validateOverridePayload(kind, payload) {
         status: 400,
         code: "invalid_matching_mode",
         message: "payload.matchingMode must be one of B, C, D, S",
+      };
+    }
+    const policy = validateMatchingSettings({ mode: matchingMode });
+    if (!policy.ok) {
+      return {
+        ok: false,
+        status: 400,
+        code: policy.code,
+        message: policy.message,
       };
     }
     return { ok: true, parsed: { matchingMode } };

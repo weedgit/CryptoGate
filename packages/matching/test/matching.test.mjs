@@ -217,10 +217,13 @@ describe("@paymentgate/matching Mode D assign (M2-42)", () => {
 });
 
 describe("@paymentgate/matching matching settings policy (M2-45)", () => {
-  it("allows singular Mode B / C / D / S", () => {
-    for (const mode of ["B", "C", "D", "S"]) {
+  it("allows singular Mode B / C / S; rejects Mode D in Phase 1", () => {
+    for (const mode of ["B", "C", "S"]) {
       assert.equal(validateMatchingSettings({ mode }).ok, true);
     }
+    const d = validateMatchingSettings({ mode: "D" });
+    assert.equal(d.ok, false);
+    if (!d.ok) assert.equal(d.code, "mode_d_unavailable_phase1");
   });
 
   it("rejects Mode S + Mode C via mode C with smartAddressEnabled", () => {

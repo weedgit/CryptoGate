@@ -26,6 +26,8 @@ import {
   MATCHING_CONCURRENT_HELP,
   MATCHING_MODE_CARDS,
   MATCHING_UNDERPAY_TOLERANCE_HELP,
+  matchingModeCardDisabled,
+  matchingModeDisabledReason,
   matchingModeLabel,
   matchingModeScope,
   matchingModeTooltip,
@@ -47,8 +49,9 @@ import {
   isLivePair,
   pairsForAsset,
   uniqueAssetsFromRegistry,
+  xpubMaterialHint,
 } from "../shared/assetNetworks";
-import { CopyableChainValue } from "../shared/CopyableChainValue";
+import { isMatchingModeSelectable, MatchingMode } from "@paymentgate/domain";
 
 type Props = { session: Session };
 
@@ -105,6 +108,8 @@ export function SettlementPage({ session }: Props) {
   const [savingAddr, setSavingAddr] = useState(false);
 
   const [xPubValue, setXPubValue] = useState("");
+  const [xPubAsset, setXPubAsset] = useState<string>(initialPair.asset);
+  const [xPubNetwork, setXPubNetwork] = useState<string>(initialPair.network);
   const [savingXpub, setSavingXpub] = useState(false);
   const [pendingMfa, setPendingMfa] = useState<PendingMfa | null>(null);
 
@@ -135,7 +140,21 @@ export function SettlementPage({ session }: Props) {
   const settlementPairLive = isLivePair(addrAsset, addrNetwork);
   const readOnly = modeSource === "inherit";
   const fulfillmentReadOnly = fulfillmentSource === "inherit";
-  const xPubPair = useMemo(() => defaultLivePair(), []);
+  const xPubNetworkOptions = useMemo(
+    () => pairsForAsset(xPubAsset),
+    [xPubAsset],
+  );
+  const xPubNetworkSelectOptions = useMemo(
+    () =>
+      xPubNetworkOptions.map((row) => ({
+        id: row.network,
+        label: row.displayNetwork,
+        hint: row.enabled ? undefined : "coming soon",
+        icon: <NetworkIcon network={row.network} />,
+      })),
+    [xPubNetworkOptions],
+  );
+  const xPubPairLive = isLivePair(xPubAsset, xPubNetwork);
   const matchingDirty =
     draftMode !== mode ||
     (draftMode === "B" &&
@@ -171,7 +190,10 @@ export function SettlementPage({ session }: Props) {
       ]);
       setMode(m.matchingMode);
       setModeSource(m.source ?? "merchant");
-      setDraftMode(m.matchingMode);
+      const loadedMode = m.matchingMode;
+      setDraftMode(
+        isMatchingModeSelectable(loadedMode as MatchingMode) ? loadedMode : "B",
+      );
       setFulfillmentPolicy(f.fulfillmentPolicy);
       setDraftFulfillmentPolicy(f.fulfillmentPolicy);
       setFulfillmentSource(f.source ?? "merchant");
@@ -202,11 +224,14 @@ export function SettlementPage({ session }: Props) {
 
   const cooldownBanner = addresses.find((a) => a.status === "pending_cool_down");
   const activeXpub = xpubs.find(
-    (x) => x.asset === xPubPair.asset && x.network === xPubPair.network,
+    (x) => x.asset === xPubAsset && x.network === xPubNetwork,
   );
-  const poolFree = pool.filter((p) => p.status === "FREE").length;
-  const poolInUse = pool.filter((p) => p.status === "IN_USE").length;
-  const poolCooldown = pool.filter((p) => p.status === "COOLDOWN").length;
+  const poolForPair = pool.filter(
+    (p) => p.asset === xPubAsset && p.network === xPubNetwork,
+  );
+  const poolFree = poolForPair.filter((p) => p.status === "FREE").length;
+  const poolInUse = poolForPair.filter((p) => p.status === "IN_USE").length;
+  const poolCooldown = poolForPair.filter((p) => p.status === "COOLDOWN").length;
 
   async function saveMatchingMode() {
     if (!orgId) return;
@@ -274,8 +299,8 @@ export function SettlementPage({ session }: Props) {
     setSuccess(null);
     setPendingMfa({
       kind: "xpub",
-      asset: xPubPair.asset,
-      network: xPubPair.network,
+      asset: xPubAsset,
+      network: xPubNetwork,
       xPub,
     });
   }
@@ -612,19 +637,25 @@ export function SettlementPage({ session }: Props) {
             >
               {MATCHING_MODE_CARDS.map((card) => {
                 const selected = draftMode === card.mode;
-                const tip = matchingModeTooltip(card.mode);
+                const unavailable = matchingModeCardDisabled(card.mode);
+                const tip =
+                  matchingModeDisabledReason(card.mode) ??
+                  matchingModeTooltip(card.mode);
                 return (
                   <button
                     key={card.mode}
                     type="button"
                     role="option"
                     aria-selected={selected}
+                    aria-disabled={unavailable || undefined}
                     aria-describedby={`matching-mode-tip-${card.mode}`}
-                    disabled={readOnly}
+                    disabled={readOnly || unavailable}
                     className={`plat-settlement__stat plat-settlement__stat-pick${
                       selected ? " is-selected" : ""
-                    }`}
-                    onClick={() => setDraftMode(card.mode)}
+                    }${unavailable ? " is-unavailable" : ""}`}
+                    onClick={() => {
+                      if (!unavailable) setDraftMode(card.mode);
+                    }}
                   >
                     <span className="plat-card-help plat-settlement__stat-pick-help">
                       <span
@@ -730,9 +761,9 @@ export function SettlementPage({ session }: Props) {
                         ?
                       </button>
                       <span className="plat-card-help__tip" role="tooltip">
-                        Watch-only xPub and derived addresses for{" "}
-                        {displayNetworkForPair(xPubPair.asset, xPubPair.network)}.
-                        PaymentGate never sweeps or signs.
+                        Watch-only key per asset/network. Derived pool addresses for{" "}
+                        {displayNetworkForPair(xPubAsset, xPubNetwork)} on same-amount
+                        conflicts. PaymentGate never sweeps or signs.
                       </span>
                     </span>
                   </div>
@@ -772,10 +803,10 @@ export function SettlementPage({ session }: Props) {
                 </div>
 
                 <div className="plat-settlement__chips">
-                  {pool.length === 0 ? (
+                  {poolForPair.length === 0 ? (
                     <p className="muted plat-settlement__chips-empty">No HD pool rows yet.</p>
                   ) : (
-                    pool.slice(0, 24).map((slot) => (
+                    poolForPair.slice(0, 24).map((slot) => (
                       <span
                         key={slot.id}
                         className={`plat-settlement__chip plat-settlement__chip--${slot.status.toLowerCase()}`}
@@ -794,6 +825,31 @@ export function SettlementPage({ session }: Props) {
                   <div className="plat-settlement__form-head">
                     <h3 className="plat-settlement__form-title">Register or rotate xPub</h3>
                   </div>
+                  <div className="plat-settlement__field-row plat-settlement__field-row--pair">
+                    <FieldControl label="Asset" className="plat-settlement__field--grow">
+                      <SearchableSelect
+                        value={xPubAsset}
+                        options={assetSelectOptions}
+                        disabled={savingXpub || readOnly}
+                        onChange={(next) => {
+                          setXPubAsset(next);
+                          const rows = pairsForAsset(next);
+                          const live = rows.find((r) => r.enabled);
+                          if (live) setXPubNetwork(live.network);
+                        }}
+                        ariaLabel="xPub asset"
+                      />
+                    </FieldControl>
+                    <FieldControl label="Network" className="plat-settlement__field--grow">
+                      <SearchableSelect
+                        value={xPubNetwork}
+                        options={xPubNetworkSelectOptions}
+                        disabled={savingXpub || readOnly}
+                        onChange={setXPubNetwork}
+                        ariaLabel="xPub network"
+                      />
+                    </FieldControl>
+                  </div>
                   <div className="plat-settlement__field-row plat-settlement__field-row--xpub">
                     <label className="plat-settings__field plat-settlement__field--grow">
                       <span className="plat-settlement__field-label">
@@ -807,7 +863,7 @@ export function SettlementPage({ session }: Props) {
                             ?
                           </button>
                           <span className="plat-card-help__tip" role="tooltip">
-                            Paste watch-only xPub only. MFA confirms on save. Never paste
+                            {xpubMaterialHint(xPubNetwork)} MFA confirms on save. Never paste
                             spend keys or seed phrases.
                           </span>
                         </span>
@@ -817,10 +873,12 @@ export function SettlementPage({ session }: Props) {
                         value={xPubValue}
                         onChange={(e) => setXPubValue(e.target.value)}
                         required
-                        disabled={savingXpub || readOnly}
+                        disabled={savingXpub || readOnly || !xPubPairLive}
                         spellCheck={false}
                         autoComplete="off"
-                        placeholder="xpub…"
+                        placeholder={
+                          xPubPairLive ? "xpub… / zpub… / ed25519 pubkey…" : "Select a live pair"
+                        }
                       />
                     </label>
                   </div>
@@ -828,7 +886,7 @@ export function SettlementPage({ session }: Props) {
                     <button
                       type="submit"
                       className="btn-primary plat-settings__submit"
-                      disabled={savingXpub || readOnly}
+                      disabled={savingXpub || readOnly || !xPubPairLive}
                     >
                       Save xPub
                     </button>

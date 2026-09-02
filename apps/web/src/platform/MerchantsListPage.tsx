@@ -29,7 +29,7 @@ import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
-import { sessionCanIssueServiceBill } from "./org";
+import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import {
   serviceBillStatusLabel,
 } from "./serviceBillStatus";
@@ -332,7 +332,8 @@ export function MerchantsListPage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const detailTab = searchParams.get("tab") ?? undefined;
-  const canManage = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
+  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
   const [bills, setBills] = useState<ServiceBill[]>(
     () => peekPlatformServiceBills() ?? [],
@@ -708,6 +709,12 @@ export function MerchantsListPage({ session }: Props) {
         tone={toastTone}
         onDismiss={dismissToast}
       />
+
+      {readOnly ? (
+        <div className="banner banner-warn" style={{ marginBottom: 12 }}>
+          Viewer — onboard, pause, and delete actions are hidden.
+        </div>
+      ) : null}
 
       {topbarSlot
         ? createPortal(

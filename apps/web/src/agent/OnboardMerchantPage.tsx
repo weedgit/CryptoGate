@@ -13,6 +13,7 @@ import {
   type Session,
 } from "./api";
 import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
+import { tierLabel } from "../commercialLabels";
 import {
   STRUCTURE_LABELS,
   type MerchantStructure,

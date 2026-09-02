@@ -2,8 +2,8 @@ import { getPool } from "../db/pool.mjs";
 import { findSettlementAddress } from "../settlement/settlement-store.mjs";
 import { getActiveXpub } from "../xpub/xpub-store.mjs";
 import {
-  deriveTronAddressFromXpub,
-  xpubFingerprint,
+  deriveReceiveAddressFromXpub,
+  hdMaterialFingerprint,
 } from "./hd-derive.mjs";
 import {
   HD_DERIVE_MAX_ATTEMPTS,
@@ -51,8 +51,8 @@ export async function listHdPoolAddresses(orgId, client) {
  * @returns {Promise<{ receiveAddress: string, hdIndex: number }>}
  */
 export async function claimHdPoolAddress(client, query) {
-  if (query.network !== "tron") {
-    throw new Error("HD pool derivation is only available for tron");
+  if (!query.network?.trim()) {
+    throw new Error("HD pool derivation requires a network");
   }
 
   let main = query.mainSettlementAddress?.trim() ?? "";
@@ -87,7 +87,7 @@ export async function claimHdPoolAddress(client, query) {
     throw new Error("xPub is required for HD pool claim");
   }
 
-  const fp = xpubFingerprint(xpub);
+  const fp = hdMaterialFingerprint(xpub);
   const startIndex = await nextHdIndex(
     client,
     query.merchantId,
@@ -98,7 +98,11 @@ export async function claimHdPoolAddress(client, query) {
 
   for (let offset = 0; offset < HD_DERIVE_MAX_ATTEMPTS; offset += 1) {
     const hdIndex = startIndex + offset;
-    const receiveAddress = deriveTronAddressFromXpub(xpub, hdIndex);
+    const receiveAddress = deriveReceiveAddressFromXpub(
+      query.network,
+      xpub,
+      hdIndex,
+    );
     if (main && receiveAddress === main) continue;
 
     const inserted = await insertInUseRow(client, {

@@ -1,3 +1,9 @@
+import {
+  isMatchingModeSelectable,
+  MatchingMode,
+  MODE_D_PHASE1_UNAVAILABLE_REASON,
+} from "@paymentgate/domain";
+
 export const MATCHING_LABELS: Record<string, string> = {
   B: "Standard",
   C: "Amount fingerprint",
@@ -27,6 +33,19 @@ export const MATCHING_MODE_CARDS = [
     blurb: "Main address unless same-amount conflict; then HD pool from xPub — also fits concurrent same amounts.",
   },
 ] as const;
+
+/** True when the mode cannot be chosen in Phase 1 (currently Mode D only). */
+export function matchingModeCardDisabled(mode: string): boolean {
+  if (!(mode in MATCHING_LABELS)) return false;
+  return !isMatchingModeSelectable(mode as MatchingMode);
+}
+
+/** Tooltip when a mode card is disabled; undefined when selectable. */
+export function matchingModeDisabledReason(mode: string): string | undefined {
+  if (!matchingModeCardDisabled(mode)) return undefined;
+  if (mode === MatchingMode.D) return MODE_D_PHASE1_UNAVAILABLE_REASON;
+  return undefined;
+}
 
 /** Tooltip — concurrent same-amount cashiers (merchant settlement). */
 export const MATCHING_CONCURRENT_HELP =
@@ -74,6 +93,9 @@ export function matchingModeTooltip(mode: string | null | undefined): string {
     case "C":
       return `${intro} Amount fingerprint: each open order gets a slightly unique payable amount so several cashiers can collect the same ticket price at once. Guests must send the exact amount shown.`;
     case "D":
+      if (matchingModeCardDisabled("D")) {
+        return MODE_D_PHASE1_UNAVAILABLE_REASON;
+      }
       return `${intro} Memo tag: guests must include the memo/tag from the payment page (only on networks that support it). Wrong or missing memo is not auto-completed.`;
     case "S":
       return `${intro} Smart address: normally uses the merchant’s main receive address; if two open orders would collide on the same amount, PaymentGate assigns a temporary HD address from the merchant’s watch-only xPub.`;

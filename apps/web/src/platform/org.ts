@@ -14,12 +14,18 @@ export function sessionIsPlatformViewerOnly(session: Session): boolean {
   return platform.every((m) => m.role === "viewer");
 }
 
-export function sessionCanIssueServiceBill(session: Session): boolean {
+/** Platform Owner / Administrator — onboard, bills, maintenance, org lifecycle. Not Viewer. */
+export function sessionCanManagePlatform(session: Session): boolean {
   return session.memberships.some(
     (m) =>
       m.orgType === "platform" &&
       (m.role === "owner" || m.role === "administrator"),
   );
+}
+
+/** @deprecated Prefer sessionCanManagePlatform for non-billing writes. */
+export function sessionCanIssueServiceBill(session: Session): boolean {
+  return sessionCanManagePlatform(session);
 }
 
 export function sessionIsPlatformOwner(session: Session): boolean {

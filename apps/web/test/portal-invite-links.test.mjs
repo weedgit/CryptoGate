@@ -11,7 +11,6 @@ describe("invite link normalization (web)", () => {
     const mod = readFileSync(join(root, "src/shared/inviteLinks.ts"), "utf8");
     assert.match(mod, /export function normalizeInviteUrl/);
     assert.match(mod, /export function resolveInviteLink/);
-    assert.match(mod, /app-cg\.boostbunny\.io/);
     assert.match(mod, /reset-password\?token=/);
   });
 
@@ -72,6 +71,6 @@ describe("portal invite links", () => {
       "utf8",
     );
     assert.match(links, /export function normalizeInviteUrl/);
-    assert.match(links, /LEGACY_APP_HOSTS/);
+    assert.match(links, /normalizePortalOrigin/);
   });
 });

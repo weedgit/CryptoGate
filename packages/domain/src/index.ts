@@ -69,6 +69,29 @@ export const MatchingMode = {
 export type MatchingMode = (typeof MatchingMode)[keyof typeof MatchingMode];
 
 /**
+ * Phase 1 — no enabled catalog pair supports memo/tag (Phase1-Project-Plan §2.4).
+ * Shown in merchant/platform tooltips when Mode D is disabled.
+ */
+export const MODE_D_PHASE1_UNAVAILABLE_REASON =
+  "Unavailable in Phase 1: none of the enabled asset/network pairs support on-chain memo or destination tag (e.g. USDT on TRON TRC-20, ERC-20, and BEP-20). Memo tag unlocks when a catalog pair has memo support.";
+
+/** True when any enabled registry row for the active env supports Mode D memo/tag. */
+export function phase1MemoSupportedAny(env?: string | null): boolean {
+  return listAssetNetworkRegistry(env).some(
+    (row) => row.enabled && row.memoSupported,
+  );
+}
+
+/** Merchant-selectable matching modes for the active chain environment. */
+export function isMatchingModeSelectable(
+  mode: MatchingMode,
+  env?: string | null,
+): boolean {
+  if (mode !== MatchingMode.D) return true;
+  return phase1MemoSupportedAny(env);
+}
+
+/**
  * When merchant staff / ERP may release goods vs chain-final order status.
  * Does not change watcher confirmation rules or OrderStatus transitions.
  * Phase 2 — see doc/Merchant-Fulfillment-Policy.md.
@@ -202,7 +225,9 @@ function readChainEnvRaw(): string {
   };
   const fromProcess =
     g.process?.env?.PAYMENTGATE_CHAIN_ENV ??
-    g.process?.env?.VITE_PAYMENTGATE_CHAIN_ENV;
+    g.process?.env?.VITE_PAYMENTGATE_CHAIN_ENV ??
+    g.process?.env?.CRYPTOGATE_CHAIN_ENV ??
+    g.process?.env?.VITE_CRYPTOGATE_CHAIN_ENV;
   if (fromProcess) return fromProcess.trim().toLowerCase();
   try {
     const meta = import.meta as { env?: Record<string, string | undefined> };
@@ -577,6 +602,51 @@ export function findAssetNetworkRow(
 /** True when network id is a Tron family chain (mainnet or Nile). */
 export function isTronFamilyNetwork(network: string): boolean {
   return network === NetworkId.Tron || network === NetworkId.TronNile;
+}
+
+/** Watch-only HD pool derivation family for Mode S (Phase 1). */
+export const HdDerivationFamily = {
+  Tron: "tron",
+  Evm: "evm",
+  Bitcoin: "bitcoin",
+  Solana: "solana",
+  Ton: "ton",
+} as const;
+
+export type HdDerivationFamily =
+  (typeof HdDerivationFamily)[keyof typeof HdDerivationFamily];
+
+const EVM_NETWORKS: ReadonlySet<string> = new Set([
+  NetworkId.Ethereum,
+  NetworkId.BnbSmartChain,
+  NetworkId.Polygon,
+  NetworkId.ArbitrumOne,
+  NetworkId.Base,
+]);
+
+/** Mode S HD address derivation family for a catalog network id. */
+export function resolveHdDerivationFamily(
+  network: string,
+): HdDerivationFamily | null {
+  if (isTronFamilyNetwork(network)) return HdDerivationFamily.Tron;
+  if (EVM_NETWORKS.has(network)) return HdDerivationFamily.Evm;
+  if (network === NetworkId.Bitcoin) return HdDerivationFamily.Bitcoin;
+  if (network === NetworkId.Solana) return HdDerivationFamily.Solana;
+  if (network === NetworkId.Ton) return HdDerivationFamily.Ton;
+  return null;
+}
+
+/** True when Mode S can derive HD pool addresses for this network. */
+export function supportsModeSHdDerivation(network: string): boolean {
+  return resolveHdDerivationFamily(network) != null;
+}
+
+/** Merchant-facing derivation path template for pool addresses. */
+export function hdDerivationPathTemplate(network: string): string {
+  if (resolveHdDerivationFamily(network) === HdDerivationFamily.Ton) {
+    return "subwallet/{index}";
+  }
+  return "0/{index}";
 }
 
 export function toAssetNetwork(row: AssetNetworkConfig): AssetNetwork {

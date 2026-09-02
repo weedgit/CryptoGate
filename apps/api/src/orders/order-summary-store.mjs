@@ -1,23 +1,40 @@
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
+import { appendPaymentOrderScope } from "./order-scope-sql.mjs";
 
 const SETTLED = ["completed", "confirmed"];
 
+const EMPTY_SUMMARY = {
+  periodVolume: "0",
+  volumeByDay: [],
+  volumeByOrg: [],
+  anomalies: [],
+};
+
 /**
  * @param {{
- *   orgIds: string[] | null,
+ *   kind: "all" | "filter",
+ *   treeOrgIds?: string[],
+ *   cashierOrgIds?: string[],
+ *   createdBy?: string | null,
  *   from: Date,
  *   to: Date,
- * }} query orgIds null = all visible (platform)
+ * }} query
  */
 export async function summarizePaymentOrders(query) {
-  const params = [query.from.toISOString(), query.to.toISOString(), SETTLED];
-  /** @type {string} */
-  let orgClause = "";
-  if (query.orgIds && query.orgIds.length > 0) {
-    params.push(query.orgIds);
-    orgClause = ` AND o.org_id = ANY($${params.length}::uuid[])`;
-  }
+  const scopeFilter =
+    query.kind === "all"
+      ? { kind: "all" }
+      : {
+          kind: "filter",
+          treeOrgIds: query.treeOrgIds ?? [],
+          cashierOrgIds: query.cashierOrgIds ?? [],
+          createdBy: query.createdBy ?? null,
+        };
+
+  const volumeParams = [query.from.toISOString(), query.to.toISOString(), SETTLED];
+  const volumeScope = appendPaymentOrderScope(scopeFilter, volumeParams);
+  if (volumeScope.empty) return { ...EMPTY_SUMMARY };
 
   const pool = getPool();
 
@@ -28,10 +45,10 @@ export async function summarizePaymentOrders(query) {
      WHERE o.status = ANY($3::text[])
        AND o.expires_at >= $1::timestamptz
        AND o.expires_at <= $2::timestamptz
-       ${orgClause}
+       ${volumeScope.clause}
      GROUP BY 1
      ORDER BY 1 ASC`,
-    params,
+    volumeParams,
   );
 
   const { rows: orgRows } = await pool.query(
@@ -41,15 +58,27 @@ export async function summarizePaymentOrders(query) {
      WHERE o.status = ANY($3::text[])
        AND o.expires_at >= $1::timestamptz
        AND o.expires_at <= $2::timestamptz
-       ${orgClause}
+       ${volumeScope.clause}
      GROUP BY o.org_id`,
-    params,
+    volumeParams,
   );
 
-  const anomalyParams = query.orgIds?.length ? [query.orgIds] : [];
-  const anomalyOrgClause = anomalyParams.length
-    ? ` AND o.org_id = ANY($1::uuid[])`
-    : "";
+  const anomalyParams = [];
+  const anomalyScope = appendPaymentOrderScope(scopeFilter, anomalyParams);
+  if (anomalyScope.empty) {
+    return {
+      periodVolume: "0",
+      volumeByDay: dayRows.map((r) => ({
+        date: String(r.day).slice(0, 10),
+        volume: String(Number(r.volume) || 0),
+      })),
+      volumeByOrg: orgRows.map((r) => ({
+        orgId: r.org_id,
+        volume: String(Number(r.volume) || 0),
+      })),
+      anomalies: [],
+    };
+  }
 
   const { rows: anomalyRows } = await pool.query(
     `SELECT o.id, o.org_id, o.created_by, o.order_number, o.status, o.matching_mode,
@@ -61,7 +90,7 @@ export async function summarizePaymentOrders(query) {
             o.anomaly_resolution_note, o.anomaly_resolved_at, o.created_at, o.updated_at
      FROM payment_orders o
      WHERE o.status = 'payment_anomaly'
-       ${anomalyOrgClause}
+       ${anomalyScope.clause}
      ORDER BY o.created_at DESC
      LIMIT 50`,
     anomalyParams,

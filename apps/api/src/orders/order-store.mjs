@@ -1,5 +1,6 @@
 import { getPool } from "../db/pool.mjs";
 import { toPaymentOrder } from "./order-map.mjs";
+import { appendPaymentOrderScope } from "./order-scope-sql.mjs";
 
 const ORDER_SELECT = `
   id, org_id, created_by, order_number, status, matching_mode,
@@ -91,22 +92,11 @@ export async function listPaymentOrders(query) {
   const where = [];
 
   if (query.kind === "filter") {
-    const parts = [];
-    if (query.treeOrgIds && query.treeOrgIds.length > 0) {
-      params.push(query.treeOrgIds);
-      parts.push(`o.org_id = ANY($${params.length}::uuid[])`);
+    const scope = appendPaymentOrderScope(query, params);
+    if (scope.empty) return [];
+    if (scope.clause) {
+      where.push(scope.clause.replace(/^ AND /, ""));
     }
-    if (query.cashierOrgIds && query.cashierOrgIds.length > 0) {
-      params.push(query.cashierOrgIds);
-      const orgIdx = params.length;
-      params.push(query.createdBy);
-      const userIdx = params.length;
-      parts.push(
-        `(o.org_id = ANY($${orgIdx}::uuid[]) AND o.created_by = $${userIdx})`,
-      );
-    }
-    if (parts.length === 0) return [];
-    where.push(`(${parts.join(" OR ")})`);
   }
 
   if (query.orgId) {

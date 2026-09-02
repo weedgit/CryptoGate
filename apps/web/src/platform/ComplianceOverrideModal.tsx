@@ -2,6 +2,11 @@ import { FormEvent, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
+import {
+  isMatchingModeSelectable,
+  MatchingMode,
+  MODE_D_PHASE1_UNAVAILABLE_REASON,
+} from "@paymentgate/domain";
 import type { Session } from "../merchant/api";
 import {
   ApiError,
@@ -241,21 +246,34 @@ export function ComplianceOverrideModal({
       </label>
 
       {overrideType === "matching_mode" ? (
-        <label className="b7-override-modal__field">
-          <span>Matching mode</span>
-          <select
-            value={matchingMode}
-            disabled={!canApply || busy || Boolean(pendingMfa)}
-            onChange={(e) =>
-              setMatchingMode(e.target.value as "B" | "C" | "D" | "S")
-            }
-          >
-            <option value="B">Standard</option>
-            <option value="C">Amount fingerprint</option>
-            <option value="D">Memo tag</option>
-            <option value="S">Smart address</option>
-          </select>
-        </label>
+        <>
+          <label className="b7-override-modal__field">
+            <span>Matching mode</span>
+            <select
+              value={matchingMode}
+              disabled={!canApply || busy || Boolean(pendingMfa)}
+              onChange={(e) =>
+                setMatchingMode(e.target.value as "B" | "C" | "D" | "S")
+              }
+            >
+              <option value="B">Standard</option>
+              <option value="C">Amount fingerprint</option>
+              <option
+                value="D"
+                disabled={!isMatchingModeSelectable(MatchingMode.D)}
+                title={MODE_D_PHASE1_UNAVAILABLE_REASON}
+              >
+                Memo tag
+              </option>
+              <option value="S">Smart address</option>
+            </select>
+          </label>
+          {!isMatchingModeSelectable(MatchingMode.D) ? (
+            <p className="b7-override-modal__hint" role="note">
+              {MODE_D_PHASE1_UNAVAILABLE_REASON}
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {overrideType === "settlement_address" ? (

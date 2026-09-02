@@ -5,10 +5,11 @@ import {
   ApiError,
   createOrg,
   getPlatformOrgs,
-  invalidatePlatformOrgList,
   inviteOrgUser,
   listOrgMemberEmails,
+  refreshPlatformOrgList,
   type OrgAccount,
+  type Session,
 } from "./api";
 import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
 import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
@@ -24,7 +25,7 @@ import {
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
-import { orgTypeLabel } from "./org";
+import { orgTypeLabel, sessionCanManagePlatform } from "./org";
 import { onboardReturnPath } from "./platformNav";
 import { agentRoute, platformRoute } from "../shared/portalRouting";
 
@@ -90,9 +91,10 @@ function StepIndicator({ step }: { step: number }) {
   );
 }
 
-export function OnboardAgentPage() {
+export function OnboardAgentPage({ session }: { session: Session }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const [step, setStep] = useState(0);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [booting, setBooting] = useState(true);
@@ -103,6 +105,13 @@ export function OnboardAgentPage() {
     Map<string, RegisteredEmailRef>
   >(() => new Map());
   const dismissToast = useCallback(() => setError(null), []);
+
+  useEffect(() => {
+    if (!canManage) {
+      setError((prev) => prev ?? "Platform Owner or Administrator required.");
+    }
+  }, [canManage]);
+
   const cancelTo = useMemo(
     () => onboardReturnPath(searchParams, platformRoute("agents")),
     [searchParams],
@@ -303,7 +312,7 @@ export function OnboardAgentPage() {
         email: form.ownerEmail.trim(),
         role: "owner",
       });
-      invalidatePlatformOrgList();
+      await refreshPlatformOrgList();
       navigate(platformRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
@@ -343,6 +352,34 @@ export function OnboardAgentPage() {
         copy="Preparing parent options for this agent."
         closeTo={cancelTo}
       />
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <OnboardWizardPortal>
+        <div className="b4-wizard-page">
+          <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+          <div className="b4-wizard-backdrop">
+            <div className="b4-wizard" role="dialog" aria-modal="true">
+              <header className="b4-wizard__head">
+                <h2 className="b4-wizard__title">Onboard agent</h2>
+                <Link className="b4-wizard__close" to={cancelTo} aria-label="Close">
+                  ×
+                </Link>
+              </header>
+              <div className="b4-wizard__body">
+                <p className="muted">Platform Owner or Administrator required.</p>
+              </div>
+              <footer className="b4-wizard__foot">
+                <Link className="b4-wizard__cancel" to={cancelTo}>
+                  Cancel
+                </Link>
+              </footer>
+            </div>
+          </div>
+        </div>
+      </OnboardWizardPortal>
     );
   }
 

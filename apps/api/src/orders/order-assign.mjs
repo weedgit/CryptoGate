@@ -49,7 +49,7 @@ export function mapAssignError(err) {
     return {
       status: 422,
       code: "invalid_xpub",
-      message: "Configured xPub cannot derive a Tron receive address",
+      message: "Configured watch-only key cannot derive a receive address for this network",
     };
   }
   if (

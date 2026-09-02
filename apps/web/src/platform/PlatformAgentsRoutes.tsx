@@ -41,7 +41,7 @@ export function PlatformAgentsRoutes({ session }: Props) {
           }
         >
           <RequirePlatformOperator session={session}>
-            <OnboardAgentPage />
+            <OnboardAgentPage session={session} />
           </RequirePlatformOperator>
         </Suspense>
       ) : null}

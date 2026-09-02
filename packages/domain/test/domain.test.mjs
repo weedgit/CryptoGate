@@ -28,6 +28,13 @@ import {
   listAssetNetworkRegistry,
   resolveChainEnvironment,
   ChainEnvironment,
+  isMatchingModeSelectable,
+  MODE_D_PHASE1_UNAVAILABLE_REASON,
+  phase1MemoSupportedAny,
+  resolveHdDerivationFamily,
+  HdDerivationFamily,
+  supportsModeSHdDerivation,
+  hdDerivationPathTemplate,
   WebhookEventType,
   ServiceBillStatus,
   ServiceBillUpdateAction,
@@ -196,5 +203,30 @@ describe("@paymentgate/domain", () => {
     assert.equal(SiteOverrideKind.MatchingMode, "matching_mode");
     assert.equal(SettingsSource.Inherit, "inherit");
     assert.equal(DEFAULT_ORDER_DELETE_DAYS, 90);
+  });
+
+  it("disables Mode D in Phase 1 when no enabled pair supports memo", () => {
+    assert.equal(phase1MemoSupportedAny("mainnet"), false);
+    assert.equal(phase1MemoSupportedAny("testnet"), false);
+    assert.equal(isMatchingModeSelectable(MatchingMode.B), true);
+    assert.equal(isMatchingModeSelectable(MatchingMode.C), true);
+    assert.equal(isMatchingModeSelectable(MatchingMode.S), true);
+    assert.equal(isMatchingModeSelectable(MatchingMode.D), false);
+    assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /Phase 1/i);
+    assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /memo/i);
+  });
+
+  it("maps Mode S HD derivation families for all Phase 1 networks", () => {
+    assert.equal(resolveHdDerivationFamily(NetworkId.Tron), HdDerivationFamily.Tron);
+    assert.equal(resolveHdDerivationFamily(NetworkId.TronNile), HdDerivationFamily.Tron);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Ethereum), HdDerivationFamily.Evm);
+    assert.equal(resolveHdDerivationFamily(NetworkId.BnbSmartChain), HdDerivationFamily.Evm);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Bitcoin), HdDerivationFamily.Bitcoin);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Solana), HdDerivationFamily.Solana);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Ton), HdDerivationFamily.Ton);
+    assert.equal(supportsModeSHdDerivation(NetworkId.Tron), true);
+    assert.equal(supportsModeSHdDerivation("unknown"), false);
+    assert.equal(hdDerivationPathTemplate(NetworkId.Ton), "subwallet/{index}");
+    assert.equal(hdDerivationPathTemplate(NetworkId.Ethereum), "0/{index}");
   });
 });

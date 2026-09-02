@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import "../styles/merchant.css";
 import "../styles/components.css";
 import { logout, type Session } from "./api";
+import { invalidateAllPortalDataCaches } from "../shared/portalDataCaches";
 import { usePortalBoot } from "../auth/usePortalBoot";
 import { ForceChangePasswordGate } from "../auth/ForceChangePasswordGate";
 import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
@@ -108,6 +109,7 @@ export function AgentApp() {
 
   const signOut = async () => {
     await logout();
+    invalidateAllPortalDataCaches();
     setSession(null);
   };
 

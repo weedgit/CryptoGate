@@ -19,6 +19,7 @@ import {
   listPlatformOrgMemberEmails,
   peekPlatformOrgs,
   peekPlatformServiceBills,
+  PLATFORM_ORGS_UPDATED_EVENT,
   setOrgStatus,
   type OrgAccount,
   type ServiceBill,
@@ -31,7 +32,7 @@ import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
-import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
+import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -297,7 +298,8 @@ export function AgentsListPage({ session }: Props) {
   const inviteState = (location.state ?? {}) as {
     invitationSent?: boolean;
   };
-  const canManage = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
+  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
   const [bills, setBills] = useState<ServiceBill[]>(
     () => peekPlatformServiceBills() ?? [],
@@ -425,6 +427,26 @@ export function AgentsListPage({ session }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (Array.isArray(detail)) {
+        setOrgs(detail);
+        return;
+      }
+      void load({ silent: true });
+    };
+    window.addEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    if (location.pathname.endsWith("/agents/new")) return;
+    void load({ silent: peekPlatformOrgs() != null });
+  }, [location.pathname, load]);
 
   const agents = useMemo(
     () => orgs.filter((o) => o.type === "agent" || o.type === "agent_sub"),
@@ -672,6 +694,12 @@ export function AgentsListPage({ session }: Props) {
         tone={toastTone}
         onDismiss={dismissToast}
       />
+
+      {readOnly ? (
+        <div className="banner banner-warn" style={{ marginBottom: 12 }}>
+          Viewer — onboard, pause, and delete actions are hidden.
+        </div>
+      ) : null}
 
       {topbarSlot
         ? createPortal(

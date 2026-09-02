@@ -32,11 +32,19 @@ export function canBootstrapPlatform(caller) {
 }
 
 /**
+ * Platform Owner / Administrator — onboard, maintenance, org lifecycle. Not Viewer.
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canManagePlatform(caller) {
+  return caller.platformOperator === true;
+}
+
+/**
  * @param {{ platformOperator: boolean }} caller
  * @param {string | null} parentRole
  */
 export function canCreateOrgUnderParent(caller, parentRole) {
-  return caller.platformOperator || canManageOrgTree(parentRole);
+  return canManagePlatform(caller) || canManageOrgTree(parentRole);
 }
 
 /**

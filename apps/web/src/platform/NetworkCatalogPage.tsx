@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthToast } from "../auth/AuthToast";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
@@ -13,7 +13,7 @@ import {
 import { NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
 import {
-  sessionCanIssueServiceBill,
+  sessionCanManagePlatform,
   sessionIsPlatformViewerOnly,
 } from "./org";
 import { computeOrderabilityLamp } from "../shared/networkLamp";
@@ -119,23 +119,27 @@ function patchCatalogCard(
 
 /** B16 — Network & asset catalog (trustworthy values from API). */
 export function NetworkCatalogPage({ session }: Props) {
-  const canToggle = useMemo(
-    () => sessionCanIssueServiceBill(session) && !sessionIsPlatformViewerOnly(session),
-    [session],
-  );
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
+  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [catalog, setCatalog] = useState<NetworkCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyNetwork, setBusyNetwork] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadGen = useRef(0);
+  const toggleBusyRef = useRef<string | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const gen = ++loadGen.current;
     if (!opts?.silent) {
       setLoading(true);
     }
     setError(null);
     try {
-      setCatalog(await getNetworkCatalog());
+      const data = await getNetworkCatalog();
+      if (gen !== loadGen.current) return;
+      setCatalog(data);
     } catch (err) {
+      if (gen !== loadGen.current) return;
       setError(
         err instanceof ApiError
           ? err.message
@@ -144,6 +148,7 @@ export function NetworkCatalogPage({ session }: Props) {
             : "Failed to load network catalog",
       );
     } finally {
+      if (gen !== loadGen.current) return;
       if (!opts?.silent) {
         setLoading(false);
       }
@@ -154,41 +159,44 @@ export function NetworkCatalogPage({ session }: Props) {
     void load();
   }, [load]);
 
-  async function onToggleMaintenance(card: NetworkCatalogCard) {
-    if (!canToggle || !catalog) return;
-    const nextActive = !card.maintenance.active;
-    const message = nextActive
-      ? `${card.title} deposits paused — platform maintenance.`
-      : null;
+  async function onToggleMaintenance(network: string) {
+    if (!canManage || toggleBusyRef.current === network) return;
     const snapshot = catalog;
+    if (!snapshot) return;
+    const row = snapshot.items.find((item) => item.network === network);
+    if (!row) return;
+
+    toggleBusyRef.current = network;
+    setBusyNetwork(network);
+    setError(null);
+
+    const nextActive = !row.maintenance.active;
+    const message = nextActive
+      ? `${row.title} deposits paused — platform maintenance.`
+      : null;
 
     setCatalog((prev) =>
       prev
-        ? patchCatalogCard(
-            prev,
-            card.network,
-            (row) =>
-              applyMaintenanceToCard(row, {
-                active: nextActive,
-                message,
-                startedAt: nextActive ? new Date().toISOString() : null,
-                endsAt: null,
-              }),
+        ? patchCatalogCard(prev, network, (card) =>
+            applyMaintenanceToCard(card, {
+              active: nextActive,
+              message,
+              startedAt: nextActive ? new Date().toISOString() : null,
+              endsAt: null,
+            }),
           )
         : prev,
     );
-    setBusyNetwork(card.network);
-    setError(null);
 
     try {
-      const result = await putNetworkMaintenance(card.network, {
+      const result = await putNetworkMaintenance(network, {
         active: nextActive,
         message,
       });
       setCatalog((prev) =>
         prev
-          ? patchCatalogCard(prev, card.network, (row) =>
-              applyMaintenanceToCard(row, {
+          ? patchCatalogCard(prev, network, (card) =>
+              applyMaintenanceToCard(card, {
                 active: result.active,
                 message: result.message,
                 startedAt: result.startedAt,
@@ -198,7 +206,6 @@ export function NetworkCatalogPage({ session }: Props) {
             )
           : prev,
       );
-      void load({ silent: true });
     } catch (err) {
       setCatalog(snapshot);
       setError(
@@ -209,6 +216,7 @@ export function NetworkCatalogPage({ session }: Props) {
             : "Failed to update maintenance",
       );
     } finally {
+      toggleBusyRef.current = null;
       setBusyNetwork(null);
     }
   }
@@ -219,8 +227,35 @@ export function NetworkCatalogPage({ session }: Props) {
     <div className="dash-page plat-network-catalog">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
+      {readOnly ? (
+        <div className="banner banner-warn" style={{ marginBottom: 16 }}>
+          Viewer — network maintenance is read-only. Contact a Platform Owner or
+          Administrator to pause deposits.
+        </div>
+      ) : null}
+
       {loading && !catalog ? (
         <PagePending />
+      ) : cards.length === 0 ? (
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-body">
+            <p className="muted">
+              {error
+                ? "Network catalog could not be loaded."
+                : "No networks in the catalog for this environment."}
+            </p>
+            {error ? (
+              <button
+                type="button"
+                className="btn-secondary plat-settings__submit"
+                style={{ marginTop: 12 }}
+                onClick={() => void load()}
+              >
+                Retry
+              </button>
+            ) : null}
+          </div>
+        </section>
       ) : (
         <div className="plat-network-catalog__grid">
           {cards.map((card, index) => {
@@ -369,30 +404,41 @@ export function NetworkCatalogPage({ session }: Props) {
                       ? ` · until ${new Date(card.maintenance.endsAt).toLocaleString()}`
                       : ""}
                   </span>
-                  <button
-                    type="button"
-                    className={`plat-network-toggle${card.maintenance.active ? " is-on" : ""}`}
-                    role="switch"
-                    aria-checked={card.maintenance.active}
-                    aria-busy={busyNetwork === card.network}
-                    disabled={
-                      !canToggle ||
-                      busyNetwork === card.network ||
-                      card.enabledCount === 0
-                    }
-                    title={
-                      !canToggle
-                        ? "Viewer cannot change maintenance"
-                        : card.enabledCount === 0
+                  {canManage ? (
+                    <button
+                      type="button"
+                      className={`plat-network-toggle${card.maintenance.active ? " is-on" : ""}`}
+                      role="switch"
+                      aria-checked={card.maintenance.active}
+                      aria-busy={busyNetwork === card.network}
+                      disabled={
+                        busyNetwork === card.network || card.enabledCount === 0
+                      }
+                      title={
+                        card.enabledCount === 0
                           ? "No enabled pairs on this network"
                           : isMaint
                             ? "Clear maintenance — create-order will resume"
                             : "Pause deposits — create-order returns 422; merchants see a banner"
-                    }
-                    onClick={() => void onToggleMaintenance(card)}
-                  >
-                    <span className="plat-network-toggle__knob" />
-                  </button>
+                      }
+                      onClick={() => void onToggleMaintenance(card.network)}
+                    >
+                      <span className="plat-network-toggle__knob" />
+                    </button>
+                  ) : (
+                    <span
+                      className={`plat-network-card__maint-state${
+                        card.maintenance.active ? " is-on" : ""
+                      }`}
+                      aria-label={
+                        card.maintenance.active
+                          ? "Maintenance on"
+                          : "Maintenance off"
+                      }
+                    >
+                      {card.maintenance.active ? "On" : "Off"}
+                    </span>
+                  )}
                 </div>
 
                 <div className="plat-network-card__icon-corner" aria-hidden="true">

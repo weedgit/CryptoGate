@@ -1,22 +1,10 @@
 import { getPortal, portalOrigin, type PortalId } from "./portalRouting";
 
-const LEGACY_APP_HOSTS = new Set(["app-cg.boostbunny.io"]);
-
 function normalizePortalOrigin(origin: string, portal: PortalId): string {
   const trimmed = origin.trim().replace(/\/$/, "");
   if (!trimmed) return trimmed;
   try {
     const u = new URL(trimmed);
-    const host = u.hostname.toLowerCase();
-
-    if (LEGACY_APP_HOSTS.has(host)) {
-      if (host === "localhost" || host === "127.0.0.1") {
-        const suffix = u.port ? `:${u.port}` : "";
-        return `${u.protocol}//${portal}.localhost${suffix}`;
-      }
-      return `https://${portal}-cg.boostbunny.io`;
-    }
-
     const legacyPath = u.pathname.replace(/\/$/, "");
     const portalPath = `/${portal}`;
     if (legacyPath === portalPath || legacyPath.startsWith(`${portalPath}/`)) {

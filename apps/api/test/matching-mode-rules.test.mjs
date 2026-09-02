@@ -26,12 +26,15 @@ describe("matching mode rules", () => {
     });
   });
 
-  it("accepts B C D S", () => {
-    for (const matchingMode of ["B", "C", "D", "S"]) {
+  it("accepts B C and S; rejects Mode D in Phase 1", () => {
+    for (const matchingMode of ["B", "C", "S"]) {
       const r = validateMatchingModeBody({ matchingMode });
       assert.equal(r.ok, true);
       assert.equal(r.parsed.matchingMode, matchingMode);
     }
+    const d = validateMatchingModeBody({ matchingMode: "D" });
+    assert.equal(d.ok, false);
+    assert.equal(d.code, "mode_d_unavailable_phase1");
   });
 
   it("rejects unknown modes", () => {

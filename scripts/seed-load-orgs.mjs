@@ -388,7 +388,7 @@ async function main() {
   console.log(`  Cashiers:    ${COUNT}  (${cashierEmail(1)} … ${cashierEmail(COUNT)})`);
   console.log(`  Cashier pw:  ${CASHIER_PASSWORD}`);
   console.log("  History:     payment orders + org_create audit (backdated)");
-  console.log(`\nPlatform login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567!`);
+  console.log(`\nPlatform login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567890!`);
 }
 
 main()

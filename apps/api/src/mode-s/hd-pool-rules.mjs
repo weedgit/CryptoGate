@@ -1,4 +1,5 @@
 import { OrderStatus } from "@paymentgate/domain";
+import { hdDerivationPathTemplate } from "@paymentgate/domain";
 import { HD_DERIVE_PATH_TEMPLATE } from "./hd-derive.mjs";
 
 export const HD_POOL_STATUSES = ["FREE", "IN_USE", "COOLDOWN"];
@@ -47,8 +48,11 @@ export function toHdPoolAddress(row) {
  * @param {object[]} rows
  */
 export function toHdPoolList(rows, lookup = {}) {
+  const network = lookup.network ?? rows[0]?.network ?? "";
   return {
-    derivationPath: HD_DERIVE_PATH_TEMPLATE,
+    derivationPath: network
+      ? hdDerivationPathTemplate(network)
+      : HD_DERIVE_PATH_TEMPLATE,
     items: rows.map(toHdPoolAddress),
     source: lookup.source ?? "merchant",
     parentOrgId: lookup.parentOrgId ?? null,

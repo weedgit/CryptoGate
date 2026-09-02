@@ -9,9 +9,9 @@ import {
   setOrgStatus,
   type Session,
 } from "./api";
-import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
+import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import { withReturnTo } from "./platformNav";
-import { getPlatformOrgs, invalidatePlatformOrgList, peekPlatformOrgs } from "./platformOrgList";
+import { getPlatformOrgs, invalidatePlatformOrgList, peekPlatformOrgs, PLATFORM_ORGS_UPDATED_EVENT } from "./platformOrgList";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -646,7 +646,8 @@ export function ArchitecturePage({ session }: { session: Session }) {
   const [toastTone, setToastTone] = useState<"ok" | "error">("ok");
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
-  const canManage = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
+  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
   const showOk = useCallback((message: string) => {
@@ -716,6 +717,35 @@ export function ArchitecturePage({ session }: { session: Session }) {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (!Array.isArray(detail)) {
+        void load();
+        return;
+      }
+      const nextForest = buildPlatformOrgForest(detail);
+      setForest(nextForest);
+      setExpanded((prev) => {
+        const next = new Set<string>();
+        for (const id of prev) {
+          if (nextForest.byId.has(id)) next.add(id);
+        }
+        for (const id of defaultExpandedIds(nextForest.roots)) {
+          next.add(id);
+        }
+        return next;
+      });
+      setSelectedId((prev) =>
+        prev && nextForest.byId.has(prev) ? prev : (nextForest.roots[0]?.id ?? null),
+      );
+    };
+    window.addEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
   }, [load]);
 
   const refreshForest = useCallback(async () => {
@@ -926,6 +956,12 @@ export function ArchitecturePage({ session }: { session: Session }) {
           setError(null);
         }}
       />
+
+      {readOnly ? (
+        <div className="banner banner-warn" style={{ marginBottom: 12 }}>
+          Viewer — add, pause, run, and delete actions are hidden on this map.
+        </div>
+      ) : null}
 
       {topbarSlot
         ? createPortal(
