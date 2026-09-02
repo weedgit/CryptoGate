@@ -1,0 +1,16 @@
+[Unit]
+Description=PaymentGate HTTP API
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/paymentgate
+EnvironmentFile=/etc/paymentgate/api.env
+ExecStart=/usr/bin/node apps/api/src/server.mjs
+Restart=always
+RestartSec=5
+User=paymentgate
+
+[Install]
+WantedBy=multi-user.target

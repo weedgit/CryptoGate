@@ -12,8 +12,8 @@ Phase 1 delivers a **signed release APK** and source — **not** a Google Play l
 
 | Artifact | Path / name | Notes |
 | --- | --- | --- |
-| **Staging APK** | `app-staging-release.apk` | `applicationId` **`com.cryptogate.cashier.staging`** — test API only |
-| **Production APK** | `app-prod-release.apk` | `applicationId` **`com.cryptogate.cashier`** — prod API only |
+| **Staging APK** | `app-staging-release.apk` | `applicationId` **`com.paymentgate.cashier.staging`** — test API only |
+| **Production APK** | `app-prod-release.apk` | `applicationId` **`com.paymentgate.cashier`** — prod API only |
 | **SHA-256 manifest** | `apk-release-sha256.txt` | From `node scripts/apk-checksum.mjs` — attach to release notes |
 | **Mapping** | `mapping.txt` (when R8/minify enabled) | Optional Phase 1 — currently minify off |
 | **Source** | Repo tag on `main` | Requirement §III.3.3 — APK without source is not delivery |
@@ -32,8 +32,8 @@ Prerequisites: Android SDK 35, JDK 17, release keystore ([M4-02](M4-02-Secrets-T
 
 ```bash
 # Override API bases at build time (recommended for Company A):
-# -Pcryptogate.stagingApi=https://api-test.example.com/v1
-# -Pcryptogate.prodApi=https://api.example.com/v1
+# -Ppaymentgate.stagingApi=https://api-test.example.com/v1
+# -Ppaymentgate.prodApi=https://api.example.com/v1
 
 ./gradlew :app:assembleStagingRelease :app:assembleProdRelease
 ```
@@ -90,7 +90,7 @@ adb install -r app-staging-release.apk
 
 `-r` replaces same `applicationId` + signature. Different flavor (staging vs prod) = different app IDs — both may coexist for UAT.
 
-4. Launch **CryptoGate POS (Test)** or **CryptoGate POS**; confirm API base in About/settings if exposed, or verify login hits the intended host (network log / proxy).
+4. Launch **PaymentGate POS (Test)** or **PaymentGate POS**; confirm API base in About/settings if exposed, or verify login hits the intended host (network log / proxy).
 
 ### 4.2 File sideload (no MDM)
 
@@ -106,7 +106,7 @@ Typical flow (Intune, VMware Workspace ONE, Samsung Knox, vendor POS MDM):
 | --- | --- |
 | 1 | Upload **prod** APK + checksum to MDM catalog |
 | 2 | Assign to **Cashier device group** only |
-| 3 | Set **managed config** if MDM supports URL injection — otherwise bake `-Pcryptogate.prodApi` at build |
+| 3 | Set **managed config** if MDM supports URL injection — otherwise bake `-Ppaymentgate.prodApi` at build |
 | 4 | Enforce **single app kiosk** optional (merchant policy) |
 | 5 | Block uninstall without admin PIN |
 

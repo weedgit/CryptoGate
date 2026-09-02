@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import {
   agentDepthOfNode,
@@ -30,11 +30,22 @@ import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import {
   ApiError,
   listOrgMemberEmails,
+  setOrgStatus,
   type OrgAccount,
   type Session,
 } from "./api";
-import { orgTypeLabel, primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
+import { invalidateAgentOrgList } from "./agentOrgList";
+import {
+  orgTypeLabel,
+  primaryAgentOrgId,
+  sessionCanManageDirectChild,
+  sessionCanManageOrgAsParent,
+  sessionCanOnboardMerchant,
+} from "./org";
 import { STRUCTURE_LABELS } from "./onboardMerchant";
+import { useOrgDeleteModal } from "./useOrgDeleteModal";
+import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
+import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
 
 const STATUS_PILLS: { id: OrgTreeFilter["status"]; label: string }[] = [
   { id: "all", label: "All" },
@@ -279,11 +290,23 @@ function OrgTreeDetail({
   byId,
   ownerEmailByOrgId,
   canOnboard,
+  canManageLifecycle,
+  canManageAsParent,
+  busy,
+  onSuspend,
+  onRun,
+  onDelete,
 }: {
   node: PlatformOrgTreeNode;
   byId: Map<string, PlatformOrgTreeNode>;
   ownerEmailByOrgId: ReadonlyMap<string, string>;
   canOnboard: boolean;
+  canManageLifecycle: boolean;
+  canManageAsParent: boolean;
+  busy: boolean;
+  onSuspend: () => void;
+  onRun: () => void;
+  onDelete: () => void;
 }) {
   const navigate = useNavigate();
   const addMenuRef = useRef<HTMLDivElement | null>(null);
@@ -296,8 +319,12 @@ function OrgTreeDetail({
   const breadcrumb = orgBreadcrumbPath(node.id, byId);
   const ownerEmail = ownerEmailByOrgId.get(node.id) ?? null;
   const isPaused = node.status === "paused";
-  const showAdd = canOnboard && canAdd;
   const isAgentParent = node.type === "agent" || node.type === "agent_sub";
+  const showAdd = canOnboard && canAdd && isAgentParent && canManageAsParent;
+  const showLifecycle =
+    canManageLifecycle &&
+    (node.type === "merchant" || node.type === "agent_sub");
+  const showActions = showAdd || showLifecycle;
   const isAgent = isAgentParent;
   const isMerchant = node.type === "merchant";
   const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
@@ -363,25 +390,41 @@ function OrgTreeDetail({
               {node.status}
             </span>
           </div>
-          {showAdd && isAgentParent ? (
+          {showActions ? (
             <div className="org-architecture__actions" aria-label="Org actions">
-              <div className="org-architecture__add-wrap" ref={addMenuRef}>
-                <button
-                  type="button"
-                  className="org-architecture__action org-architecture__action--add"
-                  aria-expanded={addMenuOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setAddMenuOpen((open) => !open)}
-                >
-                  Add
-                </button>
-                {addMenuOpen ? (
-                  <div
-                    className="org-architecture__add-menu"
-                    role="menu"
-                    aria-label="Add child account"
+              {showAdd ? (
+                <div className="org-architecture__add-wrap" ref={addMenuRef}>
+                  <button
+                    type="button"
+                    className="org-architecture__action org-architecture__action--add"
+                    disabled={busy}
+                    aria-expanded={addMenuOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setAddMenuOpen((open) => !open)}
                   >
-                    {canSubAgent ? (
+                    Add
+                  </button>
+                  {addMenuOpen ? (
+                    <div
+                      className="org-architecture__add-menu"
+                      role="menu"
+                      aria-label="Add child account"
+                    >
+                      {canSubAgent ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="org-architecture__add-option"
+                          onClick={() => {
+                            setAddMenuOpen(false);
+                            navigate(
+                              `${agentRoute("agents/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
+                            );
+                          }}
+                        >
+                          Sub-agent
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         role="menuitem"
@@ -389,29 +432,47 @@ function OrgTreeDetail({
                         onClick={() => {
                           setAddMenuOpen(false);
                           navigate(
-                            `${agentRoute("agents/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
+                            `${agentRoute("merchants/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
                           );
                         }}
                       >
-                        Sub-agent
+                        Merchant
                       </button>
-                    ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {showLifecycle ? (
+                <>
+                  {isPaused ? (
                     <button
                       type="button"
-                      role="menuitem"
-                      className="org-architecture__add-option"
-                      onClick={() => {
-                        setAddMenuOpen(false);
-                        navigate(
-                          `${agentRoute("merchants/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
-                        );
-                      }}
+                      className="org-architecture__action org-architecture__action--run"
+                      disabled={busy}
+                      onClick={onRun}
                     >
-                      Merchant
+                      Resume
                     </button>
-                  </div>
-                ) : null}
-              </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="org-architecture__action org-architecture__action--suspend"
+                      disabled={busy}
+                      onClick={onSuspend}
+                    >
+                      Suspend
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="org-architecture__action org-architecture__action--delete"
+                    disabled={busy}
+                    onClick={onDelete}
+                  >
+                    Delete
+                  </button>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -596,7 +657,7 @@ function agentForestFromOrgs(
   });
 }
 
-/** Agent subtree org hierarchy — read-only except onboard merchant. */
+/** Agent subtree org hierarchy — manage direct children; view descendants. */
 export function ArchitecturePage({ session }: { session: Session }) {
   const pageRef = useRef<HTMLDivElement | null>(null);
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
@@ -623,10 +684,23 @@ export function ArchitecturePage({ session }: { session: Session }) {
     () => new Map(),
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<"ok" | "error">("ok");
+  const [busy, setBusy] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<PlatformOrgTreeNode | null>(null);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
+  const showOk = useCallback((message: string) => {
+    setToastTone("ok");
+    setToastMessage(message);
+    setError(null);
+  }, []);
+  const showErr = useCallback((message: string) => {
+    setToastTone("error");
+    setToastMessage(message);
+  }, []);
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("agent-topbar-center"));
@@ -672,7 +746,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
     setError(null);
     try {
       const [orgs, emailRows] = await Promise.all([
-        getAgentOrgs(),
+        getAgentOrgs({ force: true }),
         listOrgMemberEmails().catch(() => [] as Awaited<
           ReturnType<typeof listOrgMemberEmails>
         >),
@@ -697,6 +771,36 @@ export function ArchitecturePage({ session }: { session: Session }) {
     }
   }, [agentId]);
 
+  const refreshForest = useCallback(async () => {
+    if (!agentId) return;
+    invalidateAgentOrgList();
+    const [orgs, emailRows] = await Promise.all([
+      getAgentOrgs({ force: true }),
+      listOrgMemberEmails().catch(() => [] as Awaited<
+        ReturnType<typeof listOrgMemberEmails>
+      >),
+    ]);
+    const scoped = orgsInAgentSubtree(agentId, orgs);
+    const nextForest = buildPlatformOrgForest(scoped, {
+      expectedRootIds: new Set([agentId]),
+    });
+    setForest(nextForest);
+    setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
+    setExpanded((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (nextForest.byId.has(id)) next.add(id);
+      }
+      return next;
+    });
+    setSelectedId((prev) => {
+      if (prev && nextForest.byId.has(prev)) return prev;
+      const parentId = prev ? (forest.byId.get(prev)?.parentId ?? null) : null;
+      if (parentId && nextForest.byId.has(parentId)) return parentId;
+      return nextForest.roots[0]?.id ?? null;
+    });
+  }, [agentId, forest]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -718,6 +822,101 @@ export function ArchitecturePage({ session }: { session: Session }) {
 
   const selectedNode =
     selectedId != null ? (forest.byId.get(selectedId) ?? null) : null;
+
+  const selectedCanManageLifecycle = useMemo(
+    () =>
+      selectedNode
+        ? sessionCanManageDirectChild(
+            session,
+            {
+              parentId: selectedNode.parentId,
+              type: selectedNode.type,
+            },
+            Array.from(forest.byId.values()).map((n) => ({
+              id: n.id,
+              parentId: n.parentId,
+            })),
+          )
+        : false,
+    [session, selectedNode, forest.byId],
+  );
+
+  const selectedCanManageAsParent = useMemo(
+    () => (selectedNode ? sessionCanManageOrgAsParent(session, selectedNode.id) : false),
+    [session, selectedNode],
+  );
+
+  const {
+    deleteTarget,
+    deletePreview,
+    deletePreviewLoading,
+    deleteError,
+    deleteBusy,
+    openDelete,
+    closeDelete,
+    confirmDelete,
+  } = useOrgDeleteModal({
+    canManage: selectedCanManageLifecycle,
+    onDeleted: refreshForest,
+    showOk,
+  });
+
+  const onSetStatus = useCallback(
+    async (
+      node: PlatformOrgTreeNode,
+      status: "active" | "paused",
+      reason?: string,
+    ): Promise<string | null> => {
+      if (
+        !sessionCanManageDirectChild(
+          session,
+          {
+            parentId: node.parentId,
+            type: node.type,
+          },
+          Array.from(forest.byId.values()).map((n) => ({
+            id: n.id,
+            parentId: n.parentId,
+          })),
+        )
+      ) {
+        return "Not allowed";
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        await setOrgStatus(node.id, status, reason ? { reason } : undefined);
+        await refreshForest();
+        showOk(
+          status === "paused" ? `Paused ${node.name}.` : `Resumed ${node.name}.`,
+        );
+        return null;
+      } catch (err) {
+        const text =
+          err instanceof ApiError
+            ? err.code === "rate_limited"
+              ? "Too many requests — wait a moment and retry."
+              : err.message
+            : "Status update failed";
+        showErr(text);
+        return text;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [session, refreshForest, showErr, showOk, forest.byId],
+  );
+
+  const confirmSuspend = useCallback(
+    async (reason: string) => {
+      if (!suspendTarget) return;
+      setSuspendError(null);
+      const err = await onSetStatus(suspendTarget, "paused", reason || undefined);
+      if (err) setSuspendError(err);
+      else setSuspendTarget(null);
+    },
+    [onSetStatus, suspendTarget],
+  );
 
   const treeRef = useRef<HTMLDivElement | null>(null);
 
@@ -816,7 +1015,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
     >
       <AuthToast
         message={toastMessage ?? error}
-        tone="error"
+        tone={toastMessage ? toastTone : "error"}
         onDismiss={() => {
           dismissToast();
           setError(null);
@@ -846,7 +1045,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
               <input
                 className="field-control org-agents__search"
                 type="search"
-                placeholder="Filter by org name…"
+                placeholder="Search"
                 value={filter.query}
                 onChange={(e) =>
                   setFilter((f) => ({ ...f, query: e.target.value }))
@@ -1006,11 +1205,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
               onKeyDown={onTreeKeyDown}
             >
               {loading && !hasLoaded ? (
-                <PlatformPending
-                  className="org-architecture__empty"
-                  title="Loading org tree"
-                  copy="Building your agent subtree."
-                />
+                <PagePending />
               ) : filteredRoots.length === 0 ? (
                 <div className="org-architecture__empty">
                   <p className="org-architecture__empty-title">No matches</p>
@@ -1040,6 +1235,12 @@ export function ArchitecturePage({ session }: { session: Session }) {
                   byId={forest.byId}
                   ownerEmailByOrgId={ownerEmailByOrgId}
                   canOnboard={canOnboard}
+                  canManageLifecycle={selectedCanManageLifecycle}
+                  canManageAsParent={selectedCanManageAsParent}
+                  busy={busy || deleteBusy}
+                  onSuspend={() => setSuspendTarget(selectedNode)}
+                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onDelete={() => openDelete(selectedNode)}
                 />
               ) : (
                 <div className="org-architecture__detail-empty">
@@ -1051,6 +1252,34 @@ export function ArchitecturePage({ session }: { session: Session }) {
           </aside>
         </div>
       </div>
+
+      {suspendTarget ? (
+        <SuspendOrgModal
+          orgName={suspendTarget.name}
+          busy={busy}
+          error={suspendError}
+          onClose={() => {
+            if (!busy) {
+              setSuspendTarget(null);
+              setSuspendError(null);
+            }
+          }}
+          onConfirm={(reason) => void confirmSuspend(reason)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <OrgDeleteConfirmModal
+          orgId={deleteTarget.id}
+          orgName={deleteTarget.name}
+          busy={deleteBusy}
+          error={deleteError}
+          preview={deletePreview}
+          previewLoading={deletePreviewLoading}
+          onClose={closeDelete}
+          onConfirm={() => void confirmDelete()}
+        />
+      ) : null}
     </div>
   );
 }

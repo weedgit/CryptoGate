@@ -18,6 +18,8 @@ import {
   canRequestSiteOverride,
   canDecideSiteOverride,
   canDeleteMerchantSite,
+  canManageDirectChildOrg,
+  canUpdateMerchantCommercial,
 } from "../src/orgs/role-policy.mjs";
 
 const merchantCashier = {
@@ -470,5 +472,126 @@ describe("role policy", () => {
     assert.equal(canResolvePaymentAnomaly(ownerCaller, pending), false);
     assert.equal(canCancelPaymentOrder(ownerCaller, pending), true);
     assert.equal(canCancelPaymentOrder(ownerCaller, anomalyOwn), false);
+  });
+
+  it("allows agent channel O/A to manage direct children only", () => {
+    const agentAdmin = {
+      orgId: "a1",
+      role: "administrator",
+      orgType: "agent",
+    };
+    const subAgentOwner = {
+      orgId: "s1",
+      role: "owner",
+      orgType: "agent_sub",
+    };
+    const caller = { platformOperator: false, memberships: [agentAdmin] };
+    const subCaller = { platformOperator: false, memberships: [subAgentOwner] };
+
+    assert.equal(
+      canManageDirectChildOrg(caller, {
+        type: "merchant",
+        parentId: "a1",
+      }),
+      true,
+    );
+    assert.equal(
+      canManageDirectChildOrg(
+        caller,
+        {
+          type: "merchant",
+          parentId: "a1",
+        },
+        ["a1"],
+      ),
+      true,
+    );
+    assert.equal(
+      canManageDirectChildOrg(caller, {
+        type: "agent_sub",
+        parentId: "a1",
+      }),
+      true,
+    );
+    assert.equal(
+      canManageDirectChildOrg(caller, {
+        type: "merchant",
+        parentId: "s1",
+      }),
+      false,
+    );
+    assert.equal(
+      canManageDirectChildOrg(
+        caller,
+        {
+          type: "merchant",
+          parentId: "s1",
+        },
+        ["s1", "a1"],
+      ),
+      false,
+    );
+    assert.equal(
+      canManageDirectChildOrg(caller, {
+        type: "merchant_site",
+        parentId: "m1",
+      }),
+      false,
+    );
+    assert.equal(
+      canManageDirectChildOrg(subCaller, {
+        type: "merchant",
+        parentId: "s1",
+      }),
+      true,
+    );
+    const dualCaller = {
+      platformOperator: false,
+      memberships: [agentAdmin, subAgentOwner],
+    };
+    assert.equal(
+      canManageDirectChildOrg(
+        dualCaller,
+        { type: "merchant", parentId: "s1" },
+        ["s1", "a1"],
+      ),
+      false,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(caller, {
+        id: "m1",
+        type: "merchant",
+        parentId: "a1",
+      }),
+      true,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        caller,
+        {
+          id: "m1",
+          type: "merchant",
+          parentId: "a1",
+        },
+        ["a1"],
+      ),
+      true,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(caller, {
+        id: "m2",
+        type: "merchant",
+        parentId: "s1",
+      }),
+      false,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        dualCaller,
+        { id: "m2", type: "merchant", parentId: "s1" },
+        ["s1", "a1"],
+      ),
+      false,
+    );
   });
 });

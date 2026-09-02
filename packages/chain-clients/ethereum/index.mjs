@@ -1,10 +1,10 @@
 /**
  * Ethereum chain client — ERC-20 + native ETH via JSON-RPC when ETH_RPC_URL is set.
- * Confirmations + contract from @cryptogate/domain per asset.
+ * Confirmations + contract from @paymentgate/domain per asset.
  * No imports from apps/api.
  */
 
-import { AssetCode } from "@cryptogate/domain";
+import { AssetCode } from "@paymentgate/domain";
 import { getEthereumRuntimeConfig, ERC20_TRANSFER_TOPIC } from "./config.mjs";
 import {
   fetchErc20TransfersForAddresses,

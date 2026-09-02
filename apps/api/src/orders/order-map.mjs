@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig } from "@cryptogate/domain";
+import { getAssetNetworkConfig } from "@paymentgate/domain";
 
 /**
  * Merchant "for what" reference stored in merchant_metadata.reference.

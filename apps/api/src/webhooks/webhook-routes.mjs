@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { WebhookEventType } from "@cryptogate/domain";
+import { WebhookEventType } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";

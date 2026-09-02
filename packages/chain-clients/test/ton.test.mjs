@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_TON } from "@cryptogate/domain";
+import { USDT_TON } from "@paymentgate/domain";
 import { healthCheck, getTonConfig, listRecentTransfers } from "../ton/index.mjs";
 
-describe("@cryptogate/chain-clients/ton", () => {
+describe("@paymentgate/chain-clients/ton", () => {
   it("healthCheck stub without TON_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "ton");

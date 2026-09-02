@@ -3,7 +3,7 @@
  * Pure decisions — never mark completed when the chain view regresses.
  */
 
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 
 /** Drop of this many confirmations while tx still present → anomaly. */
 export const REORG_CONFIRMATION_DROP_MIN = 3;

@@ -4,7 +4,7 @@
  * No imports from apps/api.
  */
 
-import { AssetCode } from "@cryptogate/domain";
+import { AssetCode } from "@paymentgate/domain";
 import { filterLikelyTronAddresses } from "./address.mjs";
 import { getTronRuntimeConfig } from "./config.mjs";
 import {

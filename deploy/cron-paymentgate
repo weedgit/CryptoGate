@@ -1,0 +1,14 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+PAYMENTGATE_BACKUP_DIR=/var/backups/paymentgate
+PAYMENTGATE_BACKUP_KEEP_DAYS=14
+
+# 02:40 UTC daily (after qchat 02:15)
+40 2 * * * root /root/PaymentGate/deploy/backup.sh >> /var/log/paymentgate-backup.log 2>&1
+
+# Local health + watcher process probe
+*/2 * * * * root /root/PaymentGate/deploy/watchdog.sh >/dev/null 2>&1
+
+# Weekly sidecar restore drill (does not stop live API)
+10 3 * * 0 root /root/PaymentGate/deploy/restore-drill.sh >> /var/log/paymentgate-drill.log 2>&1

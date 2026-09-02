@@ -1,5 +1,5 @@
-# CryptoGate — portal SPA (shared by platform / agent / merchant subdomains)
-root /root/CryptoGate/apps/web/dist;
+# PaymentGate — portal SPA (shared by platform / agent / merchant subdomains)
+root /root/PaymentGate/apps/web/dist;
 index index.html;
 client_max_body_size 2m;
 
@@ -15,25 +15,25 @@ location = /health {
 location = /v1/auth/login {
     limit_req zone=cg_auth burst=12 nodelay;
     limit_req_status 429;
-    include /root/CryptoGate/deploy/nginx-api-proxy.inc;
+    include /root/PaymentGate/deploy/nginx-api-proxy.inc;
 }
 
 location = /v1/auth/forgot-password {
     limit_req zone=cg_auth burst=8 nodelay;
     limit_req_status 429;
-    include /root/CryptoGate/deploy/nginx-api-proxy.inc;
+    include /root/PaymentGate/deploy/nginx-api-proxy.inc;
 }
 
 location = /v1/auth/reset-password {
     limit_req zone=cg_auth burst=8 nodelay;
     limit_req_status 429;
-    include /root/CryptoGate/deploy/nginx-api-proxy.inc;
+    include /root/PaymentGate/deploy/nginx-api-proxy.inc;
 }
 
 location /v1/ {
     limit_req zone=cg_api burst=40 nodelay;
     limit_req_status 429;
-    include /root/CryptoGate/deploy/nginx-api-proxy.inc;
+    include /root/PaymentGate/deploy/nginx-api-proxy.inc;
 }
 
 location /assets/ {

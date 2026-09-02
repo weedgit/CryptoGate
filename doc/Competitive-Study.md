@@ -1,6 +1,6 @@
 # Competitive Study — Non-custodial / merchant collection platforms
 
-Refresh: August 2026. Goal: keep CryptoGate Phase 1 on a **true watch-only** fund flow; steal invoice, matching, webhook, role, and fee patterns; do not copy products that *market* non-custody while generating platform-controlled deposit addresses.
+Refresh: August 2026. Goal: keep PaymentGate Phase 1 on a **true watch-only** fund flow; steal invoice, matching, webhook, role, and fee patterns; do not copy products that *market* non-custody while generating platform-controlled deposit addresses.
 
 Phase 1 target (locked in [Business-Model.md](Business-Model.md)): **payer → merchant wallet (100%)**; platform watches; **service bill** (subscription + volume fee in a min/max band) is a separate rail. Matching modes B / C / D / S: [Phase1-Project-Plan.md](Phase1-Project-Plan.md) Section II.
 
@@ -8,7 +8,7 @@ Phase 1 target (locked in [Business-Model.md](Business-Model.md)): **payer → m
 
 ## Three fund-flow models (do not mix the labels)
 
-The market still uses “non-custodial” for three different architectures. CryptoGate copy must only claim **watch-only**.
+The market still uses “non-custodial” for three different architectures. PaymentGate copy must only claim **watch-only**.
 
 | Model | What the payer pays | Who can move the coins | How the platform gets paid | Phase 1? |
 | --- | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 ## Summary matrix
 
-| Platform | Touches funds? | Headline fee | KYC | Matching | Closest use for CryptoGate |
+| Platform | Touches funds? | Headline fee | KYC | Matching | Closest use for PaymentGate |
 | --- | --- | --- | --- | --- | --- |
 | **BTCPay Server** | No (xPub watch) | 0% (grants; hosts may charge) | No (self-host) | Unique address per invoice | Best **Bitcoin logic** reference |
 | **Bitcart** | No (watch / xPub) | 0% (self-host) | No (self-host) | Unique addresses; native USDT ERC-20 / TRC-20 / BEP-20 | Best **open-source USDT** twin |
@@ -53,7 +53,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Steal:** Dual status (`status` + `additionalStatus`); expiry; partial/over/late; underpay tolerance %; seen → confirming → settled; HMAC webhooks; least-privilege API keys; never fulfill on redirect alone.
 
-**Avoid / gaps:** BTC-first; free model ≠ CryptoGate SaaS; always-unique addresses imply a consolidation story on account-model tokens (USDT).
+**Avoid / gaps:** BTC-first; free model ≠ PaymentGate SaaS; always-unique addresses imply a consolidation story on account-model tokens (USDT).
 
 ---
 
@@ -67,7 +67,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Steal:** Same API shape across coins; USDT on **Tron** as a first-class self-host path; “watch a list of addresses” when xPub is awkward; Lightning optional.
 
-**Avoid / gaps:** Self-host ops; no agent tree, no cashier POS, no service-bill SaaS. CryptoGate is not competing with Bitcart on price — it is competing with merchants who would otherwise run Bitcart themselves.
+**Avoid / gaps:** Self-host ops; no agent tree, no cashier POS, no service-bill SaaS. PaymentGate is not competing with Bitcart on price — it is competing with merchants who would otherwise run Bitcart themselves.
 
 **Lesson:** For USDT-on-Tron watch-only, Bitcart is a better **engineering** reference than BTCPay. Mode A (always unique HD) in Phase 2 is this model; Mode S is the Phase 1 subset.
 
@@ -81,7 +81,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Revenue:** First ~10–20 txs free, then flat **1%**, billed **monthly** (credit balance in BTC). Address-watcher product is a separate subscription.
 
-**Roles:** Account / store / wallet / API — thin vs CryptoGate org tree.
+**Roles:** Account / store / wallet / API — thin vs PaymentGate org tree.
 
 **Steal:** Separate software bill (aligns with **service bill**); BTC unique-address matching; WebSocket for UX + callback for fulfill; USDT **amount jitter** (Mode C); callback secret; gap-limit awareness; “do not mix personal and merchant traffic on the same watched wallet.”
 
@@ -99,7 +99,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Revenue:** **Account fee ~$25/month** (or annual). Transaction fee **1%** on API, WooCommerce, event tickets; **capped at $15** per tx. Payment requests / invoices / virtual POS often included in the account fee. Fiat rails stay with the existing card processor.
 
-**Steal:** Subscription **plus** volume fee, billed separately — same two-part structure as CryptoGate, at a lower headline %. Cap is a nice enterprise talking point CryptoGate could offer later for Mid/Enterprise.
+**Steal:** Subscription **plus** volume fee, billed separately — same two-part structure as PaymentGate, at a lower headline %. Cap is a nice enterprise talking point PaymentGate could offer later for Mid/Enterprise.
 
 **Avoid / gaps:** BTC-centric; not a USDT hotel collection rail; no agent nesting.
 
@@ -109,7 +109,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **What:** Hosted gateway that markets itself as “the first non-custodial crypto payment gateway.” Multi-chain, plugins (Woo, WHMCS), payment links, invoices. Strong USDT-on-Tron messaging.
 
-**Fund flow (claimed):** Merchant xPub per chain → unique receive address **inside the merchant wallet** → webhook. That is the CryptoGate Mode A / S story.
+**Fund flow (claimed):** Merchant xPub per chain → unique receive address **inside the merchant wallet** → webhook. That is the PaymentGate Mode A / S story.
 
 **Fee:** ~**$3,000** volume free, then **0.5%**. Merchants **top up** a credit balance (USDT/BTC/ETH; future PMO token for 0.4%). Docs also say fees are “automatically deducted from the processed payments.” Those two sentences cannot both be true for a pure xPub watcher — **verify in a test payment** whether the pay-in address is merchant-derived or a platform forwarder.
 
@@ -117,7 +117,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Avoid:** Native-token fee discount (PMO) — that is Phase 4 territory. Do not copy “non-custodial” marketing until the hop is proven.
 
-**Lesson:** 0.5% hosted watch-only (if real) is the **price** competitor. CryptoGate’s small-tier ceiling of **2%** only works if the product is ops (org tree, cashier POS, matching modes, agent channel), not “cheapest checkout.”
+**Lesson:** 0.5% hosted watch-only (if real) is the **price** competitor. PaymentGate’s small-tier ceiling of **2%** only works if the product is ops (org tree, cashier POS, matching modes, agent channel), not “cheapest checkout.”
 
 ---
 
@@ -127,7 +127,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Steal:** “We only store a public key” as a **verifiable** claim; optional swap still settles to the merchant wallet (not a platform balance).
 
-**Avoid:** Zero-fee is not CryptoGate’s model. EVM + BTC, not Tron-first hotel USDT. Early-stage vendor.
+**Avoid:** Zero-fee is not PaymentGate’s model. EVM + BTC, not Tron-first hotel USDT. Early-stage vendor.
 
 ---
 
@@ -153,7 +153,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Steal:** Unique pay-in for matching; payment covering 0–10%; HMAC-SHA512 IPN; manual IPN resend.
 
-**Avoid:** Deposit-and-forward as Phase 1 architecture; custody default; auto-conversion (Phase 3+). Do not use NOWPayments’ definition of “non-custodial” in CryptoGate sales copy.
+**Avoid:** Deposit-and-forward as Phase 1 architecture; custody default; auto-conversion (Phase 3+). Do not use NOWPayments’ definition of “non-custodial” in PaymentGate sales copy.
 
 ---
 
@@ -179,7 +179,7 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 **Plisio:** Invoice → `pending` → **`pending internal`** (move to user wallet) → `completed`. Price competitor at 0.5% / 1.5% white-label. Avoid internal fund move.
 
-**BitPay:** Fiat/crypto settlement; **~2% / 1.5% / 1% + $0.25** deducted from settlement. CryptoGate at a **2% software ceiling** will be compared to BitPay unless the pitch is clearly “ops fee, not settlement.”
+**BitPay:** Fiat/crypto settlement; **~2% / 1.5% / 1% + $0.25** deducted from settlement. PaymentGate at a **2% software ceiling** will be compared to BitPay unless the pitch is clearly “ops fee, not settlement.”
 
 ---
 
@@ -187,23 +187,23 @@ A fourth pattern is **wallet-connect / smart-contract checkout** (payer signs a 
 
 Coinbase Commerce (self-custodial merchant checkout) is being **discontinued 31 March 2026**. Successor is **Coinbase Business**, a **custodial** account with monitoring and geographic limits. Some non-US merchants have no migration path.
 
-**Lesson:** Large brands are **retreating from** watch-only merchant SKUs toward licensed custody. That is both a **gap** CryptoGate can occupy (hotels that refuse platform wallets) and a **warning** (banks and app stores still prefer a licensed processor). Stay watch-only in Phase 1; keep Phase 3 as a licensed-partner add-on, not a silent slide into forwarding.
+**Lesson:** Large brands are **retreating from** watch-only merchant SKUs toward licensed custody. That is both a **gap** PaymentGate can occupy (hotels that refuse platform wallets) and a **warning** (banks and app stores still prefer a licensed processor). Stay watch-only in Phase 1; keep Phase 3 as a licensed-partner add-on, not a silent slide into forwarding.
 
 ---
 
-## What CryptoGate should steal (consolidated)
+## What PaymentGate should steal (consolidated)
 
 1. Watch-only fund flow (BTCPay / Bitcart / Blockonomics / Zaprite).  
 2. Status machine + anomaly flags (partial, over, late, wrong network).  
 3. HMAC (or verify-hash) webhooks + replay protection + resend + optional re-GET.  
 4. Underpay tolerance as a setting (careful with Mode C).  
 5. Least-privilege roles; cashiers never change settlement / xPub.  
-6. Fee as **service bill** or prepaid credit — never skimmed on-chain. Zaprite’s subscription + capped % is the same shape as CryptoGate’s tier + band.  
+6. Fee as **service bill** or prepaid credit — never skimmed on-chain. Zaprite’s subscription + capped % is the same shape as PaymentGate’s tier + band.  
 7. Mode S for USDT collisions without always sprawling addresses; Bitcart/BTCPay for later Mode A.  
 8. Blockonomics USDT: amount jitter + optional wallet-connect `monitor_tx` as an **extra** ERC-20 UX, not the only path.  
 9. Honest language: “watch-only.” Do not say “non-custodial” the way NOWPayments and CryptAPI do.
 
-## What CryptoGate must not copy in Phase 1
+## What PaymentGate must not copy in Phase 1
 
 1. Platform-controlled deposit addresses and auto-forward (CryptAPI, NOWPayments, Plisio internal move).  
 2. Custody balances, fiat settlement, platform refunds.  
@@ -221,9 +221,9 @@ Coinbase Commerce (self-custodial merchant checkout) is being **discontinued 31 
 | BTCPay / Bitcart / Shieldz | 0% | Software you run or a tiny hosted watcher |
 | Paymento (if truly watch-only) | 0.5% + prepaid | Multi-chain unique address + plugins |
 | Blockonomics / Zaprite API | ~1% (+ Zaprite subscription) | Hosted watch-only, BTC-strong |
-| CryptoGate small tier | **1.2–2.0%** (default **2%**) + subscription | Hotel org tree, cashier POS, matching modes, agent channel |
+| PaymentGate small tier | **1.2–2.0%** (default **2%**) + subscription | Hotel org tree, cashier POS, matching modes, agent channel |
 | BitPay / Helio-class | ~1–2% | Settlement, compliance, or Web3 checkout |
 
-At the small-tier **2% ceiling**, CryptoGate sits near BitPay’s low-volume **settlement** rate and **above** every true watch-only SaaS in this study. Differentiation must be **true non-custody, USDT matching (especially Mode S), multi-location + cashier POS, and agent-supported onboarding** — not “lowest fee in market.”
+At the small-tier **2% ceiling**, PaymentGate sits near BitPay’s low-volume **settlement** rate and **above** every true watch-only SaaS in this study. Differentiation must be **true non-custody, USDT matching (especially Mode S), multi-location + cashier POS, and agent-supported onboarding** — not “lowest fee in market.”
 
 Platform Owner still sets global min/max **bands**; agents pick a rate **inside** the band. That is closer to ISO/acquirer pricing than to CryptAPI’s global skim.

@@ -1,7 +1,7 @@
 import type { Session } from "../merchant/api";
 import { getPortal, type PortalId } from "../shared/portalRouting";
 
-const STORAGE_KEY = "cryptogate.portal.session";
+const STORAGE_KEY = "paymentgate.portal.session";
 
 type CachedPortalSession = {
   portal: PortalId;

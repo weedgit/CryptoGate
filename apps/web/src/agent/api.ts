@@ -114,6 +114,59 @@ export async function listOrgs(): Promise<OrgAccount[]> {
   return data.items ?? [];
 }
 
+export async function setOrgStatus(
+  orgId: string,
+  status: "active" | "paused",
+  opts?: { reason?: string },
+): Promise<OrgAccount> {
+  const body: { status: "active" | "paused"; reason?: string } = { status };
+  const reason = opts?.reason?.trim();
+  if (reason) body.reason = reason;
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
+export type OrgDeletePreview = {
+  rootOrgId: string;
+  orgCount: number;
+  childOrgCount: number;
+  memberCount: number;
+  orderCount: number;
+  billCount: number;
+  orgs: Array<{ id: string; type: string; name: string; depth: number }>;
+};
+
+export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgDeletePreview;
+}
+
+export async function deleteOrg(
+  orgId: string,
+  opts?: { cascade?: boolean },
+): Promise<void> {
+  const q = opts?.cascade ? "?cascade=1" : "";
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+}
+
 export async function listServiceBills(opts?: {
   status?: string;
   orgId?: string;

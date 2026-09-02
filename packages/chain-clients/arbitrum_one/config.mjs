@@ -1,9 +1,9 @@
 /**
  * Arbitrum One JSON-RPC runtime config.
- * Contract + confirmations from @cryptogate/domain for the requested asset.
+ * Contract + confirmations from @paymentgate/domain for the requested asset.
  */
 
-import { AssetCode, NetworkId, getAssetNetworkConfig } from "@cryptogate/domain";
+import { AssetCode, NetworkId, getAssetNetworkConfig } from "@paymentgate/domain";
 
 function readInt(name, fallback) {
   const raw = process.env[name];

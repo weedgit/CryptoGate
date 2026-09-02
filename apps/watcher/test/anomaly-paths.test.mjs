@@ -10,7 +10,7 @@ import {
 } from "../src/match/inbound.mjs";
 import { matchWriteNeeded } from "../src/orders/restart-safety.mjs";
 
-describe("@cryptogate/watcher anomaly paths (M3-43 / M3-44)", () => {
+describe("@paymentgate/watcher anomaly paths (M3-43 / M3-44)", () => {
   it("classifies wrong_network at same address", () => {
     const d = classifyWrongNetworkOrAsset(
       { toAddress: "TMain", asset: "USDT", network: "ethereum" },

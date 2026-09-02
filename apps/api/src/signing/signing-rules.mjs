@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   API_SIGNING_MAX_SKEW_SECONDS,
   API_SIGNING_NONCE_TTL_SECONDS,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 const NONCE_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const TIMESTAMP_RE = /^[0-9]{10,12}$/;

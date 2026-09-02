@@ -76,9 +76,9 @@ export function matchingModeTooltip(mode: string | null | undefined): string {
     case "D":
       return `${intro} Memo tag: guests must include the memo/tag from the payment page (only on networks that support it). Wrong or missing memo is not auto-completed.`;
     case "S":
-      return `${intro} Smart address: normally uses the merchant’s main receive address; if two open orders would collide on the same amount, CryptoGate assigns a temporary HD address from the merchant’s watch-only xPub.`;
+      return `${intro} Smart address: normally uses the merchant’s main receive address; if two open orders would collide on the same amount, PaymentGate assigns a temporary HD address from the merchant’s watch-only xPub.`;
     default:
-      return `${intro} Standard (default): guests pay the merchant’s fixed receive address for the exact order amount. Only one open order per amount on that address — if two share the same amount, staff see a Payment Anomaly instead of CryptoGate guessing which order was paid.`;
+      return `${intro} Standard (default): guests pay the merchant’s fixed receive address for the exact order amount. Only one open order per amount on that address — if two share the same amount, staff see a Payment Anomaly instead of PaymentGate guessing which order was paid.`;
   }
 }
 

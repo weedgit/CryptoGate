@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update CryptoGate .env and write /etc/cryptogate runtime env files."""
+"""Update PaymentGate .env and write /etc/paymentgate runtime env files."""
 from __future__ import annotations
 
 import os
@@ -7,9 +7,9 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path("/root/CryptoGate")
+ROOT = Path("/root/PaymentGate")
 ENV_PATH = ROOT / ".env"
-ETC = Path("/etc/cryptogate")
+ETC = Path("/etc/paymentgate")
 
 API_ONLY = {
     "SESSION_SECRET",
@@ -90,7 +90,7 @@ def main() -> int:
         if infura
         else "https://polygon-rpc.com"
     )
-    db_url = f"postgres://cryptogate:{secrets['PG_PASSWORD']}@127.0.0.1:5433/cryptogate"
+    db_url = f"postgres://paymentgate:{secrets['PG_PASSWORD']}@127.0.0.1:5433/paymentgate"
 
     updates = {
         "DATABASE_URL": db_url,
@@ -119,8 +119,8 @@ def main() -> int:
         "SESSION_SECRET": secrets["SESSION_SECRET"],
         "SESSION_COOKIE_SECURE": "true",
         "PASSWORD_RESET_EXPOSE_LINK": "false",
-        "CRYPTOGATE_CHAIN_ENV": "testnet",
-        "VITE_CRYPTOGATE_CHAIN_ENV": "testnet",
+        "PAYMENTGATE_CHAIN_ENV": "testnet",
+        "VITE_PAYMENTGATE_CHAIN_ENV": "testnet",
         "VITE_API_BASE": "/v1",
         "POLYGON_RPC_URL": polygon_mainnet,
         "WATCHER_MULTI_NETWORK": "true",
@@ -159,13 +159,13 @@ def main() -> int:
     write_env(ETC / "watcher.env", exclude={"SESSION_SECRET", "SESSION_COOKIE_SECURE", "PASSWORD_RESET_EXPOSE_LINK"})
 
     (ETC / "postgres.env").write_text(
-        f"POSTGRES_USER=cryptogate\nPOSTGRES_DB=cryptogate\nPOSTGRES_PASSWORD={secrets['PG_PASSWORD']}\n",
+        f"POSTGRES_USER=paymentgate\nPOSTGRES_DB=paymentgate\nPOSTGRES_PASSWORD={secrets['PG_PASSWORD']}\n",
         encoding="utf-8",
     )
     os.chmod(ETC / "postgres.env", 0o600)
 
     (ETC / "pay-config.js").write_text(
-        'window.CRYPTOGATE_API_BASE = "https://api-cg.boostbunny.io";\n',
+        'window.PAYMENTGATE_API_BASE = "https://api-cg.boostbunny.io";\n',
         encoding="utf-8",
     )
     os.chmod(ETC / "pay-config.js", 0o644)

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { AuditAction } from "@cryptogate/domain";
+import { AuditAction } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -18,7 +18,7 @@ import {
   type AuditLogEntry,
   type OrgAccount,
 } from "./api";
-import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import {
@@ -192,7 +192,7 @@ function downloadAuditCsv(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `cryptogate-audit-${toDateInputValue(new Date())}.csv`;
+  a.download = `paymentgate-audit-${toDateInputValue(new Date())}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -541,14 +541,7 @@ export function AuditLogPage() {
 
       <div className="plat-audit__table-wrap">
         {loading ? (
-          <div className="plat-audit__pending">
-            <PlatformPending
-              compact
-              title="Loading audit log"
-              copy="Fetching append-only platform events."
-            />
-            <PlatformTableSkeleton columns={7} rows={8} />
-          </div>
+          <PagePending />
         ) : null}
 
         {!loading && filtered.length === 0 ? (

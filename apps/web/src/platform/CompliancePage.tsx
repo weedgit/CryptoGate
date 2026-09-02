@@ -17,7 +17,7 @@ import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { peekPlatformOrders } from "./platformOrdersList";
 import { FundAmount } from "./FundAmount";
 import { matchingModeLabel } from "../merchant/matchingLabels";
-import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import { getMerchantOrder } from "../merchant/merchantOrderDetail";
@@ -465,14 +465,7 @@ export function CompliancePage() {
 
       <div className="plat-compliance__table-wrap">
         {loading && !hasLoaded ? (
-          <div className="plat-compliance__pending">
-            <PlatformPending
-              compact
-              title="Loading payment anomalies"
-              copy="Fetching open anomaly orders across platform scope."
-            />
-            <PlatformTableSkeleton columns={7} rows={8} />
-          </div>
+          <PagePending />
         ) : null}
 
         {!loading && filtered.length === 0 ? (

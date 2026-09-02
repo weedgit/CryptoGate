@@ -1,7 +1,7 @@
 # M3-01 — Signed API, rate limits, webhooks, service bills
 
 **Owner:** Kevin (contract). **Implementer:** Andrew (`apps/api`).  
-**OpenAPI:** `0.3.0`. **Domain:** `@cryptogate/domain` signing / webhook / service-bill enums.  
+**OpenAPI:** `0.3.0`. **Domain:** `@paymentgate/domain` signing / webhook / service-bill enums.  
 **Unblocks:** M3-10, M3-11, M3-13, M3-14, M3-16.
 
 Do not merge payment-order routes with service-bill routes. Do not fulfill merchant orders on browser redirect.
@@ -69,10 +69,10 @@ HTTPS URLs only (except `http://127.0.0.1` / `http://localhost` in non-productio
 
 **Outbound headers** (merchant handler):
 
-- `X-CryptoGate-Signature` — hex HMAC-SHA256(signingSecret, raw body)
-- `X-CryptoGate-Timestamp` — Unix seconds
-- `X-CryptoGate-Event-Id` — stable id; retries reuse it (handler must be idempotent)
-- `X-CryptoGate-Delivery-Id` — this attempt
+- `X-PaymentGate-Signature` — hex HMAC-SHA256(signingSecret, raw body)
+- `X-PaymentGate-Timestamp` — Unix seconds
+- `X-PaymentGate-Event-Id` — stable id; retries reuse it (handler must be idempotent)
+- `X-PaymentGate-Delivery-Id` — this attempt
 
 Success = HTTP **2xx** within `WEBHOOK_HTTP_TIMEOUT_MS` (10s). Retry delays: `WEBHOOK_RETRY_DELAYS_SECONDS` = 1, 5, 25, 125, 625. Same `eventId` on every retry. Do not fire webhooks for service bills in Phase 1.
 

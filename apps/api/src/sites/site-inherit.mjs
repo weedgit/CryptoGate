@@ -1,10 +1,6 @@
 import { sendError } from "../http/json.mjs";
 import { findOrgById, listChildOrgsByType } from "../orgs/org-store.mjs";
-import { parentIdOf } from "./site-override-rules.mjs";
-import {
-  ensureApprovedOverride,
-  hasApprovedOverride,
-} from "./site-override-store.mjs";
+import { parentIdOf, isSiteWalletKind } from "./site-override-rules.mjs";
 
 /**
  * @param {object} org
@@ -12,13 +8,10 @@ import {
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  * @returns {Promise<{ orgId: string, source: "merchant" | "inherit" | "override", parentOrgId: string | null }>}
  */
-export async function settingsLookupOrgId(org, kind, client) {
+export async function settingsLookupOrgId(org, _kind, _client) {
   const parentId = parentIdOf(org);
   if (org.type !== "merchant_site" || !parentId) {
     return { orgId: org.id, source: "merchant", parentOrgId: null };
-  }
-  if (await hasApprovedOverride(org.id, kind, client)) {
-    return { orgId: org.id, source: "override", parentOrgId: parentId };
   }
   return { orgId: parentId, source: "inherit", parentOrgId: parentId };
 }
@@ -70,15 +63,22 @@ export async function resolveSiteInherit(org, client) {
  * @param {{ platformOwner?: boolean }} caller
  * @returns {Promise<boolean>} true when the handler already sent 403
  */
-export async function denySiteWriteWithoutOverride(res, org, kind, caller) {
+export async function denySiteWriteWithoutOverride(res, org, kind, _caller) {
   if (org.type !== "merchant_site") return false;
-  if (caller.platformOwner) return false;
-  if (await hasApprovedOverride(org.id, kind)) return false;
+  if (isSiteWalletKind(kind)) {
+    sendError(
+      res,
+      403,
+      "site_wallet_forbidden",
+      "Merchant (site) uses the parent merchant wallet; settlement and xPub cannot be set on a site",
+    );
+    return true;
+  }
   sendError(
     res,
     403,
-    "override_required",
-    "Merchant (site) settings inherit from the parent until the merchant Owner approves an override",
+    "site_inherit_only",
+    "Merchant (site) inherits matching, fulfillment, and retention from the parent merchant",
   );
   return true;
 }
@@ -89,17 +89,6 @@ export async function denySiteWriteWithoutOverride(res, org, kind, caller) {
  * @param {{ platformOwner?: boolean, userId: string }} caller
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
-export async function grantSiteOverrideAfterPlatformWrite(org, kind, caller, client) {
-  if (org.type !== "merchant_site" || !caller.platformOwner) return;
-  const parentId = parentIdOf(org);
-  if (!parentId) return;
-  await ensureApprovedOverride(
-    {
-      siteOrgId: org.id,
-      parentOrgId: parentId,
-      settingKind: kind,
-      actorUserId: caller.userId,
-    },
-    client,
-  );
+export async function grantSiteOverrideAfterPlatformWrite(_org, _kind, _caller, _client) {
+  /* Sites always inherit; platform writes matching/wallet on the parent merchant. */
 }

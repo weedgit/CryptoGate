@@ -1,4 +1,4 @@
-import { NetworkId, type AssetCode } from "@cryptogate/domain";
+import { NetworkId, type AssetCode } from "@paymentgate/domain";
 import type { PaymentOrder } from "./api";
 
 export type VolumeScope = "total" | "asset";

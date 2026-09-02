@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig } from "@cryptogate/domain";
+import { getAssetNetworkConfig } from "@paymentgate/domain";
 import { isWatchOnlyXpub, looksLikeSpendKey } from "../security/spend-material.mjs";
 import { settlementCooldownMs } from "../settlement/settlement-rules.mjs";
 

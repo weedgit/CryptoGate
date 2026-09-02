@@ -12,7 +12,7 @@ import {
   type AddressSource as AddressSourceType,
   type AssetCode as AssetCodeType,
   type NetworkId as NetworkIdType,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { majorToMinor } from "../amount.js";
 import { matchExactPayable } from "../match-exact.js";
 import type { AssignInput, AssignResult, MatchInput, MatchResult } from "../types.js";

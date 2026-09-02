@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../../auth/AuthToast";
 import type { OrgDeletePreview } from "../api";
@@ -13,6 +13,25 @@ type Props = {
   onClose: () => void;
   onConfirm: () => void;
 };
+
+function DeleteWarningIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path
+        d="M10 6.25v4.5M10 14.25h.01"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path
+        d="M3.2 16.5h13.6L10 3.5 3.2 16.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function OrgDeleteConfirmModal({
   orgName,
@@ -50,6 +69,14 @@ export function OrgDeleteConfirmModal({
   const childOrgs =
     preview?.orgs.filter((o) => o.id !== orgId && o.depth > 0) ?? [];
 
+  const nestedSummary = useMemo(() => {
+    if (childOrgs.length === 0) return null;
+    const shown = childOrgs.slice(0, 4);
+    const names = shown.map((o) => o.name).join(", ");
+    const extra = childOrgs.length - shown.length;
+    return extra > 0 ? `${names}, and ${extra} more` : names;
+  }, [childOrgs]);
+
   return createPortal(
     <>
       <AuthToast
@@ -65,14 +92,19 @@ export function OrgDeleteConfirmModal({
         }}
       >
         <div
-          className="b3-commission-modal b3-suspend-modal org-delete-modal"
+          className="b3-commission-modal org-delete-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="org-delete-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="b3-commission-modal__head">
-            <h3 id="org-delete-title">Delete org account</h3>
+          <header className="b3-commission-modal__head org-delete-modal__head">
+            <div className="org-delete-modal__title-row">
+              <span className="org-delete-modal__icon">
+                <DeleteWarningIcon />
+              </span>
+              <h3 id="org-delete-title">Delete org account</h3>
+            </div>
             <button
               type="button"
               className="b3-commission-modal__close"
@@ -83,81 +115,86 @@ export function OrgDeleteConfirmModal({
               ×
             </button>
           </header>
-          <div className="b3-commission-modal__body">
-            <p className="b3-commission-modal__hint">
-              Permanently delete{" "}
-              <strong className="b3-suspend-modal__name">{orgName}</strong> and all
-              nested org accounts, team memberships, payment orders, service bills,
-              API keys, and webhooks under this tree. This cannot be undone.
-            </p>
+
+          <div className="b3-commission-modal__body org-delete-modal__body">
+            <div className="org-delete-modal__banner" role="note">
+              <p>
+                Deleting <strong>{orgName}</strong> permanently removes nested
+                orgs, team members, payment orders, service bills, API keys, and
+                webhooks. This action cannot be undone.
+              </p>
+            </div>
 
             {previewLoading ? (
-              <p className="muted">Calculating impact…</p>
+              <p className="org-delete-modal__loading muted">Calculating impact…</p>
             ) : preview ? (
-              <ul className="org-delete-modal__impact">
-                <li>
-                  <strong>{preview.orgCount}</strong> org
-                  {preview.orgCount === 1 ? "" : "s"} total
-                  {preview.childOrgCount > 0
-                    ? ` (${preview.childOrgCount} nested)`
-                    : null}
-                </li>
-                <li>
-                  <strong>{preview.memberCount}</strong> team membership
-                  {preview.memberCount === 1 ? "" : "s"}
-                </li>
-                <li>
-                  <strong>{preview.orderCount}</strong> payment order
-                  {preview.orderCount === 1 ? "" : "s"}
-                </li>
-                <li>
-                  <strong>{preview.billCount}</strong> service bill
-                  {preview.billCount === 1 ? "" : "s"}
-                </li>
-              </ul>
+              <dl className="org-delete-modal__stats" aria-label="Deletion impact">
+                <div>
+                  <dt>Orgs</dt>
+                  <dd>
+                    {preview.orgCount}
+                    {preview.childOrgCount > 0 ? (
+                      <span className="org-delete-modal__stat-note">
+                        {" "}
+                        ({preview.childOrgCount} nested)
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Members</dt>
+                  <dd>{preview.memberCount}</dd>
+                </div>
+                <div>
+                  <dt>Orders</dt>
+                  <dd>{preview.orderCount}</dd>
+                </div>
+                <div>
+                  <dt>Bills</dt>
+                  <dd>{preview.billCount}</dd>
+                </div>
+              </dl>
             ) : null}
 
-            {childOrgs.length > 0 ? (
-              <div className="org-delete-modal__children">
-                <p className="b3-commission-modal__label">Nested orgs</p>
-                <ul>
-                  {childOrgs.slice(0, 8).map((o) => (
-                    <li key={o.id}>
-                      {o.name}{" "}
-                      <span className="muted">({o.type.replace(/_/g, " ")})</span>
-                    </li>
-                  ))}
-                  {childOrgs.length > 8 ? (
-                    <li className="muted">+ {childOrgs.length - 8} more</li>
-                  ) : null}
-                </ul>
-              </div>
+            {nestedSummary ? (
+              <p className="org-delete-modal__nested">Includes {nestedSummary}.</p>
             ) : null}
 
-            <label className="org-delete-modal__ack">
-              <input
-                type="checkbox"
-                checked={ack}
-                disabled={busy}
-                onChange={(e) => setAck(e.target.checked)}
-              />
-              I understand this permanently removes all nested orgs and members.
-            </label>
+            <div className="org-delete-modal__checks">
+              <label className="org-delete-modal__ack">
+                <input
+                  type="checkbox"
+                  checked={ack}
+                  disabled={busy}
+                  onChange={(e) => setAck(e.target.checked)}
+                />
+                <span>
+                  I understand this permanently removes all nested orgs and members.
+                </span>
+              </label>
 
-            <label className="b3-commission-modal__field">
-              <span className="b3-commission-modal__label">
-                Type <strong>{orgName}</strong> to confirm
-              </span>
-              <input
-                className="b3-commission-modal__input"
-                value={confirmName}
-                disabled={busy}
-                autoComplete="off"
-                onChange={(e) => setConfirmName(e.target.value)}
-              />
-            </label>
+              <label className="b3-commission-modal__field org-delete-modal__confirm-field">
+                <span className="b3-commission-modal__label">Confirm org name</span>
+                <div className="b3-commission-modal__input-wrap org-delete-modal__input-wrap">
+                  <input
+                    className="b3-commission-modal__input"
+                    value={confirmName}
+                    disabled={busy}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={orgName}
+                    aria-invalid={confirmName.length > 0 && !nameOk}
+                    onChange={(e) => setConfirmName(e.target.value)}
+                  />
+                </div>
+                <span className="org-delete-modal__match-hint">
+                  Type <strong>{orgName}</strong> exactly to enable deletion.
+                </span>
+              </label>
+            </div>
           </div>
-          <footer className="b3-commission-modal__foot">
+
+          <footer className="b3-commission-modal__foot org-delete-modal__foot">
             <button
               type="button"
               className="b3-commission-modal__cancel"
@@ -168,7 +205,7 @@ export function OrgDeleteConfirmModal({
             </button>
             <button
               type="button"
-              className="b3-commission-modal__save org-delete-modal__confirm"
+              className="org-delete-modal__confirm"
               disabled={!canSubmit}
               onClick={onConfirm}
             >

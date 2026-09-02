@@ -173,7 +173,7 @@ describe("auth HTTP (no DB)", () => {
       const res = await fetch(`${base}/v1/orgs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "platform", name: "CryptoGate", parentId: "" }),
+        body: JSON.stringify({ type: "platform", name: "PaymentGate", parentId: "" }),
       });
       assert.equal(res.status, 401);
     } finally {
@@ -294,7 +294,7 @@ describe("auth HTTP (no DB)", () => {
         body: JSON.stringify({
           asset: "USDT",
           network: "tron",
-          address: "TCryptoGateStubReceiveAddress00001",
+          address: "TPaymentGateStubReceiveAddress00001",
         }),
       });
       assert.equal(put.status, 401);

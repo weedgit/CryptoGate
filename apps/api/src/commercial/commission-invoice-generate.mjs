@@ -1,7 +1,7 @@
 /**
  * Month-end platform → agent commission invoices from subtree service fees.
  */
-import { resolvePlatformFeeNetwork } from "@cryptogate/domain";
+import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
 import { getPool } from "../db/pool.mjs";

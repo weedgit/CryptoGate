@@ -11,7 +11,7 @@
 
 ```bash
 # Terminal A — guest pay (port 5173)
-npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
+npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
 
 # Terminal B — optional API + DB for live poll
 docker compose up -d postgres

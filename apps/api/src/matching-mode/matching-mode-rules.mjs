@@ -1,5 +1,5 @@
-import { MatchingMode, getAssetNetworkConfig, AssetCode, NetworkId } from "@cryptogate/domain";
-import { validateMatchingSettings } from "@cryptogate/matching";
+import { MatchingMode, getAssetNetworkConfig, AssetCode, NetworkId } from "@paymentgate/domain";
+import { validateMatchingSettings } from "@paymentgate/matching";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 const ALLOWED_MODES = new Set(Object.values(MatchingMode));

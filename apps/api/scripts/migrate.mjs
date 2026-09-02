@@ -5,7 +5,7 @@
  *
  * Usage (from repo root or apps/api):
  *   node apps/api/scripts/migrate.mjs
- *   pnpm --filter @cryptogate/api migrate
+ *   pnpm --filter @paymentgate/api migrate
  *   MIGRATE_REPAIR_CHECKSUMS=1 …  # local/dev: update stored checksums when applied files changed
  */
 import { createHash } from "node:crypto";

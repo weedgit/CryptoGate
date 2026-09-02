@@ -16,10 +16,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
-import {
-  PlatformPending,
-  PlatformTableSkeleton,
-} from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
   type ServiceBill,
@@ -280,14 +277,7 @@ export function ServiceBillsListPage() {
 
       <div className="plat-bills__table-wrap">
         {loading && !hasLoaded ? (
-          <div className="plat-bills__pending">
-            <PlatformPending
-              compact
-              title="Loading service bills"
-              copy="Fetching invoices and merchant names."
-            />
-            <PlatformTableSkeleton columns={6} rows={8} />
-          </div>
+          <PagePending />
         ) : null}
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">

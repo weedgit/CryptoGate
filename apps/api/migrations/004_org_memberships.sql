@@ -1,4 +1,4 @@
--- M1-15: user ↔ org memberships. Role strings match @cryptogate/domain UserRole.
+-- M1-15: user ↔ org memberships. Role strings match @paymentgate/domain UserRole.
 -- Cashier is only valid on merchant / merchant_site (enforced in app).
 
 CREATE TABLE IF NOT EXISTS org_memberships (

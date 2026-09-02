@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { AuthBackgroundLeftInvoice } from "./AuthBackgroundLeftInvoice";
-import { AuthBackgroundLeftQr } from "./AuthBackgroundLeftQr";
 
 /** Gateway diagram center — shifted right so the login card sits in clearer space. */
 const CX = 1250;
@@ -85,15 +84,16 @@ function getFooterTicker(elapsedSec: number) {
   };
 }
 
+const FONT_WORDMARK = "'Cinzel', Georgia, 'Times New Roman', serif";
 const FONT_UI = "'Outfit', system-ui, sans-serif";
 const FONT_MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
-/** Decorative labels — brighter for legibility; wordmark keeps its own gradient. */
+/** Decorative labels — network stats sit dark on the canvas. */
 const TEXT = {
   tagline: "#8a9bb0",
-  statKey: "#8a9bb0",
-  statVal: "#5eead4",
-  statHeader: "#5a6a7a",
+  statKey: "#2a323c",
+  statVal: "#263836",
+  statHeader: "#2a323c",
   mono: "#94a3b8",
   monoDim: "#64748b",
   footer: "#5a6a7a",
@@ -105,7 +105,7 @@ const WORDMARK_ICON = 72;
 const WORDMARK_ICON_X = 12;
 const WORDMARK_X = 92;
 const WORDMARK_Y = 104;
-const WORDMARK_SIZE = 58;
+const WORDMARK_SIZE = 68;
 const WORDMARK_ICON_Y = WORDMARK_Y - WORDMARK_SIZE * 0.92;
 
 /** Background typography — slightly larger for legibility. */
@@ -191,7 +191,7 @@ export function AuthBackground() {
             height="44"
             patternUnits="userSpaceOnUse"
           >
-            <circle cx="22" cy="22" r="0.9" fill="#2A3140" opacity="0.5" />
+            <circle cx="22" cy="22" r="0.9" fill="#3A4558" opacity="0.62" />
           </pattern>
 
           <radialGradient id="auth-bg-fill" cx="50%" cy="50%" r="56%">
@@ -236,7 +236,7 @@ export function AuthBackground() {
             <feGaussianBlur stdDeviation="5" />
           </filter>
 
-          {/* Wordmark: teal accent with stronger top-to-bottom contrast. */}
+          {/* Wordmark: gold accent with top-to-bottom contrast. */}
           <linearGradient
             id="auth-bg-wordmark"
             x1={WORDMARK_X}
@@ -245,15 +245,16 @@ export function AuthBackground() {
             y2={WORDMARK_Y}
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0%" stopColor="#5EEAD4" />
-            <stop offset="40%" stopColor="#00D4C8" />
-            <stop offset="100%" stopColor="#0F766E" />
+            <stop offset="0%" stopColor="#FDE68A" />
+            <stop offset="42%" stopColor="#FBBF24" />
+            <stop offset="100%" stopColor="#B45309" />
           </linearGradient>
         </defs>
 
         <rect x="0" y="0" width="1600" height="1000" fill="url(#auth-bg-fill)" />
         <rect x="0" y="0" width="1600" height="1000" fill="url(#auth-bg-dots)" />
 
+        <g className="auth-bg-diagram">
         <circle
           cx={CX}
           cy={CY}
@@ -685,13 +686,14 @@ export function AuthBackground() {
             0x2A1F8E
           </text>
         </g>
+        </g>
 
         <rect x="0" y="0" width="1600" height="1000" fill="url(#auth-bg-vignette)" />
 
         {/* Text overlays — drawn after vignette so labels stay readable. */}
         <g className="auth-bg-labels">
           <image
-            href="/brand/cryptogate-icon.png"
+            href="/brand/paymentgate-icon.png"
             x={WORDMARK_ICON_X}
             y={WORDMARK_ICON_Y}
             width={WORDMARK_ICON}
@@ -703,13 +705,13 @@ export function AuthBackground() {
             y={WORDMARK_Y}
             fontSize={FS.wordmark}
             fontWeight="600"
-            fontFamily={FONT_UI}
+            fontFamily={FONT_WORDMARK}
             fill="url(#auth-bg-wordmark)"
-            fillOpacity="0.92"
-            letterSpacing="9"
+            fillOpacity="0.96"
+            letterSpacing="7"
             className="auth-bg-wordmark"
           >
-            CRYPTOGATE
+            PAYMENTGATE
           </text>
           <text
             x={85}
@@ -731,16 +733,19 @@ export function AuthBackground() {
             strokeOpacity="0.7"
           />
 
-          <foreignObject x="80" y="182" width="430" height="860">
-            <div className="auth-left-decor">
+          <foreignObject x="80" y="0" width="430" height="1000">
+            <div
+              xmlns="http://www.w3.org/1999/xhtml"
+              className="auth-left-decor auth-left-decor--centered"
+            >
               <AuthBackgroundLeftInvoice
                 reducedMotion={reducedMotion}
                 underWordmark
               />
-              <AuthBackgroundLeftQr reducedMotion={reducedMotion} />
             </div>
           </foreignObject>
 
+          <g className="auth-bg-network-stats">
           <line
             x1={1335}
             y1={390}
@@ -756,7 +761,9 @@ export function AuthBackground() {
             fontSize={FS.statHeader}
             fontFamily={FONT_MONO}
             fill={TEXT.statHeader}
+            fillOpacity="0.72"
             letterSpacing="2.2"
+            className="auth-bg-stat-header"
           >
             NETWORK STATUS
           </text>
@@ -778,7 +785,9 @@ export function AuthBackground() {
                 fontSize={FS.statKey}
                 fontFamily={FONT_MONO}
                 fill={TEXT.statKey}
+                fillOpacity="0.68"
                 letterSpacing="1.5"
+                className="auth-bg-stat-key"
               >
                 {k}
               </text>
@@ -787,9 +796,11 @@ export function AuthBackground() {
                 y={420 + i * FS.statRow}
                 fontSize={FS.statVal}
                 fontWeight="500"
-                fontFamily={FONT_UI}
+                fontFamily={FONT_MONO}
                 fill={TEXT.statVal}
+                fillOpacity="0.78"
                 letterSpacing="0.5"
+                className="auth-bg-stat-val"
               >
                 {v}
               </text>
@@ -805,6 +816,7 @@ export function AuthBackground() {
             strokeWidth="0.45"
             strokeOpacity="0.5"
           />
+          </g>
 
           <text
             x={1518}

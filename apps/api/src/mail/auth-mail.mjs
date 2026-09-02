@@ -41,7 +41,7 @@ export async function sendInviteEmail(input) {
     .join("\n");
   return sendTransactionalEmail({
     to: input.to,
-    subject: `CryptoGate invite — ${input.orgName}`,
+    subject: `PaymentGate invite — ${input.orgName}`,
     text,
   });
 }
@@ -52,7 +52,7 @@ export async function sendInviteEmail(input) {
 export async function sendPasswordResetEmail(input) {
   return sendTransactionalEmail({
     to: input.to,
-    subject: "CryptoGate password reset",
+    subject: "PaymentGate password reset",
     text: `Reset your password: ${input.resetUrl}`,
   });
 }

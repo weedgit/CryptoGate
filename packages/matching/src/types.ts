@@ -3,7 +3,7 @@ import type {
   MatchingMode,
   Money,
   OrderStatus,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 /**
  * Andrew implements against payment_orders under a create-order transaction lock.

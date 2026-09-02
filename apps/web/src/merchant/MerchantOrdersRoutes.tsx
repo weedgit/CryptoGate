@@ -24,7 +24,7 @@ export function MerchantOrdersRoutes({ session }: Props) {
   const isDetail = orderId != null && orderId !== "new";
 
   if (isDetail) {
-    return <OrderDetailPage session={session} />;
+    return <OrderDetailPage session={session} orderId={orderId} />;
   }
 
   return (

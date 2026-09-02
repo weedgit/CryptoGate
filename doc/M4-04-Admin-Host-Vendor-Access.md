@@ -4,7 +4,7 @@
 **Depends on:** [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md), [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md), [M4-03-Backup-Monitoring.md](M4-03-Backup-Monitoring.md).  
 **Follow-ons:** M4-33 ops runbook index · M4-30 platform portal (Andrew).
 
-Phase 1 deploys on **Company A cloud accounts**. Company B (CryptoGate engineering) may need time-bound access for deploy assist and incident response. This doc separates **public product surfaces** from **infrastructure admin paths**, and requires **named, logged** vendor access — not shared root passwords.
+Phase 1 deploys on **Company A cloud accounts**. Company B (PaymentGate engineering) may need time-bound access for deploy assist and incident response. This doc separates **public product surfaces** from **infrastructure admin paths**, and requires **named, logged** vendor access — not shared root passwords.
 
 ---
 
@@ -63,7 +63,7 @@ Phase 1 deploys on **Company A cloud accounts**. Company B (CryptoGate engineeri
 ### Purpose
 
 - Deploy artifacts (`git pull`, `pnpm`, systemd restart)  
-- Run `pnpm --filter @cryptogate/api migrate`  
+- Run `pnpm --filter @paymentgate/api migrate`  
 - Tail watcher/API logs during incidents  
 - Run read-only SQL from [monitoring-queries.sql](examples/monitoring-queries.sql) via `psql` **when approved**
 
@@ -95,15 +95,15 @@ Maintain a table (Company A ticket or internal access register):
 | Field | Example |
 | --- | --- |
 | Full name | |
-| Company | Company B — CryptoGate |
+| Company | Company B — PaymentGate |
 | Role | Kevin (infra) / Andrew (API) / Bruce (watcher) |
 | Environments | test only / test + prod break-glass |
-| Access method | SSO group `cryptogate-vendor-test` or SSH key fingerprint |
+| Access method | SSO group `paymentgate-vendor-test` or SSH key fingerprint |
 | Approver | Company A security / platform owner |
 | Valid from / until | Ticket-linked expiry |
 | Last review | Quarterly |
 
-**No** shared `vendor@cryptogate` login. **No** embedding Company B credentials in merchant APK, payment page, or API images.
+**No** shared `vendor@paymentgate` login. **No** embedding Company B credentials in merchant APK, payment page, or API images.
 
 ### 4.2 Default posture by environment
 

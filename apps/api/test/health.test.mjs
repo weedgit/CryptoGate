@@ -5,7 +5,7 @@ import { getHealthPayload } from "../src/health-payload.mjs";
 describe("health-payload", () => {
   it("returns ok without db check", async () => {
     const p = await getHealthPayload({ checkDb: false });
-    assert.equal(p.service, "cryptogate-api");
+    assert.equal(p.service, "paymentgate-api");
     assert.equal(p.status, "ok");
     assert.equal(p.phase, "m1");
     assert.ok(p.timestamp);

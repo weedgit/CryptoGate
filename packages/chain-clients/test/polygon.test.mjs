@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_POLYGON, USDC_POLYGON } from "@cryptogate/domain";
+import { USDT_POLYGON, USDC_POLYGON } from "@paymentgate/domain";
 import {
   healthCheck,
   getPolygonConfig,
@@ -10,7 +10,7 @@ import {
   ERC20_TRANSFER_TOPIC,
 } from "../polygon/index.mjs";
 
-describe("@cryptogate/chain-clients/polygon stub", () => {
+describe("@paymentgate/chain-clients/polygon stub", () => {
   it("healthCheck returns stub mode without POLYGON_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "polygon");
@@ -54,7 +54,7 @@ describe("@cryptogate/chain-clients/polygon stub", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/polygon map", () => {
+describe("@paymentgate/chain-clients/polygon map", () => {
   it("mapTransferLog maps ERC-20 Transfer on polygon", () => {
     const to = "0x742d35cc6634c0532925a3b844bc9e7595f0beb0";
     const mapped = mapTransferLog(
@@ -81,7 +81,7 @@ describe("@cryptogate/chain-clients/polygon map", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/polygon rpc env", () => {
+describe("@paymentgate/chain-clients/polygon rpc env", () => {
   const prev = process.env.POLYGON_RPC_URL;
 
   before(() => {

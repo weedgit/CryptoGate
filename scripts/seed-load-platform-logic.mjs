@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { findUserByEmail } from "../apps/api/src/auth/users.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
 
 const MATCHING_CYCLE = ["B", "C", "D", "S"];
 const COMMISSION_CYCLE = ["10", "12", "15", "18", "20"];
@@ -81,7 +82,7 @@ function loadEnv() {
   }
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL =
-      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
   }
 }
 
@@ -449,10 +450,10 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
+  const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);
   if (!platformOwner) {
     throw new Error(
-      "Missing admin.platform@cryptogate.io — run `node scripts/seed-local.mjs` first.",
+      `Missing ${SEED_PLATFORM_OWNER_EMAIL} — run \`node scripts/seed-local.mjs\` first.`,
     );
   }
 

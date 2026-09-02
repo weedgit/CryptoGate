@@ -159,7 +159,7 @@ export async function handleRequest(req, res) {
   }
 
   if (method === "GET" && path === "/") {
-    sendJson(res, 200, { service: "cryptogate-api", health: "/health" });
+    sendJson(res, 200, { service: "paymentgate-api", health: "/health" });
     return;
   }
 

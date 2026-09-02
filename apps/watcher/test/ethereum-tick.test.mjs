@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_ETHEREUM } from "@cryptogate/domain";
+import { USDT_ETHEREUM } from "@paymentgate/domain";
 import { runWatcherOnce } from "./run-watcher-once.mjs";
 
-describe("@cryptogate/watcher ethereum ingest smoke (M3-32)", () => {
+describe("@paymentgate/watcher ethereum ingest smoke (M3-32)", () => {
   it("default network tron still reports ethereum health stub", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "tron",

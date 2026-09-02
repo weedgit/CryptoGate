@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { StatusBadge } from "../shared/StatusBadge";
 import { FieldControl } from "../ui/FieldControl";
@@ -412,10 +412,7 @@ export function ReportsPage({ session }: Props) {
         : null}
 
       {loading && (!hasLoaded || siteOrgId) ? (
-        <PlatformPending
-          title="Loading report"
-          copy="Aggregating payment orders for the selected range."
-        />
+        <PagePending />
       ) : (
         <>
           <div className="merchant-reports__kpis">

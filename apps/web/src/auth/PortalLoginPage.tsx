@@ -53,6 +53,7 @@ export function PortalLoginPage({
   const [email, setEmail] = useState(() => loadRememberedEmail());
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(() => hadRememberedEmail());
   const [newPassword, setNewPassword] = useState("");
@@ -317,6 +318,9 @@ export function PortalLoginPage({
                   type="password"
                   icon="lock"
                   placeholder="Enter new password"
+                  showToggle
+                  showPassword={showNewPassword}
+                  onTogglePassword={() => setShowNewPassword((current) => !current)}
                   disabled={loading}
                   autoComplete="new-password"
                   required

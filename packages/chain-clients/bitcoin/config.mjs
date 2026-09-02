@@ -1,4 +1,4 @@
-import { AssetCode, NetworkId, getAssetNetworkConfig } from "@cryptogate/domain";
+import { AssetCode, NetworkId, getAssetNetworkConfig } from "@paymentgate/domain";
 
 function readInt(name, fallback) {
   const raw = process.env[name];

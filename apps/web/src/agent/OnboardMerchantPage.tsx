@@ -12,7 +12,7 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
-import { tierLabel } from "../commercialLabels";
+import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import {
   STRUCTURE_LABELS,
   type MerchantStructure,
@@ -308,6 +308,7 @@ export function OnboardMerchantPage({ session }: Props) {
 
   if (!parentId) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
@@ -331,10 +332,12 @@ export function OnboardMerchantPage({ session }: Props) {
           </div>
         </div>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   return (
+    <OnboardWizardPortal>
     <div className="b4-wizard-page">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <div className="b4-wizard-backdrop">
@@ -593,5 +596,6 @@ export function OnboardMerchantPage({ session }: Props) {
         </div>
       </div>
     </div>
+    </OnboardWizardPortal>
   );
 }

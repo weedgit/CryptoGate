@@ -26,7 +26,7 @@ Company A must confirm the **handheld Android POS** make, model, Android version
 
 ---
 
-## 2. CryptoGate impact
+## 2. PaymentGate impact
 
 | Feature | Generic APK (now) | Reference device (after M5-01) |
 | --- | --- | --- |

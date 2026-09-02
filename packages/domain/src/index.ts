@@ -171,7 +171,7 @@ export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
 export const NetworkId = {
   Ethereum: "ethereum",
   Tron: "tron",
-  /** Local/staging only — filtered out when CRYPTOGATE_CHAIN_ENV=mainnet */
+  /** Local/staging only — filtered out when PAYMENTGATE_CHAIN_ENV=mainnet */
   TronNile: "tron_nile",
   BnbSmartChain: "bnb_smart_chain",
   Polygon: "polygon",
@@ -201,12 +201,12 @@ function readChainEnvRaw(): string {
     process?: { env?: Record<string, string | undefined> };
   };
   const fromProcess =
-    g.process?.env?.CRYPTOGATE_CHAIN_ENV ??
-    g.process?.env?.VITE_CRYPTOGATE_CHAIN_ENV;
+    g.process?.env?.PAYMENTGATE_CHAIN_ENV ??
+    g.process?.env?.VITE_PAYMENTGATE_CHAIN_ENV;
   if (fromProcess) return fromProcess.trim().toLowerCase();
   try {
     const meta = import.meta as { env?: Record<string, string | undefined> };
-    const fromVite = meta.env?.VITE_CRYPTOGATE_CHAIN_ENV;
+    const fromVite = meta.env?.VITE_PAYMENTGATE_CHAIN_ENV;
     if (fromVite) return fromVite.trim().toLowerCase();
   } catch {
     /* non-module / non-vite runtime */
@@ -216,8 +216,8 @@ function readChainEnvRaw(): string {
 
 /**
  * Active chain environment. Default `mainnet` (product / production).
- * Set `CRYPTOGATE_CHAIN_ENV=testnet` (API/watcher) or
- * `VITE_CRYPTOGATE_CHAIN_ENV=testnet` (web) for local Nile testing only.
+ * Set `PAYMENTGATE_CHAIN_ENV=testnet` (API/watcher) or
+ * `VITE_PAYMENTGATE_CHAIN_ENV=testnet` (web) for local Nile testing only.
  */
 export function resolveChainEnvironment(
   override?: string | null,
@@ -287,7 +287,7 @@ export const USDT_TRON: AssetNetworkConfig = {
 
 /**
  * Local/staging only — USDT on Tron Nile testnet.
- * Visible when CRYPTOGATE_CHAIN_ENV=testnet (alongside mainnet pairs);
+ * Visible when PAYMENTGATE_CHAIN_ENV=testnet (alongside mainnet pairs);
  * never when env is mainnet (product / production).
  * Contract: official Nile USDT (override with TRON_USDT_CONTRACT if needed).
  */
@@ -879,10 +879,9 @@ export const AuditAction = {
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
-/** Merchant (site) setting kinds that inherit from the parent until Owner approval. */
+/** Merchant (site) setting kinds kept for historical override rows.
+ *  Sites always inherit wallet and ops settings from the parent merchant. */
 export const SiteOverrideKind = {
-  Settlement: "settlement",
-  Xpub: "xpub",
   MatchingMode: "matching_mode",
   OrderRetention: "order_retention",
   FulfillmentPolicy: "fulfillment_policy",

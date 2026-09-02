@@ -16,7 +16,7 @@ const CATEGORIES: { id: FeedbackCategory; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
-const STORAGE_KEY = "cryptogate.platform.feedback.v1";
+const STORAGE_KEY = "paymentgate.platform.feedback.v1";
 
 /**
  * Lightweight feedback capture until a support inbox API exists.
@@ -99,7 +99,7 @@ export function FeedbackModal({ open, email, onClose }: Props) {
           {sent ? (
             <div className="feedback-modal__body">
               <p className="feedback-modal__thanks">
-                Thanks — your feedback was saved. We use it to improve CryptoGate.
+                Thanks — your feedback was saved. We use it to improve PaymentGate.
               </p>
               <div className="feedback-modal__foot">
                 <button

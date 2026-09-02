@@ -3,7 +3,7 @@ import { listOrgs } from "./api";
 import { createListCache } from "../shared/listCache";
 
 const orgListCache = createListCache<OrgAccount[]>({
-  storageKey: "cryptogate.merchant.orgs",
+  storageKey: "paymentgate.merchant.orgs",
   fetch: listOrgs,
 });
 

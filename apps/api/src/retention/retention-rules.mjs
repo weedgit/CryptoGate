@@ -1,4 +1,4 @@
-import { DEFAULT_ORDER_DELETE_DAYS } from "@cryptogate/domain";
+import { DEFAULT_ORDER_DELETE_DAYS } from "@paymentgate/domain";
 
 export const MIN_ORDER_DELETE_DAYS = 7;
 export const MAX_ORDER_DELETE_DAYS = 3650;

@@ -14,10 +14,10 @@ importers:
 
   apps/api:
     dependencies:
-      '@cryptogate/domain':
+      '@paymentgate/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@cryptogate/matching':
+      '@paymentgate/matching':
         specifier: workspace:*
         version: link:../../packages/matching
       '@noble/curves':
@@ -42,13 +42,13 @@ importers:
 
   apps/watcher:
     dependencies:
-      '@cryptogate/chain-clients':
+      '@paymentgate/chain-clients':
         specifier: workspace:*
         version: link:../../packages/chain-clients
-      '@cryptogate/domain':
+      '@paymentgate/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@cryptogate/matching':
+      '@paymentgate/matching':
         specifier: workspace:*
         version: link:../../packages/matching
       pg:
@@ -57,7 +57,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@cryptogate/domain':
+      '@paymentgate/domain':
         specifier: workspace:*
         version: link:../../packages/domain
       qrcode:
@@ -96,7 +96,7 @@ importers:
 
   packages/chain-clients:
     dependencies:
-      '@cryptogate/domain':
+      '@paymentgate/domain':
         specifier: workspace:*
         version: link:../domain
 
@@ -108,7 +108,7 @@ importers:
 
   packages/matching:
     dependencies:
-      '@cryptogate/domain':
+      '@paymentgate/domain':
         specifier: workspace:*
         version: link:../domain
     devDependencies:

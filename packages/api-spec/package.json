@@ -1,5 +1,5 @@
 {
-  "name": "@cryptogate/api-spec",
+  "name": "@paymentgate/api-spec",
   "version": "0.3.1",
   "private": true,
   "description": "OpenAPI contract for apps/api and clients. Kevin owns merges.",

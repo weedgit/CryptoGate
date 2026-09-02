@@ -33,14 +33,23 @@ import {
   getOrderSummary,
   listMerchantCommercialSummaries,
   listOrgMemberEmails,
+  setOrgStatus,
   type MerchantCommercialSettings,
   type OrgAccount,
   type ServiceBill,
   type Session,
 } from "./api";
+import { invalidateAgentOrgList } from "./agentOrgList";
 import { MerchantDetailCard } from "./MerchantDetailCard";
 import { STRUCTURE_LABELS } from "./onboardMerchant";
-import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
+import {
+  primaryAgentOrgId,
+  sessionCanManageDirectChild,
+  sessionCanOnboardMerchant,
+} from "./org";
+import { useOrgDeleteModal } from "./useOrgDeleteModal";
+import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
+import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
 
 type Props = { session: Session };
 
@@ -228,7 +237,7 @@ function MerchantsListEmptyPanel({
       : variant === "searching"
         ? "Looking up team contact emails across merchant orgs."
         : variant === "no-merchants"
-          ? "Onboard a merchant to start collecting under your channel."
+          ? "Add a merchant to start collecting under your channel."
           : variant === "no-results"
             ? query
               ? `Nothing matched “${query}”. Try a different name, email, or org ID.`
@@ -244,7 +253,7 @@ function MerchantsListEmptyPanel({
         aria-hidden
       >
         {variant === "loading" || variant === "searching" ? (
-          <span className="org-agents__list-empty-spinner" />
+          <span className="cg-spinner cg-spinner--md org-agents__list-empty-spinner" />
         ) : variant === "no-results" ? (
           <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
             <circle cx="20" cy="20" r="9" stroke="currentColor" strokeWidth="1.6" />
@@ -351,6 +360,11 @@ export function MerchantsListPage({ session }: Props) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<"ok" | "error">("ok");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<OrgAccount | null>(null);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
 
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
@@ -394,13 +408,13 @@ export function MerchantsListPage({ session }: Props) {
     };
   }, [loading]);
 
-  const load = useCallback(async () => {
-    const hasCachedOrgs = peekAgentOrgs() != null;
+  const load = useCallback(async (opts?: { force?: boolean }) => {
+    const hasCachedOrgs = !opts?.force && peekAgentOrgs() != null;
     if (!hasCachedOrgs) setLoading(true);
     setError(null);
     try {
       const [orgRows, billRows, summary] = await Promise.all([
-        getAgentOrgs(),
+        getAgentOrgs(opts),
         getAgentServiceBills().catch(() => [] as ServiceBill[]),
         getOrderSummary(
           new Date(Date.now() - 90 * 86400000).toISOString(),
@@ -633,6 +647,88 @@ export function MerchantsListPage({ session }: Props) {
     scrollOrgSplitPaneIntoView();
   };
 
+  const showOk = useCallback((message: string) => {
+    setToastTone("ok");
+    setToastMessage(message);
+    setError(null);
+  }, []);
+
+  const showErr = useCallback((message: string) => {
+    setToastTone("error");
+    setToastMessage(message);
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    setToastMessage(null);
+    setError(null);
+  }, []);
+
+  const canManageSelected = useMemo(
+    () =>
+      selected ? sessionCanManageDirectChild(session, selected, orgs) : false,
+    [session, selected, orgs],
+  );
+
+  const {
+    deleteTarget,
+    deletePreview,
+    deletePreviewLoading,
+    deleteError,
+    deleteBusy,
+    openDelete,
+    closeDelete,
+    confirmDelete,
+  } = useOrgDeleteModal({
+    canManage: canManageSelected,
+    onDeleted: async () => {
+      invalidateAgentOrgList();
+      const wasSelected = selectedId;
+      await load({ force: true });
+      if (wasSelected) {
+        navigate(agentRoute("merchants"), { replace: true });
+      }
+    },
+    showOk,
+  });
+
+  async function onSetStatus(
+    row: OrgAccount,
+    status: "active" | "paused",
+    reason?: string,
+  ): Promise<string | null> {
+    if (!sessionCanManageDirectChild(session, row, orgs)) return "Not allowed";
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await setOrgStatus(row.id, status, reason ? { reason } : undefined);
+      invalidateAgentOrgList();
+      setOrgs((prev) =>
+        prev.map((o) => (o.id === row.id ? { ...o, status } : o)),
+      );
+      showOk(status === "paused" ? `Paused ${row.name}.` : `Resumed ${row.name}.`);
+      return null;
+    } catch (err) {
+      const text =
+        err instanceof ApiError
+          ? err.code === "rate_limited"
+            ? "Too many requests — wait a moment and retry."
+            : err.message
+          : "Status update failed";
+      showErr(text);
+      return text;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function confirmSuspend(reason: string) {
+    if (!suspendTarget) return;
+    setSuspendError(null);
+    const err = await onSetStatus(suspendTarget, "paused", reason || undefined);
+    if (err) setSuspendError(err);
+    else setSuspendTarget(null);
+  }
+
   const searchingByEmail =
     !loading &&
     looksLikeEmailQuery(query) &&
@@ -662,9 +758,9 @@ export function MerchantsListPage({ session }: Props) {
   return (
     <div className="org-agents org-agents--split" ref={pageRef}>
       <AuthToast
-        message={error}
-        tone="error"
-        onDismiss={() => setError(null)}
+        message={toastMessage ?? error}
+        tone={toastMessage ? toastTone : "error"}
+        onDismiss={dismissToast}
       />
 
       {topbarSlot
@@ -929,8 +1025,13 @@ export function MerchantsListPage({ session }: Props) {
             <MerchantDetailCard
               org={selected}
               orgs={orgs}
-              canEditCommercial={canOnboard}
+              canEditCommercial={canManageSelected}
+              canManage={canManageSelected}
+              busy={busyId === selected.id}
               initialTab={detailTab}
+              onPause={() => setSuspendTarget(selected)}
+              onRun={() => void onSetStatus(selected, "active")}
+              onDelete={() => openDelete(selected)}
             />
           ) : (
             <div
@@ -979,6 +1080,34 @@ export function MerchantsListPage({ session }: Props) {
           )}
         </div>
       </div>
+
+      {suspendTarget ? (
+        <SuspendOrgModal
+          orgName={suspendTarget.name}
+          busy={busyId === suspendTarget.id}
+          error={suspendError}
+          onClose={() => {
+            if (busyId !== suspendTarget.id) {
+              setSuspendTarget(null);
+              setSuspendError(null);
+            }
+          }}
+          onConfirm={(reason) => void confirmSuspend(reason)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <OrgDeleteConfirmModal
+          orgId={deleteTarget.id}
+          orgName={deleteTarget.name}
+          busy={deleteBusy}
+          error={deleteError}
+          preview={deletePreview}
+          previewLoading={deletePreviewLoading}
+          onClose={closeDelete}
+          onConfirm={() => void confirmDelete()}
+        />
+      ) : null}
     </div>
   );
 }

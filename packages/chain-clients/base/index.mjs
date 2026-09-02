@@ -1,4 +1,4 @@
-import { AssetCode } from "@cryptogate/domain";
+import { AssetCode } from "@paymentgate/domain";
 import { getBaseRuntimeConfig } from "./config.mjs";
 import {
   fetchErc20TransfersForAddresses,

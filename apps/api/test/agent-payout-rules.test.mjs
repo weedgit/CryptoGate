@@ -14,8 +14,8 @@ describe("agent-payout rules", () => {
   });
 
   it("validates address body requires MFA", () => {
-    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
-    process.env.CRYPTOGATE_CHAIN_ENV = "mainnet";
+    const prev = process.env.PAYMENTGATE_CHAIN_ENV;
+    process.env.PAYMENTGATE_CHAIN_ENV = "mainnet";
     const missing = validateAgentPayoutBody({
       asset: "USDT",
       network: "tron",
@@ -30,13 +30,13 @@ describe("agent-payout rules", () => {
       mfaCode: "123456",
     });
     assert.equal(ok.ok, true);
-    if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
-    else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+    if (prev === undefined) delete process.env.PAYMENTGATE_CHAIN_ENV;
+    else process.env.PAYMENTGATE_CHAIN_ENV = prev;
   });
 
   it("accepts tron_nile for platform fee pair in testnet", () => {
-    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
-    process.env.CRYPTOGATE_CHAIN_ENV = "testnet";
+    const prev = process.env.PAYMENTGATE_CHAIN_ENV;
+    process.env.PAYMENTGATE_CHAIN_ENV = "testnet";
     const ok = validateAgentPayoutBody({
       asset: "USDT",
       network: "tron_nile",
@@ -51,8 +51,8 @@ describe("agent-payout rules", () => {
       mfaCode: "123456",
     });
     assert.equal(mainnetPair.ok, false);
-    if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
-    else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+    if (prev === undefined) delete process.env.PAYMENTGATE_CHAIN_ENV;
+    else process.env.PAYMENTGATE_CHAIN_ENV = prev;
   });
 
   it("rejects non-tron payout asset", () => {

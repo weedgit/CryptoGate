@@ -59,10 +59,23 @@ function fieldText(raw: string | null | undefined): {
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
+  canManage?: boolean;
+  busy?: boolean;
+  onPause?: () => void;
+  onRun?: () => void;
+  onDelete?: () => void;
 };
 
-/** Sub-agent detail card — platform b3 chrome, agent-scoped read-only actions. */
-export function SubAgentDetailCard({ org, orgs }: Props) {
+/** Sub-agent detail card — platform b3 chrome, agent-scoped actions on direct children. */
+export function SubAgentDetailCard({
+  org,
+  orgs,
+  canManage = false,
+  busy = false,
+  onPause,
+  onRun,
+  onDelete,
+}: Props) {
   const [tab, setTab] = useState<TabId>("overview");
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [team, setTeam] = useState<OrgMember[]>([]);
@@ -189,6 +202,37 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
             </p>
           </div>
         </div>
+        {canManage ? (
+          <div className="b3-agent-detail__head-actions">
+            {status === "active" ? (
+              <button
+                type="button"
+                className="b3-agent-detail__suspend"
+                disabled={busy}
+                onClick={onPause}
+              >
+                Suspend
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="b3-agent-detail__suspend"
+                disabled={busy}
+                onClick={onRun}
+              >
+                Resume
+              </button>
+            )}
+            <button
+              type="button"
+              className="b3-agent-detail__delete"
+              disabled={busy}
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="b3-agent-detail__tabs" role="tablist" aria-label="Sub-agent tabs">
@@ -278,12 +322,18 @@ export function SubAgentDetailCard({ org, orgs }: Props) {
               </section>
             </div>
 
-            <p className="b3-settlement__notice">
-              Pause, delete, and commission edits are platform-only. Onboard
-              merchants under this sub-agent from{" "}
-              <Link to={agentRoute("architecture")}>Architecture</Link> or{" "}
-              <Link to={agentRoute("merchants")}>Merchants</Link>.
-            </p>
+            {!canManage ? (
+              <p className="b3-settlement__notice">
+                You can view merchants and sites under this sub-agent, but only
+                the sub-agent (or platform) may manage them. Commission edits
+                remain platform-only.
+              </p>
+            ) : (
+              <p className="b3-settlement__notice muted">
+                Merchants and sites onboarded under this sub-agent are managed by
+                the sub-agent team, not from your agent account.
+              </p>
+            )}
           </>
         ) : null}
 

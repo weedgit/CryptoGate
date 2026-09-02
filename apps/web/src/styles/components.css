@@ -1,5 +1,5 @@
 /**
- * CryptoGate component primitives — Figma 02 — Components
+ * PaymentGate component primitives — Figma 02 — Components
  * (Buttons, Inputs, Status, Toasts). Imported after merchant.css so
  * merchant/agent get Institutional Ink; platform-shell overrides still win
  * where they use higher specificity.
@@ -163,28 +163,20 @@
   position: absolute;
   width: 1rem;
   height: 1rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
+  border: 2px solid transparent;
+  border-top-color: var(--bg);
   border-radius: 50%;
-  /* Spinner uses teal on primary via box trick — draw with border color from bg */
-  border-color: var(--bg) transparent var(--bg) var(--bg);
-  animation: cg-btn-spin 0.7s linear infinite;
+  animation: cg-spin 0.85s cubic-bezier(0.55, 0.12, 0.25, 0.92) infinite;
 }
 
 .btn-secondary.btn-loading::after,
 .btn-ghost.btn-loading::after,
 .btn-danger.btn-loading::after {
-  border-color: var(--teal) transparent var(--teal) var(--teal);
+  border-top-color: var(--teal);
 }
 
 .btn-danger.btn-loading::after {
-  border-color: var(--anomaly) transparent var(--anomaly) var(--anomaly);
-}
-
-@keyframes cg-btn-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  border-top-color: var(--anomaly);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1013,7 +1005,7 @@ select.field-control,
 .cg-skel__bar {
   height: 12px;
   border-radius: 4px;
-  background: var(--border);
+  background: rgba(148, 163, 184, 0.1);
   position: relative;
   overflow: hidden;
 }
@@ -1028,19 +1020,15 @@ select.field-control,
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      90deg,
+      105deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.06) 42%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0.06) 58%,
       transparent 100%
     );
-    transform: translateX(-100%);
-    animation: cg-skel-shimmer 1.2s var(--ease-inout) infinite;
-  }
-}
-
-@keyframes cg-skel-shimmer {
-  to {
-    transform: translateX(100%);
+    transform: translateX(-120%);
+    animation: cg-shimmer-slide 1.55s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 }
 

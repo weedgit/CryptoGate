@@ -1,6 +1,6 @@
 /**
  * Non-custodial guard: reject spend keys / mnemonics anywhere they could be stored.
- * CryptoGate is watch-only SaaS — receive addresses and xPubs only.
+ * PaymentGate is watch-only SaaS — receive addresses and xPubs only.
  */
 
 const PRIVATE_EXTENDED = /^(xprv|tprv|yprv|zprv|uprv|vprv|Yprv|Zprv)/i;
@@ -62,7 +62,7 @@ export function assertWatchOnlyEnv(env = process.env) {
   if (hits.length > 0) {
     const unique = [...new Set(hits)];
     throw new Error(
-      `Watch-only invariant: refuse spend-key env (${unique.join(", ")}). CryptoGate never stores private keys or mnemonics.`,
+      `Watch-only invariant: refuse spend-key env (${unique.join(", ")}). PaymentGate never stores private keys or mnemonics.`,
     );
   }
 }

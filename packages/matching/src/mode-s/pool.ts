@@ -10,7 +10,7 @@ import {
   OrderStatus,
   type HdPoolState as HdPoolStateType,
   type OrderStatus as OrderStatusType,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 /** Default cool-down after order finalization (late-pay / anomaly window). */
 export const DEFAULT_HD_POOL_COOLDOWN_MS = 30 * 60 * 1000;

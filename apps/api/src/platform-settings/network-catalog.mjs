@@ -1,7 +1,7 @@
 /**
  * Build B16 network catalog cards from domain registry + maintenance + watcher heartbeats.
  */
-import { listAssetNetworkRegistry, NetworkId } from "@cryptogate/domain";
+import { listAssetNetworkRegistry, NetworkId } from "@paymentgate/domain";
 import { listNetworkMaintenanceRows } from "./network-maintenance-store.mjs";
 import { isMaintenanceEffective } from "./network-maintenance-rules.mjs";
 import { listWatcherHeartbeats } from "../ops/watcher-health-store.mjs";
@@ -22,7 +22,7 @@ const NETWORK_TITLE = {
 
 /**
  * Prefer USDT as the primary display pair, else first enabled, else first row.
- * @param {import("@cryptogate/domain").AssetNetworkConfig[]} rows
+ * @param {import("@paymentgate/domain").AssetNetworkConfig[]} rows
  */
 function pickPrimary(rows) {
   const enabled = rows.filter((r) => r.enabled);
@@ -191,7 +191,7 @@ async function buildNetworkCatalogFresh() {
   items.sort((a, b) => a.title.localeCompare(b.title));
 
   return {
-    chainEnv: process.env.CRYPTOGATE_CHAIN_ENV?.trim() || "mainnet",
+    chainEnv: process.env.PAYMENTGATE_CHAIN_ENV?.trim() || "mainnet",
     checkedAt: new Date().toISOString(),
     items,
   };

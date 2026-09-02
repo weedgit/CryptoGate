@@ -1,5 +1,5 @@
 {
-  "name": "@cryptogate/chain-clients",
+  "name": "@paymentgate/chain-clients",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,12 +17,12 @@
     "./bitcoin": "./bitcoin/index.mjs"
   },
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/chain-clients: all Phase 1 networks ready')\"",
+    "build": "node -e \"console.log('@paymentgate/chain-clients: all Phase 1 networks ready')\"",
     "typecheck": "node -e \"process.exit(0)\"",
-    "test": "pnpm --filter @cryptogate/domain build && node --test test/*.test.mjs",
+    "test": "pnpm --filter @paymentgate/domain build && node --test test/*.test.mjs",
     "lint": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@cryptogate/domain": "workspace:*"
+    "@paymentgate/domain": "workspace:*"
   }
 }

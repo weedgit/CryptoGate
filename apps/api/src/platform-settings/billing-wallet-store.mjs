@@ -21,7 +21,7 @@ import { listMemberEmailsGroupedByOrg } from "../orgs/membership-store.mjs";
  */
 export function toPlatformBillingWalletSettings(row) {
   return {
-    sellerName: row.seller_name?.trim() || "CryptoGate",
+    sellerName: row.seller_name?.trim() || "PaymentGate",
     payTo:
       row.pay_to != null && String(row.pay_to).trim()
         ? String(row.pay_to).trim()
@@ -64,7 +64,7 @@ export async function resolvePlatformInvoiceSeller() {
 async function ensureSingletonRow() {
   await getPool().query(
     `INSERT INTO platform_billing_settings (id, seller_name)
-     VALUES (1, 'CryptoGate')
+     VALUES (1, 'PaymentGate')
      ON CONFLICT (id) DO NOTHING`,
   );
 }

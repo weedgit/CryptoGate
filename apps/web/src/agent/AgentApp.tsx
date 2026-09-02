@@ -9,7 +9,7 @@ import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { PortalShellBoot } from "../auth/PortalShellBoot";
 import { AgentShell } from "./AgentShell";
 import { LoginPage } from "./LoginPage";
-import { RequireAgentOperator, RequireAgentPortal } from "./RequireAgentPortal";
+import { RequireAgentPortal } from "./RequireAgentPortal";
 import { agentRoute } from "../shared/portalRouting";
 import { LazyRoute } from "../shared/LazyRoute";
 import { lazyNamed } from "../shared/lazyNamed";
@@ -27,17 +27,13 @@ const CommissionsPage = lazyNamed(
   () => import("./CommissionsPage"),
   "CommissionsPage",
 );
-const MerchantsListPage = lazyNamed(
-  () => import("./MerchantsListPage"),
-  "MerchantsListPage",
+const AgentMerchantsRoutes = lazyNamed(
+  () => import("./AgentMerchantsRoutes"),
+  "AgentMerchantsRoutes",
 );
-const OnboardMerchantPage = lazyNamed(
-  () => import("./OnboardMerchantPage"),
-  "OnboardMerchantPage",
-);
-const OnboardSubAgentPage = lazyNamed(
-  () => import("./OnboardSubAgentPage"),
-  "OnboardSubAgentPage",
+const AgentSubAgentsRoutes = lazyNamed(
+  () => import("./AgentSubAgentsRoutes"),
+  "AgentSubAgentsRoutes",
 );
 const ServiceBillDetailPage = lazyNamed(
   () => import("./ServiceBillDetailPage"),
@@ -46,10 +42,6 @@ const ServiceBillDetailPage = lazyNamed(
 const ServiceBillsListPage = lazyNamed(
   () => import("./ServiceBillsListPage"),
   "ServiceBillsListPage",
-);
-const SubAgentsListPage = lazyNamed(
-  () => import("./SubAgentsListPage"),
-  "SubAgentsListPage",
 );
 const ArchitecturePage = lazyNamed(
   () => import("./ArchitecturePage"),
@@ -88,13 +80,8 @@ export function AgentApp() {
   const { session, setSession, mfaPending, booting, completeSignIn } =
     usePortalBoot();
 
-  if (booting) {
-    return (
-      <PortalShellBoot
-        title="Loading agent portal"
-        copy="Verifying your session"
-      />
-    );
+  if (!session && booting) {
+    return <PortalShellBoot />;
   }
 
   if (!session) {
@@ -136,33 +123,34 @@ export function AgentApp() {
     <Routes>
       <Route element={shell}>
         <Route index element={<DashboardPage session={session} />} />
-        <Route path="merchants" element={<MerchantsListPage session={session} />} />
+        <Route
+          path="merchants"
+          element={<AgentMerchantsRoutes session={session} />}
+        />
         <Route
           path="merchants/new"
-          element={
-            <RequireAgentOperator session={session}>
-              <OnboardMerchantPage session={session} />
-            </RequireAgentOperator>
-          }
+          element={<AgentMerchantsRoutes session={session} />}
         />
         <Route
           path="merchants/:id"
-          element={<MerchantsListPage session={session} />}
+          element={<AgentMerchantsRoutes session={session} />}
         />
         <Route
           path="architecture"
           element={<ArchitecturePage session={session} />}
         />
         <Route
-          path="agents/new"
-          element={
-            <RequireAgentOperator session={session}>
-              <OnboardSubAgentPage session={session} />
-            </RequireAgentOperator>
-          }
+          path="agents"
+          element={<AgentSubAgentsRoutes session={session} />}
         />
-        <Route path="agents/:id" element={<SubAgentsListPage session={session} />} />
-        <Route path="agents" element={<SubAgentsListPage session={session} />} />
+        <Route
+          path="agents/new"
+          element={<AgentSubAgentsRoutes session={session} />}
+        />
+        <Route
+          path="agents/:id"
+          element={<AgentSubAgentsRoutes session={session} />}
+        />
         <Route path="settings" element={<AgentSettingsPage session={session} />} />
         <Route path="settings/team" element={<TeamSettingsPage session={session} />} />
         <Route

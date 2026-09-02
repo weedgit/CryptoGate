@@ -21,19 +21,19 @@ describe("persisted list caches", () => {
       "utf8",
     );
     assert.match(platformOrgs, /createListCache/);
-    assert.match(platformOrgs, /cryptogate\.platform\.orgs/);
+    assert.match(platformOrgs, /paymentgate\.platform\.orgs/);
 
     const agentOrgs = readFileSync(
       join(root, "src/agent/agentOrgList.ts"),
       "utf8",
     );
-    assert.match(agentOrgs, /cryptogate\.agent\.orgs/);
+    assert.match(agentOrgs, /paymentgate\.agent\.orgs/);
 
     const merchantOrgs = readFileSync(
       join(root, "src/merchant/merchantOrgList.ts"),
       "utf8",
     );
-    assert.match(merchantOrgs, /cryptogate\.merchant\.orgs/);
+    assert.match(merchantOrgs, /paymentgate\.merchant\.orgs/);
   });
 
   it("prefetches dashboard APIs during session restore", () => {

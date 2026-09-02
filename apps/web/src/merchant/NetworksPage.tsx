@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type AssetNetworkConfig } from "@cryptogate/domain";
+import { type AssetNetworkConfig } from "@paymentgate/domain";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import {
@@ -75,99 +75,8 @@ export function NetworksPage() {
     };
   }, []);
 
-  const { openCount, pausedCount } = useMemo(() => {
-    let open = 0;
-    let paused = 0;
-    for (const row of pairs) {
-      const code = asLamp(
-        lampByPair?.get(`${row.asset}:${row.network}`),
-        row,
-        lampByPair !== null,
-      ).code;
-      if (code === "open") open += 1;
-      else if (code === "paused") paused += 1;
-    }
-    return { openCount: open, pausedCount: paused };
-  }, [pairs, lampByPair]);
-
   return (
     <div className="merchant-networks">
-      <div className="merchant-networks__kpis">
-        <article className="merchant-networks__kpi merchant-networks__kpi--total">
-          <div className="merchant-networks__kpi-top">
-            <span className="merchant-networks__kpi-icon" aria-hidden>
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
-                <path
-                  d="M3.5 16.5V8.5l6.5-4.5 6.5 4.5v8H3.5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M8 16.5v-4.5h4v4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <span className="merchant-networks__kpi-label">Total pairs</span>
-          </div>
-          <p className="merchant-networks__kpi-value">{pairs.length}</p>
-        </article>
-        <article className="merchant-networks__kpi merchant-networks__kpi--open">
-          <div className="merchant-networks__kpi-top">
-            <span className="merchant-networks__kpi-icon" aria-hidden>
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="6.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M6.8 10.2 9 12.4l4.4-5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <span className="merchant-networks__kpi-label">Open</span>
-          </div>
-          <p className="merchant-networks__kpi-value">{openCount}</p>
-        </article>
-        <article
-          className={`merchant-networks__kpi merchant-networks__kpi--paused${
-            pausedCount > 0 ? " is-alert" : ""
-          }`}
-        >
-          <div className="merchant-networks__kpi-top">
-            <span className="merchant-networks__kpi-icon" aria-hidden>
-              <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="6.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M8.2 7.5v5M11.8 7.5v5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-            <span className="merchant-networks__kpi-label">Paused</span>
-          </div>
-          <p className="merchant-networks__kpi-value">{pausedCount}</p>
-        </article>
-      </div>
-
       <section className="merchant-networks__card">
         <header className="merchant-networks__card-head">
           <h2 className="merchant-networks__card-title">Asset pairs</h2>

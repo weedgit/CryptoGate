@@ -1,7 +1,6 @@
-import { type ComponentType, type ReactNode, useEffect, useState } from "react";
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useMatch } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
-import { AlertSummaryToast } from "../shared/AlertSummaryToast";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
@@ -25,15 +24,20 @@ import {
   countUnreadMerchantAlerts,
   initMerchantAlertReads,
   merchantAlertsSource,
-  merchantAlertsToastKey,
-  merchantAlertsToastMessage,
   refreshMerchantAlerts,
   subscribeMerchantAlerts,
 } from "./merchantAlerts";
-import { primaryMerchantOrgId, sessionIsCashierOnly } from "./org";
+import {
+  locationKindLabel,
+  locationKindTitle,
+  primaryMerchantOrgId,
+  sessionIsCashierOnly,
+  sessionLocationKind,
+} from "./org";
+import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
 import { prefetchMerchantRoute } from "./prefetchRoutes";
 import { merchantRoute } from "../shared/portalRouting";
-import type { Session } from "./api";
+import type { OrgAccount, Session } from "./api";
 
 type NavItem = {
   to: string;
@@ -174,9 +178,13 @@ export function MerchantShell({
   const cashier = sessionIsCashierOnly(session);
   const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
   const merchantId = primaryMerchantOrgId(session);
+  const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekMerchantOrgs());
+  const locationKind = useMemo(
+    () => sessionLocationKind(session, orgs),
+    [session, orgs],
+  );
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [alertToast, setAlertToast] = useState<string | null>(null);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
     usePortalMobileNav();
@@ -191,31 +199,36 @@ export function MerchantShell({
   }, [session.email]);
 
   useEffect(() => {
+    let cancelled = false;
+    void getMerchantOrgs()
+      .then((rows) => {
+        if (!cancelled) setOrgs(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOrgs((prev) => prev ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.userId]);
+
+  useEffect(() => {
     const sync = () => setUnreadAlerts(countUnreadMerchantAlerts());
     sync();
     return subscribeMerchantAlerts(sync);
   }, [session.email]);
 
   useEffect(() => {
-    let cancelled = false;
     const pageVisible = () => document.visibilityState === "visible";
 
     const run = async () => {
       if (!pageVisible()) return;
-      const { urgentUnread } = await refreshMerchantAlerts(session);
-      if (cancelled || urgentUnread <= 0) return;
-      const toastKey = merchantAlertsToastKey(session.email);
-      if (sessionStorage.getItem(toastKey)) return;
-      sessionStorage.setItem(toastKey, "1");
-      setAlertToast(merchantAlertsToastMessage(urgentUnread));
+      await refreshMerchantAlerts(session);
     };
 
     void run();
     const interval = window.setInterval(() => void run(), 60_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+    return () => window.clearInterval(interval);
   }, [cashier, merchantId, session]);
 
   useEffect(() => {
@@ -238,10 +251,20 @@ export function MerchantShell({
         <div className="logo-row">
           <GateLogoMark size={32} className="logo-mark" />
           <div className="logo-copy">
-            <p className="logo-title">CryptoGate</p>
-            <span className="logo-badge">
-              {cashier ? "Cashier" : "Merchant"}
-            </span>
+            <p className="logo-title">PaymentGate</p>
+            <div className="logo-badges">
+              <span className="logo-badge">
+                {cashier ? "Cashier" : "Merchant"}
+              </span>
+              {locationKind ? (
+                <span
+                  className="logo-badge logo-badge--location"
+                  title={locationKindTitle(locationKind)}
+                >
+                  {locationKindLabel(locationKind)}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
         <nav className="nav-list" aria-label="Merchant">
@@ -309,14 +332,6 @@ export function MerchantShell({
         open={alertsOpen}
         onClose={() => setAlertsOpen(false)}
         source={merchantAlertsSource}
-      />
-      <AlertSummaryToast
-        message={alertToast}
-        onOpen={() => {
-          setAlertToast(null);
-          setAlertsOpen(true);
-        }}
-        onDismiss={() => setAlertToast(null)}
       />
     </div>
   );

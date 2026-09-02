@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Issue or skip Let's Encrypt for CryptoGate boostbunny.io hosts.
+# Issue or skip Let's Encrypt for PaymentGate boostbunny.io hosts.
 # Safe to run from cron. Requires A records pointing at this VPS.
 set -euo pipefail
 
@@ -11,9 +11,9 @@ DOMAINS=(
   agent-cg.boostbunny.io
   merchant-cg.boostbunny.io
 )
-CURRENT="/etc/cryptogate/tls/current"
+CURRENT="/etc/paymentgate/tls/current"
 WEBROOT="/var/www/letsencrypt"
-STAMP_FILE="/etc/cryptogate/tls/letsencrypt.ok"
+STAMP_FILE="/etc/paymentgate/tls/letsencrypt.ok"
 
 live_dir_for_cg() {
   for name in api-cg.boostbunny.io pay-cg.boostbunny.io app-cg.boostbunny.io platform-cg.boostbunny.io agent-cg.boostbunny.io merchant-cg.boostbunny.io; do
@@ -46,7 +46,7 @@ fi
 
 LIVE_DIR="$(live_dir_for_cg || true)"
 if [[ -z "${LIVE_DIR:-}" ]]; then
-  echo "certbot succeeded but CryptoGate live cert not found"
+  echo "certbot succeeded but PaymentGate live cert not found"
   exit 1
 fi
 

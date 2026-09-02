@@ -94,8 +94,8 @@ async function listen() {
       return;
     }
     const raw = await readRawBody(req);
-    const signature = String(req.headers["x-cryptogate-signature"] ?? "");
-    const eventId = String(req.headers["x-cryptogate-event-id"] ?? "");
+    const signature = String(req.headers["x-paymentgate-signature"] ?? "");
+    const eventId = String(req.headers["x-paymentgate-event-id"] ?? "");
     if (!verifyWebhookSignature(secret, raw, signature)) {
       res.statusCode = 401;
       res.setHeader("Content-Type", "application/json");

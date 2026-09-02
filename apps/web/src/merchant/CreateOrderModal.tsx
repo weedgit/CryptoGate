@@ -580,7 +580,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
               <h2 className="create-order-page__preview-title">Preview</h2>
               <div className="create-order-preview-card">
                 <div className="create-order-preview-card__bar">
-                  <span className="create-order-preview-card__brand">CryptoGate</span>
+                  <span className="create-order-preview-card__brand">PaymentGate</span>
                   <span className="create-order-preview-card__timer">
                     {formatPreviewTimer(validitySeconds)}
                   </span>

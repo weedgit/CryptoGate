@@ -9,7 +9,7 @@ import {
   toServiceBillCheckout,
   validateIssueServiceBillBody,
 } from "../src/service-bills/service-bill-rules.mjs";
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import {
   canCheckoutServiceBill,
   canIssueServiceBill,

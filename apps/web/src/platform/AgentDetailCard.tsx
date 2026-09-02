@@ -108,7 +108,7 @@ const KPI_HELP = {
   volumeMtd:
     "Confirmed payment-order volume from the 1st of this month through today, across the agent subtree.",
   commissionMtd:
-    "Agent commission accrued month-to-date: share of platform fee collected from the subtree. Paid by CryptoGate on the monthly statement — not taken from payer on-chain payments.",
+    "Agent commission accrued month-to-date: share of platform fee collected from the subtree. Paid by PaymentGate on the monthly statement — not taken from payer on-chain payments.",
 } as const;
 
 function AgentTabEmpty({
@@ -374,7 +374,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
         aria-hidden
       >
         {loading ? (
-          <span className="b3-agent-detail__activity-empty-spinner" />
+          <span className="cg-spinner cg-spinner--sm b3-agent-detail__activity-empty-spinner" />
         ) : (
           <svg viewBox="0 0 48 48" width="32" height="32" fill="none">
             <path
@@ -1458,7 +1458,7 @@ export function AgentDetailCard({
               copy="Sub-agents and merchants onboarded under this agent appear here as a browsable hierarchy."
               hints={[
                 "Onboard merchants from Platform → Merchants",
-                "Add sub-agents when this agent needs a regional desk or partner channel",
+                "Onboard sub-agents when this agent needs a regional desk or partner channel",
               ]}
             />
           ) : (

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("@cryptogate/web platform M4-30", () => {
+describe("@paymentgate/web platform M4-30", () => {
   it("routes platform shell separately from merchant", () => {
     const app = readFileSync(join(root, "src/App.tsx"), "utf8");
     assert.match(app, /\/platform\/\*/);
@@ -22,7 +22,11 @@ describe("@cryptogate/web platform M4-30", () => {
     );
     assert.match(platform, /service-bills\/new/);
     assert.match(platform, /issue=1/);
-    assert.match(platform, /RequirePlatformOperator/);
+    const merchantsRoutes = readFileSync(
+      join(root, "src/platform/PlatformMerchantsRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(merchantsRoutes, /RequirePlatformOperator/);
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /issueServiceBill/);
     assert.match(api, /listServiceBills/);
@@ -39,15 +43,17 @@ describe("@cryptogate/web platform M4-30", () => {
   });
 });
 
-describe("@cryptogate/web platform B4 onboard agent", () => {
+describe("@paymentgate/web platform B4 onboard agent", () => {
   it("wires wizard route and posts commercial commission", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /agents\/new/);
-    assert.match(app, /OnboardAgentPage/);
+    assert.match(app, /PlatformAgentsRoutes/);
     const wizard = readFileSync(
       join(root, "src/platform/OnboardAgentPage.tsx"),
       "utf8",
     );
+    assert.match(wizard, /Onboard agent/);
+    assert.doesNotMatch(wizard, /New agent/);
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
     assert.match(wizard, /inviteOrgUser/);
@@ -63,7 +69,7 @@ describe("@cryptogate/web platform B4 onboard agent", () => {
   });
 });
 
-describe("@cryptogate/web platform B10 B14 v0.3.2", () => {
+describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
   it("wires bill PATCH actions and audit log to v0.3.2 API", () => {
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /updateServiceBill/);
@@ -105,7 +111,7 @@ describe("@cryptogate/web platform B10 B14 v0.3.2", () => {
   });
 });
 
-describe("@cryptogate/web platform B3 agent detail", () => {
+describe("@paymentgate/web platform B3 agent detail", () => {
   it("wires tabbed agent detail with subtree helpers", () => {
     const detail = readFileSync(
       join(root, "src/platform/AgentDetailCard.tsx"),
@@ -130,11 +136,11 @@ describe("@cryptogate/web platform B3 agent detail", () => {
   });
 });
 
-describe("@cryptogate/web platform B6 merchant detail", () => {
+describe("@paymentgate/web platform B6 merchant detail", () => {
   it("wires merchant detail route and tabbed read-only views", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /merchants\/:id/);
-    assert.match(app, /MerchantsListPage/);
+    assert.match(app, /PlatformMerchantsRoutes/);
 
     const detail = readFileSync(
       join(root, "src/platform/MerchantDetailCard.tsx"),
@@ -153,7 +159,7 @@ describe("@cryptogate/web platform B6 merchant detail", () => {
   });
 });
 
-describe("@cryptogate/web platform B8 B13 v0.3.3", () => {
+describe("@paymentgate/web platform B8 B13 v0.3.3", () => {
   it("wires fee tiers and org policy settings to X-01 API", () => {
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /getFeeTierSettings/);

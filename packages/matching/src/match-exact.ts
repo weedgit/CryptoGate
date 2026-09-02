@@ -10,7 +10,7 @@ import {
   type AssetCode as AssetCodeType,
   type MatchingMode,
   type NetworkId as NetworkIdType,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { majorToMinor } from "./amount.js";
 import type {
   MatchCandidateOrder,

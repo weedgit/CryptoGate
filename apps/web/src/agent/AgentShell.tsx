@@ -37,7 +37,7 @@ import { sessionIsAgentViewerOnly } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 import { prefetchAgentRoute } from "./prefetchRoutes";
 
-const SIDEBAR_KEY = "cryptogate.agent.sidebarCollapsed";
+const SIDEBAR_KEY = "paymentgate.agent.sidebarCollapsed";
 
 type NavItem = {
   to: string;
@@ -175,7 +175,7 @@ export function AgentShell({
           <GateLogoMark size={32} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">CryptoGate</p>
+              <p className="logo-title">PaymentGate</p>
               <span className="logo-badge">AGENT PORTAL</span>
             </div>
           ) : null}

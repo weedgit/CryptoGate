@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { API_KEY_MAX_PER_ORG } from "@cryptogate/domain";
+import { API_KEY_MAX_PER_ORG } from "@paymentgate/domain";
 import {
   generateApiKeyId,
   generateApiKeySecret,

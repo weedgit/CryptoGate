@@ -22,7 +22,7 @@ Copy to the drill ticket and tick during the window.
 | 6 | **Stop** API + watcher | ☐ | |
 | 7 | Restore DB (new instance or in-place per provider) | ☐ | Start timer (RTO) |
 | 8 | Update `DATABASE_URL` if hostname changed | ☐ | |
-| 9 | `node apps/api/scripts/migrate.mjs` (or `pnpm --filter @cryptogate/api migrate`) | ☐ | |
+| 9 | `node apps/api/scripts/migrate.mjs` (or `pnpm --filter @paymentgate/api migrate`) | ☐ | |
 | 10 | Start **watcher**, then **API** | ☐ | Stop timer |
 | 11 | Run smoke §2 below | ☐ | |
 | 12 | Complete §3 report; attach monitoring query output | ☐ | |

@@ -25,10 +25,10 @@ Phase 1 ships as **source that Company A deploys** on **Company A cloud accounts
 | Process | Package | Command (from repo root) | Role |
 | --- | --- | --- | --- |
 | Postgres | — | Managed DB in test/prod; `docker compose up -d` locally | Shared `DATABASE_URL` |
-| API | `@cryptogate/api` | `pnpm --filter @cryptogate/api migrate` then `pnpm --filter @cryptogate/api start` | HTTP `/v1`, webhooks worker if enabled |
-| Watcher | `@cryptogate/watcher` | `pnpm --filter @cryptogate/watcher start` | Chain ingest + match + confirmations |
-| Guest pay | `@cryptogate/payment-page` | Static/Vite build behind HTTPS CDN or reverse proxy | Public pay URLs |
-| Merchant web | `@cryptogate/web` | Vite build behind HTTPS | Portal (Bruce) |
+| API | `@paymentgate/api` | `pnpm --filter @paymentgate/api migrate` then `pnpm --filter @paymentgate/api start` | HTTP `/v1`, webhooks worker if enabled |
+| Watcher | `@paymentgate/watcher` | `pnpm --filter @paymentgate/watcher start` | Chain ingest + match + confirmations |
+| Guest pay | `@paymentgate/payment-page` | Static/Vite build behind HTTPS CDN or reverse proxy | Public pay URLs |
+| Merchant web | `@paymentgate/web` | Vite build behind HTTPS | Portal (Bruce) |
 | Cashier APK | `apps/cashier-apk` | Gradle **staging** / **prod** flavors | POS client only |
 
 Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
@@ -95,13 +95,13 @@ node scripts/deploy-wave5.mjs
 # 2) Configure secrets (inject DATABASE_URL, SESSION_SECRET, …)
 
 # 3) Migrate (API owns schema) — include 017 before /v1/api-keys
-pnpm --filter @cryptogate/api migrate
+pnpm --filter @paymentgate/api migrate
 
 # 4) Start API (systemd / container / process manager)
-pnpm --filter @cryptogate/api start
+pnpm --filter @paymentgate/api start
 
 # 5) Start watcher as a *second* unit (same DATABASE_URL, own restart policy)
-pnpm --filter @cryptogate/watcher start
+pnpm --filter @paymentgate/watcher start
 
 # 6) Publish payment-page + web static assets behind HTTPS
 # 7) Point DNS; verify TLS
@@ -124,17 +124,17 @@ pnpm --filter @cryptogate/watcher start
 Illustrative only — adjust user/paths:
 
 ```ini
-# /etc/systemd/system/cryptogate-api.service
+# /etc/systemd/system/paymentgate-api.service
 [Service]
-WorkingDirectory=/opt/cryptogate
-EnvironmentFile=/etc/cryptogate/api.env
+WorkingDirectory=/opt/paymentgate
+EnvironmentFile=/etc/paymentgate/api.env
 ExecStart=/usr/bin/node apps/api/src/server.mjs
 Restart=always
 
-# /etc/systemd/system/cryptogate-watcher.service
+# /etc/systemd/system/paymentgate-watcher.service
 [Service]
-WorkingDirectory=/opt/cryptogate
-EnvironmentFile=/etc/cryptogate/watcher.env
+WorkingDirectory=/opt/paymentgate
+EnvironmentFile=/etc/paymentgate/watcher.env
 ExecStart=/usr/bin/node apps/watcher/src/main.mjs --loop
 Restart=always
 ```

@@ -5,7 +5,7 @@
 
 ## Problem
 
-Guests often leave the pay page during **Verifying** even though payment is already on-chain. Merchants want to hand over goods sooner without weakening CryptoGate’s chain-honest order status or platform confirmation floors.
+Guests often leave the pay page during **Verifying** even though payment is already on-chain. Merchants want to hand over goods sooner without weakening PaymentGate’s chain-honest order status or platform confirmation floors.
 
 Lowering block confirmations per merchant is **not** the right lever — it weakens platform-wide security and duplicates risk policy across thousands of merchants.
 
@@ -43,7 +43,7 @@ Enum: `FulfillmentPolicy` in `packages/domain` (must match OpenAPI when implemen
 | Coinbase Commerce | No | `charge:pending` vs `charge:confirmed` — merchant chooses integration |
 | BTCPay | Yes (store speed policy) | `Processing` (0-conf seen) vs `Settled` (N conf) |
 | NOWPayments | No | Docs: do not deliver on `confirming`; wait for `finished` |
-| **CryptoGate** | **No** (platform floor) | **`on_verifying` fulfillment policy** — BTCPay-like split without lowering chain bar |
+| **PaymentGate** | **No** (platform floor) | **`on_verifying` fulfillment policy** — BTCPay-like split without lowering chain bar |
 
 ## UX surfaces
 

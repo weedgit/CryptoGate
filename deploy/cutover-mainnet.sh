@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-OUT="/etc/cryptogate/mainnet-prep-$STAMP"
+OUT="/etc/paymentgate/mainnet-prep-$STAMP"
 install -d -m 700 "$OUT"
 
 if [[ "${CG_CONFIRM_NEW_DB:-}" != "yes" ]]; then
@@ -18,8 +18,8 @@ PG_PASSWORD="$(openssl rand -hex 24)"
 SESSION_SECRET="$(openssl rand -hex 48)"
 
 cat > "$OUT/postgres.env" <<EOF
-POSTGRES_USER=cryptogate
-POSTGRES_DB=cryptogate
+POSTGRES_USER=paymentgate
+POSTGRES_DB=paymentgate
 POSTGRES_PASSWORD=${PG_PASSWORD}
 EOF
 chmod 600 "$OUT/postgres.env"
@@ -29,37 +29,37 @@ cat > "$OUT/docker-compose.yml" <<'YAML'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cryptogate-postgres-mainnet
+    container_name: paymentgate-postgres-mainnet
     restart: unless-stopped
     ports:
       - "127.0.0.1:5434:5432"
     env_file:
       - ./postgres.env
     environment:
-      POSTGRES_USER: cryptogate
-      POSTGRES_DB: cryptogate
+      POSTGRES_USER: paymentgate
+      POSTGRES_DB: paymentgate
     volumes:
-      - cryptogate_mainnet_pgdata:/var/lib/postgresql/data
+      - paymentgate_mainnet_pgdata:/var/lib/postgresql/data
     mem_limit: 512m
     pids_limit: 200
     security_opt:
       - no-new-privileges:true
 volumes:
-  cryptogate_mainnet_pgdata:
+  paymentgate_mainnet_pgdata:
 YAML
 
 python3 - "$OUT" "$PG_PASSWORD" "$SESSION_SECRET" <<'PY'
 import sys
 from pathlib import Path
 out_dir, pg, secret = sys.argv[1], sys.argv[2], sys.argv[3]
-src = Path("/etc/cryptogate/api.env").read_text()
+src = Path("/etc/paymentgate/api.env").read_text()
 lines = []
 for line in src.splitlines():
     if line.startswith("DATABASE_URL="):
-        lines.append(f"DATABASE_URL=postgres://cryptogate:{pg}@127.0.0.1:5434/cryptogate")
+        lines.append(f"DATABASE_URL=postgres://paymentgate:{pg}@127.0.0.1:5434/paymentgate")
     elif line.startswith("SESSION_SECRET="):
         lines.append(f"SESSION_SECRET={secret}")
-    elif line.startswith("CRYPTOGATE_CHAIN_ENV=") or line.startswith("VITE_CRYPTOGATE_CHAIN_ENV="):
+    elif line.startswith("PAYMENTGATE_CHAIN_ENV=") or line.startswith("VITE_PAYMENTGATE_CHAIN_ENV="):
         lines.append(f"{line.split('=',1)[0]}=mainnet")
     elif line.startswith("DEFAULT_NETWORK="):
         lines.append("DEFAULT_NETWORK=tron")
@@ -72,7 +72,7 @@ PY
 cd "$OUT"
 docker compose -f docker-compose.yml --env-file postgres.env up -d
 for i in $(seq 1 30); do
-  if docker exec cryptogate-postgres-mainnet pg_isready -U cryptogate -d cryptogate >/dev/null 2>&1; then
+  if docker exec paymentgate-postgres-mainnet pg_isready -U paymentgate -d paymentgate >/dev/null 2>&1; then
     break
   fi
   sleep 1
@@ -86,4 +86,4 @@ cd "$ROOT"
 node apps/api/scripts/migrate.mjs
 
 echo "mainnet prep ready at $OUT"
-echo "UAT stack on :5433 is unchanged. Start a second API only after you point DNS / rebuild web with VITE_CRYPTOGATE_CHAIN_ENV=mainnet."
+echo "UAT stack on :5433 is unchanged. Start a second API only after you point DNS / rebuild web with VITE_PAYMENTGATE_CHAIN_ENV=mainnet."

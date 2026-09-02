@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { runWatcherOnce } from "./run-watcher-once.mjs";
 
-describe("@cryptogate/watcher m1 loop", () => {
+describe("@paymentgate/watcher m1 loop", () => {
   it("default run executes one tick and shuts down cleanly", async () => {
     const { code, stdout, stderr } = await runWatcherOnce();
     assert.equal(code, 0, stderr);

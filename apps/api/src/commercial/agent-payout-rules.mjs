@@ -4,7 +4,7 @@ import {
   isTronReceiveAddress,
   PLATFORM_FEE_ASSET,
   resolvePlatformFeeNetwork,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 

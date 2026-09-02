@@ -275,7 +275,7 @@ export async function findWebhookDelivery(webhookId, deliveryId) {
 
 /**
  * Clone a terminal delivery as a new pending row (manual resend).
- * Same event_id + body; new delivery id for X-CryptoGate-Delivery-Id.
+ * Same event_id + body; new delivery id for X-PaymentGate-Delivery-Id.
  * @param {{
  *   webhook_id: string,
  *   event_id: string,

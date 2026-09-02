@@ -13,7 +13,8 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
-import { PlatformPending } from "./ui/PlatformPending";
+import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
+import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import { tierLabel } from "../commercialLabels";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { orgTypeLabel, sessionCanIssueServiceBill } from "./org";
@@ -98,7 +99,7 @@ function StepIndicator({ step }: { step: number }) {
   );
 }
 
-/** Platform B5 add — onboard merchant under a chosen agent. */
+/** Platform B5 add — onboard merchant under Platform or an agent. */
 export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -109,7 +110,6 @@ export function OnboardMerchantPage({ session }: Props) {
   );
   const [step, setStep] = useState(0);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
-  const [agents, setAgents] = useState<OrgAccount[]>([]);
   const [registeredEmails, setRegisteredEmails] = useState<
     Map<string, RegisteredEmailRef>
   >(() => new Map());
@@ -131,30 +131,29 @@ export function OnboardMerchantPage({ session }: Props) {
   useEffect(() => {
     if (!canManage) {
       setError((prev) => prev ?? "Platform Owner or Administrator required.");
-      return;
     }
-    if (booting) return;
-    if (agents.length === 0) {
-      setError(
-        (prev) =>
-          prev ??
-          "Onboard an agent first — merchants must sit under an agent account.",
-      );
-    }
-  }, [canManage, booting, agents.length]);
+  }, [canManage]);
 
   useEffect(() => {
     getPlatformOrgs()
       .then((rows) => {
         setOrgs(rows);
-        setAgents(rows.filter((o) => o.type === "agent" || o.type === "agent_sub"));
       })
       .catch(() => {
         setOrgs([]);
-        setAgents([]);
       })
       .finally(() => setBooting(false));
   }, []);
+
+  const platformOrg = useMemo(
+    () => orgs.find((o) => o.type === "platform") ?? null,
+    [orgs],
+  );
+
+  useEffect(() => {
+    if (!platformOrg) return;
+    setForm((prev) => (prev.parentId ? prev : { ...prev, parentId: platformOrg.id }));
+  }, [platformOrg]);
 
   useEffect(() => {
     if (orgs.length === 0) {
@@ -208,27 +207,37 @@ export function OnboardMerchantPage({ session }: Props) {
     [feeTiers],
   );
 
-  const parentAgent = useMemo(
-    () => agents.find((a) => a.id === form.parentId) ?? null,
-    [agents, form.parentId],
+  const parentOrg = useMemo(
+    () => orgs.find((o) => o.id === form.parentId) ?? null,
+    [orgs, form.parentId],
   );
 
-  const parentOptions = useMemo(
-    () =>
-      agents.map((a) => ({
-        id: a.id,
-        label: a.name,
-        hint: orgTypeLabel(a.type),
-      })),
-    [agents],
-  );
+  const parentOptions = useMemo(() => {
+    const options: { id: string; label: string; hint: string }[] = [];
+    if (platformOrg) {
+      options.push({
+        id: platformOrg.id,
+        label: platformOrg.name,
+        hint: "Platform (direct)",
+      });
+    }
+    for (const org of orgs) {
+      if (org.type !== "agent" && org.type !== "agent_sub") continue;
+      options.push({
+        id: org.id,
+        label: org.name,
+        hint: orgTypeLabel(org.type),
+      });
+    }
+    return options;
+  }, [orgs, platformOrg]);
 
   function patch<K extends keyof WizardState>(key: K, value: WizardState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   function validateStep(): string | null {
-    if (step === 0 && !form.parentId) return "Select a parent agent.";
+    if (step === 0 && !form.parentId) return "Select a parent.";
     if (step === 2 && !form.name.trim()) return "Merchant name is required.";
     if (step === 4 && selectedBand) {
       const pct = Number(form.commercial.volumeFeePercent);
@@ -334,6 +343,7 @@ export function OnboardMerchantPage({ session }: Props) {
 
   if (!canManage) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
@@ -355,22 +365,23 @@ export function OnboardMerchantPage({ session }: Props) {
           </div>
         </div>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   if (booting) {
     return (
-      <div className="b4-wizard-page">
-        <PlatformPending
-          title="Loading merchants form"
-          copy="Fetching agents for the parent picker."
-        />
-      </div>
+      <OnboardWizardLoading
+        title="Onboard merchant"
+        copy="Fetching parent options for this merchant."
+        closeTo={cancelTo}
+      />
     );
   }
 
-  if (agents.length === 0) {
+  if (!platformOrg) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
@@ -382,25 +393,22 @@ export function OnboardMerchantPage({ session }: Props) {
               </Link>
             </header>
             <div className="b4-wizard__body">
-              <p className="muted">
-                Onboard an agent first — merchants must sit under an agent account.
-              </p>
+              <p className="muted">Platform org is not available. Try again later.</p>
             </div>
             <footer className="b4-wizard__foot">
               <Link className="b4-wizard__cancel" to={cancelTo}>
                 Cancel
               </Link>
-              <Link className="b4-wizard__continue" to={platformRoute("agents/new")}>
-                Onboard agent
-              </Link>
             </footer>
           </div>
         </div>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   return (
+    <OnboardWizardPortal>
     <div className="b4-wizard-page">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <div className="b4-wizard-backdrop">
@@ -429,19 +437,22 @@ export function OnboardMerchantPage({ session }: Props) {
             <div className="b4-wizard__body">
               {step === 0 ? (
                 <div className="b4-field">
-                  <label className="b4-field__label" htmlFor="parent-agent">
-                    Parent agent
+                  <label className="b4-field__label" htmlFor="parent-org">
+                    Parent
                   </label>
                   <FieldControl icon="user">
                     <SearchableSelect
-                      id="parent-agent"
+                      id="parent-org"
                       value={form.parentId}
                       options={parentOptions}
                       onChange={(id) => patch("parentId", id)}
-                      placeholder="Select agent…"
-                      emptyLabel="Select agent…"
+                      placeholder="Select parent…"
+                      emptyLabel="Select parent…"
                     />
                   </FieldControl>
+                  <p className="b4-field__hint">
+                    Choose Platform for a direct merchant, or an agent account as channel partner.
+                  </p>
                 </div>
               ) : null}
 
@@ -612,7 +623,7 @@ export function OnboardMerchantPage({ session }: Props) {
                 <dl className="b4-review">
                   <div className="b4-review__row">
                     <dt>Parent</dt>
-                    <dd>{parentAgent?.name ?? form.parentId}</dd>
+                    <dd>{parentOrg?.name ?? form.parentId}</dd>
                   </div>
                   <div className="b4-review__row">
                     <dt>Name</dt>
@@ -680,5 +691,6 @@ export function OnboardMerchantPage({ session }: Props) {
         </div>
       </div>
     </div>
+    </OnboardWizardPortal>
   );
 }

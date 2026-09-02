@@ -1,7 +1,7 @@
 import {
   NOTIFICATION_EVENT_TYPES,
   NotificationEventType,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 export { NOTIFICATION_EVENT_TYPES, NotificationEventType };
 

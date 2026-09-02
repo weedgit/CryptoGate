@@ -17,7 +17,7 @@ import {
 describe("password reset HTTP", { skip: !hasPostgres() }, () => {
   it("forgot always returns 204; reset updates password", async () => {
     runMigrations();
-    const email = `reset-${Date.now()}@local.cryptogate`;
+    const email = `reset-${Date.now()}@local.paymentgate`;
     const oldPassword = "LocalReview1!";
     const newPassword = "NewLocalPass2!";
     await createUser({ email, password: oldPassword });

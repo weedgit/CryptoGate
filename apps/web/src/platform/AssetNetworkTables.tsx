@@ -3,7 +3,7 @@ import {
   NetworkId,
   type AssetCode,
   type AssetNetworkConfig,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { NetworkIcon } from "./cryptoIcons";
 import { visibleRegistry } from "../shared/assetNetworks";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";

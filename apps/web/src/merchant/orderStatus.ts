@@ -31,9 +31,9 @@ const ANOMALY_REASON_LABELS: Record<string, string> = {
 /** What staff should do after reading the reason. */
 const ANOMALY_GUIDANCE: Record<string, string> = {
   mode_b_same_amount_collision:
-    "Check which customer paid and settle in your own books if needed. Then Resolve with a short note. CryptoGate will not guess which ticket the payment belongs to.",
+    "Check which customer paid and settle in your own books if needed. Then Resolve with a short note. PaymentGate will not guess which ticket the payment belongs to.",
   mode_s_same_amount_collision:
-    "Check which customer paid and settle in your own books if needed. Then Resolve with a short note. CryptoGate will not guess which ticket the payment belongs to.",
+    "Check which customer paid and settle in your own books if needed. Then Resolve with a short note. PaymentGate will not guess which ticket the payment belongs to.",
   mode_b_underpay:
     "Confirm with the customer whether they will send the rest or you accept a partial. Record the outcome when you Resolve — there is no Mark paid.",
   mode_b_overpay:
@@ -115,7 +115,7 @@ export function anomalyExplain(input: {
     return {
       title: "Amounts match, but this ticket was flagged for review",
       guidance:
-        "Expected and received are the same, so this is not an under/overpay. A true same-amount collision only happens when two open tickets share one address and one amount at the same time — CryptoGate then cannot tell which customer paid. On older/demo tickets the exact cause code may be missing. Check the explorer and your counter log, then Resolve with a note.",
+        "Expected and received are the same, so this is not an under/overpay. A true same-amount collision only happens when two open tickets share one address and one amount at the same time — PaymentGate then cannot tell which customer paid. On older/demo tickets the exact cause code may be missing. Check the explorer and your counter log, then Resolve with a note.",
       inferred: true,
     };
   }

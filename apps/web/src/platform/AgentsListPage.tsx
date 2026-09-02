@@ -202,7 +202,7 @@ function AgentsListEmptyPanel({
       : variant === "searching"
         ? "Looking up team contact emails across agent orgs. Matches appear as they are found."
         : variant === "no-agents"
-          ? "Onboard your first agent to start building the merchant network."
+          ? "Add your first agent to start building the merchant network."
           : variant === "no-results"
             ? query
               ? `Nothing matched “${query}”. Try a different name, email, or org ID.`
@@ -218,7 +218,7 @@ function AgentsListEmptyPanel({
         aria-hidden
       >
         {variant === "loading" || variant === "searching" ? (
-          <span className="org-agents__list-empty-spinner" />
+          <span className="cg-spinner cg-spinner--md org-agents__list-empty-spinner" />
         ) : variant === "no-results" ? (
           <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
             <circle cx="20" cy="20" r="9" stroke="currentColor" strokeWidth="1.6" />
@@ -276,7 +276,7 @@ function AgentsListEmptyPanel({
         ) : null}
         {variant === "no-agents" && canManage ? (
           <Link className="btn-primary btn-inline" to={platformRoute("agents/new")}>
-            New Agent
+            Onboard agent
           </Link>
         ) : null}
         {variant === "error" && onRetry ? (
@@ -347,7 +347,7 @@ export function AgentsListPage({ session }: Props) {
     onDeleted: async () => {
       invalidatePlatformOrgList();
       try {
-        const next = await getPlatformOrgs();
+        const next = await getPlatformOrgs({ force: true });
         setOrgs(next);
         if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
       } catch {
@@ -717,7 +717,7 @@ export function AgentsListPage({ session }: Props) {
               </div>
               {canManage ? (
                 <Link className="btn-primary org-agents__cta" to={platformRoute("agents/new")}>
-                  New Agent
+                  Onboard agent
                 </Link>
               ) : null}
             </div>,

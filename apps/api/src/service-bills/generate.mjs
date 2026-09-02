@@ -1,4 +1,4 @@
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";

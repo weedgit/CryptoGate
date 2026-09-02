@@ -30,7 +30,7 @@ import {
 } from "./feeTierDisplay";
 import { sessionIsPlatformOwner } from "./org";
 import { OrgListPagination } from "./OrgListPagination";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 
 const TIER_LABEL: Record<string, string> = {
   small: "Small",
@@ -274,10 +274,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
       {tab === "remittance" ? (
         <BillingWalletPanel session={session} onDirtyChange={setBillingDirty} />
       ) : loading ? (
-        <PlatformPending
-          title="Loading platform fees"
-          copy="Fetching global pricing bands and Enterprise approval queue."
-        />
+        <PagePending />
       ) : tab === "pricing" ? (
         <>
           <div className="plat-fee-tiers__banner" role="status">

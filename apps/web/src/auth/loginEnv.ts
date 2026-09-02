@@ -1,4 +1,4 @@
-const REMEMBER_EMAIL_KEY = "cryptogate.rememberEmail";
+const REMEMBER_EMAIL_KEY = "paymentgate.rememberEmail";
 
 export function loadRememberedEmail(): string {
   try {

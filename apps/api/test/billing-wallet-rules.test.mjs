@@ -6,12 +6,12 @@ import { toServiceBillCheckout } from "../src/service-bills/service-bill-rules.m
 describe("billing wallet B11-lite", () => {
   it("validates seller + payTo body", () => {
     const ok = validateUpdateBillingWalletBody({
-      sellerName: "CryptoGate Ops",
+      sellerName: "PaymentGate Ops",
       payTo: "TPlatformWallet1234567890123456789012",
     });
     assert.equal(ok.ok, true);
     if (ok.ok) {
-      assert.equal(ok.sellerName, "CryptoGate Ops");
+      assert.equal(ok.sellerName, "PaymentGate Ops");
       assert.equal(ok.payTo, "TPlatformWallet1234567890123456789012");
     }
 

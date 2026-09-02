@@ -1,4 +1,4 @@
-import { OrderStatus, WebhookEventType } from "@cryptogate/domain";
+import { OrderStatus, WebhookEventType } from "@paymentgate/domain";
 
 /**
  * Map payment-order status → outbound webhook type.

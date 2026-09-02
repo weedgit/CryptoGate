@@ -1,4 +1,4 @@
--- CryptoGate ops monitoring queries (M4-03)
+-- PaymentGate ops monitoring queries (M4-03)
 -- Run against the environment Postgres (read-only role recommended).
 -- Tune thresholds in your alert tool; values below match doc/M4-03-Backup-Monitoring.md.
 

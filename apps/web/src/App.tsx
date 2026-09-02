@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { PortalShellBoot } from "./auth/PortalShellBoot";
+import "./styles/loading.css";
 import { lazyNamed } from "./shared/lazyNamed";
 import { RouteErrorBoundary } from "./shared/RouteErrorBoundary";
 import { merchantRoute, portalFromHostname } from "./shared/portalRouting";
@@ -16,9 +17,7 @@ const MerchantApp = lazyNamed(
 );
 
 function PortalFallback() {
-  return (
-    <PortalShellBoot title="Loading portal" copy="Opening your workspace" />
-  );
+  return <PortalShellBoot />;
 }
 
 function LegacyPortalRoutes() {

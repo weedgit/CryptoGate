@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_ETHEREUM } from "@cryptogate/domain";
+import { USDT_ETHEREUM } from "@paymentgate/domain";
 import {
   healthCheck,
   getEthereumConfig,
@@ -41,7 +41,7 @@ function clearEthTestEnv() {
   return withEnv(patch);
 }
 
-describe("@cryptogate/chain-clients/ethereum stub", () => {
+describe("@paymentgate/chain-clients/ethereum stub", () => {
   let restore = () => {};
 
   before(() => {
@@ -88,7 +88,7 @@ describe("@cryptogate/chain-clients/ethereum stub", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/ethereum map + rpc (mocked)", () => {
+describe("@paymentgate/chain-clients/ethereum map + rpc (mocked)", () => {
   it("mapTransferLog maps ERC-20 Transfer log", () => {
     const to = "0x742d35cc6634c0532925a3b844bc9e7595f0beb0";
     const mapped = mapTransferLog(
@@ -132,7 +132,7 @@ describe("@cryptogate/chain-clients/ethereum map + rpc (mocked)", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
+describe("@paymentgate/chain-clients/ethereum JSON-RPC live (mocked)", () => {
   const prevUrl = process.env.ETH_RPC_URL;
   const prevStubTx = process.env.WATCHER_STUB_TRANSFERS;
   const prevStubConf = process.env.WATCHER_STUB_CONFIRMATIONS;

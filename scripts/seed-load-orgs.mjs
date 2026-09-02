@@ -31,6 +31,7 @@ import { bootstrapMerchantCommercial } from "../apps/api/src/commercial/merchant
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
 
 const COUNT = 100;
 const PREFIX = "Load";
@@ -66,7 +67,7 @@ function loadEnv() {
   }
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL =
-      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
   }
 }
 
@@ -87,7 +88,7 @@ function merchantName(n) {
 }
 
 function cashierEmail(n) {
-  return `cashier.load${pad(n)}@local.cryptogate`;
+  return `cashier.load${pad(n)}@local.paymentgate`;
 }
 
 function daysAgo(days, jitterHours = 0) {
@@ -196,10 +197,10 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
+  const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);
   if (!platformOwner) {
     throw new Error(
-      "Missing admin.platform@cryptogate.io — run `node scripts/seed-local.mjs` first.",
+      `Missing ${SEED_PLATFORM_OWNER_EMAIL} — run \`node scripts/seed-local.mjs\` first.`,
     );
   }
 
@@ -387,7 +388,7 @@ async function main() {
   console.log(`  Cashiers:    ${COUNT}  (${cashierEmail(1)} … ${cashierEmail(COUNT)})`);
   console.log(`  Cashier pw:  ${CASHIER_PASSWORD}`);
   console.log("  History:     payment orders + org_create audit (backdated)");
-  console.log("\nPlatform login: admin.platform@cryptogate.io / User123456!1");
+  console.log(`\nPlatform login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567!`);
 }
 
 main()

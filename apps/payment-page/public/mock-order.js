@@ -1,7 +1,7 @@
 /** Live guest pay — poll GET /v1/orders/{id}/payment. Do not poll chain. */
 const params = new URLSearchParams(location.search);
 const demoState = params.get("state") || "pending";
-const apiBase = (window.CRYPTOGATE_API_BASE || "http://127.0.0.1:3000").replace(
+const apiBase = (window.PAYMENTGATE_API_BASE || "http://127.0.0.1:3000").replace(
   /\/$/,
   "",
 );
@@ -1074,8 +1074,8 @@ shareBtn?.addEventListener("click", async () => {
   try {
     if (navigator.share) {
       await navigator.share({
-        title: "CryptoGate payment",
-        text: "Pay this CryptoGate order",
+        title: "PaymentGate payment",
+        text: "Pay this PaymentGate order",
         url: shareUrl,
       });
       return;

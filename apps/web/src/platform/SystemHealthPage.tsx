@@ -13,7 +13,7 @@ import {
   type WatcherHealthList,
 } from "./api";
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
-import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 
 type HealthPayload = {
   service?: string;
@@ -135,7 +135,7 @@ export function SystemHealthPage() {
             {loading && !health ? "…" : statusLabel(health?.status, "—")}
           </p>
           <p className="plat-ops-health__kpi-copy">
-            {health?.service ?? "cryptogate-api"}
+            {health?.service ?? "paymentgate-api"}
           </p>
         </div>
         <div className="plat-ops-health__kpi">
@@ -190,14 +190,7 @@ export function SystemHealthPage() {
             ) : null}
 
             {loading && !watcher ? (
-              <div className="plat-ops-health__pending">
-                <PlatformPending
-                  compact
-                  title="Loading watcher heartbeats"
-                  copy="Waiting for per-network watcher ticks."
-                />
-                <PlatformTableSkeleton columns={8} rows={3} />
-              </div>
+              <PagePending />
             ) : null}
 
             {!loading && !watcher?.items?.length ? (

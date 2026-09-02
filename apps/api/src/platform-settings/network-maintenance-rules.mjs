@@ -1,4 +1,4 @@
-import { NetworkId } from "@cryptogate/domain";
+import { NetworkId } from "@paymentgate/domain";
 
 const KNOWN_NETWORKS = new Set(Object.values(NetworkId));
 

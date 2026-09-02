@@ -40,6 +40,67 @@ export function sessionCanOnboardMerchant(session: Session): boolean {
   );
 }
 
+const MANAGE_ROLES = new Set(["owner", "administrator"]);
+
+type OrgRef = { id: string; parentId: string | null };
+
+function collectAncestorOrgIds(
+  org: { parentId: string | null },
+  orgs: OrgRef[],
+): string[] {
+  const byId = new Map(orgs.map((o) => [o.id, o]));
+  const ids: string[] = [];
+  let parentId = org.parentId;
+  while (parentId) {
+    ids.push(parentId);
+    parentId = byId.get(parentId)?.parentId ?? null;
+  }
+  return ids;
+}
+
+/**
+ * Suspend, delete, and commercial edits — direct children only.
+ * Top-level agent memberships cannot manage grandchildren (e.g. merchants under a sub-agent).
+ */
+export function sessionCanManageDirectChild(
+  session: Session,
+  org: { parentId: string | null; type: string },
+  orgs: OrgRef[] = [],
+): boolean {
+  if (!org.parentId || org.type === "merchant_site") return false;
+  const parentMembership = session.memberships.find(
+    (m) =>
+      m.orgId === org.parentId &&
+      AGENT_TYPES.has(m.orgType ?? "") &&
+      MANAGE_ROLES.has(m.role),
+  );
+  if (!parentMembership) return false;
+
+  if (orgs.length > 0) {
+    const ancestors = collectAncestorOrgIds(org, orgs);
+    for (const m of session.memberships) {
+      if (m.orgType !== "agent" || !MANAGE_ROLES.has(m.role)) continue;
+      if (org.parentId === m.orgId) continue;
+      if (ancestors.includes(m.orgId)) return false;
+    }
+  }
+
+  return true;
+}
+
+/** Onboard children under this agent / sub-agent org (Owner/Admin on that org). */
+export function sessionCanManageOrgAsParent(
+  session: Session,
+  orgId: string,
+): boolean {
+  return session.memberships.some(
+    (m) =>
+      m.orgId === orgId &&
+      AGENT_TYPES.has(m.orgType ?? "") &&
+      MANAGE_ROLES.has(m.role),
+  );
+}
+
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
   if (type === "agent_sub") return "Agent (sub)";

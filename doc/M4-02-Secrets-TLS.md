@@ -3,7 +3,7 @@
 **Owner:** Kevin (infra). **Depends on:** [M4-01-Deploy-Runbook.md](M4-01-Deploy-Runbook.md), [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).  
 **Follow-ons:** [M4-03 backup/monitoring](M4-03-Backup-Monitoring.md) · [M4-04 admin host](M4-04-Admin-Host-Vendor-Access.md).
 
-Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. This doc lists **platform** secrets, TLS surfaces, and rotation — not merchant wallet material.
+Company A owns cloud accounts. PaymentGate never stores merchant **spend** keys. This doc lists **platform** secrets, TLS surfaces, and rotation — not merchant wallet material.
 
 ---
 
@@ -14,7 +14,7 @@ Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. 
 | Merchant API | `https://api-test.<client>/v1` | `https://api.<client>/v1` | Terminate TLS at load balancer or reverse proxy |
 | Guest pay page | `https://pay-test.<client>` | `https://pay.<client>` | Static/Vite build; no API keys in browser |
 | Merchant portal | `https://app-test.<client>` | `https://app.<client>` | Session cookie `cg_session` |
-| Webhook **outbound** | Merchant HTTPS URL | Same | CryptoGate POSTs to merchant; their cert must be valid in prod |
+| Webhook **outbound** | Merchant HTTPS URL | Same | PaymentGate POSTs to merchant; their cert must be valid in prod |
 | Postgres | TLS to managed DB | Same | Prefer `sslmode=require` in `DATABASE_URL` |
 | Tron RPC | HTTPS TronGrid / private node | Same | `TRON_RPC_URL`; optional `TRON_API_KEY` header |
 
@@ -26,7 +26,7 @@ Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. 
 - [ ] HSTS on API + portal + pay (Company A policy)  
 - [ ] TLS 1.2+ only; disable weak ciphers per Company A baseline  
 - [ ] `API_PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` use **https** origins in test/prod  
-- [ ] Cashier APK flavors point at **https** API bases in test/prod (`-Pcryptogate.stagingApi` / `prodApi`)
+- [ ] Cashier APK flavors point at **https** API bases in test/prod (`-Ppaymentgate.stagingApi` / `prodApi`)
 
 ---
 
@@ -44,7 +44,7 @@ Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. 
 | Cashier APK **release keystore** | Company A secure store; `keystore.properties` gitignored | Prod signing only | **Yes** | New keystore = new app signing key (Play sideload policy) |
 | `SESSION`/cookie value | Client only | N/A | Yes | Logout / session revoke |
 
-**Not platform secrets:** merchant settlement **private** keys, mnemonics, or spend material — merchants control wallets; CryptoGate is watch-only.
+**Not platform secrets:** merchant settlement **private** keys, mnemonics, or spend material — merchants control wallets; PaymentGate is watch-only.
 
 ---
 
@@ -58,10 +58,10 @@ Company A owns cloud accounts. CryptoGate never stores merchant **spend** keys. 
 Example layout (illustrative):
 
 ```
-/etc/cryptogate/test/api.env      → SESSION_SECRET, DATABASE_URL, CORS_*, …
-/etc/cryptogate/test/watcher.env  → DATABASE_URL, TRON_RPC_URL, TRON_API_KEY, …
-/etc/cryptogate/prod/api.env
-/etc/cryptogate/prod/watcher.env
+/etc/paymentgate/test/api.env      → SESSION_SECRET, DATABASE_URL, CORS_*, …
+/etc/paymentgate/test/watcher.env  → DATABASE_URL, TRON_RPC_URL, TRON_API_KEY, …
+/etc/paymentgate/prod/api.env
+/etc/paymentgate/prod/watcher.env
 ```
 
 Watcher needs `DATABASE_URL` and Tron vars; it must **not** receive `SESSION_SECRET` unless required (it is not today).

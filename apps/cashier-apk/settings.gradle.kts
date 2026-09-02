@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CryptoGateCashier"
+rootProject.name = "PaymentGateCashier"
 include(":app")

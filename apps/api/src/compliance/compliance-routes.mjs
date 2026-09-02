@@ -1,4 +1,4 @@
-import { validateMatchingSettings } from "@cryptogate/matching";
+import { validateMatchingSettings } from "@paymentgate/matching";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findUserMfaById } from "../auth/users.mjs";

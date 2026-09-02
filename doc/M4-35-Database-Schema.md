@@ -3,9 +3,9 @@
 **Owner:** Kevin (doc). **Source of truth:** `apps/api/migrations/*.sql` (Andrew).  
 **Conventions:** [DB-Conventions.md](DB-Conventions.md). **Domain enums:** `packages/domain`.
 
-Phase 1 Postgres schema for CryptoGate. Watcher reads/writes **payment order** chain columns; it does **not** run migrations.
+Phase 1 Postgres schema for PaymentGate. Watcher reads/writes **payment order** chain columns; it does **not** run migrations.
 
-**Latest migration:** `041_payment_order_anomaly_resolution.sql` (run `pnpm --filter @cryptogate/api migrate` before deploy). Invoice / billing / commissions batch work also added **037–040**.
+**Latest migration:** `041_payment_order_anomaly_resolution.sql` (run `pnpm --filter @paymentgate/api migrate` before deploy). Invoice / billing / commissions batch work also added **037–040**.
 
 **018 before 017 on fresh env:** migrations apply in filename order; **017** then **018** on existing DBs that already ran through 017.
 
@@ -63,7 +63,7 @@ erDiagram
 | `merchant_xpubs` | Mode S watch-only xPub | `xpub`, `asset`, `network` |
 | `hd_pool_addresses` | Mode S pool slots | `status` (`FREE`/`IN_USE`/`COOLDOWN`), `hd_index`, `cooldown_until` |
 
-**Order `status` values:** `pending_payment`, `verifying`, `confirmed`, `completed`, `expired`, `payment_anomaly`, `failed`, `cancelled` — must match `@cryptogate/domain` and [Watcher-Order-Status-Contract.md](Watcher-Order-Status-Contract.md).
+**Order `status` values:** `pending_payment`, `verifying`, `confirmed`, `completed`, `expired`, `payment_anomaly`, `failed`, `cancelled` — must match `@paymentgate/domain` and [Watcher-Order-Status-Contract.md](Watcher-Order-Status-Contract.md).
 
 ### Integrations
 

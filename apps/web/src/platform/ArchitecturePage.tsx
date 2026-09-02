@@ -15,7 +15,7 @@ import { getPlatformOrgs, invalidatePlatformOrgList, peekPlatformOrgs } from "./
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { formatOnboardDate } from "./orgDetailSeeds";
 import {
@@ -721,7 +721,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
   const refreshForest = useCallback(async () => {
     invalidatePlatformOrgList();
     const [orgs, emailRows] = await Promise.all([
-      getPlatformOrgs(),
+      getPlatformOrgs({ force: true }),
       listPlatformOrgMemberEmails().catch(() => [] as Awaited<
         ReturnType<typeof listPlatformOrgMemberEmails>
       >),
@@ -736,10 +736,13 @@ export function ArchitecturePage({ session }: { session: Session }) {
       }
       return next;
     });
-    setSelectedId((prev) =>
-      prev && nextForest.byId.has(prev) ? prev : (nextForest.roots[0]?.id ?? null),
-    );
-  }, []);
+    setSelectedId((prev) => {
+      if (prev && nextForest.byId.has(prev)) return prev;
+      const parentId = prev ? (forest.byId.get(prev)?.parentId ?? null) : null;
+      if (parentId && nextForest.byId.has(parentId)) return parentId;
+      return nextForest.roots[0]?.id ?? null;
+    });
+  }, [forest]);
 
   const {
     deleteTarget,
@@ -1107,11 +1110,7 @@ export function ArchitecturePage({ session }: { session: Session }) {
               onKeyDown={onTreeKeyDown}
             >
               {loading ? (
-                <PlatformPending
-                  className="org-architecture__empty"
-                  title="Loading org tree"
-                  copy="Building the platform hierarchy."
-                />
+                <PagePending />
               ) : filteredRoots.length === 0 ? (
                 <div className="org-architecture__empty">
                   <p className="org-architecture__empty-title">No matches</p>

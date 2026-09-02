@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AssetCode, NetworkId } from "@cryptogate/domain";
+import { AssetCode, NetworkId } from "@paymentgate/domain";
 
 type IconProps = { className?: string; title?: string };
 

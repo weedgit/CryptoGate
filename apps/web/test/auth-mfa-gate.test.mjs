@@ -28,7 +28,6 @@ describe("MFA step-up gate", () => {
     for (const file of [
       "src/merchant/SettlementPage.tsx",
       "src/agent/AgentSettingsPage.tsx",
-      "src/merchant/SiteOverridesPanel.tsx",
       "src/platform/ComplianceOverrideModal.tsx",
     ]) {
       const src = readFileSync(join(root, file), "utf8");

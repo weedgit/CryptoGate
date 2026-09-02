@@ -5,7 +5,7 @@ import {
   MODE_D_CREATE_BLOCK_STATUSES,
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
-} from "@cryptogate/matching";
+} from "@paymentgate/matching";
 import { findSettlementAddress } from "../settlement/settlement-store.mjs";
 import { hasActiveXpub } from "../xpub/xpub-store.mjs";
 import { claimHdPoolAddress } from "../mode-s/hd-pool-store.mjs";
@@ -125,21 +125,21 @@ export async function assignOnOrderCreate(input) {
     input.network,
     input.client,
   );
-  /** @type {import("@cryptogate/matching").ListReservedPayableAmounts} */
+  /** @type {import("@paymentgate/matching").ListReservedPayableAmounts} */
   const listPayables = (query) =>
     listReservedPayableAmounts(input.client, {
       ...query,
       merchantIds: walletGroupOrgIds,
       statuses: MODE_C_RESERVED_STATUSES,
     });
-  /** @type {import("@cryptogate/matching").ListReservedMemoOrTags} */
+  /** @type {import("@paymentgate/matching").ListReservedMemoOrTags} */
   const listMemos = (query) =>
     listReservedMemoOrTags(input.client, {
       ...query,
       merchantIds: walletGroupOrgIds,
       statuses: MODE_D_RESERVED_STATUSES,
     });
-  /** @type {import("@cryptogate/matching").HasModeSSameAmountConflict} */
+  /** @type {import("@paymentgate/matching").HasModeSSameAmountConflict} */
   const hasConflict = (query) =>
     hasModeSSameAmountConflict(input.client, {
       ...query,

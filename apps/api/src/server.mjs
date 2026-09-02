@@ -36,7 +36,7 @@ let webhookJob = null;
 let serviceBillOverdueJob = null;
 
 server.listen(port, host, () => {
-  console.log(`cryptogate-api listening on http://${host}:${port}`);
+  console.log(`paymentgate-api listening on http://${host}:${port}`);
   expiryJob = startOrderExpiryJob();
   serviceBillOverdueJob = startServiceBillOverdueJob();
   webhookJob = startWebhookDeliveryJob();

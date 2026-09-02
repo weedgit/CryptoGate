@@ -93,13 +93,26 @@ async function purgeOrgOperationalData(orgId, client) {
     `DELETE FROM commission_payouts WHERE payee_org_id = $1 OR payer_org_id = $1`,
     [orgId],
   );
-  await client.query(`DELETE FROM payment_order_webhook_outbox WHERE org_id = $1`, [
-    orgId,
-  ]);
+  await client.query(
+    `DELETE FROM payment_order_webhook_outbox WHERE org_id = $1`,
+    [orgId],
+  );
   await client.query(`DELETE FROM webhook_endpoints WHERE org_id = $1`, [orgId]);
   await client.query(`DELETE FROM api_keys WHERE org_id = $1`, [orgId]);
+  await client.query(`DELETE FROM hd_pool_addresses WHERE org_id = $1`, [orgId]);
   await client.query(`DELETE FROM payment_orders WHERE org_id = $1`, [orgId]);
   await client.query(`DELETE FROM service_bills WHERE org_id = $1`, [orgId]);
+  await client.query(
+    `DELETE FROM site_setting_overrides
+     WHERE site_org_id = $1 OR parent_org_id = $1`,
+    [orgId],
+  );
+  await client.query(`DELETE FROM enterprise_rate_approvals WHERE org_id = $1`, [
+    orgId,
+  ]);
+  await client.query(`DELETE FROM notification_preferences WHERE org_id = $1`, [
+    orgId,
+  ]);
 }
 
 /**
@@ -133,10 +146,18 @@ export async function deleteOrgCascade(rootOrgId) {
     await client.query("COMMIT");
     return { deletedOrgIds, summary };
   } catch (err) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Transaction may already be aborted.
+    }
     if (err && err.code === "23503") {
+      const detail =
+        typeof err.detail === "string" && err.detail.trim()
+          ? ` ${err.detail.trim()}`
+          : "";
       const e = new Error(
-        "Account still has linked records that could not be removed automatically.",
+        `Account still has linked records that could not be removed automatically.${detail}`,
       );
       e.code = "has_dependencies";
       throw e;

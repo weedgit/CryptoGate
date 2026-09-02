@@ -1,4 +1,4 @@
--- M1-13: org tree. Enum strings match @cryptogate/domain OrgType.
+-- M1-13: org tree. Enum strings match @paymentgate/domain OrgType.
 -- Merchant structure matches OpenAPI (not yet a domain enum).
 -- Max agent depth is a Platform-row setting (Business-Model default 2).
 -- Memberships (M1-15) are a separate table.

@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig } from "@cryptogate/domain";
+import { getAssetNetworkConfig } from "@paymentgate/domain";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 

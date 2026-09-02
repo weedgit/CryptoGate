@@ -1,5 +1,5 @@
 import { looksLikeSpendKey } from "../security/spend-material.mjs";
-import { isTronReceiveAddress } from "@cryptogate/domain";
+import { isTronReceiveAddress } from "@paymentgate/domain";
 
 /**
  * @param {unknown} body

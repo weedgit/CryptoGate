@@ -1,4 +1,4 @@
-import { API_KEY_MAX_PER_ORG } from "@cryptogate/domain";
+import { API_KEY_MAX_PER_ORG } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 import { signingNonceTtlSeconds } from "./signing-rules.mjs";
 

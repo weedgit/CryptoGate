@@ -1,4 +1,4 @@
-import { MerchantTier } from "@cryptogate/domain";
+import { MerchantTier } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
@@ -21,6 +21,7 @@ import {
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
+import { collectAncestorOrgIds } from "../orgs/org-ancestry.mjs";
 import {
   canReadMerchantCommercial,
   canUpdateMerchantCommercial,
@@ -111,7 +112,8 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     sendError(res, 404, "not_found", "Merchant org not found");
     return;
   }
-  if (!canUpdateMerchantCommercial(caller, org)) {
+  const ancestors = await collectAncestorOrgIds(org);
+  if (!canUpdateMerchantCommercial(caller, org, ancestors)) {
     sendError(res, 403, "forbidden", "Not allowed to update merchant commercial settings");
     return;
   }

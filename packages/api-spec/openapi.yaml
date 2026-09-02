@@ -1,13 +1,13 @@
 openapi: 3.0.3
 info:
-  title: CryptoGate Phase 1 API
+  title: PaymentGate Phase 1 API
   version: 0.3.5
   description: >
     Contract freeze v0.3.5 (merchant site inherit + Owner override approval).
     Builds on v0.3.4 service bill generation. Source of truth for apps/api,
     apps/payment-page, and apps/cashier-apk. Payment orders are watch-only.
     Service bills are a separate rail — never merge with /orders. Enums match
-    @cryptogate/domain. Never return spend keys, full xPub, webhook signingSecret,
+    @paymentgate/domain. Never return spend keys, full xPub, webhook signingSecret,
     or API key secret on GET.
 
     Machine clients (security apiKey): send X-Api-Key, X-Timestamp, X-Nonce,
@@ -850,7 +850,7 @@ paths:
         Merchant Owner, Administrator, or Viewer (and platform operators / agent
         ancestors) may read. Cashier receives 403. Only merchant and merchant_site
         orgs are valid. Addresses are merchant-controlled receive destinations used
-        by matching assignOnCreate — CryptoGate never holds spend keys.
+        by matching assignOnCreate — PaymentGate never holds spend keys.
       security:
         - sessionCookie: []
       parameters:
@@ -1101,9 +1101,9 @@ paths:
       operationId: listSiteSettingOverrides
       summary: List inherit-override requests for a merchant (site)
       description: >
-        Merchant (site) defaults inherit parent merchant settlement, xPub, matching
-        mode, and order retention. Site Owner/Administrator request overrides; the
-        parent merchant Owner approves or denies. Cashier 403. GET xPub payloads
+        Merchant (site) always inherits parent merchant wallet, matching mode,
+        fulfillment, and retention. POST/PATCH return 403 site_inherit_only.
+        GET remains for historical override rows. Cashier 403. GET xPub payloads
         never include the full xPub string.
       security:
         - sessionCookie: []
@@ -1143,11 +1143,11 @@ paths:
     post:
       tags: [orgs]
       operationId: requestSiteSettingOverride
-      summary: Request a site-level override (site Owner / Administrator)
+      summary: Request a site-level override (disabled — sites inherit)
       description: >
-        Creates a pending override. Direct PUT on site settlement / xPub / matching
-        mode / retention returns 403 override_required until the parent merchant
-        Owner approves. Duplicate pending kind returns 409.
+        Sites always inherit parent settings. This path returns 403 site_inherit_only
+        (legacy override_required is no longer issued). Direct PUT on site settlement
+        / xPub / matching mode / retention is also 403.
       security:
         - sessionCookie: []
       parameters:
@@ -1193,11 +1193,9 @@ paths:
     patch:
       tags: [orgs]
       operationId: decideSiteSettingOverride
-      summary: Approve or deny a site override (parent merchant Owner)
+      summary: Approve or deny a site override (disabled — sites inherit)
       description: >
-        Approve writes the payload onto the site org (settlement/xPub still require
-        mfaCode). Deny leaves inherit in place. Platform compliance uses B7, not this
-        path.
+        Sites always inherit parent settings. This path returns 403 site_inherit_only.
       security:
         - sessionCookie: []
       parameters:
@@ -1369,7 +1367,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/OrgRetentionSettings"
         "403":
-          description: Forbidden or override_required on a site without approval
+          description: Forbidden or site_inherit_only (sites always inherit parent settings)
           content:
             application/json:
               schema:
@@ -3706,7 +3704,7 @@ components:
       enum: [owner, administrator, viewer, cashier]
     MembershipStatus:
       type: string
-      description: Matches @cryptogate/domain MembershipStatus
+      description: Matches @paymentgate/domain MembershipStatus
       enum: [active, paused]
     OrderStatus:
       type: string
@@ -3782,11 +3780,15 @@ components:
       type: string
       description: >
         merchant = parent merchant account. inherit = site using parent defaults.
-        override = site after parent Owner approval.
+        override is retained for historical rows only; live lookup never returns it
+        for sites.
       enum: [merchant, inherit, override]
     SiteOverrideKind:
       type: string
-      enum: [settlement, xpub, matching_mode, order_retention, fulfillment_policy]
+      description: >
+        Historical site override kinds. Live product: sites always inherit;
+        new override requests are rejected (site_inherit_only).
+      enum: [matching_mode, order_retention, fulfillment_policy]
     SiteOverrideStatus:
       type: string
       enum: [pending, approved, denied]
@@ -3810,7 +3812,7 @@ components:
         payload:
           type: object
           additionalProperties: true
-          description: Proposed values; xPub GET shape uses xPubConfigured only
+          description: Proposed values for matching_mode, fulfillment_policy, or order_retention
         requestedBy:
           type: string
           format: uuid
@@ -4210,7 +4212,7 @@ components:
           maxLength: 8
     HdPoolState:
       type: string
-      description: Mode S pool slot state (matches @cryptogate/domain HdPoolState)
+      description: Mode S pool slot state (matches @paymentgate/domain HdPoolState)
       enum: [FREE, IN_USE, COOLDOWN]
     HdPoolAddress:
       type: object
@@ -4283,7 +4285,7 @@ components:
         - bitcoin
       description: >
         Network id for payment orders. `tron_nile` is local/staging testnet only
-        (CRYPTOGATE_CHAIN_ENV=testnet); never expose in production product builds.
+        (PAYMENTGATE_CHAIN_ENV=testnet); never expose in production product builds.
     Money:
       type: object
       required: [amount, currency]
@@ -4570,7 +4572,7 @@ components:
       type: object
       description: >
         Shared payment-order row (API camelCase). DB columns are PaymentOrderColumn
-        in @cryptogate/domain. Receive address is merchant-controlled.
+        in @paymentgate/domain. Receive address is merchant-controlled.
       required:
         - id
         - orgId
@@ -4834,7 +4836,7 @@ components:
     WebhookEventType:
 
       type: string
-      description: Matches @cryptogate/domain WebhookEventType
+      description: Matches @paymentgate/domain WebhookEventType
       enum:
         - payment_order.created
         - payment_order.verifying
@@ -4901,7 +4903,7 @@ components:
       type: object
       required: [id, orgId, keyId, label, createdAt, lastUsedAt, expiresAt, scopes, ipAllowlist]
       description: >
-        Public API key metadata — never `secret`. Matches @cryptogate/domain ApiKey.
+        Public API key metadata — never `secret`. Matches @paymentgate/domain ApiKey.
       properties:
         id:
           type: string
@@ -5081,7 +5083,7 @@ components:
             $ref: "#/components/schemas/WebhookDelivery"
     ServiceBillStatus:
       type: string
-      description: Matches @cryptogate/domain ServiceBillStatus
+      description: Matches @paymentgate/domain ServiceBillStatus
       enum: [issued, paid, overdue, voided]
     ServiceBill:
       type: object
@@ -5280,7 +5282,7 @@ components:
         action:
           type: string
           enum: [mark_paid, void, adjust]
-          description: Matches @cryptogate/domain ServiceBillUpdateAction
+          description: Matches @paymentgate/domain ServiceBillUpdateAction
         reason:
           type: string
           minLength: 1
@@ -5328,7 +5330,7 @@ components:
           type: string
     MerchantTier:
       type: string
-      description: Matches @cryptogate/domain MerchantTier
+      description: Matches @paymentgate/domain MerchantTier
       enum: [small, mid, enterprise]
     FeeTierBand:
       type: object
@@ -5410,7 +5412,7 @@ components:
       properties:
         sellerName:
           type: string
-          example: CryptoGate
+          example: PaymentGate
         sellerEmail:
           type: string
           format: email
@@ -6086,7 +6088,7 @@ components:
           description: Required when decision is deny
     AuditAction:
       type: string
-      description: Matches @cryptogate/domain AuditAction
+      description: Matches @paymentgate/domain AuditAction
       enum:
         - login
         - logout

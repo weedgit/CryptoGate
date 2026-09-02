@@ -24,6 +24,6 @@ describe("totp", () => {
     const url = otpauthUrl("owner@example.com", "MFRGGZDF");
     assert.match(url, /^otpauth:\/\/totp\//);
     assert.match(url, /secret=MFRGGZDF/);
-    assert.match(url, /issuer=CryptoGate/);
+    assert.match(url, /issuer=PaymentGate/);
   });
 });

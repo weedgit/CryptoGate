@@ -1,5 +1,5 @@
 {
-  "name": "@cryptogate/matching",
+  "name": "@paymentgate/matching",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@cryptogate/domain": "workspace:*"
+    "@paymentgate/domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

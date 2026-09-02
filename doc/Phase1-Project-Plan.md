@@ -4,9 +4,9 @@ This document is the Phase 1 project plan. Product scope, non-custodial rules, d
 
 ![How Phase 1 protects merchant funds](phase1-security-architecture.png)
 
-The money never passes through CryptoGate. The customer scans a QR code or opens a payment link and pays from their own wallet. The payment is recorded on the public blockchain. CryptoGate checks the amount, the network, the address and the confirmations. The money arrives in a wallet the merchant controls. Only the merchant has the key. CryptoGate cannot move the funds.
+The money never passes through PaymentGate. The customer scans a QR code or opens a payment link and pays from their own wallet. The payment is recorded on the public blockchain. PaymentGate checks the amount, the network, the address and the confirmations. The money arrives in a wallet the merchant controls. Only the merchant has the key. PaymentGate cannot move the funds.
 
-What CryptoGate does is software. A cashier or authorized staff member creates the order — from the merchant backend, the API, or the **cashier Android POS app** (Section III). We show the QR code, the payment link, the exact amount, the network and the merchant wallet address. After payment we watch the chain, match it to the order, update the dashboard and send a signed notification. We still never move the money.
+What PaymentGate does is software. A cashier or authorized staff member creates the order — from the merchant backend, the API, or the **cashier Android POS app** (Section III). We show the QR code, the payment link, the exact amount, the network and the merchant wallet address. After payment we watch the chain, match it to the order, update the dashboard and send a signed notification. We still never move the money.
 
 Each person gets only the access they need. Cashiers create payment orders. Merchant Owners manage the wallet address. Agent accounts onboard merchants but cannot control payer payments. Cashiers and agent-account users cannot change where money is sent.
 
@@ -14,11 +14,11 @@ Org account types and user roles are defined in [Business-Model.md](Business-Mod
 
 The usual risks are handled in the same spirit. Merchant Owners and Administrators must use MFA — a password alone is not enough. A wallet address change needs MFA, a second approval, an alert, a waiting period and an audit log. An order is marked paid only after real blockchain confirmations; signed notifications help block fake payment messages. The payment page shows the exact network, token and address. A mismatch is flagged for review, not marked paid.
 
-Phase 1 defaults to a **fixed merchant settlement address**. Merchants may enable other matching modes — including **Smart address (Mode S)**, which uses watch-only xPub derivation only when same-amount collisions would otherwise occur. See Section II. CryptoGate never holds private keys and never sweeps funds on the merchant’s behalf in Phase 1.
+Phase 1 defaults to a **fixed merchant settlement address**. Merchants may enable other matching modes — including **Smart address (Mode S)**, which uses watch-only xPub derivation only when same-amount collisions would otherwise occur. See Section II. PaymentGate never holds private keys and never sweeps funds on the merchant’s behalf in Phase 1.
 
 ## II. Payment Matching Modes
 
-CryptoGate never learns the Cashier from the blockchain. Cashier, location and order id live in the order record. The chain only shows destination, asset, network, amount, time and transaction hash. With one shared settlement address, two open orders for the same amount can look identical on-chain. Phase 1 therefore offers merchant-selectable matching modes.
+PaymentGate never learns the Cashier from the blockchain. Cashier, location and order id live in the order record. The chain only shows destination, asset, network, amount, time and transaction hash. With one shared settlement address, two open orders for the same amount can look identical on-chain. Phase 1 therefore offers merchant-selectable matching modes.
 
 ### 2.1 Modes available in Phase 1
 
@@ -52,7 +52,7 @@ Cashier identity is taken from `order.created_by` after a successful match — n
 
 ### 2.3 Mode C — Slight amount uniqueness (optional)
 
-When enabled, CryptoGate assigns each new order a **unique payable amount** among currently open orders for that merchant address / asset / network (for example base `50.00` becomes `50.01`, `50.02`, …). The payment page, QR and API show that exact payable amount. The guest must pay it exactly.
+When enabled, PaymentGate assigns each new order a **unique payable amount** among currently open orders for that merchant address / asset / network (for example base `50.00` becomes `50.01`, `50.02`, …). The payment page, QR and API show that exact payable amount. The guest must pay it exactly.
 
 Rules:
 
@@ -74,7 +74,7 @@ Rules:
 
 ### 2.5 Mode S — Smart address (optional, Phase 1)
 
-Mode S keeps **one main settlement address** for quiet traffic and uses **watch-only xPub / HD derivation** only when concurrent open orders would collide on the same amount. CryptoGate stores the merchant xPub (or equivalent public derivation material) per asset/network, derives receive addresses, and watches them. CryptoGate does **not** hold private keys, does **not** sign, and does **not** auto-sweep balances in Phase 1.
+Mode S keeps **one main settlement address** for quiet traffic and uses **watch-only xPub / HD derivation** only when concurrent open orders would collide on the same amount. PaymentGate stores the merchant xPub (or equivalent public derivation material) per asset/network, derives receive addresses, and watches them. PaymentGate does **not** hold private keys, does **not** sign, and does **not** auto-sweep balances in Phase 1.
 
 **Prerequisite:** merchant Owner configures xPub (MFA, cool-down, audit — same bar as settlement address change). Without a valid xPub for that network, Mode S is unavailable; fall back to Mode B behaviour.
 

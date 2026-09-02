@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ServiceBillStatus, ServiceBillUpdateAction } from "@cryptogate/domain";
+import { ServiceBillStatus, ServiceBillUpdateAction } from "@paymentgate/domain";
 import {
   applyUsdAdjustment,
   validateUpdateServiceBillBody,

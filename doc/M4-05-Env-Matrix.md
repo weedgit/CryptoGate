@@ -24,7 +24,7 @@ Three logical environments. Hostnames below are **placeholders** — Company A f
 | Session cookie | `cg_session` | Same name; **Secure** + HTTPS | Same; **Secure** + HTTPS |
 | `SESSION_SECRET` | `.env` local | Secret manager (test) | Secret manager (prod) — **different value** |
 | Rate limits | Domain defaults | Same defaults unless tuned | Same; raise only with monitoring |
-| Cashier APK | Emulator `10.0.2.2:3000/v1` | Flavor **`staging`** (`-Pcryptogate.stagingApi=…`) | Flavor **`prod`** (`-Pcryptogate.prodApi=…`) |
+| Cashier APK | Emulator `10.0.2.2:3000/v1` | Flavor **`staging`** (`-Ppaymentgate.stagingApi=…`) | Flavor **`prod`** (`-Ppaymentgate.prodApi=…`) |
 | Merchant web | `apps/web` Vite local | Test origin in CORS | Prod origin in CORS |
 | Settlement / xPub | Dev wallets | Merchant **test** addresses | Merchant **production** addresses |
 | Service bills | Stub OK | Platform billing wallet **test** | Platform billing wallet **prod** |

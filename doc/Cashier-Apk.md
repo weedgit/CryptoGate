@@ -20,7 +20,7 @@
 2. Set `local.properties` → `sdk.dir=` (Studio usually writes this).
 3. Sync Gradle; run **app** on an emulator or handheld (minSdk 26).
 4. Debug base URL default: `http://10.0.2.2:3000/v1` (emulator → host API).  
-   Override: Gradle flavors **staging** / **prod** (`-Pcryptogate.stagingApi` / `-Pcryptogate.prodApi`) — see [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
+   Override: Gradle flavors **staging** / **prod** (`-Ppaymentgate.stagingApi` / `-Ppaymentgate.prodApi`) — see [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
 
 ## Release build & install (operators)
 
@@ -31,7 +31,7 @@ Merchant-facing POS chapter: [M4-32-Merchant-Manual.md](M4-32-Merchant-Manual.md
 ## Package scripts (monorepo)
 
 ```bash
-npx pnpm@9.15.0 --filter @cryptogate/cashier-apk test   # scaffold integrity
+npx pnpm@9.15.0 --filter @paymentgate/cashier-apk test   # scaffold integrity
 ```
 
 Full APK build requires Android SDK / Studio (not run in CI yet).

@@ -5,7 +5,7 @@ import { createListCache } from "../shared/listCache";
 const DASHBOARD_ORDERS_LIMIT = 200;
 
 const ordersListCache = createListCache<PaymentOrder[]>({
-  storageKey: "cryptogate.agent.orders.200",
+  storageKey: "paymentgate.agent.orders.200",
   memoryTtlMs: 20_000,
   persistTtlMs: 10 * 60_000,
   fetch: () => listOrders({ limit: DASHBOARD_ORDERS_LIMIT }),

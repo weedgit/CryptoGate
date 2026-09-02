@@ -64,7 +64,7 @@ const KEY_SCOPE_LABELS: Record<(typeof KEY_SCOPES)[number], string> = {
 const API_KEYS_HELP =
   "Authenticate server-to-server API requests with HMAC. Use a clear label for each environment, such as production or staging.";
 const WEBHOOKS_HELP =
-  "When a payment order status changes, CryptoGate notifies your HTTPS endpoint. Verify the signature on every delivery before fulfilling the order.";
+  "When a payment order status changes, PaymentGate notifies your HTTPS endpoint. Verify the signature on every delivery before fulfilling the order.";
 
 const SECRET_ONCE_BADGE = "One-time display";
 const SECRET_ONCE_CONFIRM = "Confirm saved";
@@ -683,7 +683,7 @@ export function IntegrationsPage({ session }: Props) {
                     onChange={(e) => setHookUrl(e.target.value)}
                     required
                     disabled={busy}
-                    placeholder="https://example.com/webhooks/cryptogate"
+                    placeholder="https://example.com/webhooks/paymentgate"
                   />
                   <span className="plat-int__field-hint">
                     HTTPS required. Signed event notifications are posted to this URL.

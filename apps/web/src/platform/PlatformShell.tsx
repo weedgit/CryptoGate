@@ -216,7 +216,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const SIDEBAR_KEY = "cryptogate.platform.sidebarCollapsed";
+const SIDEBAR_KEY = "paymentgate.platform.sidebarCollapsed";
 
 type Props = {
   session: Session;
@@ -328,7 +328,7 @@ export function PlatformShell({
           <GateLogoMark size={32} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">CryptoGate</p>
+              <p className="logo-title">PaymentGate</p>
               <span className="logo-badge">PLATFORM</span>
             </div>
           ) : null}

@@ -4,11 +4,11 @@
 **Owner (doc):** Kevin. **UI:** Merchant portal settings (`/merchant/settings/settlement`) — Bruce M2-61+.  
 **Source of truth:** [Phase1-Project-Plan.md](Phase1-Project-Plan.md) §II · [UI-Page-Spec.md](UI-Page-Spec.md) D11
 
-This guide explains how CryptoGate **matches** guest payments to **payment orders**, what happens when two orders look the same on-chain, and why address / xPub changes wait through a **cool-down**. It does **not** cover platform service bills (separate rail).
+This guide explains how PaymentGate **matches** guest payments to **payment orders**, what happens when two orders look the same on-chain, and why address / xPub changes wait through a **cool-down**. It does **not** cover platform service bills (separate rail).
 
 ---
 
-## 1. What CryptoGate does (and does not)
+## 1. What PaymentGate does (and does not)
 
 | Does | Does not |
 | --- | --- |
@@ -16,7 +16,7 @@ This guide explains how CryptoGate **matches** guest payments to **payment order
 | Watch the chain and update order status | Sign, sweep, or move funds for you |
 | Send signed webhooks when status changes | Mark an order “paid” from the browser alone |
 
-Payers send crypto **directly to your wallet**. CryptoGate is watch-only.
+Payers send crypto **directly to your wallet**. PaymentGate is watch-only.
 
 **Statuses you will see:** Pending Payment → Verifying → Confirmed → Completed, or Expired / Payment Anomaly / Failed. There is no status named “Paid.”
 
@@ -59,7 +59,7 @@ On USDT Tron, many wallets cannot attach a memo. Two open orders for **245.00 US
 
 ### Standard (B)
 
-CryptoGate **does not guess**. At **create** time, a second open order for the same amount on the main address is **blocked** (`mode_b_amount_in_use`) while a **live** ticket exists (`pending_payment` / `verifying` / `confirmed`). **Payment Anomaly** does not block create — reconcile that row manually; staff may open a new ticket for the same amount. **Cancel** (Owner/Admin any pending; Cashier own pending) frees a live slot so the second cashier can Continue. If two tickets still collide at match time (race), both become **Payment Anomaly**. There is no FIFO “first order wins.”
+PaymentGate **does not guess**. At **create** time, a second open order for the same amount on the main address is **blocked** (`mode_b_amount_in_use`) while a **live** ticket exists (`pending_payment` / `verifying` / `confirmed`). **Payment Anomaly** does not block create — reconcile that row manually; staff may open a new ticket for the same amount. **Cancel** (Owner/Admin any pending; Cashier own pending) frees a live slot so the second cashier can Continue. If two tickets still collide at match time (race), both become **Payment Anomaly**. There is no FIFO “first order wins.”
 
 For concurrent same-amount cashiers, prefer **Amount fingerprint** or **Smart address**.
 
@@ -69,7 +69,7 @@ Each new open order gets a **unique payable amount** (e.g. 245.00 → 245.01, 24
 
 ### Smart address (S)
 
-Quiet traffic still uses your **main settlement address**. When a new order would collide on amount with another open order on main (or another derived address), CryptoGate assigns a **derived HD address** from your watch-only xPub pool. Each order’s address is fixed once the QR is issued — **never rewritten**.
+Quiet traffic still uses your **main settlement address**. When a new order would collide on amount with another open order on main (or another derived address), PaymentGate assigns a **derived HD address** from your watch-only xPub pool. Each order’s address is fixed once the QR is issued — **never rewritten**.
 
 ### Memo tag (D)
 
@@ -87,13 +87,13 @@ Derived addresses are tracked per asset/network:
 | **IN_USE** | Bound to an open payment order |
 | **COOLDOWN** | Order finished; address waits before reuse (late payment protection) |
 
-After an order reaches a final status, the derived address goes to **COOLDOWN**, then **FREE** after the pool cool-down (default **24 hours**, `HD_POOL_COOLDOWN_MS`). Consolidation across many addresses is **your** wallet’s job — CryptoGate does not sweep.
+After an order reaches a final status, the derived address goes to **COOLDOWN**, then **FREE** after the pool cool-down (default **24 hours**, `HD_POOL_COOLDOWN_MS`). Consolidation across many addresses is **your** wallet’s job — PaymentGate does not sweep.
 
 ---
 
 ## 6. Settlement address & xPub cool-downs
 
-Changing where funds land is high risk. CryptoGate requires:
+Changing where funds land is high risk. PaymentGate requires:
 
 1. **MFA** step-up for Owner/Administrator  
 2. **Cool-down** before the new address / xPub becomes active (default **24 hours**, `SETTLEMENT_COOLDOWN_MS`)  
@@ -129,7 +129,7 @@ Typical causes: two open tickets with the same amount, underpay/overpay, wrong n
 2. Check the chain explorer for the tx.  
 3. Reconcile manually in your own books / wallet.  
 4. **Resolve anomaly** with a short note (Owner/Admin any order; Cashier own only). The ticket closes; alerts stop.  
-5. **Do not** expect a “Mark paid” button — CryptoGate will not invent a match.  
+5. **Do not** expect a “Mark paid” button — PaymentGate will not invent a match.  
 6. Open anomalies do **not** block creating a new same-amount ticket — but resolve them so they do not stay in Alerts forever.
 
 The printed **invoice** shows the anomaly reason, amounts, and (after resolve) your staff note.
@@ -164,7 +164,7 @@ Merchants may deploy the **Cashier Android POS** app for counter staff. It uses 
 
 ### What Owners should know
 
-- **Two app flavors:** **Test** (`com.cryptogate.cashier.staging`) and **Production** (`com.cryptogate.cashier`). Install the flavor that matches your environment ([M4-05-Env-Matrix.md](M4-05-Env-Matrix.md)).
+- **Two app flavors:** **Test** (`com.paymentgate.cashier.staging`) and **Production** (`com.paymentgate.cashier`). Install the flavor that matches your environment ([M4-05-Env-Matrix.md](M4-05-Env-Matrix.md)).
 - **MFA:** If the Cashier user’s org requires MFA, login may direct staff to complete MFA on the **web** portal first — the POS does not enroll MFA.
 - **Offline:** Create order is blocked without network; existing orders continue polling when connectivity returns.
 - **Receipt / printer:** Generic Android shows QR on screen. Built-in printer and customer-facing second screen depend on the **reference POS device** (M5-01) — see install notes.

@@ -1,5 +1,5 @@
 /**
- * Public block-explorer URLs by CryptoGate network id.
+ * Public block-explorer URLs by PaymentGate network id.
  * Used for invoice/order “open in explorer” links (watch-only — no RPC).
  */
 

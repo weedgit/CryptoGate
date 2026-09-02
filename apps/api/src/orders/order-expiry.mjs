@@ -1,4 +1,4 @@
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 
 /**

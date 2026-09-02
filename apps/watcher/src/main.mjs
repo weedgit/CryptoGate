@@ -1,5 +1,5 @@
 /**
- * CryptoGate watcher — separate process from apps/api (Bruce).
+ * PaymentGate watcher — separate process from apps/api (Bruce).
  * M1: poll loop + graceful shutdown; M3: chain ingest + matching.
  */
 import { runWatcherLoop } from "./loop.mjs";
@@ -15,7 +15,7 @@ const controller = new AbortController();
 function shutdown(signal) {
   console.log(
     JSON.stringify({
-      service: "cryptogate-watcher",
+      service: "paymentgate-watcher",
       event: "signal",
       signal,
       at: new Date().toISOString(),
@@ -33,7 +33,7 @@ try {
 } catch (err) {
   console.error(
     JSON.stringify({
-      service: "cryptogate-watcher",
+      service: "paymentgate-watcher",
       event: "fatal",
       message: err instanceof Error ? err.message : String(err),
     }),

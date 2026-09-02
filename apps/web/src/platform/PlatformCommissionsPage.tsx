@@ -35,7 +35,7 @@ import { FundAmount } from "./FundAmount";
 import { OrgListPagination } from "./OrgListPagination";
 import { sessionCanIssueServiceBill, sessionIsPlatformViewerOnly } from "./org";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
-import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import {
   SortHeader,
   compareDate,
@@ -753,14 +753,7 @@ export function PlatformCommissionsPage({ session }: Props) {
         <>
           <div className="plat-bills__table-wrap">
             {loading && !hasLoaded ? (
-              <div className="plat-bills__pending">
-                <PlatformPending
-                  compact
-                  title="Loading commission invoices"
-                  copy="Platform → agent invoices awaiting payment or agent confirm."
-                />
-                <PlatformTableSkeleton columns={9} rows={8} />
-              </div>
+              <PagePending />
             ) : null}
 
             {!loading && invoices.length === 0 ? (
@@ -973,16 +966,7 @@ export function PlatformCommissionsPage({ session }: Props) {
       ) : tab === "history" ? (
         <>
           {loading ? (
-            <div className="plat-bills__table-wrap">
-              <div className="plat-bills__pending">
-                <PlatformPending
-                  compact
-                  title="Loading payout history"
-                  copy="Settled platform → agent remittances."
-                />
-                <PlatformTableSkeleton columns={7} rows={6} />
-              </div>
-            </div>
+            <PagePending />
           ) : history.length === 0 ? (
             <p className="plat-bills__empty">
               No settled platform → agent payouts yet. Invoices move here after

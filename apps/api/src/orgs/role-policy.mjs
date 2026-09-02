@@ -616,26 +616,59 @@ export function canReadMerchantCommercial(caller, org) {
 }
 
 /**
- * Agent O·A (subtree) or Platform O·A. Merchant roles 403.
+ * Agent O·A on the direct parent channel org, or Platform O·A. Merchant roles 403.
  * @param {{
  *   platformOperator: boolean,
  *   memberships: { orgId: string, role: string, orgType: string }[],
  * }} caller
- * @param {{ id: string, type: string }} org
+ * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} org
+ * @param {string[]} [ancestorIds]
  */
-export function canUpdateMerchantCommercial(caller, org) {
+export function canUpdateMerchantCommercial(caller, org, ancestorIds = []) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
   if (caller.platformOperator) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   if (role && SETTINGS_ROLES.has(role)) return false;
-  return caller.memberships.some(
-    (m) =>
-      (m.orgType === "agent" || m.orgType === "agent_sub") &&
-      SETTINGS_ROLES.has(m.role),
-  );
+  return canManageDirectChildOrg(caller, org, ancestorIds);
 }
 
 const AGENT_ORG_TYPES = new Set(["agent", "agent_sub"]);
+
+/** Agent/sub-agent may lifecycle-manage direct children only (not grandchildren). */
+const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["agent", "agent_sub", "merchant"]);
+
+/**
+ * Agent or sub-agent Owner/Admin may onboard, suspend, delete, and set commercial
+ * terms for orgs whose parent is an agent channel org they manage — never
+ * grandchildren relative to a top-level agent org (even with dual membership).
+ * Platform operators bypass this check.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id?: string, type: string, parent_id?: string | null, parentId?: string | null }} org
+ * @param {string[]} [ancestorIds] parent chain ids (immediate parent first)
+ */
+export function canManageDirectChildOrg(caller, org, ancestorIds = []) {
+  if (caller.platformOperator) return true;
+  if (!DIRECT_CHILD_MANAGEABLE_TYPES.has(org.type)) return false;
+  const parentId = org.parent_id ?? org.parentId ?? null;
+  if (!parentId) return false;
+  const parentMembership = caller.memberships.find((m) => m.orgId === parentId);
+  if (!parentMembership) return false;
+  if (!AGENT_ORG_TYPES.has(parentMembership.orgType)) return false;
+  if (!SETTINGS_ROLES.has(parentMembership.role)) return false;
+
+  if (ancestorIds.length > 0) {
+    for (const m of caller.memberships) {
+      if (m.orgType !== "agent" || !SETTINGS_ROLES.has(m.role)) continue;
+      if (parentId === m.orgId) continue;
+      if (ancestorIds.includes(m.orgId)) return false;
+    }
+  }
+
+  return true;
+}
 
 /**
  * @param {string} type

@@ -31,10 +31,7 @@ import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
   truncateAddress,
 } from "../platform/orgDetailSeeds";
-import {
-  PlatformPending,
-  PlatformTableSkeleton,
-} from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import {
   ApiError,
@@ -772,14 +769,7 @@ export function CommissionsPage({ session }: Props) {
       {tab === "current" ? (
         <>
           {loading && !hasLoaded ? (
-            <div className="plat-bills__pending">
-              <PlatformPending
-                compact
-                title="Loading commissions"
-                copy="Aggregating subtree service bills into monthly statements."
-              />
-              <PlatformTableSkeleton columns={6} rows={4} />
-            </div>
+            <PagePending />
           ) : null}
 
           {!loading && isTopLevel ? (
@@ -853,7 +843,7 @@ export function CommissionsPage({ session }: Props) {
               {subs.length === 0 ? (
                 <p className="plat-bills__empty">
                   No sub-agents yet.{" "}
-                  <Link to={agentRoute("agents/new")}>Onboard a sub-agent</Link>
+                  <Link to={agentRoute("agents/new")}>Add a sub-agent</Link>
                 </p>
               ) : receivedPeriods.length === 0 && openSubInvoices.length === 0 ? (
                 <p className="plat-bills__empty">

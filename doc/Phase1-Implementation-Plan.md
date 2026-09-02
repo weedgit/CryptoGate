@@ -4,7 +4,7 @@
 **Contract:** OpenAPI **v0.3.5** · [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md)  
 **Design:** [Figma — Design System](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA89p/Untitled?node-id=14-2) (canvas `00 Design System`, node `14:2`) · [UI-Handoff.md](UI-Handoff.md) · [UI-Style-Lock.md](UI-Style-Lock.md)
 
-Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordination. Work top-to-bottom within each wave; do not start a later wave until its **Gate** passes.
+Single-threaded plan to finish PaymentGate Phase 1 without multi-developer coordination. Work top-to-bottom within each wave; do not start a later wave until its **Gate** passes.
 
 ---
 
@@ -25,7 +25,7 @@ Single-threaded plan to finish CryptoGate Phase 1 without multi-developer coordi
 
 ### Live networks (catalog)
 
-All **15** Plan §VI pairs are **`enabled: true`** in `ASSET_NETWORK_REGISTRY` (plus `USDT`/`tron_nile` when `CRYPTOGATE_CHAIN_ENV=testnet`). Source of truth: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) + `packages/domain`.
+All **15** Plan §VI pairs are **`enabled: true`** in `ASSET_NETWORK_REGISTRY` (plus `USDT`/`tron_nile` when `PAYMENTGATE_CHAIN_ENV=testnet`). Source of truth: [M3-04-Asset-Networks.md](M3-04-Asset-Networks.md) + `packages/domain`.
 
 | Pair | Registry | Ingest |
 | --- | --- | --- |

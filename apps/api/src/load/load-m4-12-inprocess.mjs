@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { OrderStatus, WebhookEventType } from "@cryptogate/domain";
+import { OrderStatus, WebhookEventType } from "@paymentgate/domain";
 import { runConcurrent, summarize } from "./load-metrics.mjs";
 import { toPaymentOrder } from "../orders/order-map.mjs";
 import { processPaymentOrderWebhookOutbox } from "../webhooks/webhook-fanout.mjs";

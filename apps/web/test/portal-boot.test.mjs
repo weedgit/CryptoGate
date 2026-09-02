@@ -15,6 +15,7 @@ describe("portal boot splash", () => {
     assert.doesNotMatch(shellBoot, /AuthLayout/);
     assert.doesNotMatch(shellBoot, /AuthBackground/);
     assert.match(shellBoot, /portal-shell-boot/);
+    assert.match(shellBoot, /PlatformPending/);
 
     const app = readFileSync(join(root, "src/App.tsx"), "utf8");
     assert.match(app, /PortalShellBoot/);
@@ -24,6 +25,7 @@ describe("portal boot splash", () => {
       "utf8",
     );
     assert.match(platform, /PortalShellBoot/);
+    assert.match(platform, /!session && booting/);
     assert.doesNotMatch(platform, /PortalBootScreen/);
   });
 

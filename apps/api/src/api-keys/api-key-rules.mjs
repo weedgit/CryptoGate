@@ -3,7 +3,7 @@ import {
   API_KEY_MAX_PER_ORG,
   API_KEY_SCOPES,
   ApiKeyScope,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 export { API_KEY_MAX_PER_ORG, API_KEY_SCOPES, ApiKeyScope };
 

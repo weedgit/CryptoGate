@@ -223,7 +223,7 @@ function MerchantsListEmptyPanel({
       : variant === "searching"
         ? "Looking up team contact emails across merchant orgs."
         : variant === "no-merchants"
-          ? "Onboard a merchant to start accepting crypto payment orders."
+          ? "Add a merchant to start accepting crypto payment orders."
           : variant === "no-results"
             ? query
               ? `Nothing matched “${query}”. Try a different name, email, or org ID.`
@@ -239,7 +239,7 @@ function MerchantsListEmptyPanel({
         aria-hidden
       >
         {variant === "loading" || variant === "searching" ? (
-          <span className="org-agents__list-empty-spinner" />
+          <span className="cg-spinner cg-spinner--md org-agents__list-empty-spinner" />
         ) : variant === "no-results" ? (
           <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
             <circle cx="20" cy="20" r="9" stroke="currentColor" strokeWidth="1.6" />
@@ -382,7 +382,7 @@ export function MerchantsListPage({ session }: Props) {
     onDeleted: async () => {
       invalidatePlatformOrgList();
       try {
-        const next = await getPlatformOrgs();
+        const next = await getPlatformOrgs({ force: true });
         setOrgs(next);
         if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
       } catch {

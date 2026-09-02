@@ -1,11 +1,11 @@
 {
-  "name": "@cryptogate/watcher",
+  "name": "@paymentgate/watcher",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Chain watcher — owned by Bruce.",
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/watcher: m3 match wire')\"",
+    "build": "node -e \"console.log('@paymentgate/watcher: m3 match wire')\"",
     "typecheck": "node -e \"process.exit(0)\"",
     "test": "node --test test/*.test.mjs",
     "lint": "node -e \"process.exit(0)\"",
@@ -13,9 +13,9 @@
     "start:once": "node ./src/main.mjs"
   },
   "dependencies": {
-    "@cryptogate/chain-clients": "workspace:*",
-    "@cryptogate/domain": "workspace:*",
-    "@cryptogate/matching": "workspace:*",
+    "@paymentgate/chain-clients": "workspace:*",
+    "@paymentgate/domain": "workspace:*",
+    "@paymentgate/matching": "workspace:*",
     "pg": "^8.13.1"
   }
 }

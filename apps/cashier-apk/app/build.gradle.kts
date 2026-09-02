@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.cryptogate.cashier"
+    namespace = "com.paymentgate.cashier"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.cryptogate.cashier"
+        applicationId = "com.paymentgate.cashier"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -21,18 +21,18 @@ android {
 
     // M4-23: test vs prod API base URL (+ optional release signing).
     // Override without editing Gradle:
-    //   -Pcryptogate.stagingApi=https://api-test.example/v1
-    //   -Pcryptogate.prodApi=https://api.example/v1
+    //   -Ppaymentgate.stagingApi=https://api-test.example/v1
+    //   -Ppaymentgate.prodApi=https://api.example/v1
     val stagingApi =
-        (project.findProperty("cryptogate.stagingApi") as String?)
+        (project.findProperty("paymentgate.stagingApi") as String?)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?: "https://api-cg.boostbunny.io/v1"
     val prodApi =
-        (project.findProperty("cryptogate.prodApi") as String?)
+        (project.findProperty("paymentgate.prodApi") as String?)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-            ?: "https://api.cryptogate.example/v1"
+            ?: "https://api.paymentgate.example/v1"
 
     flavorDimensions += "env"
     productFlavors {
@@ -42,16 +42,16 @@ android {
             versionNameSuffix = "-staging"
             buildConfigField("String", "API_BASE_URL", "\"$stagingApi\"")
             buildConfigField("String", "APP_ENV", "\"staging\"")
-            // Align with CRYPTOGATE_CHAIN_ENV — Nile visible on staging builds.
+            // Align with PAYMENTGATE_CHAIN_ENV — Nile visible on staging builds.
             buildConfigField("String", "CHAIN_ENV", "\"testnet\"")
-            resValue("string", "app_name", "CryptoGate POS (Test)")
+            resValue("string", "app_name", "PaymentGate POS (Test)")
         }
         create("prod") {
             dimension = "env"
             buildConfigField("String", "API_BASE_URL", "\"$prodApi\"")
             buildConfigField("String", "APP_ENV", "\"prod\"")
             buildConfigField("String", "CHAIN_ENV", "\"mainnet\"")
-            resValue("string", "app_name", "CryptoGate POS")
+            resValue("string", "app_name", "PaymentGate POS")
         }
     }
 

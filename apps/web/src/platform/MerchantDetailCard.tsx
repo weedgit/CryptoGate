@@ -100,7 +100,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
         aria-hidden
       >
         {loading ? (
-          <span className="b3-agent-detail__activity-empty-spinner" />
+          <span className="cg-spinner cg-spinner--sm b3-agent-detail__activity-empty-spinner" />
         ) : (
           <svg viewBox="0 0 48 48" width="32" height="32" fill="none">
             <path
@@ -225,7 +225,7 @@ function SettlementSectionEmpty({
 }
 
 const XPUB_HELP =
-  "An xPub is a watch-only key from the merchant’s wallet. CryptoGate can derive temporary receive addresses from it when Smart address matching needs them — but it cannot spend or move funds. Private keys never leave the merchant. Standard, amount fingerprint, and memo modes do not need an xPub; they use the fixed settlement address only.";
+  "An xPub is a watch-only key from the merchant’s wallet. PaymentGate can derive temporary receive addresses from it when Smart address matching needs them — but it cannot spend or move funds. Private keys never leave the merchant. Standard, amount fingerprint, and memo modes do not need an xPub; they use the fixed settlement address only.";
 
 const COMPLIANCE_OVERRIDE_HELP =
   "Break-glass controls for Platform Owner or Administrator only. You can change where funds settle, switch how payments are matched, stop new payment orders, or suspend the merchant. Every change needs MFA and is saved in the audit log — guests and cashiers cannot use this.";
@@ -382,7 +382,7 @@ function MerchantServiceBillsEmpty({ loading }: { loading?: boolean }) {
         aria-hidden
       >
         {loading ? (
-          <span className="b3-agent-detail__activity-empty-spinner" />
+          <span className="cg-spinner cg-spinner--sm b3-agent-detail__activity-empty-spinner" />
         ) : (
           <svg viewBox="0 0 48 48" width="36" height="36" fill="none">
             <path
@@ -433,7 +433,7 @@ function MerchantSettlementPanel({
     return (
       <div className="b3-agent-detail__empty" role="status">
         <div className="b3-agent-detail__empty-mark is-busy" aria-hidden>
-          <span className="b3-agent-detail__activity-empty-spinner" />
+          <span className="cg-spinner cg-spinner--sm b3-agent-detail__activity-empty-spinner" />
         </div>
         <p className="b3-agent-detail__empty-title">Loading settlement</p>
         <p className="b3-agent-detail__empty-copy">

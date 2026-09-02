@@ -1,4 +1,4 @@
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 
 /**

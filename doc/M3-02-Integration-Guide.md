@@ -68,13 +68,13 @@ Guest `GET /v1/orders/{id}/payment` stays public (`security: []`) — do not sen
 | API key requests | Nonce consumed per key for `API_SIGNING_NONCE_TTL_SECONDS` (600). Reuse → `nonce_replay`. |
 | Timestamps | Skew window `API_SIGNING_MAX_SKEW_SECONDS` (300). |
 | Order create | Header `Idempotency-Key` (8–128 chars). Same key + same body → original 201. Same key + different body → **409**. |
-| Webhooks | Treat `X-CryptoGate-Event-Id` as idempotency key. Retries reuse the same event id with a new `X-CryptoGate-Delivery-Id`. |
+| Webhooks | Treat `X-PaymentGate-Event-Id` as idempotency key. Retries reuse the same event id with a new `X-PaymentGate-Delivery-Id`. |
 
 ---
 
 ## 4. Rate limits
 
-Defaults from `@cryptogate/domain` `RateLimitPerMinute` (overridable via `.env.example`):
+Defaults from `@paymentgate/domain` `RateLimitPerMinute` (overridable via `.env.example`):
 
 | Scope | Per 60s |
 | --- | --- |
@@ -105,7 +105,7 @@ Matching modes **B / C / S** on USDT Tron. Mode **D** is rejected (`memoSupporte
 ### Register
 
 - `POST /v1/webhooks` → `{ url, events? }`  
-- `signingSecret` returned **once** on 201. Store hashed at rest on your side if you must persist it; CryptoGate never returns it on GET.  
+- `signingSecret` returned **once** on 201. Store hashed at rest on your side if you must persist it; PaymentGate never returns it on GET.  
 - Max 5 endpoints per merchant org. Cashier **403**. HTTPS (localhost HTTP only outside production).  
 - Default `events`: all `payment_order.*` (not `webhook.test`).
 
@@ -129,10 +129,10 @@ Outbound headers:
 | Header | Meaning |
 | --- | --- |
 | `Content-Type` | `application/json` |
-| `X-CryptoGate-Signature` | hex HMAC-SHA256(**signingSecret**, **raw body only**) |
-| `X-CryptoGate-Timestamp` | Unix seconds (not part of the HMAC input) |
-| `X-CryptoGate-Event-Id` | Stable event id (dedupe / ignore replay) |
-| `X-CryptoGate-Delivery-Id` | This attempt |
+| `X-PaymentGate-Signature` | hex HMAC-SHA256(**signingSecret**, **raw body only**) |
+| `X-PaymentGate-Timestamp` | Unix seconds (not part of the HMAC input) |
+| `X-PaymentGate-Event-Id` | Stable event id (dedupe / ignore replay) |
+| `X-PaymentGate-Delivery-Id` | This attempt |
 
 Success = HTTP **2xx** within 10s (`WEBHOOK_HTTP_TIMEOUT_MS`). Retries after 1, 5, 25, 125, 625 seconds then fail. Same `eventId` on every retry. Enable the delivery job via `WEBHOOK_DELIVERY_INTERVAL_MS` / `WEBHOOK_DELIVERY_ENABLED` in `.env.example`.
 

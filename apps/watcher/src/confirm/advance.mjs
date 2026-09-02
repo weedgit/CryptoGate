@@ -3,7 +3,7 @@
  * verifying → completed when confirmations >= required.
  * Reorg / missing tx → payment_anomaly (never silent complete).
  */
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { mapPool } from "../map-pool.mjs";
 import { evaluateConfirmationObservation } from "./reorg.mjs";
 

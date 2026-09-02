@@ -13,7 +13,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import { formatShortTime } from "../merchant/orderStatus";
 import {
   getCachedServiceBill,
@@ -169,12 +169,7 @@ export function ServiceBillDetailPage() {
     : false;
 
   if (loading) {
-    return (
-      <PlatformPending
-        title="Loading service bill"
-        copy="Fetching bill details and merchant name."
-      />
-    );
+    return <PagePending />;
   }
 
   if (error || !bill) {

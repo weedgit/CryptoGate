@@ -1,25 +1,25 @@
 # VPS Postgres only — never bind 5432 (Qchat) or publish 0.0.0.0.
-# Usage: docker compose -f docker-compose.vps.yml --env-file /etc/cryptogate/postgres.env up -d
+# Usage: docker compose -f docker-compose.vps.yml --env-file /etc/paymentgate/postgres.env up -d
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cryptogate-postgres
+    container_name: paymentgate-postgres
     restart: unless-stopped
     ports:
       - "127.0.0.1:5433:5432"
     env_file:
-      - /etc/cryptogate/postgres.env
+      - /etc/paymentgate/postgres.env
     environment:
-      POSTGRES_USER: cryptogate
-      POSTGRES_DB: cryptogate
+      POSTGRES_USER: paymentgate
+      POSTGRES_DB: paymentgate
     volumes:
-      - cryptogate_pgdata:/var/lib/postgresql/data
+      - paymentgate_pgdata:/var/lib/postgresql/data
     mem_limit: 512m
     pids_limit: 200
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cryptogate -d cryptogate"]
+      test: ["CMD-SHELL", "pg_isready -U paymentgate -d paymentgate"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,4 +35,4 @@ services:
       - log_min_duration_statement=2000
 
 volumes:
-  cryptogate_pgdata:
+  paymentgate_pgdata:

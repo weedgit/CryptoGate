@@ -1,5 +1,5 @@
 /**
- * Map `@cryptogate/matching` assign failures to API errors.
+ * Map `@paymentgate/matching` assign failures to API errors.
  * @param {unknown} err
  * @returns {{ status: number, code: string, message: string }}
  */

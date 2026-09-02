@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import { startServiceBillOverdueJob } from "../src/service-bills/service-bill-overdue-job.mjs";
 
 describe("service bill overdue job", () => {

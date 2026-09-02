@@ -128,7 +128,7 @@ async function resolveWebhookHealth(opts = {}) {
  */
 export async function getHealthPayload(opts = {}) {
   const payload = {
-    service: "cryptogate-api",
+    service: "paymentgate-api",
     status: "ok",
     phase: "m1",
     timestamp: new Date().toISOString(),

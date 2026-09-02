@@ -1,4 +1,4 @@
-import { FulfillmentPolicy } from "@cryptogate/domain";
+import { FulfillmentPolicy } from "@paymentgate/domain";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 const ALLOWED = new Set(Object.values(FulfillmentPolicy));

@@ -4,9 +4,9 @@ type Props = {
   alt?: string;
 };
 
-const SRC = "/brand/cryptogate-icon.png";
+const SRC = "/brand/paymentgate-icon.png";
 
-/** Official CryptoGate gate + check mark (3D brand icon). */
+/** Official PaymentGate gate + check mark (3D brand icon). */
 export function GateLogoMark({ size = 36, className = "", alt = "" }: Props) {
   return (
     <img

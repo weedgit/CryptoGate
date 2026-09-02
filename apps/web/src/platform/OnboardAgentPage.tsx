@@ -10,7 +10,8 @@ import {
   listOrgMemberEmails,
   type OrgAccount,
 } from "./api";
-import { PlatformPending } from "./ui/PlatformPending";
+import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
+import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
@@ -337,17 +338,17 @@ export function OnboardAgentPage() {
 
   if (booting) {
     return (
-      <div className="b4-wizard-page">
-        <PlatformPending
-          title="Loading org tree"
-          copy="Preparing parent options for the new agent."
-        />
-      </div>
+      <OnboardWizardLoading
+        title="Onboard agent"
+        copy="Preparing parent options for this agent."
+        closeTo={cancelTo}
+      />
     );
   }
 
   return (
-    <div className="b4-wizard-page">
+    <OnboardWizardPortal>
+      <div className="b4-wizard-page">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <div className="b4-wizard-backdrop">
         <div
@@ -358,7 +359,7 @@ export function OnboardAgentPage() {
         >
           <header className="b4-wizard__head">
             <h2 id="b4-wizard-title" className="b4-wizard__title">
-              New Agent
+              Onboard agent
             </h2>
             <Link
               className="b4-wizard__close"
@@ -612,5 +613,6 @@ export function OnboardAgentPage() {
         </div>
       </div>
     </div>
+    </OnboardWizardPortal>
   );
 }

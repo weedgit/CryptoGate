@@ -18,8 +18,8 @@ const TRON_TEST_ENV_KEYS = [
   "TRON_API_KEY",
   "TRON_NILE_API_KEY",
   "TRON_USDT_CONTRACT",
-  "CRYPTOGATE_CHAIN_ENV",
-  "VITE_CRYPTOGATE_CHAIN_ENV",
+  "PAYMENTGATE_CHAIN_ENV",
+  "VITE_PAYMENTGATE_CHAIN_ENV",
   "WATCHER_STUB_TRANSFERS",
   "WATCHER_STUB_CONFIRMATIONS",
   "WATCHER_STUB_TX_PRESENCE",
@@ -53,7 +53,7 @@ function clearTronTestEnv() {
   return withEnv(patch);
 }
 
-describe("@cryptogate/chain-clients/tron stub", () => {
+describe("@paymentgate/chain-clients/tron stub", () => {
   let restore = () => {};
 
   before(() => {
@@ -74,7 +74,7 @@ describe("@cryptogate/chain-clients/tron stub", () => {
 
   it("healthCheck({ network }) does not follow DEFAULT_NETWORK / testnet env", async () => {
     const restoreHint = withEnv({
-      CRYPTOGATE_CHAIN_ENV: "testnet",
+      PAYMENTGATE_CHAIN_ENV: "testnet",
       DEFAULT_NETWORK: "tron_nile",
     });
     try {
@@ -106,7 +106,7 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     const restore = withEnv({
       TRON_RPC_URL: "https://api.trongrid.io",
       TRON_NILE_RPC_URL: "https://nile.trongrid.io",
-      CRYPTOGATE_CHAIN_ENV: "testnet",
+      PAYMENTGATE_CHAIN_ENV: "testnet",
     });
     try {
       const main = getTronConfig("USDT", "tron");
@@ -127,7 +127,7 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     const restore = withEnv({
       TRON_RPC_URL: "https://nile.trongrid.io",
       TRON_NILE_RPC_URL: undefined,
-      CRYPTOGATE_CHAIN_ENV: "testnet",
+      PAYMENTGATE_CHAIN_ENV: "testnet",
     });
     try {
       const main = getTronConfig("USDT", "tron");
@@ -143,7 +143,7 @@ describe("@cryptogate/chain-clients/tron stub", () => {
     const restore = withEnv({
       TRON_RPC_URL: "https://api.trongrid.io",
       TRON_NILE_RPC_URL: undefined,
-      CRYPTOGATE_CHAIN_ENV: "testnet",
+      PAYMENTGATE_CHAIN_ENV: "testnet",
     });
     try {
       const main = getTronConfig("USDT", "tron");
@@ -212,7 +212,7 @@ describe("@cryptogate/chain-clients/tron stub", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/tron amount + map", () => {
+describe("@paymentgate/chain-clients/tron amount + map", () => {
   it("minorToMajor formats USDT 6 decimals", () => {
     assert.equal(minorToMajor("50000000", 6), "50");
     assert.equal(minorToMajor("50000001", 6), "50.000001");
@@ -258,15 +258,15 @@ describe("@cryptogate/chain-clients/tron amount + map", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
+describe("@paymentgate/chain-clients/tron TronGrid live (mocked)", () => {
   let restore = () => {};
 
   before(() => {
     restore = withEnv({
       TRON_RPC_URL: "https://api.trongrid.io",
       TRON_API_KEY: "test-key",
-      CRYPTOGATE_CHAIN_ENV: undefined,
-      VITE_CRYPTOGATE_CHAIN_ENV: undefined,
+      PAYMENTGATE_CHAIN_ENV: undefined,
+      VITE_PAYMENTGATE_CHAIN_ENV: undefined,
       TRON_USDT_CONTRACT: undefined,
       WATCHER_STUB_TRANSFERS: undefined,
       WATCHER_STUB_CONFIRMATIONS: undefined,
@@ -391,7 +391,7 @@ describe("@cryptogate/chain-clients/tron TronGrid live (mocked)", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
+describe("@paymentgate/chain-clients/tron backoff (M3-45)", () => {
   it("tronBackoffMs doubles and caps", async () => {
     const { tronBackoffMs, extraWatcherBackoffMs, isRetryableTronStatus } =
       await import("../tron/backoff.mjs");
@@ -415,8 +415,8 @@ describe("@cryptogate/chain-clients/tron backoff (M3-45)", () => {
   it("retries 429 then succeeds", async () => {
     const restore = withEnv({
       TRON_RPC_URL: "https://api.trongrid.io",
-      CRYPTOGATE_CHAIN_ENV: undefined,
-      VITE_CRYPTOGATE_CHAIN_ENV: undefined,
+      PAYMENTGATE_CHAIN_ENV: undefined,
+      VITE_PAYMENTGATE_CHAIN_ENV: undefined,
       TRON_USDT_CONTRACT: undefined,
       WATCHER_STUB_TRANSFERS: undefined,
     });

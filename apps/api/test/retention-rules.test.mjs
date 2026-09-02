@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_ORDER_DELETE_DAYS } from "@cryptogate/domain";
+import { DEFAULT_ORDER_DELETE_DAYS } from "@paymentgate/domain";
 import {
   toRetentionSettings,
   validateRetentionBody,

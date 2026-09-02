@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_SOLANA, USDC_SOLANA } from "@cryptogate/domain";
+import { USDT_SOLANA, USDC_SOLANA } from "@paymentgate/domain";
 import { healthCheck, getSolanaConfig, listRecentTransfers } from "../solana/index.mjs";
 
-describe("@cryptogate/chain-clients/solana", () => {
+describe("@paymentgate/chain-clients/solana", () => {
   it("healthCheck stub without SOLANA_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "solana");

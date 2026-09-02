@@ -16,7 +16,7 @@ export function PortalBootScreen({ title, copy }: Props) {
         aria-live="polite"
       >
         <div className="login-boot-mark" aria-hidden>
-          <span className="login-boot-spinner" />
+          <span className="cg-spinner cg-spinner--sm login-boot-spinner" />
         </div>
         <div className="login-card-head login-card-head--center">
           <h1>{title}</h1>

@@ -14,50 +14,39 @@ describe("site override rules (X-04)", () => {
     assert.equal(parentIdOf({}), null);
   });
 
-  it("accepts matching_mode and retention payloads", () => {
+  it("rejects every override request kind — sites always inherit", () => {
     const mode = validateOverrideRequestBody({
       settingKind: "matching_mode",
       payload: { matchingMode: "C" },
     });
-    assert.equal(mode.ok, true);
-    assert.equal(mode.parsed.payload.matchingMode, "C");
+    assert.equal(mode.ok, false);
+    assert.equal(mode.code, "invalid_request");
 
     const ret = validateOverrideRequestBody({
       settingKind: "order_retention",
       payload: { orderDeleteDays: 180 },
     });
-    assert.equal(ret.ok, true);
-    assert.equal(ret.parsed.payload.orderDeleteDays, 180);
-  });
-
-  it("rejects Mode A and short xPub", () => {
-    const mode = validateOverrideRequestBody({
-      settingKind: "matching_mode",
-      payload: { matchingMode: "A" },
-    });
-    assert.equal(mode.ok, false);
-    assert.equal(mode.code, "invalid_matching_mode");
+    assert.equal(ret.ok, false);
 
     const xpub = validateOverrideRequestBody({
       settingKind: "xpub",
-      payload: { asset: "USDT", network: "tron", xPub: "too-short" },
+      payload: { asset: "USDT", network: "tron", xPub: "xpub6secretmaterialxxxx" },
     });
     assert.equal(xpub.ok, false);
-    assert.equal(xpub.code, "invalid_xpub");
+    assert.equal(xpub.code, "invalid_request");
+
+    const settle = validateOverrideRequestBody({
+      settingKind: "settlement",
+      payload: { asset: "USDT", network: "tron", address: "Txyz" },
+    });
+    assert.equal(settle.ok, false);
+    assert.equal(settle.code, "invalid_request");
   });
 
-  it("requires MFA only when approving wallet/xPub", () => {
+  it("approves matching without MFA; deny still needs a reason", () => {
     const modeOk = validateOverrideDecideBody({ decision: "approve" }, "matching_mode");
     assert.equal(modeOk.ok, true);
-    const settle = validateOverrideDecideBody({ decision: "approve" }, "settlement");
-    assert.equal(settle.ok, false);
-    assert.equal(settle.code, "mfa_required");
-    const settleMfa = validateOverrideDecideBody(
-      { decision: "approve", mfaCode: "123456" },
-      "settlement",
-    );
-    assert.equal(settleMfa.ok, true);
-    const deny = validateOverrideDecideBody({ decision: "deny" }, "settlement");
+    const deny = validateOverrideDecideBody({ decision: "deny" }, "matching_mode");
     assert.equal(deny.ok, false);
   });
 

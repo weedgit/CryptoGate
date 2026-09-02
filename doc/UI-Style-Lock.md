@@ -28,7 +28,7 @@ No purple gradients, emoji, meme crypto, “Mark paid”, or confetti on Complet
 ```
 Public payment (E1): merchant name first; amount + network as loud as each other;
 QR center; countdown under QR; truncated address + copy; wrong-network warning
-always visible; “Powered by CryptoGate” footer. No login.
+always visible; “Powered by PaymentGate” footer. No login.
 Merchant / platform: left sidebar + header (Classic SaaS) unless client later
 chooses Payment-first top nav.
 POS: large type, 48dp targets, no settlement / xPub / matching.

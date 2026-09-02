@@ -3,7 +3,7 @@ import { getPaymentDetails } from "./api";
 import { createEntityCache } from "../shared/entityCache";
 
 const paymentDetailCache = createEntityCache<PaymentDetails>({
-  storageKeyPrefix: "cryptogate.merchant.order-payment",
+  storageKeyPrefix: "paymentgate.merchant.order-payment",
   memoryTtlMs: 10_000,
   persistTtlMs: 2 * 60_000,
   fetch: getPaymentDetails,

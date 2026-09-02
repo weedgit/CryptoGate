@@ -35,11 +35,11 @@ Copy, adjust `[brackets]`, send when their cloud project is ready.
 
 ---
 
-**Subject:** CryptoGate Phase 1 — test environment provisioning checklist
+**Subject:** PaymentGate Phase 1 — test environment provisioning checklist
 
 Hi [Company A contact],
 
-Phase 1 source is ready for deployment to your **test/staging** cloud account. CryptoGate runs as **two processes** (HTTP API + chain watcher), shared Postgres, and static guest pay / portal frontends — see the runbook below.
+Phase 1 source is ready for deployment to your **test/staging** cloud account. PaymentGate runs as **two processes** (HTTP API + chain watcher), shared Postgres, and static guest pay / portal frontends — see the runbook below.
 
 **Please confirm or fill in** the hostname and infrastructure table (§3). Once DNS and TLS are live, we will assist with the first test deploy and smoke checks.
 
@@ -122,7 +122,7 @@ Repeat per [M4-01](M4-01-Deploy-Runbook.md) §5 on **test** only.
 | --- | --- | --- |
 | 1 | Inject secrets; **never** commit `.env` | |
 | 2 | `pnpm install --frozen-lockfile && pnpm build && pnpm check` | CI green |
-| 3 | `pnpm --filter @cryptogate/api migrate` (through **041**) | no error |
+| 3 | `pnpm --filter @paymentgate/api migrate` (through **041**) | no error |
 | 4 | Start **API** then **watcher** (two units) | |
 | 5 | Publish pay page + web static assets behind HTTPS | |
 | 6 | `GET {API}/health` | 200, `db: ok` |
@@ -142,7 +142,7 @@ Optional: run [monitoring-queries.sql](examples/monitoring-queries.sql) after 24
 
 When §3 test URLs are final, send integrators:
 
-> **CryptoGate test API:** `{API}/v1`  
+> **PaymentGate test API:** `{API}/v1`  
 > **Signing / webhooks:** `doc/M3-02-Integration-Guide.md`  
 > **Verify sample:** `doc/examples/webhook-verify.mjs`  
 > **Assets:** USDT on Tron only (`doc/M3-04-Asset-Networks.md`)  

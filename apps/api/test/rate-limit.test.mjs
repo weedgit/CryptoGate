@@ -1,7 +1,7 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { RateLimitPerMinute } from "@cryptogate/domain";
+import { RateLimitPerMinute } from "@paymentgate/domain";
 import { applyRateLimits } from "../src/rate-limit/apply-rate-limits.mjs";
 import { resetRateLimitStore } from "../src/rate-limit/rate-limit-store.mjs";
 import {

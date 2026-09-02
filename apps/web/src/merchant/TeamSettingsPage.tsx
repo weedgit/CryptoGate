@@ -8,7 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
-import { getOrgUsers, peekOrgUsers } from "../shared/orgUsersCache";
+import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
   assignOrgUserRole,
@@ -143,17 +143,18 @@ export function TeamSettingsPage({ session }: Props) {
     setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!orgId) {
       setError("No merchant org on this session");
       setLoading(false);
       return;
     }
+    if (opts?.force) invalidateOrgUsers(orgId);
     if (!peekOrgUsers(orgId)) setLoading(true);
     setError(null);
     try {
       const [roster, account] = await Promise.all([
-        getOrgUsers(orgId),
+        getOrgUsers(orgId, { force: opts?.force }),
         getMerchantOrgs().then(
           (rows) => rows.find((o) => o.id === orgId) ?? null,
         ),
@@ -238,10 +239,15 @@ export function TeamSettingsPage({ session }: Props) {
         email: invitedEmail,
         role: inviteRole,
       });
+      setMembers((prev) => {
+        const next = mergeOrgMember(prev, orgMemberFromInvite(m, invitedEmail));
+        primeOrgUsers(orgId, next);
+        return next;
+      });
       showOk(`Added ${invitedEmail} as ${roleLabel(m.role)}.`);
       setInviteCreds({ ...m, invitedEmail });
       setInviteEmail("");
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(inviteEmailErrorMessage(err));
     } finally {
@@ -278,8 +284,11 @@ export function TeamSettingsPage({ session }: Props) {
     setBusy(true);
     try {
       await setOrgUserStatus(orgId, userId, status);
+      setMembers((prev) =>
+        prev.map((m) => (m.userId === userId ? { ...m, status } : m)),
+      );
       showOk(status === "paused" ? "Member paused." : "Member resumed.");
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Status update failed");
     } finally {
@@ -292,9 +301,15 @@ export function TeamSettingsPage({ session }: Props) {
     setBusy(true);
     try {
       await removeOrgUser(orgId, removeTarget.userId);
+      const removedId = removeTarget.userId;
+      setMembers((prev) => {
+        const next = prev.filter((m) => m.userId !== removedId);
+        primeOrgUsers(orgId, next);
+        return next;
+      });
       showOk(`Removed ${removeTarget.email}.`);
       setRemoveTarget(null);
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Remove failed");
     } finally {

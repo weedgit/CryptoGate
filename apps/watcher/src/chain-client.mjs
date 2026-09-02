@@ -5,30 +5,30 @@
  */
 export function chainClientForNetwork(network) {
   if (network === "ethereum") {
-    return import("@cryptogate/chain-clients/ethereum");
+    return import("@paymentgate/chain-clients/ethereum");
   }
   if (network === "bnb_smart_chain") {
-    return import("@cryptogate/chain-clients/bnb_smart_chain");
+    return import("@paymentgate/chain-clients/bnb_smart_chain");
   }
   if (network === "polygon") {
-    return import("@cryptogate/chain-clients/polygon");
+    return import("@paymentgate/chain-clients/polygon");
   }
   if (network === "arbitrum_one") {
-    return import("@cryptogate/chain-clients/arbitrum_one");
+    return import("@paymentgate/chain-clients/arbitrum_one");
   }
   if (network === "base") {
-    return import("@cryptogate/chain-clients/base");
+    return import("@paymentgate/chain-clients/base");
   }
   if (network === "solana") {
-    return import("@cryptogate/chain-clients/solana");
+    return import("@paymentgate/chain-clients/solana");
   }
   if (network === "ton") {
-    return import("@cryptogate/chain-clients/ton");
+    return import("@paymentgate/chain-clients/ton");
   }
   if (network === "bitcoin") {
-    return import("@cryptogate/chain-clients/bitcoin");
+    return import("@paymentgate/chain-clients/bitcoin");
   }
-  return import("@cryptogate/chain-clients/tron");
+  return import("@paymentgate/chain-clients/tron");
 }
 
 /** @param {string} network */

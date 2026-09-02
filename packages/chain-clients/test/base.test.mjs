@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDC_BASE } from "@cryptogate/domain";
+import { USDC_BASE } from "@paymentgate/domain";
 import { healthCheck, getBaseConfig, listRecentTransfers } from "../base/index.mjs";
 
-describe("@cryptogate/chain-clients/base", () => {
+describe("@paymentgate/chain-clients/base", () => {
   it("healthCheck stub without BASE_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "base");

@@ -6,8 +6,8 @@
 Matches Andrew’s outbound signer in `apps/api/src/webhooks/webhook-deliver-rules.mjs`:
 
 - Signature = hex HMAC-SHA256(`signingSecret`, **raw body UTF-8**)  
-- Headers: `X-CryptoGate-Signature`, `X-CryptoGate-Timestamp`, `X-CryptoGate-Event-Id`, `X-CryptoGate-Delivery-Id`  
-- Ignore replays by remembering `X-CryptoGate-Event-Id` (retries keep the same event id)
+- Headers: `X-PaymentGate-Signature`, `X-PaymentGate-Timestamp`, `X-PaymentGate-Event-Id`, `X-PaymentGate-Delivery-Id`  
+- Ignore replays by remembering `X-PaymentGate-Event-Id` (retries keep the same event id)
 
 ---
 
@@ -26,10 +26,10 @@ Then:
 ```bash
 curl -sS -X POST http://127.0.0.1:8787/hook \
   -H 'Content-Type: application/json' \
-  -H "X-CryptoGate-Signature: $(…)" \
-  -H 'X-CryptoGate-Timestamp: 1710000000' \
-  -H 'X-CryptoGate-Event-Id: e1' \
-  -H 'X-CryptoGate-Delivery-Id: d1' \
+  -H "X-PaymentGate-Signature: $(…)" \
+  -H 'X-PaymentGate-Timestamp: 1710000000' \
+  -H 'X-PaymentGate-Event-Id: e1' \
+  -H 'X-PaymentGate-Delivery-Id: d1' \
   --data-binary '{"id":"e1","type":"webhook.test","createdAt":"2026-08-24T00:00:00.000Z","data":{"orgId":"o1"}}'
 ```
 
@@ -40,7 +40,7 @@ Self-test exit codes: `0` pass, `1` verify failure. Listener returns **401** on 
 ## Merchant checklist (M3-T08)
 
 1. Read the **raw** request body bytes (do not re-serialize JSON before HMAC).  
-2. Compare `X-CryptoGate-Signature` with `timingSafeEqual` against HMAC-SHA256(secret, body).  
-3. If `X-CryptoGate-Event-Id` was already processed → return 2xx and do nothing.  
+2. Compare `X-PaymentGate-Signature` with `timingSafeEqual` against HMAC-SHA256(secret, body).  
+3. If `X-PaymentGate-Event-Id` was already processed → return 2xx and do nothing.  
 4. Only then fulfill / update your order store.  
-5. Optional: reject if `|now - X-CryptoGate-Timestamp|` is large (CryptoGate does not bind timestamp into the webhook HMAC).
+5. Optional: reject if `|now - X-PaymentGate-Timestamp|` is large (PaymentGate does not bind timestamp into the webhook HMAC).

@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import { createSession } from "../../src/auth/sessions.mjs";
 import { createUser, findUserByEmail } from "../../src/auth/users.mjs";
 import { closePool, getPool } from "../../src/db/pool.mjs";
@@ -115,8 +115,8 @@ const SEED_PASSWORD = "V032TestPass12!";
  * }>}
  */
 export async function ensureV032Seed() {
-  const platformEmail = `${SEED_PREFIX}platform@cryptogate.local`;
-  const cashierEmail = `${SEED_PREFIX}cashier@cryptogate.local`;
+  const platformEmail = `${SEED_PREFIX}platform@paymentgate.local`;
+  const cashierEmail = `${SEED_PREFIX}cashier@paymentgate.local`;
 
   let platformUser = await findUserByEmail(platformEmail);
   if (!platformUser) {

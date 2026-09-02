@@ -115,6 +115,42 @@ export function structureLabel(structure: string | undefined): string {
   return structure ?? "—";
 }
 
+/** Sidebar location badge: Multi / Single / Site. */
+export type LocationKind = "multi" | "single" | "site";
+
+export function locationKindLabel(kind: LocationKind): string {
+  if (kind === "multi") return "Multi";
+  if (kind === "single") return "Single";
+  return "Site";
+}
+
+export function locationKindTitle(kind: LocationKind): string {
+  if (kind === "multi") return "Multi-location merchant";
+  if (kind === "single") return "Single-location merchant";
+  return "Merchant site";
+}
+
+/**
+ * Parent merchant membership wins (Multi / Single). Site-only login → Site.
+ * Returns null until org structure is loaded.
+ */
+export function sessionLocationKind(
+  session: Session,
+  orgs: Array<{ id: string; structure?: string | null }> | null,
+): LocationKind | null {
+  const merchant = session.memberships.find((m) => m.orgType === "merchant");
+  if (merchant) {
+    const org = orgs?.find((o) => o.id === merchant.orgId);
+    if (org?.structure === "multi_location") return "multi";
+    if (org?.structure === "single_location") return "single";
+    return null;
+  }
+  if (session.memberships.some((m) => m.orgType === "merchant_site")) {
+    return "site";
+  }
+  return null;
+}
+
 export function orgTypeLabel(type: string): string {
   if (type === "merchant") return "Merchant";
   if (type === "merchant_site") return "Merchant (site)";

@@ -23,7 +23,7 @@ const baseTransfer = {
   txHash: "0xabc",
 };
 
-describe("@cryptogate/watcher inbound match wire (M3-41)", () => {
+describe("@paymentgate/watcher inbound match wire (M3-41)", () => {
   it("exact Mode B match binds orderId", async () => {
     const { applied, result, mode } = await matchInboundTransfer({
       transfer: baseTransfer,

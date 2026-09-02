@@ -4,7 +4,7 @@ import { createEntityCache } from "../shared/entityCache";
 import { peekMerchantOrders } from "./merchantOrdersList";
 
 const orderDetailCache = createEntityCache<PaymentOrder>({
-  storageKeyPrefix: "cryptogate.merchant.order",
+  storageKeyPrefix: "paymentgate.merchant.order",
   fetch: getOrder,
 });
 

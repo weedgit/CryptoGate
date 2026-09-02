@@ -1,4 +1,4 @@
-# CryptoGate Phase 1 architecture
+# PaymentGate Phase 1 architecture
 
 Watch-only merchant collection. Payer coins never enter a platform wallet. The API creates **payment orders**; the watcher matches on-chain receipts; **service bills** are a separate rail. Product rules: `doc/Business-Model.md`. Matching modes: `doc/Phase1-Project-Plan.md` §II.
 

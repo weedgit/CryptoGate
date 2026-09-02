@@ -1,4 +1,4 @@
-import { ServiceBillStatus, ServiceBillUpdateAction } from "@cryptogate/domain";
+import { ServiceBillStatus, ServiceBillUpdateAction } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";

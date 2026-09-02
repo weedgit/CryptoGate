@@ -125,7 +125,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
         aria-hidden
       >
         {loading ? (
-          <span className="b3-agent-detail__activity-empty-spinner" />
+          <span className="cg-spinner cg-spinner--sm b3-agent-detail__activity-empty-spinner" />
         ) : (
           <svg viewBox="0 0 48 48" width="32" height="32" fill="none">
             <path
@@ -217,7 +217,12 @@ type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
   canEditCommercial: boolean;
+  canManage?: boolean;
+  busy?: boolean;
   initialTab?: string;
+  onPause?: () => void;
+  onRun?: () => void;
+  onDelete?: () => void;
 };
 
 /** Merchant detail card — platform b3 chrome, agent-scoped (no settlement keys). */
@@ -225,7 +230,12 @@ export function MerchantDetailCard({
   org,
   orgs,
   canEditCommercial,
+  canManage = false,
+  busy = false,
   initialTab,
+  onPause,
+  onRun,
+  onDelete,
 }: Props) {
   const [tab, setTab] = useState<TabId>(() => parseTab(initialTab));
   const [bills, setBills] = useState<ServiceBill[]>([]);
@@ -453,6 +463,37 @@ export function MerchantDetailCard({
             )}
           </div>
         </div>
+        {canManage ? (
+          <div className="b3-agent-detail__head-actions">
+            {status === "active" ? (
+              <button
+                type="button"
+                className="b3-agent-detail__suspend"
+                disabled={busy}
+                onClick={onPause}
+              >
+                Suspend
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="b3-agent-detail__suspend"
+                disabled={busy}
+                onClick={onRun}
+              >
+                Resume
+              </button>
+            )}
+            <button
+              type="button"
+              className="b3-agent-detail__delete"
+              disabled={busy}
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+          </div>
+        ) : null}
       </header>
 
       <div

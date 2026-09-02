@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { isExpirablePending } from "../src/orders/order-expiry.mjs";
 import { startOrderExpiryJob } from "../src/orders/order-expiry-job.mjs";
 

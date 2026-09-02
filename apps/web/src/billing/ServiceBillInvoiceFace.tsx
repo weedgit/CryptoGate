@@ -84,7 +84,7 @@ function statusLabel(status: string): string {
 export function platformInvoiceSeller(): InvoiceSeller {
   const name =
     (import.meta.env.VITE_PLATFORM_INVOICE_SELLER_NAME as string | undefined)?.trim() ||
-    "CryptoGate";
+    "PaymentGate";
   const email =
     (import.meta.env.VITE_PLATFORM_INVOICE_SELLER_EMAIL as string | undefined)?.trim() ||
     null;

@@ -14,23 +14,23 @@ const required = [
   "app/build.gradle.kts",
   "keystore.properties.example",
   "app/src/main/AndroidManifest.xml",
-  "app/src/main/java/com/cryptogate/cashier/MainActivity.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/CryptoGateClient.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/SessionStore.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/AssetNetworkCatalog.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/CashierPosSurface.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/NetworkReachability.kt",
-  "app/src/main/java/com/cryptogate/cashier/ui/LoginScreen.kt",
-  "app/src/main/java/com/cryptogate/cashier/ui/CreateOrderScreen.kt",
-  "app/src/main/java/com/cryptogate/cashier/ui/OrderPayScreen.kt",
-  "app/src/main/java/com/cryptogate/cashier/ui/HomeScreen.kt",
-  "app/src/main/java/com/cryptogate/cashier/qr/QrBitmaps.kt",
-  "app/src/main/java/com/cryptogate/cashier/api/OrderStatusUi.kt",
-  "app/src/test/java/com/cryptogate/cashier/api/JsonParsersTest.kt",
-  "app/src/test/java/com/cryptogate/cashier/api/AssetNetworkCatalogTest.kt",
+  "app/src/main/java/com/paymentgate/cashier/MainActivity.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/PaymentGateClient.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/SessionStore.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/AssetNetworkCatalog.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/CashierPosSurface.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/NetworkReachability.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/LoginScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/CreateOrderScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/OrderPayScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/HomeScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/qr/QrBitmaps.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/OrderStatusUi.kt",
+  "app/src/test/java/com/paymentgate/cashier/api/JsonParsersTest.kt",
+  "app/src/test/java/com/paymentgate/cashier/api/AssetNetworkCatalogTest.kt",
 ];
 
-describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
+describe("@paymentgate/cashier-apk scaffold (M2–M4)", () => {
   for (const rel of required) {
     it(`has ${rel}`, () => {
       assert.equal(existsSync(join(root, rel)), true);
@@ -42,8 +42,8 @@ describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
     assert.match(gradle, /productFlavors/);
     assert.match(gradle, /create\("staging"\)/);
     assert.match(gradle, /create\("prod"\)/);
-    assert.match(gradle, /cryptogate\.stagingApi/);
-    assert.match(gradle, /cryptogate\.prodApi/);
+    assert.match(gradle, /paymentgate\.stagingApi/);
+    assert.match(gradle, /paymentgate\.prodApi/);
     assert.match(gradle, /APP_ENV/);
     assert.match(gradle, /CHAIN_ENV/);
     assert.match(gradle, /signingConfigs/);
@@ -52,7 +52,7 @@ describe("@cryptogate/cashier-apk scaffold (M2–M4)", () => {
 
   it("POS catalog mirrors Phase 1 registry pairs", () => {
     const catalog = readFileSync(
-      join(root, "app/src/main/java/com/cryptogate/cashier/api/AssetNetworkCatalog.kt"),
+      join(root, "app/src/main/java/com/paymentgate/cashier/api/AssetNetworkCatalog.kt"),
       "utf8",
     );
     assert.match(catalog, /bnb_smart_chain/);

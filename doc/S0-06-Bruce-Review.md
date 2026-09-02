@@ -6,7 +6,7 @@
 
 ## Summary
 
-**No blockers** for M1 watcher loop or matching stubs. Enum strings in `@cryptogate/domain` match OpenAPI components. Watcher must not import `apps/api`; DB access only after Andrew’s `payment_orders` migration.
+**No blockers** for M1 watcher loop or matching stubs. Enum strings in `@paymentgate/domain` match OpenAPI components. Watcher must not import `apps/api`; DB access only after Andrew’s `payment_orders` migration.
 
 ## Domain ↔ OpenAPI alignment
 

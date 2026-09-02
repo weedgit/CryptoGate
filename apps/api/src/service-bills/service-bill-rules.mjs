@@ -3,7 +3,7 @@ import {
   ServiceBillStatus,
   ServiceBillUpdateAction,
   resolvePlatformFeeNetwork,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;

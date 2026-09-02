@@ -6,7 +6,8 @@ import {
   canCreateAgentUnderParent,
   DEFAULT_MAX_AGENT_DEPTH,
 } from "../platform/onboardAgent";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
+import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import {
   fetchRegisteredEmailIndex,
   registeredEmailConflict,
@@ -323,37 +324,41 @@ export function OnboardSubAgentPage({ session }: Props) {
 
   if (!canOnboard) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <p className="muted">You do not have permission to onboard sub-agents.</p>
         <Link to={backTo}>← Back</Link>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   if (booting) {
     return (
-      <div className="b4-wizard-page">
-        <PlatformPending
-          title="Loading org tree"
-          copy="Checking nesting depth and preparing the sub-agent wizard."
-        />
-      </div>
+      <OnboardWizardLoading
+        title="Onboard sub-agent"
+        copy="Checking nesting depth and preparing the sub-agent wizard."
+        closeTo={backTo}
+      />
     );
   }
 
   if (!parentId || !parentOrg) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <p className="muted">Could not load the parent agent for this wizard.</p>
         <Link to={backTo}>← Back</Link>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   if (!depthOk) {
     return (
+      <OnboardWizardPortal>
       <div className="b4-wizard-page">
         <AuthToast message={error} tone="error" onDismiss={dismissToast} />
         <div className="b4-wizard-backdrop">
@@ -382,10 +387,12 @@ export function OnboardSubAgentPage({ session }: Props) {
           </div>
         </div>
       </div>
+      </OnboardWizardPortal>
     );
   }
 
   return (
+    <OnboardWizardPortal>
     <div className="b4-wizard-page">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <div className="b4-wizard-backdrop">
@@ -555,5 +562,6 @@ export function OnboardSubAgentPage({ session }: Props) {
         </div>
       </div>
     </div>
+    </OnboardWizardPortal>
   );
 }

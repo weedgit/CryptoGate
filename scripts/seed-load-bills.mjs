@@ -30,7 +30,7 @@ function loadEnv() {
   }
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL =
-      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
   }
 }
 

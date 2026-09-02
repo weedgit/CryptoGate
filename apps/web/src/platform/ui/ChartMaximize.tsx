@@ -109,7 +109,7 @@ export function ChartMaximizeOverlay({
 
   return createPortal(
     <div
-      className="platform-shell chart-maximize-overlay"
+      className="chart-maximize-overlay"
       role="dialog"
       aria-modal="true"
       aria-label={title}

@@ -1,4 +1,4 @@
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { HD_DERIVE_PATH_TEMPLATE } from "./hd-derive.mjs";
 
 export const HD_POOL_STATUSES = ["FREE", "IN_USE", "COOLDOWN"];

@@ -5,10 +5,7 @@ import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
-import {
-  PlatformPending,
-  PlatformTableSkeleton,
-} from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
   ordersCsvUrl,
@@ -678,14 +675,7 @@ export function OrdersListPage({ session }: Props) {
 
       <div className="plat-bills__table-wrap">
         {loading && !hasLoaded ? (
-          <div className="plat-bills__pending">
-            <PlatformPending
-              compact
-              title="Loading payment orders"
-              copy="Fetching open and recent orders for your merchant account."
-            />
-            <PlatformTableSkeleton columns={9} rows={6} />
-          </div>
+          <PagePending />
         ) : null}
 
         {!loading && sorted.length === 0 ? (

@@ -1,4 +1,4 @@
-import { AssetCode } from "@cryptogate/domain";
+import { AssetCode } from "@paymentgate/domain";
 import { getTonRuntimeConfig } from "./config.mjs";
 import {
   fetchJettonTransfersForAddresses,

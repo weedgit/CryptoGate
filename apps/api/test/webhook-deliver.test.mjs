@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { WEBHOOK_RETRY_DELAYS_SECONDS } from "@cryptogate/domain";
+import { WEBHOOK_RETRY_DELAYS_SECONDS } from "@paymentgate/domain";
 import {
   isWebhookDeliverySuccess,
   webhookOutboundHeaders,
@@ -21,10 +21,10 @@ describe("webhook delivery rules (M3-14)", () => {
       timestampSec: 1_710_000_000,
     });
     const expected = createHmac("sha256", secret).update(body, "utf8").digest("hex");
-    assert.equal(headers["X-CryptoGate-Signature"], expected);
-    assert.equal(headers["X-CryptoGate-Timestamp"], "1710000000");
-    assert.equal(headers["X-CryptoGate-Event-Id"], "e1");
-    assert.equal(headers["X-CryptoGate-Delivery-Id"], "d1");
+    assert.equal(headers["X-PaymentGate-Signature"], expected);
+    assert.equal(headers["X-PaymentGate-Timestamp"], "1710000000");
+    assert.equal(headers["X-PaymentGate-Event-Id"], "e1");
+    assert.equal(headers["X-PaymentGate-Delivery-Id"], "d1");
   });
 
   it("schedules retries then fails after the delay list", () => {

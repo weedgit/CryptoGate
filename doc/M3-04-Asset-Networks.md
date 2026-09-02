@@ -1,8 +1,8 @@
 # M3-04 — Connected assets and networks
 
-**Owner:** Kevin. **Enabled pairs:** `@cryptogate/domain` `ASSET_NETWORK_REGISTRY`.  
+**Owner:** Kevin. **Enabled pairs:** `@paymentgate/domain` `ASSET_NETWORK_REGISTRY`.  
 **Plan list:** [Phase1-Project-Plan.md](Phase1-Project-Plan.md) §VI.  
-**API enums:** OpenAPI `AssetCode` / `NetworkId` include the same strings; **create-order is 422** only when the pair is missing / `enabled: false` or filtered out by `CRYPTOGATE_CHAIN_ENV`.
+**API enums:** OpenAPI `AssetCode` / `NetworkId` include the same strings; **create-order is 422** only when the pair is missing / `enabled: false` or filtered out by `PAYMENTGATE_CHAIN_ENV`.
 
 Watcher, API, and payment page must take confirmations, decimals, min amount, Mode C step, and Mode D visibility from the registry — not from local constants.
 
@@ -10,7 +10,7 @@ Watcher, API, and payment page must take confirmations, decimals, min amount, Mo
 
 ## What is an RPC? Do we buy private keys?
 
-**RPC** = Remote Procedure Call endpoint for a blockchain node (or a hosted node API). CryptoGate uses it **read-only** to:
+**RPC** = Remote Procedure Call endpoint for a blockchain node (or a hosted node API). PaymentGate uses it **read-only** to:
 
 - List recent transfers to merchant receive addresses
 - Count confirmations on a tx hash
@@ -31,7 +31,7 @@ Empty `*_RPC_URL` → chain client stays in **stub** mode (health OK, no live tr
 ## Phase 1 access list (Plan §VI) — all enabled
 
 All fifteen mainnet pairs below are **`enabled: true`** in `ASSET_NETWORK_REGISTRY`.  
-Local/staging only: `USDT` + `tron_nile` when `CRYPTOGATE_CHAIN_ENV=testnet` (never on product mainnet builds).
+Local/staging only: `USDT` + `tron_nile` when `PAYMENTGATE_CHAIN_ENV=testnet` (never on product mainnet builds).
 
 | Asset | Network id | Guest label | Registry | Env URL |
 | --- | --- | --- | --- | --- |

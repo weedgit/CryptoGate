@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { createUser, findUserByEmail } from "../auth/users.mjs";
 import { closePool, getPool } from "../db/pool.mjs";
 import { insertMembership } from "../orgs/membership-store.mjs";
@@ -14,7 +14,7 @@ import {
 import { insertWebhookEndpoint, listWebhookEndpoints } from "../webhooks/webhook-store.mjs";
 import { runConcurrent, summarize } from "./load-metrics.mjs";
 
-const LOAD_EMAIL = "loadtest-m412@cryptogate.local";
+const LOAD_EMAIL = "loadtest-m412@paymentgate.local";
 const LOAD_PASSWORD = "LoadTestPass12!";
 
 /**

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
@@ -46,7 +46,7 @@ function hashBody(payload) {
 }
 
 /**
- * POST /v1/orders — assign via `@cryptogate/matching` (M2-12).
+ * POST /v1/orders — assign via `@paymentgate/matching` (M2-12).
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */

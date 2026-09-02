@@ -41,7 +41,7 @@ const byId = {
 describe("org create rules", () => {
   it("creates platform with default max agent depth", () => {
     const r = validateCreateOrg(
-      { type: "platform", name: "CryptoGate", parentId: "" },
+      { type: "platform", name: "PaymentGate", parentId: "" },
       { parent: null, maxAgentDepth: 2, agentDepthOfParent: 0 },
     );
     assert.equal(r.ok, true);
@@ -74,6 +74,20 @@ describe("org create rules", () => {
       { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
+  });
+
+  it("allows merchant under platform", () => {
+    const r = validateCreateOrg(
+      {
+        type: "merchant",
+        name: "Direct Hotel",
+        parentId: "p1",
+        structure: "single_location",
+      },
+      { parent: platform, maxAgentDepth: 2, agentDepthOfParent: 0 },
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.insert.parentId, "p1");
   });
 
   it("requires merchant structure", () => {

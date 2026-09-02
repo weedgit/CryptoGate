@@ -7,7 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AssetCode } from "@cryptogate/domain";
+import { AssetCode } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -30,7 +30,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
-import { PlatformPending, PlatformTableSkeleton } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import {
@@ -419,14 +419,7 @@ export function ServiceBillsListPage({ session }: Props) {
 
       <div className="plat-bills__table-wrap">
         {loading ? (
-          <div className="plat-bills__pending">
-            <PlatformPending
-              compact
-              title="Loading service bills"
-              copy="Fetching invoices and merchant names."
-            />
-            <PlatformTableSkeleton columns={9} rows={8} />
-          </div>
+          <PagePending />
         ) : null}
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">

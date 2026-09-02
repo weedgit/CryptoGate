@@ -628,7 +628,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 - **Catalog status** — `enabled/total` asset pairs on that network (registry completeness). Not a fake health %.
 - **Ingest** — watcher heartbeat when present (`Live` / `Stub` / `Down` + real health %). Empty RPC → stub; open orders will not complete until `*_RPC_URL` is set.
 - **Maintenance mode** — Platform O/A toggle; persisted; blocks `POST /orders` (`422 network_maintenance`); merchant dashboard banner via `GET /network-maintenance`; lamp → Paused
-- Contract addresses from `@cryptogate/domain` (explorer-linked in UI)
+- Contract addresses from `@paymentgate/domain` (explorer-linked in UI)
 - Watcher line shows lag / rpc mode from heartbeats (not fake `WATCHER_NN` labels)
 - Compact lamps also on merchant Networks via `GET /v1/networks/status`
 
@@ -970,7 +970,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - **Pay** → D6 checkout (separate from payment order)
 - Download PDF
 
-**Banner:** “Service bills pay for CryptoGate software. Customer payments go to your wallet separately.”
+**Banner:** “Service bills pay for PaymentGate software. Customer payments go to your wallet separately.”
 
 ---
 
@@ -1086,7 +1086,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - Per asset/network: xPub field (masked partial), validation status, derived address count
 - **Register / Replace xPub** (O, A): MFA, cool-down, audit — same bar as address
 - HD pool summary: FREE / IN_USE / COOLDOWN counts (read-only list expandable)
-- Warning copy: consolidation is merchant responsibility; CryptoGate does not sweep
+- Warning copy: consolidation is merchant responsibility; PaymentGate does not sweep
 - Cashier: hidden
 
 #### D11d. Order policies

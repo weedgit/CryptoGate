@@ -4,7 +4,7 @@
  * Mode is singular (B|C|D|S); secondary flags catch illegal stacked collision strategies.
  */
 import { majorToMinor } from "./amount.js";
-import { MatchingMode, type MatchingMode as MatchingModeType } from "@cryptogate/domain";
+import { MatchingMode, type MatchingMode as MatchingModeType } from "@paymentgate/domain";
 
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 

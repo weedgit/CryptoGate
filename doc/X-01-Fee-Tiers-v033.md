@@ -17,7 +17,7 @@ Additive to v0.3.2. Payment-order and signing paths unchanged.
 
 **Body (PUT):** `{ tiers: FeeTierBand[3] }` — one row each for `small`, `mid`, `enterprise`.
 
-**Seed:** `DEFAULT_FEE_TIER_BANDS` in `@cryptogate/domain` (matches [Business-Model.md](Business-Model.md) table).
+**Seed:** `DEFAULT_FEE_TIER_BANDS` in `@paymentgate/domain` (matches [Business-Model.md](Business-Model.md) table).
 
 **Rules**
 

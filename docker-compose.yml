@@ -1,21 +1,21 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cryptogate-postgres
+    container_name: paymentgate-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: cryptogate
-      POSTGRES_PASSWORD: cryptogate
-      POSTGRES_DB: cryptogate
+      POSTGRES_USER: paymentgate
+      POSTGRES_PASSWORD: paymentgate
+      POSTGRES_DB: paymentgate
     volumes:
-      - cryptogate_pgdata:/var/lib/postgresql/data
+      - paymentgate_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cryptogate -d cryptogate"]
+      test: ["CMD-SHELL", "pg_isready -U paymentgate -d paymentgate"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  cryptogate_pgdata:
+  paymentgate_pgdata:

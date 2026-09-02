@@ -66,6 +66,14 @@ export function sanitizeAuditMetadata(metadata) {
   for (const [key, value] of Object.entries(metadata)) {
     if (SECRET_KEY.test(key)) continue;
     if (
+      key === "deletedOrgIds" &&
+      Array.isArray(value) &&
+      value.every((item) => typeof item === "string")
+    ) {
+      out[key] = value;
+      continue;
+    }
+    if (
       value === null ||
       typeof value === "string" ||
       typeof value === "number" ||

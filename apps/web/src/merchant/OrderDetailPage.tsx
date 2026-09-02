@@ -42,7 +42,7 @@ import {
 import { networkLabel, primaryMerchantOrgId, sessionCanManageIntegrations, sessionCanViewIntegrations } from "./org";
 import { refreshMerchantAlerts } from "./merchantAlerts";
 import { displayNetworkForPair, webChainEnvOverride } from "../shared/assetNetworks";
-import { findAssetNetworkRow } from "@cryptogate/domain";
+import { findAssetNetworkRow } from "@paymentgate/domain";
 import { StatusBadge } from "../shared/StatusBadge";
 import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
 import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
@@ -69,7 +69,22 @@ type Props = {
   session: Session;
   /** Platform opens the same evidence UI watch-only (no cancel / resolve / create). */
   variant?: "merchant" | "platform";
+  /**
+   * Merchant orders live under `orders/*`, so React Router splat is `*` not `:id`.
+   * Parent routes pass the id explicitly; platform still uses `orders/:id`.
+   */
+  orderId?: string;
 };
+
+function paymentOrderIdFromRoute(
+  explicit: string | undefined,
+  params: Record<string, string | undefined>,
+): string | undefined {
+  const splat = params["*"]?.split("/").filter(Boolean)[0];
+  const raw = explicit || params.id || params.orderId || splat;
+  if (!raw || raw === "new") return undefined;
+  return raw;
+}
 
 const ORDER_DETAIL_POLL_MS = 5000;
 
@@ -112,8 +127,10 @@ function canResolveAnomalyOrder(
 export function OrderDetailPage({
   session,
   variant = "merchant",
+  orderId: orderIdProp,
 }: Props) {
-  const { id } = useParams();
+  const params = useParams();
+  const id = paymentOrderIdFromRoute(orderIdProp, params);
   const location = useLocation();
   const invoiceRef = useRef<HTMLElement | null>(null);
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
@@ -384,6 +401,21 @@ export function OrderDetailPage({
     } finally {
       setResolving(false);
     }
+  }
+
+  if (!id) {
+    return (
+      <div className="order-detail-page plat-settings plat-settings--merchant">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-body">
+            <p className="muted">This payment order could not be found.</p>
+            <Link className="order-detail-topbar__back" to={backTo}>
+              {backLabel}
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   if (loading && !order && !pay) {

@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_POLYGON, USDT_ARBITRUM_ONE } from "@cryptogate/domain";
+import { USDT_POLYGON, USDT_ARBITRUM_ONE } from "@paymentgate/domain";
 import { runWatcherOnce } from "./run-watcher-once.mjs";
 
-describe("@cryptogate/watcher polygon ingest smoke", () => {
+describe("@paymentgate/watcher polygon ingest smoke", () => {
   it("default tron tick reports polygon health stub", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "tron",
@@ -35,7 +35,7 @@ describe("@cryptogate/watcher polygon ingest smoke", () => {
   });
 });
 
-describe("@cryptogate/watcher arbitrum_one ingest smoke", () => {
+describe("@paymentgate/watcher arbitrum_one ingest smoke", () => {
   it("arbitrum_one target reports arbitrum-rpc when ARBITRUM_RPC_URL set", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "arbitrum_one",

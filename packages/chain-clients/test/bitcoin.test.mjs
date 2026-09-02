@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { BTC_BITCOIN } from "@cryptogate/domain";
+import { BTC_BITCOIN } from "@paymentgate/domain";
 import { healthCheck, getBitcoinConfig, listRecentTransfers } from "../bitcoin/index.mjs";
 
-describe("@cryptogate/chain-clients/bitcoin", () => {
+describe("@paymentgate/chain-clients/bitcoin", () => {
   it("healthCheck stub without BITCOIN_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "bitcoin");

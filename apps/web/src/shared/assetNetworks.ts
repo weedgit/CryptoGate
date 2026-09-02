@@ -6,18 +6,18 @@ import {
   getAssetNetworkConfig,
   resolveChainEnvironment,
   ChainEnvironment,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 export type PairAvailability = "live" | "catalogued";
 
 /**
- * Vite injects VITE_* into apps/web source only — not into @cryptogate/domain dist.
+ * Vite injects VITE_* into apps/web source only — not into @paymentgate/domain dist.
  * Always pass this override into domain registry helpers from the web app.
  */
 export function webChainEnvOverride(): string | undefined {
   const raw = (
     import.meta as { env?: Record<string, string | undefined> }
-  ).env?.VITE_CRYPTOGATE_CHAIN_ENV;
+  ).env?.VITE_PAYMENTGATE_CHAIN_ENV;
   const trimmed = raw?.trim();
   return trimmed || undefined;
 }
@@ -41,7 +41,7 @@ export function visibleRegistry(): readonly AssetNetworkConfig[] {
   return listAssetNetworkRegistry(webChainEnvOverride());
 }
 
-/** Topbar pill label from `VITE_CRYPTOGATE_CHAIN_ENV` (mainnet | testnet). */
+/** Topbar pill label from `VITE_PAYMENTGATE_CHAIN_ENV` (mainnet | testnet). */
 export function chainEnvironmentLabel(): string {
   return resolveChainEnvironment(webChainEnvOverride()) ===
     ChainEnvironment.Testnet

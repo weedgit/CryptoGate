@@ -1,8 +1,8 @@
-# CryptoGate
+# PaymentGate
 
-Phase 1 merchant collection: hotels, travel, transport, and retail take crypto (starting with USDT) without giving CryptoGate their keys.
+Phase 1 merchant collection: hotels, travel, transport, and retail take crypto (starting with USDT) without giving PaymentGate their keys.
 
-The payer sends from their own wallet to the **merchant’s** address. CryptoGate creates the **payment order**, shows QR and payment link, watches the chain, and marks the order paid. It does not hold coins, does not convert to fiat, and does not take a cut of the on-chain payment. Platform revenue is a separate **service bill** (subscription + volume fee).
+The payer sends from their own wallet to the **merchant’s** address. PaymentGate creates the **payment order**, shows QR and payment link, watches the chain, and marks the order paid. It does not hold coins, does not convert to fiat, and does not take a cut of the on-chain payment. Platform revenue is a separate **service bill** (subscription + volume fee).
 
 This is B2B software. The guest or shopper is not a Phase 1 account.
 
@@ -30,7 +30,7 @@ Implementation plan: [`doc/Phase1-Implementation-Plan.md`](doc/Phase1-Implementa
 
 Contract freeze notes, DB conventions, and package API notes: `doc/CONTRACT-FREEZE.md`, `doc/DB-Conventions.md`, `doc/Matching-Package-API.md`, `doc/Chain-Clients.md`.
 
-UI lock + tokens + Figma handoff: `doc/UI-Style-Lock.md`, `doc/UI-Tokens.md`, `doc/UI-Handoff.md`. Preview guest pay: `pnpm --filter @cryptogate/payment-page dev` → http://127.0.0.1:5173/
+UI lock + tokens + Figma handoff: `doc/UI-Style-Lock.md`, `doc/UI-Tokens.md`, `doc/UI-Handoff.md`. Preview guest pay: `pnpm --filter @paymentgate/payment-page dev` → http://127.0.0.1:5173/
 
 ## Repository layout
 
@@ -74,13 +74,13 @@ node scripts/e2e-mint-api-key.mjs
 # Then: node scripts/e2e-smoke.mjs --live
 
 # M1 payment-page prototypes
-npx pnpm@9.15.0 --filter @cryptogate/payment-page dev
+npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
 # → http://localhost:5173  (pay page)
 # → /create-order.html     (create-order prototype)
 # → /pos/                  (cashier POS wireframes)
 ```
 
-Demo logins: run `node scripts/seed-local.mjs` — password `User123456!1` for all accounts. See seed script header for full role/org matrix (`admin.platform@cryptogate.io`, `administrator.*@cryptogate.io`, `owner.*`, `viewer.*`, `cashier1`/`cashier2`). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
+Demo login: run `node scripts/seed-local.mjs` — `ower.platform@paymentgate.io` / `User1234567!` (platform owner only). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 
 ## Invariants
 

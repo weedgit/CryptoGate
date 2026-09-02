@@ -11,12 +11,13 @@ import {
   isPlatformFeePair,
   isTronReceiveAddress,
   PLATFORM_FEE_ASSET,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { truncateAddress } from "../platform/orgDetailSeeds";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
+import { FieldControl } from "../ui/FieldControl";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { platformFeeNetwork } from "../shared/platformFeePair";
@@ -50,11 +51,6 @@ function profileValue(raw: string | null | undefined): {
 } {
   const text = raw?.trim() ?? "";
   return text ? { text, empty: false } : { text: "Not provided", empty: true };
-}
-
-function orgInitial(name: string | undefined): string {
-  const ch = name?.trim().charAt(0);
-  return ch ? ch.toUpperCase() : "A";
 }
 
 /** C12 — Agent org settings (profile + payout address). */
@@ -171,14 +167,14 @@ export function AgentSettingsPage({ session }: Props) {
 
   const country = profileValue(org?.country);
   const legalName = profileValue(org?.legalName);
+  const payoutPairLabel = payout
+    ? isPlatformFeePair(payout.asset, payout.network)
+      ? `${PLATFORM_FEE_ASSET} · ${feeNetworkLabel}`
+      : `${payout.asset} · ${payout.network}`
+    : `${PLATFORM_FEE_ASSET} · ${feeNetworkLabel}`;
 
   if (loading) {
-    return (
-      <PlatformPending
-        title="Loading agent settings"
-        copy="Fetching org profile and payout address."
-      />
-    );
+    return <PagePending />;
   }
 
   return (
@@ -196,70 +192,76 @@ export function AgentSettingsPage({ session }: Props) {
         onDismiss={dismissToast}
       />
 
-      <div className="agent-settings__layout">
-        <section className="plat-settings__card agent-settings__card">
-          <div className="agent-settings__identity">
-            <div className="agent-settings__avatar" aria-hidden>
-              {orgInitial(org?.name)}
-            </div>
-            <div className="agent-settings__identity-copy">
-              <p className="agent-settings__kicker">Organization</p>
-              <h2 className="agent-settings__name">{org?.name ?? "Agent"}</h2>
-              <span className="agent-settings__type">
-                {org ? orgTypeLabel(org.type) : "Agent"}
-              </span>
-            </div>
+      <div className="plat-settings__grid agent-settings__grid">
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Organization</h2>
           </div>
-          <dl className="agent-settings__meta">
-            <div>
-              <dt>Country</dt>
-              <dd className={country.empty ? "is-empty" : undefined}>
-                {country.text}
-              </dd>
-            </div>
-            <div>
-              <dt>Legal name</dt>
-              <dd className={legalName.empty ? "is-empty" : undefined}>
-                {legalName.text}
-              </dd>
-            </div>
-          </dl>
+          <div className="plat-settings__card-body">
+            <dl className="plat-settings__dl plat-settings__dl--rows">
+              <div>
+                <dt>Name</dt>
+                <dd>{org?.name ?? "Agent"}</dd>
+              </div>
+              <div>
+                <dt>Type</dt>
+                <dd>{org ? orgTypeLabel(org.type) : "Agent"}</dd>
+              </div>
+              <div>
+                <dt>Country</dt>
+                <dd className={country.empty ? "is-empty" : undefined}>
+                  {country.text}
+                </dd>
+              </div>
+              <div>
+                <dt>Legal name</dt>
+                <dd className={legalName.empty ? "is-empty" : undefined}>
+                  {legalName.text}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </section>
 
-        <section className="plat-settings__card agent-settings__card">
-          <header className="agent-settings__card-head">
-            <div>
-              <p className="agent-settings__kicker">Remittance</p>
-              <h2 className="agent-settings__card-title">
-                Commission payout
-              </h2>
-            </div>
+        <section className="plat-settings__card">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Commission payout</h2>
             {isViewer ? (
               <span className="plat-settings__badge">Viewer · read-only</span>
             ) : null}
-          </header>
-          <div className="agent-settings__card-body">
+          </div>
+          <div className="plat-settings__card-body">
+            <p className="plat-settings__card-copy">
+              USDT on Tron receives commission rebates from the platform.
+              Address changes require MFA and a short cooldown before they go
+              live.
+            </p>
+
             {payout?.address ? (
-              <div className="agent-settings__active">
-                <p className="agent-settings__active-label">Active destination</p>
-                <p className="agent-settings__active-pair">
-                  {isPlatformFeePair(payout.asset, payout.network)
-                    ? `${PLATFORM_FEE_ASSET} · ${feeNetworkLabel}`
-                    : `${payout.asset} · ${payout.network}`}
-                </p>
-                <CopyableChainValue
-                  value={payout.address}
-                  network={payout.network?.trim() || "tron"}
-                  kind="address"
-                  display={truncateAddress(payout.address, 10, 8)}
-                />
-              </div>
+              <dl className="plat-settings__dl plat-settings__dl--rows">
+                <div>
+                  <dt>Active destination</dt>
+                  <dd>{payoutPairLabel}</dd>
+                </div>
+                <div>
+                  <dt>Address</dt>
+                  <dd>
+                    <CopyableChainValue
+                      value={payout.address}
+                      network={payout.network?.trim() || "tron"}
+                      kind="address"
+                      display={truncateAddress(payout.address, 10, 8)}
+                    />
+                  </dd>
+                </div>
+              </dl>
             ) : (
-              <p className="agent-settings__hint">
-                Set a USDT (TRC-20) address so commission slips have a
-                destination. Platform fees settle on Tron only.
+              <p className="plat-settings__card-note">
+                No payout address on file. Add a USDT (TRC-20) wallet so
+                commission invoices have a settlement destination.
               </p>
             )}
+
             {payout?.pendingActivatesAt ? (
               <p className="plat-settings__notice" role="status">
                 Pending <code>{payout.pendingAddress ?? "—"}</code> activates{" "}
@@ -267,9 +269,10 @@ export function AgentSettingsPage({ session }: Props) {
                 use the active address until then.
               </p>
             ) : null}
+
             {canEditPayout ? (
               <form
-                className="plat-settings__payout-form agent-settings__form"
+                className="plat-settings__payout-form"
                 onSubmit={onSavePayout}
               >
                 <div
@@ -288,34 +291,38 @@ export function AgentSettingsPage({ session }: Props) {
                     <span>{feeNetworkLabel}</span>
                   </span>
                 </div>
-                <label className="plat-settings__field">
-                  <span>Address</span>
-                  <input
-                    className="plat-settings__input agent-settings__address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="T…"
-                    autoComplete="off"
-                    spellCheck={false}
-                    required
-                  />
+
+                <label className="plat-settings__field" htmlFor="agent-payout-address">
+                  <span>Payout address</span>
+                  <FieldControl icon="coins">
+                    <input
+                      id="agent-payout-address"
+                      className="plat-settings__input mono"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Paste Tron address (starts with T)"
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                    />
+                  </FieldControl>
                 </label>
-                <div className="agent-settings__actions">
-                  <p className="agent-settings__hint">
-                    Authenticator MFA required. USDT on Tron only — changes cool
-                    down before they go live.
-                  </p>
-                  <button
-                    type="submit"
-                    className="btn-primary plat-settings__submit"
-                    disabled={!address.trim()}
-                  >
-                    {payout ? "Update address" : "Save address"}
-                  </button>
-                </div>
+
+                <p className="plat-settings__card-note">
+                  TRC-20 receive address only. Authenticator MFA required before
+                  saving.
+                </p>
+
+                <button
+                  type="submit"
+                  className="plat-settings__save"
+                  disabled={!address.trim()}
+                >
+                  {payout?.address ? "Update address" : "Save address"}
+                </button>
               </form>
             ) : (
-              <p className="agent-settings__hint">
+              <p className="plat-settings__card-note">
                 {payout?.address
                   ? "Owner or Administrator can rotate this address."
                   : "Ask an Owner or Administrator to set a payout address."}
@@ -324,41 +331,26 @@ export function AgentSettingsPage({ session }: Props) {
           </div>
         </section>
 
-        <section className="plat-settings__card agent-settings__card agent-settings__card--span">
-          <header className="agent-settings__card-head">
-            <div>
-              <p className="agent-settings__kicker">Alerts</p>
-              <h2 className="agent-settings__card-title">Notifications</h2>
-            </div>
-          </header>
-          <ul className="agent-settings__prefs">
-            <li>
-              <div>
-                <strong>Overdue service bills</strong>
-                <span>
-                  Email when a merchant invoice in your subtree is overdue.
-                </span>
-              </div>
-              <label className="agent-settings__switch">
-                <input type="checkbox" disabled checked readOnly />
-                <span className="agent-settings__track" aria-hidden />
-                <span className="sr-only">Enabled</span>
-              </label>
-            </li>
-            <li>
-              <div>
-                <strong>Monthly commission statement</strong>
-                <span>
-                  Email when a commission invoice is issued or settled.
-                </span>
-              </div>
-              <label className="agent-settings__switch">
-                <input type="checkbox" disabled checked readOnly />
-                <span className="agent-settings__track" aria-hidden />
-                <span className="sr-only">Enabled</span>
-              </label>
-            </li>
-          </ul>
+        <section className="plat-settings__card agent-settings__card--span">
+          <div className="plat-settings__card-head">
+            <h2 className="plat-settings__card-title">Notifications</h2>
+          </div>
+          <div className="plat-settings__card-body">
+            <ul className="plat-settings__pref-list">
+              <li>
+                <label>
+                  <input type="checkbox" disabled checked readOnly />
+                  Overdue service bills
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input type="checkbox" disabled checked readOnly />
+                  Monthly commission statement
+                </label>
+              </li>
+            </ul>
+          </div>
         </section>
       </div>
 

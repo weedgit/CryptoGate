@@ -8,10 +8,7 @@ import { ForceMfaEnrollmentGate } from "../auth/ForceMfaEnrollmentGate";
 import { sessionNeedsForcedMfa } from "../auth/mfaSession";
 import { LoginPage } from "./LoginPage";
 import { PlatformShell } from "./PlatformShell";
-import {
-  RequirePlatformOperator,
-  RequirePlatformPortal,
-} from "./RequirePlatformPortal";
+import { RequirePlatformPortal } from "./RequirePlatformPortal";
 import { PortalShellBoot } from "../auth/PortalShellBoot";
 import { platformRoute } from "../shared/portalRouting";
 import { LazyRoute } from "../shared/LazyRoute";
@@ -22,25 +19,17 @@ const DashboardPage = lazyNamed(
   "DashboardPage",
 );
 
-const AgentsListPage = lazyNamed(
-  () => import("./AgentsListPage"),
-  "AgentsListPage",
-);
 const ArchitecturePage = lazyNamed(
   () => import("./ArchitecturePage"),
   "ArchitecturePage",
 );
-const MerchantsListPage = lazyNamed(
-  () => import("./MerchantsListPage"),
-  "MerchantsListPage",
+const PlatformMerchantsRoutes = lazyNamed(
+  () => import("./PlatformMerchantsRoutes"),
+  "PlatformMerchantsRoutes",
 );
-const OnboardMerchantPage = lazyNamed(
-  () => import("./OnboardMerchantPage"),
-  "OnboardMerchantPage",
-);
-const OnboardAgentPage = lazyNamed(
-  () => import("./OnboardAgentPage"),
-  "OnboardAgentPage",
+const PlatformAgentsRoutes = lazyNamed(
+  () => import("./PlatformAgentsRoutes"),
+  "PlatformAgentsRoutes",
 );
 const AuditLogPage = lazyNamed(() => import("./AuditLogPage"), "AuditLogPage");
 const CompliancePage = lazyNamed(
@@ -108,13 +97,8 @@ export function PlatformApp() {
   const { session, setSession, mfaPending, booting, completeSignIn } =
     usePortalBoot();
 
-  if (booting) {
-    return (
-      <PortalShellBoot
-        title="Loading platform"
-        copy="Verifying your session"
-      />
-    );
+  if (!session && booting) {
+    return <PortalShellBoot />;
   }
 
   if (!session) {
@@ -157,28 +141,29 @@ export function PlatformApp() {
       <Route element={shell}>
         <Route index element={<DashboardPage session={session} />} />
         <Route
-          path="agents/new"
-          element={
-            <RequirePlatformOperator session={session}>
-              <OnboardAgentPage />
-            </RequirePlatformOperator>
-          }
+          path="agents"
+          element={<PlatformAgentsRoutes session={session} />}
         />
-        <Route path="agents/:id" element={<AgentsListPage session={session} />} />
-        <Route path="agents" element={<AgentsListPage session={session} />} />
+        <Route
+          path="agents/new"
+          element={<PlatformAgentsRoutes session={session} />}
+        />
+        <Route
+          path="agents/:id"
+          element={<PlatformAgentsRoutes session={session} />}
+        />
+        <Route
+          path="merchants"
+          element={<PlatformMerchantsRoutes session={session} />}
+        />
         <Route
           path="merchants/new"
-          element={
-            <RequirePlatformOperator session={session}>
-              <OnboardMerchantPage session={session} />
-            </RequirePlatformOperator>
-          }
+          element={<PlatformMerchantsRoutes session={session} />}
         />
         <Route
           path="merchants/:id"
-          element={<MerchantsListPage session={session} />}
+          element={<PlatformMerchantsRoutes session={session} />}
         />
-        <Route path="merchants" element={<MerchantsListPage session={session} />} />
         <Route
           path="architecture"
           element={<ArchitecturePage session={session} />}

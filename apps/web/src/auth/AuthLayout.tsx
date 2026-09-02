@@ -37,9 +37,9 @@ export function AuthLayout({
         {footer ? (
           <footer className="login-footer">
             <span>Need help? </span>
-            <a href="mailto:support@cryptogate.io">support@cryptogate.io</a>
+            <a href="mailto:support@paymentgate.io">support@paymentgate.io</a>
             {" · "}
-            <Link to="/">CryptoGate home</Link>
+            <Link to="/">PaymentGate home</Link>
           </footer>
         ) : null}
       </div>

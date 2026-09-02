@@ -1,12 +1,12 @@
-import { extraWatcherBackoffMs as tronExtraBackoff } from "@cryptogate/chain-clients/tron";
-import { extraWatcherBackoffMs as ethExtraBackoff } from "@cryptogate/chain-clients/ethereum";
-import { extraWatcherBackoffMs as bscExtraBackoff } from "@cryptogate/chain-clients/bnb_smart_chain";
-import { extraWatcherBackoffMs as polygonExtraBackoff } from "@cryptogate/chain-clients/polygon";
-import { extraWatcherBackoffMs as arbitrumExtraBackoff } from "@cryptogate/chain-clients/arbitrum_one";
-import { extraWatcherBackoffMs as baseExtraBackoff } from "@cryptogate/chain-clients/base";
-import { extraWatcherBackoffMs as solanaExtraBackoff } from "@cryptogate/chain-clients/solana";
-import { extraWatcherBackoffMs as tonExtraBackoff } from "@cryptogate/chain-clients/ton";
-import { extraWatcherBackoffMs as bitcoinExtraBackoff } from "@cryptogate/chain-clients/bitcoin";
+import { extraWatcherBackoffMs as tronExtraBackoff } from "@paymentgate/chain-clients/tron";
+import { extraWatcherBackoffMs as ethExtraBackoff } from "@paymentgate/chain-clients/ethereum";
+import { extraWatcherBackoffMs as bscExtraBackoff } from "@paymentgate/chain-clients/bnb_smart_chain";
+import { extraWatcherBackoffMs as polygonExtraBackoff } from "@paymentgate/chain-clients/polygon";
+import { extraWatcherBackoffMs as arbitrumExtraBackoff } from "@paymentgate/chain-clients/arbitrum_one";
+import { extraWatcherBackoffMs as baseExtraBackoff } from "@paymentgate/chain-clients/base";
+import { extraWatcherBackoffMs as solanaExtraBackoff } from "@paymentgate/chain-clients/solana";
+import { extraWatcherBackoffMs as tonExtraBackoff } from "@paymentgate/chain-clients/ton";
+import { extraWatcherBackoffMs as bitcoinExtraBackoff } from "@paymentgate/chain-clients/bitcoin";
 import { loadWatcherConfig } from "./config.mjs";
 import { runTick } from "./tick.mjs";
 
@@ -33,7 +33,7 @@ export async function runWatcherLoop(options = {}) {
 
   console.log(
     JSON.stringify({
-      service: "cryptogate-watcher",
+      service: "paymentgate-watcher",
       event: "start",
       phase: "m1-loop",
       startedAt,
@@ -63,7 +63,7 @@ export async function runWatcherLoop(options = {}) {
     if (extraMs > 0) {
       console.log(
         JSON.stringify({
-          service: "cryptogate-watcher",
+          service: "paymentgate-watcher",
           event: "rpc-backoff",
           extraMs,
           ingestMode: payload.ingest?.mode,
@@ -78,7 +78,7 @@ export async function runWatcherLoop(options = {}) {
 
   console.log(
     JSON.stringify({
-      service: "cryptogate-watcher",
+      service: "paymentgate-watcher",
       event: "shutdown",
       phase: "m1-loop",
       ticks: tick,

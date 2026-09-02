@@ -1,5 +1,5 @@
 /**
- * CryptoGate Institutional Ink — canonical CSS tokens
+ * PaymentGate Institutional Ink — canonical CSS tokens
  *
  * Sources:
  * - doc/UI-Style-Lock.md (locked palette + type)
@@ -55,6 +55,7 @@
 
   /* Type */
   --font-display: "Outfit", system-ui, sans-serif;
+  --font-wordmark: "Cinzel", "Georgia", "Times New Roman", serif;
   --font-ui: "Geist Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 

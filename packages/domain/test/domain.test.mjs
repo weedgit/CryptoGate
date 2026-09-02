@@ -44,7 +44,7 @@ import {
   DEFAULT_ORDER_DELETE_DAYS,
 } from "../dist/index.js";
 
-describe("@cryptogate/domain", () => {
+describe("@paymentgate/domain", () => {
   it("exports org types used by Business-Model", () => {
     assert.equal(OrgType.Platform, "platform");
     assert.equal(OrgType.MerchantSite, "merchant_site");

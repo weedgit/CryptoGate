@@ -2,8 +2,8 @@
 # Local uptime probe — logs failures only. Does not page off-box.
 set -euo pipefail
 
-LOG="${CRYPTOGATE_WATCHDOG_LOG:-/var/log/cryptogate-watchdog.log}"
-HOST="${CRYPTOGATE_HEALTH_HOST:-api-cg.boostbunny.io}"
+LOG="${PAYMENTGATE_WATCHDOG_LOG:-/var/log/paymentgate-watchdog.log}"
+HOST="${PAYMENTGATE_HEALTH_HOST:-api-cg.boostbunny.io}"
 
 code="$(curl -sS -o /tmp/cg-health.json -w '%{http_code}' \
   --max-time 8 \
@@ -21,7 +21,7 @@ if [[ "$ok" -ne 1 ]]; then
   exit 1
 fi
 
-if ! systemctl is-active --quiet cryptogate-watcher; then
+if ! systemctl is-active --quiet paymentgate-watcher; then
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) FAIL watcher inactive" >> "$LOG"
   exit 1
 fi

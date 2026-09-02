@@ -14,7 +14,7 @@ const row = {
   status: "pending_payment",
   matching_mode: "B",
   payable_amount: "245.00",
-  receive_address: "TCryptoGateStubReceiveAddress00001",
+  receive_address: "TPaymentGateStubReceiveAddress00001",
   memo_or_tag: null,
   asset: "USDT",
   network: "tron",

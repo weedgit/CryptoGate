@@ -32,7 +32,7 @@ Minimum columns watcher reads/writes in M3:
 | `required_confirmations` | int | API/config | From network catalog |
 | `updated_at` | timestamptz | **Both** | Optimistic concurrency optional in M3 |
 
-Enum values **must** match `@cryptogate/domain` `OrderStatus`:
+Enum values **must** match `@paymentgate/domain` `OrderStatus`:
 
 `pending_payment`, `verifying`, `confirmed`, `completed`, `expired`, `payment_anomaly`, `failed`, `cancelled`
 

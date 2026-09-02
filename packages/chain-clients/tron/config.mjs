@@ -1,6 +1,6 @@
 /**
  * Tron / TronGrid runtime config.
- * Contract + confirmations from @cryptogate/domain (USDT_TRON or USDT_TRON_NILE).
+ * Contract + confirmations from @paymentgate/domain (USDT_TRON or USDT_TRON_NILE).
  *
  * Two RPCs so testnet env can complete both Nile and Tron mainnet in one window:
  *   TRON_RPC_URL        → network=tron (mainnet TronGrid)
@@ -15,7 +15,7 @@ import {
   isTronFamilyNetwork,
   resolveChainEnvironment,
   ChainEnvironment,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 export const USDT_TRC20_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 export const USDT_TRC20_NILE_CONTRACT = "TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf";

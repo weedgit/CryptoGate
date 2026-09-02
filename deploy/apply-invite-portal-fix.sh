@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ROOT}/.env"
-API_ENV="/etc/cryptogate/api.env"
+API_ENV="/etc/paymentgate/api.env"
 
 patch_env_file() {
   local file="$1"
@@ -55,20 +55,18 @@ else
 fi
 
 echo "==> Building web"
-(cd "$ROOT" && pnpm --filter @cryptogate/web build)
+(cd "$ROOT" && pnpm --filter @paymentgate/web build)
 
 if command -v nginx >/dev/null 2>&1; then
-  echo "==> Testing nginx config"
-  nginx -t
-  echo "==> Reloading nginx"
-  systemctl reload nginx
+  echo "==> Ensuring nginx site (paymentgate.conf)"
+  PAYMENTGATE_DEPLOY_ROOT="$ROOT" bash "$ROOT/deploy/ensure-nginx-site.sh"
 fi
 
-if systemctl is-active --quiet cryptogate-api 2>/dev/null; then
-  echo "==> Restarting cryptogate-api"
-  systemctl restart cryptogate-api
+if systemctl is-active --quiet paymentgate-api 2>/dev/null; then
+  echo "==> Restarting paymentgate-api"
+  systemctl restart paymentgate-api
 else
-  echo "==> cryptogate-api service not running — start manually after deploy"
+  echo "==> paymentgate-api service not running — start manually after deploy"
 fi
 
 echo "Done. Re-invite a test user — link should be https://agent-cg.boostbunny.io/reset-password?token=..."

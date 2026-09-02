@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("@cryptogate/web agent M4-31", () => {
+describe("@paymentgate/web agent M4-31", () => {
   it("routes agent shell at /agent", () => {
     const app = readFileSync(join(root, "src/App.tsx"), "utf8");
     assert.match(app, /\/agent\/\*/);
@@ -40,15 +40,17 @@ describe("@cryptogate/web agent M4-31", () => {
   });
 });
 
-describe("@cryptogate/web agent C6 onboard merchant", () => {
+describe("@paymentgate/web agent C6 onboard merchant", () => {
   it("wires merchant wizard with commercial payload", () => {
     const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
     assert.match(app, /merchants\/new/);
-    assert.match(app, /OnboardMerchantPage/);
+    assert.match(app, /AgentMerchantsRoutes/);
     const wizard = readFileSync(
       join(root, "src/agent/OnboardMerchantPage.tsx"),
       "utf8",
     );
+    assert.match(wizard, /Onboard merchant/);
+    assert.doesNotMatch(wizard, /New merchant/);
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
     assert.match(wizard, /commercial/);
@@ -56,7 +58,7 @@ describe("@cryptogate/web agent C6 onboard merchant", () => {
   });
 });
 
-describe("@cryptogate/web agent C10 commissions", () => {
+describe("@paymentgate/web agent C10 commissions", () => {
   it("wires read-only commission statements separate from service bills", () => {
     const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
     assert.match(app, /commissions/);
@@ -64,7 +66,7 @@ describe("@cryptogate/web agent C10 commissions", () => {
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
     assert.match(page, /commissionHistoryFromBills/);
     assert.match(page, /listAgentCommissions/);
-    assert.match(page, /subtree service bills/);
+    assert.match(page, /getAgentServiceBills/);
     assert.match(page, /parseCommissionsTab/);
     assert.match(page, /From parent agent/);
     assert.match(page, /payeeOrgId: agentId/);
@@ -77,7 +79,7 @@ describe("@cryptogate/web agent C10 commissions", () => {
   });
 });
 
-describe("@cryptogate/web agent C12 settings", () => {
+describe("@paymentgate/web agent C12 settings", () => {
   it("locks commission payout to USDT on Tron", () => {
     const page = readFileSync(
       join(root, "src/agent/AgentSettingsPage.tsx"),
@@ -90,7 +92,7 @@ describe("@cryptogate/web agent C12 settings", () => {
   });
 });
 
-describe("@cryptogate/web agent C7 merchant detail", () => {
+describe("@paymentgate/web agent C7 merchant detail", () => {
   it("wires tabbed merchant detail with read-only managed-by-merchant labels", () => {
     const detail = readFileSync(
       join(root, "src/agent/MerchantDetailPage.tsx"),
@@ -98,7 +100,7 @@ describe("@cryptogate/web agent C7 merchant detail", () => {
     );
     assert.match(detail, /filter-tabs/);
     assert.match(detail, /managed by merchant/i);
-    assert.match(detail, /listServiceBills/);
+    assert.match(detail, /getAgentServiceBills/);
     assert.doesNotMatch(detail, /follow in a later/);
 
     const api = readFileSync(join(root, "src/agent/api.ts"), "utf8");

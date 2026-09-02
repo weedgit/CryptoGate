@@ -1,0 +1,37 @@
+[Unit]
+Description=PaymentGate API (HTTP, loopback)
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/PaymentGate
+EnvironmentFile=/etc/paymentgate/api.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node apps/api/src/server.mjs
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paymentgate-api
+
+MemoryMax=512M
+MemoryHigh=384M
+TasksMax=512
+LimitNOFILE=16384
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/PaymentGate
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

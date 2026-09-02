@@ -216,8 +216,8 @@ export function CreateSiteModal({ session, onClose }: Props) {
               </label>
 
               <p className="b3-commission-modal__hint create-site-modal__hint">
-                Wallet, xPub, matching mode, and retention inherit from the parent
-                until the parent merchant Owner approves a site override.
+                Wallet, matching, fulfillment, and retention inherit from the
+                parent merchant.
               </p>
             </div>
 

@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import {
   WEBHOOK_HTTP_TIMEOUT_MS,
   WEBHOOK_RETRY_DELAYS_SECONDS,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 
 /**
  * Outbound merchant headers (M3-01). HMAC over exact raw body bytes.
@@ -22,10 +22,10 @@ export function webhookOutboundHeaders(p) {
     .digest("hex");
   return {
     "Content-Type": "application/json",
-    "X-CryptoGate-Signature": signature,
-    "X-CryptoGate-Timestamp": timestamp,
-    "X-CryptoGate-Event-Id": p.eventId,
-    "X-CryptoGate-Delivery-Id": p.deliveryId,
+    "X-PaymentGate-Signature": signature,
+    "X-PaymentGate-Timestamp": timestamp,
+    "X-PaymentGate-Event-Id": p.eventId,
+    "X-PaymentGate-Delivery-Id": p.deliveryId,
   };
 }
 

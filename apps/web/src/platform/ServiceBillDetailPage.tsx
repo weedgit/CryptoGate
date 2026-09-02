@@ -23,7 +23,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import {
   platformBillingPayToFallback,
   resolveServiceBillInvoiceSeller,
@@ -181,12 +181,7 @@ export function ServiceBillDetailPage({ session }: Props) {
     : false;
 
   if (loading) {
-    return (
-      <PlatformPending
-        title="Loading service bill"
-        copy="Fetching bill details and merchant name."
-      />
-    );
+    return <PagePending />;
   }
 
   if (error || !bill) {

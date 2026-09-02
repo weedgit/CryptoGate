@@ -1,9 +1,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
-import { PlatformPending } from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
@@ -49,7 +49,6 @@ import {
   uniqueAssetsFromRegistry,
 } from "../shared/assetNetworks";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
-import { merchantRoute } from "../shared/portalRouting";
 
 type Props = { session: Session };
 
@@ -348,12 +347,7 @@ export function SettlementPage({ session }: Props) {
   const toastTone = error ? "error" : "ok";
 
   if (loading) {
-    return (
-      <PlatformPending
-        title="Loading settlement"
-        copy="Fetching matching mode, addresses, and HD pool status."
-      />
-    );
+    return <PagePending />;
   }
 
   if (forbidden) {
@@ -416,10 +410,9 @@ export function SettlementPage({ session }: Props) {
 
       {readOnly || fulfillmentReadOnly ? (
         <p className="plat-settings__notice" role="status">
-          Inheriting parent merchant defaults. Wallet, matching mode, fulfillment
-          policy, and xPub come from the parent until the parent Owner approves an
-          override.{" "}
-          <Link to={merchantRoute(`sites/${orgId}`)}>Request override</Link>
+          Inheriting parent merchant defaults. This site uses the parent
+          merchant wallet, matching mode, fulfillment, and order retention.
+          Change those on the parent merchant.
         </p>
       ) : null}
 
@@ -739,7 +732,7 @@ export function SettlementPage({ session }: Props) {
                       <span className="plat-card-help__tip" role="tooltip">
                         Watch-only xPub and derived addresses for{" "}
                         {displayNetworkForPair(xPubPair.asset, xPubPair.network)}.
-                        CryptoGate never sweeps or signs.
+                        PaymentGate never sweeps or signs.
                       </span>
                     </span>
                   </div>
@@ -950,120 +943,126 @@ export function SettlementPage({ session }: Props) {
         </section>
       </div>
 
-      {confirmOpen ? (
-        <div
-          className="b3-commission-modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (!savingMode) setConfirmOpen(false);
-          }}
-        >
-          <div
-            className="b3-commission-modal plat-settlement__confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="merchant-settlement-confirm-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="b3-commission-modal__head">
-              <h3 id="merchant-settlement-confirm-title">Confirm matching mode</h3>
-              <button
-                type="button"
-                className="b3-commission-modal__close"
-                aria-label="Close"
-                disabled={savingMode}
-                onClick={() => setConfirmOpen(false)}
+      {confirmOpen
+        ? createPortal(
+            <div
+              className="b3-commission-modal-backdrop"
+              role="presentation"
+              onClick={() => {
+                if (!savingMode) setConfirmOpen(false);
+              }}
+            >
+              <div
+                className="b3-commission-modal plat-settlement__confirm"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="merchant-settlement-confirm-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                ×
-              </button>
-            </header>
-            <div className="b3-commission-modal__body">
-              <p className="plat-settings__card-copy">
-                Switch to <strong>{matchingModeLabel(draftMode)}</strong>
-                {draftMode === "B"
-                  ? ` with underpay tolerance ${underpayTolerance.trim() || "0"}`
-                  : ""}
-                ? Applies to <strong>new orders only</strong>. Open orders keep their
-                create-time mode.
-              </p>
-              <div className="b3-commission-modal__actions">
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => setConfirmOpen(false)}
-                  disabled={savingMode}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => void saveMatchingMode()}
-                  disabled={savingMode}
-                >
-                  {savingMode ? "Saving…" : "Confirm"}
-                </button>
+                <header className="b3-commission-modal__head">
+                  <h3 id="merchant-settlement-confirm-title">Confirm matching mode</h3>
+                  <button
+                    type="button"
+                    className="b3-commission-modal__close"
+                    aria-label="Close"
+                    disabled={savingMode}
+                    onClick={() => setConfirmOpen(false)}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className="b3-commission-modal__body">
+                  <p className="plat-settings__card-copy">
+                    Switch to <strong>{matchingModeLabel(draftMode)}</strong>
+                    {draftMode === "B"
+                      ? ` with underpay tolerance ${underpayTolerance.trim() || "0"}`
+                      : ""}
+                    ? Applies to <strong>new orders only</strong>. Open orders keep their
+                    create-time mode.
+                  </p>
+                  <div className="b3-commission-modal__actions">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setConfirmOpen(false)}
+                      disabled={savingMode}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => void saveMatchingMode()}
+                      disabled={savingMode}
+                    >
+                      {savingMode ? "Saving…" : "Confirm"}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
 
-      {fulfillmentConfirmOpen ? (
-        <div
-          className="b3-commission-modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            if (!savingFulfillment) setFulfillmentConfirmOpen(false);
-          }}
-        >
-          <div
-            className="b3-commission-modal plat-settlement__confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="merchant-fulfillment-confirm-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="b3-commission-modal__head">
-              <h3 id="merchant-fulfillment-confirm-title">Confirm Counter policy</h3>
-              <button
-                type="button"
-                className="b3-commission-modal__close"
-                aria-label="Close"
-                disabled={savingFulfillment}
-                onClick={() => setFulfillmentConfirmOpen(false)}
+      {fulfillmentConfirmOpen
+        ? createPortal(
+            <div
+              className="b3-commission-modal-backdrop"
+              role="presentation"
+              onClick={() => {
+                if (!savingFulfillment) setFulfillmentConfirmOpen(false);
+              }}
+            >
+              <div
+                className="b3-commission-modal plat-settlement__confirm"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="merchant-fulfillment-confirm-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                ×
-              </button>
-            </header>
-            <div className="b3-commission-modal__body">
-              <p className="plat-settings__card-copy">
-                Switch to <strong>Counter (release on verifying)</strong>? Staff may
-                release goods when a tx is detected, before confirmations complete.
-                Applies to <strong>new orders only</strong>.
-              </p>
-              <div className="b3-commission-modal__actions">
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => setFulfillmentConfirmOpen(false)}
-                  disabled={savingFulfillment}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => void saveFulfillmentPolicy()}
-                  disabled={savingFulfillment}
-                >
-                  {savingFulfillment ? "Saving…" : "Confirm"}
-                </button>
+                <header className="b3-commission-modal__head">
+                  <h3 id="merchant-fulfillment-confirm-title">Confirm Counter policy</h3>
+                  <button
+                    type="button"
+                    className="b3-commission-modal__close"
+                    aria-label="Close"
+                    disabled={savingFulfillment}
+                    onClick={() => setFulfillmentConfirmOpen(false)}
+                  >
+                    ×
+                  </button>
+                </header>
+                <div className="b3-commission-modal__body">
+                  <p className="plat-settings__card-copy">
+                    Switch to <strong>Counter (release on verifying)</strong>? Staff may
+                    release goods when a tx is detected, before confirmations complete.
+                    Applies to <strong>new orders only</strong>.
+                  </p>
+                  <div className="b3-commission-modal__actions">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => setFulfillmentConfirmOpen(false)}
+                      disabled={savingFulfillment}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => void saveFulfillmentPolicy()}
+                      disabled={savingFulfillment}
+                    >
+                      {savingFulfillment ? "Saving…" : "Confirm"}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {pendingMfa ? (
         <MfaStepUpGate

@@ -1,4 +1,4 @@
--- M1-10: users + sessions. Enums later must match @cryptogate/domain.
+-- M1-10: users + sessions. Enums later must match @paymentgate/domain.
 -- Password hashes stored as scrypt digests (see src/auth/password-hash.mjs).
 -- Session tokens are stored hashed; plaintext token never persists.
 

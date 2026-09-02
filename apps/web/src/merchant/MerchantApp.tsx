@@ -106,13 +106,8 @@ export function MerchantApp() {
     [session],
   );
 
-  if (booting) {
-    return (
-      <PortalShellBoot
-        title="Loading merchant portal"
-        copy="Verifying your session"
-      />
-    );
+  if (!session && booting) {
+    return <PortalShellBoot />;
   }
 
   if (!session) {

@@ -25,6 +25,8 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
   let cached: T | null = null;
   let cachedAt = 0;
   let inflight: Promise<T> | null = null;
+  /** Bumped on invalidate so late in-flight responses cannot repopulate stale rows. */
+  let generation = 0;
 
   function hydrateFromStorage(): void {
     if (cached != null) return;
@@ -43,6 +45,7 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
   }
 
   function invalidate(): void {
+    generation += 1;
     cached = null;
     cachedAt = 0;
     inflight = null;
@@ -55,9 +58,14 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
 
   function refresh(): Promise<T> {
     if (inflight) return inflight;
+    const requestGeneration = generation;
     inflight = opts
       .fetch()
       .then((data) => {
+        if (requestGeneration !== generation) {
+          inflight = null;
+          return data;
+        }
         cached = data;
         cachedAt = Date.now();
         persist(data);
@@ -80,13 +88,7 @@ export function createListCache<T>(opts: ListCacheOptions<T>): ListCache<T> {
       return cached!;
     }
 
-    if (!options?.force && cached != null) {
-      void refresh().catch(() => {
-        /* keep serving stale on background failure */
-      });
-      return cached;
-    }
-
+    // peek() may still paint cached rows instantly; callers await fresh data here.
     return refresh();
   }
 

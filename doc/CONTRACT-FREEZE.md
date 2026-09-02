@@ -28,7 +28,7 @@ Frozen for Andrew (`M2-11`/`M2-13`) and Kevin (`M2-50`):
 - `Idempotency-Key` required on create; reuse with different body → 409.
 - Agent create → 403. Cashier cannot set matching mode / settlement / xPub / fees.
 - `GET /orders/{id}/payment` has **no** merchant session; payment page polls this, not the chain.
-- `PaymentOrder` required fields match `@cryptogate/domain`.
+- `PaymentOrder` required fields match `@paymentgate/domain`.
 
 ## v0.2.1 — Merchant matching-mode settings
 
@@ -87,7 +87,7 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain | `@cryptogate/domain` | `WebhookEventType`, `ServiceBillStatus`, `ApiSigningHeader`, rate-limit + retry constants |
+| Domain | `@paymentgate/domain` | `WebhookEventType`, `ServiceBillStatus`, `ApiSigningHeader`, rate-limit + retry constants |
 | Handoff | `doc/M3-01-Signed-Api.md` | Canonical HMAC string, 401 codes, 429 limits |
 | Signing | `X-Timestamp` `X-Nonce` `X-Signature` with `X-Api-Key` | Session cookie and guest `/payment` do not sign |
 | Webhooks | `GET/POST /v1/webhooks`, `POST /v1/webhooks/test`, deliveries | Secret once; HMAC outbound; Cashier 403 |
@@ -108,7 +108,7 @@ Additive. Guest payment schemas unchanged. HD pool claim API still pending.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain | `@cryptogate/domain` | `ApiKey`, `API_KEY_MAX_PER_ORG`, `ApiKeyColumn` |
+| Domain | `@paymentgate/domain` | `ApiKey`, `API_KEY_MAX_PER_ORG`, `ApiKeyColumn` |
 | Handoff | `doc/M4-11-Api-Keys.md` | Paths, secret-once, rotate, webhook secret rotate-by-recreate |
 | API keys | `GET/POST /v1/api-keys`, `DELETE /v1/api-keys/{apiKeyId}`, `POST …/rotate` | Cashier 403; secret never on GET |
 
@@ -121,7 +121,7 @@ Additive to v0.3.0. Signing canonical string unchanged.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain | `@cryptogate/domain` | `AuditAction`, `AuditLogEntry`, `AuditLogColumn`, `ServiceBillUpdateAction`; optional `ServiceBill.paidAt` / `voidedAt` |
+| Domain | `@paymentgate/domain` | `AuditAction`, `AuditLogEntry`, `AuditLogColumn`, `ServiceBillUpdateAction`; optional `ServiceBill.paidAt` / `voidedAt` |
 | Handoff | `doc/M4-36-Audit-Bills-v032.md` | Andrew implements GET `/audit`, PATCH service bills |
 | Audit | `GET /v1/audit` | Read-only; Cashier 403; scoped by role |
 | Service bills | `PATCH /v1/service-bills/{billId}` | Platform-only mark_paid / void / adjust |
@@ -135,7 +135,7 @@ Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain | `@cryptogate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put`, `enterprise_rate_decide` |
+| Domain | `@paymentgate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put`, `enterprise_rate_decide` |
 | Handoff | `doc/X-01-Fee-Tiers-v033.md` | Andrew implements platform settings + merchant commercial; migration **019** suggested |
 | Platform settings | `GET/PUT /platform/settings/fee-tiers`, `GET/PUT /platform/settings/org-policy` | Owner-only PUT; changes next billing period |
 | Merchant commercial | `GET/PUT /orgs/{orgId}/commercial` | Agent/platform assign within band; Enterprise approval queue |
@@ -185,7 +185,7 @@ Site order create uses parent settlement/xPub/matching until an approved overrid
 - [ ] MFA enroll + login; session revoke invalidates token
 - [ ] Agent account user cannot create merchant payment orders (403)
 - [ ] Prototype walkthrough: login/roles (API), create-order + payment page + POS wireframes
-- [ ] Watcher runs as separate process (`pnpm --filter @cryptogate/watcher start`)
+- [ ] Watcher runs as separate process (`pnpm --filter @paymentgate/watcher start`)
 - [ ] Implemented M1 routes match OpenAPI v0.1 (auth/orgs); order routes follow v0.2
 
 ## Out of this freeze

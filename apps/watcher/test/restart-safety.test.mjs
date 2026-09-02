@@ -9,7 +9,7 @@ import {
   applyMatchResult,
 } from "../src/orders/order-store.mjs";
 
-describe("@cryptogate/watcher restart safety (M4-20)", () => {
+describe("@paymentgate/watcher restart safety (M4-20)", () => {
   it("matchWriteNeeded skips already-applied verifying + same tx", () => {
     const d = matchWriteNeeded(
       {

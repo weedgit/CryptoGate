@@ -1,4 +1,4 @@
-# Figma Work AI — CryptoGate UI Prompt Pack
+# Figma Work AI — PaymentGate UI Prompt Pack
 
 Use these prompts with **Figma Work AI / Figma Make / AI design assist**. Paste **one prompt at a time**. Start with **Prompt 0 (Design system)**, then portal prompts, then motion passes.
 
@@ -27,7 +27,7 @@ Use these **before** or **alongside** the UI pack so screens use a real mark. Ru
 ### L1 — Logo system (primary)
 
 ```
-Create a logo system for CryptoGate — B2B non-custodial crypto payment collection for hotels and retail. Not a consumer wallet, not an exchange, not a meme coin.
+Create a logo system for PaymentGate — B2B non-custodial crypto payment collection for hotels and retail. Not a consumer wallet, not an exchange, not a meme coin.
 
 Brand feel: modern, professional, institutional fintech × blockchain infrastructure. Calm trust. Stripe-level polish, Coinbase Institutional seriousness — zero casino neon.
 
@@ -35,7 +35,7 @@ Concept (preferred): abstract “watch-only gate” — a geometric portal / arc
 
 Mark rules:
 - Primary mark: simple geometric monogram or symbol that works at 16px and on a POS receipt
-- Wordmark: “CryptoGate” — distinctive geometric sans; Gate slightly tighter tracking than Crypto; optional “CG” monogram
+- Wordmark: “PaymentGate” — distinctive geometric sans; Gate slightly tighter tracking than Crypto; optional “CG” monogram
 - Construction: optical grid, consistent stroke, 1–2 shapes max
 - Color: teal-cyan #00D4C8 on ink #0B0F14; also pure white and pure black versions
 - No gradients inside the mark at small sizes; optional soft gradient only on oversized brand hero
@@ -56,7 +56,7 @@ Annotate grid and rationale in short sticky notes.
 ### L2 — App icon / favicon set
 
 ```
-Using the CryptoGate logo mark from the previous frame, design an app icon and favicon set.
+Using the PaymentGate logo mark from the previous frame, design an app icon and favicon set.
 
 Surfaces:
 - App icon 1024×1024 (master)
@@ -79,7 +79,7 @@ Deliver frame set “Brand — Icons” with each size labeled and a monochrome 
 ### L3 — Short master (tight character limit)
 
 ```
-Design CryptoGate logo + icons. B2B non-custodial crypto payments (watch-only gate). Style: pro fintech, ink #0B0F14, teal #00D4C8. Geometric gate/portal mark + “CryptoGate” wordmark + CG monogram. Simple, sharp at 16px. No purple, neon, coins, Bitcoin B, 3D chrome, emoji.
+Design PaymentGate logo + icons. B2B non-custodial crypto payments (watch-only gate). Style: pro fintech, ink #0B0F14, teal #00D4C8. Geometric gate/portal mark + “PaymentGate” wordmark + CG monogram. Simple, sharp at 16px. No purple, neon, coins, Bitcoin B, 3D chrome, emoji.
 
 Deliver: horizontal logo, stacked, symbol-only, CG monogram, clear space, color variants (teal-on-ink, white-on-ink, black-on-white). Icons: 1024 app, favicon 32/16, POS launcher, mono notification. Safe zones labeled.
 ```
@@ -89,7 +89,7 @@ Deliver: horizontal logo, stacked, symbol-only, CG monogram, clear space, color 
 Paste one at a time after L1/L2:
 
 ```
-Tighten the CryptoGate mark: fewer nodes, stronger silhouette, better 16px legibility. Keep teal #00D4C8 on ink.
+Tighten the PaymentGate mark: fewer nodes, stronger silhouette, better 16px legibility. Keep teal #00D4C8 on ink.
 ```
 
 ```
@@ -97,7 +97,7 @@ Create an animated logo intro concept for Figma: gate aperture opens 400ms, teal
 ```
 
 ```
-Generate social/og lockups: CryptoGate symbol + short tagline “Merchant crypto collection. Watch-only.” 1200×630 and 1080×1080.
+Generate social/og lockups: PaymentGate symbol + short tagline “Merchant crypto collection. Watch-only.” 1200×630 and 1080×1080.
 ```
 
 ```
@@ -111,7 +111,7 @@ Export checklist frame: SVG logo, PNG @1x/2x, app icon 1024, favicon ICO/PNG, ma
 Paste this as a single brief (~half the length of Prompt 8):
 
 ```
-Design CryptoGate Phase 1 UI: B2B non-custodial crypto collection (USDT). Portals: Platform, Agent, Merchant (+ site, Cashier role), public Payment Page, Service Bill checkout, Cashier Android POS.
+Design PaymentGate Phase 1 UI: B2B non-custodial crypto collection (USDT). Portals: Platform, Agent, Merchant (+ site, Cashier role), public Payment Page, Service Bill checkout, Cashier Android POS.
 
 Style: modern pro fintech/blockchain — ink #0B0F14–#12181F, accent teal #00D4C8, warn amber #F5B942, success #2EE59D, anomaly #FF5A6A. Glass panels, soft chain-grid, mono for amounts/addresses. Avoid purple gradients, neon overload, emoji, pill spam, confetti.
 
@@ -129,7 +129,7 @@ Rules: Cashier no settlement/xPub/matching; Agent no create order; MFA on addres
 **Follow-ups if truncated** (paste one at a time):
 
 ```
-Expand missing Platform screens: agents, fee tiers, compliance override, audit, system health. Same CryptoGate design system.
+Expand missing Platform screens: agents, fee tiers, compliance override, audit, system health. Same PaymentGate design system.
 ```
 
 ```
@@ -145,7 +145,7 @@ Animation pass: status badge morph, Verifying ring, QR scale-in + scan-line, KPI
 ## Prompt 0 — Design system (run first)
 
 ```
-You are designing the design system for CryptoGate Phase 1 — a B2B non-custodial crypto payment collection platform for hotels, travel, transport, and retail.
+You are designing the design system for PaymentGate Phase 1 — a B2B non-custodial crypto payment collection platform for hotels, travel, transport, and retail.
 
 BRAND PERSONALITY
 - Modern, professional, trustworthy fintech + blockchain infrastructure
@@ -164,7 +164,7 @@ VISUAL DIRECTION (LOCK THIS)
 - Icons: thin geometric line icons (1.5px), crypto-aware (QR, chain, wallet address) without cartoon coins
 
 TYPOGRAPHY
-- Display / brand: distinctive geometric sans (e.g. Satoshi, Clash Display, or similar) for “CryptoGate” wordmark and hero numbers
+- Display / brand: distinctive geometric sans (e.g. Satoshi, Clash Display, or similar) for “PaymentGate” wordmark and hero numbers
 - UI body: clean neo-grotesk (e.g. Inter is OK only if paired with strong display; prefer Geist / IBM Plex Sans / Suisse-like)
 - Mono for addresses, tx hashes, order IDs, amounts: JetBrains Mono or IBM Plex Mono
 - Hierarchy: Order status and payable amount are the loudest numbers on payment screens
@@ -203,7 +203,7 @@ Output: one “00 Design System” page with clear frames and labels.
 ## Prompt 1 — Platform portal
 
 ```
-Using the CryptoGate Design System, design HIGH-FIDELITY desktop screens (1440×900) for the PLATFORM shell (CryptoGate operator).
+Using the PaymentGate Design System, design HIGH-FIDELITY desktop screens (1440×900) for the PLATFORM shell (PaymentGate operator).
 
 Style: modern professional blockchain SaaS, dark luminous UI, teal accent, glass panels, rich motion-ready layouts.
 
@@ -242,7 +242,7 @@ Do NOT include: purple gradients, meme crypto art, “Mark paid” buttons, cust
 ## Prompt 2 — Agent portal
 
 ```
-Using CryptoGate Design System, design desktop screens (1440×900) for the AGENT portal (channel partner / ISO reseller).
+Using PaymentGate Design System, design desktop screens (1440×900) for the AGENT portal (channel partner / ISO reseller).
 
 Agent users NEVER create payment orders — hide any create-order CTA.
 
@@ -268,7 +268,7 @@ Add pink sticky notes describing motion: KPI count-up, fee slider spring, wizard
 ## Prompt 3 — Merchant portal (+ site)
 
 ```
-Using CryptoGate Design System, design desktop screens (1440×900) for the MERCHANT portal (and note Merchant (site) variants).
+Using PaymentGate Design System, design desktop screens (1440×900) for the MERCHANT portal (and note Merchant (site) variants).
 
 Role-aware nav:
 - Owner/Admin/Viewer: full ops
@@ -303,7 +303,7 @@ Annotate animations: table row stagger, status badge morph Pending→Verifying�
 ## Prompt 4 — Public payment page (guest)
 
 ```
-Design the PUBLIC payment page for CryptoGate (apps/payment-page). Mobile-first 390×844 AND desktop 1280×800. NO login. NO merchant admin chrome.
+Design the PUBLIC payment page for PaymentGate (apps/payment-page). Mobile-first 390×844 AND desktop 1280×800. NO login. NO merchant admin chrome.
 
 Goal: one clear composition — guest must pay correctly on the right network.
 
@@ -334,7 +334,7 @@ Motion (describe + prototype-ready):
 - Copy address: checkmark micro-burst
 - Completed: amount settles with gentle spring; chain checkmark draws
 
-Avoid card-heavy layout; full-bleed atmospheric background with soft chain-grid. Brand “CryptoGate” secondary, merchant name primary for trust.
+Avoid card-heavy layout; full-bleed atmospheric background with soft chain-grid. Brand “PaymentGate” secondary, merchant name primary for trust.
 ```
 
 ---
@@ -342,7 +342,7 @@ Avoid card-heavy layout; full-bleed atmospheric background with soft chain-grid.
 ## Prompt 5 — Cashier Android POS (APK)
 
 ```
-Design Cashier Android POS UI for CryptoGate (portrait handheld POS). Frames at 1080×1920 and optional second-screen 720×1280.
+Design Cashier Android POS UI for PaymentGate (portrait handheld POS). Frames at 1080×1920 and optional second-screen 720×1280.
 
 Screens:
 G1 Login (server environment badge Test/Prod)
@@ -373,7 +373,7 @@ Motion:
 ## Prompt 6 — Global motion / animation pass
 
 ```
-Animation director pass for CryptoGate Figma file. For EVERY major component and screen transition, add a Motion Spec frame or sticky notes with:
+Animation director pass for PaymentGate Figma file. For EVERY major component and screen transition, add a Motion Spec frame or sticky notes with:
 
 1. Trigger (hover / tap / load / status change / websocket update)
 2. Properties (opacity, y, scale, blur, color, path draw)
@@ -428,7 +428,7 @@ Create a single page “99 Motion Spec” documenting all of the above with exam
 ## Prompt 7 — Micro-interactions, empty states, alarms
 
 ```
-Expand CryptoGate UI with polished micro-states and alarms. Same design system.
+Expand PaymentGate UI with polished micro-states and alarms. Same design system.
 
 For each portal, add frames:
 - Empty states (no orders, no agents, no bills) — one illustration style: abstract chain nodes, not cute mascots
@@ -456,7 +456,7 @@ Make every interactive component feel “alive”: hover, focus ring (teal 2px),
 Use only if the tool allows a long single brief; otherwise prefer Prompts 0–7.
 
 ```
-Design a complete Figma UI kit + key screens for CryptoGate Phase 1: non-custodial B2B crypto collection (USDT etc.). Portals: Platform, Agent, Merchant (incl. site + Cashier role), public Payment Page, Service Bill checkout, Cashier Android POS.
+Design a complete Figma UI kit + key screens for PaymentGate Phase 1: non-custodial B2B crypto collection (USDT etc.). Portals: Platform, Agent, Merchant (incl. site + Cashier role), public Payment Page, Service Bill checkout, Cashier Android POS.
 
 Aesthetic: modern professional blockchain/fintech — deep ink surfaces, teal-cyan accents, amber warnings, glass panels, subtle grid, mono for addresses. Avoid purple SaaS clichés, neon overload, emoji.
 
@@ -502,6 +502,6 @@ After screens exist, paste individually:
 
 | Date | Change |
 | --- | --- |
-| 2026-08-22 | Initial Figma Work AI prompt pack for CryptoGate Phase 1 |
+| 2026-08-22 | Initial Figma Work AI prompt pack for PaymentGate Phase 1 |
 | 2026-08-22 | Added short master prompt for tight character limits |
 | 2026-08-22 | Added logo & icon prompts for Figma Maker AI |

@@ -94,7 +94,7 @@ export function MfaEnrollmentWizard({
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div className="login-brand login-brand--compact">
         <GateLogoMark size={32} className="login-logo-mark-svg" />
-        <span className="login-brand-name login-brand-name--compact">CryptoGate</span>
+        <span className="login-brand-name login-brand-name--compact">PaymentGate</span>
       </div>
 
       {step === "loading" ? (

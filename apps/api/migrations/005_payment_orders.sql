@@ -1,4 +1,4 @@
--- M1-19 / M2-10: payment orders. Column names match @cryptogate/domain PaymentOrderColumn.
+-- M1-19 / M2-10: payment orders. Column names match @paymentgate/domain PaymentOrderColumn.
 -- Status / matching enums match domain + Watcher-Order-Status-Contract.md.
 -- Amounts are major-unit decimal strings (no float). Watcher owns tx_hash / received_amount.
 

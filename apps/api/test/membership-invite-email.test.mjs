@@ -38,7 +38,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
   });
 
   it("rejects invite when email already belongs to another org", async () => {
-    const takenEmail = `email-uniq-${Date.now()}@cryptogate.local`;
+    const takenEmail = `email-uniq-${Date.now()}@paymentgate.local`;
     const existingUser = await createUser({
       email: takenEmail,
       password: "UniqueTestPass12!",
@@ -61,7 +61,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
   });
 
   it("allows invite when email is new", async () => {
-    const freshEmail = `email-fresh-${Date.now()}@cryptogate.local`;
+    const freshEmail = `email-fresh-${Date.now()}@paymentgate.local`;
     const res = await apiFetch(base, `/v1/orgs/${seed.platformOrgId}/users`, {
       method: "POST",
       token: seed.platformToken,
@@ -74,7 +74,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
   });
 
   it("allows same email on the same org only once", async () => {
-    const agentOwnerEmail = `agent-owner-${Date.now()}@cryptogate.local`;
+    const agentOwnerEmail = `agent-owner-${Date.now()}@paymentgate.local`;
     const agentOwner = await createUser({
       email: agentOwnerEmail,
       password: "UniqueTestPass12!",

@@ -21,6 +21,7 @@ import { bootstrapMerchantCommercial } from "../apps/api/src/commercial/merchant
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
 
 const PREFIX = "Load";
 const TARGET_NAMES = [`${PREFIX} Agent 001`, `${PREFIX} Agent 010`];
@@ -44,7 +45,7 @@ function loadEnv() {
   }
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL =
-      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
   }
 }
 
@@ -103,10 +104,10 @@ async function main() {
   loadEnv();
   const pool = getPool();
 
-  const platformOwner = await findUserByEmail("admin.platform@cryptogate.io");
+  const platformOwner = await findUserByEmail(SEED_PLATFORM_OWNER_EMAIL);
   if (!platformOwner) {
     throw new Error(
-      "Missing admin.platform@cryptogate.io — run seed-local first.",
+      `Missing ${SEED_PLATFORM_OWNER_EMAIL} — run seed-local first.`,
     );
   }
 

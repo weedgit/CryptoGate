@@ -1,4 +1,4 @@
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 
 const STATUS_VALUES = new Set(Object.values(OrderStatus));
 const UUID_RE =

@@ -1,9 +1,9 @@
 /**
  * BNB Smart Chain JSON-RPC runtime config (X-06).
- * Contract + confirmations + decimals from @cryptogate/domain USDT_BNB_SMART_CHAIN.
+ * Contract + confirmations + decimals from @paymentgate/domain USDT_BNB_SMART_CHAIN.
  */
 
-import { USDT_BNB_SMART_CHAIN } from "@cryptogate/domain";
+import { USDT_BNB_SMART_CHAIN } from "@paymentgate/domain";
 
 function readInt(name, fallback) {
   const raw = process.env[name];

@@ -138,7 +138,7 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
 
         {booting ? (
           <div className="plat-issue-bill-modal__pending" aria-busy="true">
-            <span className="plat-issue-bill-modal__spinner" aria-hidden />
+            <span className="cg-spinner cg-spinner--sm plat-issue-bill-modal__spinner" aria-hidden />
             <p className="muted">Loading merchants…</p>
           </div>
         ) : (
@@ -256,7 +256,7 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
               >
                 {loading ? (
                   <>
-                    <span className="plat-issue-bill-modal__btn-spin" aria-hidden />
+                    <span className="cg-spinner cg-spinner--xs plat-issue-bill-modal__btn-spin" aria-hidden />
                     Issuing…
                   </>
                 ) : (

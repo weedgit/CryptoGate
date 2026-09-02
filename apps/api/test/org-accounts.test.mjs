@@ -28,14 +28,14 @@ describe("org-accounts mapper", () => {
       toOrgAccount({
         id: "p1",
         type: "platform",
-        name: "CryptoGate",
+        name: "PaymentGate",
         parent_id: null,
         structure: null,
       }),
       {
         id: "p1",
         type: "platform",
-        name: "CryptoGate",
+        name: "PaymentGate",
         parentId: null,
         status: "active",
       },

@@ -17,7 +17,7 @@ export function generateTotpSecret(byteLen = 20) {
  * @param {string} secretBase32
  * @param {string} [issuer]
  */
-export function otpauthUrl(email, secretBase32, issuer = "CryptoGate") {
+export function otpauthUrl(email, secretBase32, issuer = "PaymentGate") {
   const label = encodeURIComponent(`${issuer}:${email}`);
   const params = new URLSearchParams({
     secret: secretBase32,

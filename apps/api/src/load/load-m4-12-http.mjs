@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { OrderStatus } from "@cryptogate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { createSession } from "../auth/sessions.mjs";
 import { closePool, getPool } from "../db/pool.mjs";
 import { handleRequest } from "../http/app.mjs";

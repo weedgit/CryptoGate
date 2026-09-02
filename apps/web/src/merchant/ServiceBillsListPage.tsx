@@ -10,10 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
-import {
-  PlatformPending,
-  PlatformTableSkeleton,
-} from "../platform/ui/PlatformPending";
+import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
   getMerchantCommercial,
@@ -245,7 +242,7 @@ export function ServiceBillsListPage({ session }: Props) {
             <h2 className="plat-bills__plan-title">Fee &amp; billing</h2>
             <p className="plat-bills__plan-copy">
               Platform fee tier and volume rate — display only. Changes come from
-              your agent or CryptoGate platform.
+              your agent or PaymentGate platform.
             </p>
           </div>
         </div>
@@ -293,14 +290,7 @@ export function ServiceBillsListPage({ session }: Props) {
 
       <div className="plat-bills__table-wrap">
         {loading && !hasLoaded ? (
-          <div className="plat-bills__pending">
-            <PlatformPending
-              compact
-              title="Loading service bills"
-              copy="Fetching platform invoices for your merchant account."
-            />
-            <PlatformTableSkeleton columns={5} rows={6} />
-          </div>
+          <PagePending />
         ) : null}
 
         {!loading && filtered.length === 0 ? (

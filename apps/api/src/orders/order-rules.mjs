@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig } from "@cryptogate/domain";
+import { getAssetNetworkConfig } from "@paymentgate/domain";
 
 const ALLOWED_KEYS = new Set([
   "amount",
@@ -22,7 +22,7 @@ const PRIVILEGED_KEYS = new Set([
 ]);
 
 /** Not a live wallet. Replaced by assignOnCreate (M2-12) + merchant settlement address. */
-export const STUB_RECEIVE_ADDRESS = "TCryptoGateStubReceiveAddress00001";
+export const STUB_RECEIVE_ADDRESS = "TPaymentGateStubReceiveAddress00001";
 
 /**
  * @param {unknown} body
@@ -147,7 +147,7 @@ export function validateCreateOrderBody(body) {
 }
 
 /**
- * Stub assign retained for unit tests only. Create path uses `@cryptogate/matching`.
+ * Stub assign retained for unit tests only. Create path uses `@paymentgate/matching`.
  * @param {{
  *   amount: string,
  *   asset: string,

@@ -111,7 +111,7 @@ Then: `feat-bruce-web-merchant-m2-settlement` for M2-61/62/63.
 
 Kevin smoke checklist: [M2-Mid-Gate.md](M2-Mid-Gate.md).
 
-`public/config.js` sets `CRYPTOGATE_API_BASE` (default `http://127.0.0.1:3000`).
+`public/config.js` sets `PAYMENTGATE_API_BASE` (default `http://127.0.0.1:3000`).
 
 Guest URLs: `/pay/{id}` (rewritten to `index.html`) or `/?id={id}`.  
 Demo (no id):

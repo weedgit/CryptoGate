@@ -1,10 +1,10 @@
 {
-  "name": "@cryptogate/cashier-apk",
+  "name": "@paymentgate/cashier-apk",
   "version": "0.1.0",
   "private": true,
   "description": "Cashier Android POS (Kotlin) — owned by Bruce. See doc/Cashier-Apk.md.",
   "scripts": {
-    "build": "node -e \"console.log('@cryptogate/cashier-apk: open apps/cashier-apk in Android Studio')\"",
+    "build": "node -e \"console.log('@paymentgate/cashier-apk: open apps/cashier-apk in Android Studio')\"",
     "typecheck": "node ./scripts/check-scaffold.mjs",
     "test": "node --test ./scripts/check-scaffold.mjs",
     "lint": "node ./scripts/check-scaffold.mjs"

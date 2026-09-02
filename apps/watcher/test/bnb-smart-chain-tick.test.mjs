@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_BNB_SMART_CHAIN } from "@cryptogate/domain";
+import { USDT_BNB_SMART_CHAIN } from "@paymentgate/domain";
 import { runWatcherOnce } from "./run-watcher-once.mjs";
 
-describe("@cryptogate/watcher bnb_smart_chain ingest smoke (X-06)", () => {
+describe("@paymentgate/watcher bnb_smart_chain ingest smoke (X-06)", () => {
   it("default network tron still reports bnb_smart_chain health stub", async () => {
     const { code, stdout, stderr } = await runWatcherOnce({
       DEFAULT_NETWORK: "tron",

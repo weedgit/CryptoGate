@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { getOrgUsers, peekOrgUsers } from "../shared/orgUsersCache";
+import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
   assignOrgUserRole,
@@ -117,7 +117,7 @@ export function PlatformTeamPage({ session }: Props) {
     setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!platformOrgId) {
       setError("No platform org on this session");
       setLoading(false);
@@ -137,7 +137,8 @@ export function PlatformTeamPage({ session }: Props) {
         /* keep session org */
       }
       setResolvedOrgId(resolvedOrgId);
-      setMembers(await getOrgUsers(resolvedOrgId));
+      if (opts?.force) invalidateOrgUsers(resolvedOrgId);
+      setMembers(await getOrgUsers(resolvedOrgId, { force: opts?.force }));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load team");
     } finally {
@@ -188,10 +189,15 @@ export function PlatformTeamPage({ session }: Props) {
         email: invitedEmail,
         role: inviteRole,
       });
+      setMembers((prev) => {
+        const next = mergeOrgMember(prev, orgMemberFromInvite(m, invitedEmail));
+        primeOrgUsers(orgId, next);
+        return next;
+      });
       showOk(`Added ${invitedEmail} as ${roleLabel(m.role)}.`);
       setInviteCreds({ ...m, invitedEmail });
       setInviteEmail("");
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(inviteEmailErrorMessage(err));
     } finally {
@@ -228,8 +234,11 @@ export function PlatformTeamPage({ session }: Props) {
     setBusy(true);
     try {
       await setOrgUserStatus(orgId, userId, status);
+      setMembers((prev) =>
+        prev.map((m) => (m.userId === userId ? { ...m, status } : m)),
+      );
       showOk(status === "paused" ? "Member paused." : "Member resumed.");
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Status update failed");
     } finally {
@@ -242,9 +251,15 @@ export function PlatformTeamPage({ session }: Props) {
     setBusy(true);
     try {
       await removeOrgUser(orgId, removeTarget.userId);
+      const removedId = removeTarget.userId;
+      setMembers((prev) => {
+        const next = prev.filter((m) => m.userId !== removedId);
+        primeOrgUsers(orgId, next);
+        return next;
+      });
       showOk(`Removed ${removeTarget.email}.`);
       setRemoveTarget(null);
-      await load();
+      void load({ force: true });
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Remove failed");
     } finally {

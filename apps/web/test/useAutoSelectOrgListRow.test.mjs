@@ -14,7 +14,9 @@ function shouldAutoSelect(input) {
     filteredIds,
     emailIndexLoading,
     query,
+    onCreateRoute = false,
   } = input;
+  if (onCreateRoute) return null;
   if (loading) return null;
   if (looksLikeEmailQuery(query) && emailIndexLoading) return null;
   if (filteredIds.length === 0) return null;
@@ -83,6 +85,20 @@ describe("useAutoSelectOrgListRow logic", () => {
         query: "",
       }),
       "a",
+    );
+  });
+
+  it("skips auto-select on create routes (e.g. merchants/new modal)", () => {
+    assert.equal(
+      shouldAutoSelect({
+        loading: false,
+        allIds: all,
+        filteredIds: all,
+        emailIndexLoading: false,
+        query: "",
+        onCreateRoute: true,
+      }),
+      null,
     );
   });
 

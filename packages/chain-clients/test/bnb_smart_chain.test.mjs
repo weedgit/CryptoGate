@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_BNB_SMART_CHAIN } from "@cryptogate/domain";
+import { USDT_BNB_SMART_CHAIN } from "@paymentgate/domain";
 import {
   healthCheck,
   getBnbSmartChainConfig,
@@ -10,7 +10,7 @@ import {
   ERC20_TRANSFER_TOPIC,
 } from "../bnb_smart_chain/index.mjs";
 
-describe("@cryptogate/chain-clients/bnb_smart_chain stub", () => {
+describe("@paymentgate/chain-clients/bnb_smart_chain stub", () => {
   it("healthCheck returns stub mode without BSC_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "bnb_smart_chain");
@@ -49,7 +49,7 @@ describe("@cryptogate/chain-clients/bnb_smart_chain stub", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/bnb_smart_chain map (18 decimals)", () => {
+describe("@paymentgate/chain-clients/bnb_smart_chain map (18 decimals)", () => {
   it("mapTransferLog maps BEP-20 Transfer with 18 decimals", () => {
     const to = "0x742d35cc6634c0532925a3b844bc9e7595f0beb0";
     // 1e18 minor = 1.0 major at 18 decimals
@@ -81,7 +81,7 @@ describe("@cryptogate/chain-clients/bnb_smart_chain map (18 decimals)", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/bnb_smart_chain rpc env", () => {
+describe("@paymentgate/chain-clients/bnb_smart_chain rpc env", () => {
   const prev = process.env.BSC_RPC_URL;
 
   before(() => {

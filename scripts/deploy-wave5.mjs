@@ -24,6 +24,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const deployDir = join(root, ".deploy");
@@ -76,23 +77,43 @@ function pnpm(args) {
   run("npx", ["pnpm@9.15.0", ...args]);
 }
 
+function parseEnvLines(text, { override = false } = {}) {
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (override || !process.env[key]) {
+      process.env[key] = trimmed.slice(eq + 1).trim();
+    }
+  }
+}
+
 function loadEnvFile() {
   const envPath = join(root, ".env");
   if (!existsSync(envPath)) {
     copyFileSync(join(root, ".env.example"), envPath);
     log("env", "created .env from .env.example");
   }
-  for (const line of readFileSync(envPath, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq <= 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    if (!process.env[key]) {
-      process.env[key] = trimmed.slice(eq + 1).trim();
-    }
+  parseEnvLines(readFileSync(envPath, "utf8"));
+
+  const productionEnv = "/etc/cryptogate/api.env";
+  if (existsSync(productionEnv)) {
+    parseEnvLines(readFileSync(productionEnv, "utf8"), { override: true });
+    log("env", "applied production overrides from /etc/cryptogate/api.env");
   }
+
   ensureWebCors();
+}
+
+function isSystemdApiActive() {
+  const r = spawnSync(
+    "systemctl",
+    ["is-active", "--quiet", "cryptogate-api.service"],
+    { stdio: "pipe" },
+  );
+  return r.status === 0;
 }
 
 function ensureWebCors() {
@@ -127,9 +148,9 @@ function dockerComposeUp() {
         "postgres",
         "pg_isready",
         "-U",
-        "cryptogate",
+        "paymentgate",
         "-d",
-        "cryptogate",
+        "paymentgate",
       ],
       { cwd: root, stdio: "pipe" },
     );
@@ -151,7 +172,7 @@ function prepare() {
   loadEnvFile();
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL =
-      "postgres://cryptogate:cryptogate@localhost:5432/cryptogate";
+      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
   }
   run(process.execPath, [join(root, "apps/api/scripts/migrate.mjs")]);
   log("prepare", "ok");
@@ -222,6 +243,14 @@ function up() {
 
   const apiLog = join(deployDir, "api.log");
   const watcherLog = join(deployDir, "watcher.log");
+
+  if (isSystemdApiActive()) {
+    log(
+      "up",
+      "cryptogate-api.service is already active — skipping background API start (use: systemctl restart cryptogate-api.service)",
+    );
+    return;
+  }
 
   const apiOut = openSync(apiLog, "a");
   const apiChild = spawn(process.execPath, [join(root, "apps/api/src/server.mjs")], {
@@ -330,7 +359,7 @@ function startWeb() {
   const webOut = openSync(webLog, "a");
   const webChild = spawn(
     "npx",
-    ["pnpm@9.15.0", "--filter", "@cryptogate/web", "dev", "--host", "127.0.0.1", "--port", webPort],
+    ["pnpm@9.15.0", "--filter", "@paymentgate/web", "dev", "--host", "127.0.0.1", "--port", webPort],
     {
       cwd: root,
       env: process.env,
@@ -352,8 +381,7 @@ function printLocalUrls() {
   console.log(`Merchant   ${webOrigin}/merchant`);
   console.log(`Guest pay  ${payOrigin}/pay/{orderId}`);
   console.log(`API health ${apiBase}/health`);
-  console.log("Login: admin.platform@cryptogate.io / User123456!1 (platform + agent)");
-  console.log("       owner.singlemerchant@cryptogate.io / User123456!1 (merchant)");
+  console.log(`Login: ${SEED_PLATFORM_OWNER_EMAIL} / User1234567! (platform owner)`);
   console.log("Stop:  node scripts/deploy-wave5.mjs --down\n");
 }
 
@@ -409,9 +437,9 @@ async function restoreDrill() {
       "postgres",
       "pg_dump",
       "-U",
-      "cryptogate",
+      "paymentgate",
       "-d",
-      "cryptogate",
+      "paymentgate",
       "-Fc",
     ],
     { cwd: root, stdio: ["ignore", dumpFd, "inherit"] },
@@ -429,11 +457,11 @@ async function restoreDrill() {
     "postgres",
     "psql",
     "-U",
-    "cryptogate",
+    "paymentgate",
     "-d",
     "postgres",
     "-c",
-    "DROP DATABASE IF EXISTS cryptogate WITH (FORCE);",
+    "DROP DATABASE IF EXISTS paymentgate WITH (FORCE);",
   ]);
   run("docker", [
     "compose",
@@ -442,11 +470,11 @@ async function restoreDrill() {
     "postgres",
     "psql",
     "-U",
-    "cryptogate",
+    "paymentgate",
     "-d",
     "postgres",
     "-c",
-    "CREATE DATABASE cryptogate;",
+    "CREATE DATABASE paymentgate;",
   ]);
 
   log("restore", "pg_restore (docker postgres stdin)");
@@ -460,9 +488,9 @@ async function restoreDrill() {
       "postgres",
       "pg_restore",
       "-U",
-      "cryptogate",
+      "paymentgate",
       "-d",
-      "cryptogate",
+      "paymentgate",
       "--no-owner",
       "--no-privileges",
     ],

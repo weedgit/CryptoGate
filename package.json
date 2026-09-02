@@ -1,5 +1,5 @@
 {
-  "name": "cryptogate",
+  "name": "paymentgate",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "engines": {
@@ -10,7 +10,7 @@
     "lint": "pnpm -r --if-present run lint",
     "test": "pnpm -r --if-present run test",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "openapi:lint": "pnpm --filter @cryptogate/api-spec run lint",
+    "openapi:lint": "pnpm --filter @paymentgate/api-spec run lint",
     "check": "node ./scripts/check.mjs",
     "e2e": "node ./scripts/e2e-smoke.mjs",
     "e2e:check": "node ./scripts/e2e-smoke.mjs --check",

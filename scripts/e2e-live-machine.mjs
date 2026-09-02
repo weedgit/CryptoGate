@@ -88,8 +88,8 @@ function startListener() {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const raw = Buffer.concat(chunks);
-    const signature = String(req.headers["x-cryptogate-signature"] ?? "");
-    const eventId = String(req.headers["x-cryptogate-event-id"] ?? "");
+    const signature = String(req.headers["x-paymentgate-signature"] ?? "");
+    const eventId = String(req.headers["x-paymentgate-event-id"] ?? "");
     if (!expectedSecret || !verifyWebhookSignature(expectedSecret, raw, signature)) {
       res.statusCode = 401;
       res.end(JSON.stringify({ ok: false }));

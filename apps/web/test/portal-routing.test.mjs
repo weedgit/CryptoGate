@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const routing = readFileSync(join(root, "src/shared/portalRouting.ts"), "utf8");
 const app = readFileSync(join(root, "src/App.tsx"), "utf8");
 const nginx = readFileSync(
-  join(root, "..", "..", "deploy", "nginx-cryptogate.conf"),
+  join(root, "..", "..", "deploy", "nginx-paymentgate.conf"),
   "utf8",
 );
 

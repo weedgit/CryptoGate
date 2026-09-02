@@ -1,0 +1,16 @@
+[Unit]
+Description=PaymentGate chain watcher
+After=network.target postgresql.service paymentgate-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/paymentgate
+EnvironmentFile=/etc/paymentgate/watcher.env
+ExecStart=/usr/bin/node apps/watcher/src/main.mjs --loop
+Restart=always
+RestartSec=5
+User=paymentgate
+
+[Install]
+WantedBy=multi-user.target

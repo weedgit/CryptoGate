@@ -50,25 +50,25 @@ Use for migration between providers, pre-migration safety, or offline archive. *
 
 ```bash
 # From a host that can reach Postgres (TLS URL from secret manager)
-export DATABASE_URL='postgresql://user:pass@host:5432/cryptogate?sslmode=require'
+export DATABASE_URL='postgresql://user:pass@host:5432/paymentgate?sslmode=require'
 
 pg_dump "$DATABASE_URL" \
   --format=custom \
   --no-owner \
-  --file="cryptogate-$(date +%Y%m%d-%H%M)-${ENV}.dump"
+  --file="paymentgate-$(date +%Y%m%d-%H%M)-${ENV}.dump"
 
 # Verify archive (does not restore)
-pg_restore --list "cryptogate-*.dump" | head
+pg_restore --list "paymentgate-*.dump" | head
 ```
 
 Store `.dump` files in encrypted object storage; **never** commit dumps to git.
 
 ### 2.3 Local development
 
-Docker Compose volume `cryptogate_pgdata` holds dev data only. Optional before destructive experiments:
+Docker Compose volume `paymentgate_pgdata` holds dev data only. Optional before destructive experiments:
 
 ```bash
-docker compose exec -T postgres pg_dump -U cryptogate -d cryptogate -Fc > /tmp/cryptogate-local.dump
+docker compose exec -T postgres pg_dump -U paymentgate -d paymentgate -Fc > /tmp/paymentgate-local.dump
 ```
 
 ---
@@ -103,7 +103,7 @@ Run **at least once** in the **test** environment before prod go-live. Record el
 | 4 | **Stop** API and watcher (`systemd stop` or scale to 0) |
 | 5 | Restore to a **new** test DB instance **or** in-place per provider runbook |
 | 6 | Update test `DATABASE_URL` in secret manager if hostname changed |
-| 7 | `pnpm --filter @cryptogate/api migrate` — idempotent forward-only |
+| 7 | `pnpm --filter @paymentgate/api migrate` — idempotent forward-only |
 | 8 | Start watcher, then API |
 | 9 | Smoke (§4.3) + run [monitoring queries](examples/monitoring-queries.sql) |
 | 10 | File drill report: RTO achieved, gaps, owner sign-off |
@@ -139,12 +139,12 @@ CLI health (no HTTP): `node apps/api/src/health.mjs` — use only when API proce
 
 ```bash
 docker compose stop postgres
-docker volume rm cryptogate_pgdata   # destructive
+docker volume rm paymentgate_pgdata   # destructive
 docker compose up -d postgres
 # wait for healthy
-pg_restore --dbname="postgresql://cryptogate:cryptogate@127.0.0.1:5432/cryptogate" \
-  --no-owner --clean --if-exists /tmp/cryptogate-local.dump
-pnpm --filter @cryptogate/api migrate
+pg_restore --dbname="postgresql://paymentgate:paymentgate@127.0.0.1:5432/paymentgate" \
+  --no-owner --clean --if-exists /tmp/paymentgate-local.dump
+pnpm --filter @paymentgate/api migrate
 ```
 
 ---
@@ -161,7 +161,7 @@ Phase 1 does not ship a bundled APM product. Company A wires probes and log aler
 
 ```json
 {
-  "service": "cryptogate-api",
+  "service": "paymentgate-api",
   "status": "ok",
   "db": "ok",
   "timestamp": "…"
@@ -192,7 +192,7 @@ Example tick fields:
 
 ```json
 {
-  "service": "cryptogate-watcher",
+  "service": "paymentgate-watcher",
   "tick": 42,
   "at": "2026-08-24T16:00:00.000Z",
   "pollIntervalMs": 5000,
@@ -207,7 +207,7 @@ Example tick fields:
 
 | Alert | Severity | Condition (tune to env) |
 | --- | --- | --- |
-| Watcher silent | **P1** | No line with `"service":"cryptogate-watcher"` and `"tick":` for **> 2 ×** (`WATCHER_POLL_INTERVAL_MS` + 30s backoff budget) — default **~2 min** |
+| Watcher silent | **P1** | No line with `"service":"paymentgate-watcher"` and `"tick":` for **> 2 ×** (`WATCHER_POLL_INTERVAL_MS` + 30s backoff budget) — default **~2 min** |
 | Ingest error | **P2** | `"ingest":{"mode":"error"` or `"ingestError":` non-null sustained 5 min |
 | RPC backoff storm | **P2** | `event":"rpc-backoff"` more than 10 times in 10 min |
 | Tron unhealthy | **P2** | `chain.tron.ok === false` for 5 min |

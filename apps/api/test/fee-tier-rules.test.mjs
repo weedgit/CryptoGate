@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { MerchantTier } from "@cryptogate/domain";
+import { MerchantTier } from "@paymentgate/domain";
 import {
   validateFeeTierBand,
   validateUpdateFeeTierSettingsBody,

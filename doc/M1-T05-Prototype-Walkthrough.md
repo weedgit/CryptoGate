@@ -16,7 +16,7 @@ Walkthrough demonstrates **roles, login concept, order screen, payment page, and
 | 1 | Guest payment page (mock order) | `apps/payment-page/public/` | ☑ 2026-08-27 local — pending / Mode C / verifying / completed / anomaly / expired / Ethereum ERC-20 preview; custody line; wrong-network warn. Live `/pay/{id}` after cashier create. |
 | 2 | Cashier web shell | Merchant portal `/merchant` (Cashier role, D17) | ☑ Cashier Dashboard + create order; settlement route **Access restricted** |
 | 3 | POS wireframe | `apps/payment-page/public/pos/index.html` | ☑ Login / create / QR / receipt; no settlement edit |
-| 4 | Platform / agent / merchant portal routes | `doc/UI-Handoff.md` map | ☑ Platform + agent: MFA step-up (`owner@local.cryptogate`). Merchant owner: forced MFA enroll before settings. Cashier: full terminal. |
+| 4 | Platform / agent / merchant portal routes | `doc/UI-Handoff.md` map | ☑ Platform + agent: MFA step-up (`owner@local.paymentgate`). Merchant owner: forced MFA enroll before settings. Cashier: full terminal. |
 | 5 | OpenAPI contract | `packages/api-spec/openapi.yaml` auth + org + order stubs | ☑ v0.3.3 — `/orders` and `/service-bills` are separate paths |
 
 ---
@@ -26,7 +26,7 @@ Walkthrough demonstrates **roles, login concept, order screen, payment page, and
 | # | Story | Expected |
 | --- | --- | --- |
 | 1 | **Cashier** creates order | ☑ UI generate invoice + `POST /v1/orders` **201** `pending_payment`; guest `GET /payment` 200. GET/PUT settlement **403**. |
-| 2 | **Merchant Owner** | ☑ Settlement GET 200 (API). Web: Owner/Admin must enroll MFA before settings (local `merchant@local.cryptogate`). Cashier cannot open settlement. |
+| 2 | **Merchant Owner** | ☑ Settlement GET 200 (API). Web: Owner/Admin must enroll MFA before settings (local `merchant@local.paymentgate`). Cashier cannot open settlement. |
 | 3 | **Agent** | ☑ Agent portal MFA step-up for local owner. `POST /v1/orders` **401** `mfa_required` until TOTP (create-order 403 covered by authz tests). |
 | 4 | **Platform** | ☑ Login → Two-Factor Auth step-up. Fee tiers remain behind MFA (`/platform/settings/fee-tiers`). |
 | 5 | **Guest** | ☑ “Send only USDT on TRON TRC-20 / Ethereum ERC-20. Wrong network may result in lost funds.” |

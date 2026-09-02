@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { WebhookEventType } from "@cryptogate/domain";
+import { WebhookEventType } from "@paymentgate/domain";
 import {
   DEFAULT_WEBHOOK_EVENTS,
   normalizeWebhookEvents,

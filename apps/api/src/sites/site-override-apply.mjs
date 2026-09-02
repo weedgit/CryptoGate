@@ -1,10 +1,6 @@
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
 import { upsertFulfillmentPolicySettings } from "../fulfillment-policy/fulfillment-policy-store.mjs";
 import { upsertRetentionSettings } from "../retention/retention-store.mjs";
-import { settlementCooldownMs } from "../settlement/settlement-rules.mjs";
-import { upsertSettlementAddress } from "../settlement/settlement-store.mjs";
-import { xpubCooldownMs } from "../xpub/xpub-rules.mjs";
-import { upsertXpub } from "../xpub/xpub-store.mjs";
 
 /**
  * Apply an approved override payload onto the site org tables.
@@ -33,26 +29,6 @@ export async function applyApprovedOverride(row) {
     await upsertRetentionSettings({
       orgId,
       orderDeleteDays: payload.orderDeleteDays,
-    });
-    return;
-  }
-  if (kind === "settlement") {
-    await upsertSettlementAddress({
-      orgId,
-      asset: payload.asset,
-      network: payload.network,
-      address: payload.address,
-      cooldownMs: settlementCooldownMs(),
-    });
-    return;
-  }
-  if (kind === "xpub") {
-    await upsertXpub({
-      orgId,
-      asset: payload.asset,
-      network: payload.network,
-      xPub: payload.xPub,
-      cooldownMs: xpubCooldownMs(),
     });
   }
 }

@@ -64,8 +64,8 @@ describe("order create rules", () => {
   });
 
   it("rejects tron_nile when chain env is mainnet (product default)", () => {
-    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
-    process.env.CRYPTOGATE_CHAIN_ENV = "mainnet";
+    const prev = process.env.PAYMENTGATE_CHAIN_ENV;
+    process.env.PAYMENTGATE_CHAIN_ENV = "mainnet";
     try {
       const r = validateCreateOrderBody({
         amount: "1.00",
@@ -76,14 +76,14 @@ describe("order create rules", () => {
       assert.equal(r.ok, false);
       assert.equal(r.code, "asset_network_disabled");
     } finally {
-      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
-      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+      if (prev === undefined) delete process.env.PAYMENTGATE_CHAIN_ENV;
+      else process.env.PAYMENTGATE_CHAIN_ENV = prev;
     }
   });
 
-  it("accepts tron_nile when CRYPTOGATE_CHAIN_ENV=testnet", () => {
-    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
-    process.env.CRYPTOGATE_CHAIN_ENV = "testnet";
+  it("accepts tron_nile when PAYMENTGATE_CHAIN_ENV=testnet", () => {
+    const prev = process.env.PAYMENTGATE_CHAIN_ENV;
+    process.env.PAYMENTGATE_CHAIN_ENV = "testnet";
     try {
       const r = validateCreateOrderBody({
         amount: "0.01",
@@ -94,14 +94,14 @@ describe("order create rules", () => {
       assert.equal(r.ok, true);
       assert.equal(r.parsed.config.displayNetwork, "TRON Nile (testnet)");
     } finally {
-      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
-      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+      if (prev === undefined) delete process.env.PAYMENTGATE_CHAIN_ENV;
+      else process.env.PAYMENTGATE_CHAIN_ENV = prev;
     }
   });
 
-  it("accepts mainnet tron when CRYPTOGATE_CHAIN_ENV=testnet (union catalog)", () => {
-    const prev = process.env.CRYPTOGATE_CHAIN_ENV;
-    process.env.CRYPTOGATE_CHAIN_ENV = "testnet";
+  it("accepts mainnet tron when PAYMENTGATE_CHAIN_ENV=testnet (union catalog)", () => {
+    const prev = process.env.PAYMENTGATE_CHAIN_ENV;
+    process.env.PAYMENTGATE_CHAIN_ENV = "testnet";
     try {
       const r = validateCreateOrderBody({
         amount: "0.01",
@@ -112,8 +112,8 @@ describe("order create rules", () => {
       assert.equal(r.ok, true);
       assert.equal(r.parsed.config.displayNetwork, "TRON TRC-20");
     } finally {
-      if (prev === undefined) delete process.env.CRYPTOGATE_CHAIN_ENV;
-      else process.env.CRYPTOGATE_CHAIN_ENV = prev;
+      if (prev === undefined) delete process.env.PAYMENTGATE_CHAIN_ENV;
+      else process.env.PAYMENTGATE_CHAIN_ENV = prev;
     }
   });
 

@@ -1,5 +1,5 @@
 /** POST /v1/orders (Andrew stub). Needs a merchant/cashier session cookie. */
-const apiBase = (window.CRYPTOGATE_API_BASE || "http://127.0.0.1:3000").replace(/\/$/, "");
+const apiBase = (window.PAYMENTGATE_API_BASE || "http://127.0.0.1:3000").replace(/\/$/, "");
 
 const form = document.querySelector("form");
 const errorEl = document.getElementById("form-error");

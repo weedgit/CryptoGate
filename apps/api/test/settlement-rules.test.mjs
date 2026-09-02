@@ -18,11 +18,11 @@ describe("settlement rules", () => {
     const r = validateSettlementBody({
       asset: "USDT",
       network: "tron",
-      address: "TCryptoGateStubReceiveAddress00001",
+      address: "TPaymentGateStubReceiveAddress00001",
       mfaCode: "123456",
     });
     assert.equal(r.ok, true);
-    assert.equal(r.parsed.address, "TCryptoGateStubReceiveAddress00001");
+    assert.equal(r.parsed.address, "TPaymentGateStubReceiveAddress00001");
     assert.equal(r.parsed.mfaCode, "123456");
   });
 
@@ -30,7 +30,7 @@ describe("settlement rules", () => {
     const r = validateSettlementBody({
       asset: "USDT",
       network: "tron",
-      address: "TCryptoGateStubReceiveAddress00001",
+      address: "TPaymentGateStubReceiveAddress00001",
     });
     assert.equal(r.ok, false);
     assert.equal(r.code, "mfa_required");

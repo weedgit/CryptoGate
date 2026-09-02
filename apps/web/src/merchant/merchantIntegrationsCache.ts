@@ -12,7 +12,7 @@ export type MerchantIntegrationsBundle = {
 };
 
 const integrationsCache = createEntityCache<MerchantIntegrationsBundle>({
-  storageKeyPrefix: "cryptogate.merchant.integrations",
+  storageKeyPrefix: "paymentgate.merchant.integrations",
   memoryTtlMs: 20_000,
   persistTtlMs: 5 * 60_000,
   fetch: async (orgId) => {

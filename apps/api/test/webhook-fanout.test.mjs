@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { OrderStatus, WebhookEventType } from "@cryptogate/domain";
+import { OrderStatus, WebhookEventType } from "@paymentgate/domain";
 import {
   buildPaymentOrderWebhookPayload,
   endpointSubscribesToEvent,

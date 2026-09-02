@@ -38,7 +38,7 @@ const baseTx = {
   txHash: "0xabc",
 };
 
-describe("@cryptogate/matching mode-b assign (M1-32 / M2-40)", () => {
+describe("@paymentgate/matching mode-b assign (M1-32 / M2-40)", () => {
   it("exports create-block statuses for open same-amount lock", () => {
     assert.deepEqual([...MODE_B_CREATE_BLOCK_STATUSES], [
       "pending_payment",
@@ -157,7 +157,7 @@ describe("@cryptogate/matching mode-b assign (M1-32 / M2-40)", () => {
   });
 });
 
-describe("@cryptogate/matching mode-b match (M1-32 / M3-60)", () => {
+describe("@paymentgate/matching mode-b match (M1-32 / M3-60)", () => {
   it("exact unique match → verifying", async () => {
     const result = await matchModeB({
       ...baseTx,

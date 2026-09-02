@@ -32,7 +32,7 @@ import {
   feeAccruedFromBills,
   invoiceStatsFromBills,
 } from "./dashboardBillPeriod";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
 import { ChartHelpButton } from "./ui/ChartHelpButton";
@@ -94,7 +94,7 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "1m", label: "1m" },
 ];
 
-const OVERVIEW_STORAGE_KEY = "cryptogate.platform.overviewCharts.v2";
+const OVERVIEW_STORAGE_KEY = "paymentgate.platform.overviewCharts.v2";
 const DEFAULT_OVERVIEW_IDS = ["invoices", "fees", "accounts"];
 
 function isOrgOverviewId(id: string): boolean {
@@ -1048,10 +1048,7 @@ export function DashboardPage({ session }: Props) {
     return (
       <>
         {periodPortal}
-        <PlatformPending
-          title="Loading platform overview"
-          copy="Gathering volume, orders, and service-bill metrics."
-        />
+        <PagePending />
       </>
     );
   }
@@ -1084,7 +1081,7 @@ export function DashboardPage({ session }: Props) {
         <div className="plat-overview-card glass-tone-emerald">
           <div className="plat-overview-card__head">
             <h2>Grow</h2>
-            <CardHelp text={`New merchants, agents, and cashiers added in ${periodLabel}.`} />
+            <CardHelp text={`Merchants, agents, and cashiers onboarded in ${periodLabel}.`} />
           </div>
           <MetricLines
             rows={[

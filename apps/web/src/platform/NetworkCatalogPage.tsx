@@ -11,7 +11,7 @@ import {
   type Session,
 } from "./api";
 import { NetworkIcon } from "./cryptoIcons";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 import {
   sessionCanIssueServiceBill,
   sessionIsPlatformViewerOnly,
@@ -220,10 +220,7 @@ export function NetworkCatalogPage({ session }: Props) {
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       {loading && !catalog ? (
-        <PlatformPending
-          title="Loading network catalog"
-          copy="Registry pairs, maintenance windows, and watcher ingest."
-        />
+        <PagePending />
       ) : (
         <div className="plat-network-catalog__grid">
           {cards.map((card, index) => {

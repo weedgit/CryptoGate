@@ -7,7 +7,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 export default defineConfig({
   plugins: [react()],
-  // Load CRYPTOGATE / VITE_CRYPTOGATE from monorepo root `.env` (single source of truth).
+  // Load PAYMENTGATE / VITE_PAYMENTGATE from monorepo root `.env` (single source of truth).
   envDir: repoRoot,
   build: {
     rollupOptions: {
@@ -27,7 +27,7 @@ export default defineConfig({
           if (id.includes("qrcode")) {
             return "qrcode";
           }
-          if (id.includes("@cryptogate/domain")) {
+          if (id.includes("@paymentgate/domain")) {
             return "domain";
           }
         },

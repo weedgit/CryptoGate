@@ -6,7 +6,7 @@ import { peekMerchantServiceBills } from "../merchant/merchantServiceBillsList";
 import { peekPlatformServiceBills } from "../platform/platformServiceBillsList";
 
 const billDetailCache = createEntityCache<ServiceBill>({
-  storageKeyPrefix: "cryptogate.service-bill",
+  storageKeyPrefix: "paymentgate.service-bill",
   fetch: getServiceBill,
 });
 

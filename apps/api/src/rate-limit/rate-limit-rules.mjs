@@ -1,4 +1,4 @@
-import { RateLimitPerMinute } from "@cryptogate/domain";
+import { RateLimitPerMinute } from "@paymentgate/domain";
 
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 

@@ -1,6 +1,6 @@
 # M2-44 — HD pool schema handoff (Bruce → Andrew)
 
-**Owner:** Bruce defines pool rules in `@cryptogate/matching`; Andrew owns the migration + `claimHdPoolAddress` wiring in `apps/api`.  
+**Owner:** Bruce defines pool rules in `@paymentgate/matching`; Andrew owns the migration + `claimHdPoolAddress` wiring in `apps/api`.  
 **Depends on:** Mode S assign (done), merchant xPubs (PR #40).  
 **Unblocks:** Mode S match (M3-63), Mode S acceptance (M3-T05).
 
@@ -18,7 +18,7 @@
 4. Never rewrite an issued order’s `receive_address`.
 5. Matching package never holds private keys / never derives — API owns xPub + derivation.
 
-Pure helpers (import from `@cryptogate/matching`):
+Pure helpers (import from `@paymentgate/matching`):
 
 - `canClaimHdPoolSlot`, `hdPoolStateAfterClaim`, `hdPoolStateAfterOrderFinal`, `hdPoolStateAfterCooldownElapsed`
 - `isHdPoolCooldownElapsed`, `DEFAULT_HD_POOL_COOLDOWN_MS`, `HD_POOL_RELEASE_STATUSES`

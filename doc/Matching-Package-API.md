@@ -67,7 +67,7 @@ Mode modules: `mode-b`, `mode-c`, `mode-d`, `mode-s` (+ `mode-s/pool` FREE/IN_US
 ## Mode B contract (`assignModeB` / `assignOnCreate` with `mode: "B"`)
 
 - Requires non-empty trimmed `mainSettlementAddress` (no internal whitespace).
-- `asset` / `network` must be known enums and **enabled** in `@cryptogate/domain` registry.
+- `asset` / `network` must be known enums and **enabled** in `@paymentgate/domain` registry.
 - `requestedAmount` is a major-unit decimal string; must meet `minAmount` and asset `decimals`.
 - Result: `addressSource: "main"`, `payableAmount.amount` = requested amount, `hdIndex: null`, `memoOrTag: null`.
 - Does **not** detect same-amount collisions (watcher `matchTransaction` / M3).

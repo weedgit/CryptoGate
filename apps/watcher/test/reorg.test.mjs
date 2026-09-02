@@ -6,7 +6,7 @@ import {
   REORG_CONFIRMATION_DROP_MIN,
 } from "../src/confirm/advance.mjs";
 
-describe("@cryptogate/watcher reorg handling (M4-21)", () => {
+describe("@paymentgate/watcher reorg handling (M4-21)", () => {
   it("flags missing tx after confirmations seen", () => {
     const d = evaluateConfirmationObservation(
       {

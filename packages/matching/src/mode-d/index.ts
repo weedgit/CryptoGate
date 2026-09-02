@@ -12,7 +12,7 @@ import {
   type AssetCode as AssetCodeType,
   type AssetNetworkConfig,
   type NetworkId as NetworkIdType,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { majorToMinor } from "../amount.js";
 import type {
   AssignInput,

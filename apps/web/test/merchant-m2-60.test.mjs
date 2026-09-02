@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("@cryptogate/web merchant M2-60", () => {
+describe("@paymentgate/web merchant M2-60", () => {
   it("has create-order route and matching labels", () => {
     const labels = readFileSync(
       join(root, "src/merchant/matchingLabels.ts"),
@@ -38,7 +38,7 @@ describe("@cryptogate/web merchant M2-60", () => {
   });
 });
 
-describe("@cryptogate/web merchant M2-61/62/63 settlement", () => {
+describe("@paymentgate/web merchant M2-61/62/63 settlement", () => {
   it("wires settlement route and org APIs", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /settings\/settlement/);
@@ -67,7 +67,7 @@ describe("@cryptogate/web merchant M2-61/62/63 settlement", () => {
   });
 });
 
-describe("@cryptogate/web merchant D1-D3 orders shell", () => {
+describe("@paymentgate/web merchant D1-D3 orders shell", () => {
   it("wires dashboard, list, and detail routes", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /path="orders\/\*"/);
@@ -79,6 +79,13 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
     );
     assert.match(routes, /OrdersListPage/);
     assert.match(routes, /OrderDetailPage/);
+    assert.match(routes, /orderId=\{orderId\}/);
+    const detail = readFileSync(
+      join(root, "src/merchant/OrderDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /paymentOrderIdFromRoute/);
+    assert.match(detail, /params\.orderId/);
     assert.match(app, /Navigate to=\{merchantRoute\(\)\}/);
   });
 
@@ -111,7 +118,7 @@ describe("@cryptogate/web merchant D1-D3 orders shell", () => {
   });
 });
 
-describe("@cryptogate/web merchant D17 cashier shell", () => {
+describe("@paymentgate/web merchant D17 cashier shell", () => {
   it("limits nav and guards owner-only routes for cashiers", () => {
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
     assert.match(shell, /Cashier/);
@@ -143,7 +150,7 @@ describe("@cryptogate/web merchant D17 cashier shell", () => {
   });
 });
 
-describe("@cryptogate/web merchant D5-D6 service bills", () => {
+describe("@paymentgate/web merchant D5-D6 service bills", () => {
   it("wires service bill list and detail routes", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /ServiceBillsListPage/);
@@ -178,7 +185,7 @@ describe("@cryptogate/web merchant D5-D6 service bills", () => {
   });
 });
 
-describe("@cryptogate/web merchant D14 integrations", () => {
+describe("@paymentgate/web merchant D14 integrations", () => {
   it("wires integrations route and API helpers", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /IntegrationsPage/);
@@ -203,7 +210,7 @@ describe("@cryptogate/web merchant D14 integrations", () => {
   });
 });
 
-describe("@cryptogate/web merchant D10 reports", () => {
+describe("@paymentgate/web merchant D10 reports", () => {
   it("wires reports route and CSV export helper", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /ReportsPage/);
@@ -223,7 +230,7 @@ describe("@cryptogate/web merchant D10 reports", () => {
   });
 });
 
-describe("@cryptogate/web merchant D12-D16 settings", () => {
+describe("@paymentgate/web merchant D12-D16 settings", () => {
   it("wires team, notifications, and legacy org/billing redirects", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /NotificationsSettingsPage/);
@@ -261,7 +268,7 @@ describe("@cryptogate/web merchant D12-D16 settings", () => {
   });
 });
 
-describe("@cryptogate/web merchant D7-D9 sites", () => {
+describe("@paymentgate/web merchant D7-D9 sites", () => {
   it("wires sites list, create, and detail routes", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     const routes = readFileSync(
@@ -272,8 +279,10 @@ describe("@cryptogate/web merchant D7-D9 sites", () => {
     assert.match(app, /sites\/\*/);
     assert.match(routes, /SitesListPage/);
     assert.match(routes, /CreateSiteModal/);
-    assert.match(routes, /SiteDetailPage/);
     assert.match(routes, /sites\/new/);
+    const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
+    assert.match(list, /SiteDetailCard/);
+    assert.match(list, /org-split/);
   });
 
   it("creates merchant_site via org API", () => {
@@ -285,16 +294,42 @@ describe("@cryptogate/web merchant D7-D9 sites", () => {
     assert.match(create, /inherit/i);
     assert.match(create, /b3-commission-modal/);
     const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
+    const detail = readFileSync(join(root, "src/merchant/SiteDetailCard.tsx"), "utf8");
     assert.match(list, /multi_location/);
-    const detail = readFileSync(join(root, "src/merchant/SiteDetailPage.tsx"), "utf8");
-    assert.match(detail, /SiteOverridesPanel/);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.match(shell, /logo-badge--location/);
+    assert.match(shell, /sessionLocationKind/);
+    const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
+    assert.match(org, /export function sessionLocationKind/);
+    assert.match(org, /return \"Multi\"/);
+    assert.match(org, /return \"Single\"/);
+    assert.match(org, /return \"Site\"/);
+    assert.match(list, /contactEmail/);
+    assert.doesNotMatch(detail, /Inherit vs override/);
+    assert.match(detail, /mailto:/);
+    assert.match(detail, /siteHeaderContact/);
+    assert.match(detail, /b3-agent-detail__email/);
+    assert.doesNotMatch(detail, /truncateAddress\(site\.id/);
+    assert.doesNotMatch(detail, /Settlement \/ matching/);
+    assert.doesNotMatch(detail, /Inherit parent merchant/);
+    assert.doesNotMatch(detail, /Parent merchant/);
+    assert.doesNotMatch(detail, /Invoice count/);
+    assert.match(detail, /listOrders/);
+    assert.match(detail, /setOrgStatus/);
+    assert.match(detail, /b3-agent-detail__tabs/);
+    assert.match(detail, /Overview/);
+    assert.match(detail, /Orders/);
+    assert.doesNotMatch(detail, /id: "settings"/);
+    assert.doesNotMatch(detail, /SiteOverridesPanel/);
+    assert.match(detail, /Inherits parent merchant/);
+    assert.match(detail, /Suspend/);
     assert.match(detail, /deleteOrg/);
-    assert.match(detail, /Delete site/);
-    const panel = readFileSync(
-      join(root, "src/merchant/SiteOverridesPanel.tsx"),
+    assert.match(detail, /b3-agent-detail__delete/);
+    const createHint = readFileSync(
+      join(root, "src/merchant/CreateSiteModal.tsx"),
       "utf8",
     );
-    assert.match(panel, /requestSiteOverride/);
-    assert.match(panel, /decideSiteOverride/);
+    assert.match(createHint, /inherit from the\s+parent merchant/);
+    assert.doesNotMatch(createHint, /approves a site override/);
   });
 });

@@ -1,4 +1,4 @@
-import { AuditAction } from "@cryptogate/domain";
+import { AuditAction } from "@paymentgate/domain";
 
 const AUDIT_ACTIONS = new Set(Object.values(AuditAction));
 

@@ -10,13 +10,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: cryptogate
-      POSTGRES_PASSWORD: cryptogate
-      POSTGRES_DB: cryptogate
+      POSTGRES_USER: paymentgate
+      POSTGRES_PASSWORD: paymentgate
+      POSTGRES_DB: paymentgate
     volumes:
-      - cryptogate_pgdata:/var/lib/postgresql/data
+      - paymentgate_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cryptogate -d cryptogate"]
+      test: ["CMD-SHELL", "pg_isready -U paymentgate -d paymentgate"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -31,7 +31,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://cryptogate:cryptogate@postgres:5432/cryptogate
+      DATABASE_URL: postgres://paymentgate:paymentgate@postgres:5432/paymentgate
       API_HOST: 0.0.0.0
       API_PORT: "3000"
     ports:
@@ -55,7 +55,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://cryptogate:cryptogate@postgres:5432/cryptogate
+      DATABASE_URL: postgres://paymentgate:paymentgate@postgres:5432/paymentgate
     volumes:
       - .:/app
     command: >
@@ -63,4 +63,4 @@ services:
              node apps/watcher/src/main.mjs --loop"
 
 volumes:
-  cryptogate_pgdata:
+  paymentgate_pgdata:

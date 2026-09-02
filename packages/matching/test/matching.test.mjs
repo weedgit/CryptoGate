@@ -38,7 +38,7 @@ const baseAssign = {
   mainSettlementAddress: "TMainAddressExample",
 };
 
-describe("@cryptogate/matching Mode C assign (M2-41)", () => {
+describe("@paymentgate/matching Mode C assign (M2-41)", () => {
   it("exports reserved statuses for Andrew's open-order query", () => {
     assert.deepEqual([...MODE_C_RESERVED_STATUSES], [
       "pending_payment",
@@ -112,7 +112,7 @@ describe("@cryptogate/matching Mode C assign (M2-41)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode D assign (M2-42)", () => {
+describe("@paymentgate/matching Mode D assign (M2-42)", () => {
   it("rejects USDT Tron because memoSupported is false", async () => {
     await assert.rejects(
       () =>
@@ -216,7 +216,7 @@ describe("@cryptogate/matching Mode D assign (M2-42)", () => {
   });
 });
 
-describe("@cryptogate/matching matching settings policy (M2-45)", () => {
+describe("@paymentgate/matching matching settings policy (M2-45)", () => {
   it("allows singular Mode B / C / D / S", () => {
     for (const mode of ["B", "C", "D", "S"]) {
       assert.equal(validateMatchingSettings({ mode }).ok, true);
@@ -298,7 +298,7 @@ describe("@cryptogate/matching matching settings policy (M2-45)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode S assign (M2-43)", () => {
+describe("@paymentgate/matching Mode S assign (M2-43)", () => {
   it("exports conflict statuses for Andrew's open-order query", () => {
     assert.deepEqual([...MODE_S_CONFLICT_STATUSES], [
       "pending_payment",
@@ -408,7 +408,7 @@ describe("@cryptogate/matching Mode S assign (M2-43)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode S HD pool state (M2-44)", () => {
+describe("@paymentgate/matching Mode S HD pool state (M2-44)", () => {
   it("claims only FREE → IN_USE", () => {
     assert.equal(canClaimHdPoolSlot("FREE"), true);
     assert.equal(canClaimHdPoolSlot("IN_USE"), false);
@@ -443,7 +443,7 @@ describe("@cryptogate/matching Mode S HD pool state (M2-44)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode S match (M3-63)", () => {
+describe("@paymentgate/matching Mode S match (M3-63)", () => {
   const baseTx = {
     mode: "S",
     toAddress: "TMainAddressExample",
@@ -585,7 +585,7 @@ describe("@cryptogate/matching Mode S match (M3-63)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode D match (M3-62)", () => {
+describe("@paymentgate/matching Mode D match (M3-62)", () => {
   const memoConfig = {
     asset: "USDT",
     network: "ton",
@@ -709,7 +709,7 @@ describe("@cryptogate/matching Mode D match (M3-62)", () => {
   });
 });
 
-describe("@cryptogate/matching Mode C match (M3-61)", () => {
+describe("@paymentgate/matching Mode C match (M3-61)", () => {
   const baseCandidate = {
     orderId: "ord-c1",
     payableAmount: "50.01",

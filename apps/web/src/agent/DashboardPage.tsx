@@ -18,6 +18,7 @@ import {
   type VolumeChartZoomApi,
 } from "../platform/charts/VolumeChart";
 import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ChartMaximizeButton,
   ChartMaximizeOverlay,
@@ -762,7 +763,7 @@ export function DashboardPage({ session }: Props) {
     return (
       <>
         {periodPortal}
-        <p className="muted">Loading agent overview…</p>
+        <PagePending />
       </>
     );
   }

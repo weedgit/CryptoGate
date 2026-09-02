@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { dedupeTransfersByTxHash } from "@cryptogate/chain-clients/tron";
+import { dedupeTransfersByTxHash } from "@paymentgate/chain-clients/tron";
 
-describe("@cryptogate/watcher tron ingest helpers (M3-40)", () => {
+describe("@paymentgate/watcher tron ingest helpers (M3-40)", () => {
   it("dedupeTransfersByTxHash keeps first of duplicate hashes", () => {
     const out = dedupeTransfersByTxHash([
       { txHash: "0x1", network: "tron", toAddress: "A", amount: "1" },

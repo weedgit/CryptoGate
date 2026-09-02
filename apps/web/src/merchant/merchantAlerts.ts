@@ -4,26 +4,21 @@ import type { Session } from "./api";
 import {
   getNotificationPreferences,
   getOrderSummary,
-  listOrgs,
   listServiceBills,
   listSettlement,
-  listSiteOverrides,
   listWebhookDeliveries,
   listWebhooks,
   listXpub,
   type PaymentOrder,
   type ServiceBill,
-  type SiteSettingOverride,
 } from "./api";
 import { anomalyAmountLine, anomalyExplain, formatShortTime } from "./orderStatus";
 import {
   formatCountdown,
-  parentMerchantOrgId,
   primaryMerchantOrgId,
   sessionCanCheckoutServiceBill,
   sessionCanManageIntegrations,
   sessionIsCashierOnly,
-  sessionIsOrgOwner,
   sessionRoleOnOrg,
 } from "./org";
 
@@ -42,16 +37,9 @@ let readIds = new Set<string>();
 let readScope = "";
 
 const WEBHOOK_FAIL_ATTEMPTS = 5;
-const SETTING_KIND_LABELS: Record<SiteSettingOverride["settingKind"], string> = {
-  settlement: "settlement address",
-  xpub: "xPub (Mode S)",
-  matching_mode: "matching mode",
-  fulfillment_policy: "fulfillment policy",
-  order_retention: "order retention",
-};
 
 function readStorageKey(email: string): string {
-  return `cryptogate.merchant.alertsRead.${email}`;
+  return `paymentgate.merchant.alertsRead.${email}`;
 }
 
 function loadReadIds(email: string): Set<string> {
@@ -207,68 +195,6 @@ function serviceBillAlert(bill: ServiceBill, canPay: boolean): AlertItem {
   };
 }
 
-function siteOverridePendingForParent(
-  siteName: string,
-  siteId: string,
-  row: SiteSettingOverride,
-): AlertItem {
-  const kind = SETTING_KIND_LABELS[row.settingKind] ?? row.settingKind;
-  return {
-    id: `site-override:pending:${row.id}`,
-    category: "security",
-    title: "Site asked to change settings",
-    body: `${siteName} requested a ${kind} change — approve or deny on the site page.`,
-    at: formatShortTime(row.createdAt),
-    href: merchantRoute(`sites/${siteId}`),
-    hrefLabel: "Review",
-    tone: "warn",
-    urgent: true,
-    unresolved: true,
-    actionable: true,
-  };
-}
-
-function siteOverridePendingForSite(row: SiteSettingOverride): AlertItem {
-  const kind = SETTING_KIND_LABELS[row.settingKind] ?? row.settingKind;
-  return {
-    id: `site-override:pending:${row.id}`,
-    category: "security",
-    title: "Waiting for parent approval",
-    body: `Your ${kind} change is waiting for the parent merchant Owner to approve.`,
-    at: formatShortTime(row.createdAt),
-    href: merchantRoute("settings/settlement"),
-    hrefLabel: "Settings",
-    tone: "info",
-    urgent: false,
-    unresolved: true,
-    /** Only parent Owner can decide — site cannot self-clear. */
-    actionable: false,
-  };
-}
-
-function siteOverrideDecidedAlert(
-  row: SiteSettingOverride,
-  approved: boolean,
-): AlertItem {
-  const kind = SETTING_KIND_LABELS[row.settingKind] ?? row.settingKind;
-  return {
-    id: `site-override:decided:${row.id}`,
-    category: "security",
-    title: approved ? "Site change approved" : "Site change denied",
-    body: approved
-      ? `Parent merchant approved your ${kind} change.`
-      : `Parent merchant denied your ${kind} change. Ask them if you need a different setting.`,
-    at: formatShortTime(row.decidedAt ?? row.createdAt),
-    href: merchantRoute("settings/settlement"),
-    hrefLabel: "Settings",
-    tone: approved ? "ok" : "warn",
-    urgent: false,
-    /** Informational — already decided; drop from unresolved banner. */
-    unresolved: false,
-    actionable: true,
-  };
-}
-
 function webhookFailureAlert(
   webhookId: string,
   url: string,
@@ -398,68 +324,12 @@ async function loadBillingAlerts(
   }
 }
 
-function isRecentIso(iso: string | null | undefined, maxAgeMs: number): boolean {
-  if (!iso) return false;
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return false;
-  return Date.now() - ms <= maxAgeMs;
-}
-
 async function loadSiteOverrideAlerts(
-  session: Session,
-  orgId: string,
-  next: AlertItem[],
+  _session: Session,
+  _orgId: string,
+  _next: AlertItem[],
 ): Promise<void> {
-  const membership = session.memberships.find((m) => m.orgId === orgId);
-  const orgType = membership?.orgType;
-
-  if (orgType === "merchant_site") {
-    try {
-      const rows = await listSiteOverrides(orgId);
-      for (const row of rows.filter((r) => r.status === "pending")) {
-        next.push(siteOverridePendingForSite(row));
-      }
-      for (const row of rows.filter(
-        (r) =>
-          (r.status === "approved" || r.status === "denied") &&
-          isRecentIso(r.decidedAt ?? r.createdAt, 7 * 24 * 60 * 60 * 1000),
-      )) {
-        next.push(siteOverrideDecidedAlert(row, row.status === "approved"));
-      }
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
-
-  const parentId = parentMerchantOrgId(session);
-  if (!parentId || !sessionIsOrgOwner(session, parentId)) return;
-
-  try {
-    const orgs = await listOrgs();
-    const sites = orgs.filter(
-      (o) => o.type === "merchant_site" && o.parentId === parentId,
-    );
-    const siteRows = await Promise.all(
-      sites.map(async (site) => {
-        try {
-          return { site, rows: await listSiteOverrides(site.id) };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    for (const item of siteRows) {
-      if (!item) continue;
-      for (const row of item.rows.filter((r) => r.status === "pending")) {
-        next.push(
-          siteOverridePendingForParent(item.site.name, item.site.id, row),
-        );
-      }
-    }
-  } catch {
-    /* ignore */
-  }
+  /* Sites inherit parent settings; override requests are not used. */
 }
 
 async function loadWebhookFailureAlerts(orgId: string, next: AlertItem[]): Promise<void> {
@@ -585,13 +455,3 @@ export const merchantAlertsSource: AlertsSource = {
   markRead: markMerchantAlertRead,
   markAllRead: markAllMerchantAlertsRead,
 };
-
-export function merchantAlertsToastKey(email: string): string {
-  return `cryptogate.merchant.alertsToast.${email}`;
-}
-
-export function merchantAlertsToastMessage(urgentUnread: number): string {
-  if (urgentUnread <= 0) return "";
-  if (urgentUnread === 1) return "1 item needs your attention";
-  return `${urgentUnread} items need your attention`;
-}

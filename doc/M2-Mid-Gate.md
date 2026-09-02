@@ -9,10 +9,10 @@ Guest pay polls `GET /v1/orders/{id}/payment` (public). With CORS configured, th
 
 ```bash
 # API (Andrew) — include CORS_ALLOWED_ORIGINS from .env.example
-pnpm --filter @cryptogate/api start   # :3000
+pnpm --filter @paymentgate/api start   # :3000
 
 # Guest pay (Kevin) — open the same host you listed in CORS (localhost vs 127.0.0.1)
-pnpm --filter @cryptogate/payment-page dev   # :5173
+pnpm --filter @paymentgate/payment-page dev   # :5173
 ```
 
 Log in on the **API origin** first so `POST /v1/orders` can send the session cookie (create still needs credentials). Configure settlement for USDT + tron and matching mode.

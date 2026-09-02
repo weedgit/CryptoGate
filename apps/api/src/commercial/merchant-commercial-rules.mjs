@@ -1,4 +1,4 @@
-import { MerchantTier } from "@cryptogate/domain";
+import { MerchantTier } from "@paymentgate/domain";
 import {
   isPercentWithinBand,
   nextBillingPeriodStart,

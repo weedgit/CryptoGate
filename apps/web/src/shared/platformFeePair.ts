@@ -1,7 +1,7 @@
 import {
   PLATFORM_FEE_ASSET,
   resolvePlatformFeeNetwork,
-} from "@cryptogate/domain";
+} from "@paymentgate/domain";
 import { webChainEnvOverride } from "./assetNetworks";
 
 /** Active platform billing / commission remittance network for this web build. */

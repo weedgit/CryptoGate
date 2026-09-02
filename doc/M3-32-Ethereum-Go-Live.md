@@ -1,7 +1,7 @@
 # M3-32 — USDT / Ethereum go-live (Kevin)
 
 **Owner:** Kevin flips registry + docs. **Ingest:** Bruce — PR #90 (`packages/chain-clients/ethereum/`).  
-**Registry:** `USDT_ETHEREUM` in `@cryptogate/domain` (currently **`enabled: false`**).
+**Registry:** `USDT_ETHEREUM` in `@paymentgate/domain` (currently **`enabled: false`**).
 
 Do **not** set `enabled: true` until staging smoke passes — create-order must stay **422** until ingest is ready.
 
@@ -25,8 +25,8 @@ Do **not** set `enabled: true` until staging smoke passes — create-order must 
 ### Automated (CI / local — no RPC)
 
 ```bash
-pnpm --filter @cryptogate/domain build
-pnpm --filter @cryptogate/watcher test
+pnpm --filter @paymentgate/domain build
+pnpm --filter @paymentgate/watcher test
 ```
 
 Includes `apps/watcher/test/ethereum-tick.test.mjs` — watcher tick with `DEFAULT_NETWORK=ethereum` and mock `ETH_RPC_URL`.

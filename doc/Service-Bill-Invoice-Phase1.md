@@ -42,7 +42,7 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 
 | Field | Source |
 | --- | --- |
-| Legal / display name | Remittance settings `sellerName` (fallback: env / CryptoGate) |
+| Legal / display name | Remittance settings `sellerName` (fallback: env / PaymentGate) |
 | Invoice contact | Remittance settings `sellerEmail` (optional) |
 
 **Buyer (merchant parent)**
@@ -140,7 +140,7 @@ UI: `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`; legacy 
 
 | Field | Source |
 | --- | --- |
-| Legal / display name | Remittance settings `sellerName` (fallback: env / CryptoGate) |
+| Legal / display name | Remittance settings `sellerName` (fallback: env / PaymentGate) |
 | Invoice contact | Remittance settings `sellerEmail` (optional) |
 
 ---

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { WebhookEventType } from "@cryptogate/domain";
+import { WebhookEventType } from "@paymentgate/domain";
 
 export const WEBHOOK_MAX_PER_ORG = 5;
 

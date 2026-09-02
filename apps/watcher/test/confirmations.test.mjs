@@ -5,7 +5,7 @@ import {
   processConfirmationBatch,
 } from "../src/confirm/advance.mjs";
 
-describe("@cryptogate/watcher confirmations (M3-42)", () => {
+describe("@paymentgate/watcher confirmations (M3-42)", () => {
   it("awaits when confirmations below required", () => {
     const d = nextConfirmationStatus({
       status: "verifying",

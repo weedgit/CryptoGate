@@ -1,14 +1,13 @@
-import { FulfillmentPolicy, getAssetNetworkConfig, MatchingMode } from "@cryptogate/domain";
+import { FulfillmentPolicy, MatchingMode } from "@paymentgate/domain";
 
-export const SITE_OVERRIDE_KINDS = [
-  "settlement",
-  "xpub",
-  "matching_mode",
-  "order_retention",
-  "fulfillment_policy",
-];
+/** No site-level overrides — wallet and ops settings always inherit. */
+export const SITE_OVERRIDE_KINDS = [];
+
+/** Sites always use the parent merchant wallet — these cannot be overridden. */
+export const SITE_WALLET_KINDS = ["settlement", "xpub"];
 
 const KIND_SET = new Set(SITE_OVERRIDE_KINDS);
+const WALLET_KIND_SET = new Set(SITE_WALLET_KINDS);
 const MODE_SET = new Set(Object.values(MatchingMode));
 const FULFILLMENT_SET = new Set(Object.values(FulfillmentPolicy));
 
@@ -17,6 +16,10 @@ const FULFILLMENT_SET = new Set(Object.values(FulfillmentPolicy));
  */
 export function parentIdOf(org) {
   return org.parent_id ?? org.parentId ?? null;
+}
+
+export function isSiteWalletKind(kind) {
+  return typeof kind === "string" && WALLET_KIND_SET.has(kind);
 }
 
 /**
@@ -37,7 +40,7 @@ export function validateOverrideRequestBody(body) {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "settingKind must be settlement, xpub, matching_mode, order_retention, or fulfillment_policy",
+      message: "Merchant (site) inherits parent settings; overrides are not available",
     };
   }
   const payload = body?.payload && typeof body.payload === "object" ? body.payload : {};
@@ -106,55 +109,18 @@ export function validateOverridePayload(kind, payload) {
     return { ok: true, parsed: { orderDeleteDays: days } };
   }
 
-  const asset = typeof payload.asset === "string" ? payload.asset.trim() : "";
-  const network = typeof payload.network === "string" ? payload.network.trim() : "";
-  if (!asset || !network) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "payload.asset and payload.network are required",
-    };
-  }
-  const config = getAssetNetworkConfig(asset, network);
-  if (!config) {
-    return {
-      ok: false,
-      status: 422,
-      code: "asset_network_disabled",
-      message: "Asset and network are not enabled",
-    };
-  }
-
-  if (kind === "settlement") {
-    const address = typeof payload.address === "string" ? payload.address.trim() : "";
-    if (!address || /\s/.test(address)) {
-      return {
-        ok: false,
-        status: 400,
-        code: "invalid_address",
-        message: "payload.address is required and must not contain whitespace",
-      };
-    }
-    return { ok: true, parsed: { asset, network, address } };
-  }
-
-  const xPub = typeof payload.xPub === "string" ? payload.xPub.trim() : "";
-  if (!xPub || /\s/.test(xPub) || xPub.length < 20) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_xpub",
-      message: "payload.xPub is required (watch-only, min 20 chars, no whitespace)",
-    };
-  }
-  return { ok: true, parsed: { asset, network, xPub } };
+  return {
+    ok: false,
+    status: 400,
+    code: "invalid_request",
+    message: "Unknown settingKind",
+  };
 }
 
 /**
  * @param {unknown} body
  */
-export function validateOverrideDecideBody(body, settingKind) {
+export function validateOverrideDecideBody(body, _settingKind) {
   const decision = body?.decision;
   if (decision !== "approve" && decision !== "deny") {
     return {
@@ -173,20 +139,9 @@ export function validateOverrideDecideBody(body, settingKind) {
       message: "reason is required when denying",
     };
   }
-  const mfaCode = typeof body?.mfaCode === "string" ? body.mfaCode.trim() : "";
-  const needsMfa =
-    decision === "approve" && (settingKind === "settlement" || settingKind === "xpub");
-  if (needsMfa && (mfaCode.length < 6 || mfaCode.length > 8)) {
-    return {
-      ok: false,
-      status: 400,
-      code: "mfa_required",
-      message: "mfaCode is required to approve settlement or xPub overrides",
-    };
-  }
   return {
     ok: true,
-    parsed: { decision, reason: reason || null, mfaCode: mfaCode || null },
+    parsed: { decision, reason: reason || null, mfaCode: null },
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { USDT_ARBITRUM_ONE, USDC_ARBITRUM_ONE } from "@cryptogate/domain";
+import { USDT_ARBITRUM_ONE, USDC_ARBITRUM_ONE } from "@paymentgate/domain";
 import {
   healthCheck,
   getArbitrumOneConfig,
@@ -8,7 +8,7 @@ import {
   dedupeTransfersByTxHash,
 } from "../arbitrum_one/index.mjs";
 
-describe("@cryptogate/chain-clients/arbitrum_one stub", () => {
+describe("@paymentgate/chain-clients/arbitrum_one stub", () => {
   it("healthCheck returns stub mode without ARBITRUM_RPC_URL", async () => {
     const h = await healthCheck();
     assert.equal(h.network, "arbitrum_one");
@@ -52,7 +52,7 @@ describe("@cryptogate/chain-clients/arbitrum_one stub", () => {
   });
 });
 
-describe("@cryptogate/chain-clients/arbitrum_one rpc env", () => {
+describe("@paymentgate/chain-clients/arbitrum_one rpc env", () => {
   const prev = process.env.ARBITRUM_RPC_URL;
 
   before(() => {

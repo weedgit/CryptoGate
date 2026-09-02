@@ -1,8 +1,8 @@
 /**
  * Map inbound transfers → matchTransaction → DB updates (M3-41 / M3-43 / M3-44).
- * Matching stays in @cryptogate/matching; watcher never imports apps/api.
+ * Matching stays in @paymentgate/matching; watcher never imports apps/api.
  */
-import { matchTransaction } from "@cryptogate/matching";
+import { matchTransaction } from "@paymentgate/matching";
 import { classifyWrongNetworkOrAsset } from "./classify.mjs";
 
 /**

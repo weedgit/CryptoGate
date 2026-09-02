@@ -7,7 +7,7 @@
  */
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { ServiceBillStatus } from "@cryptogate/domain";
+import { ServiceBillStatus } from "@paymentgate/domain";
 import { AUDIT_ACTIONS } from "../src/audit/audit-rules.mjs";
 import { getPool } from "../src/db/pool.mjs";
 import {

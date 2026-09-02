@@ -1175,6 +1175,30 @@ export async function getOrg(orgId: string): Promise<OrgAccount> {
   return (await res.json()) as OrgAccount;
 }
 
+export async function setOrgStatus(
+  orgId: string,
+  status: "active" | "paused",
+  opts?: { reason?: string },
+): Promise<OrgAccount> {
+  const body: { status: "active" | "paused"; reason?: string } = { status };
+  const reason = opts?.reason?.trim();
+  if (reason) body.reason = reason;
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
 export async function inviteOrgUser(
   orgId: string,
   body: { email: string; role: string },

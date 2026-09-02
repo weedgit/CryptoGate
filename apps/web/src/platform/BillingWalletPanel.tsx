@@ -22,7 +22,7 @@ import {
 } from "./api";
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { sessionIsPlatformOwner } from "./org";
-import { PlatformPending } from "./ui/PlatformPending";
+import { PagePending } from "./ui/PlatformPending";
 
 type Props = {
   session: Session;
@@ -37,9 +37,9 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
     () => displayNetworkForPair(SERVICE_BILL_ASSET, SERVICE_BILL_NETWORK),
     [],
   );
-  const [sellerName, setSellerName] = useState("CryptoGate");
+  const [sellerName, setSellerName] = useState("PaymentGate");
   const [payTo, setPayTo] = useState("");
-  const [savedSellerName, setSavedSellerName] = useState("CryptoGate");
+  const [savedSellerName, setSavedSellerName] = useState("PaymentGate");
   const [savedPayTo, setSavedPayTo] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,12 +120,7 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
   }
 
   if (loading) {
-    return (
-      <PlatformPending
-        title="Loading fee wallet"
-        copy="Fetching the crypto address merchants use to pay platform fees."
-      />
-    );
+    return <PagePending />;
   }
 
   return (
@@ -188,7 +183,7 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                   Merchants pay <strong>SaaS service bills</strong> in{" "}
                   <strong>USDT on {feeNetworkLabel}</strong>. Paste a public
                   receive address you control. This is not a custody vault —
-                  CryptoGate never holds merchant or payer spend keys, and
+                  PaymentGate never holds merchant or payer spend keys, and
                   guest payments still go to the merchant wallet.
                 </p>
                 <div

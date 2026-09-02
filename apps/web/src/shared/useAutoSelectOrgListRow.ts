@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { NavigateFunction } from "react-router-dom";
+import { useLocation, type NavigateFunction } from "react-router-dom";
 import { looksLikeEmailQuery } from "./registeredEmails";
 
 type Options = {
@@ -29,7 +29,11 @@ export function useAutoSelectOrgListRow({
   emailIndexLoading = false,
   query = "",
 }: Options) {
+  const location = useLocation();
+  const onCreateRoute = /\/new\/?$/.test(location.pathname);
+
   useEffect(() => {
+    if (onCreateRoute) return;
     if (loading) return;
     if (looksLikeEmailQuery(query) && emailIndexLoading) return;
     if (filteredIds.length === 0) return;
@@ -43,6 +47,7 @@ export function useAutoSelectOrgListRow({
 
     navigate(`${basePath}/${firstId}`, { replace: true });
   }, [
+    onCreateRoute,
     selectedId,
     loading,
     allIds,

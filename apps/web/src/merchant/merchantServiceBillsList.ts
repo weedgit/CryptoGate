@@ -3,7 +3,7 @@ import { listServiceBills } from "./api";
 import { createListCache } from "../shared/listCache";
 
 const billsListCache = createListCache<ServiceBill[]>({
-  storageKey: "cryptogate.merchant.service-bills",
+  storageKey: "paymentgate.merchant.service-bills",
   fetch: () => listServiceBills(),
 });
 
