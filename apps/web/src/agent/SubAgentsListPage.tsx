@@ -8,14 +8,16 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
+  orgOwnerEmailMapFromBulkRows,
 } from "../shared/registeredEmails";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import {
   merchantCountsByAgentId,
@@ -30,7 +32,14 @@ import {
   type AgentPayoutStatus,
 } from "../platform/orgDetailSeeds";
 import { subAgentsInAgentSubtree } from "./agentSubtree";
-import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import {
+  AGENT_ORGS_UPDATED_EVENT,
+  getAgentOrgs,
+  invalidateAgentOrgList,
+  peekAgentOrgs,
+  refreshAgentOrgList,
+  removeAgentOrgFromList,
+} from "./agentOrgList";
 import {
   getAgentServiceBills,
   peekAgentServiceBills,
@@ -54,7 +63,6 @@ import {
   DEFAULT_MAX_AGENT_DEPTH,
 } from "../platform/onboardAgent";
 import { SubAgentDetailCard } from "./SubAgentDetailCard";
-import { invalidateAgentOrgList } from "./agentOrgList";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
@@ -310,6 +318,8 @@ function SubAgentsListEmptyPanel({
 export function SubAgentsListPage({ session }: Props) {
   const { id: selectedId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const onboardState = (location.state ?? {}) as OnboardNavigateState;
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canOnboard = useMemo(
     () => sessionCanOnboardMerchant(session),
@@ -332,6 +342,9 @@ export function SubAgentsListPage({ session }: Props) {
   const [orgEmailsByOrgId, setOrgEmailsByOrgId] = useState<
     Map<string, string[]>
   >(() => new Map());
+  const [ownerEmailByOrgId, setOwnerEmailByOrgId] = useState<
+    Map<string, string>
+  >(() => new Map());
   const [emailIndexLoading, setEmailIndexLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -350,6 +363,7 @@ export function SubAgentsListPage({ session }: Props) {
     useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLDivElement | null>(null);
+  const prevPathRef = useRef(location.pathname);
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("agent-topbar-center"));
@@ -411,6 +425,31 @@ export function SubAgentsListPage({ session }: Props) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (Array.isArray(detail)) {
+        setOrgs(detail);
+        return;
+      }
+      void load({ force: true });
+    };
+    window.addEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (location.pathname.endsWith("/agents/new")) return;
+    const leftOnboard = prev.endsWith("/agents/new");
+    void load({
+      force: leftOnboard,
+    });
+  }, [location.pathname, load]);
+
   const agents = useMemo(() => {
     if (!agentId) return [];
     return subAgentsInAgentSubtree(agentId, orgs);
@@ -422,21 +461,26 @@ export function SubAgentsListPage({ session }: Props) {
   );
 
   useEffect(() => {
-    if (!looksLikeEmailQuery(query)) {
+    if (agents.length === 0) {
       setOrgEmailsByOrgId(new Map());
+      setOwnerEmailByOrgId(new Map());
       setEmailIndexLoading(false);
       return;
     }
-    if (agents.length === 0) return;
 
     let cancelled = false;
     setEmailIndexLoading(true);
-    void listOrgMemberEmails()
+    void listOrgMemberEmails({ types: ["agent_sub"] })
       .then((rows) => {
-        if (!cancelled) setOrgEmailsByOrgId(orgEmailsMapFromBulkRows(rows));
+        if (cancelled) return;
+        setOrgEmailsByOrgId(orgEmailsMapFromBulkRows(rows));
+        setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(rows));
       })
       .catch(() => {
-        if (!cancelled) setOrgEmailsByOrgId(new Map());
+        if (!cancelled) {
+          setOrgEmailsByOrgId(new Map());
+          setOwnerEmailByOrgId(new Map());
+        }
       })
       .finally(() => {
         if (!cancelled) setEmailIndexLoading(false);
@@ -444,7 +488,7 @@ export function SubAgentsListPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [agentIdsKey, agents.length, query]);
+  }, [agentIdsKey, agents.length]);
 
   const byId = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs]);
 
@@ -567,6 +611,7 @@ export function SubAgentsListPage({ session }: Props) {
     navigate,
     emailIndexLoading,
     query,
+    preserveSelectionId: onboardState.onboardedOrgId,
   });
 
   const selected = useMemo(() => {
@@ -623,13 +668,13 @@ export function SubAgentsListPage({ session }: Props) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage: canManageSelected,
-    onDeleted: async () => {
-      invalidateAgentOrgList();
-      const wasSelected = selectedId;
-      await load({ force: true });
-      if (wasSelected) {
-        navigate(agentRoute("agents"), { replace: true });
+    onDeleted: async (deletedId) => {
+      removeAgentOrgFromList(deletedId);
+      setOrgs((prev) => prev.filter((o) => o.id !== deletedId));
+      if (selectedId === deletedId) {
+        navigate(agentRoute("agents"));
       }
+      await refreshAgentOrgList({ excludeOrgIds: [deletedId] });
     },
     showOk,
   });
@@ -970,6 +1015,12 @@ export function SubAgentsListPage({ session }: Props) {
               orgs={orgs}
               canManage={canManageSelected}
               busy={busyId === selected.id}
+              inviteCreds={
+                onboardState.onboardedOrgId === selected.id
+                  ? (onboardState.inviteCreds ?? null)
+                  : null
+              }
+              ownerEmail={ownerEmailByOrgId.get(selected.id) ?? null}
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
               onDelete={() => openDelete(selected)}

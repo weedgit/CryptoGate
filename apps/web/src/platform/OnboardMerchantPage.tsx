@@ -8,6 +8,7 @@ import {
   getPlatformOrgs,
   inviteOrgUser,
   listOrgMemberEmails,
+  mergePlatformOrg,
   refreshPlatformOrgList,
   type FeeTierBand,
   type OrgAccount,
@@ -28,6 +29,7 @@ import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { merchantRoute, platformRoute } from "../shared/portalRouting";
+import { onboardInviteCreds } from "../shared/onboardInviteState";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -309,8 +311,10 @@ export function OnboardMerchantPage({ session }: Props) {
           volumeFeePercent: form.commercial.volumeFeePercent.trim(),
         },
       });
-      await inviteOrgUser(created.id, {
-        email: form.ownerEmail.trim(),
+      mergePlatformOrg(created);
+      const invitedEmail = form.ownerEmail.trim();
+      const invite = await inviteOrgUser(created.id, {
+        email: invitedEmail,
         role: "owner",
       });
       await refreshPlatformOrgList();
@@ -318,6 +322,8 @@ export function OnboardMerchantPage({ session }: Props) {
         state: {
           invitationSent: true,
           enterprisePending: form.commercial.tier === "enterprise",
+          onboardedOrgId: created.id,
+          inviteCreds: onboardInviteCreds(invitedEmail, invite),
         },
       });
     } catch (err) {

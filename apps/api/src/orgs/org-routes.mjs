@@ -230,6 +230,7 @@ export async function handleSetOrgStatus(req, res, orgId) {
     },
   });
 
+  invalidatePlatformOrgListCache();
   sendJson(res, 200, toOrgAccount(updated));
 }
 
@@ -286,6 +287,7 @@ export async function handleDeleteOrg(req, res, orgId) {
           console.error("org delete audit failed after cascade", auditErr);
         }
       }
+      invalidatePlatformOrgListCache();
       res.writeHead(204);
       res.end();
     } catch (err) {
@@ -352,6 +354,7 @@ export async function handleDeleteOrg(req, res, orgId) {
     },
   });
 
+  invalidatePlatformOrgListCache();
   res.writeHead(204);
   res.end();
 }

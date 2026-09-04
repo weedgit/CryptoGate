@@ -19,6 +19,21 @@ describe("audit detail formatting", () => {
     assert.ok(!detail.headline.includes("f1183de1"));
   });
 
+  it("shows initial sign-in on agent invite audit rows", () => {
+    const detail = summarizeAuditMetadata("org_user_invite", {
+      email: "owner@agent.io",
+      role: "owner",
+      provisioned: true,
+      orgType: "agent",
+      initialSignIn: "one-time-pass-9aA!",
+    });
+    assert.ok(
+      detail.lines.some((l) =>
+        /Initial sign-in \(audit recovery\): one-time-pass-9aA!/.test(l),
+      ),
+    );
+  });
+
   it("prefers display name over email", () => {
     const detail = summarizeAuditMetadata("org_user_invite", {
       email: "admin@example.com",

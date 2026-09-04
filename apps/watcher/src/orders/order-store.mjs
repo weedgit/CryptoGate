@@ -85,7 +85,8 @@ export async function listOpenOrdersForMatch(db, filter) {
   const { rows } = await db.query(
     `SELECT id, matching_mode, payable_amount, receive_address, asset, network,
             memo_or_tag, expires_at, status, required_confirmations,
-            COALESCE(underpay_tolerance, '0') AS underpay_tolerance
+            COALESCE(underpay_tolerance, '0') AS underpay_tolerance,
+            created_at
      FROM payment_orders
      WHERE asset = $1
        AND network = $2
@@ -120,6 +121,10 @@ export async function listOpenOrdersForMatch(db, filter) {
     status: row.status,
     requiredConfirmations: row.required_confirmations,
     underpayTolerance: row.underpay_tolerance ?? "0",
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
   }));
 }
 
@@ -138,7 +143,7 @@ export async function listOrdersByReceiveAddresses(db, filter) {
 
   const { rows } = await db.query(
     `SELECT id, matching_mode, payable_amount, receive_address, asset, network,
-            memo_or_tag, expires_at, status, required_confirmations
+            memo_or_tag, expires_at, status, required_confirmations, created_at
      FROM payment_orders
      WHERE receive_address = ANY($1::text[])
        AND (
@@ -170,6 +175,10 @@ export async function listOrdersByReceiveAddresses(db, filter) {
         : row.expires_at,
     status: row.status,
     requiredConfirmations: row.required_confirmations,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
   }));
 }
 

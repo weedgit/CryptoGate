@@ -27,6 +27,11 @@ export {
   assertMatchingSettings,
   validateMatchingSettings,
 } from "./validate-settings.js";
+export {
+  isTransferEligibleForOrder,
+  filterEligibleCandidates,
+  parseCreatedAtMs,
+} from "./transfer-eligibility.js";
 
 /** Router selects the mode stored on the order at create time. */
 export async function assignOnCreate(input: AssignInput): Promise<AssignResult> {

@@ -2,6 +2,7 @@
  * Watcher-side anomaly classification (M3-43 / M3-44).
  * Pure helpers — matching still owns amount/memo collisions.
  */
+import { isTransferEligibleForOrder } from "@paymentgate/matching";
 
 /**
  * Open orders at the same receive address but wrong asset or network.
@@ -9,6 +10,7 @@
  *   toAddress: string,
  *   asset: string,
  *   network: string,
+ *   blockTimestampMs?: number,
  * }} transfer
  * @param {Array<{
  *   orderId: string,
@@ -16,6 +18,7 @@
  *   asset: string,
  *   network: string,
  *   status?: string,
+ *   createdAt?: string,
  * }>} openOrders
  * @returns {{ orderIds: string[], reason: string } | null}
  */
@@ -24,7 +27,9 @@ export function classifyWrongNetworkOrAsset(transfer, openOrders) {
   if (!to) return null;
 
   const sameAddress = openOrders.filter(
-    (o) => o.receiveAddress.trim() === to,
+    (o) =>
+      o.receiveAddress.trim() === to &&
+      isTransferEligibleForOrder(transfer.blockTimestampMs, o.createdAt),
   );
   if (sameAddress.length === 0) return null;
 

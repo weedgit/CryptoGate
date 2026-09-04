@@ -163,7 +163,8 @@ def main() -> int:
     os.chmod(ETC / "postgres.env", 0o600)
 
     (ETC / "pay-config.js").write_text(
-        'window.PAYMENTGATE_API_BASE = "https://api-cg.boostbunny.io";\n',
+        'window.PAYMENTGATE_API_BASE = "https://api-cg.boostbunny.io";\n'
+        'window.CRYPTOGATE_API_BASE = window.PAYMENTGATE_API_BASE;\n',
         encoding="utf-8",
     )
     os.chmod(ETC / "pay-config.js", 0o644)

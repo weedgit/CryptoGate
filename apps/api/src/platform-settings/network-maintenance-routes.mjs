@@ -17,13 +17,13 @@ import {
  * GET /v1/platform/networks/catalog — B16 cards (registry + maintenance + ingest).
  */
 export async function handleGetNetworkCatalog(req, res) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-  if (!canReadPlatformOrgPolicy(caller)) {
-    sendError(res, 403, "forbidden", "Not allowed to read network catalog");
-    return;
-  }
   try {
+    const caller = await requireCaller(req, res);
+    if (!caller) return;
+    if (!canReadPlatformOrgPolicy(caller)) {
+      sendError(res, 403, "forbidden", "Not allowed to read network catalog");
+      return;
+    }
     const catalog = await buildNetworkCatalog();
     sendJson(res, 200, catalog);
   } catch (err) {

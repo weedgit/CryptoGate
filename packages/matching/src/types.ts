@@ -100,6 +100,8 @@ export type MatchCandidateOrder = {
    * Prefer this over MatchInput.underpayTolerance when both set.
    */
   underpayTolerance?: string;
+  /** ISO-8601 order create time — inbound tx must be at or after this instant. */
+  createdAt?: string;
 };
 
 export type MatchInput = {
@@ -123,6 +125,8 @@ export type MatchInput = {
    * still match. Mode C must keep this 0 / unused (fingerprints stay exact).
    */
   underpayTolerance?: string;
+  /** On-chain transfer time (epoch ms). Transfers before order create are ignored. */
+  transferAtMs?: number;
 };
 
 export type MatchResult = {

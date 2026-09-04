@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { findUserByEmail } from "../apps/api/src/auth/users.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
-import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 
 const MATCHING_CYCLE = ["B", "C", "D", "S"];
 const COMMISSION_CYCLE = ["10", "12", "15", "18", "20"];

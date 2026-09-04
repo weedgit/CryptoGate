@@ -2,9 +2,54 @@ import { DEFAULT_FEE_TIER_BANDS } from "@paymentgate/domain";
 import { getPool } from "../db/pool.mjs";
 
 /**
+ * @param {import("@paymentgate/domain").FeeTierBand} band
+ */
+function defaultBandToDbRow(band) {
+  return {
+    tier: band.tier,
+    subscription_amount_usd: band.subscriptionAmountUsd,
+    volume_fee_min_percent: band.volumeFeeMinPercent,
+    volume_fee_max_percent: band.volumeFeeMaxPercent,
+    default_signup_percent: band.defaultSignupPercent,
+    tier_description: band.tierDescription ?? null,
+    updated_at: new Date(),
+  };
+}
+
+/**
+ * @param {string} tier
+ */
+export function defaultFeeTierBandRow(tier) {
+  const band = DEFAULT_FEE_TIER_BANDS.find((row) => row.tier === tier);
+  return band ? defaultBandToDbRow(band) : null;
+}
+
+/** Ensure Small/Mid/Enterprise rows exist — defaults from @paymentgate/domain. */
+export async function ensureDefaultFeeTierBands() {
+  for (const band of DEFAULT_FEE_TIER_BANDS) {
+    await getPool().query(
+      `INSERT INTO platform_fee_tiers (
+         tier, subscription_amount_usd, volume_fee_min_percent,
+         volume_fee_max_percent, default_signup_percent, tier_description, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, now())
+       ON CONFLICT (tier) DO NOTHING`,
+      [
+        band.tier,
+        band.subscriptionAmountUsd,
+        band.volumeFeeMinPercent,
+        band.volumeFeeMaxPercent,
+        band.defaultSignupPercent,
+        band.tierDescription ?? null,
+      ],
+    );
+  }
+}
+
+/**
  * @returns {Promise<{ tiers: object[], updatedAt: string | null }>}
  */
 export async function getFeeTierSettings() {
+  await ensureDefaultFeeTierBands();
   const { rows } = await getPool().query(
     `SELECT tier, subscription_amount_usd, volume_fee_min_percent,
             volume_fee_max_percent, default_signup_percent, tier_description, updated_at
@@ -12,12 +57,6 @@ export async function getFeeTierSettings() {
      ORDER BY CASE tier
        WHEN 'small' THEN 1 WHEN 'mid' THEN 2 WHEN 'enterprise' THEN 3 ELSE 4 END`,
   );
-  if (rows.length === 0) {
-    return {
-      tiers: DEFAULT_FEE_TIER_BANDS.map((band) => ({ ...band })),
-      updatedAt: null,
-    };
-  }
 
   const updatedAt = rows.reduce((max, r) => {
     const t = r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at);
@@ -75,16 +114,26 @@ export async function replaceFeeTierSettings(tiers) {
  * @param {string} tier
  */
 export async function findFeeTierBand(tier) {
-  const { rows } = await getPool().query(
-    `SELECT tier, subscription_amount_usd, volume_fee_min_percent,
-            volume_fee_max_percent, default_signup_percent, tier_description, updated_at
-     FROM platform_fee_tiers WHERE tier = $1`,
-    [tier],
-  );
-  return rows[0] ?? null;
+  try {
+    await ensureDefaultFeeTierBands();
+    const { rows } = await getPool().query(
+      `SELECT tier, subscription_amount_usd, volume_fee_min_percent,
+              volume_fee_max_percent, default_signup_percent, tier_description, updated_at
+       FROM platform_fee_tiers WHERE tier = $1`,
+      [tier],
+    );
+    return rows[0] ?? defaultFeeTierBandRow(tier);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/platform_fee_tiers|does not exist/i.test(message)) {
+      return defaultFeeTierBandRow(tier);
+    }
+    throw err;
+  }
 }
 
 export async function listFeeTierBands() {
+  await ensureDefaultFeeTierBands();
   const { rows } = await getPool().query(
     `SELECT tier, subscription_amount_usd, volume_fee_min_percent,
             volume_fee_max_percent, default_signup_percent, tier_description, updated_at

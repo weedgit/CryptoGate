@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   defaultDueAt,
+  merchantOnboardedInPeriod,
   previousCalendarMonthUtc,
   resolveGeneratePeriod,
   roundUsd,
@@ -48,5 +49,20 @@ describe("service bill generate rules", () => {
 
   it("due date is 14 days after period end", () => {
     assert.equal(defaultDueAt("2026-07-31").startsWith("2026-08-14"), true);
+  });
+
+  it("merchantOnboardedInPeriod rejects merchants created after period end", () => {
+    assert.equal(
+      merchantOnboardedInPeriod("2026-09-02T08:00:00.000Z", "2026-08-31"),
+      false,
+    );
+    assert.equal(
+      merchantOnboardedInPeriod("2026-08-31T23:59:00.000Z", "2026-08-31"),
+      true,
+    );
+    assert.equal(
+      merchantOnboardedInPeriod("2026-08-15T00:00:00.000Z", "2026-08-31"),
+      true,
+    );
   });
 });

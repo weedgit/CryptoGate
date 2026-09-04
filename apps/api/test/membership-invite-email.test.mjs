@@ -73,6 +73,41 @@ describePg("org invite — platform-wide email uniqueness", () => {
     assert.equal(res.json.role, "viewer");
   });
 
+  it("stores initialSignIn on agent owner invite audit for platform recovery", async () => {
+    const agent = await insertOrgAccount({
+      type: "agent",
+      name: `Audit recovery agent ${Date.now()}`,
+      parentId: seed.platformOrgId,
+      structure: null,
+      maxAgentDepth: 2,
+    });
+    assert.equal(agent.ok, true);
+
+    const ownerEmail = `agent-audit-${Date.now()}@paymentgate.local`;
+    const invite = await apiFetch(base, `/v1/orgs/${agent.row.id}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email: ownerEmail, role: "owner" },
+    });
+    assert.equal(invite.status, 201);
+    assert.ok(invite.json.temporaryPassword);
+
+    const audit = await apiFetch(
+      base,
+      `/v1/audit?orgId=${encodeURIComponent(agent.row.id)}&action=org_user_invite&limit=5`,
+      { token: seed.platformToken },
+    );
+    assert.equal(audit.status, 200);
+    const row = audit.json.items.find(
+      (item) =>
+        item.action === "org_user_invite" &&
+        item.metadata?.email === ownerEmail,
+    );
+    assert.ok(row, "expected org_user_invite audit row");
+    assert.equal(row.metadata.initialSignIn, invite.json.temporaryPassword);
+    assert.equal(row.metadata.orgType, "agent");
+  });
+
   it("allows same email on the same org only once", async () => {
     const agentOwnerEmail = `agent-owner-${Date.now()}@paymentgate.local`;
     const agentOwner = await createUser({

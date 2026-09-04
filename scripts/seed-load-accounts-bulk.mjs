@@ -21,7 +21,7 @@ import { bootstrapMerchantCommercial } from "../apps/api/src/commercial/merchant
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
-import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 
 const PREFIX = "Load";
 const TARGET_NAMES = [`${PREFIX} Agent 001`, `${PREFIX} Agent 010`];

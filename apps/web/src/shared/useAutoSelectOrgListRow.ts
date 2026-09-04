@@ -13,6 +13,8 @@ type Options = {
   navigate: NavigateFunction;
   emailIndexLoading?: boolean;
   query?: string;
+  /** Keep this selection after onboard even if the list cache is still catching up. */
+  preserveSelectionId?: string;
 };
 
 /**
@@ -28,6 +30,7 @@ export function useAutoSelectOrgListRow({
   navigate,
   emailIndexLoading = false,
   query = "",
+  preserveSelectionId,
 }: Options) {
   const location = useLocation();
   const onCreateRoute = /\/new\/?$/.test(location.pathname);
@@ -44,6 +47,7 @@ export function useAutoSelectOrgListRow({
       selectionKnown && filteredIds.includes(selectedId);
 
     if (selectionVisible) return;
+    if (preserveSelectionId && selectedId === preserveSelectionId) return;
 
     navigate(`${basePath}/${firstId}`, { replace: true });
   }, [
@@ -56,5 +60,6 @@ export function useAutoSelectOrgListRow({
     navigate,
     emailIndexLoading,
     query,
+    preserveSelectionId,
   ]);
 }

@@ -8,14 +8,14 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
 } from "../shared/registeredEmails";
-import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import { handleOrgTableKeyDown } from "../platform/orgTableKeyboard";
@@ -23,7 +23,15 @@ import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import { merchantsInAgentSubtree } from "./agentSubtree";
-import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import {
+  AGENT_ORGS_UPDATED_EVENT,
+  getAgentOrgs,
+  invalidateAgentOrgList,
+  peekAgentOrgs,
+  refreshAgentOrgList,
+  removeAgentOrgFromList,
+} from "./agentOrgList";
 import {
   getAgentServiceBills,
   peekAgentServiceBills,
@@ -39,7 +47,6 @@ import {
   type ServiceBill,
   type Session,
 } from "./api";
-import { invalidateAgentOrgList } from "./agentOrgList";
 import { MerchantDetailCard } from "./MerchantDetailCard";
 import { STRUCTURE_LABELS } from "./onboardMerchant";
 import {
@@ -332,6 +339,8 @@ function MerchantsListEmptyPanel({
 export function MerchantsListPage({ session }: Props) {
   const { id: selectedId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const onboardState = (location.state ?? {}) as OnboardNavigateState;
   const [searchParams] = useSearchParams();
   const detailTab = searchParams.get("tab") ?? undefined;
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
@@ -371,6 +380,7 @@ export function MerchantsListPage({ session }: Props) {
     useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLDivElement | null>(null);
+  const prevPathRef = useRef(location.pathname);
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("agent-topbar-center"));
@@ -436,6 +446,31 @@ export function MerchantsListPage({ session }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (Array.isArray(detail)) {
+        setOrgs(detail);
+        return;
+      }
+      void load({ force: true });
+    };
+    window.addEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (location.pathname.endsWith("/merchants/new")) return;
+    const leftOnboard = prev.endsWith("/merchants/new");
+    void load({
+      force: leftOnboard,
+    });
+  }, [location.pathname, load]);
 
   const merchants = useMemo(() => {
     if (!agentId) return [];
@@ -626,6 +661,7 @@ export function MerchantsListPage({ session }: Props) {
     navigate,
     emailIndexLoading,
     query,
+    preserveSelectionId: onboardState.onboardedOrgId,
   });
 
   const selected = useMemo(() => {
@@ -680,13 +716,13 @@ export function MerchantsListPage({ session }: Props) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage: canManageSelected,
-    onDeleted: async () => {
-      invalidateAgentOrgList();
-      const wasSelected = selectedId;
-      await load({ force: true });
-      if (wasSelected) {
-        navigate(agentRoute("merchants"), { replace: true });
+    onDeleted: async (deletedId) => {
+      removeAgentOrgFromList(deletedId);
+      setOrgs((prev) => prev.filter((o) => o.id !== deletedId));
+      if (selectedId === deletedId) {
+        navigate(agentRoute("merchants"));
       }
+      await refreshAgentOrgList({ excludeOrgIds: [deletedId] });
     },
     showOk,
   });
@@ -1032,6 +1068,11 @@ export function MerchantsListPage({ session }: Props) {
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
               onDelete={() => openDelete(selected)}
+              inviteCreds={
+                onboardState.onboardedOrgId === selected.id
+                  ? (onboardState.inviteCreds ?? null)
+                  : null
+              }
             />
           ) : (
             <div

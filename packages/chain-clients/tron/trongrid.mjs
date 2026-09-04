@@ -125,6 +125,10 @@ export function mapTrc20Row(row, cfg) {
     asset: cfg.asset ?? "USDT",
     network: cfg.network ?? "tron",
     memoOrTag: undefined,
+    blockTimestampMs:
+      typeof row.block_timestamp === "number" && Number.isFinite(row.block_timestamp)
+        ? row.block_timestamp
+        : undefined,
   };
 }
 

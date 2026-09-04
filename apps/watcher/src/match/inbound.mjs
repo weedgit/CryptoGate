@@ -14,6 +14,7 @@ import { classifyWrongNetworkOrAsset } from "./classify.mjs";
  *   txHash: string,
  *   memoOrTag?: string,
  *   fromAddress?: string,
+ *   blockTimestampMs?: number,
  * }} InboundTransfer
  */
 
@@ -28,6 +29,7 @@ import { classifyWrongNetworkOrAsset } from "./classify.mjs";
  *   memoOrTag?: string | null,
  *   expiresAt?: string,
  *   status?: string,
+ *   createdAt?: string,
  * }} WatcherOrderRow
  */
 
@@ -98,6 +100,7 @@ export async function matchInboundTransfer(input) {
       memoOrTag: o.memoOrTag,
       expiresAt: o.expiresAt,
       underpayTolerance: o.underpayTolerance ?? "0",
+      createdAt: o.createdAt,
     }));
 
     const result = await matchFn({
@@ -108,6 +111,7 @@ export async function matchInboundTransfer(input) {
       network: transfer.network,
       memoOrTag: transfer.memoOrTag,
       txHash: transfer.txHash,
+      transferAtMs: transfer.blockTimestampMs,
       candidates,
     });
 

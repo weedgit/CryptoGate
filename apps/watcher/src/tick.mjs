@@ -91,6 +91,7 @@ async function ingestScope(pool, filter, opts = {}) {
       network: t.network ?? filter.network,
       txHash: t.txHash,
       memoOrTag: t.memoOrTag,
+      blockTimestampMs: t.blockTimestampMs,
     })),
     openOrders: matchCandidates,
     knownTxHashes: known,

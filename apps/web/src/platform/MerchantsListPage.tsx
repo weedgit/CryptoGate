@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -18,6 +18,9 @@ import {
   listPlatformOrgMemberEmails,
   peekPlatformOrgs,
   peekPlatformServiceBills,
+  PLATFORM_ORGS_UPDATED_EVENT,
+  refreshPlatformOrgList,
+  removePlatformOrgFromList,
   setOrgStatus,
   type OrgAccount,
   type ServiceBill,
@@ -27,6 +30,7 @@ import { MerchantDetailCard } from "./MerchantDetailCard";
 import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
@@ -329,8 +333,10 @@ function MerchantsListEmptyPanel({
 /** B5 — Merchants list: half-width table + side detail card. */
 export function MerchantsListPage({ session }: Props) {
   const { id: selectedId } = useParams<{ id?: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const onboardState = (location.state ?? {}) as OnboardNavigateState;
   const detailTab = searchParams.get("tab") ?? undefined;
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
@@ -380,15 +386,13 @@ export function MerchantsListPage({ session }: Props) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage,
-    onDeleted: async () => {
-      invalidatePlatformOrgList();
-      try {
-        const next = await getPlatformOrgs({ force: true });
-        setOrgs(next);
-        if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
-      } catch {
-        /* ignore */
+    onDeleted: async (deletedId) => {
+      removePlatformOrgFromList(deletedId);
+      setOrgs((prev) => prev.filter((o) => o.id !== deletedId));
+      if (selectedId === deletedId) {
+        navigate(platformRoute("merchants"));
       }
+      await refreshPlatformOrgList({ excludeOrgIds: [deletedId] });
     },
     showOk,
   });
@@ -397,6 +401,7 @@ export function MerchantsListPage({ session }: Props) {
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLDivElement | null>(null);
+  const prevPathRef = useRef(location.pathname);
   const [suspendTarget, setSuspendTarget] = useState<OrgAccount | null>(null);
   const [suspendError, setSuspendError] = useState<string | null>(null);
 
@@ -432,15 +437,15 @@ export function MerchantsListPage({ session }: Props) {
     };
   }, [loading]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     const hasCachedOrgs = peekPlatformOrgs() != null;
     // Paint merchants as soon as orgs are ready; bills only feed Bill column.
-    if (!hasCachedOrgs) setLoading(true);
+    if (!opts?.silent && !hasCachedOrgs) setLoading(true);
     setError(null);
     try {
-      const orgRows = await getPlatformOrgs();
+      const orgRows = await getPlatformOrgs({ force: opts?.force });
       setOrgs(orgRows);
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
       const billRows = await getPlatformServiceBills().catch(
         () => [] as ServiceBill[],
       );
@@ -454,13 +459,39 @@ export function MerchantsListPage({ session }: Props) {
           : "Failed to load merchants";
       showErr(text);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [showErr]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (Array.isArray(detail)) {
+        setOrgs(detail);
+        return;
+      }
+      void load({ silent: true });
+    };
+    window.addEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (location.pathname.endsWith("/merchants/new")) return;
+    const leftOnboard = prev.endsWith("/merchants/new");
+    void load({
+      silent: !leftOnboard && peekPlatformOrgs() != null,
+      force: leftOnboard,
+    });
+  }, [location.pathname, load]);
 
   const merchants = useMemo(
     () => orgs.filter((o) => o.type === "merchant"),
@@ -606,6 +637,7 @@ export function MerchantsListPage({ session }: Props) {
     navigate,
     emailIndexLoading,
     query,
+    preserveSelectionId: onboardState.onboardedOrgId,
   });
 
   const selected = useMemo(() => {
@@ -959,6 +991,11 @@ export function MerchantsListPage({ session }: Props) {
                   prev.map((o) => (o.id === next.id ? { ...o, ...next } : o)),
                 );
               }}
+              inviteCreds={
+                onboardState.onboardedOrgId === selected.id
+                  ? (onboardState.inviteCreds ?? null)
+                  : null
+              }
             />
           ) : (
             <div className="org-split__empty b3-empty" aria-label="No merchant selected">

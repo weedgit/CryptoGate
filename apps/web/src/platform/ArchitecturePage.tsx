@@ -7,11 +7,18 @@ import {
   ApiError,
   listPlatformOrgMemberEmails,
   setOrgStatus,
+  type OrgAccount,
   type Session,
 } from "./api";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import { withReturnTo } from "./platformNav";
-import { getPlatformOrgs, invalidatePlatformOrgList, peekPlatformOrgs, PLATFORM_ORGS_UPDATED_EVENT } from "./platformOrgList";
+import {
+  getPlatformOrgs,
+  peekPlatformOrgs,
+  PLATFORM_ORGS_UPDATED_EVENT,
+  refreshPlatformOrgList,
+  removePlatformOrgFromList,
+} from "./platformOrgList";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -748,10 +755,9 @@ export function ArchitecturePage({ session }: { session: Session }) {
     };
   }, [load]);
 
-  const refreshForest = useCallback(async () => {
-    invalidatePlatformOrgList();
+  const refreshForest = useCallback(async (opts?: { excludeOrgIds?: string[] }) => {
     const [orgs, emailRows] = await Promise.all([
-      getPlatformOrgs({ force: true }),
+      refreshPlatformOrgList({ excludeOrgIds: opts?.excludeOrgIds }),
       listPlatformOrgMemberEmails().catch(() => [] as Awaited<
         ReturnType<typeof listPlatformOrgMemberEmails>
       >),
@@ -785,7 +791,10 @@ export function ArchitecturePage({ session }: { session: Session }) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage,
-    onDeleted: refreshForest,
+    onDeleted: async (deletedId) => {
+      removePlatformOrgFromList(deletedId);
+      await refreshForest({ excludeOrgIds: [deletedId] });
+    },
     showOk,
   });
 

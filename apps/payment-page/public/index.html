@@ -14,6 +14,13 @@
     />
     <link rel="stylesheet" href="/tokens.css" />
     <link rel="stylesheet" href="/styles.css" />
+    <script>
+      (function () {
+        var m = location.pathname.match(/\/pay\/([^/?#]+)/);
+        if (!m) return;
+        document.documentElement.dataset.payMode = "live";
+      })();
+    </script>
   </head>
   <body>
     <main class="pay" data-node-id="29:4197">
@@ -28,8 +35,8 @@
         <div class="amount-row">
           <span class="amount-asset-mark" id="asset-mark" aria-hidden="true"></span>
           <p class="amount fund-amount" id="amount">
-            <span class="amount__value" id="amount-value">245.00</span>
-            <span class="amount__asset" id="amount-asset">USDT</span>
+            <span class="amount__value" id="amount-value" data-live-field aria-hidden="true">—</span>
+            <span class="amount__asset" id="amount-asset" data-live-field>USDT</span>
           </p>
           <button
             type="button"
@@ -44,11 +51,11 @@
               <path d="M3.2 8.4 L6.6 11.8 L12.8 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-          <code id="amount-copy" class="sr-only" hidden>245.00</code>
+          <code id="amount-copy" class="sr-only" hidden></code>
         </div>
         <p class="network-pill" id="network-pill">
           <span class="network-pill__mark" id="network-mark" aria-hidden="true"></span>
-          <span id="network">TRON TRC-20</span>
+          <span id="network" data-live-field>—</span>
         </p>
       </section>
 
@@ -92,7 +99,7 @@
           <p class="label">Recipient address</p>
           <div class="address-row">
             <span class="address-row__mark" id="address-mark" aria-hidden="true"></span>
-            <code id="address">TX7s39gK1p9ZqR5mY8bV2wXn5uH4kP9qR2</code>
+            <code id="address" data-live-field>—</code>
             <button type="button" class="icon-btn icon-btn--copy icon-btn--copy-address" data-copy="address" aria-label="Copy address">
               <svg class="icon-btn__icon icon-btn__icon--copy" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M2.66624 10.6669C1.93285 10.6669 1.3328 10.0668 1.3328 9.33344V2.66624C1.3328 1.93285 1.93285 1.3328 2.66624 1.3328H9.33344C10.0668 1.3328 10.6669 1.93285 10.6669 2.66624M6.66656 5.33312H13.3338C14.0702 5.33312 14.6672 5.93012 14.6672 6.66656V13.3338C14.6672 14.0702 14.0702 14.6672 13.3338 14.6672H6.66656C5.93012 14.6672 5.33312 14.0702 5.33312 13.3338V6.66656C5.33312 5.93012 5.93012 5.33312 6.66656 5.33312Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
@@ -112,7 +119,7 @@
         </section>
         <div class="timer-card" id="timer-card">
           <p class="timer-card__label" id="timer-label">Time remaining</p>
-          <p class="countdown" id="expires">28:42</p>
+          <p class="countdown" id="expires" data-live-field>—:—</p>
         </div>
       </section>
 
@@ -160,7 +167,7 @@
       </section>
 
       <div class="status-block">
-        <p class="order-ref">Order <span id="order-ref">#CG-2026-0847</span></p>
+        <p class="order-ref">Order <span id="order-ref" data-live-field>—</span></p>
       </div>
       <div class="share-row">
         <button type="button" class="share-btn" id="share-link">
@@ -175,6 +182,7 @@
       </footer>
     </main>
     <script src="/config.js"></script>
+    <script src="/api-base.js"></script>
     <script src="/vendor/qrcode.js"></script>
     <script src="/mock-order.js" defer></script>
   </body>

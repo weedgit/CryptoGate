@@ -5714,11 +5714,89 @@ select {
     transparent
   );
   pointer-events: none;
+  z-index: 1;
+}
+
+.platform-shell .merchant-reports__kpi::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: -50%;
+  width: 55%;
+  height: 160%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 40%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.03) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: merchant-kpi-card-sweep 5.5s ease-in-out infinite;
+}
+
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(2)::after {
+  animation-delay: 0.7s;
+}
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(3)::after {
+  animation-delay: 1.4s;
+}
+.platform-shell .merchant-reports__kpis > .merchant-reports__kpi:nth-child(4)::after {
+  animation-delay: 2.1s;
+}
+
+.platform-shell .merchant-reports__kpi > * {
+  position: relative;
+  z-index: 1;
+}
+
+.platform-shell .merchant-reports__kpi-index {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.5);
+  pointer-events: none;
+  z-index: 2;
+  transition: color 180ms ease;
 }
 
 .platform-shell .merchant-reports__kpi:hover {
-  transform: translateY(-3px);
+  transform: translateY(-5px) scale(1.015);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 -2px 0 rgba(0, 0, 0, 0.42) inset,
+    0 2px 4px rgba(0, 0, 0, 0.22),
+    0 18px 34px rgba(0, 0, 0, 0.45),
+    0 32px 56px rgba(0, 0, 0, 0.28);
   animation-play-state: paused;
+}
+
+.platform-shell .merchant-reports__kpi:hover::after {
+  animation-play-state: paused;
+  opacity: 0.55;
+}
+
+.platform-shell .merchant-reports__kpi:hover .merchant-reports__kpi-index {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+.platform-shell .merchant-reports__kpi:hover .merchant-reports__kpi-icon {
+  transform: translateY(-1px) scale(1.08);
+}
+
+.platform-shell .merchant-reports__kpi:hover .merchant-reports__kpi-value {
+  transform: scale(1.04);
+}
+
+.platform-shell .merchant-reports__kpi:active {
+  transform: translateY(-1px) scale(0.995);
 }
 
 .platform-shell .merchant-reports__kpi-top {
@@ -5743,6 +5821,7 @@ select {
     0 1px 0 rgba(255, 255, 255, 0.2) inset,
     0 -1px 0 rgba(0, 0, 0, 0.4) inset,
     0 4px 10px rgba(0, 0, 0, 0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .platform-shell .merchant-reports__kpi-icon svg {
@@ -5771,6 +5850,7 @@ select {
   color: #f8fafc;
   font-variant-numeric: tabular-nums;
   text-align: center;
+  transition: transform 180ms ease;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.22),
     0 3px 0 rgba(0, 0, 0, 0.28),
@@ -8435,10 +8515,11 @@ select {
   top: 0;
   align-self: stretch;
   flex-shrink: 0;
-  width: 200px;
+  width: 260px;
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
+  overflow-x: visible;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -8468,8 +8549,7 @@ select {
 
 .platform-shell .logo-row {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -8493,21 +8573,24 @@ select {
 }
 
 .platform-shell .logo-copy {
-  min-width: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-width: max-content;
+  overflow: visible;
 }
 
 .platform-shell .logo-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: unset;
   white-space: nowrap;
+  font-size: 13px;
+  letter-spacing: 0.04em;
 }
 
 .platform-shell .sidebar-toggle {
-  margin-left: 0;
+  margin-left: auto;
   margin-top: 0;
-  justify-self: end;
-  box-sizing: border-box;
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
   border-radius: 6px;
@@ -23086,6 +23169,21 @@ select {
   font-size: 14px;
 }
 
+.platform-shell .plat-bills__amount--base {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.platform-shell .plat-bills__amount--total {
+  font-weight: 600;
+}
+
+.platform-shell .plat-bills__legend {
+  margin: 0 0 0.75rem;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.45;
+}
+
 .platform-shell .plat-bills__table th,
 .platform-shell .plat-bills__table td {
   padding: 10px 12px;
@@ -24214,6 +24312,30 @@ select {
   font-size: 12px;
   color: #64748b;
   font-variant-numeric: tabular-nums;
+}
+
+.plat-generate-bills-modal__warn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+  font-size: 13px;
+  color: #fde68a;
+}
+
+.plat-generate-bills-modal__warn strong {
+  color: #fef3c7;
+  font-weight: 600;
+}
+
+.plat-generate-bills-modal__warn-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: rgba(253, 230, 138, 0.92);
+  font-size: 12px;
 }
 
 .plat-generate-bills-modal__result {
@@ -30014,6 +30136,24 @@ select {
   z-index: 1;
 }
 
+.platform-shell .merchant-dash__kpi-index {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.5);
+  pointer-events: none;
+  z-index: 2;
+  transition: color 180ms ease;
+}
+
+.platform-shell .merchant-dash__kpi:hover .merchant-dash__kpi-index {
+  color: rgba(203, 213, 225, 0.82);
+}
+
 .platform-shell .merchant-dash__kpi:hover {
   transform: translateY(-5px) scale(1.015);
   box-shadow:
@@ -30104,6 +30244,7 @@ select {
   text-align: center;
   width: 100%;
   justify-content: center;
+  transition: transform 180ms ease;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.28),
     0 2px 0 rgba(0, 0, 0, 0.35),

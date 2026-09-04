@@ -131,4 +131,25 @@ describe("@paymentgate/watcher inbound match wire (M3-41)", () => {
     assert.equal(applyCalls, 0);
     assert.equal(outcomes[0].skipped, true);
   });
+
+  it("ignores stale transfer before order create (Mode B overpay regression)", async () => {
+    const { applied, result } = await matchInboundTransfer({
+      transfer: {
+        ...baseTransfer,
+        amount: "100",
+        blockTimestampMs: Date.parse("2026-08-29T15:30:12.000Z"),
+        txHash: "c926f3afd8b38b4b59cbe82ae3d619508dbb4ff7f71746c18e70a300687e1489",
+      },
+      openOrders: [
+        {
+          ...baseOrder,
+          payableAmount: "10",
+          createdAt: "2026-09-02T09:12:58.868Z",
+        },
+      ],
+    });
+    assert.equal(applied, false);
+    assert.equal(result.status, "pending_payment");
+    assert.equal(result.reason, "transfer_before_order_created");
+  });
 });

@@ -16,9 +16,11 @@ import { hashPassword } from "../apps/api/src/auth/password-hash.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
+import { ensureDefaultFeeTierBands } from "../apps/api/src/platform-settings/fee-tier-store.mjs";
 
-export const SEED_PASSWORD = "User1234567890!";
-export const SEED_PLATFORM_OWNER_EMAIL = "own.platform@paymentgate.io";
+import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+
+export { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL };
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -77,23 +79,6 @@ async function ensurePlatformBillingDefaults(pool) {
   );
 }
 
-async function ensurePlatformFeeTiers(pool) {
-  await pool.query(
-    `INSERT INTO platform_fee_tiers (
-       tier,
-       subscription_amount_usd,
-       volume_fee_min_percent,
-       volume_fee_max_percent,
-       default_signup_percent,
-       tier_description
-     ) VALUES
-       ('small', '49.00', '1.2', '2.0', '2.0', NULL),
-       ('mid', '199.00', '0.8', '1.5', '1.2', NULL),
-       ('enterprise', '0.00', '0.5', '1.0', '0.8', NULL)
-     ON CONFLICT (tier) DO NOTHING`,
-  );
-}
-
 async function ensureUser(email, password) {
   const existing = await findUserByEmail(email);
   if (existing) {
@@ -120,7 +105,7 @@ async function main() {
   console.log("Wiping application data…");
   await wipeApplicationData(pool);
   await ensurePlatformBillingDefaults(pool);
-  await ensurePlatformFeeTiers(pool);
+  await ensureDefaultFeeTierBands();
 
   const owner = await ensureUser(SEED_PLATFORM_OWNER_EMAIL, SEED_PASSWORD);
   await pool.query(

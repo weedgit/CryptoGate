@@ -210,6 +210,34 @@ describe("@paymentgate/matching mode-b match (M1-32 / M3-60)", () => {
     assert.equal(result.reason, "mode_b_overpay");
   });
 
+  it("ignores transfer that occurred before order was created", async () => {
+    const result = await matchModeB({
+      ...baseTx,
+      amount: "100",
+      transferAtMs: Date.parse("2026-08-29T15:30:12.000Z"),
+      candidates: [
+        {
+          ...baseCandidate,
+          payableAmount: "10",
+          createdAt: "2026-09-02T09:12:58.868Z",
+        },
+      ],
+    });
+    assert.equal(result.status, "pending_payment");
+    assert.equal(result.reason, "transfer_before_order_created");
+  });
+
+  it("allows transfer at or after order create time", async () => {
+    const createdAt = "2026-09-02T09:12:58.868Z";
+    const result = await matchModeB({
+      ...baseTx,
+      transferAtMs: Date.parse(createdAt),
+      candidates: [{ ...baseCandidate, createdAt }],
+    });
+    assert.equal(result.status, "verifying");
+    assert.equal(result.orderId, "ord-1");
+  });
+
   it("no candidates at address → pending (unmatched)", async () => {
     const result = await matchModeB({
       ...baseTx,

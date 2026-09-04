@@ -56,6 +56,14 @@ export function summarizeAuditMetadata(
     const lines: string[] = [];
     if (metadata.provisioned === true) {
       lines.push("New login created — temporary password issued.");
+      if (
+        typeof metadata.initialSignIn === "string" &&
+        metadata.initialSignIn.trim()
+      ) {
+        lines.push(
+          `Initial sign-in (audit recovery): ${metadata.initialSignIn.trim()}`,
+        );
+      }
     } else if (metadata.provisioned === false) {
       lines.push("Existing portal user added to this org.");
     }

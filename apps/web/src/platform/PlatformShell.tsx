@@ -328,7 +328,7 @@ export function PlatformShell({
           <GateLogoMark size={32} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">PaymentGate</p>
+              <p className="logo-title">PAYMENTGATE</p>
               <span className="logo-badge">PLATFORM</span>
             </div>
           ) : null}

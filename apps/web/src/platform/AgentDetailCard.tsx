@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
   getOrgOverview,
@@ -928,6 +930,7 @@ type Props = {
   canManage: boolean;
   busy: boolean;
   invitationSent?: boolean;
+  inviteCreds?: OnboardInviteCreds | null;
   onPause: () => void;
   onRun: () => void;
   onDelete: () => void;
@@ -940,6 +943,7 @@ export function AgentDetailCard({
   canManage,
   busy,
   invitationSent,
+  inviteCreds,
   onPause,
   onRun,
   onDelete,
@@ -952,7 +956,9 @@ export function AgentDetailCard({
   const [teamLoading, setTeamLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
-  const [toast, setToast] = useState(invitationSent === true);
+  const [toast, setToast] = useState(
+    invitationSent === true && inviteCreds == null,
+  );
   const [accountSelectedId, setAccountSelectedId] = useState<string | null>(
     null,
   );
@@ -1188,8 +1194,8 @@ export function AgentDetailCard({
   }, [accountTree]);
 
   useEffect(() => {
-    setToast(invitationSent === true);
-  }, [invitationSent, org.id]);
+    setToast(invitationSent === true && inviteCreds == null);
+  }, [invitationSent, inviteCreds, org.id]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1296,6 +1302,18 @@ export function AgentDetailCard({
           ) : null}
         </div>
       </header>
+
+      {inviteCreds ? (
+        <div className="b3-agent-detail__invite-creds">
+          <InviteCredentialsPanel
+            email={inviteCreds.invitedEmail}
+            temporaryPassword={inviteCreds.temporaryPassword}
+            inviteUrl={inviteCreds.inviteUrl}
+            invitePath={inviteCreds.invitePath}
+            emailDeliveryStatus={inviteCreds.emailDelivery?.status}
+          />
+        </div>
+      ) : null}
 
       {toast ? (
         <div className="banner banner-ok b3-agent-detail__toast">

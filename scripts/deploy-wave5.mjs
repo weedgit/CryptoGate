@@ -24,7 +24,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-local.mjs";
+import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const deployDir = join(root, ".deploy");

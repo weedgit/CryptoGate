@@ -80,6 +80,86 @@ const catalogCache = { payload: null, expiresAt: 0 };
 
 const CATALOG_TTL_MS = 20_000;
 
+/** Missing table / optional enrichment — still return registry cards. */
+function isOptionalCatalogDbError(err, tableHint) {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    new RegExp(tableHint, "i").test(message) ||
+    /does not exist/i.test(message) ||
+    /relation .* does not exist/i.test(message) ||
+    /password authentication failed/i.test(message) ||
+    /connection refused|ECONNREFUSED|ETIMEDOUT/i.test(message) ||
+    /DATABASE_URL is required/i.test(message)
+  );
+}
+
+function buildRegistryOnlyCatalog() {
+  const chainEnv = resolveChainEnvironment();
+  const registry = listAssetNetworkRegistry(chainEnv);
+  const byNet = new Map();
+  for (const row of registry) {
+    const list = byNet.get(row.network) ?? [];
+    list.push(row);
+    byNet.set(row.network, list);
+  }
+
+  const items = [];
+  for (const [network, rows] of byNet) {
+    const enabledPairs = rows.filter((r) => r.enabled);
+    const primary = pickPrimary(rows);
+    const ingest = ingestFromHeartbeat(undefined);
+    let status = "catalogued";
+    if (enabledPairs.length > 0) status = "active";
+    const lamp = computeOrderabilityLamp({
+      enabled: enabledPairs.length > 0,
+      maintenanceActive: false,
+      ingestStatus: ingest.ingestStatus,
+    });
+    items.push({
+      network,
+      title: NETWORK_TITLE[network] || network.replace(/_/g, " "),
+      status,
+      lamp,
+      pairCount: rows.length,
+      enabledCount: enabledPairs.length,
+      catalogFraction: rows.length > 0 ? enabledPairs.length / rows.length : 0,
+      primaryAsset: primary?.asset ?? null,
+      confirmations: primary?.requiredConfirmations ?? null,
+      minAmount: primary?.minAmount ?? null,
+      contractAddress: primary?.contractAddress ?? null,
+      pairs: rows.map((r) => ({
+        asset: r.asset,
+        enabled: r.enabled,
+        contractAddress: r.contractAddress,
+        decimals: r.decimals,
+        minAmount: r.minAmount,
+        requiredConfirmations: r.requiredConfirmations,
+        displayNetwork: r.displayNetwork,
+        lamp: computeOrderabilityLamp({
+          enabled: r.enabled,
+          maintenanceActive: false,
+          ingestStatus: ingest.ingestStatus,
+        }),
+      })),
+      maintenance: {
+        active: false,
+        message: null,
+        startedAt: null,
+        endsAt: null,
+        updatedAt: null,
+      },
+      ingest,
+    });
+  }
+
+  items.sort((a, b) => a.title.localeCompare(b.title));
+  return {
+    chainEnv,
+    checkedAt: new Date().toISOString(),
+    items,
+  };
+}
+
 /**
  * @returns {Promise<{
  *   chainEnv: string,
@@ -92,10 +172,19 @@ export async function buildNetworkCatalog() {
   if (catalogCache.payload && catalogCache.expiresAt > now) {
     return catalogCache.payload;
   }
-  const payload = await buildNetworkCatalogFresh();
-  catalogCache.payload = payload;
-  catalogCache.expiresAt = now + CATALOG_TTL_MS;
-  return payload;
+  try {
+    const payload = await buildNetworkCatalogFresh();
+    catalogCache.payload = payload;
+    catalogCache.expiresAt = now + CATALOG_TTL_MS;
+    return payload;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[network-catalog] registry-only fallback:", message);
+    const payload = buildRegistryOnlyCatalog();
+    catalogCache.payload = payload;
+    catalogCache.expiresAt = now + CATALOG_TTL_MS;
+    return payload;
+  }
 }
 
 async function buildNetworkCatalogFresh() {
@@ -113,14 +202,12 @@ async function buildNetworkCatalogFresh() {
   try {
     maintenanceRows = await listNetworkMaintenanceRows();
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!/network_maintenance|does not exist/i.test(message)) throw err;
+    if (!isOptionalCatalogDbError(err, "network_maintenance")) throw err;
   }
   try {
     heartbeats = await listWatcherHeartbeats();
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!/watcher_heartbeats|does not exist/i.test(message)) throw err;
+    if (!isOptionalCatalogDbError(err, "watcher_heartbeats")) throw err;
   }
 
   const maintByNet = new Map(maintenanceRows.map((m) => [m.network, m]));

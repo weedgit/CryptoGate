@@ -13,7 +13,7 @@ export type OrgDeleteTarget = {
 
 type Options = {
   canManage: boolean;
-  onDeleted: () => void | Promise<void>;
+  onDeleted: (orgId: string) => void | Promise<void>;
   showOk: (message: string) => void;
 };
 
@@ -73,7 +73,7 @@ export function useOrgDeleteModal({ canManage, onDeleted, showOk }: Options) {
     setDeleteError(null);
     try {
       await deleteOrg(deleteTarget.id, { cascade: true });
-      await onDeleted();
+      await onDeleted(deleteTarget.id);
       showOk(`Deleted ${deleteTarget.name}.`);
       setDeleteTarget(null);
     } catch (err) {

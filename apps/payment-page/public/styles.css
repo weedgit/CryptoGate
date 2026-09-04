@@ -1436,3 +1436,69 @@ code {
     width: min(100%, 13.5rem);
   }
 }
+
+/* Live /pay/{id} — hide order fields until API paint (avoid demo placeholder flash). */
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) [data-live-field] {
+  color: transparent !important;
+  user-select: none;
+  pointer-events: none;
+  border-radius: 0.35rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: pay-field-shimmer 1.2s ease-in-out infinite;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) #amount-value {
+  display: inline-block;
+  min-width: 5.5rem;
+  min-height: 1.2em;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) #address {
+  display: inline-block;
+  min-width: min(100%, 16rem);
+  min-height: 1em;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) #order-ref {
+  display: inline-block;
+  min-width: 8rem;
+  min-height: 1em;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) #network {
+  display: inline-block;
+  min-width: 7rem;
+  min-height: 1em;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) #expires {
+  display: inline-block;
+  min-width: 3.5rem;
+  min-height: 1em;
+}
+
+html[data-pay-mode="live"]:not([data-pay-ready="1"]) .status-panel__badge .status {
+  color: var(--ink-muted, rgba(255, 255, 255, 0.55));
+}
+
+@keyframes pay-field-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-pay-mode="live"]:not([data-pay-ready="1"]) [data-live-field] {
+    animation: none;
+    background: rgba(255, 255, 255, 0.1);
+  }
+}

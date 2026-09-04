@@ -7,6 +7,7 @@ import {
   getPlatformOrgs,
   inviteOrgUser,
   listOrgMemberEmails,
+  mergePlatformOrg,
   refreshPlatformOrgList,
   type OrgAccount,
   type Session,
@@ -28,6 +29,7 @@ import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { orgTypeLabel, sessionCanManagePlatform } from "./org";
 import { onboardReturnPath } from "./platformNav";
 import { agentRoute, platformRoute } from "../shared/portalRouting";
+import { onboardInviteCreds } from "../shared/onboardInviteState";
 
 type AgentKind = "agent" | "agent_sub";
 
@@ -308,15 +310,20 @@ export function OnboardAgentPage({ session }: { session: Session }) {
         country: form.country.trim(),
         commissionPercent: form.commissionPercent.trim() || undefined,
       });
-      await inviteOrgUser(created.id, {
-        email: form.ownerEmail.trim(),
+      mergePlatformOrg(created);
+      const invitedEmail = form.ownerEmail.trim();
+      const invite = await inviteOrgUser(created.id, {
+        email: invitedEmail,
         role: "owner",
       });
       await refreshPlatformOrgList();
+      const inviteCreds = onboardInviteCreds(invitedEmail, invite);
       navigate(platformRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
           displayName: form.displayName.trim() || apiName,
+          onboardedOrgId: created.id,
+          inviteCreds,
         },
       });
     } catch (err) {

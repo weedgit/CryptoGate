@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
@@ -26,7 +26,13 @@ import {
 } from "../platform/platformOrgTree";
 import { useOrgTreeOpsExtras } from "../platform/useOrgTreeOpsExtras";
 import { orgsInAgentSubtree } from "./agentSubtree";
-import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import {
+  AGENT_ORGS_UPDATED_EVENT,
+  getAgentOrgs,
+  peekAgentOrgs,
+  refreshAgentOrgList,
+  removeAgentOrgFromList,
+} from "./agentOrgList";
 import {
   ApiError,
   listOrgMemberEmails,
@@ -34,7 +40,6 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
-import { invalidateAgentOrgList } from "./agentOrgList";
 import {
   orgTypeLabel,
   primaryAgentOrgId,
@@ -660,6 +665,8 @@ function agentForestFromOrgs(
 /** Agent subtree org hierarchy — manage direct children; view descendants. */
 export function ArchitecturePage({ session }: { session: Session }) {
   const pageRef = useRef<HTMLDivElement | null>(null);
+  const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
 
@@ -771,11 +778,10 @@ export function ArchitecturePage({ session }: { session: Session }) {
     }
   }, [agentId]);
 
-  const refreshForest = useCallback(async () => {
+  const refreshForest = useCallback(async (opts?: { excludeOrgIds?: string[] }) => {
     if (!agentId) return;
-    invalidateAgentOrgList();
     const [orgs, emailRows] = await Promise.all([
-      getAgentOrgs({ force: true }),
+      refreshAgentOrgList({ excludeOrgIds: opts?.excludeOrgIds }),
       listOrgMemberEmails().catch(() => [] as Awaited<
         ReturnType<typeof listOrgMemberEmails>
       >),
@@ -804,6 +810,42 @@ export function ArchitecturePage({ session }: { session: Session }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onOrgsUpdated = (event: Event) => {
+      if (!agentId) return;
+      const detail = (event as CustomEvent<OrgAccount[]>).detail;
+      if (Array.isArray(detail)) {
+        const scoped = orgsInAgentSubtree(agentId, detail);
+        const nextForest = buildPlatformOrgForest(scoped, {
+          expectedRootIds: new Set([agentId]),
+        });
+        setForest(nextForest);
+        return;
+      }
+      void load();
+    };
+    window.addEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    return () => {
+      window.removeEventListener(AGENT_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    };
+  }, [agentId, load]);
+
+  useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
+    if (
+      location.pathname.endsWith("/agents/new") ||
+      location.pathname.endsWith("/merchants/new")
+    ) {
+      return;
+    }
+    const leftOnboard =
+      prev.endsWith("/agents/new") || prev.endsWith("/merchants/new");
+    if (leftOnboard) {
+      void load();
+    }
+  }, [location.pathname, load]);
 
   const filteredRoots = useMemo(
     () => filterPlatformOrgForest(forest.roots, filter),
@@ -857,7 +899,10 @@ export function ArchitecturePage({ session }: { session: Session }) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage: selectedCanManageLifecycle,
-    onDeleted: refreshForest,
+    onDeleted: async (deletedId) => {
+      removeAgentOrgFromList(deletedId);
+      await refreshForest({ excludeOrgIds: [deletedId] });
+    },
     showOk,
   });
 

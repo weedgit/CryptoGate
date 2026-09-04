@@ -68,6 +68,21 @@ export function volumeFeeUsd(volumeUsd, percent) {
 }
 
 /**
+ * True when the merchant existed on or before the billing period end (UTC date).
+ * Merchants onboarded after periodEnd are not billable for that period.
+ * @param {Date | string | null | undefined} createdAt
+ * @param {string} periodEnd YYYY-MM-DD
+ */
+export function merchantOnboardedInPeriod(createdAt, periodEnd) {
+  if (!periodEnd || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd)) return true;
+  if (!createdAt) return true;
+  const created = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return true;
+  const periodEndMs = Date.parse(`${periodEnd}T23:59:59.999Z`);
+  return created.getTime() <= periodEndMs;
+}
+
+/**
  * @param {unknown} body
  * @param {Date} [now]
  */

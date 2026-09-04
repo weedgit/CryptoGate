@@ -12,6 +12,7 @@ import {
   type NetworkId as NetworkIdType,
 } from "@paymentgate/domain";
 import { majorToMinor } from "./amount.js";
+import { filterEligibleCandidates } from "./transfer-eligibility.js";
 import type {
   MatchCandidateOrder,
   MatchInput,
@@ -110,8 +111,19 @@ export async function matchExactPayable(
     };
   }
 
-  const unexpired = scoped.filter((o) => !isExpired(o, nowMs));
-  const expired = scoped.filter((o) => isExpired(o, nowMs));
+  const eligible = filterEligibleCandidates(scoped, input.transferAtMs);
+  if (eligible.length === 0) {
+    return {
+      status: OrderStatus.PendingPayment,
+      reason:
+        input.transferAtMs !== undefined
+          ? "transfer_before_order_created"
+          : "no_open_order_at_address",
+    };
+  }
+
+  const unexpired = eligible.filter((o) => !isExpired(o, nowMs));
+  const expired = eligible.filter((o) => isExpired(o, nowMs));
 
   if (unexpired.length === 0) {
     return {

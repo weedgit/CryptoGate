@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
   getMerchantCommercial,
@@ -223,6 +225,7 @@ type Props = {
   onPause?: () => void;
   onRun?: () => void;
   onDelete?: () => void;
+  inviteCreds?: OnboardInviteCreds | null;
 };
 
 /** Merchant detail card — platform b3 chrome, agent-scoped (no settlement keys). */
@@ -236,6 +239,7 @@ export function MerchantDetailCard({
   onPause,
   onRun,
   onDelete,
+  inviteCreds,
 }: Props) {
   const [tab, setTab] = useState<TabId>(() => parseTab(initialTab));
   const [bills, setBills] = useState<ServiceBill[]>([]);
@@ -434,6 +438,17 @@ export function MerchantDetailCard({
         tone="error"
         onDismiss={() => setTabError(null)}
       />
+      {inviteCreds ? (
+        <div className="b3-agent-detail__invite-creds">
+          <InviteCredentialsPanel
+            email={inviteCreds.invitedEmail}
+            temporaryPassword={inviteCreds.temporaryPassword}
+            inviteUrl={inviteCreds.inviteUrl}
+            invitePath={inviteCreds.invitePath}
+            emailDeliveryStatus={inviteCreds.emailDelivery?.status}
+          />
+        </div>
+      ) : null}
       <header className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
           <div className="b3-agent-detail__avatar" aria-hidden>

@@ -22,6 +22,8 @@ describe("persisted list caches", () => {
     );
     assert.match(platformOrgs, /createListCache/);
     assert.match(platformOrgs, /refreshPlatformOrgList/);
+    assert.match(platformOrgs, /mergePlatformOrg/);
+    assert.match(platformOrgs, /removePlatformOrgFromList/);
     assert.match(platformOrgs, /PLATFORM_ORGS_UPDATED_EVENT/);
 
     const agentOrgs = readFileSync(

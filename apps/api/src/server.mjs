@@ -5,6 +5,7 @@ import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
 import { startServiceBillOverdueJob } from "./service-bills/service-bill-overdue-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
 import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
+import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mjs";
 
 assertWatchOnlyEnv();
 
@@ -37,6 +38,9 @@ let serviceBillOverdueJob = null;
 
 server.listen(port, host, () => {
   console.log(`paymentgate-api listening on http://${host}:${port}`);
+  void ensureDefaultFeeTierBands().catch((err) => {
+    console.error("[fee-tiers] failed to seed default tier bands:", err);
+  });
   expiryJob = startOrderExpiryJob();
   serviceBillOverdueJob = startServiceBillOverdueJob();
   webhookJob = startWebhookDeliveryJob();

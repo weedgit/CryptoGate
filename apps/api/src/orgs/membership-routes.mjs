@@ -3,6 +3,7 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
 import { findUserById } from "../auth/users.mjs";
 import { findOrgById } from "./org-store.mjs";
+import { collectAncestorOrgIds } from "./org-ancestry.mjs";
 import {
   canAssignOrgRole,
   canInviteToOrg,
@@ -28,7 +29,7 @@ import {
   updateMembershipRole,
   updateMembershipStatus,
 } from "./membership-store.mjs";
-import { canListOrgMemberEmailsBulk } from "./role-policy.mjs";
+import { canListOrgMemberEmailsBulk, canManageDirectChildOrg } from "./role-policy.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
@@ -107,7 +108,12 @@ export async function handleListOrgUsers(req, res, orgId) {
   const { caller, org } = loaded;
 
   const memberRole = roleOnOrg(caller.memberships, orgId);
-  if (!canListOrgUsers(memberRole, caller.platformOperator)) {
+  const ancestors = await collectAncestorOrgIds(org);
+  const mayList =
+    canListOrgUsers(memberRole, caller.platformOperator) ||
+    (!caller.platformOperator &&
+      canManageDirectChildOrg(caller, org, ancestors));
+  if (!mayList) {
     sendError(res, 403, "forbidden", "Not allowed to list org members");
     return;
   }
@@ -255,6 +261,14 @@ export async function handleInviteOrgUser(req, res, orgId) {
       invitedUserId: user.id,
       role,
       provisioned: provisioned.created,
+      orgType: org.type,
+      ...(provisioned.created &&
+      temporaryPassword &&
+      (org.type === "agent" ||
+        org.type === "agent_sub" ||
+        org.type === "merchant")
+        ? { initialSignIn: temporaryPassword }
+        : {}),
     },
   });
 

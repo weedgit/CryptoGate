@@ -35,9 +35,36 @@ export async function getPlatformOrgs(opts?: {
 }
 
 /** Force API reload, repopulate cache, and notify mounted list/tree views. */
-export async function refreshPlatformOrgList(): Promise<OrgAccount[]> {
+export async function refreshPlatformOrgList(opts?: {
+  /** Keep these orgs out of the list even if the API still returns them (stale cache). */
+  excludeOrgIds?: string[];
+}): Promise<OrgAccount[]> {
   orgListCache.invalidate();
-  const data = await orgListCache.get({ force: true });
+  let data = await orgListCache.get({ force: true });
+  const exclude = opts?.excludeOrgIds?.filter(Boolean);
+  if (exclude?.length) {
+    const hidden = new Set(exclude);
+    data = data.filter((row) => !hidden.has(row.id));
+    orgListCache.seed(data);
+  }
   dispatchPlatformOrgsUpdated(data);
   return data;
+}
+
+/** Paint a newly created org into list/tree views before listOrgs catches up. */
+export function mergePlatformOrg(org: OrgAccount): OrgAccount[] {
+  const current = orgListCache.peek() ?? [];
+  const next = [org, ...current.filter((row) => row.id !== org.id)];
+  orgListCache.seed(next);
+  dispatchPlatformOrgsUpdated(next);
+  return next;
+}
+
+/** Drop a deleted org from list/tree views immediately. */
+export function removePlatformOrgFromList(orgId: string): OrgAccount[] {
+  const current = orgListCache.peek() ?? [];
+  const next = current.filter((row) => row.id !== orgId);
+  orgListCache.seed(next);
+  dispatchPlatformOrgsUpdated(next);
+  return next;
 }

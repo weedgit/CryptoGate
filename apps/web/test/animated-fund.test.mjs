@@ -24,5 +24,18 @@ describe("funds count tween", () => {
     );
     assert.match(fund, /useAnimatedNumber/);
     assert.match(fund, /minimumFractionDigits: 2/);
+
+    const metric = readFileSync(
+      join(root, "src/shared/AnimatedMetric.tsx"),
+      "utf8",
+    );
+    assert.match(metric, /useAnimatedNumber/);
+
+    const dash = readFileSync(
+      join(root, "src/merchant/DashboardPage.tsx"),
+      "utf8",
+    );
+    assert.match(dash, /AnimatedMetric/);
+    assert.match(dash, /merchant-dash__kpi-index/);
   });
 });

@@ -161,6 +161,8 @@ export {
   invalidatePlatformOrgList,
   peekPlatformOrgs,
   refreshPlatformOrgList,
+  mergePlatformOrg,
+  removePlatformOrgFromList,
   PLATFORM_ORGS_UPDATED_EVENT,
 } from "./platformOrgList";
 export {

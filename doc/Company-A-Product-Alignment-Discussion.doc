@@ -1,0 +1,349 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word">
+<title>PaymentGate — Product alignment discussion</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: A4;
+    margin: 2.2cm 2.2cm 2.2cm 2.2cm;
+    mso-header-margin: 1.2cm;
+    mso-footer-margin: 1.2cm;
+  }
+  body {
+    font-family: Calibri, "Segoe UI", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    color: #1f2933;
+  }
+  p.title {
+    font-size: 22pt;
+    color: #0f3d5c;
+    margin: 0 0 4pt 0;
+    font-weight: bold;
+  }
+  p.subtitle {
+    font-size: 13pt;
+    color: #3d5a6c;
+    margin: 0 0 4pt 0;
+  }
+  p.date {
+    font-size: 10.5pt;
+    color: #5b6b73;
+    margin: 0 0 18pt 0;
+  }
+  h1 {
+    font-size: 16pt;
+    color: #0f3d5c;
+    border-bottom: 1.5pt solid #c5d4de;
+    padding-bottom: 4pt;
+    margin-top: 22pt;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 12.5pt;
+    color: #1a5276;
+    margin-top: 14pt;
+    page-break-after: avoid;
+  }
+  p { margin: 8pt 0; }
+  ul { margin: 6pt 0 10pt 18pt; }
+  li { margin: 3pt 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 10pt;
+    margin: 10pt 0 14pt 0;
+  }
+  th {
+    background: #0f3d5c;
+    color: #ffffff;
+    font-weight: bold;
+    text-align: left;
+    padding: 6pt 8pt;
+    vertical-align: top;
+  }
+  td {
+    border: 0.75pt solid #c5d4de;
+    padding: 6pt 8pt;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f4f7f9; }
+  hr {
+    border: none;
+    border-top: 0.75pt solid #d7e0e6;
+    margin: 16pt 0;
+  }
+</style>
+</head>
+<body>
+<p class="title">PaymentGate — Product alignment discussion</p>
+<p class="subtitle">Topics for review with Company A</p>
+<p class="date">2 September 2026</p>
+<p>Thank you for making time to walk through a few product decisions
+with us. These five points sit underneath how the live product already
+behaves. We would like to confirm them together before we go further on
+detail design and any later-phase work. Nothing here is meant to
+surprise you; we are simply putting the current model on the table so we
+can agree what to keep and what to simplify.</p>
+<hr />
+<h1 id="account-hierarchy-roles-and-agent-nesting-depth">1. Account
+hierarchy, roles, and agent nesting depth</h1>
+<h2 id="what-we-are-aligning-on">What we are aligning on</h2>
+<p>Who sits in the org tree, what a person can do inside one org, and
+how many agent layers we should allow.</p>
+<h2 id="org-accounts-the-tree">Org accounts (the tree)</h2>
+<p>These are companies in the tree, not people:</p>
+<ul>
+<li><strong>Platform</strong> — PaymentGate itself. Global policy, fee
+bands, billing wallet, compliance.</li>
+<li><strong>Agent account</strong> — a channel partner who brings
+merchants on. An agent under another agent is shown as <strong>Agent
+(sub)</strong>.</li>
+<li><strong>Merchant account</strong> — the business that collects from
+payers. Either <strong>single-location</strong> (one hotel, one shop) or
+<strong>multi-location</strong> (a group with several stores).</li>
+<li><strong>Merchant (site)</strong> — one physical store under a
+multi-location merchant. It is an operations unit, not a separate billed
+company.</li>
+</ul>
+<h2 id="user-roles-the-people-inside-one-org">User roles (the people
+inside one org)</h2>
+<p>The same three names apply on Platform, Agent, Merchant, and
+Site:</p>
+<ul>
+<li><strong>Owner</strong> — full control of that org. The only person
+who can add or remove Administrators and Viewers. Billing contact where
+that applies.</li>
+<li><strong>Administrator</strong> — day-to-day operations. Cannot
+change the team.</li>
+<li><strong>Viewer</strong> — dashboards and reports only.</li>
+<li><strong>Cashier</strong> — merchant and site only. Creates and
+manages their own payment orders at the counter. No settings, no wallet,
+no fees, no team.</li>
+</ul>
+<p>One person can be Owner on a merchant and Viewer on an agent. That is
+intentional.</p>
+<h2 id="agent-nesting-depth-current-status">Agent nesting depth —
+current status</h2>
+<p>Platform Owner already has a global <strong>max agent depth</strong>.
+Phase 1 default is <strong>2</strong>: Platform → Agent → Agent (sub) →
+Merchant. Agents cannot add another agent layer once that limit is
+reached.</p>
+<h2 id="recommendation-keep-max-depth-at-2">Recommendation: keep max
+depth at 2</h2>
+<p>Two levels is enough for a typical ISO / sub-ISO channel (head office
+plus one local partner) without making commission, audit, and support
+unreadable. Deeper trees make it hard to see who is responsible for a
+merchant, and they complicate payouts. If a later programme needs a
+third layer, Platform Owner can raise the setting; we would rather not
+design Phase 1 around that.</p>
+<hr />
+<h1 id="merchant-fee-composition-what-we-charge-and-when">2. Merchant
+fee composition (what we charge, and when)</h1>
+<h2 id="what-we-are-aligning-on-1">What we are aligning on</h2>
+<p>Whether the merchant still pays a <strong>monthly subscription plus a
+volume percentage</strong>, or only a <strong>volume
+percentage</strong>.</p>
+<h2 id="current-status-three-commercial-pieces">Current status — three
+commercial pieces</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Piece</th>
+<th>Who pays / who receives</th>
+<th>When it is taken</th>
+<th>Editable?</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Monthly subscription</strong></td>
+<td>Merchant → Platform (on the service bill)</td>
+<td>Issued with the previous calendar month’s bill. Full month amount is
+charged if the merchant was onboarded on or before the period end — we
+do not prorate by day today.</td>
+<td>Platform Owner edits the tier amount. Change applies from the
+<strong>next</strong> billing period.</td>
+</tr>
+<tr class="even">
+<td><strong>Volume fee (%)</strong></td>
+<td>Merchant → Platform (same service bill)</td>
+<td>Same bill. Calculated on <strong>completed</strong> payment-order
+volume in that period × the merchant’s effective %.</td>
+<td>Agent Owner/Admin sets the % <strong>inside the platform
+band</strong>. Enterprise custom rates need Platform Owner approval.
+Change applies next period.</td>
+</tr>
+<tr class="odd">
+<td><strong>Agent / sub-agent commission</strong></td>
+<td>Not a merchant charge. Platform rebates top-level agents from
+<strong>paid</strong> volume fees; the parent agent then pays their
+sub-agent.</td>
+<td>After the merchant’s service bill is <strong>paid</strong>.
+Month-end generate → platform remits around the 1st → agent confirms
+receipt. Sub-agent payout is a separate slip from the parent agent.</td>
+<td>Platform sets the agent’s commission %. Parent agent settles the
+sub-agent from their own share.</td>
+</tr>
+</tbody>
+</table>
+<p>Merchants joining on different days in the same month are handled by
+<strong>onboard date</strong>: if they did not exist before the period
+ended, they are skipped for that month; if they did, they get a full
+subscription line plus volume fee on whatever they actually processed.
+Commission invoices also show each merchant’s onboard date so the tree
+is easy to check.</p>
+<h2 id="recommendation-merchant-fee-volume-only">Recommendation:
+merchant fee = volume % only</h2>
+<p>We suggest dropping the monthly subscription from the merchant bill
+and charging <strong>only a percentage of confirmed volume</strong>.</p>
+<p>Why this is kinder to the channel, and simpler to operate:</p>
+<ul>
+<li>New merchants are not asked for a fixed fee in a quiet first
+month.</li>
+<li>Mid-month onboarding becomes natural: no volume, no fee. Different
+onboard dates stop being a special case.</li>
+<li>The service bill has one line merchants can explain to finance.</li>
+<li>Agent and sub-agent commission can stay as a <strong>rebate of
+collected volume fee</strong>, so the channel still earns without the
+merchant seeing a second “agent fee.”</li>
+</ul>
+<p>Subscription amounts and the three-tier table are already in the
+product. We will <strong>not</strong> rip that out until you confirm.
+After you confirm, we will come back with a short implementation note
+(bill line, tier bands, commission base, and what happens to merchants
+already on a subscription).</p>
+<hr />
+<h1 id="fee-settlement-path-who-the-merchant-pays">3. Fee settlement
+path (who the merchant pays)</h1>
+<h2 id="what-we-are-aligning-on-2">What we are aligning on</h2>
+<p>The order in which platform fee money moves through the channel.</p>
+<h2 id="option-1-recommend-merchant-platform-agent-agent-sub">Option 1 —
+recommend: Merchant → Platform → Agent → Agent (sub)</h2>
+<p>The merchant pays <strong>one</strong> service bill to the
+<strong>platform billing wallet</strong>. Platform keeps its share and
+pays the <strong>top-level agent</strong>. That agent pays their
+<strong>sub-agent</strong> from their own funds.</p>
+<h2 id="option-2-merchant-agent-sub-agent-platform">Option 2: Merchant →
+Agent (sub) → Agent → Platform</h2>
+<p>The merchant would pay the nearest partner first, and money would be
+passed up the tree to the platform.</p>
+<h2 id="current-status">Current status</h2>
+<p>Option 1 is what is built and locked for Phase 1. Merchants never pay
+a separate agent fee. Platform does not pay sub-agents directly; subtree
+volume rolls into the top-level agent statement.</p>
+<h2 id="recommendation-keep-option-1">Recommendation: keep Option 1</h2>
+<p>The merchant has one payee and one QR / payment link. Platform always
+sees whether the fee was collected before any rebate goes out
+(commission is on <strong>paid</strong> bills only). Custody stays
+clean: payer coins still go to the merchant wallet; SaaS fees stay on a
+separate rail. Option 2 would put channel partners in the middle of
+platform revenue, split collection across many wallets, and make overdue
+fees much harder to chase. We would rather not take that on in Phase
+1.</p>
+<hr />
+<h1 id="settlement-wallet-ownership-merchant-vs-site">4. Settlement
+wallet ownership (merchant vs site)</h1>
+<h2 id="what-we-are-aligning-on-3">What we are aligning on</h2>
+<p>Which org owns the on-chain receive address that payers send to.</p>
+<h2 id="option-1-recommend-merchant-only">Option 1 — recommend: merchant
+only</h2>
+<p>Wallet, xPub, matching mode, and retention live on the <strong>parent
+merchant</strong>. Every site under that merchant uses the same receive
+setup. Sites do not have their own address and cannot request an
+override.</p>
+<h2 id="option-2-merchant-and-site-with-parent-approval">Option 2:
+merchant and site, with parent approval</h2>
+<p>A site could ask for its own wallet; the parent Owner would approve
+or deny.</p>
+<h2 id="current-status-1">Current status</h2>
+<p>The locked Phase 1 rule is Option 1: sites <strong>always
+inherit</strong>. There is still some older UI copy around “request
+override”; that is leftover from an earlier draft and should not be
+treated as product policy. Payment orders created at a site already
+settle to the parent merchant wallet.</p>
+<h2 id="recommendation-keep-option-1-1">Recommendation: keep Option
+1</h2>
+<p>One wallet per billed merchant keeps matching, reconciliation, and
+service billing on a single address. Site-level wallets would look like
+separate merchants on-chain, raise mixed-payment risk, and blur who is
+the billing entity. Multi-location groups still get site-scoped orders,
+cashiers, and reports — they simply share settlement. If a group truly
+needs a different wallet, they should be onboarded as a <strong>separate
+merchant</strong>, not as a site with a special exception.</p>
+<hr />
+<h1 id="platform-fee-remittance-asset-and-network">5. Platform fee
+remittance asset and network</h1>
+<h2 id="what-we-are-aligning-on-4">What we are aligning on</h2>
+<p>Which crypto asset and which chain merchants (and platform ops) use
+when paying <strong>service bills</strong> and <strong>agent
+commissions</strong>. This is separate from the pairs a merchant may
+offer payers at checkout.</p>
+<h2 id="current-status-2">Current status</h2>
+<p>Platform fee remittance is already locked to <strong>USDT on TRON
+(TRC-20)</strong>.</p>
+<ul>
+<li>Production: <strong>USDT · TRON mainnet</strong></li>
+<li>Test / UAT: <strong>USDT · TRON Nile</strong></li>
+<li>One platform billing wallet address is enough for Phase 1. There is
+no multi-asset fee catalog.</li>
+<li>Agent commission payouts use the <strong>same</strong> pair (Confirm
+&amp; pay is USDT · TRON; explorers open Tronscan).</li>
+<li>Merchant <strong>payment orders</strong> may still collect on other
+catalogued pairs (USDT on Ethereum, BSC, and so on). Those coins go to
+the merchant wallet. They are not the rail used to pay the
+platform.</li>
+</ul>
+<h2 id="recommendation-keep-usdt-on-tron-trc-20">Recommendation: keep
+USDT on TRON (TRC-20)</h2>
+<p>We recommend staying with the current pair for platform fees and
+commission remittance.</p>
+<ul>
+<li>It is already built: service-bill checkout, billing-wallet settings,
+and commission slips all assume this pair.</li>
+<li>It matches the default merchant collection pair, so finance, agents,
+and support only need one remittance habit for SaaS billing.</li>
+<li>TRC-20 transfer cost is low relative to ERC-20, which matters when
+many merchants pay a monthly bill and platform later rebates
+agents.</li>
+<li>One asset and one network keeps invoices, QR codes, and “mark paid”
+simple. Mixing USDT on several chains (or adding USDC / TRX) would split
+the treasury, confuse wrong-network payments, and need a fee-wallet
+catalog we deliberately did not build for Phase 1.</li>
+</ul>
+<p>If a later programme needs a second remittance pair, we can add it as
+a written change. For Phase 1 we would rather not open that door.</p>
+<hr />
+<h1 id="how-we-would-like-to-close">How we would like to close</h1>
+<p>If you are comfortable with the five recommendations — depth 2,
+volume % only, merchant pays platform first, wallet on the merchant
+only, and <strong>USDT on TRON for platform fees</strong> — we will
+treat the first, third, fourth, and fifth as confirmed (they already
+match the live build) and come back with a concrete change list for
+<strong>volume % only</strong> before we implement it.</p>
+<p>Please tell us if any of these need a different shape for your market
+or your agents. We would rather adjust the model with you now than
+retrofit it after merchants are live.</p>
+<p>Thank you again for the review.</p>
+
+</body>
+</html>

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
   listOrgUsers,
@@ -61,6 +63,8 @@ type Props = {
   orgs: OrgAccount[];
   canManage?: boolean;
   busy?: boolean;
+  inviteCreds?: OnboardInviteCreds | null;
+  ownerEmail?: string | null;
   onPause?: () => void;
   onRun?: () => void;
   onDelete?: () => void;
@@ -72,6 +76,8 @@ export function SubAgentDetailCard({
   orgs,
   canManage = false,
   busy = false,
+  inviteCreds,
+  ownerEmail,
   onPause,
   onRun,
   onDelete,
@@ -144,9 +150,11 @@ export function SubAgentDetailCard({
       .catch((err) => {
         if (!cancelled) {
           setTeam([]);
-          setTabError(
-            err instanceof ApiError ? err.message : "Failed to load team",
-          );
+          if (!ownerEmail && !inviteCreds?.invitedEmail) {
+            setTabError(
+              err instanceof ApiError ? err.message : "Failed to load team",
+            );
+          }
         }
       })
       .finally(() => {
@@ -155,12 +163,17 @@ export function SubAgentDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, inviteCreds?.invitedEmail, ownerEmail]);
 
-  const profileEmail = useMemo(
-    () => preferredOrgEmail(team) ?? "—",
-    [team],
-  );
+  const profileEmail = useMemo(() => {
+    const fromInvite = inviteCreds?.invitedEmail?.trim();
+    if (fromInvite) return fromInvite;
+    const fromBulk = ownerEmail?.trim();
+    if (fromBulk) return fromBulk;
+    const fromTeam = preferredOrgEmail(team);
+    if (fromTeam) return fromTeam;
+    return "—";
+  }, [inviteCreds?.invitedEmail, ownerEmail, team]);
   const country = fieldText(org.country);
 
   return (
@@ -170,6 +183,17 @@ export function SubAgentDetailCard({
         tone="error"
         onDismiss={() => setTabError(null)}
       />
+      {inviteCreds ? (
+        <div className="b3-agent-detail__invite-creds">
+          <InviteCredentialsPanel
+            email={inviteCreds.invitedEmail}
+            temporaryPassword={inviteCreds.temporaryPassword}
+            inviteUrl={inviteCreds.inviteUrl}
+            invitePath={inviteCreds.invitePath}
+            emailDeliveryStatus={inviteCreds.emailDelivery?.status}
+          />
+        </div>
+      ) : null}
       <div className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
           <div className="b3-agent-detail__avatar" aria-hidden>
@@ -189,14 +213,18 @@ export function SubAgentDetailCard({
             <p className="b3-agent-detail__id">
               {profileEmail !== "—" ? (
                 <a
-                  className="mono"
+                  className="b3-agent-detail__email"
                   href={`mailto:${profileEmail}`}
                   title={profileEmail}
                 >
                   {profileEmail}
                 </a>
               ) : (
-                <span className="mono">{teamLoading ? "…" : "—"}</span>
+                <span className="b3-agent-detail__email">
+                  {teamLoading && !ownerEmail && !inviteCreds?.invitedEmail
+                    ? "…"
+                    : "—"}
+                </span>
               )}
               <span> · {orgTypeLabel(org.type)}</span>
             </p>
@@ -307,6 +335,29 @@ export function SubAgentDetailCard({
                     >
                       {formatOnboardDate(org.createdAt)}
                     </p>
+                  </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Owner email</p>
+                    {profileEmail !== "—" ? (
+                      <a
+                        className={`b3-profile__value b3-profile__value--link${
+                          teamLoading && !ownerEmail && !inviteCreds?.invitedEmail
+                            ? " is-empty"
+                            : ""
+                        }`}
+                        href={`mailto:${profileEmail}`}
+                      >
+                        {profileEmail}
+                      </a>
+                    ) : (
+                      <p
+                        className={`b3-profile__value${
+                          teamLoading ? "" : " is-empty"
+                        }`}
+                      >
+                        {teamLoading ? "…" : "—"}
+                      </p>
+                    )}
                   </div>
                   <div className="b3-profile__field">
                     <p className="b3-profile__label">Country</p>

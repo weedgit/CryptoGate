@@ -7,6 +7,9 @@ import {
   type GenerateServiceBillsResult,
 } from "./api";
 import { formatShortDate } from "./org";
+import {
+  merchantOnboardedInPeriod,
+} from "../shared/serviceBillPeriod";
 
 function previousMonthBoundsUtc(now = new Date()): { start: string; end: string } {
   const y = now.getUTCFullYear();
@@ -47,14 +50,23 @@ function skipReasonLabel(reason: string): string {
       return "No commercial settings";
     case "no_fee_tier":
       return "Missing fee tier band";
+    case "not_onboarded_in_period":
+      return "Not onboarded in period";
     default:
       return reason;
   }
 }
 
+export type GenerateBillMerchant = {
+  id: string;
+  name: string;
+  createdAt?: string;
+};
+
 type Props = {
   open: boolean;
   orgNames: Map<string, string>;
+  merchants: GenerateBillMerchant[];
   onClose: () => void;
   onGenerated: () => void;
 };
@@ -62,6 +74,7 @@ type Props = {
 export function GenerateServiceBillsModal({
   open,
   orgNames,
+  merchants,
   onClose,
   onGenerated,
 }: Props) {
@@ -90,6 +103,13 @@ export function GenerateServiceBillsModal({
   }, [open, busy, onClose]);
 
   const bounds = boundsFromYearMonth(month);
+
+  const preSkipOnboard = useMemo(() => {
+    if (!bounds) return [];
+    return merchants.filter(
+      (m) => !merchantOnboardedInPeriod(m.createdAt, bounds.end),
+    );
+  }, [bounds, merchants]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -180,6 +200,35 @@ export function GenerateServiceBillsModal({
             </p>
           ) : null}
 
+          {bounds && preSkipOnboard.length > 0 ? (
+            <div className="plat-generate-bills-modal__warn" role="status">
+              <strong>
+                {preSkipOnboard.length === merchants.length
+                  ? "No merchants were onboarded in this period."
+                  : `${preSkipOnboard.length} merchant${preSkipOnboard.length === 1 ? "" : "s"} onboarded after this period will be skipped.`}
+              </strong>
+              <ul className="plat-generate-bills-modal__warn-list">
+                {preSkipOnboard.slice(0, 6).map((m) => (
+                  <li key={m.id}>
+                    {m.name}
+                    {m.createdAt
+                      ? ` · onboarded ${formatShortDate(m.createdAt)}`
+                      : ""}
+                  </li>
+                ))}
+                {preSkipOnboard.length > 6 ? (
+                  <li className="muted">…and {preSkipOnboard.length - 6} more</li>
+                ) : null}
+              </ul>
+              {preSkipOnboard.length === merchants.length ? (
+                <p className="muted">
+                  Choose the month when merchants were active, or onboard merchants
+                  before generating that period.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {result ? (
             <div className="plat-generate-bills-modal__result">
               <div className="plat-generate-bills-modal__stats">
@@ -203,6 +252,22 @@ export function GenerateServiceBillsModal({
               ) : (
                 <p className="muted">No merchants skipped.</p>
               )}
+              {result.skipped.some((s) => s.reason === "not_onboarded_in_period") ? (
+                <ul className="plat-generate-bills-modal__skip-detail">
+                  {result.skipped
+                    .filter((s) => s.reason === "not_onboarded_in_period")
+                    .slice(0, 8)
+                    .map((s) => (
+                      <li key={s.orgId}>
+                        {orgNames.get(s.orgId) ?? s.orgId}
+                      </li>
+                    ))}
+                  {result.skipped.filter((s) => s.reason === "not_onboarded_in_period")
+                    .length > 8 ? (
+                    <li className="muted">…and more</li>
+                  ) : null}
+                </ul>
+              ) : null}
               {result.skipped.some((s) => s.reason === "no_commercial") ? (
                 <ul className="plat-generate-bills-modal__skip-detail">
                   {result.skipped
@@ -240,7 +305,7 @@ export function GenerateServiceBillsModal({
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={busy || !bounds}
+                  disabled={busy || !bounds || preSkipOnboard.length === merchants.length}
                 >
                   {busy ? "Generating…" : "Generate bills"}
                 </button>

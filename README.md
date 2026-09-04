@@ -80,7 +80,11 @@ npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
 # → /pos/                  (cashier POS wireframes)
 ```
 
-Demo login: run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` / `User1234567890!` (platform owner only). Portals: http://127.0.0.1:5174/{platform,agent,merchant}
+Demo login (minimal): run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` / `User1234567890!` (platform owner only).
+
+**Kevin UAT (real TRON Nile wallets):** run `node scripts/seed-uat.mjs` for a clean stack, or `node scripts/seed-kevin-uat.mjs` after `seed-local` to add the Kevin agent → sub-agent → merchant tree without bulk load data. Password for all UAT users: `User1234567890!`. Wallet map: `scripts/seed-nile-wallets.mjs`.
+
+Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 
 ## Invariants
 

@@ -49,7 +49,10 @@ type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
 type SortKey =
   | "billId"
   | "merchant"
-  | "amount"
+  | "subscription"
+  | "volumeFee"
+  | "billedVolume"
+  | "total"
   | "dueDate"
   | "status"
   | "period"
@@ -105,6 +108,14 @@ export function ServiceBillsListPage({ session }: Props) {
     const cached = peekPlatformOrgs();
     return cached ? orgNameMap(cached) : new Map();
   });
+  const [billMerchants, setBillMerchants] = useState<
+    { id: string; name: string; createdAt?: string }[]
+  >(() => {
+    const cached = peekPlatformOrgs();
+    return (cached ?? [])
+      .filter((o) => o.type === "merchant" && o.status !== "paused")
+      .map((o) => ({ id: o.id, name: o.name, createdAt: o.createdAt }));
+  });
   /** Platform remittance destination (Rx) from billing wallet settings. */
   const [rxAddress, setRxAddress] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -158,6 +169,11 @@ export function ServiceBillsListPage({ session }: Props) {
       ]);
       setItems(bills);
       setOrgNames(orgNameMap(orgs));
+      setBillMerchants(
+        orgs
+          .filter((o) => o.type === "merchant" && o.status !== "paused")
+          .map((o) => ({ id: o.id, name: o.name, createdAt: o.createdAt })),
+      );
       setRxAddress(billing?.payTo?.trim() || null);
     } catch (err) {
       setError(
@@ -216,7 +232,25 @@ export function ServiceBillsListPage({ session }: Props) {
         case "merchant":
           cmp = compareText(merchantOf(a), merchantOf(b));
           break;
-        case "amount":
+        case "subscription":
+          cmp = compareNumber(
+            Number(a.subscriptionAmount),
+            Number(b.subscriptionAmount),
+          );
+          break;
+        case "volumeFee":
+          cmp = compareNumber(
+            Number(a.volumeFeeAmount),
+            Number(b.volumeFeeAmount),
+          );
+          break;
+        case "billedVolume":
+          cmp = compareNumber(
+            Number(a.billedVolumeUsd ?? 0),
+            Number(b.billedVolumeUsd ?? 0),
+          );
+          break;
+        case "total":
           cmp = compareNumber(Number(a.totalAmount), Number(b.totalAmount));
           break;
         case "status":
@@ -259,7 +293,7 @@ export function ServiceBillsListPage({ session }: Props) {
       toggleSortState(
         prev,
         key,
-        key === "dueDate" || key === "amount" || key === "period"
+        key === "dueDate" || key === "total" || key === "period"
           ? "desc"
           : "asc",
       ),
@@ -417,6 +451,12 @@ export function ServiceBillsListPage({ session }: Props) {
         </label>
       </div>
 
+      <p className="plat-bills__legend">
+        Amounts are platform SaaS invoices: monthly subscription plus volume fee on
+        completed payment orders in the period (<strong>Billed vol.</strong>). Not
+        guest payment totals.
+      </p>
+
       <div className="plat-bills__table-wrap">
         {loading ? (
           <PagePending />
@@ -452,8 +492,32 @@ export function ServiceBillsListPage({ session }: Props) {
                 </th>
                 <th>
                   <SortHeader
-                    label="Amount"
-                    sortKey="amount"
+                    label="Subscription"
+                    sortKey="subscription"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Volume fee"
+                    sortKey="volumeFee"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Billed vol."
+                    sortKey="billedVolume"
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                </th>
+                <th>
+                  <SortHeader
+                    label="Total"
+                    sortKey="total"
                     sort={sort}
                     onSort={onSort}
                   />
@@ -543,7 +607,16 @@ export function ServiceBillsListPage({ session }: Props) {
                     <td className="plat-bills__merchant">
                       {orgNames.get(bill.orgId) ?? bill.orgId}
                     </td>
-                    <td className="plat-bills__amount">
+                    <td className="plat-bills__amount plat-bills__amount--sub">
+                      <FundAmount amount={bill.subscriptionAmount} />
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--vol">
+                      <FundAmount amount={bill.volumeFeeAmount} />
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--base">
+                      <FundAmount amount={bill.billedVolumeUsd ?? "0.00"} />
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--total">
                       <FundAmount amount={bill.totalAmount} />
                     </td>
                     <td
@@ -602,6 +675,7 @@ export function ServiceBillsListPage({ session }: Props) {
           <GenerateServiceBillsModal
             open={generateOpen}
             orgNames={orgNames}
+            merchants={billMerchants}
             onClose={() => setGenerateOpen(false)}
             onGenerated={() => void load()}
           />

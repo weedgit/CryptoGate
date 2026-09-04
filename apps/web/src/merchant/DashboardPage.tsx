@@ -42,6 +42,7 @@ import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import { computeOrderabilityLamp, pendingOrderabilityLamp, type NetworkLamp } from "../shared/networkLamp";
 import { StatusBadge } from "../shared/StatusBadge";
 import { merchantRoute } from "../shared/portalRouting";
+import { AnimatedMetric } from "../shared/AnimatedMetric";
 import {
   DASHBOARD_PERIOD_OPTIONS,
   inWindow,
@@ -528,6 +529,9 @@ export function DashboardPage({ session }: Props) {
           }`}
         >
           <article className="merchant-dash__kpi merchant-dash__kpi--volume">
+            <span className="merchant-dash__kpi-index" aria-hidden>
+              1
+            </span>
             <div className="merchant-dash__kpi-top">
               <span className="merchant-dash__kpi-icon" aria-hidden>
                 <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
@@ -550,14 +554,16 @@ export function DashboardPage({ session }: Props) {
               <span className="merchant-dash__kpi-label">Completed volume</span>
             </div>
             <p className="merchant-dash__kpi-value merchant-dash__kpi-value--fund">
-              <span className="merchant-dash__kpi-amount">
-                {formatUsdtAmount(kpis.volume)}
-              </span>
+              <AnimatedMetric
+                value={kpis.volume}
+                decimals={2}
+                className="merchant-dash__kpi-amount"
+              />
               <span className="merchant-dash__kpi-unit">USDT</span>
             </p>
             <p className="merchant-dash__kpi-foot">
               <span className="merchant-dash__kpi-pill">
-                {kpis.completedCount} settled
+                <AnimatedMetric value={kpis.completedCount} /> settled
               </span>
               <span>{activePeriodLabel}</span>
             </p>
@@ -565,6 +571,9 @@ export function DashboardPage({ session }: Props) {
 
           {!cashierOnly ? (
             <article className="merchant-dash__kpi merchant-dash__kpi--fee">
+              <span className="merchant-dash__kpi-index" aria-hidden>
+                2
+              </span>
               <div className="merchant-dash__kpi-top">
                 <span className="merchant-dash__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
@@ -586,9 +595,11 @@ export function DashboardPage({ session }: Props) {
                 <span className="merchant-dash__kpi-label">Platform fee</span>
               </div>
               <p className="merchant-dash__kpi-value merchant-dash__kpi-value--fund">
-                <span className="merchant-dash__kpi-amount">
-                  {formatUsdtAmount(kpis.platformFee)}
-                </span>
+                <AnimatedMetric
+                  value={kpis.platformFee}
+                  decimals={2}
+                  className="merchant-dash__kpi-amount"
+                />
                 <span className="merchant-dash__kpi-unit">USDT</span>
               </p>
               <p className="merchant-dash__kpi-foot">
@@ -602,6 +613,9 @@ export function DashboardPage({ session }: Props) {
 
           {!cashierOnly ? (
             <article className="merchant-dash__kpi merchant-dash__kpi--tier">
+              <span className="merchant-dash__kpi-index" aria-hidden>
+                3
+              </span>
               <div className="merchant-dash__kpi-top">
                 <span className="merchant-dash__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
@@ -632,6 +646,9 @@ export function DashboardPage({ session }: Props) {
           ) : null}
 
           <article className="merchant-dash__kpi merchant-dash__kpi--open">
+            <span className="merchant-dash__kpi-index" aria-hidden>
+              {cashierOnly ? 2 : 4}
+            </span>
             <div className="merchant-dash__kpi-top">
               <span className="merchant-dash__kpi-icon" aria-hidden>
                 <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
@@ -653,7 +670,9 @@ export function DashboardPage({ session }: Props) {
               </span>
               <span className="merchant-dash__kpi-label">Open orders</span>
             </div>
-            <p className="merchant-dash__kpi-value">{kpis.openWork}</p>
+            <p className="merchant-dash__kpi-value">
+              <AnimatedMetric value={kpis.openWork} />
+            </p>
             <p className="merchant-dash__kpi-foot">
               <span className="merchant-dash__kpi-pill">Live queue</span>
               <span>Pending + verifying</span>
@@ -665,6 +684,9 @@ export function DashboardPage({ session }: Props) {
               kpis.anomalies > 0 ? " is-alert" : ""
             }`}
           >
+            <span className="merchant-dash__kpi-index" aria-hidden>
+              {cashierOnly ? 3 : 5}
+            </span>
             <div className="merchant-dash__kpi-top">
               <span className="merchant-dash__kpi-icon" aria-hidden>
                 <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
@@ -684,7 +706,9 @@ export function DashboardPage({ session }: Props) {
               </span>
               <span className="merchant-dash__kpi-label">Anomalies</span>
             </div>
-            <p className="merchant-dash__kpi-value">{kpis.anomalies}</p>
+            <p className="merchant-dash__kpi-value">
+              <AnimatedMetric value={kpis.anomalies} />
+            </p>
             <p className="merchant-dash__kpi-foot">
               <span className="merchant-dash__kpi-pill">
                 {kpis.anomalies > 0 ? "Needs review" : "Clear"}

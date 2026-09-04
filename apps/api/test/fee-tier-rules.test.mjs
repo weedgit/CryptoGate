@@ -16,6 +16,7 @@ import {
   canReadPlatformOrgPolicy,
   canUpdatePlatformOwnerSettings,
 } from "../src/orgs/role-policy.mjs";
+import { defaultFeeTierBandRow } from "../src/platform-settings/fee-tier-store.mjs";
 
 describe("fee tier rules (X-01 v0.3.3)", () => {
   it("validates band min ≤ default ≤ max", () => {
@@ -104,6 +105,19 @@ describe("merchant commercial rules (X-01)", () => {
       "small",
     );
     assert.equal(ok.ok, true);
+  });
+
+  it("accepts mid onboard fee against domain default band row", () => {
+    const band = defaultFeeTierBandRow(MerchantTier.Mid);
+    assert.ok(band);
+    const result = validateCommercialAgainstBand(MerchantTier.Mid, "1.2", band);
+    assert.equal(result.ok, true);
+  });
+
+  it("rejects create when band row is missing and no default applies", () => {
+    const result = validateCommercialAgainstBand(MerchantTier.Mid, "1.2", null);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, "invalid_band");
   });
 });
 

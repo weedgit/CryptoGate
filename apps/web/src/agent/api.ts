@@ -36,6 +36,16 @@ export {
 };
 export type { PaymentOrder, Session, OrgMember, InviteOrgUserResult };
 
+export {
+  invalidateAgentOrgList,
+  peekAgentOrgs,
+  getAgentOrgs,
+  refreshAgentOrgList,
+  mergeAgentOrg,
+  removeAgentOrgFromList,
+  AGENT_ORGS_UPDATED_EVENT,
+} from "./agentOrgList";
+
 export type OrgAccount = {
   id: string;
   type: string;

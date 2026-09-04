@@ -170,6 +170,19 @@ const orderId = resolveOrderId();
 /** @type {string} */
 let shareUrl = "";
 
+function markPayReady() {
+  document.documentElement.dataset.payReady = "1";
+  for (const el of document.querySelectorAll("[data-live-field][aria-hidden]")) {
+    el.removeAttribute("aria-hidden");
+  }
+}
+
+function markPayLoading() {
+  if (!orderId) return;
+  document.documentElement.dataset.payMode = "live";
+  delete document.documentElement.dataset.payReady;
+}
+
 function assetNetworkUi(asset, network) {
   return ASSET_NETWORK_UI[`${asset}:${network}`];
 }
@@ -705,6 +718,7 @@ function paintProgress(view) {
 }
 
 function paint(view) {
+  markPayReady();
   const state = uiState(view.status);
   const mode = String(view.matchingMode || "B").toUpperCase();
   const isModeC = mode === "C" || Boolean(view.payExactAmountWarning);
@@ -884,6 +898,7 @@ function tick(remaining, state) {
 }
 
 function paintInvalid() {
+  markPayReady();
   setSourceBanner("");
   setShareUrl("");
   currentView = null;
@@ -902,6 +917,7 @@ function paintInvalid() {
 }
 
 function paintMaintenance(message) {
+  markPayReady();
   setSourceBanner("");
   setShareUrl("");
   currentView = null;
@@ -983,6 +999,7 @@ async function loadLiveOrder(id) {
 }
 
 if (orderId) {
+  markPayLoading();
   loadLiveOrder(orderId);
   pollTimer = window.setInterval(() => loadLiveOrder(orderId), POLL_MS);
 } else {

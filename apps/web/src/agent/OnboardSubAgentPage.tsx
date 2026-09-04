@@ -27,6 +27,11 @@ import {
 } from "./api";
 import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
 import { agentRoute } from "../shared/portalRouting";
+import { onboardInviteCreds } from "../shared/onboardInviteState";
+import {
+  mergeAgentOrg,
+  refreshAgentOrgList,
+} from "./agentOrgList";
 
 function agentReturnPrefix(): string {
   const base = agentRoute();
@@ -285,14 +290,19 @@ export function OnboardSubAgentPage({ session }: Props) {
         country: form.country.trim(),
         commissionPercent: form.commissionPercent.trim() || undefined,
       });
-      await inviteOrgUser(created.id, {
-        email: form.ownerEmail.trim(),
+      mergeAgentOrg(created);
+      const invitedEmail = form.ownerEmail.trim();
+      const invite = await inviteOrgUser(created.id, {
+        email: invitedEmail,
         role: "owner",
       });
+      await refreshAgentOrgList();
       navigate(agentRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
           displayName: form.displayName.trim() || apiName,
+          onboardedOrgId: created.id,
+          inviteCreds: onboardInviteCreds(invitedEmail, invite),
         },
       });
     } catch (err) {

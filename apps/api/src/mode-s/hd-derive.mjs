@@ -1,5 +1,5 @@
 import { HDKey } from "@scure/bip32";
-import { sha256 } from "@noble/hashes/sha2.js";
+import { sha256, sha512 } from "@noble/hashes/sha2.js";
 import { hmac } from "@noble/hashes/hmac.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -26,7 +26,10 @@ const TRON_ADDRESS_PREFIX = 0x41;
 const BITCOIN_MAINNET_P2PKH = 0x00;
 const BITCOIN_MAINNET_P2WPKH = 0x00;
 
-export { hdMaterialFingerprint as xpubFingerprint } from "../security/spend-material.mjs";
+export {
+  hdMaterialFingerprint,
+  hdMaterialFingerprint as xpubFingerprint,
+} from "../security/spend-material.mjs";
 
 /**
  * @param {string} xpub
@@ -158,10 +161,14 @@ export function deriveBitcoinAddressFromXpub(xpub, hdIndex) {
  * @param {Uint8Array} parentPub 32 bytes
  * @param {Uint8Array} parentChainCode 32 bytes
  * @param {number} index
+ * @param {number} [attemptsLeft]
  */
-function ckdPubEd25519(parentPub, parentChainCode, index) {
+function ckdPubEd25519(parentPub, parentChainCode, index, attemptsLeft = 256) {
   if (!Number.isInteger(index) || index < 0 || index >= 0x80000000) {
     throw new Error("hdIndex must be a non-hardened BIP32 index");
+  }
+  if (attemptsLeft <= 0) {
+    throw new Error("HD pool could not derive an ed25519 child public key");
   }
   const indexBytes = new Uint8Array(4);
   new DataView(indexBytes.buffer).setUint32(0, index, false);
@@ -176,12 +183,12 @@ function ckdPubEd25519(parentPub, parentChainCode, index) {
   for (let i = il.length - 1; i >= 0; i -= 1) {
     scalar = (scalar << 8n) | BigInt(il[i]);
   }
-  if (scalar >= ed25519.CURVE.n) {
-    throw new Error("HD pool could not derive an ed25519 child public key");
+  if (scalar >= ed25519.Point.Fn.ORDER) {
+    return ckdPubEd25519(parentPub, parentChainCode, index + 1, attemptsLeft - 1);
   }
-  const parentPoint = ed25519.ExtendedPoint.fromHex(parentPub);
-  const childPoint = parentPoint.add(ed25519.ExtendedPoint.BASE.multiply(scalar));
-  return { publicKey: childPoint.toRawBytes(), chainCode: ir };
+  const parentPoint = ed25519.Point.fromBytes(parentPub);
+  const childPoint = parentPoint.add(ed25519.Point.BASE.multiply(scalar));
+  return { publicKey: childPoint.toBytes(), chainCode: ir, index };
 }
 
 /**

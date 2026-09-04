@@ -20,6 +20,8 @@ import {
   peekPlatformOrgs,
   peekPlatformServiceBills,
   PLATFORM_ORGS_UPDATED_EVENT,
+  refreshPlatformOrgList,
+  removePlatformOrgFromList,
   setOrgStatus,
   type OrgAccount,
   type ServiceBill,
@@ -30,6 +32,7 @@ import { AgentDetailCard } from "./AgentDetailCard";
 import { merchantCountsByAgentId, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
+import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
@@ -295,9 +298,7 @@ export function AgentsListPage({ session }: Props) {
   const { id: selectedId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const inviteState = (location.state ?? {}) as {
-    invitationSent?: boolean;
-  };
+  const inviteState = (location.state ?? {}) as OnboardNavigateState;
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
@@ -346,15 +347,13 @@ export function AgentsListPage({ session }: Props) {
     confirmDelete,
   } = useOrgDeleteModal({
     canManage,
-    onDeleted: async () => {
-      invalidatePlatformOrgList();
-      try {
-        const next = await getPlatformOrgs({ force: true });
-        setOrgs(next);
-        if (selectedId && !next.some((o) => o.id === selectedId)) clearSelection();
-      } catch {
-        /* ignore refresh errors */
+    onDeleted: async (deletedId) => {
+      removePlatformOrgFromList(deletedId);
+      setOrgs((prev) => prev.filter((o) => o.id !== deletedId));
+      if (selectedId === deletedId) {
+        navigate(platformRoute("agents"));
       }
+      await refreshPlatformOrgList({ excludeOrgIds: [deletedId] });
     },
     showOk,
   });
@@ -363,6 +362,7 @@ export function AgentsListPage({ session }: Props) {
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLDivElement | null>(null);
+  const prevPathRef = useRef(location.pathname);
   const [suspendTarget, setSuspendTarget] = useState<OrgAccount | null>(null);
   const [suspendError, setSuspendError] = useState<string | null>(null);
 
@@ -398,13 +398,13 @@ export function AgentsListPage({ session }: Props) {
     };
   }, [loading]);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     const hasCachedOrgs = peekPlatformOrgs() != null;
     // Paint agents as soon as orgs are ready; bills only feed payout column.
     if (!opts?.silent && !hasCachedOrgs) setLoading(true);
     setError(null);
     try {
-      const orgRows = await getPlatformOrgs();
+      const orgRows = await getPlatformOrgs({ force: opts?.force });
       setOrgs(orgRows);
       if (!opts?.silent) setLoading(false);
       const billRows = await getPlatformServiceBills().catch(
@@ -444,8 +444,14 @@ export function AgentsListPage({ session }: Props) {
   }, [load]);
 
   useEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = location.pathname;
     if (location.pathname.endsWith("/agents/new")) return;
-    void load({ silent: peekPlatformOrgs() != null });
+    const leftOnboard = prev.endsWith("/agents/new");
+    void load({
+      silent: !leftOnboard && peekPlatformOrgs() != null,
+      force: leftOnboard,
+    });
   }, [location.pathname, load]);
 
   const agents = useMemo(
@@ -589,6 +595,7 @@ export function AgentsListPage({ session }: Props) {
     navigate,
     emailIndexLoading,
     query,
+    preserveSelectionId: inviteState.onboardedOrgId,
   });
 
   const selected = useMemo(() => {
@@ -931,6 +938,11 @@ export function AgentsListPage({ session }: Props) {
               canManage={canManage}
               busy={busyId === selected.id}
               invitationSent={inviteState.invitationSent === true}
+              inviteCreds={
+                inviteState.onboardedOrgId === selected.id
+                  ? (inviteState.inviteCreds ?? null)
+                  : null
+              }
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
               onDelete={() => openDelete(selected)}

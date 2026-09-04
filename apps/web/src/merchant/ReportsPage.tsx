@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { PagePending } from "../platform/ui/PlatformPending";
+import { AnimatedMetric } from "../shared/AnimatedMetric";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { StatusBadge } from "../shared/StatusBadge";
 import { FieldControl } from "../ui/FieldControl";
@@ -340,7 +341,7 @@ export function ReportsPage({ session }: Props) {
   }
 
   return (
-    <div className="reports-page merchant-reports">
+    <div className="dash-page plat-dash reports-page merchant-reports">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       {topbarCenterSlot
@@ -417,6 +418,9 @@ export function ReportsPage({ session }: Props) {
         <>
           <div className="merchant-reports__kpis">
             <article className="merchant-reports__kpi merchant-reports__kpi--volume">
+              <span className="merchant-reports__kpi-index" aria-hidden>
+                1
+              </span>
               <div className="merchant-reports__kpi-top">
                 <span className="merchant-reports__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
@@ -441,14 +445,19 @@ export function ReportsPage({ session }: Props) {
                 </span>
               </div>
               <p className="merchant-reports__kpi-value merchant-reports__kpi-value--fund">
-                <span className="merchant-reports__kpi-amount">
-                  {completedVolume.toFixed(2)}
-                </span>
+                <AnimatedMetric
+                  value={completedVolume}
+                  decimals={2}
+                  className="merchant-reports__kpi-amount"
+                />
                 <span className="merchant-reports__kpi-unit">USDT</span>
               </p>
             </article>
 
             <article className="merchant-reports__kpi merchant-reports__kpi--orders">
+              <span className="merchant-reports__kpi-index" aria-hidden>
+                2
+              </span>
               <div className="merchant-reports__kpi-top">
                 <span className="merchant-reports__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
@@ -473,7 +482,9 @@ export function ReportsPage({ session }: Props) {
                   Orders in range
                 </span>
               </div>
-              <p className="merchant-reports__kpi-value">{filtered.length}</p>
+              <p className="merchant-reports__kpi-value">
+                <AnimatedMetric value={filtered.length} />
+              </p>
             </article>
 
             <article
@@ -481,6 +492,9 @@ export function ReportsPage({ session }: Props) {
                 anomalyCount > 0 ? " is-alert" : ""
               }`}
             >
+              <span className="merchant-reports__kpi-index" aria-hidden>
+                3
+              </span>
               <div className="merchant-reports__kpi-top">
                 <span className="merchant-reports__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
@@ -500,10 +514,15 @@ export function ReportsPage({ session }: Props) {
                 </span>
                 <span className="merchant-reports__kpi-label">Anomalies</span>
               </div>
-              <p className="merchant-reports__kpi-value">{anomalyCount}</p>
+              <p className="merchant-reports__kpi-value">
+                <AnimatedMetric value={anomalyCount} />
+              </p>
             </article>
 
             <article className="merchant-reports__kpi merchant-reports__kpi--window">
+              <span className="merchant-reports__kpi-index" aria-hidden>
+                4
+              </span>
               <div className="merchant-reports__kpi-top">
                 <span className="merchant-reports__kpi-icon" aria-hidden>
                   <svg viewBox="0 0 20 20" width="22" height="22" fill="none">

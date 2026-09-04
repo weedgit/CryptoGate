@@ -51,6 +51,7 @@ import {
   uniqueAssetsFromRegistry,
   xpubMaterialHint,
 } from "../shared/assetNetworks";
+import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { isMatchingModeSelectable, MatchingMode } from "@paymentgate/domain";
 
 type Props = { session: Session };

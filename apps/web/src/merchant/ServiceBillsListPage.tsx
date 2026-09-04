@@ -307,7 +307,10 @@ export function ServiceBillsListPage({ session }: Props) {
               <tr>
                 <th>Bill ID</th>
                 <th>Period</th>
-                <th>Amount</th>
+                <th>Subscription</th>
+                <th>Volume fee</th>
+                <th>Billed vol.</th>
+                <th>Total</th>
                 <th>Due date</th>
                 <th>Status</th>
                 {canPay ? <th className="plat-bills__th-action" aria-label="Actions" /> : null}
@@ -353,7 +356,19 @@ export function ServiceBillsListPage({ session }: Props) {
                       </span>
                       {bill.periodEnd}
                     </td>
-                    <td className="plat-bills__amount">
+                    <td className="plat-bills__amount plat-bills__amount--sub">
+                      <FundAmount amount={bill.subscriptionAmount} />
+                      <span className="plat-bills__currency muted">{bill.currency}</span>
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--vol">
+                      <FundAmount amount={bill.volumeFeeAmount} />
+                      <span className="plat-bills__currency muted">{bill.currency}</span>
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--base">
+                      <FundAmount amount={bill.billedVolumeUsd ?? "0.00"} />
+                      <span className="plat-bills__currency muted">{bill.currency}</span>
+                    </td>
+                    <td className="plat-bills__amount plat-bills__amount--total">
                       <FundAmount amount={bill.totalAmount} />
                       <span className="plat-bills__currency muted">{bill.currency}</span>
                     </td>

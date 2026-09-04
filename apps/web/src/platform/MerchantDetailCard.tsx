@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { platformRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
   getFeeTierSettings,
@@ -674,6 +676,7 @@ type Props = {
   onRun: () => void;
   onDelete: () => void;
   onOrgPatched?: (org: OrgAccount) => void;
+  inviteCreds?: OnboardInviteCreds | null;
 };
 
 const VALID_TABS = new Set<string>(TABS.map((t) => t.id));
@@ -690,6 +693,7 @@ export function MerchantDetailCard({
   onRun,
   onDelete,
   onOrgPatched,
+  inviteCreds,
 }: Props) {
   const [tab, setTab] = useState<TabId>(() =>
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
@@ -1002,6 +1006,18 @@ export function MerchantDetailCard({
           ) : null}
         </div>
       </header>
+
+      {inviteCreds ? (
+        <div className="b3-agent-detail__invite-creds">
+          <InviteCredentialsPanel
+            email={inviteCreds.invitedEmail}
+            temporaryPassword={inviteCreds.temporaryPassword}
+            inviteUrl={inviteCreds.inviteUrl}
+            invitePath={inviteCreds.invitePath}
+            emailDeliveryStatus={inviteCreds.emailDelivery?.status}
+          />
+        </div>
+      ) : null}
 
       <div className="b3-agent-detail__tabs" role="tablist">
         {TABS.map((t) => (

@@ -6,6 +6,7 @@ import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
 import { addUsdAmounts } from "./service-bill-rules.mjs";
 import {
   defaultDueAt,
+  merchantOnboardedInPeriod,
   previousCalendarMonthUtc,
   roundUsd,
   volumeFeeUsd,
@@ -50,6 +51,11 @@ export async function generateServiceBillsForPeriod(input = {}) {
     const existing = await findActiveServiceBillForPeriod(merchant.id, periodStart);
     if (existing) {
       skipped.push({ orgId: merchant.id, reason: "already_issued" });
+      continue;
+    }
+
+    if (!merchantOnboardedInPeriod(merchant.created_at, periodEnd)) {
+      skipped.push({ orgId: merchant.id, reason: "not_onboarded_in_period" });
       continue;
     }
 
