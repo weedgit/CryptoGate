@@ -30,6 +30,10 @@ object ReceiptLines {
         lines += ReceiptLine("Net    ${job.network.uppercase()}", ReceiptStyle.Body)
         lines += ReceiptLine("Addr", ReceiptStyle.Body)
         wrapAddress(job.receiveAddress).forEach { lines += ReceiptLine(it, ReceiptStyle.Mono) }
+        job.txHash?.takeIf { it.isNotBlank() }?.let { hash ->
+            lines += ReceiptLine("Tx", ReceiptStyle.Body)
+            wrapAddress(hash).forEach { lines += ReceiptLine(it, ReceiptStyle.Mono) }
+        }
         lines += ReceiptLine(RULE, ReceiptStyle.Rule)
         lines += ReceiptLine(job.statusLabel.uppercase(), ReceiptStyle.Emphasis)
         if (job.isAnomaly) {

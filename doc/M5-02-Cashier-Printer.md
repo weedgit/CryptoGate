@@ -24,9 +24,10 @@ Gradle sets `BuildConfig.HAS_SMARTPOS` and picks the first existing AAR from:
 ## Device smoke
 
 1. Build staging with AAR on classpath (`HAS_SMARTPOS=true`).
-2. Complete a testnet order → **Print customer receipt**.
+2. Complete a testnet order → **Print customer receipt** (includes **tx hash** when API returns `txHash`).
 3. Confirm 80 mm layout; out-of-paper shows clear toast.
 4. Anomaly order prints **PAYMENT ANOMALY** header (not Completed).
+5. Open order: system Back / Leave asks for confirm (M5-04).
 
 ## Out of scope here
 

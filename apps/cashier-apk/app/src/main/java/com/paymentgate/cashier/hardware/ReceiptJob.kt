@@ -14,7 +14,7 @@ data class ReceiptJob(
     val statusLabel: String,
     val isAnomaly: Boolean,
     val merchantReference: String? = null,
-    val txHint: String? = null,
+    val txHash: String? = null,
 )
 
 fun PaymentDetails.toReceiptJob(
@@ -32,5 +32,5 @@ fun PaymentDetails.toReceiptJob(
         statusLabel = OrderStatusUi.label(status),
         isAnomaly = OrderStatusUi.isAnomaly(status),
         merchantReference = merchantReference,
-        txHint = null,
+        txHash = txHash?.takeIf { it.isNotBlank() },
     )
