@@ -33,7 +33,7 @@ Phase 1 ships as **source that Company A deploys** on **Company A cloud accounts
 
 Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
 
-| Migrations:** always run API migrate before new routes (through **052** on current `main`). Watcher uses the same DB; it does not own migrations.
+**Migrations:** always run API migrate before new routes (through **052** on current `main`). Watcher uses the same DB; it does not own migrations.
 
 ---
 
