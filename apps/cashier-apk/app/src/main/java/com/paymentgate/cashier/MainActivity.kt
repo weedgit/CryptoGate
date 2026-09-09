@@ -1,6 +1,7 @@
 package com.paymentgate.cashier
 
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,16 +26,27 @@ import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentDetails
 import com.paymentgate.cashier.api.PaymentOrder
 import com.paymentgate.cashier.api.Session
+import com.paymentgate.cashier.hardware.PrintOutcome
+import com.paymentgate.cashier.hardware.PrinterHwStatus
+import com.paymentgate.cashier.hardware.toCustomerPayContent
+import com.paymentgate.cashier.hardware.toReceiptJob
 import com.paymentgate.cashier.ui.CreateOrderScreen
 import com.paymentgate.cashier.ui.HomeScreen
+import com.paymentgate.cashier.ui.KeepScreenOnWhile
 import com.paymentgate.cashier.ui.LoginScreen
 import com.paymentgate.cashier.ui.OrderPayScreen
+import com.paymentgate.cashier.ui.SettingsScreen
 import com.paymentgate.cashier.ui.TodayOrdersScreen
+import com.paymentgate.cashier.ui.formatReceiptPrintedAt
+import com.paymentgate.cashier.ui.printerStatusLabel
 import com.paymentgate.cashier.ui.theme.CashierTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 /** Only POS flows — no wallet / xPub / matching settings screens (M2-73). */
-private enum class PosScreen { Home, Create, Pay, Today }
+private enum class PosScreen { Home, Create, Pay, Today, Settings }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,6 +110,44 @@ class MainActivity : ComponentActivity() {
                             if (OrderStatusUi.isTerminal(latest.status)) break
                         }
                     }
+
+                    // M5-03: mirror active pay fields on customer second screen (G5).
+                    LaunchedEffect(
+                        screen,
+                        payment?.orderNumber,
+                        payment?.status,
+                        payment?.qrPayload,
+                        payment?.payableAmount?.amount,
+                    ) {
+                        withContext(Dispatchers.IO) {
+                            if (!app.customerDisplay.isAvailable()) return@withContext
+                            val details = payment
+                            if (screen != PosScreen.Pay || details == null) {
+                                app.customerDisplay.showIdle()
+                                return@withContext
+                            }
+                            when (details.status) {
+                                OrderStatusUi.PENDING,
+                                OrderStatusUi.VERIFYING,
+                                OrderStatusUi.CONFIRMED,
+                                OrderStatusUi.COMPLETED,
+                                OrderStatusUi.ANOMALY,
+                                -> app.customerDisplay.showPay(details.toCustomerPayContent())
+                                else -> app.customerDisplay.showIdle()
+                            }
+                        }
+                    }
+
+                    val keepAwake =
+                        signedIn &&
+                            screen == PosScreen.Pay &&
+                            payment != null &&
+                            (
+                                payment!!.status == OrderStatusUi.PENDING ||
+                                    payment!!.status == OrderStatusUi.VERIFYING ||
+                                    payment!!.status == OrderStatusUi.CONFIRMED
+                            )
+                    KeepScreenOnWhile(enabled = keepAwake)
 
                     if (!signedIn) {
                         LoginScreen(
@@ -164,6 +214,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
+                            onSettings = { screen = PosScreen.Settings },
                             onSignOut = {
                                 scope.launch {
                                     app.api.logout()
@@ -175,6 +226,59 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                         )
+                        PosScreen.Settings -> {
+                            var printerLabel by remember {
+                                mutableStateOf(if (app.thermalPrinter.isAvailable()) "Checking…" else "Unavailable")
+                            }
+                            LaunchedEffect(Unit) {
+                                printerLabel =
+                                    withContext(Dispatchers.IO) {
+                                        if (!app.thermalPrinter.isAvailable()) {
+                                            printerStatusLabel(PrinterHwStatus.Unavailable)
+                                        } else {
+                                            printerStatusLabel(
+                                                runCatching { app.thermalPrinter.status() }
+                                                    .getOrDefault(PrinterHwStatus.Unknown),
+                                            )
+                                        }
+                                    }
+                            }
+                            SettingsScreen(
+                                appVersion = BuildConfig.VERSION_NAME,
+                                appEnv = BuildConfig.APP_ENV,
+                                deviceId =
+                                    Settings.Secure.getString(
+                                        contentResolver,
+                                        Settings.Secure.ANDROID_ID,
+                                    ) ?: "unknown",
+                                printerAvailable = app.thermalPrinter.isAvailable(),
+                                printerStatusLabel = printerLabel,
+                                customerDisplayAvailable = app.customerDisplay.isAvailable(),
+                                lastReceipt = app.lastReceiptStore.last,
+                                onReprint = {
+                                    val job =
+                                        app.lastReceiptStore.last
+                                            ?: return@SettingsScreen PrintOutcome.Failed(
+                                                PrinterHwStatus.Unavailable,
+                                                "No receipt to reprint",
+                                            )
+                                    withContext(Dispatchers.IO) {
+                                        app.thermalPrinter.printReceipt(job)
+                                    }
+                                },
+                                onBack = { screen = PosScreen.Home },
+                                onSignOut = {
+                                    scope.launch {
+                                        app.api.logout()
+                                        session = null
+                                        payment = null
+                                        watchingOrderId = null
+                                        signedIn = false
+                                        screen = PosScreen.Home
+                                    }
+                                },
+                            )
+                        }
                         PosScreen.Create -> CreateOrderScreen(
                             amount = amount,
                             asset = asset,
@@ -299,6 +403,21 @@ class MainActivity : ComponentActivity() {
                                                 cancelling = false
                                             }
                                         }
+                                    },
+                                    onPrintReceipt = {
+                                        val job =
+                                            details.toReceiptJob(
+                                                merchantReference = merchantReference.trim().ifEmpty { null },
+                                                printedAtIso = formatReceiptPrintedAt(),
+                                            )
+                                        val outcome =
+                                            withContext(Dispatchers.IO) {
+                                                app.thermalPrinter.printReceipt(job)
+                                            }
+                                        if (outcome is PrintOutcome.Ok) {
+                                            app.lastReceiptStore.remember(job)
+                                        }
+                                        outcome
                                     },
                                     onDone = {
                                         payment = null

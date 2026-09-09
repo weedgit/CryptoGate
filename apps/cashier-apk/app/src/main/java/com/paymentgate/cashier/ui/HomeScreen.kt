@@ -25,6 +25,7 @@ fun HomeScreen(
     appEnv: String,
     onCreateOrder: () -> Unit,
     onTodayOrders: () -> Unit,
+    onSettings: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     PosScreenFrame {
@@ -82,6 +83,13 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Today's orders")
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Settings")
             }
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(

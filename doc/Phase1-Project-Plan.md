@@ -154,7 +154,7 @@ Target **Android handheld POS**, not a single unconfirmed listing:
 
 - Android 8.0 or newer (confirm min SDK with the chosen OEM).  
 - Portrait handheld with cashier touchscreen.  
-- Optional: secondary customer display, 58 mm thermal printer, barcode/QR imager.
+- Optional: secondary customer display, 80 mm thermal printer (Z108S default), barcode/QR imager.
 
 **Reference device** (make, model, Android version, vendor SDK) is confirmed in writing by both parties before Milestone 5 hardware tests. Nearby examples of the class: Sunmi, iMin, Newland, ZCS and similar. Company A supplies at least one reference unit to Company B (or funds purchase) in time for Milestone 5.
 

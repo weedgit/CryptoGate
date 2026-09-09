@@ -12,3 +12,5 @@ captures/
 *.keystore
 *.jks
 keystore.properties
+# Vendor SmartPos binaries — keep local / CI cache; do not commit AARs
+app/libs/*.aar
