@@ -23,7 +23,7 @@ One person may hold different roles in different org accounts (for example Owner
 | --- | --- | --- |
 | **Platform** | Operator / SaaS vendor (Stripe “platform”, CoinGate operator) | PaymentGate itself. Runs global policy, billing wallet, compliance. |
 | **Agent account** | Channel partner / ISO-style reseller (common in payment processing) | Brings merchants onto PaymentGate. Sits under **Platform** or under another **agent account** (nested child shown as **Agent (sub) account** when parent context matters). Agent nesting depth is a **platform-wide setting** controlled by **Platform Owner** (default **2** in Phase 1: agent → agent (sub) → merchant). |
-| **Merchant account** | **Merchant** — standard payment-industry name for the paying customer org | The business that collects from payers. Two **structures** (not separate products): **single-location** or **multi-location**. |
+| **Merchant account** | **Merchant** — standard payment-industry name for the paying customer org | The business that collects from payers. Parent may be **Platform** (direct, no agent), an **agent**, or an **agent (sub)**. Two **structures** (not separate products): **single-location** or **multi-location**. |
 | **Merchant (site) account** | **Store / outlet / site** under a parent merchant | A site org under a **multi-location merchant** only. Operational unit for one physical site — not a separate billing entity or sub-merchant ID. Replaces informal “branch” and legacy “location account”. |
 
 **Not used in product copy**
@@ -52,7 +52,7 @@ Roles apply **inside** an org account. **Owner**, **Administrator**, and **Viewe
 | **Viewer** | Platform, Agent, Merchant, Merchant (site) | Read-only dashboards and reports. |
 | **Cashier** | Merchant or Merchant (site) only | Counter staff: create and manage **own payment orders** only; no settings or team management. |
 
-**Platform-account users** (Owner/Administrator/Viewer on the Platform org) operate PaymentGate globally: fee tiers, agent onboarding, billing wallet, compliance override, and audit. **Owner** holds policy authority (global tiers, max agent depth, Enterprise rate approval). **Administrator** runs day-to-day platform operations but cannot change team membership.
+**Platform-account users** (Owner/Administrator/Viewer on the Platform org) operate PaymentGate globally: fee tiers, agent and merchant onboarding (including merchants **directly under Platform**), billing wallet, compliance override, and audit. **Owner** holds policy authority (global tiers, max agent depth, Enterprise rate approval). **Administrator** runs day-to-day platform operations but cannot change team membership.
 
 **Agent-account users** (Owner/Administrator/Viewer on an agent account) may onboard merchants and set volume fees within platform bands. They are **not** a separate role named “Agent” — they use the same Owner / Administrator / Viewer roles on an **agent account**.
 
@@ -68,19 +68,23 @@ Roles apply **inside** an org account. **Owner**, **Administrator**, and **Viewe
 ```
 Platform
  └── Users: Owner, Administrator, Viewer
- └── Agent account (optional; depth limit set by Platform Owner)
+ ├── Merchant account (direct under Platform — allowed; no agent required)
+ │    ├── Merchant (site) account (multi-location only)
+ │    │    └── Users: Owner, Administrator, Viewer, Cashier
+ │    └── Users: Owner, Administrator, Viewer, Cashier
+ └── Agent account (optional channel; depth limit set by Platform Owner)
       └── … nested agent accounts while below max depth …
            └── Merchant account
-           ├── Merchant (site) account (multi-location only)
-           │    └── Users: Owner, Administrator, Viewer, Cashier
-           └── Users: Owner, Administrator, Viewer, Cashier (direct on single-location or parent merchant)
+                ├── Merchant (site) account (multi-location only)
+                │    └── Users: Owner, Administrator, Viewer, Cashier
+                └── Users: Owner, Administrator, Viewer, Cashier
 ```
 
 **Rules**
 
-1. Every merchant account belongs to exactly one agent account, or to **Platform** when no external agent is assigned (platform acts as channel).
-2. **Merchant (site) accounts** and **Cashier** users exist only under **merchant accounts**, never under agent accounts.
-3. Agent-account users see **volume and service bills** for their subtree; they cannot see or change merchant login credentials, API secrets, or settlement settings.
+1. Every merchant account has exactly one parent: **Platform**, an **agent**, or an **agent (sub)**. Merchants **may hang directly under Platform** (implemented and allowed). An agent parent is optional — used when an external channel partner owns the relationship.
+2. **Merchant (site) accounts** and **Cashier** users exist only under **merchant accounts**, never under agent accounts or Platform directly.
+3. Agent-account users see **volume and service bills** for their subtree; they cannot see or change merchant login credentials, API secrets, or settlement settings. Merchants parented under Platform are outside any agent subtree.
 
 ---
 
@@ -106,11 +110,11 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 **Payer.** The guest, passenger or shopper. Opens the QR or link and pays on-chain. Not a platform account in Phase 1.
 
-**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** users manage global fee policy, agent onboarding, compliance override, billing wallet, and audit (see [Roles and permissions](#roles-and-permissions)).
+**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** users manage global fee policy, agent onboarding, **direct merchant onboarding under Platform**, compliance override, billing wallet, and audit (see [Roles and permissions](#roles-and-permissions)).
 
-**Agent account.** Channel partner under Platform or nested under another agent (**Agent (sub) account** when shown in tree context). Users with Owner or Administrator role onboard merchants and agent (sub) accounts while **current depth is below the platform max**, set volume fee within platform bands, and view subtree volume and service bills — **read-only** on merchant credentials and settlement settings. Agent accounts **do not** create **payment orders** for merchants.
+**Agent account.** Optional channel partner under Platform or nested under another agent (**Agent (sub) account** when shown in tree context). Users with Owner or Administrator role onboard merchants and agent (sub) accounts while **current depth is below the platform max**, set volume fee within platform bands, and view subtree volume and service bills — **read-only** on merchant credentials and settlement settings. Agent accounts **do not** create **payment orders** for merchants. Agents are not required for every merchant.
 
-**Merchant account.** The customer org that collects payer funds.
+**Merchant account.** The customer org that collects payer funds. Parent is **Platform**, an **agent**, or an **agent (sub)**.
 
 - **Single-location merchant** — one site; optional cashiers; no merchant (site) layer (example: one hotel).
 - **Multi-location merchant** — parent merchant with **merchant (site) accounts**, each with optional cashiers (example: a retail group with several stores).
