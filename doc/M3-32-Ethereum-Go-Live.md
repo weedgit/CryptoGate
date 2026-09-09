@@ -35,7 +35,7 @@ node --test packages/chain-clients/test/ethereum.test.mjs apps/watcher/test/ethe
 | # | Check | Pass |
 | --- | --- | --- |
 | A1 | Hermetic ethereum chain-client + watcher tick tests | ☑ **2026-09-10** (`scripts/eth-smoke.mjs`) |
-| A2 | Guest pay catalog includes **Ethereum ERC-20** + `0xdAC17…` | ☑ `apps/payment-page/public/mock-order.js` |
+| A2 | Guest pay catalog includes **Ethereum ERC-20** + `0xdAC17…` | ☑ `apps/payment-page/public/guest-pay.js` |
 | A3 | Create **USDT/ethereum** accepted when registry enabled (create-order path) | ☑ registry `enabled: true` — confirm 201 against local API after deploy |
 
 ### Live (needs `ETH_RPC_URL` + funded test wallet)

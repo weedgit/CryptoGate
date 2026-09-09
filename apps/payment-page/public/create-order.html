@@ -6,7 +6,18 @@
     <title>PaymentGate — Create order (prototype)</title>
     <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./styles.css" />
+    <meta name="robots" content="noindex" />
+    <!-- DEMO ONLY — not a production merchant surface. Use merchant portal to create orders. -->
     <style>
+      .proto-banner {
+        margin: 0;
+        padding: 0.65rem 1.25rem;
+        background: rgba(251, 191, 36, 0.12);
+        border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+        color: #fde68a;
+        font-size: 0.85rem;
+        text-align: center;
+      }
       .form {
         display: grid;
         gap: 1rem;
@@ -54,11 +65,15 @@
     </style>
   </head>
   <body>
+    <p class="proto-banner" role="status">
+      Demo prototype only — production cashiers use the merchant portal or Cashier APK.
+    </p>
     <form class="form">
       <p class="brand">PaymentGate</p>
       <h1 class="amount" style="font-size: 1.8rem">Create payment order</h1>
       <p class="note">
-        Merchant / Cashier prototype. Calls <code>POST /v1/orders</code>
+        Merchant / Cashier <strong>prototype</strong> (not a production surface).
+        Calls <code>POST /v1/orders</code>
         (<code>assignOnCreate</code> is live). Matching mode is merchant default.
         Log in on the API first. Guest pay polls
         <code>GET /v1/orders/{id}/payment</code> (CORS landed — keep

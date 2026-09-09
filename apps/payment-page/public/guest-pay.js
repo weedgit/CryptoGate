@@ -1,4 +1,7 @@
-/** Live guest pay — poll GET /v1/orders/{id}/payment. Do not poll chain. */
+/**
+ * Live guest pay — poll GET /v1/orders/{id}/payment. Do not poll chain.
+ * (Renamed from mock-order.js — this is the production guest path.)
+ */
 const params = new URLSearchParams(location.search);
 const demoState = params.get("state") || "pending";
 const apiBase = (window.PAYMENTGATE_API_BASE || "http://127.0.0.1:3000").replace(

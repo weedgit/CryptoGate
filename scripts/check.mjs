@@ -102,6 +102,7 @@ run("node", [
   "apps/api/test/fee-tier-rules.test.mjs",
   "apps/api/test/fulfillment-policy-rules.test.mjs",
   "apps/api/test/network-maintenance-rules.test.mjs",
+  "apps/api/test/auth-mail.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);

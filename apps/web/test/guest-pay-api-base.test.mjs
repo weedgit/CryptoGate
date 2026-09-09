@@ -28,7 +28,7 @@ describe("guest payment page api base", () => {
     assert.match(index, /dataset\.payMode/);
 
     const mock = readFileSync(
-      join(root, "apps/payment-page/public/mock-order.js"),
+      join(root, "apps/payment-page/public/guest-pay.js"),
       "utf8",
     );
     assert.match(mock, /PAYMENTGATE_API_BASE/);

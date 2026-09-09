@@ -73,11 +73,11 @@ node scripts/deploy-wave5.mjs --local
 node scripts/e2e-mint-api-key.mjs
 # Then: node scripts/e2e-smoke.mjs --live
 
-# M1 payment-page prototypes
+# M1 payment-page (guest pay is production path; HTML extras are demos)
 npx pnpm@9.15.0 --filter @paymentgate/payment-page dev
-# → http://localhost:5173  (pay page)
-# → /create-order.html     (create-order prototype)
-# → /pos/                  (cashier POS wireframes)
+# → http://localhost:5173           guest pay (guest-pay.js)
+# → /create-order.html              create-order DEMO prototype
+# → /pos/                           cashier POS wireframes (DEMO; use cashier-apk)
 ```
 
 Demo login (minimal): run `node scripts/seed-local.mjs` — `own.platform@paymentgate.io` / `User1234567890!` (platform owner only).
