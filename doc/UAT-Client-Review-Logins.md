@@ -24,7 +24,7 @@ PaymentGate (platform)
 └── Atlas Agent → Atlas Sub-Agent → 4 merchants (+ multi-location sites)
 ```
 
-Merchants always sit under an **agent** or **sub-agent** (Phase 1 design — not directly under platform).
+Merchants may sit under an **agent** / **agent (sub)**, or **directly under Platform** (no agent required). Demo seed uses agent trees above; direct-under-Platform merchants are also allowed (see [Business-Model.md](Business-Model.md)).
 
 ---
 
