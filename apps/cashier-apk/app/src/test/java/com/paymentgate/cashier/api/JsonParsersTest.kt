@@ -139,6 +139,30 @@ class JsonParsersTest {
         assertEquals("50.01", pay.copyAmount)
         assertTrue(pay.qrPayload.startsWith("http"))
         assertEquals("Send the exact payable amount.", pay.payExactAmountWarning)
+        assertEquals(null, pay.txHash)
+
+        val paid =
+            JsonParsers.parsePaymentDetails(
+                """
+                {
+                  "orderNumber": "CG-2",
+                  "status": "completed",
+                  "merchantName": "Hotel",
+                  "matchingMode": "B",
+                  "paymentPageUrl": "http://localhost:5173/pay/ord-2",
+                  "qrPayload": "http://localhost:5173/pay/ord-2",
+                  "receiveAddress": "TMain",
+                  "payableAmount": { "amount": "10.00", "currency": "USDT" },
+                  "copyAmount": "10.00",
+                  "asset": "USDT",
+                  "network": "tron",
+                  "expiresAt": "2026-08-24T12:00:00.000Z",
+                  "wrongNetworkWarning": "Send only USDT on TRON TRC-20.",
+                  "txHash": "0xabc123deadbeef"
+                }
+                """.trimIndent(),
+            )
+        assertEquals("0xabc123deadbeef", paid.txHash)
     }
 }
 
@@ -153,6 +177,9 @@ class OrderStatusUiTest {
         assertTrue(OrderStatusUi.showsCompleted("completed"))
         assertFalse(OrderStatusUi.isTerminal("pending_payment"))
         assertFalse(OrderStatusUi.isTerminal("verifying"))
+        assertTrue(OrderStatusUi.isOpenPaymentOrder("pending_payment"))
+        assertTrue(OrderStatusUi.isOpenPaymentOrder("verifying"))
+        assertFalse(OrderStatusUi.isOpenPaymentOrder("completed"))
     }
 }
 

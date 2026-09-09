@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -74,9 +76,23 @@ fun OrderPayScreen(
         mutableIntStateOf(remainingSeconds(details.expiresAt))
     }
     var printing by remember { mutableStateOf(false) }
+    var confirmLeave by remember { mutableStateOf(false) }
+    val orderOpen = OrderStatusUi.isOpenPaymentOrder(details.status)
     val canPrint =
         onPrintReceipt != null &&
             (OrderStatusUi.showsCompleted(details.status) || OrderStatusUi.isAnomaly(details.status))
+
+    fun requestLeave() {
+        if (orderOpen) {
+            confirmLeave = true
+        } else {
+            onDone()
+        }
+    }
+
+    BackHandler(enabled = orderOpen) {
+        confirmLeave = true
+    }
 
     LaunchedEffect(details.expiresAt, details.status) {
         while (
@@ -86,6 +102,34 @@ fun OrderPayScreen(
             delay(1_000)
             remainingSec = remainingSeconds(details.expiresAt)
         }
+    }
+
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Leave open order?") },
+            text = {
+                Text(
+                    "Payment is still $statusLabel. Leaving hides the QR from this screen — " +
+                        "the order stays open until it expires or completes.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmLeave = false
+                        onDone()
+                    },
+                ) {
+                    Text("Leave anyway")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLeave = false }) {
+                    Text("Stay")
+                }
+            },
+        )
     }
 
     PosScreenFrame {
@@ -155,6 +199,15 @@ fun OrderPayScreen(
             fontSize = 13.sp,
             modifier = Modifier.fillMaxWidth(),
         )
+        details.txHash?.takeIf { it.isNotBlank() }?.let { hash ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Tx · $hash",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         details.memoOrTag?.let {
             Spacer(modifier = Modifier.height(8.dp))
             Text("Memo: $it", fontFamily = FontFamily.Monospace)
@@ -240,10 +293,10 @@ fun OrderPayScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(
-            onClick = onDone,
+            onClick = { requestLeave() },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("New order")
+            Text(if (orderOpen) "Leave / New order" else "New order")
         }
     }
     }

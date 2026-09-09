@@ -72,6 +72,8 @@ data class PaymentDetails(
     val contractAddress: String?,
     val confirmations: Int = 0,
     val requiredConfirmations: Int = 1,
+    /** Bound chain tx when watcher has matched (M5-05). */
+    val txHash: String? = null,
 )
 
 object OrderDefaults {

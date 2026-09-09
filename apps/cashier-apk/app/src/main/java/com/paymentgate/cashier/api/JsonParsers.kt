@@ -141,6 +141,7 @@ object JsonParsers {
             contractAddress = obj.optNullableString("contractAddress"),
             confirmations = obj.optInt("confirmations", 0),
             requiredConfirmations = obj.optInt("requiredConfirmations", 1),
+            txHash = obj.optNullableString("txHash"),
         )
     }
 

@@ -142,11 +142,7 @@ class MainActivity : ComponentActivity() {
                         signedIn &&
                             screen == PosScreen.Pay &&
                             payment != null &&
-                            (
-                                payment!!.status == OrderStatusUi.PENDING ||
-                                    payment!!.status == OrderStatusUi.VERIFYING ||
-                                    payment!!.status == OrderStatusUi.CONFIRMED
-                            )
+                            OrderStatusUi.isOpenPaymentOrder(payment!!.status)
                     KeepScreenOnWhile(enabled = keepAwake)
 
                     if (!signedIn) {

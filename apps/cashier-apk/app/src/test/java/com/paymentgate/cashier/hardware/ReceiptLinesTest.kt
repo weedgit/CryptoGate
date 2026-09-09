@@ -49,6 +49,29 @@ class ReceiptLinesTest {
     }
 
     @Test
+    fun completedReceipt_includesTxHashWhenPresent() {
+        val hash = "0x" + "ab".repeat(20)
+        val lines =
+            ReceiptLines.build(
+                ReceiptJob(
+                    merchantName = "Casablanca Main",
+                    orderNumber = "#CG-0847",
+                    printedAt = "2026-08-14 14:02",
+                    amountLine = "245.00 USDT",
+                    asset = "USDT",
+                    network = "tron",
+                    receiveAddress = "TX7s39gK1p9ZqR5mY8bV2wXn5uH4qW",
+                    statusLabel = "Completed",
+                    isAnomaly = false,
+                    txHash = hash,
+                ),
+            )
+        val texts = lines.map { it.text }
+        assertTrue(texts.any { it == "Tx" })
+        assertTrue(texts.any { it.startsWith("0xab") })
+    }
+
+    @Test
     fun wrapAddress_chunksLongAddress() {
         val addr = "A".repeat(70)
         val parts = ReceiptLines.wrapAddress(addr, 32)
