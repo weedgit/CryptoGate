@@ -29,7 +29,7 @@ type Props = {
   startOnMfa?: boolean;
 };
 
-type View = "login" | "forgot" | "reset" | "mfa" | "backup";
+type View = "login" | "forgot" | "reset" | "mfa";
 
 const RESEND_SECONDS = 30;
 const SHAKE_MS = 480;
@@ -59,7 +59,6 @@ export function PortalLoginPage({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
-  const [backupCode, setBackupCode] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
@@ -186,20 +185,6 @@ export function PortalLoginPage({
     await completeMfa(mfaCode);
   }
 
-  async function onBackupSubmit(event: FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await verifyMfa(backupCode.trim());
-      onSignedIn();
-    } catch (err) {
-      showAlarm(err instanceof ApiError ? err.message : "Invalid backup code", { shake: true });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function onCardShakeEnd(event: AnimationEvent<HTMLFormElement>) {
     if (event.animationName === "login-card-shake") {
       setShaking(false);
@@ -256,7 +241,6 @@ export function PortalLoginPage({
   function backToLogin() {
     setView("login");
     setMfaCode("");
-    setBackupCode("");
     setForgotEmail("");
     setForgotSent(false);
     setNewPassword("");
@@ -410,50 +394,11 @@ export function PortalLoginPage({
     );
   }
 
-  if (view === "mfa" || view === "backup") {
+  if (view === "mfa") {
     return (
       <>
         {alarm}
       <AuthLayout footer={false}>
-        {view === "backup" ? (
-          <form
-            className={loginCardClass("login-card--mfa")}
-            onSubmit={onBackupSubmit}
-            onAnimationEnd={onCardShakeEnd}
-          >
-            <div className="login-mfa-icon">
-              <ShieldIcon />
-            </div>
-            <div className="login-card-head login-card-head--center">
-              <h1>Backup code</h1>
-              <p>Enter one of your saved backup codes</p>
-            </div>
-            <AuthField
-              id="backup-code"
-              label="Backup code"
-              value={backupCode}
-              onChange={setBackupCode}
-              placeholder="Enter backup code"
-              disabled={loading}
-              autoComplete="off"
-              required
-            />
-            <button className="login-submit" type="submit" disabled={loading || !backupCode.trim()}>
-              {loading ? "Please wait…" : "Verify"}
-            </button>
-            <button
-              type="button"
-              className="login-text-link login-back-link"
-              onClick={() => {
-                setView("mfa");
-                setBackupCode("");
-                setError(null);
-              }}
-            >
-              Use authenticator code
-            </button>
-          </form>
-        ) : (
           <form
             className={loginCardClass("login-card--mfa")}
             onSubmit={onMfaSubmit}
@@ -490,16 +435,10 @@ export function PortalLoginPage({
                   </button>
                 )}
               </p>
-              <button
-                type="button"
-                className="login-text-link"
-                onClick={() => {
-                  setView("backup");
-                  setError(null);
-                }}
-              >
-                Use backup code
-              </button>
+              <p className="login-mfa-hint" style={{ margin: 0 }}>
+                Lost authenticator? Ask a platform Operator to clear MFA for
+                your account, then re-enroll from Profile.
+              </p>
             </div>
 
             {error ? (
@@ -510,7 +449,6 @@ export function PortalLoginPage({
               {loading ? "Please wait…" : "Verify"}
             </button>
           </form>
-        )}
       </AuthLayout>
       </>
     );

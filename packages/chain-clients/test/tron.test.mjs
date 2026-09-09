@@ -241,6 +241,7 @@ describe("@paymentgate/chain-clients/tron amount + map", () => {
       asset: "USDT",
       network: "tron",
       memoOrTag: undefined,
+      blockTimestampMs: undefined,
     });
   });
 

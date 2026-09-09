@@ -233,7 +233,7 @@ Update **§6 Status** below when a wave gate passes. No separate board file.
 | 1 Platform API | Commercial persist + tests | **Done** |
 | 2 Platform UI | B8/B13/B4/C6 wired | **Done** |
 | 3 MFA UX | Enroll + login | **Done** |
-| 4 Ethereum | Staging smoke + enable | **Todo** (client ready) |
+| 4 Ethereum | Staging smoke + enable | **Registry enabled** — staging RPC smoke still open ([M3-32](M3-32-Ethereum-Go-Live.md)) |
 | 5 Deploy/UAT | M3-T09 + M4-T04 + pilot | **Local deploy + restore drill + CVE + M1-T05 + invoice/commissions 2026-08-30** — Company A hostnames pending |
 | 6 X-backlog | Per ID | **X-02/X-03/X-04/X-07 · X-06 client scaffolded** (enable after ETH) |
 | 7 M5 hardware | Reference device | **Blocked** (client) |

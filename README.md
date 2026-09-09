@@ -19,9 +19,9 @@ Later phases (wallet, licensed fiat, token) are out of scope here.
 | Service bill generate + agent commissions + site inherit (Wave 6) | Wired |
 | Signed order create + webhook listener smoke (X-07) | Wired |
 | MFA login + merchant enroll | Wired |
-| USDT/Tron | Live |
-| USDT/Ethereum | Client ready — enable after staging smoke ([`doc/M3-32-Ethereum-Go-Live.md`](doc/M3-32-Ethereum-Go-Live.md)) |
-| USDT/BNB Smart Chain | Client ready (X-06) — still `enabled: false`; enable after Ethereum |
+| USDT/Tron | Live (when `TRON_RPC_URL` set) |
+| USDT/Ethereum | **Registry enabled** — run staging RPC smoke ([`doc/M3-32-Ethereum-Go-Live.md`](doc/M3-32-Ethereum-Go-Live.md)); ingest needs `ETH_RPC_URL` |
+| Other §VI pairs | **Registry enabled** — create-order accepts; completion needs per-network `*_RPC_URL`. Prefer Platform → Networks maintenance until smoked. |
 
 **Your review:** run `node scripts/check.mjs` (without exporting a live `DATABASE_URL`), bring up API + web + payment-page, walk [`doc/M1-T05-Demo-Script.md`](doc/M1-T05-Demo-Script.md). Machine-key E2E: [`doc/X-07-E2E-Smoke.md`](doc/X-07-E2E-Smoke.md).  
 **Blocked on you:** Company A hostnames (M3-T09), pilot merchant (M4-40), reference POS device (M5-01), scope sign-off (M1-01).

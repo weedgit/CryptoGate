@@ -1,9 +1,9 @@
 # M3-32 — USDT / Ethereum go-live (Kevin)
 
 **Owner:** Kevin flips registry + docs. **Ingest:** Bruce — PR #90 (`packages/chain-clients/ethereum/`).  
-**Registry:** `USDT_ETHEREUM` in `@paymentgate/domain` (currently **`enabled: false`**).
+**Registry:** `USDT_ETHEREUM` in `@paymentgate/domain` is currently **`enabled: true`**. Create-order accepts the pair; completion still requires watcher `ETH_RPC_URL` + confirmations.
 
-Do **not** set `enabled: true` until staging smoke passes — create-order must stay **422** until ingest is ready.
+Do **not** treat “enabled” as “ops go-live.” Staging smoke (§2) must pass before promising ETH to merchants. Until smoked, put `ethereum` in Platform → Networks maintenance if needed.
 
 ---
 

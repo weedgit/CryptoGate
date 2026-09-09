@@ -125,13 +125,14 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 - QR code for authenticator app
 - Manual secret key (copy button)
 - Verification code input to confirm enrollment
-- **Download backup codes** button (one-time display)
-- Checkbox: “I have saved my backup codes”
+- **Replace authenticator** (Profile) — password check clears MFA so the user can re-enroll
+- Phase 1 does **not** issue downloadable backup codes (UI must not offer them until API exists)
 
 **States**
 
 - Forced enrollment banner on dashboard until complete (Owner/Admin)
 - Success toast: “MFA enabled.”
+- Lost device: platform Operator clears MFA, then user re-enrolls
 
 ---
 

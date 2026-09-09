@@ -13,6 +13,7 @@ out/
 *.aab
 package-lock.json
 .pnpm-store/
+.tools/
 
 # OS / editor
 .deploy/

@@ -72,6 +72,7 @@ describe("@paymentgate/chain-clients/bnb_smart_chain map (18 decimals)", () => {
     );
     assert.deepEqual(mapped, {
       toAddress: to,
+      fromAddress: "0x1111111111111111111111111111111111111111",
       amount: "1",
       txHash: "0xbscabc",
       asset: "USDT",

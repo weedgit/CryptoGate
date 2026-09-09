@@ -41,6 +41,7 @@ run("node", [
   "--test",
   "packages/matching/test/matching.test.mjs",
   "packages/matching/test/acceptance-2.8.test.mjs",
+  "packages/matching/test/mode-b.test.mjs",
 ]);
 
 ensureChainClientsDomainLink();
@@ -48,12 +49,14 @@ run("node", [
   "--test",
   "packages/chain-clients/test/tron.test.mjs",
   "packages/chain-clients/test/ethereum.test.mjs",
+  "packages/chain-clients/test/bnb_smart_chain.test.mjs",
 ]);
 run("node", [
   "--test",
   "apps/watcher/test/watcher.test.mjs",
   "apps/watcher/test/health-score.test.mjs",
   "apps/watcher/test/ethereum-tick.test.mjs",
+  "apps/watcher/test/bnb-smart-chain-tick.test.mjs",
   "apps/watcher/test/inbound-match.test.mjs",
   "apps/watcher/test/confirmations.test.mjs",
   "apps/watcher/test/restart-safety.test.mjs",
@@ -96,12 +99,22 @@ run("node", [
   "apps/api/test/retention-rules.test.mjs",
   "apps/api/test/authz-regression.test.mjs",
   "apps/api/test/load-m4-12.test.mjs",
+  "apps/api/test/fee-tier-rules.test.mjs",
+  "apps/api/test/fulfillment-policy-rules.test.mjs",
+  "apps/api/test/network-maintenance-rules.test.mjs",
 ]);
 run("node", ["apps/api/src/health.mjs"]);
 run("node", ["--test", "apps/cashier-apk/scripts/check-scaffold.mjs"]);
 run("node", ["doc/examples/webhook-verify.mjs"]);
 run("node", ["doc/examples/api-signing-smoke.mjs"]);
-run("node", ["--test", "apps/web/test/platform-m4-30.test.mjs", "apps/web/test/agent-m4-31.test.mjs", "apps/web/test/merchant-m2-60.test.mjs"]);
+run("node", [
+  "--test",
+  "apps/web/test/platform-m4-30.test.mjs",
+  "apps/web/test/agent-m4-31.test.mjs",
+  "apps/web/test/merchant-m2-60.test.mjs",
+  "apps/web/test/responsive-ui-smoke.test.mjs",
+  "apps/web/test/useAutoSelectOrgListRow.test.mjs",
+]);
 run("node", ["apps/api/scripts/load-m4-12.mjs"]);
 
 console.log("Check: ok (OpenAPI v0.3.5 + site inherit + M4-12 load smoke + M3 samples)");
