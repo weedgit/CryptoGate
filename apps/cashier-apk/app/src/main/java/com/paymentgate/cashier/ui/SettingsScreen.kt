@@ -42,12 +42,14 @@ fun SettingsScreen(
     customerDisplayAvailable: Boolean,
     lastReceipt: ReceiptJob?,
     onReprint: suspend () -> PrintOutcome,
+    onTestPrint: (suspend () -> PrintOutcome)? = null,
     onBack: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reprinting by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
 
     PosScreenFrame {
         Column(
@@ -72,6 +74,34 @@ fun SettingsScreen(
                 text = if (printerAvailable) "Thermal 80 mm · $printerStatusLabel" else "Not available (generic build)",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            if (onTestPrint != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            testing = true
+                            try {
+                                when (val outcome = onTestPrint()) {
+                                    PrintOutcome.Ok ->
+                                        Toast.makeText(context, "Test feed sent", Toast.LENGTH_SHORT).show()
+                                    is PrintOutcome.Failed ->
+                                        Toast.makeText(
+                                            context,
+                                            printFailureMessage(outcome),
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                }
+                            } finally {
+                                testing = false
+                            }
+                        }
+                    },
+                    enabled = !testing && printerAvailable,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (testing) "Testing…" else "Test thermal feed")
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "CUSTOMER DISPLAY",
@@ -106,8 +136,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = {
-                    val job = lastReceipt
-                    if (job == null) {
+                    if (lastReceipt == null) {
                         Toast.makeText(context, "No receipt to reprint yet", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
@@ -118,7 +147,11 @@ fun SettingsScreen(
                                 PrintOutcome.Ok ->
                                     Toast.makeText(context, "Receipt sent to printer", Toast.LENGTH_SHORT).show()
                                 is PrintOutcome.Failed ->
-                                    Toast.makeText(context, printFailureMessage(outcome), Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        context,
+                                        printFailureMessage(outcome),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
                             }
                         } finally {
                             reprinting = false

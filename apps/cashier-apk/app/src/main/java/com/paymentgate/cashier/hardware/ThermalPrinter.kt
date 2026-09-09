@@ -11,6 +11,9 @@ interface ThermalPrinter {
 
     /** Blocking — call off the main thread (SDK executor / IO dispatcher). */
     fun printReceipt(job: ReceiptJob): PrintOutcome
+
+    /** Short hardware smoke print (Settings → Test thermal feed). */
+    fun printTestFeed(): PrintOutcome
 }
 
 enum class PrinterHwStatus {

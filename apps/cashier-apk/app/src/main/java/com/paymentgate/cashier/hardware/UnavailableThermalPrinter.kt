@@ -13,4 +13,7 @@ class UnavailableThermalPrinter(
 
     override fun printReceipt(job: ReceiptJob): PrintOutcome =
         PrintOutcome.Failed(PrinterHwStatus.Unavailable, detail)
+
+    override fun printTestFeed(): PrintOutcome =
+        PrintOutcome.Failed(PrinterHwStatus.Unavailable, detail)
 }

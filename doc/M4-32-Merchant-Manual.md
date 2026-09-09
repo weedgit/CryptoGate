@@ -159,6 +159,7 @@ Merchants may deploy the **Cashier Android POS** app for counter staff. It uses 
 | Create payment orders (amount, asset, network, validity) | ✓ |
 | Show QR / amount / network / address from the server | ✓ |
 | Poll order status until Completed / Expired / Payment anomaly | ✓ |
+| Print / reprint customer receipt (Z108S thermal 80 mm) | ✓ when hardware present |
 | Change settlement address, xPub, matching mode, fees | **No** (403) |
 | Mark an order paid locally | **No** — server + chain only |
 
@@ -167,7 +168,15 @@ Merchants may deploy the **Cashier Android POS** app for counter staff. It uses 
 - **Two app flavors:** **Test** (`com.paymentgate.cashier.staging`) and **Production** (`com.paymentgate.cashier`). Install the flavor that matches your environment ([M4-05-Env-Matrix.md](M4-05-Env-Matrix.md)).
 - **MFA:** If the Cashier user’s org requires MFA, login may direct staff to complete MFA on the **web** portal first — the POS does not enroll MFA.
 - **Offline:** Create order is blocked without network; existing orders continue polling when connectivity returns.
-- **Receipt / printer:** Generic Android shows QR on screen. Built-in printer and customer-facing second screen depend on the **reference POS device** (M5-01) — see install notes.
+- **Reference device (Z108S):** Built-in **80 mm** printer and ~3.95″ customer screen. Guest QR appears on the customer display while the order is open. Cashiers should not leave an open order without confirming (Back / Leave).
+- **Generic phone/tablet:** QR stays on the cashier screen; print/second-screen features show as unavailable until Z108S (or another approved SKU) is used.
+
+### Daily counter flow (Z108S)
+
+1. Sign in → **Create order** → show QR to guest (customer screen).  
+2. Wait for **Completed** (or **Payment anomaly** — do not treat as a completed sale).  
+3. **Print customer receipt** (tx hash when available) → **New order**.  
+4. **Settings:** test thermal feed, reprint last receipt, sign out.
 
 ### Install (IT / Company A)
 
