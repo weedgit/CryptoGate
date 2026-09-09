@@ -827,29 +827,35 @@ export function SettlementPage({ session }: Props) {
                     <h3 className="plat-settlement__form-title">Register or rotate xPub</h3>
                   </div>
                   <div className="plat-settlement__field-row plat-settlement__field-row--pair">
-                    <FieldControl label="Asset" className="plat-settlement__field--grow">
-                      <SearchableSelect
-                        value={xPubAsset}
-                        options={assetSelectOptions}
-                        disabled={savingXpub || readOnly}
-                        onChange={(next) => {
-                          setXPubAsset(next);
-                          const rows = pairsForAsset(next);
-                          const live = rows.find((r) => r.enabled);
-                          if (live) setXPubNetwork(live.network);
-                        }}
-                        ariaLabel="xPub asset"
-                      />
-                    </FieldControl>
-                    <FieldControl label="Network" className="plat-settlement__field--grow">
-                      <SearchableSelect
-                        value={xPubNetwork}
-                        options={xPubNetworkSelectOptions}
-                        disabled={savingXpub || readOnly}
-                        onChange={setXPubNetwork}
-                        ariaLabel="xPub network"
-                      />
-                    </FieldControl>
+                    <label className="plat-settings__field plat-settlement__field--grow">
+                      <span>Asset</span>
+                      <FieldControl>
+                        <SearchableSelect
+                          value={xPubAsset}
+                          options={assetSelectOptions}
+                          disabled={savingXpub || readOnly}
+                          onChange={(next) => {
+                            setXPubAsset(next);
+                            const rows = pairsForAsset(next);
+                            const live = rows.find((r) => r.enabled);
+                            if (live) setXPubNetwork(live.network);
+                          }}
+                          ariaLabel="xPub asset"
+                        />
+                      </FieldControl>
+                    </label>
+                    <label className="plat-settings__field plat-settlement__field--grow">
+                      <span>Network</span>
+                      <FieldControl>
+                        <SearchableSelect
+                          value={xPubNetwork}
+                          options={xPubNetworkSelectOptions}
+                          disabled={savingXpub || readOnly}
+                          onChange={setXPubNetwork}
+                          ariaLabel="xPub network"
+                        />
+                      </FieldControl>
+                    </label>
                   </div>
                   <div className="plat-settlement__field-row plat-settlement__field-row--xpub">
                     <label className="plat-settings__field plat-settlement__field--grow">

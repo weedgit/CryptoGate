@@ -315,9 +315,9 @@ export async function listActiveNetworkMaintenance(): Promise<
 }
 
 export type NetworkOrderabilityLamp = {
-  code: "open" | "paused" | "down" | "off";
+  code: "open" | "paused" | "down" | "off" | "checking";
   label: string;
-  tone: string;
+  tone: "ok" | "warn" | "bad" | "muted";
 };
 
 export type NetworksStatus = {

@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --import ./scripts/register-ts.mjs --test test/*.test.mjs",
     "lint": "node -e \"process.exit(0)\""
   },
   "dependencies": {

@@ -58,7 +58,7 @@ type Props = { session: Session };
 
 function formatLoadError(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 404 && err.message === "Not found") {
+    if (err.httpStatus === 404 && err.message === "Not found") {
       return "Alerts API route not found — restart the API after migration 048.";
     }
     return err.message;

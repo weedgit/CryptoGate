@@ -734,10 +734,7 @@ export function AuthBackground() {
           />
 
           <foreignObject x="80" y="0" width="430" height="1000">
-            <div
-              xmlns="http://www.w3.org/1999/xhtml"
-              className="auth-left-decor auth-left-decor--centered"
-            >
+            <div className="auth-left-decor auth-left-decor--centered">
               <AuthBackgroundLeftInvoice
                 reducedMotion={reducedMotion}
                 underWordmark

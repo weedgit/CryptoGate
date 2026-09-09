@@ -607,9 +607,9 @@ export async function getWatcherHealth(): Promise<WatcherHealthList> {
 }
 
 export type NetworkOrderabilityLamp = {
-  code: "open" | "paused" | "down" | "off";
-  label: "Open" | "Paused" | "Down" | "Off" | string;
-  tone: "ok" | "warn" | "bad" | "muted" | string;
+  code: "open" | "paused" | "down" | "off" | "checking";
+  label: string;
+  tone: "ok" | "warn" | "bad" | "muted";
 };
 
 export type NetworkCatalogIngestStatus =

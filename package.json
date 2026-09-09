@@ -6,11 +6,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm -r --if-present run build",
-    "lint": "pnpm -r --if-present run lint",
-    "test": "pnpm -r --if-present run test",
-    "typecheck": "pnpm -r --if-present run typecheck",
-    "openapi:lint": "pnpm --filter @paymentgate/api-spec run lint",
+    "build": "node ./scripts/run-pnpm.mjs -r --if-present run build",
+    "lint": "node ./scripts/run-pnpm.mjs -r --if-present run lint",
+    "test": "node ./scripts/run-pnpm.mjs -r --if-present run test",
+    "typecheck": "node ./scripts/run-pnpm.mjs -r --if-present run typecheck",
+    "openapi:lint": "node ./scripts/run-pnpm.mjs --filter @paymentgate/api-spec run lint",
     "check": "node ./scripts/check.mjs",
     "e2e": "node ./scripts/e2e-smoke.mjs",
     "e2e:check": "node ./scripts/e2e-smoke.mjs --check",
