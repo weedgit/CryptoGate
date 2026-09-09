@@ -14,6 +14,12 @@ class ZcsSmartPosPrinter private constructor() : ThermalPrinter {
             "SmartPos AAR missing — copy vendor AAR for Z108S builds",
         )
 
+    override fun printTestFeed(): PrintOutcome =
+        PrintOutcome.Failed(
+            PrinterHwStatus.Unavailable,
+            "SmartPos AAR missing — copy vendor AAR for Z108S builds",
+        )
+
     companion object {
         fun create(): ThermalPrinter = ZcsSmartPosPrinter()
     }

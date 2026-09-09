@@ -51,6 +51,57 @@ class ZcsSmartPosPrinter private constructor(
         return result.get()
     }
 
+    override fun printTestFeed(): PrintOutcome {
+        val latch = CountDownLatch(1)
+        val result = AtomicReference<PrintOutcome>(
+            PrintOutcome.Failed(PrinterHwStatus.Unknown, "Test feed did not start"),
+        )
+        driver.singleThreadExecutor.execute {
+            try {
+                result.set(printTestOnSdkThread())
+            } catch (e: Exception) {
+                Log.e(TAG, "printTestFeed failed", e)
+                result.set(
+                    PrintOutcome.Failed(
+                        PrinterHwStatus.Fault,
+                        e.message ?: "Printer exception",
+                    ),
+                )
+            } finally {
+                latch.countDown()
+            }
+        }
+        if (!latch.await(30, TimeUnit.SECONDS)) {
+            return PrintOutcome.Failed(PrinterHwStatus.Fault, "Test feed timed out")
+        }
+        return result.get()
+    }
+
+    private fun printTestOnSdkThread(): PrintOutcome {
+        val statusCode = printer.getPrinterStatus()
+        if (statusCode == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
+            return PrintOutcome.Failed(PrinterHwStatus.OutOfPaper, "Out of paper")
+        }
+        val title = formatFor(ReceiptStyle.Title)
+        val body = formatFor(ReceiptStyle.Body)
+        printer.setPrintAppendString("PaymentGate POS", title)
+        printer.setPrintAppendString("TEST THERMAL FEED — 80 mm", body)
+        printer.setPrintAppendString("Z108S / SmartPos printer OK", body)
+        printer.setPrintAppendString("", body)
+        printer.setPrintAppendString("", body)
+        val start = printer.setPrintStart()
+        if (start == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
+            return PrintOutcome.Failed(PrinterHwStatus.OutOfPaper, "Out of paper")
+        }
+        if (start != SdkResult.SDK_OK) {
+            return PrintOutcome.Failed(mapStatus(start), "setPrintStart=$start")
+        }
+        if (printer.isSupportCutter) {
+            runCatching { printer.openPrnCutter(1.toByte()) }
+        }
+        return PrintOutcome.Ok
+    }
+
     private fun printOnSdkThread(job: ReceiptJob): PrintOutcome {
         val statusCode = printer.getPrinterStatus()
         if (statusCode == SdkResult.SDK_PRN_STATUS_PAPEROUT) {

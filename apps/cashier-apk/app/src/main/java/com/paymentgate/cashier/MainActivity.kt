@@ -262,6 +262,11 @@ class MainActivity : ComponentActivity() {
                                         app.thermalPrinter.printReceipt(job)
                                     }
                                 },
+                                onTestPrint = {
+                                    withContext(Dispatchers.IO) {
+                                        app.thermalPrinter.printTestFeed()
+                                    }
+                                },
                                 onBack = { screen = PosScreen.Home },
                                 onSignOut = {
                                     scope.launch {

@@ -112,9 +112,20 @@ Typical flow (Intune, VMware Workspace ONE, Samsung Knox, vendor POS MDM):
 
 **Staging fleet:** separate MDM assignment with **staging** APK; restrict to test Wi‑Fi/VPN if possible.
 
-### 4.4 Reference POS SKU (M5-01)
+### 4.4 Reference POS SKU — Z108S (M5-01)
 
-When Company A confirms make/model/Android/SDK, repeat install on the **reference device** and attach vendor printer/second-screen SDK notes to M5-01. Until then, generic Android sideload satisfies Phase 1 fallback ([Milestone-Task-List.md](Milestone-Task-List.md) M5-T05).
+**Confirmed reference:** ZCS **Z108S**, Android 14 (verify on unit), SmartPos AAR (`SmartPos_2.0.4` / `2.0.6` pack). Default thermal paper **80 mm**. Model was omitted from some ZCS PDF guides; same SmartPos APIs apply ([M5-01-Reference-Device.md](M5-01-Reference-Device.md)).
+
+| Step | Action |
+| --- | --- |
+| 1 | Build staging/prod with vendor AAR on classpath (`HAS_SMARTPOS=true`) — see [M5-02](M5-02-Cashier-Printer.md) / [M5-03](M5-03-Customer-Display.md) |
+| 2 | Sideload staging APK; login as Cashier |
+| 3 | **Settings → Test thermal feed** — confirms 80 mm printer |
+| 4 | Create order — customer LCD shows amount, network, warning, QR |
+| 5 | Complete on-chain payment — print receipt (includes tx hash when API returns it) |
+| 6 | Reprint last receipt; leave open order requires confirm |
+
+Until the unit is on-site, generic Android sideload satisfies Phase 1 fallback ([Milestone-Task-List.md](Milestone-Task-List.md) M5-T05); printer/second-screen items waived then retested on Z108S.
 
 ---
 
@@ -129,6 +140,8 @@ When Company A confirms make/model/Android/SDK, repeat install on the **referenc
 | 5 | Status poll reaches Completed / Expired / **Payment anomaly** — never local “paid” |
 | 6 | Airplane mode → create blocked; graceful error (M2-74) |
 | 7 | Settlement / matching settings **not** visible; API 403 if forced |
+| 8 | **Z108S:** Settings → Test thermal feed; customer second screen mirrors Pay QR |
+| 9 | **Z108S:** Completed print includes order #, amount, asset, network, address, status, tx hash when known |
 
 Full acceptance: [M3-Acceptance.md](M3-Acceptance.md) M3-T10 · merchant POS chapter [M4-32](M4-32-Merchant-Manual.md) §11.
 
