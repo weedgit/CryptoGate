@@ -23,7 +23,11 @@ Phase 1 deploys on **Company A accounts** (requirement). This pack is what Kevin
 | [M4-36-Audit-Bills-v032.md](M4-36-Audit-Bills-v032.md) | OpenAPI v0.3.2 (audit + bill PATCH) |
 | [X-01-Fee-Tiers-v033.md](X-01-Fee-Tiers-v033.md) | OpenAPI v0.3.3 fee tiers |
 | [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) | POS sideload / MDM / checksum |
+| [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md) | ETH smoke (`scripts/eth-smoke.mjs`) |
 | Repo | Delivered source — `main` branch, tag TBD at release |
+
+**Solo pre-flight (no Company A DNS):** `node scripts/staging-ready.mjs`  
+**Local stack:** `node scripts/deploy-wave5.mjs --local` then `--down`
 
 Repo root: `.env.example` (variable catalog).
 
@@ -133,6 +137,8 @@ Repeat per [M4-01](M4-01-Deploy-Runbook.md) §5 on **test** only.
 | 11 | Update [M4-05](M4-05-Env-Matrix.md) §Company A fill-in with real URLs | |
 | 12 | Send integrators test base URL + [M3-02](M3-02-Integration-Guide.md) | |
 | 13 | Mark M3-T09 complete in [Phase1-Implementation-Plan.md](Phase1-Implementation-Plan.md) §6 | |
+| 14 | Optional SMTP: `MAIL_TRANSPORT=smtp` + `SMTP_HOST` (Mailhog / provider) | |
+| 15 | Optional ETH: `ETH_RPC_URL=… node scripts/eth-smoke.mjs` then create USDT/ethereum order | |
 
 Optional: run [monitoring-queries.sql](examples/monitoring-queries.sql) after 24h uptime.
 
@@ -145,7 +151,7 @@ When §3 test URLs are final, send integrators:
 > **PaymentGate test API:** `{API}/v1`  
 > **Signing / webhooks:** `doc/M3-02-Integration-Guide.md`  
 > **Verify sample:** `doc/examples/webhook-verify.mjs`  
-> **Assets:** USDT on Tron only (`doc/M3-04-Asset-Networks.md`)  
+> **Assets:** enabled pairs in `doc/M3-04-Asset-Networks.md` (Tron live; others need RPC smoke)  
 > Create keys on test via `POST /v1/api-keys` — do not reuse prod keys.
 
 ---
@@ -155,13 +161,15 @@ When §3 test URLs are final, send integrators:
 | Deliverable | Status |
 | --- | --- |
 | This pack + email template | **Done** |
+| Solo hermetic staging-ready (`scripts/staging-ready.mjs`) | **Done 2026-09-10** |
+| Local migrate through **052** + API health + e2e smoke | **Done 2026-09-10** (`deploy-wave5 --prepare/--up/--smoke`) |
 | Company A filled §3 table | **Pending** client |
-| First test deploy smoke | **Pending** DNS/TLS/DB |
-| M3-T09 acceptance | **Pending** §5 complete |
+| First test deploy smoke on Company A hosts | **Pending** DNS/TLS/DB |
+| M3-T09 acceptance | **Pending** §5 complete on their env |
 
 ---
 
 ## Related
 
 - M3 acceptance gate: [M3-Acceptance.md](M3-Acceptance.md)  
-- Contract freeze: [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md) (OpenAPI **v0.3.2**)
+- Contract freeze: [CONTRACT-FREEZE.md](CONTRACT-FREEZE.md) (OpenAPI **v0.3.5**)

@@ -33,7 +33,7 @@ Phase 1 ships as **source that Company A deploys** on **Company A cloud accounts
 
 Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
 
-**Migrations:** always run API migrate before new routes (e.g. **017** for API keys). Watcher uses the same DB; it does not own migrations.
+| Migrations:** always run API migrate before new routes (through **052** on current `main`). Watcher uses the same DB; it does not own migrations.
 
 ---
 
@@ -90,11 +90,13 @@ node scripts/check.mjs   # contract gate
 
 # Or one-shot local / staging-shaped deploy:
 node scripts/deploy-wave5.mjs
+# Hermetic pre-flight (no Docker DNS required):
+node scripts/staging-ready.mjs
 # Company A test host: set DATABASE_URL + API_PUBLIC_BASE_URL, then same script.
 
 # 2) Configure secrets (inject DATABASE_URL, SESSION_SECRET, …)
 
-# 3) Migrate (API owns schema) — include 017 before /v1/api-keys
+# 3) Migrate (API owns schema) — through **052** on current main
 pnpm --filter @paymentgate/api migrate
 
 # 4) Start API (systemd / container / process manager)
