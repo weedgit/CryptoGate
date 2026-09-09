@@ -11,18 +11,20 @@ Company A must confirm the **handheld Android POS** make, model, Android version
 
 | Field | Value |
 | --- | --- |
-| Make / manufacturer | |
-| Model | |
-| Android version (device) | |
-| Target SDK / vendor build | |
-| Thermal printer SDK name + version | |
-| Customer display / second screen SDK | |
+| Make / manufacturer | ZCS (Shenzhen ZCS) |
+| Model | **Z108S** (Company A / ZCS selected reference SKU) |
+| Android version (device) | Android **14.0** (vendor datasheet) — verify on unit at install |
+| Target SDK / vendor build | SmartPos pack: `ZCS POS -SDK/SmartPos_2.0.6_R260615_SDK` (AAR: `SmartPos_2.0.4_R260318.aar`). **ZCS: Z108S omitted from written guide only — same SmartPos APIs apply.** |
+| Thermal printer SDK name + version | `com.zcs.sdk.Printer` via SmartPos AAR; **default paper width 80 mm** (ZCS confirmed) |
+| Customer display / second screen SDK | `Sys.showBitmapOnSecondaryScreen` (and related); Z108S ~**3.95″** customer screen |
 | MDM in use (if any) | |
 | Quantity for pilot | |
-| Primary contact | |
-| Signed / date | |
+| Primary contact | ZCS support (Kevin) |
+| Signed / date | **In progress** — model + paper width confirmed; hardware smoke-test still recommended |
 
-**Attachment:** product datasheet or vendor integration guide (PDF).
+**Attachment:** product datasheet or vendor integration guide (PDF). Local vendor pack: `ZCS POS -SDK/` (not for git push of large binaries unless agreed).
+
+**SDK note:** Official `zcs_pos_guide_EN.pdf` lists Z90 / Z91 / Z92 / Z100; ZCS stated **Z108S was simply omitted from documentation** and uses the same SmartPos SDK. Prefer `PAPER_WIDTH_80MM` (576 px) in print layout (see ZcsSdkDemo `PrintFragment`).
 
 ---
 
@@ -32,8 +34,8 @@ Company A must confirm the **handheld Android POS** make, model, Android version
 | --- | --- | --- |
 | Login, create order, QR | ✓ | ✓ |
 | Status poll incl. anomaly | ✓ | ✓ |
-| Thermal receipt on Completed | Screen only | M5-02 (Bruce) |
-| Customer-facing display | N/A | M5-03 (Bruce) |
+| Thermal receipt on Completed | Screen only | M5-02 (Bruce) — see [M5-02-Cashier-Printer.md](M5-02-Cashier-Printer.md) |
+| Customer-facing display | N/A | M5-03 (Bruce) — see [M5-03-Customer-Display.md](M5-03-Customer-Display.md) |
 | Install path | [M5-08](M5-08-Cashier-Apk-Install.md) | Same + OEM notes |
 
 ---

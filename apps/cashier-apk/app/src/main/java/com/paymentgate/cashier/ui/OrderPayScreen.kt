@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -23,7 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,9 +38,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentDetails
+import com.paymentgate.cashier.hardware.PrintOutcome
+import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.qr.QrBitmaps
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun OrderPayScreen(
@@ -47,9 +54,11 @@ fun OrderPayScreen(
     canCancel: Boolean = false,
     cancelling: Boolean = false,
     onCancel: (() -> Unit)? = null,
+    onPrintReceipt: (suspend () -> PrintOutcome)? = null,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val qr = remember(details.qrPayload) { QrBitmaps.encode(details.qrPayload) }
     val statusLabel = OrderStatusUi.label(details.status)
     val statusColor =
@@ -64,6 +73,10 @@ fun OrderPayScreen(
     var remainingSec by remember(details.expiresAt, details.status) {
         mutableIntStateOf(remainingSeconds(details.expiresAt))
     }
+    var printing by remember { mutableStateOf(false) }
+    val canPrint =
+        onPrintReceipt != null &&
+            (OrderStatusUi.showsCompleted(details.status) || OrderStatusUi.isAnomaly(details.status))
 
     LaunchedEffect(details.expiresAt, details.status) {
         while (
@@ -191,6 +204,40 @@ fun OrderPayScreen(
                 Text(if (cancelling) "Cancelling…" else "Cancel pending order")
             }
         }
+        if (canPrint && onPrintReceipt != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        printing = true
+                        try {
+                            when (val outcome = onPrintReceipt()) {
+                                PrintOutcome.Ok ->
+                                    Toast.makeText(context, "Receipt sent to printer", Toast.LENGTH_SHORT).show()
+                                is PrintOutcome.Failed ->
+                                    Toast.makeText(
+                                        context,
+                                        printFailureMessage(outcome),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                            }
+                        } finally {
+                            printing = false
+                        }
+                    }
+                },
+                enabled = !printing,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        printing -> "Printing…"
+                        OrderStatusUi.isAnomaly(details.status) -> "Print anomaly receipt"
+                        else -> "Print customer receipt"
+                    },
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(
             onClick = onDone,
@@ -201,6 +248,20 @@ fun OrderPayScreen(
     }
     }
 }
+
+fun printFailureMessage(outcome: PrintOutcome.Failed): String =
+    when (outcome.reason) {
+        PrinterHwStatus.OutOfPaper -> "Out of paper — load 80 mm roll and retry"
+        PrinterHwStatus.Unavailable ->
+            outcome.detail ?: "Printer unavailable (generic device or missing SmartPos SDK)"
+        PrinterHwStatus.Fault -> outcome.detail ?: "Printer fault — check cover and try again"
+        else -> outcome.detail ?: "Print failed"
+    }
+
+fun formatReceiptPrintedAt(zone: ZoneId = ZoneId.systemDefault()): String =
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        .withZone(zone)
+        .format(Instant.now())
 
 private fun remainingSeconds(expiresAt: String): Int {
     return runCatching {

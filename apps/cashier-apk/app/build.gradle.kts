@@ -6,6 +6,25 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// M5-02: optional ZCS SmartPos AAR (Z108S). Prefer local app/libs, else vendor pack under repo.
+val smartPosAarCandidates =
+    listOf(
+        file("libs/SmartPos_2.0.6_R260615.aar"),
+        file("libs/SmartPos_2.0.4_R260318.aar"),
+        file("libs/SmartPos.aar"),
+        rootProject.file(
+            "../../ZCS POS -SDK/SmartPos_2.0.6_R260615_SDK/demo/ZcsSdkDemo/app/libs/SmartPos_2.0.6_R260615.aar",
+        ),
+        rootProject.file(
+            "../../ZCS POS -SDK/SmartPos_2.0.6_R260615_SDK/libs/SmartPos_2.0.4_R260318.aar",
+        ),
+        rootProject.file(
+            "../../ZCS POS -SDK/SmartPos_2.0.4_R260318_SDK/libs/SmartPos_2.0.4_R260318.aar",
+        ),
+    )
+val smartPosAar = smartPosAarCandidates.firstOrNull { it.isFile }
+val hasSmartPos = smartPosAar != null
+
 android {
     namespace = "com.paymentgate.cashier"
     compileSdk = 35
@@ -15,8 +34,16 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0-m4-23"
+        versionName = "0.1.0-m5-hw"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "HAS_SMARTPOS", hasSmartPos.toString())
+    }
+
+    // Real ZCS bindings when AAR present; stub otherwise so CI/laptops compile.
+    sourceSets {
+        getByName("main") {
+            java.srcDir(if (hasSmartPos) "src/zcs/java" else "src/noZcs/java")
+        }
     }
 
     // M4-23: test vs prod API base URL (+ optional release signing).
@@ -105,6 +132,10 @@ android {
 }
 
 dependencies {
+    if (hasSmartPos) {
+        implementation(files(smartPosAar!!))
+    }
+
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)

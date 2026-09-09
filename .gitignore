@@ -27,3 +27,6 @@ Thumbs.db
 **/local.properties
 **/.gradle/
 apps/cashier-apk/**/build/
+
+# Vendor POS SDK packs (large binaries / demos — keep local only)
+ZCS POS -SDK/

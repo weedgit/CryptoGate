@@ -1,7 +1,7 @@
 # Cashier APK (apps/cashier-apk)
 
 **Owner:** Bruce  
-**Milestone:** M2-70 scaffold → M2-71 create order → M2-72 QR display → M3-70 status poll → M4-23 flavors
+**Milestone:** M2-70 scaffold → M2-71 create order → M2-72 QR display → M3-70 status poll → M4-23 flavors → **M5-02 printer** → **M5-03 customer display**
 
 ## Invariants
 
@@ -13,6 +13,8 @@
 - Create order sends only `amount`, `asset`, `network`, `validitySeconds` plus `Idempotency-Key`. Never matchingMode / receiveAddress / fees.
 - QR and copy fields come from `GET /v1/orders/{id}/payment` (same payload as the guest page). No “mark paid”.
 - Pay screen polls that endpoint every 4s until a terminal status. Anomaly is labeled **Payment anomaly**, never Completed.
+- Thermal print (Z108S / SmartPos) is optional hardware — see [M5-02-Cashier-Printer.md](M5-02-Cashier-Printer.md). Generic builds use a no-op printer stub.
+- Customer second screen mirrors pay fields only (G5) — see [M5-03-Customer-Display.md](M5-03-Customer-Display.md).
 
 ## Open in Android Studio
 

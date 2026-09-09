@@ -342,16 +342,16 @@ Avoid card-heavy layout; full-bleed atmospheric background with soft chain-grid.
 ## Prompt 5 — Cashier Android POS (APK)
 
 ```
-Design Cashier Android POS UI for PaymentGate (portrait handheld POS). Frames at 1080×1920 and optional second-screen 720×1280.
+Design Cashier Android POS UI for PaymentGate (portrait handheld POS). Reference device Z108S: frames at **800×1280** (cashier) and customer second-screen **480×480**. Thermal receipt mock **80 mm** (~576 px print width). Source-of-truth frames live under Product screens → G — Cashier POS (phone archives kept below for reference).
 
 Screens:
-G1 Login (server environment badge Test/Prod)
+G1 Login (server environment badge Test/Prod; email + password — no Terminal PIN)
 G2 Home — Create order CTA, today’s orders, online indicator
 G3 Create order — amount keypad, asset, network
 G4 Active order cashier screen — HUGE amount, network, QR, countdown, wrong-network banner, live status (no Mark paid)
 G5 Customer-facing second screen — QR + amount + network + warning only
 G6 Completed → print prompt
-G7 Receipt layout (thermal width mock 58mm): order #, amount, asset, network, address, status, tx hash; SEPARATE anomaly receipt template (red header)
+G7 Receipt layout (thermal width mock 80mm): order #, amount, asset, network, address, status, tx hash; SEPARATE anomaly receipt template (red header)
 G8 Today’s orders (own only)
 G9 Minimal settings (reprint, version, logout) — NO wallet/xPub/matching
 

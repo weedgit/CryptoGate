@@ -1384,6 +1384,7 @@ Cashier role only. Kotlin native preferred.
 - QR only + amount + network + wrong-network warning
 - No staff controls
 - Mirrors G4 payment fields
+- **Z108S:** ~3.95″ panel; APK renders **480×480** bitmap via SmartPos `Sys.showBitmapOnSecondaryScreen` ([M5-03](M5-03-Customer-Display.md))
 
 ---
 
@@ -1396,6 +1397,8 @@ Cashier role only. Kotlin native preferred.
 ---
 
 ### G7. Receipt (thermal print layout)
+
+**Paper:** 80 mm (Z108S default; ~576 px print width in vendor SDK demos).
 
 **Fields**
 
@@ -1427,6 +1430,8 @@ Cashier role only. Kotlin native preferred.
 
 - **Reprint last receipt**
 - App version, device ID
+- Printer / customer-display availability (Z108S when SmartPos AAR present)
+- Keep-awake while an order is open on Pay (automatic; noted in settings)
 - **Logout**
 - **No** settlement, xPub, matching, API keys
 

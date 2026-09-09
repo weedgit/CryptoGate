@@ -24,13 +24,27 @@ const required = [
   "app/src/main/java/com/paymentgate/cashier/ui/CreateOrderScreen.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/OrderPayScreen.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/HomeScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/SettingsScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/KeepScreenOn.kt",
   "app/src/main/java/com/paymentgate/cashier/qr/QrBitmaps.kt",
   "app/src/main/java/com/paymentgate/cashier/api/OrderStatusUi.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/ThermalPrinter.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/ReceiptLines.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/ThermalPrinterFactory.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/CustomerDisplay.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/CustomerPayBitmap.kt",
+  "app/src/main/java/com/paymentgate/cashier/hardware/CustomerDisplayFactory.kt",
+  "app/src/zcs/java/com/paymentgate/cashier/hardware/ZcsSmartPosPrinter.kt",
+  "app/src/zcs/java/com/paymentgate/cashier/hardware/ZcsCustomerDisplay.kt",
+  "app/src/noZcs/java/com/paymentgate/cashier/hardware/ZcsSmartPosPrinter.kt",
+  "app/src/noZcs/java/com/paymentgate/cashier/hardware/ZcsCustomerDisplay.kt",
   "app/src/test/java/com/paymentgate/cashier/api/JsonParsersTest.kt",
   "app/src/test/java/com/paymentgate/cashier/api/AssetNetworkCatalogTest.kt",
+  "app/src/test/java/com/paymentgate/cashier/hardware/ReceiptLinesTest.kt",
+  "app/src/test/java/com/paymentgate/cashier/hardware/CustomerPayContentTest.kt",
 ];
 
-describe("@paymentgate/cashier-apk scaffold (M2–M4)", () => {
+describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
   for (const rel of required) {
     it(`has ${rel}`, () => {
       assert.equal(existsSync(join(root, rel)), true);
@@ -59,6 +73,24 @@ describe("@paymentgate/cashier-apk scaffold (M2–M4)", () => {
     assert.match(catalog, /tron_nile/);
     assert.match(catalog, /AssetNetworkPair\("USDC", "base"/);
     assert.match(catalog, /AssetNetworkPair\("BTC", "bitcoin"/);
+  });
+
+  it("scaffolds M5-02/M5-03 SmartPos hardware dual source sets", () => {
+    const gradle = readFileSync(join(root, "app/build.gradle.kts"), "utf8");
+    assert.match(gradle, /HAS_SMARTPOS/);
+    assert.match(gradle, /src\/zcs\/java/);
+    assert.match(gradle, /src\/noZcs\/java/);
+    assert.match(gradle, /SmartPos/);
+    const ignore = readFileSync(join(root, ".gitignore"), "utf8");
+    assert.match(ignore, /app\/libs\/\*\.aar/);
+    const main = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/MainActivity.kt"),
+      "utf8",
+    );
+    assert.match(main, /customerDisplay/);
+    assert.match(main, /toCustomerPayContent/);
+    assert.match(main, /KeepScreenOnWhile/);
+    assert.match(main, /PosScreen\.Settings/);
   });
 
   it("does not commit keystore.properties", () => {
