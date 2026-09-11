@@ -335,7 +335,8 @@ async function loadSiteOverrideAlerts(
 async function loadWebhookFailureAlerts(orgId: string, next: AlertItem[]): Promise<void> {
   try {
     const hooks = await listWebhooks(orgId);
-    const enabled = hooks.filter((hook) => hook.enabled);
+    // Cap probes — alert UI only needs recent failures, not every hook's full history.
+    const enabled = hooks.filter((hook) => hook.enabled).slice(0, 5);
     const latestByHook = await Promise.all(
       enabled.map(async (hook) => {
         try {

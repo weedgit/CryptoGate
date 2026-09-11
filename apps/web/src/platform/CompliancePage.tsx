@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -203,6 +204,8 @@ export function CompliancePage() {
   const [hasLoaded, setHasLoaded] = useState(
     () => peekAnomalyOrders().length > 0 || peekPlatformOrgs() != null,
   );
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -217,7 +220,7 @@ export function CompliancePage() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!hasLoaded && peekAnomalyOrders().length === 0) setLoading(true);
+    if (!hasLoadedRef.current && peekAnomalyOrders().length === 0) setLoading(true);
     setError(null);
     try {
       const [anomalyOrders, orgs] = await Promise.all([
@@ -238,7 +241,7 @@ export function CompliancePage() {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [hasLoaded]);
+  }, []);
 
   useEffect(() => {
     void load();

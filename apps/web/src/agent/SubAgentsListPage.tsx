@@ -442,6 +442,7 @@ export function SubAgentsListPage({ session }: Props) {
 
   useEffect(() => {
     const prev = prevPathRef.current;
+    if (prev === location.pathname) return;
     prevPathRef.current = location.pathname;
     if (location.pathname.endsWith("/agents/new")) return;
     const leftOnboard = prev.endsWith("/agents/new");

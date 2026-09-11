@@ -511,6 +511,8 @@ export function OrdersListPage({ session }: Props) {
   const [hasLoaded, setHasLoaded] = useState(
     () => peekMerchantOrders() != null,
   );
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
@@ -523,7 +525,7 @@ export function OrdersListPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   const load = useCallback(async () => {
-    if (!hasLoaded) setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const rows = await getMerchantOrders();
@@ -535,7 +537,7 @@ export function OrdersListPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [hasLoaded]);
+  }, []);
 
   useEffect(() => {
     void load();

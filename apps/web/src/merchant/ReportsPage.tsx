@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
@@ -133,6 +133,8 @@ export function ReportsPage({ session }: Props) {
   const [items, setItems] = useState<PaymentOrder[]>(() => peekMerchantOrders() ?? []);
   const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
@@ -173,7 +175,7 @@ export function ReportsPage({ session }: Props) {
   const load = useCallback(async () => {
     if (siteOrgId) {
       setLoading(true);
-    } else if (!hasLoaded) {
+    } else if (!hasLoadedRef.current) {
       setLoading(true);
     }
     setError(null);
@@ -202,7 +204,7 @@ export function ReportsPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [siteOrgId, hasLoaded]);
+  }, [siteOrgId]);
 
   useEffect(() => {
     void load();

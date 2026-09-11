@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -92,6 +93,8 @@ export function ServiceBillsListPage() {
   const [hasLoaded, setHasLoaded] = useState(
     () => peekAgentServiceBills() != null,
   );
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
 
@@ -107,7 +110,7 @@ export function ServiceBillsListPage() {
   }, [searchParams]);
 
   const load = useCallback(async () => {
-    if (!hasLoaded) setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [bills, orgs] = await Promise.all([
@@ -124,7 +127,7 @@ export function ServiceBillsListPage() {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [hasLoaded]);
+  }, []);
 
   useEffect(() => {
     void load();

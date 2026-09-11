@@ -1,4 +1,11 @@
-import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { NavLink, useLocation, useMatch } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
@@ -178,6 +185,8 @@ export function MerchantShell({
   const cashier = sessionIsCashierOnly(session);
   const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
   const merchantId = primaryMerchantOrgId(session);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekMerchantOrgs());
   const locationKind = useMemo(
     () => sessionLocationKind(session, orgs),
@@ -218,23 +227,24 @@ export function MerchantShell({
     return subscribeMerchantAlerts(sync);
   }, [session.email]);
 
+  // Stable deps only — keep-alive setSession() must not re-arm the 60s poller.
   useEffect(() => {
     const pageVisible = () => document.visibilityState === "visible";
 
     const run = async () => {
       if (!pageVisible()) return;
-      await refreshMerchantAlerts(session);
+      await refreshMerchantAlerts(sessionRef.current);
     };
 
     void run();
     const interval = window.setInterval(() => void run(), 60_000);
     return () => window.clearInterval(interval);
-  }, [cashier, merchantId, session]);
+  }, [cashier, merchantId, session.userId]);
 
   useEffect(() => {
     if (!alertsOpen) return;
-    void refreshMerchantAlerts(session);
-  }, [alertsOpen, session]);
+    void refreshMerchantAlerts(sessionRef.current);
+  }, [alertsOpen]);
 
   return (
     <div

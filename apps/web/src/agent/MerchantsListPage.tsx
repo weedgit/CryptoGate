@@ -464,6 +464,7 @@ export function MerchantsListPage({ session }: Props) {
 
   useEffect(() => {
     const prev = prevPathRef.current;
+    if (prev === location.pathname) return;
     prevPathRef.current = location.pathname;
     if (location.pathname.endsWith("/merchants/new")) return;
     const leftOnboard = prev.endsWith("/merchants/new");

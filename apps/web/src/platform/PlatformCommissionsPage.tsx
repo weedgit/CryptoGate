@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -147,6 +148,8 @@ export function PlatformCommissionsPage({ session }: Props) {
   >([]);
   const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekPlatformOrgs() != null);
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
@@ -223,7 +226,7 @@ export function PlatformCommissionsPage({ session }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    if (!hasLoaded) setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [orgRows, payoutAddrs, payoutRows] = await Promise.all([
@@ -262,7 +265,7 @@ export function PlatformCommissionsPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [hasLoaded]);
+  }, []);
 
   useEffect(() => {
     void load();

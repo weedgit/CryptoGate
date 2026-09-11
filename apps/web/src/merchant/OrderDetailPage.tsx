@@ -175,6 +175,8 @@ export function OrderDetailPage({
   const orgId = primaryMerchantOrgId(session);
   const canViewWebhooks = !isPlatform && sessionCanViewIntegrations(session);
   const canResendWebhooks = sessionCanManageIntegrations(session);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById(topbarCenterId));
@@ -200,7 +202,8 @@ export function OrderDetailPage({
       }
       setChain(c);
 
-      const orderOrgId = o.orgId ?? primaryMerchantOrgId(session) ?? null;
+      const orderOrgId =
+        o.orgId ?? primaryMerchantOrgId(sessionRef.current) ?? null;
       if (orderOrgId) {
         const siteOrMerchant = await getOrg(orderOrgId).catch(() => null);
         let seller: OrgAccount | null = siteOrMerchant;
@@ -224,7 +227,7 @@ export function OrderDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [id, seededPay, session]);
+  }, [id, seededPay]);
 
   /** Soft refresh — order/pay/on-chain only; no full-page loading flash. */
   const refreshLive = useCallback(async () => {

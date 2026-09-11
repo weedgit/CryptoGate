@@ -484,6 +484,8 @@ export function MerchantsListPage({ session }: Props) {
 
   useEffect(() => {
     const prev = prevPathRef.current;
+    // Mount load is handled by the dedicated effect — only re-fetch on path change.
+    if (prev === location.pathname) return;
     prevPathRef.current = location.pathname;
     if (location.pathname.endsWith("/merchants/new")) return;
     const leftOnboard = prev.endsWith("/merchants/new");

@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -95,6 +96,8 @@ export function ServiceBillsListPage({ session }: Props) {
   const [hasLoaded, setHasLoaded] = useState(
     () => peekMerchantServiceBills() != null,
   );
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(
     null,
@@ -107,7 +110,7 @@ export function ServiceBillsListPage({ session }: Props) {
   const dismissToast = useCallback(() => setError(null), []);
 
   const load = useCallback(async () => {
-    if (!hasLoaded) setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const rows = await getMerchantServiceBills();
@@ -119,7 +122,7 @@ export function ServiceBillsListPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [hasLoaded]);
+  }, []);
 
   useEffect(() => {
     void load();

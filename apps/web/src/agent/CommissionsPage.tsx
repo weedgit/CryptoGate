@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -100,6 +101,8 @@ export function CommissionsPage({ session }: Props) {
   >(() => new Map());
   const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekAgentOrgs() != null);
+  const hasLoadedRef = useRef(hasLoaded);
+  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
@@ -176,7 +179,7 @@ export function CommissionsPage({ session }: Props) {
       setError("No agent membership on this session");
       return;
     }
-    if (!hasLoaded) setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [
@@ -245,7 +248,7 @@ export function CommissionsPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [agentId, hasLoaded]);
+  }, [agentId]);
 
   useEffect(() => {
     void load();

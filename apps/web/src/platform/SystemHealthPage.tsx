@@ -61,8 +61,8 @@ export function SystemHealthPage() {
     setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const base =
@@ -84,13 +84,17 @@ export function SystemHealthPage() {
       setHealth(null);
       setWatcher(null);
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
-    const id = window.setInterval(() => void load(), 15000);
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      // Silent refresh — shared shell already polls /health?checkDb=1 every 15s.
+      void load({ silent: true });
+    }, 15000);
     return () => window.clearInterval(id);
   }, [load]);
 
