@@ -16,6 +16,7 @@ import {
   insertServiceBill,
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 
 /**
  * Issue one service bill per active merchant for the period from confirmed volume.
@@ -102,6 +103,11 @@ export async function generateServiceBillsForPeriod(input = {}) {
       billedVolumeUsd,
     });
     issued.push(row);
+    emitDashboardLive({
+      type: "service_bill.issued",
+      slices: ["serviceBills"],
+      orgId: merchant.id,
+    });
   }
 
   return { periodStart, periodEnd, issued, skipped };

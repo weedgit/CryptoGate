@@ -141,7 +141,7 @@ Three KPIs only: **Completed volume**, **Open orders**, **Anomalies** — no fee
 | # | Title | Body |
 | --- | --- | --- |
 | 1 | Amount + asset | Amount in USDT (Phase 1). |
-| 2 | Network | Chain the payer must use. Wrong network → anomaly / lost funds risk. |
+| 2 | Network | Chain the payer must use. Wrong network is a lost-funds risk; detection is best-effort. |
 | 3 | Merchant reference | Internal tag (room, table). Not shown on the guest pay page. |
 | 4 | Create payment order | Creates the order and payment page. Watch-only — PaymentGate does not move coins. |
 
@@ -152,7 +152,7 @@ Three KPIs only: **Completed volume**, **Open orders**, **Anomalies** — no fee
 | 1 | Amount | Exact payable (fingerprint modes may differ from nominal). |
 | 2 | Network | Must match the order. |
 | 3 | QR + address | Merchant-controlled receive address. |
-| 4 | Time remaining | Default 30 minutes; then Expired if unpaid. |
+| 4 | Time remaining | Default 30 minutes; then Expired if unpaid. A late on-chain send will not auto-complete. |
 
 ### 15 Service bills
 

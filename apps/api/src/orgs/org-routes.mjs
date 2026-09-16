@@ -29,6 +29,7 @@ import {
 } from "./org-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import {
   bootstrapMerchantCommercial,
   parseCommercialOnCreate,
@@ -231,6 +232,12 @@ export async function handleSetOrgStatus(req, res, orgId) {
   });
 
   invalidatePlatformOrgListCache();
+  emitDashboardLive({
+    type: "org.status",
+    slices: ["orgs"],
+    orgId,
+    parentId: row.parent_id ?? null,
+  });
   sendJson(res, 200, toOrgAccount(updated));
 }
 
@@ -517,6 +524,13 @@ export async function handleCreateOrg(req, res) {
     orgId: inserted.row.id,
     action: AUDIT_ACTIONS.orgCreate,
     metadata: { type: inserted.row.type, parentId: inserted.row.parent_id },
+  });
+
+  emitDashboardLive({
+    type: "org.created",
+    slices: ["orgs"],
+    orgId: inserted.row.id,
+    parentId: inserted.row.parent_id ?? null,
   });
 
   sendJson(res, 201, toOrgAccount(inserted.row));

@@ -54,7 +54,13 @@ export function invoiceStatsFromBills(
     if (bill.status === "paid" && inWindow(bill.paidAt ?? bill.dueAt, from, to)) {
       paid += 1;
     }
-    if (bill.status === "overdue") overdue += 1;
+    // Period-scoped: overdue only if due date or billing period touches the window.
+    if (
+      bill.status === "overdue" &&
+      (inWindow(bill.dueAt, from, to) || serviceBillInPeriod(bill, from, to))
+    ) {
+      overdue += 1;
+    }
   }
   return { issued, paid, overdue };
 }

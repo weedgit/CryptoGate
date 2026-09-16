@@ -28,6 +28,7 @@ describe("payment details mapper", () => {
     assert.equal(details.copyAmount, "245.00");
     assert.equal(details.paymentPageUrl, "http://localhost:5173/pay/ord-1");
     assert.match(details.wrongNetworkWarning, /TRON TRC-20/);
+    assert.match(details.wrongNetworkWarning, /may not be detected/);
     assert.equal(
       details.contractAddress,
       "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",

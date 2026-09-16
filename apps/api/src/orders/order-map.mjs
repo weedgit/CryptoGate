@@ -87,7 +87,7 @@ export function toPaymentDetails(row) {
     contractAddress: config?.contractAddress ?? null,
     memoOrTag: row.memo_or_tag ?? null,
     expiresAt: expiresAtIso(row.expires_at),
-    wrongNetworkWarning: `Send only ${row.asset} on ${display}. Wrong network may result in lost funds.`,
+    wrongNetworkWarning: `Send only ${row.asset} on ${display}. Use this network and token exactly. A different chain or token may not be detected, and those funds can be lost.`,
     confirmations,
     requiredConfirmations,
     txHash: row.tx_hash ?? null,

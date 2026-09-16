@@ -1,7 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { appendPaymentOrderScope } from "../src/orders/order-scope-sql.mjs";
-import { summarizePaymentOrders } from "../src/orders/order-summary-store.mjs";
+import {
+  summarizePaymentOrders,
+  toVolumeDayKey,
+} from "../src/orders/order-summary-store.mjs";
 
 describe("payment order scope SQL", () => {
   it("marks empty scoped filters as empty", () => {
@@ -28,6 +31,19 @@ describe("payment order scope SQL", () => {
     assert.equal(result.empty, false);
     assert.match(result.clause, /created_by = \$2/);
     assert.deepEqual(params, [["org-1"], "user-1"]);
+  });
+});
+
+describe("toVolumeDayKey", () => {
+  it("formats Date objects as YYYY-MM-DD UTC", () => {
+    assert.equal(
+      toVolumeDayKey(new Date(Date.UTC(2026, 8, 11))),
+      "2026-09-11",
+    );
+  });
+
+  it("keeps ISO date prefixes", () => {
+    assert.equal(toVolumeDayKey("2026-09-11T00:00:00.000Z"), "2026-09-11");
   });
 });
 

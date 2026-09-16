@@ -9,6 +9,10 @@ import {
   listWebhookEndpoints,
   markPaymentOrderWebhookOutboxProcessed,
 } from "./webhook-store.mjs";
+import {
+  dashboardEventFromOutboxRow,
+  publishDashboardEvent,
+} from "../events/dashboard-events-hub.mjs";
 
 /**
  * Drain outbox → webhook_deliveries for subscribed merchant endpoints.
@@ -68,6 +72,16 @@ export async function processPaymentOrderWebhookOutbox(opts = {}) {
 
       await markProcessed(row.id, client);
       results.push({ outboxId: row.id, queued });
+
+      // Dashboard SSE (same outbox drain — works even with zero webhook endpoints).
+      const live = dashboardEventFromOutboxRow(row);
+      if (live) {
+        try {
+          publishDashboardEvent(live);
+        } catch {
+          // Never fail merchant webhook fan-out because of SSE.
+        }
+      }
     }
 
     await client.query("COMMIT");

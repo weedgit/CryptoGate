@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   NetworkId,
   type AssetCode,
@@ -179,7 +179,11 @@ type Props = {
   selection?: VolumeSelection | null;
   volumeScope?: VolumeScope;
   onSelect?: (selection: VolumeSelection) => void;
+  /** Bump (e.g. dashboard Refresh) to force a networks-status reload. */
+  reloadToken?: number;
 };
+
+const PAIRS_FOCUS_THROTTLE_MS = 30_000;
 
 /** Single §VI catalog table: network, asset, orderability lamp. */
 export function AssetNetworkTables({
@@ -187,35 +191,49 @@ export function AssetNetworkTables({
   selection = null,
   volumeScope = "total",
   onSelect,
+  reloadToken = 0,
 }: Props) {
   const [sort, setSort] = useState<SortState | null>({ key: "status", dir: "asc" });
   const [lampByPair, setLampByPair] = useState<Map<
     string,
     NetworkOrderabilityLamp
   > | null>(null);
+  const lastFetchAt = useRef(0);
   const selectable = Boolean(onSelect);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const status = await getNetworksStatus();
-        if (cancelled) return;
-        const map = new Map<string, NetworkOrderabilityLamp>();
-        for (const net of status.items) {
-          for (const pair of net.pairs) {
-            map.set(`${pair.asset}:${net.network}`, pair.lamp);
-          }
+  const loadLamps = useCallback(async (opts?: { force?: boolean }) => {
+    const force = Boolean(opts?.force);
+    if (!force && Date.now() - lastFetchAt.current < PAIRS_FOCUS_THROTTLE_MS) {
+      return;
+    }
+    try {
+      const status = await getNetworksStatus();
+      const map = new Map<string, NetworkOrderabilityLamp>();
+      for (const net of status.items) {
+        for (const pair of net.pairs) {
+          map.set(`${pair.asset}:${net.network}`, pair.lamp);
         }
-        setLampByPair(map);
-      } catch {
-        if (!cancelled) setLampByPair(new Map());
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      setLampByPair(map);
+      lastFetchAt.current = Date.now();
+    } catch {
+      setLampByPair(new Map());
+      lastFetchAt.current = Date.now();
+    }
   }, []);
+
+  useEffect(() => {
+    void loadLamps({ force: true });
+  }, [loadLamps, reloadToken]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadLamps();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [loadLamps]);
 
   const rows = useMemo(
     () => sortRows([...visibleRegistry()], sort, lampByPair),

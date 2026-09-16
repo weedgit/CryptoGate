@@ -12,6 +12,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import { AnimatedFundAmount } from "../shared/AnimatedFundAmount";
+import {
+  useDashboardLiveEvents,
+  type DashboardLiveSlice,
+} from "../shared/useDashboardLiveEvents";
 import { AssetNetworkTables } from "../platform/AssetNetworkTables";
 import {
   VolumeChart,
@@ -34,6 +38,13 @@ import {
   type VolumeSelection,
 } from "../platform/volumeFilter";
 import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
+import { feeAccruedFromBills } from "../platform/dashboardBillPeriod";
+import {
+  AgentsNavIcon,
+  FeesNavIcon,
+  HealthNavIcon,
+  ServiceBillsNavIcon,
+} from "../platform/NavIcons";
 import {
   ApiError,
   getAgentCommission,
@@ -82,8 +93,10 @@ type OverviewStats = {
   invoicesOverdue: number;
   volume: number;
   fees: number;
+  collected: number;
   overdueMerchants: number;
-  commissionMtd: number;
+  commissionOwed: number;
+  commissionPaid: number;
   commissionPercent: string;
 };
 
@@ -101,8 +114,10 @@ const EMPTY_STATS: OverviewStats = {
   invoicesOverdue: 0,
   volume: 0,
   fees: 0,
+  collected: 0,
   overdueMerchants: 0,
-  commissionMtd: 0,
+  commissionOwed: 0,
+  commissionPaid: 0,
   commissionPercent: DEFAULT_AGENT_COMMISSION_PERCENT,
 };
 
@@ -243,6 +258,13 @@ function formatMoneyFigure(n: number): string {
 
 function formatUsd(n: number): string {
   return `${formatMoneyFigure(n)} USD`;
+}
+
+function formatUpdatedClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function PeriodUsd({ n }: { n: number }) {
@@ -414,6 +436,9 @@ export function DashboardPage({ session }: Props) {
   );
   const loadGen = useRef(0);
   const initialLoad = useRef(true);
+  const lastFetchAt = useRef(0);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [pairsReloadToken, setPairsReloadToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -485,7 +510,7 @@ export function DashboardPage({ session }: Props) {
     setStartDate((prev) => (prev && value < prev ? value : prev));
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!startDate || !endDate || !agentId) {
       setLoading(false);
       setHasLoaded(true);
@@ -493,6 +518,7 @@ export function DashboardPage({ session }: Props) {
       return;
     }
     const gen = ++loadGen.current;
+    const force = Boolean(opts?.force);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
@@ -528,6 +554,14 @@ export function DashboardPage({ session }: Props) {
       );
       const mtdRow =
         statements.find((r) => r.periodKey === monthKey) ?? statements[0];
+      let commissionPaid = 0;
+      for (const row of statements) {
+        if (row.payoutStatus === "paid") commissionPaid += row.commissionAmount;
+      }
+      const commissionOwed =
+        mtdRow && mtdRow.payoutStatus !== "paid"
+          ? mtdRow.commissionAmount
+          : 0;
 
       setStats({
         merchants: accountSlice(
@@ -540,9 +574,11 @@ export function DashboardPage({ session }: Props) {
         invoicesPaid: invoices.paid,
         invoicesOverdue: invoices.overdue,
         volume: periodVolume(orders, from, to),
-        fees: feeCollected(bills, from, to),
+        fees: feeAccruedFromBills(bills, from, to),
+        collected: feeCollected(bills, from, to),
         overdueMerchants: overdueOrgIds.size,
-        commissionMtd: mtdRow?.commissionAmount ?? 0,
+        commissionOwed,
+        commissionPaid,
         commissionPercent: commissionPct,
       });
       setOrders(orders);
@@ -567,11 +603,12 @@ export function DashboardPage({ session }: Props) {
       setLoading(true);
     }
 
+    const fetchOpts = force ? { force: true as const } : undefined;
     try {
       const [allOrgs, allOrders, allBills, commission] = await Promise.all([
-        getAgentOrgs(),
-        getAgentOrders().catch(() => [] as PaymentOrder[]),
-        getAgentServiceBills().catch(() => [] as ServiceBill[]),
+        getAgentOrgs(fetchOpts),
+        getAgentOrders(fetchOpts).catch(() => [] as PaymentOrder[]),
+        getAgentServiceBills(fetchOpts).catch(() => [] as ServiceBill[]),
         getAgentCommission(agentId).catch(() => null),
       ]);
 
@@ -579,6 +616,9 @@ export function DashboardPage({ session }: Props) {
 
       applyCore(allOrgs, allOrders, allBills, commission);
       setHasLoaded(true);
+      const now = Date.now();
+      lastFetchAt.current = now;
+      setUpdatedAt(now);
     } catch (err) {
       if (gen !== loadGen.current) return;
       const text =
@@ -598,6 +638,134 @@ export function DashboardPage({ session }: Props) {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const softRevalidateLiveSlices = useCallback(
+    async (slices: DashboardLiveSlice[]) => {
+      if (!startDate || !endDate || !agentId) return;
+      const from = parseDateInput(startDate, false);
+      const to = parseDateInput(endDate, true);
+      const needVolume =
+        slices.includes("volume") || slices.includes("anomalies");
+      const needBills = slices.includes("serviceBills");
+      const needOrgs = slices.includes("orgs");
+      const needNetworks = slices.includes("networks");
+
+      try {
+        const allOrgs =
+          needOrgs
+            ? await getAgentOrgs({ force: true })
+            : (peekAgentOrgs() ?? (await getAgentOrgs()));
+        const merchantRows = merchantsInAgentSubtree(agentId, allOrgs);
+        const merchantIds = new Set(merchantRows.map((m) => m.id));
+
+        if (needVolume) {
+          const allOrders = await getAgentOrders({ force: true });
+          const nextOrders = allOrders.filter(
+            (o) => o.orgId && merchantIds.has(o.orgId),
+          );
+          setOrders(nextOrders);
+          setStats((prev) => ({
+            ...prev,
+            volume: periodVolume(nextOrders, from, to),
+          }));
+        }
+
+        if (needBills) {
+          const allBills = await getAgentServiceBills({ force: true });
+          const bills = allBills.filter((b) => merchantIds.has(b.orgId));
+          setBills(bills);
+          const invoices = invoiceStats(bills, from, to);
+          const overdueOrgIds = new Set(
+            bills.filter((b) => b.status === "overdue").map((b) => b.orgId),
+          );
+          setStats((prev) => {
+            const pct =
+              prev.commissionPercent?.trim() ||
+              DEFAULT_AGENT_COMMISSION_PERCENT;
+            const statements = commissionHistoryFromBills(
+              bills,
+              merchantIds,
+              pct,
+            );
+            const monthKey = new Date().toISOString().slice(0, 7);
+            const mtdRow =
+              statements.find((r) => r.periodKey === monthKey) ??
+              statements[0];
+            let commissionPaid = 0;
+            for (const row of statements) {
+              if (row.payoutStatus === "paid") {
+                commissionPaid += row.commissionAmount;
+              }
+            }
+            const commissionOwed =
+              mtdRow && mtdRow.payoutStatus !== "paid"
+                ? mtdRow.commissionAmount
+                : 0;
+            return {
+              ...prev,
+              invoicesIssued: invoices.issued,
+              invoicesPaid: invoices.paid,
+              invoicesOverdue: invoices.overdue,
+              fees: feeAccruedFromBills(bills, from, to),
+              collected: feeCollected(bills, from, to),
+              overdueMerchants: overdueOrgIds.size,
+              commissionOwed,
+              commissionPaid,
+              commissionPercent: pct,
+            };
+          });
+        }
+
+        if (needOrgs) {
+          const subtreeOrgs = orgsInAgentSubtree(agentId, allOrgs);
+          const subAgentRows = subAgentsInAgentSubtree(agentId, allOrgs);
+          setOrgs(subtreeOrgs);
+          const children = buildChildrenMap(subtreeOrgs);
+          const leaves = activeOrgIds(orders, from, to);
+          setStats((prev) => ({
+            ...prev,
+            merchants: accountSlice(
+              merchantRows.filter((m) => m.type === "merchant"),
+              leaves,
+              children,
+            ),
+            subAgents: accountSlice(subAgentRows, leaves, children),
+          }));
+        }
+
+        if (needNetworks) {
+          setPairsReloadToken((n) => n + 1);
+        }
+
+        setUpdatedAt(Date.now());
+      } catch {
+        // Keep last good SWR snapshot.
+      }
+    },
+    [agentId, startDate, endDate, orders],
+  );
+
+  useDashboardLiveEvents({
+    enabled: hasLoaded && Boolean(agentId),
+    onSlices: (slices) => {
+      void softRevalidateLiveSlices(slices);
+    },
+  });
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastFetchAt.current < 30_000) return;
+      void load({ force: true });
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [load]);
+
+  const refreshDashboard = useCallback(() => {
+    setPairsReloadToken((n) => n + 1);
+    void load({ force: true });
   }, [load]);
 
   const periodLabel =
@@ -753,7 +921,23 @@ export function DashboardPage({ session }: Props) {
             <span className="plat-period-refresh" role="status">
               Updating…
             </span>
+          ) : updatedAt ? (
+            <span
+              className="plat-period-updated"
+              title={new Date(updatedAt).toLocaleString()}
+            >
+              Updated {formatUpdatedClock(updatedAt)}
+            </span>
           ) : null}
+          <button
+            type="button"
+            className="plat-period-refresh-btn"
+            onClick={refreshDashboard}
+            disabled={loading}
+            aria-label="Refresh dashboard"
+          >
+            Refresh
+          </button>
         </div>,
         topbarSlot,
       )
@@ -789,18 +973,86 @@ export function DashboardPage({ session }: Props) {
       {periodPortal}
 
       <div className="plat-overview-grid">
-        <div className="panel plat-overview-card glass-tone-blue">
+        <div className="plat-overview-card glass-tone-blue">
           <div className="plat-overview-card__head">
-            <h2>Accounts</h2>
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <AgentsNavIcon />
+              </span>
+              <h2>Accounts</h2>
+            </div>
             <CardHelp text="Merchants and agent (sub) accounts in your subtree: totals, payment activity, and paused." />
           </div>
           <AccountRows title="Merchants" slice={stats.merchants} />
           <AccountRows title="Agent (sub)" slice={stats.subAgents} />
         </div>
 
-        <div className="panel plat-overview-card glass-tone-amber">
+        <div className="plat-overview-card glass-tone-emerald">
           <div className="plat-overview-card__head">
-            <h2>Invoices</h2>
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <FeesNavIcon />
+              </span>
+              <h2>Commission</h2>
+            </div>
+            <CardHelp text="Your rebate rate and commission owed / paid on platform fees collected from your subtree." />
+          </div>
+          <MetricLines
+            rows={[
+              {
+                label: "Rate",
+                value: (
+                  <Link
+                    className="plat-metric-line__link"
+                    to={agentRoute("commissions")}
+                    aria-label={`Commission rate ${stats.commissionPercent} percent`}
+                  >
+                    {stats.commissionPercent}%
+                  </Link>
+                ),
+              },
+              {
+                label: "Owed",
+                value: (
+                  <Link
+                    className="plat-metric-line__link"
+                    to={agentRoute("commissions")}
+                    aria-label={`Commission owed ${formatUsd(stats.commissionOwed)}`}
+                  >
+                    <span className="fund-amount">
+                      {formatMoneyFigure(stats.commissionOwed)}
+                      <span className="plat-fund-currency">USD</span>
+                    </span>
+                  </Link>
+                ),
+              },
+              {
+                label: "Paid",
+                value: (
+                  <Link
+                    className="plat-metric-line__link"
+                    to={agentRoute("commissions")}
+                    aria-label={`Commission paid ${formatUsd(stats.commissionPaid)}`}
+                  >
+                    <span className="fund-amount">
+                      {formatMoneyFigure(stats.commissionPaid)}
+                      <span className="plat-fund-currency">USD</span>
+                    </span>
+                  </Link>
+                ),
+              },
+            ]}
+          />
+        </div>
+
+        <div className="plat-overview-card glass-tone-amber">
+          <div className="plat-overview-card__head">
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <ServiceBillsNavIcon />
+              </span>
+              <h2>Invoices</h2>
+            </div>
             <CardHelp
               text={`Service bills in ${periodLabel}: issued, paid, or overdue for merchants you manage.`}
             />
@@ -814,49 +1066,30 @@ export function DashboardPage({ session }: Props) {
           />
         </div>
 
-        <div className="panel plat-overview-card glass-tone-emerald plat-commission-card">
-          <div className="plat-overview-card__head">
-            <h2>Commission</h2>
-            <CardHelp text="Your agreed commission rate on platform fees collected from your subtree." />
-          </div>
-          <div
-            className="plat-commission-hero"
-            aria-label={`Your commission rate: ${stats.commissionPercent} percent`}
-          >
-            <p className="plat-commission-hero__eyebrow">Your rate</p>
-            <p className="plat-commission-hero__value">
-              <span className="plat-commission-hero__num">
-                {stats.commissionPercent}
-              </span>
-              <span className="plat-commission-hero__pct" aria-hidden>
-                %
-              </span>
-            </p>
-            <p className="plat-commission-hero__hint">
-              Platform fee collected
-            </p>
-          </div>
-        </div>
-
-        <section className="plat-fund-rail" aria-label="Funds">
+        <section className="plat-fund-rail" aria-label="Observed volume">
           <div className="plat-fund-rail__eyebrow">
-            <span>Funds</span>
+            <div className="plat-fund-rail__eyebrow-title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <HealthNavIcon />
+              </span>
+              <span>Volume</span>
+            </div>
             <CardHelp
-              text={`Period settled volume and billed fees in USD (stables counted 1:1), plus commission MTD for ${periodLabel}.`}
+              text={`Observed settled merchant volume in ${periodLabel} (non-custodial — funds stay in merchant wallets). Fees are volume-fee line items on service bills overlapping this range.`}
             />
           </div>
           <div className="plat-fund-rail__primary">
             <div className="plat-fund-rail__copy">
               <p className="plat-fund-rail__pair-labels">
-                <span>Volume</span>
+                <span>Observed</span>
                 <span aria-hidden>/</span>
                 <span>Fees</span>
               </p>
               <span className="plat-fund-rail__hint">
-                Settled volume / billed volume fees · USD
+                Settled / fees · <span className="plat-fund-rail__hint-unit">USD</span>
               </span>
             </div>
-            <p className="plat-fund-rail__pair" aria-label="Volume and fees in US dollars">
+            <p className="plat-fund-rail__pair" aria-label="Observed volume and fees in US dollars">
               <AnimatedFundAmount
                 className="plat-fund-rail__total"
                 value={stats.volume}
@@ -870,16 +1103,18 @@ export function DashboardPage({ session }: Props) {
           </div>
           <div className="plat-fund-rail__secondary">
             <div className="plat-fund-rail__copy">
-              <span className="plat-fund-rail__label">Commission</span>
-              <span className="plat-fund-rail__hint">Rebate MTD · USD</span>
+              <span className="plat-fund-rail__label">Collected</span>
+              <span className="plat-fund-rail__hint">
+                Paid fees · <span className="plat-fund-rail__hint-unit">USD</span>
+              </span>
             </div>
             <p
               className="plat-fund-rail__collected-wrap"
-              aria-label="Commission in US dollars"
+              aria-label="Collected in US dollars"
             >
               <AnimatedFundAmount
                 className="plat-fund-rail__collected"
-                value={stats.commissionMtd}
+                value={stats.collected}
               />
             </p>
           </div>
@@ -967,6 +1202,7 @@ export function DashboardPage({ session }: Props) {
               selection={volumeSelection}
               volumeScope={volumeScope}
               onSelect={onVolumeSelect}
+              reloadToken={pairsReloadToken}
             />
           </div>
         </div>

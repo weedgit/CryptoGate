@@ -90,6 +90,23 @@ describe("merchant dashboard first paint", () => {
     assert.doesNotMatch(axis, /prefix = money \? "\$"/);
   });
 
+  it("labels observed volume rail (non-custodial), not Funds", () => {
+    assert.match(platformDash, /Observed volume/);
+    assert.match(platformDash, />Volume</);
+    assert.doesNotMatch(platformDash, /aria-label="Funds"/);
+    assert.match(platformDash, /Attention/);
+    assert.match(platformDash, /label: "Owed"/);
+    assert.match(platformDash, /label: "Paid"/);
+    assert.match(platformDash, /Commission owed/);
+    assert.match(platformDash, /Commission paid/);
+    assert.match(platformDash, /seriesFromVolumeByDay/);
+    assert.match(agentDash, /Observed volume/);
+    assert.match(agentDash, />Volume</);
+    assert.doesNotMatch(agentDash, /aria-label="Funds"/);
+    assert.match(agentDash, /label: "Owed"/);
+    assert.match(agentDash, /label: "Rate"/);
+  });
+
   it("paints platform overview before signup summary finishes", () => {
     const load = platformDash.indexOf("const load = useCallback");
     const core = platformDash.indexOf("await Promise.all([", load);

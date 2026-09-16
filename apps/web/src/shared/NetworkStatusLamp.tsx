@@ -8,8 +8,8 @@ type Props = {
 };
 
 /**
- * Simple status lamp for network/pair orderability (Open / Paused / Down / Off).
- * Label first, then glowing lamp.
+ * Orderability status pill — same visual language as top-bar API/DB/Webhook
+ * indicators (dot first, mono pill chrome).
  */
 export function NetworkStatusLamp({ lamp, className = "", title }: Props) {
   const code = lamp.code as NetworkLampCode;
@@ -20,8 +20,8 @@ export function NetworkStatusLamp({ lamp, className = "", title }: Props) {
       role="status"
       aria-label={lamp.label}
     >
-      <span className="network-status-lamp__label">{lamp.label}</span>
       <span className="network-status-lamp__dot" aria-hidden="true" />
+      <span className="network-status-lamp__label">{lamp.label}</span>
     </span>
   );
 }

@@ -36,6 +36,7 @@ import {
   handleGetOrderSummary,
   handleGetPlatformDashboardSummary,
 } from "../dashboard/dashboard-summary-routes.mjs";
+import { handleGetDashboardEvents } from "../events/dashboard-events-routes.mjs";
 import {
   handleGetSettlement,
   handlePutSettlement,
@@ -236,6 +237,11 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/orders/summary" && method === "GET") {
     await handleGetOrderSummary(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/events" && method === "GET") {
+    await handleGetDashboardEvents(req, res);
     return;
   }
 

@@ -93,6 +93,7 @@ run("node", [
   "apps/api/test/webhook-rules.test.mjs",
   "apps/api/test/webhook-deliver.test.mjs",
   "apps/api/test/webhook-fanout.test.mjs",
+  "apps/api/test/dashboard-events.test.mjs",
   "apps/api/test/service-bill-rules.test.mjs",
   "apps/api/test/generate-rules.test.mjs",
   "apps/api/test/site-override-rules.test.mjs",

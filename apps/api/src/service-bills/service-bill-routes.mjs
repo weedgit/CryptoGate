@@ -14,6 +14,7 @@ import {
 } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import {
   resolvePlatformBillingPayTo,
   resolvePlatformInvoiceSeller,
@@ -197,6 +198,12 @@ export async function handleIssueServiceBill(req, res) {
     },
   });
 
+  emitDashboardLive({
+    type: "service_bill.issued",
+    slices: ["serviceBills"],
+    orgId: validated.orgId,
+  });
+
   sendJson(res, 201, toServiceBill(row));
 }
 
@@ -346,6 +353,11 @@ export async function handleUpdateServiceBill(req, res, billId) {
           rxAddress,
           txAddress: validated.txAddress,
         },
+      });
+      emitDashboardLive({
+        type: "service_bill.paid",
+        slices: ["serviceBills"],
+        orgId: row.org_id,
       });
     }
   } else if (validated.action === ServiceBillUpdateAction.Void) {

@@ -30,6 +30,8 @@ location = /v1/auth/reset-password {
     include /root/PaymentGate/deploy/nginx-api-proxy.inc;
 }
 
+include /root/PaymentGate/deploy/nginx-sse-events.inc;
+
 location /v1/ {
     limit_req zone=cg_api burst=40 nodelay;
     limit_req_status 429;

@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   feeAccruedFromBills,
+  invoiceStatsFromBills,
   serviceBillInPeriod,
 } from "../src/platform/dashboardBillPeriod.ts";
 
@@ -44,5 +45,34 @@ describe("dashboardBillPeriod", () => {
     };
     assert.equal(serviceBillInPeriod(bill, from, to), false);
     assert.equal(feeAccruedFromBills([bill], from, to), 0);
+  });
+
+  it("scopes overdue counts to the selected period", () => {
+    const inWindow = {
+      id: "b3",
+      orgId: "o1",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      subscriptionAmount: "0",
+      volumeFeeAmount: "10",
+      totalAmount: "10",
+      currency: "USD",
+      status: "overdue",
+      dueAt: "2026-08-28T12:00:00.000Z",
+      createdAt: "2026-08-05T12:00:00.000Z",
+    };
+    const outside = {
+      ...inWindow,
+      id: "b4",
+      periodStart: "2026-05-01",
+      periodEnd: "2026-05-31",
+      dueAt: "2026-06-15T12:00:00.000Z",
+      createdAt: "2026-05-05T12:00:00.000Z",
+    };
+    assert.deepEqual(invoiceStatsFromBills([inWindow, outside], from, to), {
+      issued: 1,
+      paid: 0,
+      overdue: 1,
+    });
   });
 });

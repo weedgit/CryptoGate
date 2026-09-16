@@ -717,7 +717,7 @@ export function OrderDetailPage({
                       : status === "payment_anomaly"
                         ? "Payment anomaly — do not collect again"
                         : status === "expired"
-                          ? "Order expired"
+                          ? "Order expired — a late on-chain send will not auto-complete"
                           : status === "failed" || status === "cancelled"
                             ? orderStatusLabel(status, order)
                             : `Valid for ${formatExpiryRemaining(expiresAt)}`}

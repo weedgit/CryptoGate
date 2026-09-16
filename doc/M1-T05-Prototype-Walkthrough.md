@@ -29,7 +29,7 @@ Walkthrough demonstrates **roles, login concept, order screen, payment page, and
 | 2 | **Merchant Owner** | ☑ Settlement GET 200 (API). Web: Owner/Admin must enroll MFA before settings (local `merchant@local.paymentgate`). Cashier cannot open settlement. |
 | 3 | **Agent** | ☑ Agent portal MFA step-up for local owner. `POST /v1/orders` **401** `mfa_required` until TOTP (create-order 403 covered by authz tests). |
 | 4 | **Platform** | ☑ Login → Two-Factor Auth step-up. Fee tiers remain behind MFA (`/platform/settings/fee-tiers`). |
-| 5 | **Guest** | ☑ “Send only USDT on TRON TRC-20 / Ethereum ERC-20. Wrong network may result in lost funds.” |
+| 5 | **Guest** | ☑ “Send only USDT on TRON TRC-20. Use this network and token exactly. A different chain or token may not be detected…” |
 
 ---
 

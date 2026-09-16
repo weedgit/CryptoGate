@@ -1,4 +1,5 @@
 import { markOverdueServiceBills } from "./service-bill-overdue.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 
 /**
  * @param {{
@@ -26,7 +27,14 @@ export function startServiceBillOverdueJob(options = {}) {
     options.run ??
     (async () => {
       try {
-        await markOverdueServiceBills();
+        const { orgIds } = await markOverdueServiceBills();
+        for (const orgId of orgIds) {
+          emitDashboardLive({
+            type: "service_bill.overdue",
+            slices: ["serviceBills"],
+            orgId,
+          });
+        }
       } catch (err) {
         if (process.env.NODE_ENV !== "test") {
           console.error("service bill overdue tick failed", err);

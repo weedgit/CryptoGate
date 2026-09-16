@@ -2,6 +2,7 @@ import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { findOrgById, findPlatformOrg } from "../orgs/org-store.mjs";
 import {
@@ -152,6 +153,12 @@ export async function handleUpsertCommissionPayout(req, res) {
       commissionAmount: p.commissionAmount,
     },
   });
+  emitDashboardLive({
+    type: "commission.ready",
+    slices: ["commissions"],
+    orgId: p.payeeOrgId,
+    parentId: p.payerOrgId ?? null,
+  });
   sendJson(res, 200, toCommissionPayout(row));
 }
 
@@ -216,6 +223,12 @@ export async function handleConfirmCommissionPayoutSent(req, res, payoutId) {
       note: validated.parsed.note,
       payer: existing.payer,
     },
+  });
+  emitDashboardLive({
+    type: "commission.verifying",
+    slices: ["commissions"],
+    orgId: existing.payee_org_id,
+    parentId: existing.payer_org_id ?? null,
   });
   sendJson(res, 200, toCommissionPayout(row));
 }
@@ -309,6 +322,12 @@ export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
       fromStatus: existing.payout_status,
     },
   });
+  emitDashboardLive({
+    type: "commission.paid",
+    slices: ["commissions"],
+    orgId: existing.payee_org_id,
+    parentId: existing.payer_org_id ?? null,
+  });
   sendJson(res, 200, toCommissionPayout(row));
 }
 
@@ -355,6 +374,14 @@ export async function handleGenerateCommissionInvoices(req, res) {
       skipped: result.skipped.length,
     },
   });
+  for (const row of result.created) {
+    emitDashboardLive({
+      type: "commission.issued",
+      slices: ["commissions"],
+      orgId: row.payee_org_id,
+      parentId: row.payer_org_id ?? null,
+    });
+  }
   sendJson(res, 200, {
     periodKey: result.periodKey,
     periodLabel: result.periodLabel,
@@ -428,6 +455,14 @@ export async function handleGenerateSubAgentCommissionInvoices(req, res) {
       skipped: result.skipped.length,
     },
   });
+  for (const row of result.created) {
+    emitDashboardLive({
+      type: "commission.issued",
+      slices: ["commissions"],
+      orgId: row.payee_org_id,
+      parentId: row.payer_org_id ?? payerOrgId,
+    });
+  }
   sendJson(res, 200, {
     periodKey: result.periodKey,
     periodLabel: result.periodLabel,
@@ -489,6 +524,12 @@ export async function handleAgentConfirmCommissionPayout(req, res, payoutId) {
     orgId: existing.payee_org_id,
     action: AUDIT_ACTIONS.commissionPayoutAgentConfirm,
     metadata: { payoutId, periodKey: existing.period_key },
+  });
+  emitDashboardLive({
+    type: "commission.settled",
+    slices: ["commissions"],
+    orgId: existing.payee_org_id,
+    parentId: existing.payer_org_id ?? null,
   });
   sendJson(res, 200, toCommissionPayout(row));
 }

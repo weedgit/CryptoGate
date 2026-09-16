@@ -2,6 +2,7 @@ import { readJsonBody, sendError, sendJson, sendJsonCached } from "../http/json.
 import { requireCaller } from "../http/require-caller.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { canManagePlatform, canReadPlatformOrgPolicy } from "../orgs/role-policy.mjs";
 import { buildNetworkCatalog } from "./network-catalog.mjs";
 import {
@@ -86,6 +87,11 @@ export async function handlePutNetworkMaintenance(req, res, networkRaw) {
         active: validated.active,
         endsAt: validated.endsAt,
       },
+    });
+    emitDashboardLive({
+      type: "network.maintenance",
+      slices: ["networks"],
+      broadcast: true,
     });
     sendJson(res, 200, {
       network: row.network,

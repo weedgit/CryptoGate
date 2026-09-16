@@ -44,6 +44,10 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { merchantRoute } from "../shared/portalRouting";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
 import {
+  useDashboardLiveEvents,
+  type DashboardLiveSlice,
+} from "../shared/useDashboardLiveEvents";
+import {
   DASHBOARD_PERIOD_OPTIONS,
   inWindow,
   parseDateInput,
@@ -232,6 +236,58 @@ export function DashboardPage({ session }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const softRevalidateLiveSlices = useCallback(
+    async (slices: DashboardLiveSlice[]) => {
+      try {
+        if (
+          slices.includes("volume") ||
+          slices.includes("anomalies")
+        ) {
+          const orders = await getMerchantOrders({ force: true });
+          setItems(orders);
+        }
+        if (
+          slices.includes("serviceBills") &&
+          orgId &&
+          !cashierOnly
+        ) {
+          const billList = await getMerchantServiceBills({
+            force: true,
+          }).catch(() => [] as ServiceBill[]);
+          setBills(billList);
+        }
+        if (slices.includes("networks")) {
+          await Promise.all([
+            listActiveNetworkMaintenance()
+              .then(setMaintenance)
+              .catch(() => undefined),
+            getNetworksStatus()
+              .then((status) => {
+                const byPair = new Map<string, NetworkOrderabilityLamp>();
+                for (const net of status.items) {
+                  for (const pair of net.pairs) {
+                    byPair.set(`${pair.asset}:${net.network}`, pair.lamp);
+                  }
+                }
+                setLampByPair(byPair);
+              })
+              .catch(() => undefined),
+          ]);
+        }
+      } catch {
+        // Keep last good SWR snapshot.
+      }
+    },
+    [orgId, cashierOnly],
+  );
+
+  useDashboardLiveEvents({
+    enabled: hasLoaded,
+    onSlices: (slices) => {
+      void softRevalidateLiveSlices(slices);
+    },
+  });
 
   const chartWindow = useMemo(() => {
     const from = parseDateInput(startDate, false);

@@ -119,6 +119,10 @@ The public payment page (and Cashier QR) shows:
 
 Guests should not use a different network or round the amount under Amount fingerprint.
 
+**Expiry:** After the countdown the order is **Expired** and the QR is closed. That does **not** stop the blockchain. A late send is **not** auto-Completed — it is flagged for review (`late_payment_after_expiry`). Do not tell guests that payment is impossible after expiry.
+
+**Wrong network:** The warning tells the guest which asset and network to use. Detection of a wrong chain/token is **best-effort** (only chains CryptoGate is watching). Funds sent on an unseen network cannot be recovered by the platform.
+
 ---
 
 ## 8. Payment Anomaly — what to do

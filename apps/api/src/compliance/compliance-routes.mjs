@@ -9,6 +9,7 @@ import { toOrgAccount } from "../orgs/org-accounts.mjs";
 import { canComplianceOverride } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
+import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { forceSettlementAddress } from "../settlement/settlement-store.mjs";
 import { toSettlementAddress } from "../settlement/settlement-rules.mjs";
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
@@ -118,6 +119,12 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     effectMeta.priorStatus = org.status ?? "active";
     effectMeta.status = "paused";
     resultPayload = { org: toOrgAccount(updated) };
+    emitDashboardLive({
+      type: "org.status",
+      slices: ["orgs"],
+      orgId,
+      parentId: org.parent_id ?? null,
+    });
   } else if (parsed.overrideType === "suspend_order_create") {
     const updated = await setOrderCreateSuspended(orgId, true);
     if (!updated) {

@@ -136,6 +136,7 @@ const expiresEl = document.getElementById("expires");
 const timerCardEl = document.getElementById("timer-card");
 const timerLabelEl = document.getElementById("timer-label");
 const exactWarn = document.getElementById("exact-warn");
+const networkWarn = document.getElementById("network-warn");
 const memoWarn = document.getElementById("memo-warn");
 const statusEl = document.getElementById("status");
 const orderRefEl = document.getElementById("order-ref");
@@ -299,7 +300,7 @@ function demoView() {
     paymentPageUrl: location.href.split("#")[0],
     qrPayload: location.href.split("#")[0],
     walletUri: `${network}:${address}?amount=${encodeURIComponent(amount)}&asset=${asset}&network=${network}`,
-    wrongNetworkWarning: `Send only ${asset} on ${networkLabelFor(asset, network)}. Wrong network may result in lost funds.`,
+    wrongNetworkWarning: `Send only ${asset} on ${networkLabelFor(asset, network)}. Use this network and token exactly. A different chain or token may not be detected, and those funds can be lost.`,
     payExactAmountWarning:
       matchingMode === "C"
         ? "Send the exact payable amount. A different amount will not match this order."
@@ -339,7 +340,7 @@ function fromPaymentOrder(order) {
     paymentPageUrl: `${location.origin}/pay/${encodeURIComponent(order.id || orderId || "")}`,
     qrPayload: `${location.origin}/pay/${encodeURIComponent(order.id || orderId || "")}`,
     walletUri: `${network}:${order.receiveAddress || ""}?amount=${encodeURIComponent(amount)}&asset=${asset}&network=${network}`,
-    wrongNetworkWarning: `Send only ${asset} on ${networkLabelFor(asset, network)}. Wrong network may result in lost funds.`,
+    wrongNetworkWarning: `Send only ${asset} on ${networkLabelFor(asset, network)}. Use this network and token exactly. A different chain or token may not be detected, and those funds can be lost.`,
     payExactAmountWarning:
       matchingMode === "C"
         ? "Send the exact payable amount. A different amount will not match this order."
@@ -638,7 +639,10 @@ function confirmationNote(state, filled, total, network) {
   if (state === "anomaly") {
     return "Payment seen but needs merchant review";
   }
-  if (state === "expired" || state === "failed" || state === "invalid") {
+  if (state === "expired") {
+    return "This order is no longer open. A late on-chain send will not auto-complete — contact the merchant if you already paid.";
+  }
+  if (state === "failed" || state === "invalid") {
     return "No further confirmations for this order";
   }
   return "Awaiting your payment";
@@ -765,6 +769,11 @@ function paint(view) {
   }
   renderAddressMark(view.network);
   if (orderRefEl) orderRefEl.textContent = view.orderNumber;
+  if (networkWarn) {
+    const warning = String(view.wrongNetworkWarning || "").trim();
+    networkWarn.hidden = !warning;
+    if (warning) networkWarn.textContent = warning;
+  }
   if (exactWarn) {
     exactWarn.hidden = !isModeC;
     if (isModeC) {
@@ -893,6 +902,10 @@ function tick(remaining, state) {
     expiresEl.textContent = "Expired";
     if (mainEl) mainEl.dataset.state = "expired";
     if (statusEl) statusEl.textContent = statusCopy.expired;
+    if (confirmNoteEl) {
+      confirmNoteEl.textContent =
+        "This order is no longer open. A late on-chain send will not auto-complete — contact the merchant if you already paid.";
+    }
     setTimerTone(0, "expired");
     return;
   }
@@ -913,6 +926,10 @@ function paintInvalid() {
   if (timerLabelEl) timerLabelEl.textContent = "Status";
   if (expiresEl) expiresEl.textContent = "Invalid";
   setTimerTone(0, "invalid");
+  if (networkWarn) {
+    networkWarn.hidden = true;
+    networkWarn.textContent = "";
+  }
   if (exactWarn) exactWarn.hidden = true;
   if (memoWarn) memoWarn.hidden = true;
   setQrModeVisible("invalid");
@@ -936,6 +953,10 @@ function paintMaintenance(message) {
       message || "This network is temporarily unavailable.";
   }
   setTimerTone(0, "maintenance");
+  if (networkWarn) {
+    networkWarn.hidden = true;
+    networkWarn.textContent = "";
+  }
   if (exactWarn) exactWarn.hidden = true;
   if (memoWarn) memoWarn.hidden = true;
   setQrModeVisible("invalid");

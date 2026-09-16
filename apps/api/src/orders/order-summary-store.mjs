@@ -11,6 +11,19 @@ const EMPTY_SUMMARY = {
   anomalies: [],
 };
 
+/** pg DATE / timestamp → YYYY-MM-DD (UTC). String(date).slice(0,10) is locale garbage. */
+export function toVolumeDayKey(day) {
+  if (day instanceof Date && Number.isFinite(day.getTime())) {
+    return day.toISOString().slice(0, 10);
+  }
+  const s = String(day ?? "");
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(s);
+  if (iso) return iso[1];
+  const t = Date.parse(s);
+  if (Number.isFinite(t)) return new Date(t).toISOString().slice(0, 10);
+  return s.slice(0, 10);
+}
+
 /**
  * @param {{
  *   kind: "all" | "filter",
@@ -69,7 +82,7 @@ export async function summarizePaymentOrders(query) {
     return {
       periodVolume: "0",
       volumeByDay: dayRows.map((r) => ({
-        date: String(r.day).slice(0, 10),
+        date: toVolumeDayKey(r.day),
         volume: String(Number(r.volume) || 0),
       })),
       volumeByOrg: orgRows.map((r) => ({
@@ -105,7 +118,7 @@ export async function summarizePaymentOrders(query) {
   return {
     periodVolume: String(Math.round(periodVolume * 100) / 100),
     volumeByDay: dayRows.map((r) => ({
-      date: String(r.day).slice(0, 10),
+      date: toVolumeDayKey(r.day),
       volume: String(Number(r.volume) || 0),
     })),
     volumeByOrg: orgRows.map((r) => ({

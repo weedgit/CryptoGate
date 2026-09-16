@@ -790,12 +790,18 @@ code {
   height: 16px;
 }
 
+.warn-network,
 .warn-exact {
   margin: 0;
   padding: 0.75rem;
   border-left: 3px solid var(--warn);
   color: var(--warn);
   font-size: 0.75rem;
+}
+
+.warn-network[hidden],
+.warn-exact[hidden] {
+  display: none;
 }
 
 .pay[data-mode="C"] .amount.fund-amount {

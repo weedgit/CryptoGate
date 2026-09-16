@@ -1,4 +1,4 @@
-This document is the Phase 1 project plan. Product scope, non-custodial rules, deliverables, and testing obligations already stated in [Phase 1 Requirement](Phase1-Requirement.md) are not repeated here.
+This document is the Phase 1 project plan. Product scope, non-custodial rules, deliverables, and testing obligations already stated in [Phase 1 Requirement](Phase1-Requirement.md) are not repeated here. Client / UAT freeze for matching, anomalies, permissions, webhooks, and MVP boundary: [Phase1-Acceptance-Pack.md](Phase1-Acceptance-Pack.md).
 
 ## I. System Architecture
 
@@ -12,7 +12,7 @@ Each person gets only the access they need. Cashiers create payment orders. Merc
 
 Org account types and user roles are defined in [Business-Model.md](Business-Model.md) Terminology.
 
-The usual risks are handled in the same spirit. Merchant Owners and Administrators must use MFA — a password alone is not enough. A wallet address change needs MFA, a second approval, an alert, a waiting period and an audit log. An order is marked paid only after real blockchain confirmations; signed notifications help block fake payment messages. The payment page shows the exact network, token and address. A mismatch is flagged for review, not marked paid.
+The usual risks are handled in the same spirit. Merchant Owners and Administrators must use MFA — a password alone is not enough. A wallet address change needs MFA, a second approval, an alert, a waiting period and an audit log. An order is marked **Completed** only after real blockchain confirmations; signed notifications help block fake payment messages. The payment page shows the exact network, token and address. When a mismatch is **seen**, it is flagged for review, not Completed. Detection of a wrong network is best-effort. Expiry closes the order in software; it does not stop the chain, and a late send is not auto-Completed.
 
 Phase 1 defaults to a **fixed merchant settlement address**. Merchants may enable other matching modes — including **Smart address (Mode S)**, which uses watch-only xPub derivation only when same-amount collisions would otherwise occur. See Section II. PaymentGate never holds private keys and never sweeps funds on the merchant’s behalf in Phase 1.
 

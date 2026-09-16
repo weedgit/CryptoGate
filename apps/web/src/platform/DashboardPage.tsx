@@ -10,9 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { platformRoute } from "../shared/portalRouting";
 import { AnimatedFundAmount } from "../shared/AnimatedFundAmount";
+import {
+  useDashboardLiveEvents,
+  type DashboardLiveSlice,
+} from "../shared/useDashboardLiveEvents";
 import {
   ApiError,
   getPlatformDashboardSummary,
@@ -22,7 +27,6 @@ import {
   peekPlatformOrgs,
   peekPlatformOrders,
   peekPlatformServiceBills,
-  type AuditLogEntry,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
@@ -32,6 +36,13 @@ import {
   feeAccruedFromBills,
   invoiceStatsFromBills,
 } from "./dashboardBillPeriod";
+import { listCommissionPayouts } from "../commercial/commissionPayoutRecords";
+import {
+  AgentsNavIcon,
+  ComplianceNavIcon,
+  HealthNavIcon,
+  ServiceBillsNavIcon,
+} from "./NavIcons";
 import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
@@ -86,6 +97,12 @@ type OverviewStats = {
   fees: number;
   /** Volume fees paid in period. */
   collected: number;
+  /** Open payment anomalies (not period-scoped — ops queue). */
+  anomalies: number;
+  /** Platform→agent commission still open in period months. */
+  commissionOwed: number;
+  /** Platform→agent commission paid/settled in period months. */
+  commissionPaid: number;
 };
 
 const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
@@ -135,6 +152,9 @@ const EMPTY_STATS: OverviewStats = {
   volume: 0,
   fees: 0,
   collected: 0,
+  anomalies: 0,
+  commissionOwed: 0,
+  commissionPaid: 0,
 };
 
 function startOfDay(d: Date): Date {
@@ -171,6 +191,29 @@ function buildDayKeys(from: Date, to: Date): string[] {
     cursor.setDate(cursor.getDate() + 1);
   }
   return dayKeys;
+}
+
+/** UTC calendar days — matches SQL `date_trunc('day', … AT TIME ZONE 'UTC')`. */
+function buildUtcDayKeys(from: Date, to: Date): string[] {
+  const dayKeys: string[] = [];
+  const cursor = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()),
+  );
+  const endMs = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  while (cursor.getTime() <= endMs) {
+    dayKeys.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dayKeys;
+}
+
+function normalizeVolumeDayKey(raw: string): string {
+  const s = String(raw ?? "");
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(s);
+  if (iso) return iso[1];
+  const t = Date.parse(s);
+  if (Number.isFinite(t)) return new Date(t).toISOString().slice(0, 10);
+  return s.slice(0, 10);
 }
 
 function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] } {
@@ -330,17 +373,6 @@ function filteredVolumeTotal(
   return total;
 }
 
-function periodFeeTotal(bills: ServiceBill[], from: Date, to: Date): number {
-  let total = 0;
-  for (const b of bills) {
-    if (b.status !== "paid") continue;
-    if (!inWindow(b.paidAt ?? b.dueAt, from, to)) continue;
-    const n = Number(b.volumeFeeAmount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
-}
-
 function orgFeeTotal(
   bills: ServiceBill[],
   from: Date,
@@ -405,15 +437,16 @@ function buildOrgOverviewCard(args: {
   const fee = orgFeeTotal(bills, from, to, scope);
   let buckets = volumeSeries(orders, keys, { scope: "all" }, scope);
   const volume = vol || buckets.reduce((a, b) => a + b, 0);
-  const fees = fee || Math.round(volume * 0.00115 * 100) / 100;
+  // Never invent a fee rate — show 0 when no paid bills in scope.
+  const fees = fee;
   return {
     id: overviewId,
     category: kind === "merchant" ? "Merchants" : "Agents",
     title: org.name,
     help:
       kind === "merchant"
-        ? "Settled volume and fees for this merchant (and sites)."
-        : "Settled volume and fees for this agent subtree.",
+        ? "Settled merchant volume and paid volume fees for this merchant (and sites)."
+        : "Settled merchant volume and paid volume fees for this agent subtree.",
     value: volFeeValue(volume, fees),
     compareLabel: kind === "merchant" ? "Merchant" : "Agent",
     series: buckets,
@@ -440,6 +473,43 @@ function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
   return total;
 }
 
+/** YYYY-MM keys covering the dashboard window (local calendar months). */
+function commissionMonthKeys(from: Date, to: Date): Set<string> {
+  const keys = new Set<string>();
+  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+  const end = new Date(to.getFullYear(), to.getMonth(), 1);
+  while (cursor.getTime() <= end.getTime()) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, "0");
+    keys.add(`${y}-${m}`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return keys;
+}
+
+function seriesFromVolumeByDay(
+  days: string[],
+  volumeByDay: { date: string; volume: string }[],
+): number[] {
+  const map = new Map<string, number>();
+  let rawTotal = 0;
+  for (const row of volumeByDay) {
+    const n = Number(row.volume) || 0;
+    rawTotal += n;
+    const key = normalizeVolumeDayKey(row.date);
+    map.set(key, (map.get(key) ?? 0) + n);
+  }
+  const series = days.map((d) => map.get(d) ?? 0);
+  const mapped = series.reduce((a, n) => a + n, 0);
+  // Broken/mismatched day keys: still show period volume on the last bucket.
+  if (mapped === 0 && rawTotal > 0 && days.length > 0) {
+    const out = days.map(() => 0);
+    out[out.length - 1] = Math.round(rawTotal * 100) / 100;
+    return out;
+  }
+  return series;
+}
+
 /** Volume fees paid in period — collected platform fees. */
 function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
   let total = 0;
@@ -456,29 +526,19 @@ function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
   return invoiceStatsFromBills(bills, from, to);
 }
 
-function newSignupStats(events: AuditLogEntry[], from: Date, to: Date) {
-  let newMerchants = 0;
-  let newAgents = 0;
-  let newCashiers = 0;
-  for (const e of events) {
-    if (!inWindow(e.createdAt, from, to)) continue;
-    if (e.action === "org_create") {
-      const type = String(e.metadata.type ?? "");
-      if (isMerchantType(type)) newMerchants += 1;
-      else if (isAgentType(type)) newAgents += 1;
-    } else if (e.action === "org_user_invite") {
-      if (String(e.metadata.role ?? "") === "cashier") newCashiers += 1;
-    }
-  }
-  return { newMerchants, newAgents, newCashiers };
-}
-
 function formatMoneyFigure(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function formatUsd(n: number): string {
   return `${formatMoneyFigure(n)} USD`;
+}
+
+function formatUpdatedClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function PeriodUsd({ n }: { n: number }) {
@@ -561,6 +621,9 @@ export function DashboardPage({ session }: Props) {
   );
   const loadGen = useRef(0);
   const initialLoad = useRef(true);
+  const lastFetchAt = useRef(0);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [pairsReloadToken, setPairsReloadToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -568,6 +631,16 @@ export function DashboardPage({ session }: Props) {
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [periodDayKeys, setPeriodDayKeys] = useState<string[]>([]);
+  const [summaryVolumeByDay, setSummaryVolumeByDay] = useState<
+    { date: string; volume: string }[]
+  >([]);
+  /** Total-scope chart waits for SQL volumeByDay so we don't flash orders→SQL. */
+  const [sqlVolumeReady, setSqlVolumeReady] = useState(false);
+  const heldVolumeChartRef = useRef<{
+    series: number[];
+    dayLabels: string[];
+    chartPeriodTotal: number;
+  } | null>(null);
   const [volumeScope, setVolumeScope] = useState<VolumeScope>("total");
   const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(null);
   const [volumeMaximized, setVolumeMaximized] = useState(false);
@@ -636,9 +709,10 @@ export function DashboardPage({ session }: Props) {
     setStartDate((prev) => (prev && value < prev ? value : prev));
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!startDate || !endDate) return;
     const gen = ++loadGen.current;
+    const force = Boolean(opts?.force);
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
@@ -677,12 +751,18 @@ export function DashboardPage({ session }: Props) {
         volume: periodVolume(nextOrders, from, to),
         fees: feeAccruedFromBills(nextBills, from, to),
         collected: feeCollected(nextBills, from, to),
+        anomalies: prev.anomalies,
+        commissionOwed: prev.commissionOwed,
+        commissionPaid: prev.commissionPaid,
       }));
       setOrders(nextOrders);
       setBills(nextBills);
       setOrgs(nextOrgs);
       setPeriodDayKeys(dayKeys);
     };
+
+    // Freeze Total chart until this fetch's summary arrives (avoids orders→SQL flash).
+    setSqlVolumeReady(false);
 
     const cachedOrgs = peekPlatformOrgs();
     const cachedBills = peekPlatformServiceBills();
@@ -700,38 +780,84 @@ export function DashboardPage({ session }: Props) {
       setLoading(true);
     }
 
-    const orgsPromise = getPlatformOrgs();
-    const ordersPromise = getPlatformOrders();
-    const billsPromise = getPlatformServiceBills().catch(
+    const fetchOpts = force ? { force: true as const } : undefined;
+    const orgsPromise = getPlatformOrgs(fetchOpts);
+    const ordersPromise = getPlatformOrders(fetchOpts);
+    const billsPromise = getPlatformServiceBills(fetchOpts).catch(
       () => [] as ServiceBill[],
     );
     const summaryPromise = getPlatformDashboardSummary(
       from.toISOString(),
       to.toISOString(),
     ).catch(() => null);
+    const commissionsPromise = listCommissionPayouts({ payer: "platform" }).catch(
+      () => [],
+    );
 
     try {
-      const [nextOrgs, nextOrders, nextBills, summary] = await Promise.all([
-        orgsPromise,
-        ordersPromise,
-        billsPromise,
-        summaryPromise,
-      ]);
+      const [nextOrgs, nextOrders, nextBills, summary, commissionRows] =
+        await Promise.all([
+          orgsPromise,
+          ordersPromise,
+          billsPromise,
+          summaryPromise,
+          commissionsPromise,
+        ]);
       if (gen !== loadGen.current) return;
       applyCore(nextOrgs, nextOrders, nextBills);
       setHasLoaded(true);
       setLoading(false);
 
+      const monthKeys = commissionMonthKeys(from, to);
+      let commissionOwed = 0;
+      let commissionPaid = 0;
+      for (const row of commissionRows) {
+        if (!monthKeys.has(row.periodKey)) continue;
+        const amt = Number(row.commissionAmount) || 0;
+        if (
+          row.payoutStatus === "issued" ||
+          row.payoutStatus === "ready" ||
+          row.payoutStatus === "verifying"
+        ) {
+          commissionOwed += amt;
+        } else if (
+          row.payoutStatus === "paid" ||
+          row.payoutStatus === "settled"
+        ) {
+          commissionPaid += amt;
+        }
+      }
+      commissionOwed = Math.round(commissionOwed * 100) / 100;
+      commissionPaid = Math.round(commissionPaid * 100) / 100;
+
       if (summary) {
+        setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
         setStats((prev) => ({
           ...prev,
           newMerchants: summary.signups.newMerchants,
           newAgents: summary.signups.newAgents,
           newCashiers: summary.signups.newCashiers,
           volume:
-            Number(summary.orders.periodVolume) || periodVolume(nextOrders, from, to),
+            Number(summary.orders.periodVolume) ||
+            periodVolume(nextOrders, from, to),
+          anomalies: summary.orders.anomalies?.length ?? 0,
+          commissionOwed,
+          commissionPaid,
+        }));
+      } else {
+        setSummaryVolumeByDay([]);
+        setStats((prev) => ({
+          ...prev,
+          commissionOwed,
+          commissionPaid,
+          anomalies: nextOrders.filter((o) => o.status === "payment_anomaly")
+            .length,
         }));
       }
+      setSqlVolumeReady(true);
+      const now = Date.now();
+      lastFetchAt.current = now;
+      setUpdatedAt(now);
     } catch (err) {
       if (gen !== loadGen.current) return;
       const text =
@@ -741,6 +867,7 @@ export function DashboardPage({ session }: Props) {
             : err.message
           : "Failed to load dashboard";
       setError(text);
+      setSqlVolumeReady(true);
     } finally {
       if (gen === loadGen.current) {
         setLoading(false);
@@ -749,8 +876,164 @@ export function DashboardPage({ session }: Props) {
     }
   }, [startDate, endDate]);
 
+  const softRevalidateLiveSlices = useCallback(
+    async (slices: DashboardLiveSlice[]) => {
+      if (!startDate || !endDate) return;
+      const from = parseDateInput(startDate, false);
+      const to = parseDateInput(endDate, true);
+      const needVolume = slices.includes("volume");
+      const needAnomalies = slices.includes("anomalies");
+      const needBills = slices.includes("serviceBills");
+      const needOrgs = slices.includes("orgs");
+      const needCommissions = slices.includes("commissions");
+      const needNetworks = slices.includes("networks");
+
+      try {
+        if (needVolume || needAnomalies) {
+          const summary = await getPlatformDashboardSummary(
+            from.toISOString(),
+            to.toISOString(),
+          );
+          if (needVolume) {
+            setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
+            setSqlVolumeReady(true);
+          }
+          setStats((prev) => ({
+            ...prev,
+            ...(needVolume
+              ? {
+                  volume:
+                    Number(summary.orders.periodVolume) || prev.volume,
+                }
+              : {}),
+            ...(needAnomalies
+              ? {
+                  anomalies:
+                    summary.orders.anomalies?.length ?? prev.anomalies,
+                }
+              : {}),
+          }));
+        }
+
+        if (needBills) {
+          const nextBills = await getPlatformServiceBills({ force: true });
+          setBills(nextBills);
+          const invoices = invoiceStats(nextBills, from, to);
+          setStats((prev) => ({
+            ...prev,
+            invoicesIssued: invoices.issued,
+            invoicesPaid: invoices.paid,
+            invoicesOverdue: invoices.overdue,
+            fees: feeAccruedFromBills(nextBills, from, to),
+            collected: feeCollected(nextBills, from, to),
+          }));
+        }
+
+        if (needOrgs) {
+          const nextOrgs = await getPlatformOrgs({ force: true });
+          setOrgs(nextOrgs);
+          const children = buildChildrenMap(nextOrgs);
+          const leaves = activeOrgIds(orders, from, to);
+          const pausedOrgIds = pausedOrgIdsFromOrgs(nextOrgs);
+          setStats((prev) => ({
+            ...prev,
+            merchants: accountSlice(
+              nextOrgs,
+              isMerchantType,
+              leaves,
+              children,
+              pausedOrgIds,
+            ),
+            agents: accountSlice(
+              nextOrgs,
+              isAgentType,
+              leaves,
+              children,
+              pausedOrgIds,
+            ),
+          }));
+          try {
+            const summary = await getPlatformDashboardSummary(
+              from.toISOString(),
+              to.toISOString(),
+            );
+            setStats((prev) => ({
+              ...prev,
+              newMerchants: summary.signups.newMerchants,
+              newAgents: summary.signups.newAgents,
+              newCashiers: summary.signups.newCashiers,
+            }));
+          } catch {
+            // keep prior signup counts
+          }
+        }
+
+        if (needCommissions) {
+          const commissionRows = await listCommissionPayouts({
+            payer: "platform",
+          }).catch(() => []);
+          const monthKeys = commissionMonthKeys(from, to);
+          let commissionOwed = 0;
+          let commissionPaid = 0;
+          for (const row of commissionRows) {
+            if (!monthKeys.has(row.periodKey)) continue;
+            const amt = Number(row.commissionAmount) || 0;
+            if (
+              row.payoutStatus === "issued" ||
+              row.payoutStatus === "ready" ||
+              row.payoutStatus === "verifying"
+            ) {
+              commissionOwed += amt;
+            } else if (
+              row.payoutStatus === "paid" ||
+              row.payoutStatus === "settled"
+            ) {
+              commissionPaid += amt;
+            }
+          }
+          setStats((prev) => ({
+            ...prev,
+            commissionOwed: Math.round(commissionOwed * 100) / 100,
+            commissionPaid: Math.round(commissionPaid * 100) / 100,
+          }));
+        }
+
+        if (needNetworks) {
+          setPairsReloadToken((n) => n + 1);
+        }
+
+        setUpdatedAt(Date.now());
+      } catch {
+        // Keep last good SWR snapshot.
+      }
+    },
+    [startDate, endDate, orders],
+  );
+
+  useDashboardLiveEvents({
+    enabled: hasLoaded,
+    onSlices: (slices) => {
+      void softRevalidateLiveSlices(slices);
+    },
+  });
+
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastFetchAt.current < 30_000) return;
+      void load({ force: true });
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [load]);
+
+  const refreshDashboard = useCallback(() => {
+    setPairsReloadToken((n) => n + 1);
+    void load({ force: true });
   }, [load]);
 
   const periodLabel =
@@ -789,14 +1072,43 @@ export function DashboardPage({ session }: Props) {
 
   const { series, dayLabels, chartPeriodTotal } = useMemo(() => {
     const { from, to, keys } = chartWindow;
-    const live = volumeSeries(orders, keys, volumeFilter);
-    const volume = filteredVolumeTotal(orders, from, to, volumeFilter);
-    return {
-      series: live,
+    if (volumeFilter.scope === "all") {
+      if (!sqlVolumeReady) {
+        const held = heldVolumeChartRef.current;
+        if (held && held.dayLabels.length > 0) return held;
+        const sqlKeys = buildUtcDayKeys(from, to);
+        return {
+          series: sqlKeys.map(() => 0),
+          dayLabels: sqlKeys,
+          chartPeriodTotal: 0,
+        };
+      }
+      if (summaryVolumeByDay.length > 0) {
+        const sqlKeys = buildUtcDayKeys(from, to);
+        const next = {
+          series: seriesFromVolumeByDay(sqlKeys, summaryVolumeByDay),
+          dayLabels: sqlKeys,
+          chartPeriodTotal: stats.volume,
+        };
+        heldVolumeChartRef.current = next;
+        return next;
+      }
+    }
+    const next = {
+      series: volumeSeries(orders, keys, volumeFilter),
       dayLabels: keys,
-      chartPeriodTotal: volume,
+      chartPeriodTotal: filteredVolumeTotal(orders, from, to, volumeFilter),
     };
-  }, [orders, chartWindow, volumeFilter]);
+    if (volumeFilter.scope === "all") heldVolumeChartRef.current = next;
+    return next;
+  }, [
+    orders,
+    chartWindow,
+    volumeFilter,
+    summaryVolumeByDay,
+    stats.volume,
+    sqlVolumeReady,
+  ]);
 
   const baseChartCatalog: OverviewChartCard[] = useMemo(() => {
     const { keys } = chartWindow;
@@ -810,22 +1122,19 @@ export function DashboardPage({ session }: Props) {
     const fmtMoney = (n: number) => `${formatMoneyFigure(n)} USD`;
     const fmtCount = (n: number) =>
       Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const feeBuckets =
-      stats.volume > 0
-        ? series.map((v) => (v / Math.max(stats.volume, 1)) * stats.fees)
-        : keys.map(() => 0);
     const accountTotal = stats.merchants.total + stats.agents.total;
-    const invoiceSeries = keys.map(() => stats.invoicesIssued);
+    // No synthetic sparklines — empty series until real history exists.
+    const emptySeries = keys.map(() => 0);
 
     const base: OverviewChartCard[] = [
       {
         id: "invoices",
         category: "Platform",
         title: "Invoices",
-        help: "Service bills issued / paid in the selected period.",
+        help: "Service bills issued / paid / overdue in the selected period.",
         value: stats.invoicesIssued,
         compareLabel: `${stats.invoicesPaid} paid · ${stats.invoicesOverdue} overdue`,
-        series: invoiceSeries,
+        series: emptySeries,
         seriesLabels: labels,
         seriesMetric: "Invoices",
         formatSeriesValue: fmtCount,
@@ -840,7 +1149,7 @@ export function DashboardPage({ session }: Props) {
         help: "Platform volume fees billed in the period. Collected is the paid subset.",
         value: money(stats.fees),
         compareLabel: `${formatMoneyFigure(stats.collected)} collected · ${periodLabel}`,
-        series: feeBuckets,
+        series: emptySeries,
         seriesLabels: labels,
         seriesMetric: "Fees",
         formatSeriesValue: fmtMoney,
@@ -855,9 +1164,7 @@ export function DashboardPage({ session }: Props) {
         help: "Merchants and agents on the platform.",
         value: accountTotal,
         compareLabel: `${stats.merchants.total} merchants · ${stats.agents.total} agents`,
-        series: keys.map((_, i) =>
-          Math.max(accountTotal - (keys.length - 1 - i), 0),
-        ),
+        series: emptySeries,
         seriesLabels: labels,
         seriesMetric: "Accounts",
         formatSeriesValue: fmtCount,
@@ -867,7 +1174,7 @@ export function DashboardPage({ session }: Props) {
     ];
 
     return base;
-  }, [chartWindow, dayLabels, series, stats, periodLabel]);
+  }, [chartWindow, dayLabels, stats, periodLabel]);
 
   const [orgChartCards, setOrgChartCards] = useState<OverviewChartCard[]>([]);
   useEffect(() => {
@@ -1038,7 +1345,23 @@ export function DashboardPage({ session }: Props) {
             <span className="plat-period-refresh" role="status">
               Updating…
             </span>
+          ) : updatedAt ? (
+            <span
+              className="plat-period-updated"
+              title={new Date(updatedAt).toLocaleString()}
+            >
+              Updated {formatUpdatedClock(updatedAt)}
+            </span>
           ) : null}
+          <button
+            type="button"
+            className="plat-period-refresh-btn"
+            onClick={refreshDashboard}
+            disabled={loading}
+            aria-label="Refresh dashboard"
+          >
+            Refresh
+          </button>
         </div>,
         topbarSlot,
       )
@@ -1071,8 +1394,13 @@ export function DashboardPage({ session }: Props) {
       <div className="plat-overview-grid">
         <div className="plat-overview-card glass-tone-blue">
           <div className="plat-overview-card__head">
-            <h2>Accounts</h2>
-            <CardHelp text="Who’s on the platform: totals, who had payment activity, who was quiet, and who is paused." />
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <AgentsNavIcon />
+              </span>
+              <h2>Accounts</h2>
+            </div>
+            <CardHelp text="Who’s on the platform: totals, who had payment activity, and who is paused." />
           </div>
           <AccountRows title="Merchants" slice={stats.merchants} />
           <AccountRows title="Agents" slice={stats.agents} />
@@ -1080,22 +1408,67 @@ export function DashboardPage({ session }: Props) {
 
         <div className="plat-overview-card glass-tone-emerald">
           <div className="plat-overview-card__head">
-            <h2>Grow</h2>
-            <CardHelp text={`Merchants, agents, and cashiers onboarded in ${periodLabel}.`} />
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <ComplianceNavIcon />
+              </span>
+              <h2>Attention</h2>
+            </div>
+            <CardHelp text="Open payment anomalies (ops queue) and platform→agent commissions for months in this period." />
           </div>
           <MetricLines
             rows={[
-              { label: "Merchants", value: stats.newMerchants },
-              { label: "Agents", value: stats.newAgents },
-              { label: "Cashiers", value: stats.newCashiers },
+              {
+                label: "Anomalies",
+                value: (
+                  <Link className="plat-metric-line__link" to={platformRoute("compliance")}>
+                    {stats.anomalies}
+                  </Link>
+                ),
+              },
+              {
+                label: "Owed",
+                value: (
+                  <Link
+                    className="plat-metric-line__link"
+                    to={platformRoute("commissions")}
+                    aria-label={`Commission owed ${formatUsd(stats.commissionOwed)}`}
+                  >
+                    <span className="fund-amount">
+                      {formatMoneyFigure(stats.commissionOwed)}
+                      <span className="plat-fund-currency">USD</span>
+                    </span>
+                  </Link>
+                ),
+              },
+              {
+                label: "Paid",
+                value: (
+                  <Link
+                    className="plat-metric-line__link"
+                    to={platformRoute("commissions")}
+                    aria-label={`Commission paid ${formatUsd(stats.commissionPaid)}`}
+                  >
+                    <span className="fund-amount">
+                      {formatMoneyFigure(stats.commissionPaid)}
+                      <span className="plat-fund-currency">USD</span>
+                    </span>
+                  </Link>
+                ),
+              },
             ]}
           />
         </div>
 
         <div className="plat-overview-card glass-tone-amber">
           <div className="plat-overview-card__head">
-            <h2>Invoices</h2>
-            <CardHelp text={`Service bills in ${periodLabel}: how many were issued, paid, or are overdue.`} />
+            <div className="plat-overview-card__title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <ServiceBillsNavIcon />
+              </span>
+              <h2>Invoices</h2>
+            </div>
+            <CardHelp text={`Service bills in ${periodLabel}: issued, paid, or overdue (period-scoped).`} />
           </div>
           <MetricLines
             rows={[
@@ -1106,25 +1479,30 @@ export function DashboardPage({ session }: Props) {
           />
         </div>
 
-        <section className="plat-fund-rail" aria-label="Funds">
+        <section className="plat-fund-rail" aria-label="Observed volume">
           <div className="plat-fund-rail__eyebrow">
-            <span>Funds</span>
+            <div className="plat-fund-rail__eyebrow-title">
+              <span className="plat-overview-card__icon" aria-hidden>
+                <HealthNavIcon />
+              </span>
+              <span>Volume</span>
+            </div>
             <CardHelp
-              text={`Settled payment-order volume in ${periodLabel}. Fees are volume-fee line items on service bills issued, due, or with a billing period overlapping this range — not estimated from live volume.`}
+              text={`Observed settled merchant volume in ${periodLabel} (non-custodial — funds stay in merchant wallets). Fees are volume-fee line items on service bills overlapping this range — not estimated from live volume.`}
             />
           </div>
           <div className="plat-fund-rail__primary">
             <div className="plat-fund-rail__copy">
               <p className="plat-fund-rail__pair-labels">
-                <span>Total</span>
+                <span>Observed</span>
                 <span aria-hidden>/</span>
                 <span>Fees</span>
               </p>
               <span className="plat-fund-rail__hint">
-                Settled order volume / service bill volume fees · USD
+                Settled / fees · <span className="plat-fund-rail__hint-unit">USD</span>
               </span>
             </div>
-            <p className="plat-fund-rail__pair" aria-label="Total and fees in US dollars">
+            <p className="plat-fund-rail__pair" aria-label="Observed volume and fees in US dollars">
               <AnimatedFundAmount
                 className="plat-fund-rail__total"
                 value={stats.volume}
@@ -1139,7 +1517,9 @@ export function DashboardPage({ session }: Props) {
           <div className="plat-fund-rail__secondary">
             <div className="plat-fund-rail__copy">
               <span className="plat-fund-rail__label">Collected</span>
-              <span className="plat-fund-rail__hint">Paid volume fees · USD</span>
+              <span className="plat-fund-rail__hint">
+                Paid fees · <span className="plat-fund-rail__hint-unit">USD</span>
+              </span>
             </div>
             <p
               className="plat-fund-rail__collected-wrap"
@@ -1232,6 +1612,7 @@ export function DashboardPage({ session }: Props) {
               selection={volumeSelection}
               volumeScope={volumeScope}
               onSelect={onVolumeSelect}
+              reloadToken={pairsReloadToken}
             />
           </div>
         </div>
