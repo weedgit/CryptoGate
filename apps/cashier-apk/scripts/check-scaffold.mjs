@@ -12,6 +12,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const required = [
   "settings.gradle.kts",
   "app/build.gradle.kts",
+  "gradlew",
+  "gradle/wrapper/gradle-wrapper.jar",
+  "gradle/wrapper/gradle-wrapper.properties",
   "keystore.properties.example",
   "app/src/main/AndroidManifest.xml",
   "app/src/main/java/com/paymentgate/cashier/MainActivity.kt",
@@ -91,6 +94,19 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
     assert.match(main, /toCustomerPayContent/);
     assert.match(main, /KeepScreenOnWhile/);
     assert.match(main, /PosScreen\.Settings/);
+    assert.match(main, /apiBaseUrl/);
+    const surface = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/api/CashierPosSurface.kt"),
+      "utf8",
+    );
+    assert.match(surface, /MFA_REQUIRED_POS/);
+    assert.match(surface, /NOT_CASHIER_POS/);
+    assert.match(surface, /error\.code == "mfa_required"/);
+    const login = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/ui/LoginScreen.kt"),
+      "utf8",
+    );
+    assert.match(login, /TEST BUILD — staging API/);
   });
 
   it("does not commit keystore.properties", () => {

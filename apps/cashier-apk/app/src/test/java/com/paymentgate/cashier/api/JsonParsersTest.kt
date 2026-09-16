@@ -204,6 +204,25 @@ class CashierPosSurfaceTest {
     }
 
     @Test
+    fun mapsMfaRequiredToWebPortalMessage() {
+        val msg = CashierPosSurface.userMessage(
+            ApiError("mfa_required", "This account requires MFA. Sign in on the web portal.", 403),
+        )
+        assertEquals(CashierPosSurface.MFA_REQUIRED_POS, msg)
+        assertTrue(msg.contains("web portal"))
+        assertFalse(msg.contains("xPub"))
+    }
+
+    @Test
+    fun mapsNotCashierToRoleMessage() {
+        val msg = CashierPosSurface.userMessage(
+            ApiError("not_cashier", "Cashier role on a merchant account is required for POS.", 403),
+        )
+        assertEquals(CashierPosSurface.NOT_CASHIER_POS, msg)
+        assertFalse(msg.contains("xPub"))
+    }
+
+    @Test
     fun mapsIoExceptionToOfflineCreate() {
         val msg = CashierPosSurface.userMessage(java.net.UnknownHostException("api"))
         assertEquals(CashierPosSurface.OFFLINE_CREATE, msg)

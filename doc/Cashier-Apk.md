@@ -21,8 +21,25 @@
 1. Open folder `apps/cashier-apk` (Gradle project).
 2. Set `local.properties` → `sdk.dir=` (Studio usually writes this).
 3. Sync Gradle; run **app** on an emulator or handheld (minSdk 26).
-4. Debug base URL default: `http://10.0.2.2:3000/v1` (emulator → host API).  
-   Override: Gradle flavors **staging** / **prod** (`-Ppaymentgate.stagingApi` / `-Ppaymentgate.prodApi`) — see [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
+4. Staging flavor default API is `paymentgate.stagingApi` in `gradle.properties` (currently `https://api-cg.boostbunny.io/v1`). For a local API on the Android emulator:
+
+```bash
+./gradlew :app:assembleStagingDebug -Ppaymentgate.stagingApi=http://10.0.2.2:3000/v1
+```
+
+Prod flavor uses `-Ppaymentgate.prodApi`. See [M4-05-Env-Matrix.md](M4-05-Env-Matrix.md).
+
+## CLI build (Gradle wrapper)
+
+Requires **JDK 17** and **Android SDK 35** (`ANDROID_HOME` or `local.properties` `sdk.dir`). From `apps/cashier-apk`:
+
+```bash
+./gradlew :app:assembleStagingDebug
+# signed release (needs keystore.properties):
+./gradlew :app:assembleStagingRelease :app:assembleProdRelease
+```
+
+This environment does not ship an Android SDK — build the APK on a Studio/SDK machine. Install: [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md).
 
 ## Release build & install (operators)
 

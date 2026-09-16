@@ -25,6 +25,12 @@ object CashierPosSurface {
     fun userMessage(error: Throwable): String {
         when (error) {
             is ApiError -> {
+                if (error.code == "mfa_required") {
+                    return MFA_REQUIRED_POS
+                }
+                if (error.code == "not_cashier") {
+                    return NOT_CASHIER_POS
+                }
                 if (error.code == "mode_b_amount_in_use" || error.code == "mode_d_memo_in_use") {
                     return error.message.trim().ifEmpty {
                         "Another open order is using this amount. Open it or pick a different amount."
@@ -54,6 +60,12 @@ object CashierPosSurface {
             }
         }
     }
+
+    const val MFA_REQUIRED_POS =
+        "This account requires MFA. Sign in on the web portal — POS cannot complete authenticator step-up."
+
+    const val NOT_CASHIER_POS =
+        "Cashier role on a merchant account is required for POS."
 
     const val FORBIDDEN_POS =
         "Not allowed on POS. Settlement address, xPub, and matching mode can only be changed by Owner/Admin on the web portal."

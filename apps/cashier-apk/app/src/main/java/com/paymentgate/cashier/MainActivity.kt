@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
                             password = password,
                             error = error,
                             loading = loading,
+                            appEnv = BuildConfig.APP_ENV,
                             onEmailChange = { email = it; error = null },
                             onPasswordChange = { password = it; error = null },
                             onSignIn = {
@@ -242,6 +243,7 @@ class MainActivity : ComponentActivity() {
                             SettingsScreen(
                                 appVersion = BuildConfig.VERSION_NAME,
                                 appEnv = BuildConfig.APP_ENV,
+                                apiBaseUrl = BuildConfig.API_BASE_URL,
                                 deviceId =
                                     Settings.Secure.getString(
                                         contentResolver,

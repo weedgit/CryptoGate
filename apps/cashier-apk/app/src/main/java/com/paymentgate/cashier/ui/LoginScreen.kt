@@ -27,6 +27,7 @@ fun LoginScreen(
     password: String,
     error: String?,
     loading: Boolean,
+    appEnv: String = "prod",
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -48,6 +49,14 @@ fun LoginScreen(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
+        if (appEnv.equals("staging", ignoreCase = true)) {
+            Text(
+                text = "TEST BUILD — staging API",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "No wallet keys. Matching mode is set on the server.",

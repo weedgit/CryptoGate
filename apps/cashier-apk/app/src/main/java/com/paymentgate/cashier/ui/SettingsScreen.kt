@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     appVersion: String,
     appEnv: String,
+    apiBaseUrl: String,
     deviceId: String,
     printerAvailable: Boolean,
     printerStatusLabel: String,
@@ -131,6 +132,7 @@ fun SettingsScreen(
             )
             Text("App  $appVersion", style = MaterialTheme.typography.bodySmall)
             Text("Env  $appEnv", style = MaterialTheme.typography.bodySmall)
+            Text("API  $apiBaseUrl", style = MaterialTheme.typography.bodySmall)
             Text("Device ID  $deviceId", style = MaterialTheme.typography.bodySmall)
 
             Spacer(modifier = Modifier.height(24.dp))

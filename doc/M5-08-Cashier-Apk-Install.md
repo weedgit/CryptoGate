@@ -28,7 +28,7 @@ Prerequisites: Android SDK 35, JDK 17, release keystore ([M4-02](M4-02-Secrets-T
 
 1. Copy `apps/cashier-apk/keystore.properties.example` → `keystore.properties` (gitignored).
 2. Set Company A / release signing values — **do not commit**.
-3. From `apps/cashier-apk` (Android Studio **Build → Generate Signed Bundle/APK** or Gradle):
+3. From `apps/cashier-apk` (Android Studio **Build → Generate Signed Bundle/APK** or the committed Gradle wrapper):
 
 ```bash
 # Override API bases at build time (recommended for Company A):
@@ -45,9 +45,9 @@ Output (default Gradle layout):
 | staging | `app/build/outputs/apk/staging/release/app-staging-release.apk` |
 | prod | `app/build/outputs/apk/prod/release/app-prod-release.apk` |
 
-If `gradlew` is missing, open the folder in Android Studio and use **Build → Select Build Variant** (`stagingRelease` / `prodRelease`) then **Build APK(s)**.
+`gradlew` is in `apps/cashier-apk`. If Gradle sync fails, open the folder in Android Studio and use **Build → Select Build Variant** (`stagingRelease` / `prodRelease`) then **Build APK(s)**.
 
-**Version:** `versionName` in `app/build.gradle.kts` (e.g. `0.1.0-m4-23-staging`). Bump per release; record in checksum manifest.
+**Version:** `versionName` in `app/build.gradle.kts` (e.g. `0.1.1-m5-t05`). Bump per release; record in checksum manifest.
 
 ---
 
