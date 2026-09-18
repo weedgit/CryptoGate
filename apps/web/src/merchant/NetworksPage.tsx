@@ -7,7 +7,7 @@ import {
   pendingOrderabilityLamp,
   type NetworkLamp,
 } from "../shared/networkLamp";
-import { networkShortLabel, visibleRegistry } from "../shared/assetNetworks";
+import { networkShortLabel, enabledRegistry } from "../shared/assetNetworks";
 import {
   getNetworksStatus,
   type NetworkOrderabilityLamp,
@@ -37,10 +37,7 @@ function asLamp(
 export function NetworksPage() {
   const pairs = useMemo(
     () =>
-      [...visibleRegistry()].sort((a, b) => {
-        const liveA = a.enabled ? 0 : 1;
-        const liveB = b.enabled ? 0 : 1;
-        if (liveA !== liveB) return liveA - liveB;
+      [...enabledRegistry()].sort((a, b) => {
         return networkShortLabel(a.network).localeCompare(
           networkShortLabel(b.network),
         );

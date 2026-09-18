@@ -8,6 +8,7 @@ import {
   clientIp,
   isGuestPaymentPath,
   isLoginPath,
+  isPosPinVerifyPath,
   isRateLimitExemptPath,
   rateLimitDecision,
   rateLimitsPerMinute,
@@ -79,8 +80,10 @@ describe("rate-limit rules (M3-11)", () => {
     assert.equal(third.retryAfter, 60);
   });
 
-  it("classifies login and guest payment paths", () => {
+  it("classifies login, pos-pin verify, and guest payment paths", () => {
     assert.equal(isLoginPath("POST", "/v1/auth/login"), true);
+    assert.equal(isPosPinVerifyPath("POST", "/v1/auth/pos-pin/verify"), true);
+    assert.equal(isPosPinVerifyPath("GET", "/v1/auth/pos-pin"), false);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1/payment"), true);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1"), false);
   });
@@ -138,6 +141,36 @@ describe("applyRateLimits", () => {
       assert.equal(res.headers["Retry-After"], "60");
       const body = JSON.parse(res.body());
       assert.equal(body.code, "rate_limited");
+    } finally {
+      if (prev === undefined) delete process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
+      else process.env.RATE_LIMIT_LOGIN_PER_MINUTE = prev;
+    }
+  });
+
+  it("shares the login bucket for POS PIN verify", () => {
+    const prev = process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
+    process.env.RATE_LIMIT_LOGIN_PER_MINUTE = "1";
+    try {
+      const ip = "203.0.113.55";
+      assert.equal(
+        applyRateLimits(
+          mockReq(ip, "POST", "/v1/auth/pos-pin/verify"),
+          mockRes(),
+          { method: "POST", path: "/v1/auth/pos-pin/verify" },
+        ),
+        false,
+      );
+      const res = mockRes();
+      assert.equal(
+        applyRateLimits(
+          mockReq(ip, "POST", "/v1/auth/pos-pin/verify"),
+          res,
+          { method: "POST", path: "/v1/auth/pos-pin/verify" },
+        ),
+        true,
+      );
+      assert.equal(res.statusCode, 429);
+      assert.equal(JSON.parse(res.body()).code, "rate_limited");
     } finally {
       if (prev === undefined) delete process.env.RATE_LIMIT_LOGIN_PER_MINUTE;
       else process.env.RATE_LIMIT_LOGIN_PER_MINUTE = prev;

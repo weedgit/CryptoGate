@@ -3,6 +3,7 @@ package com.paymentgate.cashier.ui
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -38,6 +40,8 @@ fun SettingsScreen(
     appEnv: String,
     apiBaseUrl: String,
     deviceId: String,
+    darkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit,
     printerAvailable: Boolean,
     printerStatusLabel: String,
     customerDisplayAvailable: Boolean,
@@ -46,13 +50,16 @@ fun SettingsScreen(
     onTestPrint: (suspend () -> PrintOutcome)? = null,
     onBack: () -> Unit,
     onSignOut: () -> Unit,
+    onLockNow: (() -> Unit)? = null,
+    idleLockMinutes: Int = 5,
+    onIdleLockMinutesChange: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reprinting by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
 
-    PosScreenFrame {
+    PosScreenFrame(applySystemBars = false) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,10 +67,77 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.Top,
         ) {
             Text(
-                text = "Terminal settings",
+                text = "More",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "SITE & SESSION",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            )
+            if (onLockNow != null) {
+                OutlinedButton(
+                    onClick = onLockNow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Lock now")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            Text(
+                text = "Idle lock",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                listOf(0 to "Off", 5 to "5m", 10 to "10m", 15 to "15m", 30 to "30m")
+                    .forEach { (mins, label) ->
+                        FilterChip(
+                            selected = idleLockMinutes == mins,
+                            onClick = { onIdleLockMinutesChange?.invoke(mins) },
+                            enabled = onIdleLockMinutesChange != null,
+                            modifier = Modifier.weight(1f),
+                            label = { Text(label) },
+                        )
+                    }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "PIN unlocks this terminal while your session stays signed in. Set the PIN on the web dashboard (Security).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "APPEARANCE",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { onDarkThemeChange(false) },
+                    modifier = Modifier.weight(1f),
+                    enabled = darkTheme,
+                ) {
+                    Text(if (!darkTheme) "Light ✓" else "Light")
+                }
+                OutlinedButton(
+                    onClick = { onDarkThemeChange(true) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !darkTheme,
+                ) {
+                    Text(if (darkTheme) "Dark ✓" else "Dark")
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
@@ -188,6 +262,11 @@ fun SettingsScreen(
             TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
                 Text("Sign out")
             }
+            Text(
+                text = "Sign out clears the session. Next open needs email/password to re-bind, then PIN unlock.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            )
         }
     }
 }

@@ -2,8 +2,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   changePassword,
+  clearPosPin,
+  getPosPinStatus,
   getSession,
   resetMfa,
+  setPosPin,
   updateProfile,
   type Session,
 } from "../merchant/api";
@@ -628,6 +631,8 @@ export function SecuritySettingsPage({
             variant="platform"
             onSessionRefresh={onSessionRefresh}
           />
+
+          <PosPinForm variant="platform" />
         </div>
       </div>
     );
@@ -656,8 +661,153 @@ export function SecuritySettingsPage({
         variant={variant}
         onSessionRefresh={onSessionRefresh}
       />
+      <PosPinForm variant={variant} />
       {message ? <p className="banner banner-ok">{message}</p> : null}
     </div>
+  );
+}
+
+function PosPinForm({
+  variant,
+}: {
+  variant: "platform" | "agent" | "merchant";
+}) {
+  const [configured, setConfigured] = useState(false);
+  const [pin, setPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [currentPin, setCurrentPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getPosPinStatus()
+      .then((s) => setConfigured(s.configured))
+      .catch(() => setConfigured(false));
+  }, []);
+
+  async function onSave(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setOk(null);
+    if (!/^\d{4,8}$/.test(pin)) {
+      setError("POS PIN must be 4–8 digits");
+      return;
+    }
+    if (pin !== confirm) {
+      setError("PINs do not match");
+      return;
+    }
+    if (configured && !currentPin) {
+      setError("Enter your current POS PIN to replace it");
+      return;
+    }
+    setBusy(true);
+    try {
+      await setPosPin({
+        pin,
+        currentPin: configured ? currentPin : undefined,
+      });
+      setConfigured(true);
+      setPin("");
+      setConfirm("");
+      setCurrentPin("");
+      setOk("POS PIN saved. Cashier terminals unlock with this PIN.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save POS PIN");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onClear() {
+    setError(null);
+    setOk(null);
+    if (!currentPin) {
+      setError("Enter your current POS PIN to clear it");
+      return;
+    }
+    setBusy(true);
+    try {
+      await clearPosPin(currentPin);
+      setConfigured(false);
+      setCurrentPin("");
+      setOk("POS PIN cleared.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not clear POS PIN");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cardClass =
+    variant === "platform" ? "plat-settings-card" : "profile-settings-card";
+
+  return (
+    <form className={cardClass} onSubmit={(e) => void onSave(e)}>
+      <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Cashier POS PIN</h3>
+      <p className="muted">
+        Managed here for PaymentGate Cashier terminals. After email sign-in on the
+        device, cashiers unlock with this PIN.
+      </p>
+      <p className="settings-mfa-status" role="status">
+        Status:{" "}
+        <strong className={configured ? "ok" : ""}>
+          {configured ? "Configured" : "Not set"}
+        </strong>
+      </p>
+      {configured ? (
+        <FieldControl label="Current POS PIN">
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value)}
+            maxLength={8}
+          />
+        </FieldControl>
+      ) : null}
+      <FieldControl label="New POS PIN (4–8 digits)">
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+          maxLength={8}
+        />
+      </FieldControl>
+      <FieldControl label="Confirm POS PIN">
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={confirm}
+          onChange={(e) =>
+            setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
+          }
+          maxLength={8}
+        />
+      </FieldControl>
+      {error ? <p className="banner banner-error">{error}</p> : null}
+      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      <div className="profile-settings-card__actions">
+        <button type="submit" className="btn-primary" disabled={busy}>
+          {busy ? "Saving…" : configured ? "Replace POS PIN" : "Set POS PIN"}
+        </button>
+        {configured ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={busy}
+            onClick={() => void onClear()}
+          >
+            Clear POS PIN
+          </button>
+        ) : null}
+      </div>
+    </form>
   );
 }
 

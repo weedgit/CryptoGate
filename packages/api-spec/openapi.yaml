@@ -260,6 +260,162 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /auth/pos-pin:
+    get:
+      tags: [auth]
+      operationId: getPosPinStatus
+      summary: Whether the signed-in user has a Cashier POS unlock PIN
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: POS PIN status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured]
+                additionalProperties: false
+                properties:
+                  configured:
+                    type: boolean
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [auth]
+      operationId: putPosPin
+      summary: Set or replace Cashier POS unlock PIN (web dashboard)
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              additionalProperties: false
+              properties:
+                pin:
+                  type: string
+                  pattern: "^[0-9]{4,8}$"
+                currentPin:
+                  type: string
+                  pattern: "^[0-9]{4,8}$"
+                  description: Required when replacing an existing PIN
+      responses:
+        "200":
+          description: PIN saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured]
+                properties:
+                  configured:
+                    type: boolean
+                    enum: [true]
+        "400":
+          description: Invalid PIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated or wrong current PIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [auth]
+      operationId: deletePosPin
+      summary: Clear Cashier POS unlock PIN
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPin]
+              additionalProperties: false
+              properties:
+                currentPin:
+                  type: string
+                  pattern: "^[0-9]{4,8}$"
+      responses:
+        "200":
+          description: PIN cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured]
+                properties:
+                  configured:
+                    type: boolean
+                    enum: [false]
+        "401":
+          description: Not authenticated or wrong current PIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/pos-pin/verify:
+    post:
+      tags: [auth]
+      operationId: verifyPosPin
+      summary: Unlock Cashier POS with dashboard PIN (session required; rate-limited like login)
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              additionalProperties: false
+              properties:
+                pin:
+                  type: string
+                  pattern: "^[0-9]{4,8}$"
+      responses:
+        "200":
+          description: PIN accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+        "401":
+          description: Incorrect PIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: POS PIN not configured on dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many verify attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/mfa/enroll:
     post:
       tags: [auth]
@@ -574,6 +730,94 @@ paths:
                 $ref: "#/components/schemas/OrgMembership"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orgs/{orgId}/users/{userId}/pos-pin:
+    put:
+      tags: [orgs]
+      operationId: adminPutMemberPosPin
+      summary: Owner or Administrator sets a member Cashier POS unlock PIN
+      description: >
+        Does not require the member's current PIN. Use when a cashier forgets
+        their PIN. Merchant and merchant_site orgs only.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              additionalProperties: false
+              properties:
+                pin:
+                  type: string
+                  pattern: "^[0-9]{4,8}$"
+      responses:
+        "200":
+          description: PIN saved for the member
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured]
+                properties:
+                  configured:
+                    type: boolean
+                    enum: [true]
+        "400":
+          description: Invalid PIN or non-merchant org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Membership not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [orgs]
+      operationId: adminDeleteMemberPosPin
+      summary: Owner or Administrator clears a member Cashier POS unlock PIN
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "200":
+          description: PIN cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured]
+                properties:
+                  configured:
+                    type: boolean
+                    enum: [false]
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Membership not found
           content:
             application/json:
               schema:

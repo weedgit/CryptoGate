@@ -119,6 +119,49 @@ describe("auth HTTP (no DB)", () => {
     }
   });
 
+  it("rejects POS PIN routes without session", async () => {
+    const server = createServer((req, res) => {
+      handleRequest(req, res).catch((err) => {
+        res.writeHead(500);
+        res.end(String(err));
+      });
+    });
+    const base = await listen(server);
+    try {
+      const status = await fetch(`${base}/v1/auth/pos-pin`);
+      assert.equal(status.status, 401);
+      const put = await fetch(`${base}/v1/auth/pos-pin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: "1234" }),
+      });
+      assert.equal(put.status, 401);
+      const del = await fetch(`${base}/v1/auth/pos-pin`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin: "1234" }),
+      });
+      assert.equal(del.status, 401);
+      const verify = await fetch(`${base}/v1/auth/pos-pin/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: "1234" }),
+      });
+      assert.equal(verify.status, 401);
+      const adminPut = await fetch(
+        `${base}/v1/orgs/org-1/users/user-1/pos-pin`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: "1234" }),
+        },
+      );
+      assert.equal(adminPut.status, 401);
+    } finally {
+      await close(server);
+    }
+  });
+
   it("rejects org invite without session", async () => {
     const server = createServer((req, res) => {
       handleRequest(req, res).catch((err) => {

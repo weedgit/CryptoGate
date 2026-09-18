@@ -23,7 +23,7 @@ class SessionStore(context: Context) {
         set(value) {
             prefs.edit().apply {
                 if (value.isNullOrBlank()) remove(KEY_TOKEN) else putString(KEY_TOKEN, value)
-            }.apply()
+            }.commit()
         }
 
     var cachedEmail: String?
@@ -31,11 +31,11 @@ class SessionStore(context: Context) {
         set(value) {
             prefs.edit().apply {
                 if (value.isNullOrBlank()) remove(KEY_EMAIL) else putString(KEY_EMAIL, value)
-            }.apply()
+            }.commit()
         }
 
     fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
     }
 
     companion object {

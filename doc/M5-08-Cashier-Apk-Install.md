@@ -135,6 +135,11 @@ Until the unit is on-site, generic Android sideload satisfies Phase 1 fallback (
 | --- | --- |
 | 1 | App title matches flavor (Test vs prod) |
 | 2 | Cashier login with test merchant **Cashier** user |
+| 2a | Set POS PIN on merchant web (Security or Team → POS PIN), then unlock APK with PIN |
+| 2b | Idle lock (More → idle minutes) returns to PIN screen |
+| 2c | Airplane mode with cached PIN unlocks locally; without cache shows connect-to-verify copy |
+| 2d | Create: pick incompatible asset/network → red rail + “cannot use … Choose a compatible rail”; Continue disabled |
+| 2e | Orders → open/failed/paid rows open Order detail variants (Resume on open) |
 | 3 | MFA-required Owner → APK shows block message (MFA on web only) |
 | 4 | Create order → QR matches `GET /v1/orders/{id}/payment` |
 | 5 | Status poll reaches Completed / Expired / **Payment anomaly** — never local “paid” |

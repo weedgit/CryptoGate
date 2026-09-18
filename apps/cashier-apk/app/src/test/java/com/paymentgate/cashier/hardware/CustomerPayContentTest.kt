@@ -14,10 +14,23 @@ class CustomerPayContentTest {
         val content =
             sample(status = OrderStatusUi.PENDING).toCustomerPayContent()
         assertEquals("245.00 USDT", content.amountLine)
-        assertEquals("TRON", content.networkLabel)
+        assertEquals("TRON · TRC-20", content.networkLabel)
         assertTrue(content.wrongNetworkWarning.contains("Tron"))
         assertEquals("qr-payload", content.qrPayload)
         assertFalse(content.isAnomaly)
+        assertEquals("PAYMENT REQUESTED", content.phaseTitle)
+        assertEquals("Waiting for transaction", content.progressLabel)
+    }
+
+    @Test
+    fun verifying_mapsConfirmingStrip() {
+        val content =
+            sample(status = OrderStatusUi.VERIFYING, confirmations = 2, required = 3)
+                .toCustomerPayContent()
+        assertEquals("CONFIRMING PAYMENT", content.phaseTitle)
+        assertEquals("Confirming payment", content.progressLabel)
+        assertEquals(2, content.confirmations)
+        assertEquals(3, content.requiredConfirmations)
     }
 
     @Test
@@ -25,7 +38,9 @@ class CustomerPayContentTest {
         val content =
             sample(status = OrderStatusUi.ANOMALY).toCustomerPayContent()
         assertTrue(content.isAnomaly)
-        assertEquals("Payment Anomaly", content.statusHint)
+        assertEquals("PAYMENT ANOMALY", content.phaseTitle)
+        assertEquals("Do not treat as paid", content.progressLabel)
+        assertTrue(content.hideQr)
     }
 
     @Test
@@ -34,7 +49,11 @@ class CustomerPayContentTest {
         assertEquals(480, CustomerScreen.HEIGHT_PX)
     }
 
-    private fun sample(status: String) =
+    private fun sample(
+        status: String,
+        confirmations: Int = 0,
+        required: Int = 19,
+    ) =
         PaymentDetails(
             orderNumber = "#CG-1",
             status = status,
@@ -53,5 +72,7 @@ class CustomerPayContentTest {
             memoOrTag = null,
             memoWarning = null,
             contractAddress = null,
+            confirmations = confirmations,
+            requiredConfirmations = required,
         )
 }

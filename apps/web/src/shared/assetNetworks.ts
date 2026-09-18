@@ -42,6 +42,11 @@ export function visibleRegistry(): readonly AssetNetworkConfig[] {
   return listAssetNetworkRegistry(webChainEnvOverride());
 }
 
+/** Phase 1 live pairs only (`enabled: true`) for merchant-facing Networks UI. */
+export function enabledRegistry(): readonly AssetNetworkConfig[] {
+  return visibleRegistry().filter((row) => row.enabled);
+}
+
 /** Topbar pill label from `VITE_PAYMENTGATE_CHAIN_ENV` (mainnet | testnet). */
 export function chainEnvironmentLabel(): string {
   return resolveChainEnvironment(webChainEnvOverride()) ===

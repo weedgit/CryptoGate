@@ -101,6 +101,15 @@ export function sessionCanManageTeam(session: Session, orgId: string): boolean {
   return sessionIsOrgOwner(session, orgId);
 }
 
+/** Owner or Administrator — set/clear another member's Cashier POS PIN. */
+export function sessionCanManageMemberPosPin(
+  session: Session,
+  orgId: string,
+): boolean {
+  const role = sessionRoleOnOrg(session, orgId);
+  return role === "owner" || role === "administrator";
+}
+
 export function roleLabel(role: string): string {
   if (role === "owner") return "Owner";
   if (role === "administrator") return "Administrator";

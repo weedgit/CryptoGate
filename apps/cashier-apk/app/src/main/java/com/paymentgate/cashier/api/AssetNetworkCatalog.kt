@@ -1,8 +1,8 @@
 package com.paymentgate.cashier.api
 
 /**
- * Phase 1 §VI asset+network catalog (mirrors packages/domain ASSET_NETWORK_REGISTRY).
- * APK cannot import the TS package — keep this list in sync with M3-04 / domain.
+ * Phase 1 PaymentGate rails — Tron / Ethereum / Solana only (V3 handoff).
+ * Keep in sync with packages/domain pairs that remain enabled for Phase 1.
  */
 data class AssetNetworkPair(
     val asset: String,
@@ -10,28 +10,37 @@ data class AssetNetworkPair(
     val displayNetwork: String,
     /** mainnet | testnet — Nile is testnet-only. */
     val chainEnv: String = "mainnet",
+    /** Group header on the Change-rail sheet (TRON / ETHEREUM / SOLANA). */
+    val railGroup: String = "",
 ) {
     val label: String get() = "$asset · $displayNetwork"
+
+    /** Compact Create-header label, e.g. TRON · TRC-20 */
+    val shortNetworkLabel: String
+        get() =
+            when (network) {
+                "tron" -> "TRON · TRC-20"
+                "tron_nile" -> "TRON · Nile"
+                "ethereum" ->
+                    when (asset) {
+                        "ETH" -> "Ethereum · Native"
+                        else -> "Ethereum · ERC-20"
+                    }
+                "solana" -> "Solana"
+                else -> displayNetwork
+            }
 }
 
 object AssetNetworkCatalog {
     val ALL: List<AssetNetworkPair> = listOf(
-        AssetNetworkPair("USDT", "tron", "TRON TRC-20"),
-        AssetNetworkPair("USDT", "tron_nile", "TRON Nile (testnet)", "testnet"),
-        AssetNetworkPair("USDT", "ethereum", "Ethereum ERC-20"),
-        AssetNetworkPair("USDT", "bnb_smart_chain", "BNB Smart Chain BEP-20"),
-        AssetNetworkPair("USDT", "polygon", "Polygon PoS"),
-        AssetNetworkPair("USDT", "arbitrum_one", "Arbitrum One"),
-        AssetNetworkPair("USDT", "solana", "Solana"),
-        AssetNetworkPair("USDT", "ton", "TON"),
-        AssetNetworkPair("USDC", "ethereum", "Ethereum ERC-20"),
-        AssetNetworkPair("USDC", "polygon", "Polygon PoS"),
-        AssetNetworkPair("USDC", "arbitrum_one", "Arbitrum One"),
-        AssetNetworkPair("USDC", "base", "Base"),
-        AssetNetworkPair("USDC", "solana", "Solana"),
-        AssetNetworkPair("BTC", "bitcoin", "Bitcoin"),
-        AssetNetworkPair("ETH", "ethereum", "Ethereum"),
-        AssetNetworkPair("TRX", "tron", "Tron (native)"),
+        AssetNetworkPair("USDT", "tron", "TRON TRC-20", railGroup = "TRON"),
+        AssetNetworkPair("TRX", "tron", "Tron (native)", railGroup = "TRON"),
+        AssetNetworkPair("USDT", "tron_nile", "TRON Nile (testnet)", "testnet", "TRON"),
+        AssetNetworkPair("USDT", "ethereum", "Ethereum ERC-20", railGroup = "ETHEREUM"),
+        AssetNetworkPair("USDC", "ethereum", "Ethereum ERC-20", railGroup = "ETHEREUM"),
+        AssetNetworkPair("ETH", "ethereum", "Ethereum", railGroup = "ETHEREUM"),
+        AssetNetworkPair("USDT", "solana", "Solana", railGroup = "SOLANA"),
+        AssetNetworkPair("USDC", "solana", "Solana", railGroup = "SOLANA"),
     )
 
     /**
@@ -55,9 +64,37 @@ object AssetNetworkCatalog {
     fun find(asset: String, network: String, chainEnv: String?): AssetNetworkPair? =
         visible(chainEnv).find { it.asset == asset && it.network == network }
 
+    /** True when asset+network is a live Phase 1 pair for this chain env. */
+    fun isSupported(asset: String, network: String, chainEnv: String?): Boolean =
+        find(asset, network, chainEnv) != null
+
+    /**
+     * Guest/network label for error copy when the pair may be unsupported.
+     * Falls back to a readable network id.
+     */
+    fun networkLabelFor(asset: String, network: String, chainEnv: String?): String =
+        find(asset, network, chainEnv)?.shortNetworkLabel
+            ?: when (network) {
+                "tron" -> "TRON · TRC-20"
+                "tron_nile" -> "TRON · Nile"
+                "ethereum" -> "Ethereum · ERC-20"
+                "solana" -> "Solana"
+                "bitcoin" -> "Bitcoin"
+                "bnb_smart_chain" -> "BNB Smart Chain"
+                "polygon" -> "Polygon"
+                "ton" -> "TON"
+                else -> network.replace('_', ' ')
+            }
+
     fun defaultPair(chainEnv: String?): AssetNetworkPair {
         val pairs = visible(chainEnv)
         return pairs.find { it.asset == OrderDefaults.ASSET && it.network == OrderDefaults.NETWORK }
             ?: pairs.first()
     }
+
+    fun groups(chainEnv: String?): List<Pair<String, List<AssetNetworkPair>>> =
+        visible(chainEnv)
+            .groupBy { it.railGroup.ifBlank { it.displayNetwork } }
+            .entries
+            .map { it.key to it.value }
 }

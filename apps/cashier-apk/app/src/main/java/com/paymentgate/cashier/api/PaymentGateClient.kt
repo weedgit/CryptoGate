@@ -52,6 +52,13 @@ class PaymentGateClient(
                         httpStatus = 403,
                     )
                 }
+                if (sessionStore.sessionToken.isNullOrBlank()) {
+                    throw ApiError(
+                        code = "session_cookie_missing",
+                        message = "Could not save sign-in on this device. Try again.",
+                        httpStatus = 500,
+                    )
+                }
                 sessionStore.cachedEmail = result.session.email
                 result
             }
@@ -92,6 +99,49 @@ class PaymentGateClient(
         }
 
     fun isSignedIn(): Boolean = !sessionStore.sessionToken.isNullOrBlank()
+
+    /** GET /v1/auth/pos-pin */
+    suspend fun getPosPinStatus(): Boolean =
+        withContext(Dispatchers.IO) {
+            val token = requireToken()
+            val req = Request.Builder()
+                .url(config.url("/auth/pos-pin"))
+                .get()
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader(token))
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    if (res.code == 401) sessionStore.clear()
+                    throw JsonParsers.parseError(body, res.code)
+                }
+                JSONObject(body).optBoolean("configured", false)
+            }
+        }
+
+    /** POST /v1/auth/pos-pin/verify */
+    suspend fun verifyPosPin(pin: String) =
+        withContext(Dispatchers.IO) {
+            val token = requireToken()
+            val payload = JSONObject().put("pin", pin).toString()
+            val req = Request.Builder()
+                .url(config.url("/auth/pos-pin/verify"))
+                .post(payload.toRequestBody(jsonMedia))
+                .header("Accept", "application/json")
+                .header("Cookie", cookieHeader(token))
+                .build()
+            http.newCall(req).execute().use { res ->
+                val body = res.body?.string().orEmpty()
+                if (!res.isSuccessful) {
+                    if (res.code == 401 && body.contains("invalid_pos_pin")) {
+                        throw JsonParsers.parseError(body, res.code)
+                    }
+                    if (res.code == 401) sessionStore.clear()
+                    throw JsonParsers.parseError(body, res.code)
+                }
+            }
+        }
 
     /**
      * POST /v1/orders — matching mode comes from merchant default, never the POS.

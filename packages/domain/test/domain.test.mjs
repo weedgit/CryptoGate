@@ -126,6 +126,19 @@ describe("@paymentgate/domain", () => {
     );
     assert.equal(listAssetNetworkRegistry("mainnet").length, 15);
     assert.equal(ASSET_NETWORK_REGISTRY.length, 16);
+    const enabledMainnet = listAssetNetworkRegistry("mainnet").filter((r) => r.enabled);
+    assert.equal(enabledMainnet.length, 7);
+    assert.equal(
+      getAssetNetworkConfig(AssetCode.USDT, NetworkId.BnbSmartChain, "mainnet"),
+      undefined,
+    );
+    assert.equal(
+      getAssetNetworkConfig(AssetCode.BTC, NetworkId.Bitcoin, "mainnet"),
+      undefined,
+    );
+    assert.ok(getAssetNetworkConfig(AssetCode.USDT, NetworkId.Solana, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.TRX, NetworkId.Tron, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.ETH, NetworkId.Ethereum, "mainnet"));
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
     assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);

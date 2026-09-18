@@ -7,20 +7,28 @@ import org.junit.Test
 
 class AssetNetworkCatalogTest {
     @Test
-    fun mainnetHidesNile() {
+    fun mainnetPhase1RailsOnly() {
         val pairs = AssetNetworkCatalog.visible("mainnet")
         assertFalse(pairs.any { it.network == "tron_nile" })
+        assertFalse(pairs.any { it.network == "bitcoin" })
+        assertFalse(pairs.any { it.network == "bnb_smart_chain" })
+        assertFalse(pairs.any { it.network == "polygon" })
+        assertFalse(pairs.any { it.network == "ton" })
         assertTrue(pairs.any { it.asset == "USDT" && it.network == "tron" })
-        assertTrue(pairs.any { it.asset == "USDC" && it.network == "base" })
-        assertTrue(pairs.any { it.asset == "BTC" && it.network == "bitcoin" })
-        assertEquals(15, pairs.size)
+        assertTrue(pairs.any { it.asset == "TRX" && it.network == "tron" })
+        assertTrue(pairs.any { it.asset == "USDT" && it.network == "ethereum" })
+        assertTrue(pairs.any { it.asset == "USDC" && it.network == "ethereum" })
+        assertTrue(pairs.any { it.asset == "ETH" && it.network == "ethereum" })
+        assertTrue(pairs.any { it.asset == "USDT" && it.network == "solana" })
+        assertTrue(pairs.any { it.asset == "USDC" && it.network == "solana" })
+        assertEquals(7, pairs.size)
     }
 
     @Test
     fun testnetIncludesNile() {
         val pairs = AssetNetworkCatalog.visible("testnet")
         assertTrue(pairs.any { it.network == "tron_nile" })
-        assertEquals(16, pairs.size)
+        assertEquals(8, pairs.size)
     }
 
     @Test
@@ -35,5 +43,22 @@ class AssetNetworkCatalogTest {
         val eth = AssetNetworkCatalog.pairsForAsset("ETH", "mainnet")
         assertEquals(1, eth.size)
         assertEquals("ethereum", eth[0].network)
+
+        val usdt = AssetNetworkCatalog.pairsForAsset("USDT", "mainnet")
+        assertEquals(setOf("tron", "ethereum", "solana"), usdt.map { it.network }.toSet())
+    }
+
+    @Test
+    fun trxOnEthereumIsUnsupported() {
+        assertFalse(AssetNetworkCatalog.isSupported("TRX", "ethereum", "mainnet"))
+        assertEquals(
+            "Ethereum · ERC-20",
+            AssetNetworkCatalog.networkLabelFor("TRX", "ethereum", "mainnet"),
+        )
+    }
+
+    @Test
+    fun trxOnTronIsSupported() {
+        assertTrue(AssetNetworkCatalog.isSupported("TRX", "tron", "mainnet"))
     }
 }

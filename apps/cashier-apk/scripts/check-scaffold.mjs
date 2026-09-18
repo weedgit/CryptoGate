@@ -18,6 +18,7 @@ const required = [
   "keystore.properties.example",
   "app/src/main/AndroidManifest.xml",
   "app/src/main/java/com/paymentgate/cashier/MainActivity.kt",
+  "app/src/main/java/com/paymentgate/cashier/BootCompletedReceiver.kt",
   "app/src/main/java/com/paymentgate/cashier/api/PaymentGateClient.kt",
   "app/src/main/java/com/paymentgate/cashier/api/SessionStore.kt",
   "app/src/main/java/com/paymentgate/cashier/api/AssetNetworkCatalog.kt",
@@ -25,9 +26,14 @@ const required = [
   "app/src/main/java/com/paymentgate/cashier/api/NetworkReachability.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/LoginScreen.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/CreateOrderScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/CryptoIcons.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/PosMotion.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/OrderPayScreen.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/HomeScreen.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/SettingsScreen.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/AmountKeypad.kt",
+  "app/src/main/java/com/paymentgate/cashier/ui/AmountEntry.kt",
+  "app/src/main/java/com/paymentgate/cashier/api/PosPreferences.kt",
   "app/src/main/java/com/paymentgate/cashier/ui/KeepScreenOn.kt",
   "app/src/main/java/com/paymentgate/cashier/qr/QrBitmaps.kt",
   "app/src/main/java/com/paymentgate/cashier/api/OrderStatusUi.kt",
@@ -95,6 +101,8 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
     assert.match(main, /KeepScreenOnWhile/);
     assert.match(main, /PosScreen\.Settings/);
     assert.match(main, /apiBaseUrl/);
+    assert.match(main, /Crossfade/);
+    assert.match(main, /Modifier.fillMaxSize\(\)/);
     const surface = readFileSync(
       join(root, "app/src/main/java/com/paymentgate/cashier/api/CashierPosSurface.kt"),
       "utf8",
@@ -107,6 +115,36 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
       "utf8",
     );
     assert.match(login, /TEST BUILD — staging API/);
+    const create = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/ui/CreateOrderScreen.kt"),
+      "utf8",
+    );
+    assert.match(create, /AmountKeypad/);
+    assert.match(create, /AssetIcon/);
+    assert.match(create, /NetworkIcon/);
+    assert.match(create, /leadingIcon/);
+    assert.match(create, /rememberAmountPulse/);
+    assert.match(create, /AnimatedVisibility/);
+    const settings = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/ui/SettingsScreen.kt"),
+      "utf8",
+    );
+    assert.match(settings, /darkTheme/);
+    assert.match(settings, /onDarkThemeChange/);
+    const theme = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/ui/theme/Theme.kt"),
+      "utf8",
+    );
+    assert.match(theme, /darkTheme: Boolean = false/);
+    assert.match(theme, /lightColorScheme/);
+  });
+
+  it("starts POS after device boot (kiosk)", () => {
+    const manifest = readFileSync(join(root, "app/src/main/AndroidManifest.xml"), "utf8");
+    assert.match(manifest, /RECEIVE_BOOT_COMPLETED/);
+    assert.match(manifest, /BootCompletedReceiver/);
+    assert.match(manifest, /BOOT_COMPLETED/);
+    assert.match(manifest, /android.intent.category.HOME/);
   });
 
   it("does not commit keystore.properties", () => {

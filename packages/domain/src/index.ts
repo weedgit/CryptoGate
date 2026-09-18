@@ -271,7 +271,8 @@ export type AssetNetwork = {
  * come from here — not magic numbers in API, watcher, or payment-page.
  *
  * Phase 1 access list: Phase1-Project-Plan §VI / M3-04. Only rows with
- * `enabled: true` accept create-order; others are catalogued for staged go-live.
+ * `enabled: true` accept create-order; Phase 1 enables Tron / Ethereum / Solana
+ * rails only (see V3 handoff). Other rows stay catalogued for later go-live.
  * Rows with `chainEnv: testnet` are visible only when resolveChainEnvironment()
  * is testnet — never in production product builds.
  */
@@ -351,7 +352,8 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
 export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.BnbSmartChain,
-  enabled: true,
+  /** Phase 1 POS rails: Tron / Ethereum / Solana only (V3 handoff). */
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "BNB Smart Chain BEP-20",
   contractAddress: "0x55d398326f99059fF775485246999027B3197955",
@@ -365,7 +367,7 @@ export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
 export const USDT_POLYGON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Polygon,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Polygon PoS",
   contractAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
@@ -379,7 +381,7 @@ export const USDT_POLYGON: AssetNetworkConfig = {
 export const USDT_ARBITRUM_ONE: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.ArbitrumOne,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Arbitrum One",
   contractAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
@@ -407,7 +409,7 @@ export const USDT_SOLANA: AssetNetworkConfig = {
 export const USDT_TON: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Ton,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "TON",
   contractAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
@@ -435,7 +437,7 @@ export const USDC_ETHEREUM: AssetNetworkConfig = {
 export const USDC_POLYGON: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Polygon,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Polygon PoS",
   contractAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
@@ -449,7 +451,7 @@ export const USDC_POLYGON: AssetNetworkConfig = {
 export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.ArbitrumOne,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Arbitrum One",
   contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
@@ -463,7 +465,7 @@ export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
 export const USDC_BASE: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Base,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Base",
   contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
@@ -491,7 +493,7 @@ export const USDC_SOLANA: AssetNetworkConfig = {
 export const BTC_BITCOIN: AssetNetworkConfig = {
   asset: AssetCode.BTC,
   network: NetworkId.Bitcoin,
-  enabled: true,
+  enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Bitcoin",
   contractAddress: null,

@@ -1,11 +1,13 @@
 package com.paymentgate.cashier.api
 
+import org.json.JSONObject
+
 data class ApiError(
     val code: String,
-    val message: String,
+    override val message: String,
     val httpStatus: Int,
     val details: JSONObject? = null,
-) : Exception("$code: $message")
+) : Exception(message)
 
 data class BlockingOrder(
     val id: String,

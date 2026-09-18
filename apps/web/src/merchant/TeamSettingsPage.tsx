@@ -11,6 +11,8 @@ import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
 import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
+  adminClearMemberPosPin,
+  adminSetMemberPosPin,
   assignOrgUserRole,
   inviteOrgUser,
   listOrgMemberEmails,
@@ -29,6 +31,7 @@ import {
   orgTypeLabel,
   primaryMerchantOrgId,
   roleLabel,
+  sessionCanManageMemberPosPin,
   sessionCanManageTeam,
   sessionRoleOnOrg,
   structureLabel,
@@ -92,12 +95,17 @@ function roleTone(role: string): string {
 }
 
 type RemoveTarget = { userId: string; email: string };
+type PosPinTarget = { userId: string; email: string };
 
 /** D16 — Merchant team settings (platform team chrome). */
 export function TeamSettingsPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canManage = useMemo(
     () => (orgId ? sessionCanManageTeam(session, orgId) : false),
+    [session, orgId],
+  );
+  const canManagePosPin = useMemo(
+    () => (orgId ? sessionCanManageMemberPosPin(session, orgId) : false),
     [session, orgId],
   );
   const myRole = useMemo(
@@ -128,6 +136,9 @@ export function TeamSettingsPage({ session }: Props) {
   >(null);
   const [orgs, setOrgs] = useState<OrgRef[]>([]);
   const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
+  const [posPinTarget, setPosPinTarget] = useState<PosPinTarget | null>(null);
+  const [posPinValue, setPosPinValue] = useState("");
+  const [posPinConfirm, setPosPinConfirm] = useState("");
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
 
@@ -317,6 +328,55 @@ export function TeamSettingsPage({ session }: Props) {
     }
   }
 
+  function openPosPin(target: PosPinTarget) {
+    setPosPinTarget(target);
+    setPosPinValue("");
+    setPosPinConfirm("");
+  }
+
+  async function onSaveMemberPosPin(e: FormEvent) {
+    e.preventDefault();
+    if (!orgId || !canManagePosPin || !posPinTarget) return;
+    if (!/^\d{4,8}$/.test(posPinValue)) {
+      showErr("POS PIN must be 4–8 digits");
+      return;
+    }
+    if (posPinValue !== posPinConfirm) {
+      showErr("PINs do not match");
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminSetMemberPosPin(orgId, posPinTarget.userId, posPinValue);
+      showOk(`POS PIN set for ${posPinTarget.email}.`);
+      setPosPinTarget(null);
+      setPosPinValue("");
+      setPosPinConfirm("");
+    } catch (err) {
+      showErr(err instanceof ApiError ? err.message : "Could not set POS PIN");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onClearMemberPosPin() {
+    if (!orgId || !canManagePosPin || !posPinTarget) return;
+    setBusy(true);
+    try {
+      await adminClearMemberPosPin(orgId, posPinTarget.userId);
+      showOk(`POS PIN cleared for ${posPinTarget.email}.`);
+      setPosPinTarget(null);
+      setPosPinValue("");
+      setPosPinConfirm("");
+    } catch (err) {
+      showErr(err instanceof ApiError ? err.message : "Could not clear POS PIN");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const showActions = canManage || canManagePosPin;
+
   return (
     <div className="plat-team">
       <AuthToast
@@ -351,7 +411,7 @@ export function TeamSettingsPage({ session }: Props) {
           <p>
             Only the Owner can add or remove team members.
             {myRole === "administrator"
-              ? " Administrators can review the roster below."
+              ? " Administrators can set or reset Cashier POS PINs below."
               : myRole === "viewer"
                 ? " Viewers can review the roster below."
                 : " Other roles can review the roster below."}
@@ -412,7 +472,7 @@ export function TeamSettingsPage({ session }: Props) {
                   <th>Role</th>
                   <th>MFA status</th>
                   <th>Last login</th>
-                  {canManage ? (
+                  {showActions ? (
                     <th className="plat-team__th-actions">Actions</th>
                   ) : null}
                 </tr>
@@ -491,46 +551,65 @@ export function TeamSettingsPage({ session }: Props) {
                       <td className="plat-team__login">
                         {formatRelativeLogin(m.lastLoginAt)}
                       </td>
-                      {canManage ? (
+                      {showActions ? (
                         <td className="plat-team__td-actions">
-                          {!isSelf ? (
+                          {!isSelf && (canManagePosPin || canManage) ? (
                             <div className="plat-team__actions">
-                              {paused ? (
+                              {canManagePosPin ? (
                                 <button
                                   type="button"
                                   className="btn-secondary plat-team__action"
                                   disabled={busy}
                                   onClick={() =>
-                                    void onSetStatus(m.userId, "active")
+                                    openPosPin({
+                                      userId: m.userId,
+                                      email: m.email,
+                                    })
                                   }
                                 >
-                                  Resume
+                                  POS PIN
                                 </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn-secondary plat-team__action"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void onSetStatus(m.userId, "paused")
-                                  }
-                                >
-                                  Pause
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="btn-ghost plat-team__action is-danger"
-                                disabled={busy}
-                                onClick={() =>
-                                  setRemoveTarget({
-                                    userId: m.userId,
-                                    email: m.email,
-                                  })
-                                }
-                              >
-                                Remove
-                              </button>
+                              ) : null}
+                              {canManage ? (
+                                <>
+                                  {paused ? (
+                                    <button
+                                      type="button"
+                                      className="btn-secondary plat-team__action"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        void onSetStatus(m.userId, "active")
+                                      }
+                                    >
+                                      Resume
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn-secondary plat-team__action"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        void onSetStatus(m.userId, "paused")
+                                      }
+                                    >
+                                      Pause
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="btn-ghost plat-team__action is-danger"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      setRemoveTarget({
+                                        userId: m.userId,
+                                        email: m.email,
+                                      })
+                                    }
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           ) : (
                             <span className="plat-team__actions-empty">—</span>
@@ -728,6 +807,114 @@ export function TeamSettingsPage({ session }: Props) {
                     {busy ? "Removing…" : "Remove"}
                   </button>
                 </footer>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {posPinTarget
+        ? createPortal(
+            <div
+              className="b3-commission-modal-backdrop"
+              role="presentation"
+              onClick={() => {
+                if (!busy) setPosPinTarget(null);
+              }}
+            >
+              <div
+                className="b3-commission-modal plat-team__invite-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="merchant-team-pos-pin-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <header className="b3-commission-modal__head">
+                  <div className="plat-team__invite-head-text">
+                    <h3 id="merchant-team-pos-pin-title">Cashier POS PIN</h3>
+                    <p className="plat-team__invite-lede">
+                      Set or clear the unlock PIN for{" "}
+                      <strong>{posPinTarget.email}</strong>. Does not require
+                      their current PIN.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="b3-commission-modal__close"
+                    aria-label="Close"
+                    disabled={busy}
+                    onClick={() => setPosPinTarget(null)}
+                  >
+                    ×
+                  </button>
+                </header>
+                <form
+                  className="b3-commission-modal__body plat-team__invite-form"
+                  onSubmit={(e) => void onSaveMemberPosPin(e)}
+                  noValidate
+                >
+                  <label
+                    className="plat-team__field"
+                    htmlFor="merchant-team-pos-pin"
+                  >
+                    <span>New POS PIN</span>
+                    <input
+                      id="merchant-team-pos-pin"
+                      className="plat-team__input"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      autoFocus
+                      value={posPinValue}
+                      onChange={(e) => setPosPinValue(e.target.value)}
+                      disabled={busy}
+                      maxLength={8}
+                      placeholder="4–8 digits"
+                    />
+                  </label>
+                  <label
+                    className="plat-team__field"
+                    htmlFor="merchant-team-pos-pin-confirm"
+                  >
+                    <span>Confirm PIN</span>
+                    <input
+                      id="merchant-team-pos-pin-confirm"
+                      className="plat-team__input"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={posPinConfirm}
+                      onChange={(e) => setPosPinConfirm(e.target.value)}
+                      disabled={busy}
+                      maxLength={8}
+                    />
+                  </label>
+                  <footer className="b3-commission-modal__foot plat-team__invite-foot">
+                    <button
+                      type="button"
+                      className="plat-team__invite-cancel"
+                      disabled={busy}
+                      onClick={() => void onClearMemberPosPin()}
+                    >
+                      Clear PIN
+                    </button>
+                    <button
+                      type="button"
+                      className="plat-team__invite-cancel"
+                      disabled={busy}
+                      onClick={() => setPosPinTarget(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="plat-team__invite-confirm"
+                      disabled={busy || !posPinValue}
+                    >
+                      {busy ? "Saving…" : "Save PIN"}
+                    </button>
+                  </footer>
+                </form>
               </div>
             </div>,
             document.body,

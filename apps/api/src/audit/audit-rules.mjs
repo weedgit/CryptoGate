@@ -46,6 +46,11 @@ export const AUDIT_ACTIONS = {
   siteOverrideDecide: "site_override_decide",
   passwordResetRequest: "password_reset_request",
   passwordResetComplete: "password_reset_complete",
+  posPinSet: "pos_pin_set",
+  posPinClear: "pos_pin_clear",
+  posPinVerify: "pos_pin_verify",
+  posPinAdminSet: "pos_pin_admin_set",
+  posPinAdminClear: "pos_pin_admin_clear",
   profileUpdate: "profile_update",
   networkMaintenancePut: "network_maintenance_put",
 };

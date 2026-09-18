@@ -1,12 +1,17 @@
 import {
   authenticateUser,
+  clearUserPosPin,
   findUserByEmail,
   findUserById,
   findUserMfaById,
   normalizeEmail,
+  setUserPosPin,
   updateUserPassword,
   updateUserProfile,
+  userHasPosPin,
+  verifyUserPosPin,
 } from "../auth/users.mjs";
+import { validatePosPin } from "../auth/pos-pin-hash.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
 import { sessionFromUser } from "../auth/session-payload.mjs";
 import {
@@ -569,4 +574,154 @@ export async function handleResetPassword(req, res) {
   });
   res.writeHead(204);
   res.end();
+}
+
+/**
+ * GET /v1/auth/pos-pin — whether the signed-in user has a dashboard POS PIN.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handleGetPosPinStatus(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+  const configured = await userHasPosPin(auth.userId);
+  sendJson(res, 200, { configured });
+}
+
+/**
+ * PUT /v1/auth/pos-pin — set/replace POS unlock PIN (web dashboard).
+ * Body: { pin, currentPin? }
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handlePutPosPin(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const pin = typeof body?.pin === "string" ? body.pin.trim() : "";
+  const currentPin =
+    typeof body?.currentPin === "string" ? body.currentPin.trim() : "";
+  const check = validatePosPin(pin);
+  if (!check.ok) {
+    sendError(res, 400, check.code, check.message);
+    return;
+  }
+
+  const has = await userHasPosPin(auth.userId);
+  if (has) {
+    if (!currentPin) {
+      sendError(
+        res,
+        400,
+        "current_pin_required",
+        "currentPin is required to replace an existing POS PIN",
+      );
+      return;
+    }
+    const okCurrent = await verifyUserPosPin(auth.userId, currentPin);
+    if (!okCurrent) {
+      sendError(res, 401, "invalid_pos_pin", "Current POS PIN is incorrect");
+      return;
+    }
+  }
+
+  await setUserPosPin(auth.userId, pin);
+  await insertAuditEvent({
+    actorUserId: auth.userId,
+    action: AUDIT_ACTIONS.posPinSet,
+  });
+  sendJson(res, 200, { configured: true });
+}
+
+/**
+ * DELETE /v1/auth/pos-pin — clear dashboard POS PIN.
+ * Body: { currentPin }
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handleDeletePosPin(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+  const currentPin =
+    typeof body?.currentPin === "string" ? body.currentPin.trim() : "";
+  if (!currentPin) {
+    sendError(res, 400, "invalid_request", "currentPin is required");
+    return;
+  }
+  const has = await userHasPosPin(auth.userId);
+  if (!has) {
+    sendJson(res, 200, { configured: false });
+    return;
+  }
+  const ok = await verifyUserPosPin(auth.userId, currentPin);
+  if (!ok) {
+    sendError(res, 401, "invalid_pos_pin", "Current POS PIN is incorrect");
+    return;
+  }
+  await clearUserPosPin(auth.userId);
+  await insertAuditEvent({
+    actorUserId: auth.userId,
+    action: AUDIT_ACTIONS.posPinClear,
+  });
+  sendJson(res, 200, { configured: false });
+}
+
+/**
+ * POST /v1/auth/pos-pin/verify — unlock POS while session cookie is valid.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handleVerifyPosPin(req, res) {
+  const auth = await requireSession(req, res);
+  if (!auth) return;
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+  const pin = typeof body?.pin === "string" ? body.pin.trim() : "";
+  const check = validatePosPin(pin);
+  if (!check.ok) {
+    sendError(res, 400, check.code, check.message);
+    return;
+  }
+  const has = await userHasPosPin(auth.userId);
+  if (!has) {
+    sendError(
+      res,
+      404,
+      "pos_pin_not_configured",
+      "Set a POS PIN on the web dashboard first",
+    );
+    return;
+  }
+  const ok = await verifyUserPosPin(auth.userId, pin);
+  if (!ok) {
+    sendError(res, 401, "invalid_pos_pin", "Incorrect PIN. Try again.");
+    return;
+  }
+  await insertAuditEvent({
+    actorUserId: auth.userId,
+    action: AUDIT_ACTIONS.posPinVerify,
+  });
+  sendJson(res, 200, { ok: true });
 }

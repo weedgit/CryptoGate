@@ -28,29 +28,24 @@ Empty `*_RPC_URL` → chain client stays in **stub** mode (health OK, no live tr
 
 ---
 
-## Phase 1 access list (Plan §VI) — all enabled
+## Phase 1 access list — Tron / Ethereum / Solana enabled
 
-All fifteen mainnet pairs below are **`enabled: true`** in `ASSET_NETWORK_REGISTRY`.  
-Local/staging only: `USDT` + `tron_nile` when `PAYMENTGATE_CHAIN_ENV=testnet` (never on product mainnet builds).
+Registry still lists all Plan §VI pairs. **Create-order accepts only `enabled: true` rows.** Merchant **Networks** UI lists Phase 1 live pairs only (`enabledRegistry`). Phase 1 (V3 handoff) enables:
 
 | Asset | Network id | Guest label | Registry | Env URL |
 | --- | --- | --- | --- | --- |
 | USDT | `tron` | TRON TRC-20 | `USDT_TRON` | `TRON_RPC_URL` (+ optional `TRON_API_KEY`) |
-| USDT | `tron_nile` | TRON Nile (testnet) | `USDT_TRON_NILE` | `TRON_NILE_RPC_URL` (or Nile companion when `TRON_RPC_URL` is mainnet) |
-| USDT | `ethereum` | Ethereum ERC-20 | `USDT_ETHEREUM` | `ETH_RPC_URL` |
-| USDT | `bnb_smart_chain` | BNB Smart Chain BEP-20 | `USDT_BNB_SMART_CHAIN` | `BSC_RPC_URL` |
-| USDT | `polygon` | Polygon PoS | `USDT_POLYGON` | `POLYGON_RPC_URL` |
-| USDT | `arbitrum_one` | Arbitrum One | `USDT_ARBITRUM_ONE` | `ARBITRUM_RPC_URL` |
-| USDT | `solana` | Solana | `USDT_SOLANA` | `SOLANA_RPC_URL` |
-| USDT | `ton` | TON | `USDT_TON` | `TON_RPC_URL` |
-| USDC | `ethereum` | Ethereum ERC-20 | `USDC_ETHEREUM` | `ETH_RPC_URL` |
-| USDC | `polygon` | Polygon PoS | `USDC_POLYGON` | `POLYGON_RPC_URL` |
-| USDC | `arbitrum_one` | Arbitrum One | `USDC_ARBITRUM_ONE` | `ARBITRUM_RPC_URL` |
-| USDC | `base` | Base | `USDC_BASE` | `BASE_RPC_URL` |
-| USDC | `solana` | Solana | `USDC_SOLANA` | `SOLANA_RPC_URL` |
-| BTC | `bitcoin` | Bitcoin | `BTC_BITCOIN` | `BITCOIN_RPC_URL` |
-| ETH | `ethereum` | Ethereum | `ETH_ETHEREUM` | `ETH_RPC_URL` |
+| USDT | `tron_nile` | TRON Nile (testnet) | `USDT_TRON_NILE` | `TRON_NILE_RPC_URL` (testnet env only) |
 | TRX | `tron` | Tron (native) | `TRX_TRON` | `TRON_RPC_URL` |
+| USDT | `ethereum` | Ethereum ERC-20 | `USDT_ETHEREUM` | `ETH_RPC_URL` |
+| USDC | `ethereum` | Ethereum ERC-20 | `USDC_ETHEREUM` | `ETH_RPC_URL` |
+| ETH | `ethereum` | Ethereum | `ETH_ETHEREUM` | `ETH_RPC_URL` |
+| USDT | `solana` | Solana | `USDT_SOLANA` | `SOLANA_RPC_URL` |
+| USDC | `solana` | Solana | `USDC_SOLANA` | `SOLANA_RPC_URL` |
+
+**`enabled: false` in Phase 1 (still in registry for later):** USDT on BSC / Polygon / Arbitrum / TON; USDC on Polygon / Arbitrum / Base; BTC.
+
+Local/staging only: `USDT` + `tron_nile` when `PAYMENTGATE_CHAIN_ENV=testnet` (never on product mainnet builds).
 
 Native `TRX` / `ETH` / `BTC` are **not** interchangeable with USDT/USDC on the same chain.
 

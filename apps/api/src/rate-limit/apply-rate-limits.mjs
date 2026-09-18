@@ -5,6 +5,7 @@ import {
   clientIp,
   isGuestPaymentPath,
   isLoginPath,
+  isPosPinVerifyPath,
   isRateLimitExemptPath,
   rateLimitsPerMinute,
 } from "./rate-limit-rules.mjs";
@@ -25,7 +26,7 @@ export function applyRateLimits(req, res, route) {
   /** @type {{ key: string, limit: number }[]} */
   const checks = [{ key: `ip:${ip}`, limit: limits.ip }];
 
-  if (isLoginPath(route.method, route.path)) {
+  if (isLoginPath(route.method, route.path) || isPosPinVerifyPath(route.method, route.path)) {
     checks.push({ key: `login:${ip}`, limit: limits.login });
   }
   if (isGuestPaymentPath(route.method, route.path)) {

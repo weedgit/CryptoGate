@@ -33,7 +33,7 @@ Phase 1 ships as **source that Company A deploys** on **Company A cloud accounts
 
 Node **≥ 20**. Install: `npx pnpm@9.15.0 install` then `pnpm build` as needed.
 
-**Migrations:** always run API migrate before new routes (through **052** on current `main`). Watcher uses the same DB; it does not own migrations.
+**Migrations:** always run API migrate before new routes (through **053** on current `main`, including `users.pos_pin_hash` for Cashier POS unlock). Watcher uses the same DB; it does not own migrations.
 
 ---
 
@@ -118,6 +118,15 @@ pnpm --filter @paymentgate/watcher start
 | Watcher logs | Ticks without crash; Tron errors backoff |
 | `POST /v1/webhooks/test` (auth) | Delivery reaches merchant HTTPS URL |
 | Cashier **staging** APK → test API only | Login + create order — install per [M5-08-Cashier-Apk-Install.md](M5-08-Cashier-Apk-Install.md) |
+| Migration **053** (`users.pos_pin_hash`) | Applied; web Security → Cashier POS PIN; APK unlock with PIN |
+
+### Staging cutover — Cashier POS PIN (053)
+
+1. Deploy API + web that include `/v1/auth/pos-pin*` and Team admin PIN routes.
+2. `pnpm --filter @paymentgate/api migrate` (applies `053_user_pos_pin.sql`).
+3. Merchant Owner/Admin: Security → set own POS PIN, or Team → **POS PIN** on a cashier.
+4. Install latest **staging** APK; smoke Splash → login → PIN → Create → Pay → Lock now / idle lock ([M5-08](M5-08-Cashier-Apk-Install.md) §5).
+5. Confirm `POST /v1/auth/pos-pin/verify` is rate-limited like login (429 after overage).
 
 ---
 

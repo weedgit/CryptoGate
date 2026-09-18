@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   canListOrgUsers,
+  canManageMemberPosPin,
   roleAllowedOnOrg,
 } from "../src/orgs/membership-rules.mjs";
 
@@ -30,5 +31,36 @@ describe("org membership list rules", () => {
   it("denies cashier and non-members", () => {
     assert.equal(canListOrgUsers("cashier", false), false);
     assert.equal(canListOrgUsers(null, false), false);
+  });
+});
+
+describe("canManageMemberPosPin", () => {
+  it("allows owner, administrator, and platform owner", () => {
+    assert.equal(
+      canManageMemberPosPin({ platformOwner: false, roleOnOrg: "owner" }),
+      true,
+    );
+    assert.equal(
+      canManageMemberPosPin({
+        platformOwner: false,
+        roleOnOrg: "administrator",
+      }),
+      true,
+    );
+    assert.equal(
+      canManageMemberPosPin({ platformOwner: true, roleOnOrg: null }),
+      true,
+    );
+  });
+
+  it("denies viewer and cashier", () => {
+    assert.equal(
+      canManageMemberPosPin({ platformOwner: false, roleOnOrg: "viewer" }),
+      false,
+    );
+    assert.equal(
+      canManageMemberPosPin({ platformOwner: false, roleOnOrg: "cashier" }),
+      false,
+    );
   });
 });

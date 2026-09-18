@@ -1240,6 +1240,87 @@ export async function changePassword(body: {
   return (await res.json()) as Session;
 }
 
+/** Cashier POS unlock PIN — managed on web, verified on device. */
+export async function getPosPinStatus(): Promise<{ configured: boolean }> {
+  const res = await apiFetch(`${API_BASE}/auth/pos-pin`, {
+    method: "GET",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { configured: boolean };
+}
+
+export async function setPosPin(body: {
+  pin: string;
+  currentPin?: string;
+}): Promise<{ configured: boolean }> {
+  const res = await apiFetch(`${API_BASE}/auth/pos-pin`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { configured: boolean };
+}
+
+export async function clearPosPin(currentPin: string): Promise<{ configured: boolean }> {
+  const res = await apiFetch(`${API_BASE}/auth/pos-pin`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ currentPin }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { configured: boolean };
+}
+
+/** Owner/Admin sets a team member's Cashier POS PIN (no current PIN required). */
+export async function adminSetMemberPosPin(
+  orgId: string,
+  userId: string,
+  pin: string,
+): Promise<{ configured: boolean }> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/pos-pin`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pin }),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { configured: boolean };
+}
+
+/** Owner/Admin clears a team member's Cashier POS PIN. */
+export async function adminClearMemberPosPin(
+  orgId: string,
+  userId: string,
+): Promise<{ configured: boolean }> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/pos-pin`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as { configured: boolean };
+}
+
 /** A10 — update profile / language / MFA preference / session TTL. */
 export async function updateProfile(body: {
   displayName?: string | null;

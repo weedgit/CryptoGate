@@ -223,8 +223,44 @@ class CashierPosSurfaceTest {
     }
 
     @Test
-    fun mapsIoExceptionToOfflineCreate() {
+    fun mapsInvalidCredentialsToLoginMessage() {
+        val msg = CashierPosSurface.userMessage(
+            ApiError("invalid_credentials", "Invalid email or password", 401),
+        )
+        assertEquals(CashierPosSurface.INVALID_LOGIN, msg)
+        assertFalse(msg.contains("Session expired"))
+    }
+
+    @Test
+    fun mapsUnknownHostToOfflineGenericMessage() {
         val msg = CashierPosSurface.userMessage(java.net.UnknownHostException("api"))
-        assertEquals(CashierPosSurface.OFFLINE_CREATE, msg)
+        assertEquals(CashierPosSurface.OFFLINE_GENERIC, msg)
+    }
+
+    @Test
+    fun networkFailure_usesPinContextOfflineCopy() {
+        val msg =
+            CashierPosSurface.userMessage(
+                java.io.IOException("unreachable"),
+                CashierPosSurface.ErrorContext.PinUnlock,
+            )
+        assertEquals(CashierPosSurface.OFFLINE_PIN_UNLOCK, msg)
+    }
+
+    @Test
+    fun assetNetworkDisabled_mapsToUnsupportedRail() {
+        val msg =
+            CashierPosSurface.userMessage(
+                ApiError("asset_network_disabled", "disabled", 422),
+            )
+        assertEquals(CashierPosSurface.UNSUPPORTED_RAIL, msg)
+    }
+
+    @Test
+    fun unsupportedRailMessage_matchesV3Copy() {
+        assertEquals(
+            "TRX cannot use Ethereum · ERC-20 · Choose a compatible rail",
+            CashierPosSurface.unsupportedRailMessage("TRX", "Ethereum · ERC-20"),
+        )
     }
 }

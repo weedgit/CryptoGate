@@ -1,13 +1,20 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
-import { findUserById } from "../auth/users.mjs";
+import {
+  clearUserPosPin,
+  findUserById,
+  setUserPosPin,
+  userHasPosPin,
+} from "../auth/users.mjs";
+import { validatePosPin } from "../auth/pos-pin-hash.mjs";
 import { findOrgById } from "./org-store.mjs";
 import { collectAncestorOrgIds } from "./org-ancestry.mjs";
 import {
   canAssignOrgRole,
   canInviteToOrg,
   canListOrgUsers,
+  canManageMemberPosPin,
   canManageMembershipLifecycle,
   isLastActiveOwnerLifecycleBlock,
   isLastOwnerDemotion,
@@ -512,4 +519,122 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
 
   res.writeHead(204);
   res.end();
+}
+
+/**
+ * PUT /v1/orgs/{orgId}/users/{userId}/pos-pin — Owner/Admin set member POS PIN (no current PIN).
+ */
+export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
+
+  if (
+    !canManageMemberPosPin({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only Owner or Administrator may set a member POS PIN",
+    );
+    return;
+  }
+
+  if (org.type !== "merchant" && org.type !== "merchant_site") {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "POS PIN applies to merchant org members only",
+    );
+    return;
+  }
+
+  const existing = await findMembership(orgId, userId, { includePaused: true });
+  if (!existing) {
+    sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const pin = typeof body?.pin === "string" ? body.pin.trim() : "";
+  const check = validatePosPin(pin);
+  if (!check.ok) {
+    sendError(res, 400, check.code, check.message);
+    return;
+  }
+
+  await setUserPosPin(userId, pin);
+  const targetEmail = await memberEmailForAudit(userId);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.posPinAdminSet,
+    metadata: { targetUserId: userId, email: targetEmail, role: existing.role },
+  });
+  sendJson(res, 200, { configured: true });
+}
+
+/**
+ * DELETE /v1/orgs/{orgId}/users/{userId}/pos-pin — Owner/Admin clear member POS PIN.
+ */
+export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
+  const loaded = await loadVisibleOrg(req, res, orgId);
+  if (!loaded) return;
+  const { caller, org } = loaded;
+
+  if (
+    !canManageMemberPosPin({
+      platformOwner: caller.platformOwner,
+      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+    })
+  ) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only Owner or Administrator may clear a member POS PIN",
+    );
+    return;
+  }
+
+  if (org.type !== "merchant" && org.type !== "merchant_site") {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "POS PIN applies to merchant org members only",
+    );
+    return;
+  }
+
+  const existing = await findMembership(orgId, userId, { includePaused: true });
+  if (!existing) {
+    sendError(res, 404, "not_found", "Membership not found");
+    return;
+  }
+
+  const had = await userHasPosPin(userId);
+  if (had) {
+    await clearUserPosPin(userId);
+  }
+  const targetEmail = await memberEmailForAudit(userId);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.posPinAdminClear,
+    metadata: { targetUserId: userId, email: targetEmail, role: existing.role },
+  });
+  sendJson(res, 200, { configured: false });
 }

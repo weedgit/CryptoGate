@@ -10,10 +10,16 @@ import {
   handleResetPassword,
   handleChangePassword,
   handlePatchProfile,
+  handleGetPosPinStatus,
+  handlePutPosPin,
+  handleDeletePosPin,
+  handleVerifyPosPin,
 } from "./auth-routes.mjs";
 import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
+  handleAdminDeleteMemberPosPin,
+  handleAdminPutMemberPosPin,
   handleAssignOrgUserRole,
   handleInviteOrgUser,
   handleListOrgUsers,
@@ -211,6 +217,22 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/auth/change-password") {
     await handleChangePassword(req, res);
+    return;
+  }
+  if (method === "GET" && path === "/v1/auth/pos-pin") {
+    await handleGetPosPinStatus(req, res);
+    return;
+  }
+  if (method === "PUT" && path === "/v1/auth/pos-pin") {
+    await handlePutPosPin(req, res);
+    return;
+  }
+  if (method === "DELETE" && path === "/v1/auth/pos-pin") {
+    await handleDeletePosPin(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/auth/pos-pin/verify") {
+    await handleVerifyPosPin(req, res);
     return;
   }
 
@@ -812,6 +834,22 @@ export async function handleRequest(req, res) {
       decodeURIComponent(roleMatch[2]),
     );
     return;
+  }
+
+  const memberPosPinMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/pos-pin$/,
+  );
+  if (memberPosPinMatch) {
+    const orgId = decodeURIComponent(memberPosPinMatch[1]);
+    const userId = decodeURIComponent(memberPosPinMatch[2]);
+    if (method === "PUT") {
+      await handleAdminPutMemberPosPin(req, res, orgId, userId);
+      return;
+    }
+    if (method === "DELETE") {
+      await handleAdminDeleteMemberPosPin(req, res, orgId, userId);
+      return;
+    }
   }
 
   const statusMatch = path.match(/^\/v1\/orgs\/([^/]+)\/users\/([^/]+)\/status$/);

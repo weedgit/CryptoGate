@@ -64,6 +64,18 @@ export function isPlatformStaff(memberships) {
 }
 
 /**
+ * Owner or Administrator may set/clear another member's Cashier POS PIN.
+ * @param {{ platformOwner: boolean, roleOnOrg: string | null }} p
+ */
+export function canManageMemberPosPin(p) {
+  return (
+    p.platformOwner ||
+    p.roleOnOrg === "owner" ||
+    p.roleOnOrg === "administrator"
+  );
+}
+
+/**
  * Invite: org Owner (or platform Owner) may add any allowed role.
  * Empty child org: platform Owner/Admin or parent Owner/Admin may invite the first Owner only.
  * @param {{

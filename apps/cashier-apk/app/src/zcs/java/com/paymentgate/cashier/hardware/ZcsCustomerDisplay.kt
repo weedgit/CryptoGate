@@ -38,6 +38,9 @@ class ZcsCustomerDisplay private constructor(
             try {
                 runCatching { sys.awakeSubScreen() }
                 val code = sys.showBitmapOnSecondaryScreen(bitmap, true)
+                if (code == SdkResult.SDK_OK) {
+                    runCatching { sys.awakeSubScreen() }
+                }
                 result.set(
                     if (code == SdkResult.SDK_OK) {
                         CustomerDisplayOutcome.Ok

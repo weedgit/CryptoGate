@@ -246,3 +246,59 @@ export async function updateUserPassword(userId, password) {
     [userId, passwordHash],
   );
 }
+
+/**
+ * @param {string} userId
+ * @returns {Promise<boolean>}
+ */
+export async function userHasPosPin(userId) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pos_pin_hash IS NOT NULL AS has_pin FROM users WHERE id = $1`,
+    [userId],
+  );
+  return Boolean(rows[0]?.has_pin);
+}
+
+/**
+ * @param {string} userId
+ * @param {string} pin
+ */
+export async function setUserPosPin(userId, pin) {
+  const { hashPosPin } = await import("./pos-pin-hash.mjs");
+  const posPinHash = await hashPosPin(pin);
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users SET pos_pin_hash = $2, updated_at = now() WHERE id = $1`,
+    [userId, posPinHash],
+  );
+}
+
+/**
+ * @param {string} userId
+ * @param {string} pin
+ * @returns {Promise<boolean>}
+ */
+export async function verifyUserPosPin(userId, pin) {
+  const { verifyPosPin } = await import("./pos-pin-hash.mjs");
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pos_pin_hash FROM users WHERE id = $1`,
+    [userId],
+  );
+  const hash = rows[0]?.pos_pin_hash;
+  if (!hash) return false;
+  return verifyPosPin(pin, hash);
+}
+
+/**
+ * Clear dashboard POS PIN (falls back to device-local until set again).
+ * @param {string} userId
+ */
+export async function clearUserPosPin(userId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users SET pos_pin_hash = NULL, updated_at = now() WHERE id = $1`,
+    [userId],
+  );
+}
