@@ -1,0 +1,21 @@
+{
+  "name": "PaymentGate",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "set -a; . ./.env; set +a; export DATABASE_URL=\"${DATABASE_URL:-postgres://paymentgate:paymentgate@localhost:5432/paymentgate}\"; exec node apps/api/src/server.mjs"
+    },
+    {
+      "name": "watcher",
+      "command": "set -a; . ./.env; set +a; export DATABASE_URL=\"${DATABASE_URL:-postgres://paymentgate:paymentgate@localhost:5432/paymentgate}\"; exec node apps/watcher/src/main.mjs --loop"
+    },
+    {
+      "name": "web",
+      "command": "set -a; . ./.env; set +a; exec npx pnpm@9.15.0 --filter @paymentgate/web dev"
+    }
+  ],
+  "ports": [3000, 5173, 5174]
+}
