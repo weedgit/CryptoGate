@@ -31,6 +31,8 @@ npx pnpm@9.15.0 install --frozen-lockfile
 
 echo "[install] Linking workspace + building shared packages…"
 node scripts/link-workspace.mjs
+# Clear incremental build info so tsc always emits dist/ (mirrors scripts/check.mjs).
+rm -f packages/domain/tsconfig.tsbuildinfo packages/matching/tsconfig.tsbuildinfo
 npx pnpm@9.15.0 --filter @paymentgate/domain run build
 npx pnpm@9.15.0 --filter @paymentgate/matching run build
 
