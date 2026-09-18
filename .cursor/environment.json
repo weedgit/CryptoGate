@@ -14,7 +14,7 @@
     },
     {
       "name": "web",
-      "command": "set -a; . ./.env; set +a; exec npx pnpm@9.15.0 --filter @paymentgate/web dev"
+      "command": "set -a; . ./.env; set +a; exec npx pnpm@9.15.0 --filter @paymentgate/web dev --host 0.0.0.0"
     }
   ],
   "ports": [3000, 5173, 5174]
