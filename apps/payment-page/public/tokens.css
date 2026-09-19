@@ -4,13 +4,14 @@
  */
 
 :root {
-  /* Surfaces */
+  /* Surfaces — keep in sync with apps/web/src/styles/tokens.css */
   --bg: #0b0f14;
-  --surface: #12181f;
-  --sidebar: #0f1319;
-  --border: #1e2a36;
-  --border-strong: #2a3a4a;
-  --glass: rgba(255, 255, 255, 0.1);
+  --surface: #161b24;
+  --surface-elevated: #1c2330;
+  --sidebar: #11151c;
+  --border: #252d3a;
+  --border-strong: #343e4f;
+  --glass: rgba(255, 255, 255, 0.08);
   --line: var(--border);
 
   /* Brand + status (keep in sync with apps/web tokens.css) */

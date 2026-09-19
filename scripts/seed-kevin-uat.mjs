@@ -2,9 +2,10 @@
 /**
  * Kevin UAT seed — real TRON Nile wallet addresses + full org profiles.
  *
- * Hierarchy (Phase 1 depth 2):
- *   Platform → Kevin Agent → Kevin Sub-Agent → merchants
- *                          └→ Kevin Merchant #2 (direct under agent)
+ * Hierarchy (Phase 1):
+ *   Platform → Kevin Agent → merchants
+ *   (optional multi_location merchant → merchant_site children)
+ *   No agent_sub.
  *
  * Prerequisites: `node scripts/seed-local.mjs` (platform + owner).
  * Idempotent: skips when org "Kevin Agent" already exists.
@@ -60,23 +61,6 @@ const ORG_TREE = {
       },
     ],
   },
-  subAgent: {
-    name: "Kevin Sub-Agent",
-    type: "agent_sub",
-    displayName: "Kevin Sub-Agent",
-    legalName: "Kevin Sub-Agent SARL",
-    country: "MA",
-    billingEmail: "billing.subagent@paymentgate.io",
-    payoutAddress: NILE_HD_WALLETS.kevinSubAgent,
-    commissionPercent: "10",
-    users: [
-      {
-        email: "own.subagent@paymentgate.io",
-        role: "owner",
-        displayName: "Kevin Sub-Agent Owner",
-      },
-    ],
-  },
   merchantSingle: {
     name: "Kevin Single Merchant",
     type: "merchant",
@@ -123,6 +107,11 @@ const ORG_TREE = {
         email: "own.multi@paymentgate.io",
         role: "owner",
         displayName: "Kevin Multi Owner",
+      },
+      {
+        email: "cashier.multi@paymentgate.io",
+        role: "cashier",
+        displayName: "Kevin Multi Cashier",
       },
     ],
   },
@@ -417,26 +406,9 @@ async function main() {
     await ensureMembership(agentId, user.id, u.role);
   }
 
-  const subAgentId = await ensureOrg(agentId, ORG_TREE.subAgent);
-  await upsertAgentCommission({
-    orgId: subAgentId,
-    commissionPercent: ORG_TREE.subAgent.commissionPercent,
-  });
-  await upsertAgentPayoutAddress({
-    orgId: subAgentId,
-    asset: UAT_SETTLEMENT.asset,
-    network: UAT_SETTLEMENT.network,
-    address: ORG_TREE.subAgent.payoutAddress,
-    cooldownMs: 0,
-  });
-  for (const u of ORG_TREE.subAgent.users) {
-    const user = await ensureUser(u.email, u.displayName);
-    await ensureMembership(subAgentId, user.id, u.role);
-  }
-
   const merchantSpecs = [
-    { spec: ORG_TREE.merchantSingle, parentId: subAgentId, key: "single" },
-    { spec: ORG_TREE.merchantMulti, parentId: subAgentId, key: "multi" },
+    { spec: ORG_TREE.merchantSingle, parentId: agentId, key: "single" },
+    { spec: ORG_TREE.merchantMulti, parentId: agentId, key: "multi" },
     { spec: ORG_TREE.merchant2, parentId: agentId, key: "m2" },
   ];
 
@@ -483,7 +455,6 @@ async function main() {
   for (const line of [
     ["Platform Owner", SEED_PLATFORM_OWNER_EMAIL],
     ["Kevin Agent Owner", "own.agent@paymentgate.io"],
-    ["Kevin Sub-Agent Owner", "own.subagent@paymentgate.io"],
     ["Kevin Single Merchant", "own.single@paymentgate.io"],
     ["Kevin Single Cashier", "cashier.single@paymentgate.io"],
     ["Kevin Multi Merchant", "own.multi@paymentgate.io"],

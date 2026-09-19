@@ -107,7 +107,7 @@ export function OnboardMerchantPage({ session }: Props) {
   const [searchParams] = useSearchParams();
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const cancelTo = useMemo(
-    () => onboardReturnPath(searchParams, platformRoute("merchants")),
+    () => onboardReturnPath(searchParams, platformRoute("accounts")),
     [searchParams],
   );
   const [step, setStep] = useState(0);
@@ -304,7 +304,7 @@ export function OnboardMerchantPage({ session }: Props) {
         type: "merchant",
         name: form.name.trim(),
         parentId: form.parentId,
-        structure: form.structure,
+        structure: "single_location",
         country: form.country.trim() || undefined,
         commercial: {
           tier: form.commercial.tier,
@@ -318,7 +318,7 @@ export function OnboardMerchantPage({ session }: Props) {
         role: "owner",
       });
       await refreshPlatformOrgList();
-      navigate(platformRoute(`merchants/${created.id}`), {
+      navigate(platformRoute(`accounts/merchants/${created.id}`), {
         state: {
           invitationSent: true,
           enterprisePending: form.commercial.tier === "enterprise",
@@ -470,8 +470,9 @@ export function OnboardMerchantPage({ session }: Props) {
                     role="radiogroup"
                     aria-label="Merchant structure"
                   >
-                    {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map(
-                      (s) => (
+                    {(
+                      Object.keys(STRUCTURE_LABELS) as MerchantStructure[]
+                    ).map((s) => (
                         <button
                           key={s}
                           type="button"

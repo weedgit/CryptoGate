@@ -63,7 +63,7 @@ const EXTRA_MERCHANTS = [
   {
     key: "m3",
     name: "Kevin Merchant #3",
-    parentKey: "subAgent",
+    parentKey: "agent",
     legalName: "Kevin Merchant Three SARL",
     settlement: NILE_HD_WALLETS.customer8,
     tier: "mid",
@@ -73,7 +73,7 @@ const EXTRA_MERCHANTS = [
   {
     key: "m4",
     name: "Kevin Merchant #4",
-    parentKey: "subAgent",
+    parentKey: "agent",
     legalName: "Kevin Merchant Four SA",
     settlement: NILE_HD_WALLETS.customer9,
     tier: "mid",
@@ -93,7 +93,7 @@ const EXTRA_MERCHANTS = [
   {
     key: "m6",
     name: "Kevin Merchant #6",
-    parentKey: "subAgent",
+    parentKey: "agent",
     legalName: "Kevin Merchant Six SARL AU",
     settlement: NILE_HD_WALLETS.customer11,
     tier: "small",
@@ -718,18 +718,7 @@ async function main() {
   }
   const agentId = agentRows[0].id;
 
-  const { rows: subRows } = await pool.query(
-    `SELECT id FROM org_accounts
-     WHERE type = 'agent_sub' AND parent_id = $1 AND name = 'Kevin Sub-Agent'
-     LIMIT 1`,
-    [agentId],
-  );
-  const subAgentId = subRows[0]?.id;
-  if (!subAgentId) {
-    throw new Error("Kevin Sub-Agent missing — run seed-kevin-uat.mjs first.");
-  }
-
-  const parentByKey = { agent: agentId, subAgent: subAgentId };
+  const parentByKey = { agent: agentId };
 
   console.log("Patching Kevin merchant onboard dates (3-month window)…");
   await pool.query(
@@ -952,7 +941,7 @@ async function main() {
   let commissionRows = 0;
   const { rows: orgGraph } = await pool.query(
     `SELECT id, name, type, parent_id FROM org_accounts
-     WHERE type IN ('agent', 'agent_sub')
+     WHERE type = 'agent'
        AND (name LIKE 'Kevin %' OR id = $1)`,
     [agentId],
   );
@@ -1031,58 +1020,7 @@ async function main() {
     }
   }
 
-  for (const sub of orgGraph.filter((o) => o.type === "agent_sub")) {
-    const parentId = orgById.get(sub.id)?.parent_id;
-    const parent = parentId ? orgById.get(parentId) : null;
-    if (!parent || parent.type !== "agent") continue;
-
-    const merchantIds = await merchantIdsInSubtree(pool, sub.id);
-    const statements = commissionStatementsFromBills(
-      billRows,
-      merchantIds,
-      commissionByOrg.get(sub.id) ?? "10",
-    );
-    const dest = payoutByOrg.get(sub.id);
-    for (const stmt of statements) {
-      if (stmt.commissionAmount <= 0 && stmt.platformFeeCollected <= 0) continue;
-      const isCurrent = stmt.periodKey === currentMonthKey;
-      const subPaidAt = !isCurrent && stmt.hasPaid
-        ? (() => {
-            const d = new Date(`${stmt.periodKey}-01T12:00:00.000Z`);
-            d.setUTCDate(18);
-            return Number.isFinite(d.getTime()) ? d.toISOString() : null;
-          })()
-        : null;
-      const treeSnapshot = await buildCommissionTreeSnapshot(
-        pool,
-        sub.id,
-        stmt.periodKey,
-      );
-      const result = await upsertCommissionPayout(pool, {
-        payeeOrgId: sub.id,
-        payeeName: sub.name,
-        payer: "agent",
-        payerOrgId: parent.id,
-        periodKey: stmt.periodKey,
-        periodLabel: stmt.periodLabel,
-        platformFeeCollected: stmt.platformFeeCollected,
-        commissionPercent: stmt.commissionPercent,
-        commissionAmount: stmt.commissionAmount,
-        payoutStatus: isCurrent ? "issued" : stmt.hasPaid ? "paid" : "issued",
-        payoutAddress: dest?.address ?? null,
-        asset: dest?.asset ?? UAT_SETTLEMENT.asset,
-        network: dest?.network ?? UAT_SETTLEMENT.network,
-        paymentLink: `/agent/commissions?payee=${encodeURIComponent(sub.id)}&period=${encodeURIComponent(stmt.periodKey)}`,
-        txRef: subPaidAt
-          ? `seed-kevin-agent-${sub.id.slice(0, 8)}-${stmt.periodKey}`
-          : null,
-        paidAt: subPaidAt,
-        settledAt: null,
-        treeSnapshot,
-      });
-      if (result === "insert" || result === "update") commissionRows += 1;
-    }
-  }
+  console.log(`Commission payouts written/updated: ${commissionRows}`);
 
   console.log("\nKevin UAT rich seed complete.");
   console.log(`  Merchants in tree: ${merchantCatalog.size}`);

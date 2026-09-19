@@ -91,6 +91,8 @@ function prefetchPlatformSettings(path: string): void {
 /** Warm shared list caches before navigation (nav hover / focus). */
 export function prefetchPlatformNavData(path: string) {
   if (
+    path === "accounts" ||
+    path.startsWith("accounts/") ||
     path === "architecture" ||
     path.startsWith("agents") ||
     path.startsWith("merchants")
@@ -98,6 +100,8 @@ export function prefetchPlatformNavData(path: string) {
     void getPlatformOrgs();
   }
   if (
+    path === "accounts" ||
+    path.startsWith("accounts/") ||
     path === "agents" ||
     path.startsWith("agents/") ||
     path === "merchants" ||

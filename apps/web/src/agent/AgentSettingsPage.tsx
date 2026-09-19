@@ -26,10 +26,13 @@ import {
   ApiError,
   getAgentPayout,
   putAgentPayout,
+  patchOrgProfile,
   type AgentPayoutAddress,
   type OrgAccount,
   type Session,
 } from "./api";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import {
   orgTypeLabel,
   primaryAgentOrgId,
@@ -60,6 +63,7 @@ export function AgentSettingsPage({ session }: Props) {
     () => sessionCanOnboardMerchant(session),
     [session],
   );
+  const canEditProfile = canEditPayout;
   const isViewer = useMemo(
     () => sessionIsAgentViewerOnly(session),
     [session],
@@ -81,6 +85,9 @@ export function AgentSettingsPage({ session }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileEditBusy, setProfileEditBusy] = useState(false);
+  const [profileEditError, setProfileEditError] = useState<string | null>(null);
 
   const dismissToast = useCallback(() => {
     setError(null);
@@ -196,32 +203,81 @@ export function AgentSettingsPage({ session }: Props) {
         <section className="plat-settings__card">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Organization</h2>
+            {canEditProfile ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                disabled={profileEditBusy || !org}
+                onClick={() => {
+                  setProfileEditError(null);
+                  setProfileEditOpen(true);
+                }}
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
           <div className="plat-settings__card-body">
-            <dl className="plat-settings__dl plat-settings__dl--rows">
-              <div>
-                <dt>Name</dt>
-                <dd>{org?.name ?? "Agent"}</dd>
-              </div>
-              <div>
-                <dt>Type</dt>
-                <dd>{org ? orgTypeLabel(org.type) : "Agent"}</dd>
-              </div>
-              <div>
-                <dt>Country</dt>
-                <dd className={country.empty ? "is-empty" : undefined}>
-                  {country.text}
-                </dd>
-              </div>
-              <div>
-                <dt>Legal name</dt>
-                <dd className={legalName.empty ? "is-empty" : undefined}>
-                  {legalName.text}
-                </dd>
-              </div>
-            </dl>
+            <div className="agent-settings__org-brand">
+              <OrgBrandMark
+                name={org?.name ?? "Agent"}
+                iconKey={org?.iconKey}
+                size={48}
+              />
+              <dl className="plat-settings__dl plat-settings__dl--rows">
+                <div>
+                  <dt>Name</dt>
+                  <dd>{org?.name ?? "Agent"}</dd>
+                </div>
+                <div>
+                  <dt>Type</dt>
+                  <dd>{org ? orgTypeLabel(org.type) : "Agent"}</dd>
+                </div>
+                <div>
+                  <dt>Country</dt>
+                  <dd className={country.empty ? "is-empty" : undefined}>
+                    {country.text}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Legal name</dt>
+                  <dd className={legalName.empty ? "is-empty" : undefined}>
+                    {legalName.text}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
         </section>
+
+        <OrgProfileEditModal
+          open={profileEditOpen}
+          name={org?.name ?? ""}
+          iconKey={org?.iconKey}
+          busy={profileEditBusy}
+          error={profileEditError}
+          onClose={() => {
+            if (!profileEditBusy) setProfileEditOpen(false);
+          }}
+          onSave={async (next) => {
+            if (!agentId) return;
+            setProfileEditBusy(true);
+            setProfileEditError(null);
+            try {
+              const updated = await patchOrgProfile(agentId, next);
+              setOrg(updated);
+              setSavedMsg("Organization profile saved");
+              setProfileEditOpen(false);
+              await getAgentOrgs({ force: true });
+            } catch (err) {
+              setProfileEditError(
+                err instanceof ApiError ? err.message : "Failed to update profile",
+              );
+            } finally {
+              setProfileEditBusy(false);
+            }
+          }}
+        />
 
         <section className="plat-settings__card">
           <div className="plat-settings__card-head">

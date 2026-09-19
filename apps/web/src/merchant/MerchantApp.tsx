@@ -49,10 +49,6 @@ const ServiceBillDetailPage = lazyNamed(
   () => import("./ServiceBillDetailPage"),
   "ServiceBillDetailPage",
 );
-const MerchantSitesRoutes = lazyNamed(
-  () => import("./MerchantSitesRoutes"),
-  "MerchantSitesRoutes",
-);
 const ServiceBillsListPage = lazyNamed(
   () => import("./ServiceBillsListPage"),
   "ServiceBillsListPage",
@@ -233,11 +229,7 @@ export function MerchantApp() {
         />
         <Route
           path="sites/*"
-          element={
-            <OwnerOnly session={session} area="sites">
-              <MerchantSitesRoutes session={session} />
-            </OwnerOnly>
-          }
+          element={<Navigate to={merchantRoute()} replace />}
         />
         <Route
           path="reports/*"

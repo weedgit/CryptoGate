@@ -1,15 +1,16 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { DEFAULT_MAX_AGENT_DEPTH, ORG_STATUSES, toOrgAccount } from "./org-accounts.mjs";
+import { DEFAULT_MAX_AGENT_DEPTH, isOrgIconValue, ORG_STATUSES, toOrgAccount } from "./org-accounts.mjs";
 import { validateCreateOrg } from "./org-rules.mjs";
 import { insertMembership } from "./membership-store.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
   canBootstrapPlatform,
   canCreateOrgUnderParent,
-  canManagePlatform,
   canDeleteMerchantSite,
+  canEditOrgProfile,
   canManageDirectChildOrg,
+  canManagePlatform,
 } from "./role-policy.mjs";
 import {
   deleteOrgCascade,
@@ -24,7 +25,9 @@ import {
   findOrgById,
   findPlatformOrg,
   findSiblingByNormalizedName,
+  findSiblingByNormalizedNameExcluding,
   insertOrgAccount,
+  updateOrgProfile,
   updateOrgStatus,
 } from "./org-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
@@ -140,6 +143,99 @@ export async function handleGetOrg(req, res, orgId) {
     return;
   }
   sendJson(res, 200, toOrgAccount(row));
+}
+
+/**
+ * PATCH /v1/orgs/{orgId} — Owner/Admin (or platform) updates display name + brand icon.
+ */
+export async function handlePatchOrg(req, res, orgId) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const row = await findOrgById(orgId);
+  if (!row) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  if (!isVisibleOrg(visible, orgId)) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+  if (!canEditOrgProfile(caller, row)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Owner or Administrator required to edit org profile",
+    );
+    return;
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const name =
+    typeof body?.name === "string" ? body.name.trim().replace(/\s+/g, " ") : "";
+  if (name.length < 2 || name.length > 120) {
+    sendError(res, 400, "invalid_request", "name must be 2–120 characters");
+    return;
+  }
+
+  let iconKey = null;
+  if (body?.iconKey != null && body.iconKey !== "") {
+    if (!isOrgIconValue(body.iconKey)) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        "iconKey must be a preset mark or a small PNG/JPEG/WebP/GIF image",
+      );
+      return;
+    }
+    iconKey = body.iconKey;
+  }
+
+  if (row.parent_id) {
+    const clash = await findSiblingByNormalizedNameExcluding(
+      row.parent_id,
+      name,
+      orgId,
+    );
+    if (clash) {
+      sendError(
+        res,
+        409,
+        "name_conflict",
+        "Another account under the same parent already uses this name",
+      );
+      return;
+    }
+  }
+
+  const updated = await updateOrgProfile(orgId, { name, iconKey });
+  if (!updated) {
+    sendError(res, 404, "not_found", "Org not found");
+    return;
+  }
+
+  invalidatePlatformOrgListCache();
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId,
+    action: AUDIT_ACTIONS.orgProfile,
+    metadata: {
+      name,
+      iconKey: iconKey?.startsWith("data:") ? "custom_image" : iconKey,
+    },
+  }).catch(() => {});
+
+  sendJson(res, 200, toOrgAccount(updated));
 }
 
 /**

@@ -104,16 +104,6 @@ const ATLAS_TREE = {
     ownerEmail: "own.atlas@paymentgate.io",
     ownerName: "Atlas Agent Owner",
   },
-  subAgent: {
-    name: "Atlas Sub-Agent",
-    legalName: "Atlas Sub-Agent SARL",
-    country: "MA",
-    billingEmail: "billing.atlas-sub@paymentgate.io",
-    payout: NILE_HD_WALLETS.customer16,
-    commissionPercent: "12",
-    ownerEmail: "own.atlas-sub@paymentgate.io",
-    ownerName: "Atlas Sub-Agent Owner",
-  },
   merchants: [
     {
       key: "atlas-casa",
@@ -123,7 +113,7 @@ const ATLAS_TREE = {
       tier: "mid",
       volumeFeePercent: "1.2",
       matchingMode: "B",
-      parent: "subAgent",
+      parent: "agent",
     },
     {
       key: "atlas-rabat",
@@ -133,7 +123,7 @@ const ATLAS_TREE = {
       tier: "mid",
       volumeFeePercent: "1.2",
       matchingMode: "C",
-      parent: "subAgent",
+      parent: "agent",
     },
     {
       key: "atlas-tanger",
@@ -153,7 +143,7 @@ const ATLAS_TREE = {
       tier: "mid",
       volumeFeePercent: "1.2",
       matchingMode: "B",
-      parent: "subAgent",
+      parent: "agent",
       structure: "multi_location",
       sites: ["Atlas Multi · Site Nord", "Atlas Multi · Site Sud"],
     },
@@ -170,7 +160,7 @@ const KEVIN_EXTRA = [
     tier: "mid",
     volumeFeePercent: "1.2",
     matchingMode: "B",
-    parentKey: "subAgent",
+    parentKey: "agent",
   },
   {
     key: "m9",
@@ -180,7 +170,7 @@ const KEVIN_EXTRA = [
     tier: "small",
     volumeFeePercent: "2.0",
     matchingMode: "C",
-    parentKey: "subAgent",
+    parentKey: "agent",
   },
   {
     key: "m10",
@@ -200,7 +190,7 @@ const KEVIN_EXTRA = [
     tier: "small",
     volumeFeePercent: "2.0",
     matchingMode: "D",
-    parentKey: "subAgent",
+    parentKey: "agent",
   },
   {
     key: "m12",
@@ -529,7 +519,7 @@ async function syncSeptemberCommissions(pool) {
      FROM org_accounts o
      LEFT JOIN agent_commission ac ON ac.org_id = o.id
      LEFT JOIN agent_payout_addresses apa ON apa.org_id = o.id
-     WHERE o.type IN ('agent', 'agent_sub')
+     WHERE o.type = 'agent'
        AND (o.name LIKE 'Kevin %' OR o.name LIKE 'Atlas %')`,
   );
 
@@ -766,42 +756,7 @@ async function main() {
     });
   }
 
-  let atlasSubId = await findOrg("agent_sub", ATLAS_TREE.subAgent.name, atlasAgentId);
-  if (!atlasSubId) {
-    atlasSubId = await ensureOrgAccount({
-      type: "agent_sub",
-      name: ATLAS_TREE.subAgent.name,
-      parentId: atlasAgentId,
-      country: ATLAS_TREE.subAgent.country,
-      legalName: ATLAS_TREE.subAgent.legalName,
-      billingEmail: ATLAS_TREE.subAgent.billingEmail,
-    });
-    await upsertAgentCommission({
-      orgId: atlasSubId,
-      commissionPercent: ATLAS_TREE.subAgent.commissionPercent,
-    });
-    await upsertAgentPayoutAddress({
-      orgId: atlasSubId,
-      asset: UAT_SETTLEMENT.asset,
-      network: UAT_SETTLEMENT.network,
-      address: ATLAS_TREE.subAgent.payout,
-      cooldownMs: 0,
-    });
-    const owner = await ensureUser(
-      ATLAS_TREE.subAgent.ownerEmail,
-      ATLAS_TREE.subAgent.ownerName,
-    );
-    await ensureMembership(atlasSubId, owner.id, "owner");
-    await insertAudit(pool, {
-      actorId: platformOwner.id,
-      orgId: atlasSubId,
-      action: "org_create",
-      metadata: { type: "agent_sub", name: ATLAS_TREE.subAgent.name },
-      at: daysAgo(14),
-    });
-  }
-
-  const atlasParents = { agent: atlasAgentId, subAgent: atlasSubId };
+  const atlasParents = { agent: atlasAgentId };
   for (const spec of ATLAS_TREE.merchants) {
     const parentId = atlasParents[spec.parent];
     const orgId = await ensureOrgAccount({
@@ -871,12 +826,8 @@ async function main() {
   const { rows: kevinAgent } = await pool.query(
     `SELECT id FROM org_accounts WHERE name = 'Kevin Agent' AND type = 'agent' LIMIT 1`,
   );
-  const { rows: kevinSub } = await pool.query(
-    `SELECT id FROM org_accounts WHERE name = 'Kevin Sub-Agent' AND type = 'agent_sub' LIMIT 1`,
-  );
   const kevinParents = {
     agent: kevinAgent[0]?.id,
-    subAgent: kevinSub[0]?.id,
   };
 
   console.log("Kevin merchants #8–#12…");

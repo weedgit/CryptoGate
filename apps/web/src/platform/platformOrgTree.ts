@@ -11,6 +11,7 @@ export type PlatformOrgTreeNode = {
   legalName?: string | null;
   createdAt?: string | null;
   orderCreateSuspended?: boolean;
+  iconKey?: string | null;
   parentId: string | null;
   parentName: string | null;
   children: PlatformOrgTreeNode[];
@@ -36,6 +37,14 @@ export type OrgTreeFilter = {
   query: string;
   type: "all" | "platform" | "agent" | "merchant" | "site";
   status: "all" | "active" | "paused";
+  /** Commercial / payout status (platform detail metric cards). */
+  pay:
+    | "all"
+    | "paid"
+    | "overdue"
+    | "issued"
+    | "pending"
+    | "scheduled";
 };
 
 const AGENT_TYPES = new Set(["agent", "agent_sub"]);
@@ -84,6 +93,7 @@ export function buildPlatformOrgForest(
       legalName: org.legalName ?? null,
       createdAt: org.createdAt ?? null,
       orderCreateSuspended: org.orderCreateSuspended === true,
+      iconKey: org.iconKey ?? null,
       parentId: org.parentId,
       parentName,
       children,
@@ -133,6 +143,7 @@ export function buildPlatformOrgForest(
 function nodeMatchesFilter(
   node: PlatformOrgTreeNode,
   filter: OrgTreeFilter,
+  payOf?: (node: PlatformOrgTreeNode) => string | null | undefined,
 ): boolean {
   if (filter.status !== "all" && node.status !== filter.status) return false;
   if (filter.type !== "all") {
@@ -140,6 +151,11 @@ function nodeMatchesFilter(
     if (filter.type === "agent" && !AGENT_TYPES.has(node.type)) return false;
     if (filter.type === "merchant" && node.type !== "merchant") return false;
     if (filter.type === "site" && node.type !== "merchant_site") return false;
+  }
+  if (filter.pay !== "all") {
+    if (!payOf) return false;
+    const pay = payOf(node);
+    if (pay !== filter.pay) return false;
   }
   const q = filter.query.trim().toLowerCase();
   if (q && !node.name.toLowerCase().includes(q)) return false;
@@ -150,19 +166,25 @@ function nodeMatchesFilter(
 export function filterPlatformOrgForest(
   roots: PlatformOrgTreeNode[],
   filter: OrgTreeFilter,
+  options?: {
+    payOf?: (node: PlatformOrgTreeNode) => string | null | undefined;
+  },
 ): PlatformOrgTreeNode[] {
   const q = filter.query.trim().toLowerCase();
   const hasQuery = q.length > 0;
   const hasTypeOrStatus = filter.type !== "all" || filter.status !== "all";
+  const hasPay = filter.pay !== "all";
 
-  if (!hasQuery && !hasTypeOrStatus) return roots;
+  if (!hasQuery && !hasTypeOrStatus && !hasPay) return roots;
+
+  const payOf = options?.payOf;
 
   function prune(node: PlatformOrgTreeNode): PlatformOrgTreeNode | null {
     const prunedChildren = node.children
       .map(prune)
       .filter((c): c is PlatformOrgTreeNode => c !== null);
 
-    const selfMatches = nodeMatchesFilter(node, filter);
+    const selfMatches = nodeMatchesFilter(node, filter, payOf);
     const childKept = prunedChildren.length > 0;
 
     if (selfMatches || childKept) {
@@ -172,6 +194,49 @@ export function filterPlatformOrgForest(
   }
 
   return roots.map(prune).filter((n): n is PlatformOrgTreeNode => n !== null);
+}
+
+function compareName(a: PlatformOrgTreeNode, b: PlatformOrgTreeNode): number {
+  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+}
+
+/** Lift agent nodes to roots (hide platform); keep merchant/site children. */
+export function agentsForestRoots(
+  roots: ReadonlyArray<PlatformOrgTreeNode>,
+): PlatformOrgTreeNode[] {
+  const agents: PlatformOrgTreeNode[] = [];
+  const walk = (nodes: ReadonlyArray<PlatformOrgTreeNode>) => {
+    for (const n of nodes) {
+      if (n.type === "agent" || n.type === "agent_sub") {
+        agents.push({ ...n, children: n.children.slice() });
+      } else {
+        walk(n.children);
+      }
+    }
+  };
+  walk(roots);
+  return agents.sort(compareName);
+}
+
+/** Lift merchant nodes to roots; keep site children. */
+export function merchantsForestRoots(
+  roots: ReadonlyArray<PlatformOrgTreeNode>,
+): PlatformOrgTreeNode[] {
+  const merchants: PlatformOrgTreeNode[] = [];
+  const walk = (nodes: ReadonlyArray<PlatformOrgTreeNode>) => {
+    for (const n of nodes) {
+      if (n.type === "merchant") {
+        merchants.push({
+          ...n,
+          children: n.children.filter((c) => c.type === "merchant_site"),
+        });
+      } else {
+        walk(n.children);
+      }
+    }
+  };
+  walk(roots);
+  return merchants.sort(compareName);
 }
 
 export function defaultExpandedIds(
@@ -230,13 +295,10 @@ export function expandedIdsForSelectedBranch(
   if (!nodeId) return new Set();
   const ids = new Set<string>();
   let current = byId.get(nodeId);
+  // Ancestors only — selecting a node must not force it open.
   while (current?.parentId) {
     ids.add(current.parentId);
     current = byId.get(current.parentId);
-  }
-  const selected = byId.get(nodeId);
-  if (selected && selected.children.length > 0) {
-    ids.add(nodeId);
   }
   return ids;
 }
@@ -267,20 +329,20 @@ export function orgDetailHref(
 ): string | null {
   if (type === "platform") return platformRoute("settings/team");
   if (type === "agent" || type === "agent_sub")
-    return platformRoute(`agents/${id}`);
-  if (type === "merchant") return platformRoute(`merchants/${id}`);
+    return platformRoute(`accounts/agents/${id}`);
+  if (type === "merchant") return platformRoute(`accounts/merchants/${id}`);
   if (type === "merchant_site") {
     if (!parentId) return null;
-    return `${platformRoute(`merchants/${parentId}`)}?tab=sites`;
+    return `${platformRoute(`accounts/merchants/${parentId}`)}?tab=sites`;
   }
   return null;
 }
 
 export function orgDetailLabel(type: string): string | null {
   if (type === "platform") return "Platform team";
-  if (type === "agent" || type === "agent_sub") return "Open agent detail";
-  if (type === "merchant") return "Open merchant detail";
-  if (type === "merchant_site") return "Open merchant (Sites)";
+  if (type === "agent" || type === "agent_sub") return null;
+  if (type === "merchant") return null;
+  if (type === "merchant_site") return null;
   return null;
 }
 
@@ -292,7 +354,7 @@ export function orgAddChildHref(type: string): string | null {
 
 /** Whether Add can create a child under this org from the Architecture panel. */
 export function orgCanAddChild(type: string): boolean {
-  return type === "platform" || type === "agent" || type === "agent_sub";
+  return type === "platform" || type === "agent";
 }
 
 /**

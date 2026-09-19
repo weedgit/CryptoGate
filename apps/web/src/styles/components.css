@@ -17,7 +17,7 @@
   box-sizing: border-box;
   min-height: var(--control-h-sm);
   padding: 0 14px;
-  border-radius: 6px;
+  border-radius: 10px;
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
@@ -42,8 +42,10 @@
 .btn-primary {
   width: 100%;
   border: 0;
+  border-radius: 10px;
   background: var(--teal);
   color: var(--bg);
+  box-shadow: 0 6px 16px rgba(0, 212, 200, 0.16);
 }
 
 .btn-primary:hover:not(:disabled) {

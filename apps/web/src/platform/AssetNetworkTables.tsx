@@ -181,6 +181,8 @@ type Props = {
   onSelect?: (selection: VolumeSelection) => void;
   /** Bump (e.g. dashboard Refresh) to force a networks-status reload. */
   reloadToken?: number;
+  /** When set, only rows for these networks are shown (dashboard preview). */
+  networkIds?: readonly NetworkId[];
 };
 
 const PAIRS_FOCUS_THROTTLE_MS = 30_000;
@@ -192,6 +194,7 @@ export function AssetNetworkTables({
   volumeScope = "total",
   onSelect,
   reloadToken = 0,
+  networkIds,
 }: Props) {
   const [sort, setSort] = useState<SortState | null>({ key: "status", dir: "asc" });
   const [lampByPair, setLampByPair] = useState<Map<
@@ -235,10 +238,25 @@ export function AssetNetworkTables({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [loadLamps]);
 
-  const rows = useMemo(
-    () => sortRows([...visibleRegistry()], sort, lampByPair),
-    [sort, lampByPair],
-  );
+  const rows = useMemo(() => {
+    const all = [...visibleRegistry()];
+    if (!networkIds?.length) {
+      return sortRows(all, sort, lampByPair);
+    }
+    const preferAssets = ["USDT", "USDC", "ETH", "TRX", "SOL"] as const;
+    const preview: AssetNetworkConfig[] = [];
+    for (const id of networkIds) {
+      const candidates = all.filter((row) => row.network === id);
+      if (!candidates.length) continue;
+      const preferred =
+        preferAssets
+          .map((asset) => candidates.find((row) => row.asset === asset))
+          .find((row): row is AssetNetworkConfig => Boolean(row)) ??
+        candidates[0];
+      preview.push(preferred);
+    }
+    return sortRows(preview, sort, lampByPair);
+  }, [sort, lampByPair, networkIds]);
 
   const onSort = (key: SortKey) => {
     setSort((prev) => {
@@ -347,7 +365,7 @@ export function AssetNetworkTables({
                   <NetworkStatusLamp
                     lamp={lamp}
                     className="plat-pair-status-lamp"
-                    title="Orderability — Open means this pair can accept payments now"
+                    title="Orderability — Online means this pair can accept payments now"
                   />
                 </td>
               </tr>

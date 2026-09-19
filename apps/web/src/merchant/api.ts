@@ -9,6 +9,8 @@ export type Session = {
   email: string;
   /** Optional display name (A10). */
   displayName?: string | null;
+  /** Optional profile photo data-URL; null/absent uses initials. */
+  avatarUrl?: string | null;
   /** UI language preference (A10). */
   locale?: string;
   /** IANA timezone (A10). */
@@ -1106,6 +1108,7 @@ export type OrgAccount = {
   structure?: string;
   country?: string | null;
   legalName?: string | null;
+  iconKey?: string | null;
   createdAt?: string;
 };
 
@@ -1195,6 +1198,27 @@ export async function setOrgStatus(
       body: JSON.stringify(body),
     },
   );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
+export async function patchOrgProfile(
+  orgId: string,
+  body: { name: string; iconKey?: string | null },
+): Promise<OrgAccount> {
+  const payload: { name: string; iconKey: string | null } = {
+    name: body.name.trim(),
+    iconKey: body.iconKey ?? null,
+  };
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
 }
@@ -1324,6 +1348,7 @@ export async function adminClearMemberPosPin(
 /** A10 — update profile / language / MFA preference / session TTL. */
 export async function updateProfile(body: {
   displayName?: string | null;
+  avatarUrl?: string | null;
   locale?: string;
   timezone?: string;
   mfaEnforcement?: boolean;

@@ -115,24 +115,18 @@ export function OnboardAgentPage({ session }: { session: Session }) {
   }, [canManage]);
 
   const cancelTo = useMemo(
-    () => onboardReturnPath(searchParams, platformRoute("agents")),
+    () => onboardReturnPath(searchParams, platformRoute("accounts")),
     [searchParams],
   );
-  const [form, setForm] = useState<WizardState>(() => {
-    const kindParam = searchParams.get("kind");
-    const parentParam = searchParams.get("parentId")?.trim() ?? "";
-    const kind: AgentKind =
-      kindParam === "agent_sub" && parentParam ? "agent_sub" : "agent";
-    return {
-      kind,
-      parentId: kind === "agent_sub" ? parentParam : "",
-      legalName: "",
-      displayName: "",
-      country: "",
-      commissionPercent: "15",
-      ownerEmail: "",
-    };
-  });
+  const [form, setForm] = useState<WizardState>(() => ({
+    kind: "agent",
+    parentId: "",
+    legalName: "",
+    displayName: "",
+    country: "",
+    commissionPercent: "15",
+    ownerEmail: "",
+  }));
 
   useEffect(() => {
     getPlatformOrgs()
@@ -318,7 +312,7 @@ export function OnboardAgentPage({ session }: { session: Session }) {
       });
       await refreshPlatformOrgList();
       const inviteCreds = onboardInviteCreds(invitedEmail, invite);
-      navigate(platformRoute(`agents/${created.id}`), {
+      navigate(platformRoute(`accounts/agents/${created.id}`), {
         state: {
           invitationSent: true,
           displayName: form.displayName.trim() || apiName,
@@ -426,59 +420,20 @@ export function OnboardAgentPage({ session }: { session: Session }) {
                       <button
                         type="button"
                         role="radio"
-                        aria-checked={form.kind === "agent"}
-                        className={`b4-type-option${form.kind === "agent" ? " is-selected" : ""}`}
+                        aria-checked
+                        className="b4-type-option is-selected"
                         onClick={() => patch("kind", "agent")}
                       >
                         <span className="b4-type-option__radio" aria-hidden />
                         <span className="b4-type-option__copy">
                           <span className="b4-type-option__title">Agent account</span>
                           <span className="b4-type-option__desc">
-                            Top-level channel partner under Platform
-                          </span>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={form.kind === "agent_sub"}
-                        className={`b4-type-option${form.kind === "agent_sub" ? " is-selected" : ""}`}
-                        onClick={() => patch("kind", "agent_sub")}
-                      >
-                        <span className="b4-type-option__radio" aria-hidden />
-                        <span className="b4-type-option__copy">
-                          <span className="b4-type-option__title">Agent (sub) account</span>
-                          <span className="b4-type-option__desc">
-                            Nested agent account under an existing parent
+                            Channel partner under Platform (Phase 1 — no nested sub-agents)
                           </span>
                         </span>
                       </button>
                     </div>
                   </div>
-                  {form.kind === "agent_sub" ? (
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor="parent-agent">
-                        Parent agent
-                      </label>
-                      <FieldControl icon="user" invalid={Boolean(fieldErrors.parentId)}>
-                        <SearchableSelect
-                          id="parent-agent"
-                          value={form.parentId}
-                          options={agentParents
-                            .filter((o) => o.type !== "platform")
-                            .map((o) => ({
-                              id: o.id,
-                              label: o.name,
-                              hint: orgTypeLabel(o.type),
-                            }))}
-                          onChange={(id) => patch("parentId", id)}
-                          placeholder="Select parent"
-                          emptyLabel="Select parent"
-                          invalid={Boolean(fieldErrors.parentId)}
-                        />
-                      </FieldControl>
-                    </div>
-                  ) : null}
                   {depthBlocked ? (
                     <p className="muted">
                       Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached for this parent.{" "}

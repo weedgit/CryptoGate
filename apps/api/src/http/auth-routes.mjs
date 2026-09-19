@@ -4,6 +4,7 @@ import {
   findUserByEmail,
   findUserById,
   findUserMfaById,
+  isUserAvatarValue,
   normalizeEmail,
   setUserPosPin,
   updateUserPassword,
@@ -71,6 +72,7 @@ async function sessionPayload(user, memberships) {
       mfaEnrolled: user.mfaEnrolled === true,
       mfaEnrollmentPending: user.mfaEnrollmentPending === true,
       displayName: user.displayName ?? null,
+      avatarUrl: user.avatarUrl ?? null,
       locale: user.locale ?? "en",
       timezone: user.timezone ?? "UTC",
       mfaEnforcement: user.mfaEnforcement === true,
@@ -402,6 +404,7 @@ export async function handlePatchProfile(req, res) {
 
   /** @type {{
    *   displayName?: string | null,
+   *   avatarUrl?: string | null,
    *   locale?: string,
    *   timezone?: string,
    *   mfaEnforcement?: boolean,
@@ -414,6 +417,22 @@ export async function handlePatchProfile(req, res) {
       return;
     }
     patch.displayName = body.displayName;
+  }
+  if (body?.avatarUrl !== undefined) {
+    if (body.avatarUrl !== null && typeof body.avatarUrl !== "string") {
+      sendError(res, 400, "invalid_request", "avatarUrl must be a string or null");
+      return;
+    }
+    if (body.avatarUrl !== null && !isUserAvatarValue(body.avatarUrl)) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        "avatarUrl must be a small PNG/JPEG/WebP/GIF image",
+      );
+      return;
+    }
+    patch.avatarUrl = body.avatarUrl;
   }
   if (body?.locale !== undefined) {
     if (typeof body.locale !== "string" || !PROFILE_LOCALES.has(body.locale)) {
@@ -459,7 +478,16 @@ export async function handlePatchProfile(req, res) {
     return;
   }
 
-  const updated = await updateUserProfile(auth.userId, patch);
+  let updated;
+  try {
+    updated = await updateUserProfile(auth.userId, patch);
+  } catch (err) {
+    if (err && err.code === "avatar_invalid") {
+      sendError(res, 400, "invalid_request", err.message);
+      return;
+    }
+    throw err;
+  }
   if (!updated) {
     sendError(res, 401, "unauthorized", "Not authenticated");
     return;
@@ -469,6 +497,7 @@ export async function handlePatchProfile(req, res) {
     action: AUDIT_ACTIONS.profileUpdate,
     metadata: {
       displayName: updated.displayName,
+      hasAvatar: Boolean(updated.avatarUrl),
       locale: updated.locale,
       timezone: updated.timezone,
       mfaEnforcement: updated.mfaEnforcement,

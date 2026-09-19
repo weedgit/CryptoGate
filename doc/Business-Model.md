@@ -4,6 +4,8 @@ Phase 1 is a merchant collection product. PaymentGate (the **platform**) sells s
 
 Business model, fund flow, roles, permissions, and revenue rules in this document are **locked for Phase 1** unless both parties agree a written change.
 
+**Phase 1 org lock (client confirmed):** **Platform → Agent → Merchant → Cashier**, with optional **Merchant (site)** under multi-location merchants. **Agent (sub)** is **out of product**. Existing `agent_sub` DB rows may remain for ops/read until cleaned up; **new agent_sub creates are forbidden**.
+
 ## Terminology
 
 Product language below is chosen to match **payment-industry** and **B2B SaaS** conventions. Contract documents may still say “Company A / Company B”; in product and UI, use the terms in this section.
@@ -17,130 +19,124 @@ Product language below is chosen to match **payment-industry** and **B2B SaaS** 
 
 One person may hold different roles in different org accounts (for example Owner of a merchant account and Viewer on an agent account).
 
-### Org account types
+### Org account types (Phase 1)
 
 | Term | Market fit | Definition |
 | --- | --- | --- |
-| **Platform** | Operator / SaaS vendor (Stripe “platform”, CoinGate operator) | PaymentGate itself. Runs global policy, billing wallet, compliance. |
-| **Agent account** | Channel partner / ISO-style reseller (common in payment processing) | Brings merchants onto PaymentGate. Sits under **Platform** or under another **agent account** (nested child shown as **Agent (sub) account** when parent context matters). Agent nesting depth is a **platform-wide setting** controlled by **Platform Owner** (default **2** in Phase 1: agent → agent (sub) → merchant). |
-| **Merchant account** | **Merchant** — standard payment-industry name for the paying customer org | The business that collects from payers. Parent may be **Platform** (direct, no agent), an **agent**, or an **agent (sub)**. Two **structures** (not separate products): **single-location** or **multi-location**. |
-| **Merchant (site) account** | **Store / outlet / site** under a parent merchant | A site org under a **multi-location merchant** only. Operational unit for one physical site — not a separate billing entity or sub-merchant ID. Replaces informal “branch” and legacy “location account”. |
+| **Platform** | Operator / SaaS vendor | PaymentGate itself. Runs global policy, billing wallet, compliance. |
+| **Agent account** | Channel partner / ISO-style reseller | Brings merchants onto PaymentGate. Sits **directly under Platform only**. No nested agents. |
+| **Merchant account** | Merchant that collects from payers | Parent is **Platform** (direct) or an **agent**. One billing boundary. May be `single_location` or `multi_location`. |
+| **Merchant (site)** | Branch / sub-merchant under a multi-location merchant | Child of a **multi_location** merchant only. Local ops; parent remains the billing entity. |
+
+### Removed from Phase 1 product (do not use in UI or new onboarding)
+
+| Avoid | Why |
+| --- | --- |
+| **Agent (sub) / sub-agent** | Nested agent trees made the product harder than payment matching. |
 
 **Not used in product copy**
 
-| Avoid | Use instead | Why |
-| --- | --- | --- |
-| Company (for PaymentGate or customer) | **Platform** / **merchant account** | “Company” is ambiguous (vendor vs customer vs legal entity). |
-| Business, large/small scale business | **Merchant account** + structure (**single-location** / **multi-location**) | “Business” is vague; payment products say **merchant**. |
-| Sub-merchant, branch, location account | **Merchant (site) account** | “Sub-merchant” implies PayFac regulation; “branch” overlaps with banking. **Merchant (site)** is an org account for one site under a parent merchant. |
-| Sub-agent account | **Agent (sub) account** | Same org type as agent; “(sub)” marks nesting under a parent agent only. |
-| HQ, headquarters (alone) | **Merchant account (multi-location)** or **parent merchant** | HQ is informal; parent merchant is the billing and policy root. |
-| Platform Admin (alone), platform administrator | **Platform Owner / Administrator / Viewer** | Platform uses the same role names as other org accounts. Legacy “Platform Admin” maps to **Owner** or **Administrator** on the Platform account. |
-| Admin (merchant side) | **Administrator** | Matches CoinGate, Stripe team naming. |
-| Reader | **Viewer** | Standard SaaS read-only role name. |
-| Guest invoice | **Payment order** | Industry term for a collect request; “guest invoice” is internal jargon. |
-| Platform fee invoice | **Service bill** | Distinguishes SaaS billing from customer **payment orders**. |
+| Avoid | Use instead |
+| --- | --- |
+| Company (for PaymentGate or customer) | **Platform** / **merchant account** |
+| Sub-merchant, branch, location account, merchant (site) | **Merchant** + **Cashier** (shop/desk) or order **reference** |
+| Sub-agent, agent (sub) | **Agent** (one level under Platform) |
+| Guest invoice | **Payment order** |
+| Platform fee invoice | **Service bill** |
+| Reader | **Viewer** |
+| Admin (alone) | **Administrator** |
 
 ### User roles
 
-Roles apply **inside** an org account. **Owner**, **Administrator**, and **Viewer** use the same names on Platform, Agent, Merchant, and Merchant (site) accounts. **Cashier** exists only under merchant accounts.
+Roles apply **inside** an org account. **Owner**, **Administrator**, and **Viewer** use the same names on Platform, Agent, and Merchant. **Cashier** exists only under **merchant** accounts.
 
 | Role | Typical account | Definition |
 | --- | --- | --- |
-| **Owner** | Platform, Agent, Merchant, Merchant (site) | Full control within the org; billing contact where applicable; **only role that may add/remove Administrator and Viewer** on that account. |
-| **Administrator** | Platform, Agent, Merchant, Merchant (site) | Day-to-day operations; **cannot** add/remove Administrator or Viewer. |
-| **Viewer** | Platform, Agent, Merchant, Merchant (site) | Read-only dashboards and reports. |
-| **Cashier** | Merchant or Merchant (site) only | Counter staff: create and manage **own payment orders** only; no settings or team management. |
+| **Owner** | Platform, Agent, Merchant | Full control within the org; billing contact where applicable; **only role that may add/remove Administrator and Viewer** on that account. |
+| **Administrator** | Platform, Agent, Merchant | Day-to-day operations; **cannot** add/remove Administrator or Viewer. |
+| **Viewer** | Platform, Agent, Merchant | Read-only dashboards and reports. |
+| **Cashier** | Merchant only | Counter staff: create and manage **own payment orders** only; no settings or team management. |
 
-**Platform-account users** (Owner/Administrator/Viewer on the Platform org) operate PaymentGate globally: fee tiers, agent and merchant onboarding (including merchants **directly under Platform**), billing wallet, compliance override, and audit. **Owner** holds policy authority (global tiers, max agent depth, Enterprise rate approval). **Administrator** runs day-to-day platform operations but cannot change team membership.
+**Platform-account users** operate PaymentGate globally: fee tiers, agent and merchant onboarding (including merchants **directly under Platform**), billing wallet, compliance override, and audit.
 
-**Agent-account users** (Owner/Administrator/Viewer on an agent account) may onboard merchants and set volume fees within platform bands. They are **not** a separate role named “Agent” — they use the same Owner / Administrator / Viewer roles on an **agent account**.
+**Agent-account users** may onboard merchants and set volume fees within platform bands. They **cannot** create payment orders, change merchant receive wallets, or see merchant API secrets.
 
 ### Payment documents
 
 | Term | Paid by | Funds go to | Created by |
 | --- | --- | --- | --- |
-| **Payment order** | Payer (customer) | **Merchant wallet** (100%, non-custodial) | Merchant Owner/Administrator, Merchant (site) Owner/Administrator, or Cashier |
-| **Service bill** | Merchant account (parent billing entity) | **Platform billing wallet** | System (periodic) + Platform Owner/Administrator adjustments |
+| **Payment order** | Payer (customer) | **Merchant wallet** (100%, non-custodial) | Merchant Owner/Administrator or Cashier |
+| **Service bill** | Merchant account | **Platform billing wallet** | System (periodic) + Platform Owner/Administrator adjustments |
 
-### Org tree (canonical)
+### Org tree (canonical — Phase 1)
 
 ```
 Platform
  └── Users: Owner, Administrator, Viewer
  ├── Merchant account (direct under Platform — allowed; no agent required)
- │    ├── Merchant (site) account (multi-location only)
- │    │    └── Users: Owner, Administrator, Viewer, Cashier
  │    └── Users: Owner, Administrator, Viewer, Cashier
- └── Agent account (optional channel; depth limit set by Platform Owner)
-      └── … nested agent accounts while below max depth …
-           └── Merchant account
-                ├── Merchant (site) account (multi-location only)
-                │    └── Users: Owner, Administrator, Viewer, Cashier
-                └── Users: Owner, Administrator, Viewer, Cashier
+ └── Agent account (optional channel; parent = Platform only)
+      └── Merchant account
+           └── Users: Owner, Administrator, Viewer, Cashier
 ```
 
 **Rules**
 
-1. Every merchant account has exactly one parent: **Platform**, an **agent**, or an **agent (sub)**. Merchants **may hang directly under Platform** (implemented and allowed). An agent parent is optional — used when an external channel partner owns the relationship.
-2. **Merchant (site) accounts** and **Cashier** users exist only under **merchant accounts**, never under agent accounts or Platform directly.
-3. Agent-account users see **volume and service bills** for their subtree; they cannot see or change merchant login credentials, API secrets, or settlement settings. Merchants parented under Platform are outside any agent subtree.
+1. Every merchant has exactly one parent: **Platform** or an **agent**. Merchants may hang directly under Platform.
+2. **Cashier** users exist only under **merchant** accounts, never under agent accounts or Platform.
+3. Agents see volume and service bills for their merchants; they cannot see or change merchant credentials, API secrets, or settlement settings.
+4. **No** agent under agent. **No** merchant site under merchant.
+
+**Multi-shop pattern (Phase 1):** one merchant account; one Cashier (or Owner) per desk/shop; optional **merchant reference** on the payment order for room/table/store label. Separate wallets or separate billed companies = separate **merchant** accounts under the same agent (not sites).
 
 ---
 
 ## What we sell
 
-Hotels, travel firms, transport companies, retailers and similar **merchant accounts** need a way to take USDT (and later other assets) without building their own chain software.
+Hotels, travel firms, transport companies, retailers and similar **merchant accounts** need a way to take crypto (USDT and other catalogued assets) without building their own chain software.
 
 The product gives them:
 
 - payment order creation
 - QR code and payment link
 - a page that names the amount, asset, network and receiving address
-- a cashier Android app for handheld POS terminals (create order, show QR, print receipt)
-- a watcher that marks the order paid when the chain confirms
+- a cashier Android app for handheld POS terminals (create order, show QR, print receipt; POS unlock PIN after device bind)
+- a watcher that marks the order completed when the chain confirms
 - dashboards and reports
-- hierarchical org management (multi-location merchants, merchant (site) accounts, cashiers) and an agent sales channel
+- simple org management (agent channel + merchant + cashiers)
 
 The payer sends from their own wallet. Coins go straight to a wallet the **merchant account** controls. PaymentGate never sits in the middle of payer funds.
 
-The fee is a **technical service fee**: monthly subscription plus **volume fee** on confirmed payment-order volume. Volume fee follows **merchant size tiers** (see [Platform fee tiers](#platform-fee-tiers)). The **default ceiling for small merchants is 2%**. Platform Owner sets global tiers and min/max bands; agent-account administrators adjust rates within those bands for their subtree.
+The fee is a **technical service fee**: monthly subscription plus **volume fee** on confirmed payment-order volume. Volume fee follows **merchant size tiers**. The **default ceiling for small merchants is 2%**. Platform Owner sets global tiers and min/max bands; agent-account administrators adjust rates within those bands for their merchants.
 
 ## Who is on the platform
 
 **Payer.** The guest, passenger or shopper. Opens the QR or link and pays on-chain. Not a platform account in Phase 1.
 
-**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** users manage global fee policy, agent onboarding, **direct merchant onboarding under Platform**, compliance override, billing wallet, and audit (see [Roles and permissions](#roles-and-permissions)).
+**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** manage global fee policy, agent onboarding, **direct merchant onboarding under Platform**, compliance override, billing wallet, and audit.
 
-**Agent account.** Optional channel partner under Platform or nested under another agent (**Agent (sub) account** when shown in tree context). Users with Owner or Administrator role onboard merchants and agent (sub) accounts while **current depth is below the platform max**, set volume fee within platform bands, and view subtree volume and service bills — **read-only** on merchant credentials and settlement settings. Agent accounts **do not** create **payment orders** for merchants. Agents are not required for every merchant.
+**Agent account.** Optional channel partner **directly under Platform**. Owner/Administrator onboard merchants, set volume fee within platform bands, view merchant volume and service bills — **read-only** on merchant credentials and settlement. Agents **do not** create payment orders. Agents are not required for every merchant.
 
-**Merchant account.** The customer org that collects payer funds. Parent is **Platform**, an **agent**, or an **agent (sub)**.
+**Merchant account.** The customer org that collects payer funds. Parent is **Platform** or an **agent**. Optional Cashiers for counter staff.
 
-- **Single-location merchant** — one site; optional cashiers; no merchant (site) layer (example: one hotel).
-- **Multi-location merchant** — parent merchant with **merchant (site) accounts**, each with optional cashiers (example: a retail group with several stores).
-
-**Merchant (site) account.** Operates under a multi-location merchant. Creates payment orders for that site. Wallet, matching mode, fulfillment policy, and order retention **always inherit** from the parent merchant. Sites cannot override those settings.
-
-**Cashier.** User role on a merchant or merchant (site) account. Creates payment orders at the counter (web or POS APK). Manages **own** payment orders only. Cannot change settlement address, xPub, fees, fulfillment policy, confirmation rules, or org settings.
+**Cashier.** User on a merchant account. Creates payment orders at the counter (web or POS APK). Manages **own** payment orders only. Cannot change settlement address, xPub, fees, or org settings.
 
 ## Roles and permissions
 
 | Role | Payment orders | Service bills | Team (Administrator / Viewer) | Settings (wallet, xPub, matching mode) | Fee rate |
 | --- | --- | --- | --- | --- | --- |
-| **Platform Owner** | None | Issue/adjust service bills | **Add/remove Platform Administrator and Viewer** | Compliance override; **set max agent depth**; global tiers | Set global tiers and bands |
+| **Platform Owner** | None | Issue/adjust service bills | **Add/remove Platform Administrator and Viewer** | Compliance override; global tiers | Set global tiers and bands |
 | **Platform Administrator** | None | Issue/adjust service bills | **Cannot** add/remove team | Compliance override (logged) | View global tiers |
 | **Platform Viewer** | None | View only | None | View only | View only |
-| **Owner** (agent / merchant / site) | Full (merchant / site) | View + pay own org bills | **Add/remove Administrator and Viewer** | Full within org policy | View effective rate |
-| **Administrator** (agent / merchant / site) | Full (merchant / site) | View + pay own org bills | **Cannot** add/remove team | Change per Owner policy | View effective rate |
-| **Viewer** (agent / merchant / site) | View only | View only | None | View only | View only |
+| **Owner** (agent / merchant) | Full (merchant) | View + pay own org bills | **Add/remove Administrator and Viewer** | Full within org policy (merchant) | View effective rate |
+| **Administrator** (agent / merchant) | Full (merchant) | View + pay own org bills | **Cannot** add/remove team | Change per Owner policy | View effective rate |
+| **Viewer** (agent / merchant) | View only | View only | None | View only | View only |
 | **Cashier** | Create/manage **own** orders | None | None | None | None |
-| **Agent account** (Owner/Administrator/Viewer) | **None** for merchants | View subtree service bills | Onboard subtree (Owner/Administrator) | **Read-only** on merchant settings | Set rate **within platform band** (Owner/Administrator) |
+| **Agent account** (Owner/Administrator/Viewer) | **None** for merchants | View merchant service bills | Onboard merchants (Owner/Administrator) | **Read-only** on merchant settings | Set rate **within platform band** (Owner/Administrator) |
 
 **Audit:** All login events and privileged actions are **append-only**. No user may delete audit records.
 
-**Settings inheritance:** Merchant (site) accounts always inherit wallet, matching mode, fulfillment policy, and order retention from the parent merchant. There is no site-level override. Platform Owner may change those settings on the **parent merchant** for compliance or abuse (logged).
-
-**Merchant (site) wallet address:** A site never has its own receive address. Settlement and xPub always inherit from the parent merchant.
+**Wallet:** Each merchant has one settlement receive address (and optional watch-only xPub for Smart address matching). Cashiers never change it.
 
 ## Payment orders vs service bills
 
@@ -149,29 +145,25 @@ Two flows — never merged in UI, API, or checkout.
 | | **Payment order** | **Service bill** |
 | --- | --- | --- |
 | **Purpose** | Customer purchase | SaaS subscription + volume fee |
-| **Created by** | Merchant, merchant (site), or Cashier | System + Platform Owner/Administrator |
-| **Paid by** | Payer | Merchant account (parent billing entity) |
+| **Created by** | Merchant Owner/Administrator or Cashier | System + Platform Owner/Administrator |
+| **Paid by** | Payer | Merchant account |
 | **Funds go to** | Merchant wallet | Platform billing wallet |
 
 - Payment order checkout: QR and link for the sale.
 - Service bill checkout: separate QR, link, or bank instructions — **platform fee only**.
-- Agent accounts do not create merchant payment orders. They view service bills across their subtree and receive **commission statements** (see [Agent commission](#agent-commission-decision-1)).
-
-Merchant, merchant (site), and agent portals each show **service bills** applicable to their org scope.
+- Agents do not create merchant payment orders. They view service bills for their merchants and receive **commission statements**.
 
 ## How a payment order works
 
-1. Merchant Owner/Administrator, merchant (site) Owner/Administrator, or Cashier creates a **payment order** (amount, asset, network).
-2. The platform returns QR and payment link. Receive address is the **parent merchant** wallet (sites always inherit).
+1. Merchant Owner/Administrator or Cashier creates a **payment order** (amount, asset, network).
+2. The platform returns QR and payment link. Receive address is the **merchant** wallet.
 3. The payer sends coins on that network to that address.
 4. The platform watches the chain, waits for confirmations, and updates order status.
 5. The merchant system may receive a signed webhook. The merchant receives **100%** of the on-chain amount in their wallet.
 
-**Fulfillment vs chain status (Phase 2):** Merchants may choose when staff release goods (`on_completed` vs `on_verifying`) — see [Merchant-Fulfillment-Policy.md](Merchant-Fulfillment-Policy.md). This does **not** lower platform confirmation floors or let Cashiers change chain policy.
+Wrong network, underpay, overpay, duplicate pay, or late pay → explicit order state (**Payment Anomaly**). The platform does not move coins to fix it. There is no “Mark paid” on payment orders.
 
-Wrong network, underpay, overpay, duplicate pay, or late pay → explicit order state. The platform does not move coins to fix it.
-
-Payment matching modes are defined in [Phase1-Project-Plan.md](Phase1-Project-Plan.md) Section II.
+Payment matching modes: [Phase1-Project-Plan.md](Phase1-Project-Plan.md) Section II · acceptance freeze: [Phase1-Acceptance-Pack.md](Phase1-Acceptance-Pack.md).
 
 ## Fund flow
 
@@ -191,55 +183,51 @@ Merchant account ──pays subscription + volume fee──► Platform revenue
 ```
 
 - **Merchant revenue** = full on-chain payment in the merchant’s wallet.
-- **Platform revenue** = subscription + volume fee on **confirmed payment-order volume** for the billing period, invoiced separately.
-- **Agent revenue** = commission on platform fee (default model); **not** taken from payer on-chain payments.
+- **Platform revenue** = subscription + volume fee on **confirmed payment-order volume**, invoiced separately.
+- **Agent revenue** = commission on platform fee; **not** taken from payer on-chain payments.
 
 Network fees on payer payments are paid by the sender, not by PaymentGate.
 
 ## Platform fee tiers
 
-Volume fee **follows merchant size**, not one fixed rate for everyone. Platform Owner defines tiers; agent-account administrators assign a rate **within the platform band** for each merchant in their subtree.
+Volume fee **follows merchant size**. Platform Owner defines tiers; agent-account administrators assign a rate **within the platform band** for each merchant.
 
 **Default tier table (Phase 1 — Platform Owner may adjust globally):**
 
 | Tier | Typical profile | Monthly subscription | Volume fee band (agent picks within band) |
 | --- | --- | --- | --- |
-| **Small** | Single location, low volume | USD 49 / month | **1.2% – 2.0%** (default **2%** at signup) |
-| **Mid** | Multi-location or steady volume | USD 199 / month | **0.8% – 1.5%** |
+| **Small** | Low volume | USD 49 / month | **1.2% – 2.0%** (default **2%** at signup) |
+| **Mid** | Steady volume | USD 199 / month | **0.8% – 1.5%** |
 | **Enterprise** | Large group, custom contract | Custom | **0.5% – 1.0%** (custom rate requires **Platform Owner** approval) |
 
 **Rules**
 
-- Platform Owner sets tier breakpoints, global min/max bands, subscription amounts, and max agent nesting depth.
+- Platform Owner sets tier breakpoints, global min/max bands, and subscription amounts.
 - Platform Owner/Administrator may onboard agent accounts and issue or adjust service bills.
-- Agent-account Owner/Administrator may assign a volume fee **inside the band**. Cannot go below platform minimum or above platform maximum.
+- Agent-account Owner/Administrator may assign a volume fee **inside the band**.
 - Fee changes apply to the **next billing period**, not retroactively.
 - Merchant accounts see the **effective** rate; Cashiers cannot change it.
 
 ## Agent commission (Decision 1)
 
-**Locked: Platform pays agent (Option A), cascade for nesting.**
+**Locked: Platform pays agent (Option A). No sub-agent cascade in Phase 1.**
 
-- Merchant account receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
-- **Platform pays top-level agents only** (agent whose parent is Platform): commission = agreed **% of platform fee collected** on that agent’s **full subtree** (merchants under the agent and under agent (sub) accounts). **Collected** = volume fees on **paid** service bills only (not issued/overdue).
-- **Monthly cadence:** last day of month (or ops **Generate invoices**) creates an **issued** invoice per top-level agent with tree fee status + onboard dates; platform Owner/Admin remits on/around the **1st** (**paid**); agent Owner/Admin **confirms receipt** (**settled** → payout history).
-- **Agent pays agent (sub) accounts** from the parent agent’s own funds (not from platform treasury). Same pattern: statement → payout slip (QR + payment link to **sub-agent payout address**) → pay → save history. Platform may view cascade payout history read-only.
+- Merchant receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
+- **Platform pays agents** whose parent is Platform: commission = agreed **% of platform fee collected** on that agent’s merchants. **Collected** = volume fees on **paid** service bills only.
+- **Monthly cadence:** ops generate invoices; platform remits (**paid**); agent confirms receipt (**settled**).
 - Agent never receives a share of payer on-chain payments.
 - Merchants do **not** pay a separate agent fee.
+- **No** agent → sub-agent payout product in Phase 1.
 
 ### Payout slips (QR + payment link)
 
-Commission payouts reuse the familiar checkout pattern, but the **receiver is the payee’s payout address** (not the platform billing wallet):
-
-| Step | Merchant service bill | Platform → agent | Agent → sub-agent |
-| --- | --- | --- | --- |
-| Statement ready | Bill issued | Monthly invoice **issued** | Sub-agent share ready |
-| Slip | QR + link → platform wallet | QR → **agent payout address** | QR + link → **sub-agent payout address** |
-| Who pays | Merchant | Platform treasury / ops → **paid** | Parent agent |
-| Confirm | — | Agent confirms receipt → **settled** | — |
-| History | Service bill paid | Settled platform commission record | Agent sub-payout record (platform may view read-only) |
-
-Both sides keep an immutable history (statement + paidAt + tx/ref) in the API.
+| Step | Merchant service bill | Platform → agent |
+| --- | --- | --- |
+| Statement ready | Bill issued | Monthly invoice **issued** |
+| Slip | QR + link → platform wallet | QR → **agent payout address** |
+| Who pays | Merchant | Platform treasury / ops → **paid** |
+| Confirm | — | Agent confirms receipt → **settled** |
+| History | Service bill paid | Settled platform commission record |
 
 Agent payout address changes require **MFA** and a **cool-down** (same bar as merchant settlement), with audit log.
 
@@ -247,13 +235,13 @@ Agent payout address changes require **MFA** and a **cool-down** (same bar as me
 
 | # | Topic | Decision |
 | --- | --- | --- |
-| **1** | Agent commission payer | **Platform pays top-level agents** (rebate from platform fee collected). **Agents pay their agent (sub) accounts.** No merchant-paid agent fee. |
-| **1b** | Cascade payout | Platform does **not** pay agent (sub) accounts directly. Subtree fees roll into the top-level agent statement; parent agent settles subs. |
-| **2** | Fee tiers | **Tiered by merchant size** (Small / Mid / Enterprise). Platform Owner sets tiers and bands; agent assigns rate within band; **Enterprise custom rates require Platform Owner approval**. |
-| **3** | Merchant (site) settings | **Always inherit** parent wallet, matching, fulfillment, and retention. No site override. |
-| **4** | Agent nesting depth | **Platform Owner** sets **max agent depth** (global). Phase 1 **default: 2** (agent → agent (sub) → merchant). Agents may not create another agent level when depth would exceed the limit; audit log records changes to this setting. |
-| **5** | Team management | **Owner only** may add and remove **Administrator** and **Viewer** on every org account (Platform, agent, merchant, merchant (site)). **Administrator cannot** add or remove team members. All actions logged immutably. |
-| **6** | Sibling org names | Under the same **parent**, child org **display names** must be unique (**trim** + **case-insensitive**). The same name may be reused under a **different** parent. Enforced on create (`duplicate_sibling_name`). |
+| **1** | Agent commission payer | **Platform pays agents** (rebate from platform fee collected). No merchant-paid agent fee. No sub-agent cascade. |
+| **2** | Fee tiers | **Tiered by merchant size** (Small / Mid / Enterprise). Agent assigns rate within band; **Enterprise custom rates require Platform Owner approval**. |
+| **3** | Org tree | **Flat:** Platform → Agent → Merchant → Cashier. **No** agent (sub). **No** merchant (site). |
+| **4** | Multi-shop | Cashiers + optional order reference under one merchant — not nested site orgs. |
+| **5** | Team management | **Owner only** may add and remove **Administrator** and **Viewer**. **Administrator cannot** add or remove team members. All actions logged. |
+| **6** | Sibling org names | Under the same **parent**, child org **display names** must be unique (**trim** + **case-insensitive**). Enforced on create (`duplicate_sibling_name`). |
+| **7** | Custody | Watch-only. No merchant spend keys. No skim of on-chain payer amount. |
 
 ## Platform revenue and cost
 
@@ -267,10 +255,10 @@ Volume fee is a software/technical charge — **not** deducted from the payer’
 
 Phase 1 is not a wallet app, broker, OTC desk, or bank. No seed phrases stored. No USDT→fiat conversion. No platform token.
 
-Later phases (each with legal review): Phase 2 consumer wallet; Phase 3 fiat via licensed partner; Phase 4 token/chain optional.
+Later phases (each with legal review): Phase 2 consumer wallet; Phase 3 fiat via licensed partner; Phase 4 token/chain optional. Nested sites or agent depth may return only with a written scope change.
 
 ## Why a merchant would pay
 
 Card rails take a few percent, can freeze payouts, and need chargebacks. This product is for merchants who already have a crypto address and want payment to land there with a reconcilable record.
 
-They pay for operations, multi-location control, cashier POS, and reconciliation — **not** for custody. Tiered pricing positions the fee as an ops service. At the small-tier ceiling (2%), the product wins on **UX, org tree, and agent-supported onboarding**, not on being the cheapest global checkout.
+PaymentGate competes on **trust (non-custodial)** and **ops clarity** — not on nesting companies.

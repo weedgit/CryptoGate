@@ -34,7 +34,7 @@ export async function buildCommissionTreeSnapshot(pool, rootOrgId, periodKey) {
      )
      SELECT id, name, type, created_at
      FROM subtree
-     WHERE type IN ('merchant', 'merchant_site')
+     WHERE type = 'merchant'
      ORDER BY name ASC`,
     [rootOrgId],
   );

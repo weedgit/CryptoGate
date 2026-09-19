@@ -24,6 +24,11 @@ export class RouteErrorBoundary extends Component<Props, State> {
   }
 
   private onRefresh = () => {
+    try {
+      sessionStorage.removeItem("cg-chunk-reload");
+    } catch {
+      /* ignore */
+    }
     window.location.reload();
   };
 
@@ -43,7 +48,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
               : "Something went wrong loading this view. Try refreshing the page."}
           </p>
           <button type="button" className="login-submit" onClick={this.onRefresh}>
-            Refresh page
+            Refresh now
           </button>
         </div>
       </div>

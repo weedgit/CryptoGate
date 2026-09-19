@@ -16,6 +16,7 @@ import {
   assignOrgUserRole,
   inviteOrgUser,
   listOrgMemberEmails,
+  patchOrgProfile,
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
@@ -25,12 +26,15 @@ import {
 } from "./api";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import {
   orgTypeLabel,
   primaryMerchantOrgId,
   roleLabel,
+  sessionCanEditOrgSettings,
   sessionCanManageMemberPosPin,
   sessionCanManageTeam,
   sessionRoleOnOrg,
@@ -104,6 +108,10 @@ export function TeamSettingsPage({ session }: Props) {
     () => (orgId ? sessionCanManageTeam(session, orgId) : false),
     [session, orgId],
   );
+  const canEditProfile = useMemo(
+    () => sessionCanEditOrgSettings(session),
+    [session],
+  );
   const canManagePosPin = useMemo(
     () => (orgId ? sessionCanManageMemberPosPin(session, orgId) : false),
     [session, orgId],
@@ -141,6 +149,9 @@ export function TeamSettingsPage({ session }: Props) {
   const [posPinConfirm, setPosPinConfirm] = useState("");
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileEditBusy, setProfileEditBusy] = useState(false);
+  const [profileEditError, setProfileEditError] = useState<string | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
   const showOk = useCallback((message: string) => {
@@ -423,6 +434,7 @@ export function TeamSettingsPage({ session }: Props) {
         <header className="plat-team__org">
           <p className="plat-team__org-eyebrow">Organization</p>
           <div className="plat-team__org-title-row">
+            <OrgBrandMark name={org.name} iconKey={org.iconKey} size={40} />
             <h1 className="plat-team__org-name">{org.name}</h1>
             <div className="plat-team__org-chips">
               <span className="plat-team__org-chip">
@@ -431,10 +443,52 @@ export function TeamSettingsPage({ session }: Props) {
               <span className="plat-team__org-chip plat-team__org-chip--muted">
                 {structureLabel(org.structure)}
               </span>
+              {canEditProfile ? (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  disabled={profileEditBusy}
+                  onClick={() => {
+                    setProfileEditError(null);
+                    setProfileEditOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
       ) : null}
+
+      <OrgProfileEditModal
+        open={profileEditOpen}
+        name={org?.name ?? ""}
+        iconKey={org?.iconKey}
+        busy={profileEditBusy}
+        error={profileEditError}
+        onClose={() => {
+          if (!profileEditBusy) setProfileEditOpen(false);
+        }}
+        onSave={async (next) => {
+          if (!orgId) return;
+          setProfileEditBusy(true);
+          setProfileEditError(null);
+          try {
+            const updated = await patchOrgProfile(orgId, next);
+            setOrg(updated);
+            setToast({ message: "Organization profile saved", tone: "ok" });
+            setProfileEditOpen(false);
+            await getMerchantOrgs({ force: true });
+          } catch (err) {
+            setProfileEditError(
+              err instanceof ApiError ? err.message : "Failed to update profile",
+            );
+          } finally {
+            setProfileEditBusy(false);
+          }
+        }}
+      />
 
       <section className="plat-team__card">
         <header className="plat-team__card-head">

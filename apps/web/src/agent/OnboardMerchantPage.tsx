@@ -272,7 +272,7 @@ export function OnboardMerchantPage({ session }: Props) {
         type: "merchant",
         name: form.name.trim(),
         parentId,
-        structure: form.structure,
+        structure: "single_location",
         country: form.country.trim() || undefined,
         commercial: {
           tier: form.commercial.tier,
@@ -381,8 +381,9 @@ export function OnboardMerchantPage({ session }: Props) {
                     role="radiogroup"
                     aria-label="Merchant structure"
                   >
-                    {(Object.keys(STRUCTURE_LABELS) as MerchantStructure[]).map(
-                      (s) => (
+                    {(
+                      Object.keys(STRUCTURE_LABELS) as MerchantStructure[]
+                    ).map((s) => (
                         <button
                           key={s}
                           type="button"

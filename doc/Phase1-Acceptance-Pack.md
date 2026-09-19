@@ -3,7 +3,7 @@
 **Audience:** Client / UAT / compliance review  
 **Date:** 2026-09-16  
 **Product:** CryptoGate / PaymentGate — non-custodial payment collection  
-**Status:** Describes **what the running product does today**. Items marked **pending client lock** or **Phase 1.1** are not in this freeze.
+**Status:** Describes **what the running product does today**, with org-tree lock confirmed 2026-09-19. Items marked **Phase 1.1** are not in this freeze.
 
 This pack is the next-revision set for matching, abnormal orders, MVP boundary, permissions, webhooks, and minimum UAT metrics. It does not replace [Business-Model.md](Business-Model.md) or [Phase1-Requirement.md](Phase1-Requirement.md).
 
@@ -54,7 +54,7 @@ The payer sends crypto to the **merchant’s own wallet**. CryptoGate **watches,
 
 The technical catalog already has more pairs (USDT/USDC on several EVM nets, TON, BTC, native TRX/ETH). Extra pairs are **enablement**, not a promise that every pair is UAT-complete. Default create-order pair: **USDT on TRON**.
 
-**Org tree (pending client lock):** product today supports Platform → Agent (optional nesting) → Merchant → Merchant (site) → Cashier. Recommendation for Phase 1 UI: **keep sites as branches** under one merchant wallet/billing; **remove or hide sub-agent**. Do not treat this pack as a tree freeze until the client confirms.
+**Org tree (locked):** **Platform → Agent → Merchant → Cashier**, with optional **Merchant (site)** under multi-location merchants. **No** agent (sub). New `agent_sub` creates are rejected (`phase1_org_type_disabled`).
 
 ---
 
@@ -171,17 +171,17 @@ Same-amount collision · underpay · overpay · wrong network/asset (when seen) 
 
 Roles apply **inside** one org account. One person may have different roles on different orgs.
 
-**Pending client lock:** sub-agent create may be hidden; sites stay as locations.
+**Org tree:** Platform → Agent → Merchant (+ optional sites); no sub-agent creates.
 
 | Action | Platform O/A | Platform V | Agent O/A | Agent V | Merchant O/A | Merchant V | Cashier |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Create payment order | — | — | **No** | — | ✓ | — | ✓ own only |
-| View orders in scope | ✓ | R | subtree R | R | ✓ | R | own only |
+| View orders in scope | ✓ | R | merchants R | R | ✓ | R | own only |
 | Resolve anomaly | ✓ | — | — | — | ✓ | — | own only |
 | Change receive address / xPub / matching | override (logged) | — | **No** | — | ✓ MFA + cool-down | R | **No** |
 | API keys / webhook secrets | platform ops | — | **No** merchant secrets | — | ✓ | — | **No** |
-| Service bills | issue / mark paid (billing rail) | R | subtree R | R | view / pay own | R | **No** |
-| Onboard agent / merchant | ✓ | — | merchant; sub-agent if depth allows | — | sites (multi-location) | — | — |
+| Service bills | issue / mark paid (billing rail) | R | merchants R | R | view / pay own | R | **No** |
+| Onboard agent / merchant | ✓ | — | merchant only | — | invite Cashiers | — | — |
 | Add/remove Admin/Viewer | Owner only on that org | — | Owner only | — | Owner only | — | — |
 | Audit log | ✓ | R | scoped | R | scoped | R | — |
 
@@ -301,9 +301,10 @@ Existing smoke: [X-07-E2E-Smoke.md](X-07-E2E-Smoke.md).
 
 ---
 
-## 8. Open confirms (do not implement until answered)
+## 8. Open confirms (remaining)
 
-1. Keep **merchant sites** as branches; **hide/remove sub-agent**?  
-2. **Email** (and phone) verification — SMTP / SMS provider?  
-3. Is **full KYC/KYB** a Phase 1 go-live blocker?  
-4. Commercial chain focus **TRON + Solana + Ethereum** first?
+1. **Email** (and phone) verification — SMTP / SMS provider?  
+2. Is **full KYC/KYB** a Phase 1 go-live blocker?  
+3. Commercial chain focus **TRON + Solana + Ethereum** first?
+
+**Org tree:** locked — no sub-agent; merchant sites allowed under multi_location.

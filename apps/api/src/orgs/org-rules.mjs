@@ -86,6 +86,15 @@ export function validateCreateOrg(input, ctx) {
     return fail(400, "invalid_request", "Name is required");
   }
 
+  // Phase 1 lock: no nested agents. Merchant sites (sub-merchants) remain allowed.
+  if (type === "agent_sub") {
+    return fail(
+      403,
+      "phase1_org_type_disabled",
+      "Agent (sub) accounts are not available in Phase 1 — use a top-level agent under Platform",
+    );
+  }
+
   if (type === "platform") {
     if (parentId) {
       return fail(400, "invalid_parent", "Platform has no parent");
@@ -122,13 +131,19 @@ export function validateCreateOrg(input, ctx) {
     }
   }
 
+  if (type === "merchant_site" && parent.type === "merchant") {
+    if (parent.structure !== "multi_location") {
+      return fail(
+        403,
+        "invalid_parent",
+        "Sites can only be created under a multi-location merchant",
+      );
+    }
+  }
+
   const parentOk = parentTypeAllowed(type, parent.type);
   if (!parentOk) {
     return fail(403, "invalid_parent", "Org type is not allowed under this parent");
-  }
-
-  if (type === "merchant_site" && parent.structure !== "multi_location") {
-    return fail(403, "invalid_parent", "Merchant site requires a multi-location merchant");
   }
 
   if (AGENT_TYPES.has(type)) {
@@ -153,18 +168,13 @@ export function validateCreateOrg(input, ctx) {
   };
 }
 
+/** Phase 1 create graph: agent under platform; merchant under platform/agent; site under merchant. */
 function parentTypeAllowed(childType, parentType) {
   switch (childType) {
     case "agent":
       return parentType === "platform";
-    case "agent_sub":
-      return parentType === "agent" || parentType === "agent_sub";
     case "merchant":
-      return (
-        parentType === "platform" ||
-        parentType === "agent" ||
-        parentType === "agent_sub"
-      );
+      return parentType === "platform" || parentType === "agent";
     case "merchant_site":
       return parentType === "merchant";
     default:

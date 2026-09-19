@@ -126,11 +126,14 @@ function toDateInputValue(d: Date): string {
 
 function orgDetailPath(orgId: string, orgs: OrgAccount[]): string {
   const type = orgs.find((o) => o.id === orgId)?.type;
-  if (type === "merchant") return platformRoute(`merchants/${orgId}`);
-  if (type === "agent" || type === "agent_sub") {
-    return platformRoute(`agents/${orgId}`);
+  if (
+    type === "merchant" ||
+    type === "agent" ||
+    type === "agent_sub"
+  ) {
+    return platformRoute(`accounts/${type === "merchant" ? "merchants" : "agents"}/${orgId}`);
   }
-  return platformRoute("architecture");
+  return platformRoute("accounts");
 }
 
 function fromDateStart(isoDate: string): string | undefined {

@@ -436,8 +436,8 @@ export function VolumeChart({
       >
         <defs>
           <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(52, 211, 153, 0.18)" />
-            <stop offset="100%" stopColor="rgba(52, 211, 153, 0)" />
+            <stop offset="0%" stopColor="var(--volume-fill-top, rgba(52, 211, 153, 0.18))" />
+            <stop offset="100%" stopColor="var(--volume-fill-bottom, rgba(52, 211, 153, 0))" />
           </linearGradient>
           <clipPath id={`platVolClip-${reactId}`}>
             <rect x={padLeft} y={padTop - 2} width={plotW} height={plotH + 4} />

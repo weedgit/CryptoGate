@@ -65,6 +65,7 @@ export type OrgAccount = {
   structure?: string | null;
   country?: string | null;
   legalName?: string | null;
+  iconKey?: string | null;
   createdAt?: string;
 };
 
@@ -216,6 +217,24 @@ export async function setOrgStatus(
     credentials: "include",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgAccount;
+}
+
+export async function patchOrgProfile(
+  orgId: string,
+  body: { name: string; iconKey?: string | null },
+): Promise<OrgAccount> {
+  const payload: { name: string; iconKey: string | null } = {
+    name: body.name.trim(),
+    iconKey: body.iconKey ?? null,
+  };
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;

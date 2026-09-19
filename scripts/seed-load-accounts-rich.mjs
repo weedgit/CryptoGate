@@ -1,23 +1,19 @@
 #!/usr/bin/env node
 /**
- * Enrich Load agents with a dense, Phase-1-correct Accounts forest for UI/API tests.
+ * Enrich Load agents with extra merchants for Accounts UI/API tests (Phase 1 flat tree).
  *
  * Prerequisites: `node scripts/seed-local.mjs` then `node scripts/seed-load-orgs.mjs`
- * Idempotent: skips when "Load Desk 001-A" already exists.
+ * Idempotent: skips when "Load Shop 001-R1" already exists.
  *
- * Matching logic (per Load Agent N):
+ * Per Load Agent N:
  *   Agent
- *   ├── Load Sub-Agent N          (existing) → +2 shops (S1, S2)
- *   ├── Load Desk N-A             (new sub)  → +2 shops (A1, A2)
- *   ├── Load Desk N-B             (new sub)  → +1 shop  (B1)
- *   └── Load Shop N-R*            (+2 root shops under agent)
- *   Existing Load Merchant N stays where seed-load-orgs placed it.
+ *   ├── Load Merchant N          (from seed-load-orgs)
+ *   ├── Load Shop N-R1           (new)
+ *   └── Load Shop N-R2           (new)
  *
- * Rules respected:
- *   - agent_sub only under agent (depth 2 — never agent_sub → agent_sub)
- *   - merchant under agent or agent_sub
- *   - merchant_site only under multi_location merchant
- *   - Agents list MERCHANTS = merchant accounts in subtree (sites excluded)
+ * Rules (Phase 1 lock):
+ *   Platform → Agent → Merchant (single_location) → Cashiers only
+ *   No agent_sub, merchant_site, or multi_location.
  *
  * Usage: node scripts/seed-load-accounts-rich.mjs
  */
@@ -73,18 +69,6 @@ function loadEnv() {
 
 function pad(n) {
   return String(n).padStart(3, "0");
-}
-
-function agentName(n) {
-  return `${PREFIX} Agent ${pad(n)}`;
-}
-
-function subAgentName(n) {
-  return `${PREFIX} Sub-Agent ${pad(n)}`;
-}
-
-function deskName(n, letter) {
-  return `${PREFIX} Desk ${pad(n)}-${letter}`;
 }
 
 function shopName(n, slot) {
@@ -183,9 +167,9 @@ async function insertOrder(pool, {
   );
 }
 
-function expectedMerchantCountForAgent(_n) {
-  // 1 existing Load Merchant + S1 S2 + A1 A2 + B1 + R1 R2
-  return 8;
+function expectedMerchantCountForAgent() {
+  // 1 existing Load Merchant + R1 + R2 under agent
+  return 3;
 }
 
 async function createMerchantBundle({
@@ -194,8 +178,6 @@ async function createMerchantBundle({
   passwordHash,
   parentId,
   name,
-  structure,
-  siteCount,
   n,
   slot,
   createdAt,
@@ -204,7 +186,7 @@ async function createMerchantBundle({
     type: "merchant",
     name,
     parentId,
-    structure,
+    structure: "single_location",
     maxAgentDepth: null,
   });
   if (!created.ok) {
@@ -212,19 +194,6 @@ async function createMerchantBundle({
     throw new Error(`merchant ${name} failed: ${created.code ?? "unknown"}`);
   }
   const merchantId = created.row.id;
-
-  for (let s = 1; s <= siteCount; s++) {
-    const site = await insertOrgAccount({
-      type: "merchant_site",
-      name: `${name} · Site ${s}`,
-      parentId: merchantId,
-      structure: null,
-      maxAgentDepth: null,
-    });
-    if (!site.ok && site.code !== "duplicate_sibling_name") {
-      throw new Error(`site ${name} #${s} failed`);
-    }
-  }
 
   const tier = TIERS[(n + slot.length) % TIERS.length];
   try {
@@ -282,28 +251,6 @@ async function createMerchantBundle({
   return merchantId;
 }
 
-async function ensureSitesForMultiMerchant(pool, merchantId, merchantName, siteCount) {
-  const { rows } = await pool.query(
-    `SELECT COUNT(*)::int AS n FROM org_accounts
-     WHERE type = 'merchant_site' AND parent_id = $1`,
-    [merchantId],
-  );
-  let have = rows[0]?.n ?? 0;
-  while (have < siteCount) {
-    have += 1;
-    const site = await insertOrgAccount({
-      type: "merchant_site",
-      name: `${merchantName} · Site ${have}`,
-      parentId: merchantId,
-      structure: null,
-      maxAgentDepth: null,
-    });
-    if (!site.ok && site.code !== "duplicate_sibling_name") {
-      throw new Error(`backfill site ${merchantName} failed`);
-    }
-  }
-}
-
 async function main() {
   loadEnv();
   const pool = getPool();
@@ -329,12 +276,12 @@ async function main() {
 
   const { rows: marker } = await pool.query(
     `SELECT COUNT(*)::int AS n FROM org_accounts
-     WHERE type = 'agent_sub' AND name = $1`,
-    [deskName(1, "A")],
+     WHERE type = 'merchant' AND name = $1`,
+    [shopName(1, "R1")],
   );
   if ((marker[0]?.n ?? 0) > 0) {
     console.log(
-      `Rich accounts seed already present (${deskName(1, "A")} exists). Skipping.`,
+      `Rich accounts seed already present (${shopName(1, "R1")} exists). Skipping.`,
     );
     return;
   }
@@ -342,12 +289,10 @@ async function main() {
   console.log(`Hashing shared cashier password…`);
   const passwordHash = await hashPassword(CASHIER_PASSWORD);
 
-  let desksCreated = 0;
   let shopsCreated = 0;
-  let sitesBackfilled = 0;
 
   console.log(
-    `Enriching ${agents.length} agents with desks + shops (matching Accounts tree)…`,
+    `Enriching ${agents.length} agents with root merchants (Phase 1 flat)…`,
   );
 
   for (let i = 0; i < agents.length; i++) {
@@ -355,69 +300,18 @@ async function main() {
     const m = /^Load Agent (\d+)$/.exec(agent.name);
     const n = m ? Number(m[1]) : i + 1;
 
-    const { rows: primarySubs } = await pool.query(
-      `SELECT id, name FROM org_accounts
-       WHERE type = 'agent_sub' AND parent_id = $1 AND name = $2
-       LIMIT 1`,
-      [agent.id, subAgentName(n)],
-    );
-    const primarySub = primarySubs[0];
-    if (!primarySub) {
-      console.warn(`  skip ${agent.name}: missing ${subAgentName(n)}`);
-      continue;
-    }
-
-    // Extra desks — always direct children of the agent (Phase 1 depth).
-    const deskIds = {};
-    for (const letter of ["A", "B"]) {
-      const created = await insertOrgAccount({
-        type: "agent_sub",
-        name: deskName(n, letter),
-        parentId: agent.id,
-        structure: null,
-        maxAgentDepth: null,
-      });
-      if (!created.ok) throw new Error(`desk ${deskName(n, letter)} failed`);
-      deskIds[letter] = created.row.id;
-      desksCreated += 1;
-      await ensureMembership(created.row.id, platformOwner.id, "owner");
-      await pool.query(
-        `INSERT INTO audit_log (actor_user_id, org_id, action, metadata, created_at)
-         VALUES ($1, $2, 'org_create', $3::jsonb, $4)`,
-        [
-          platformOwner.id,
-          created.row.id,
-          JSON.stringify({
-            type: "agent_sub",
-            name: deskName(n, letter),
-            seed: "load-rich",
-          }),
-          daysAgo(70 - (n % 40)).toISOString(),
-        ],
-      );
-    }
-
-    /** @type {Array<{ parentId: string, slot: string, multi: boolean, sites: number }>} */
     const shopPlan = [
-      { parentId: primarySub.id, slot: "S1", multi: false, sites: 0 },
-      { parentId: primarySub.id, slot: "S2", multi: true, sites: 2 },
-      { parentId: deskIds.A, slot: "A1", multi: false, sites: 0 },
-      { parentId: deskIds.A, slot: "A2", multi: true, sites: 2 },
-      { parentId: deskIds.B, slot: "B1", multi: false, sites: 0 },
-      { parentId: agent.id, slot: "R1", multi: false, sites: 0 },
-      { parentId: agent.id, slot: "R2", multi: n % 4 === 0, sites: n % 4 === 0 ? 3 : 0 },
+      { parentId: agent.id, slot: "R1" },
+      { parentId: agent.id, slot: "R2" },
     ];
 
     for (const plan of shopPlan) {
-      const structure = plan.multi ? "multi_location" : "single_location";
       const id = await createMerchantBundle({
         pool,
         platformOwnerId: platformOwner.id,
         passwordHash,
         parentId: plan.parentId,
         name: shopName(n, plan.slot),
-        structure,
-        siteCount: plan.sites,
         n,
         slot: plan.slot,
         createdAt: daysAgo(60 - (n % 50), plan.slot.charCodeAt(0) % 9),
@@ -425,36 +319,13 @@ async function main() {
       if (id) shopsCreated += 1;
     }
 
-    // Backfill sites on existing multi_location Load Merchant N.
-    const { rows: legacyMerchants } = await pool.query(
-      `SELECT id, name, structure FROM org_accounts
-       WHERE type = 'merchant' AND name = $1
-       LIMIT 1`,
-      [`${PREFIX} Merchant ${pad(n)}`],
-    );
-    const legacy = legacyMerchants[0];
-    if (legacy?.structure === "multi_location") {
-      const before = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM org_accounts
-         WHERE type = 'merchant_site' AND parent_id = $1`,
-        [legacy.id],
-      );
-      await ensureSitesForMultiMerchant(pool, legacy.id, legacy.name, 2);
-      const after = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM org_accounts
-         WHERE type = 'merchant_site' AND parent_id = $1`,
-        [legacy.id],
-      );
-      sitesBackfilled += Math.max(0, (after.rows[0]?.n ?? 0) - (before.rows[0]?.n ?? 0));
-    }
-
     if ((i + 1) % 10 === 0) {
       console.log(`  agents ${i + 1}/${agents.length}`);
     }
   }
 
-  // Sanity: merchant counts for first three agents must match expected.
   console.log("\nVerifying merchant counts (type=merchant in agent subtree)…");
+  const expect = expectedMerchantCountForAgent();
   for (const sample of agents.slice(0, 3)) {
     const { rows } = await pool.query(
       `WITH RECURSIVE tree AS (
@@ -463,14 +334,13 @@ async function main() {
          SELECT c.id, c.type, c.parent_id
          FROM org_accounts c
          JOIN tree t ON c.parent_id = t.id
-         WHERE c.type IN ('agent', 'agent_sub', 'merchant', 'merchant_site')
+         WHERE c.type IN ('agent', 'merchant')
        )
        SELECT COUNT(*)::int AS merchants
        FROM tree WHERE type = 'merchant'`,
       [sample.id],
     );
     const got = rows[0]?.merchants ?? 0;
-    const expect = expectedMerchantCountForAgent(1);
     const ok = got === expect ? "ok" : `MISMATCH expected ${expect}`;
     console.log(`  ${sample.name}: merchants=${got} (${ok})`);
     if (got !== expect) {
@@ -481,14 +351,12 @@ async function main() {
   }
 
   console.log("\nRich accounts seed ready:");
-  console.log(`  Desks added:     ${desksCreated}`);
   console.log(`  Shops added:     ${shopsCreated}`);
-  console.log(`  Sites backfill:  ${sitesBackfilled}`);
   console.log(
-    `  Per agent:       ~${expectedMerchantCountForAgent(1)} merchants (list MERCHANTS column)`,
+    `  Per agent:       ~${expect} merchants (1 seed-load-orgs + R1 + R2)`,
   );
   console.log(
-    "  Tree shape:      Sub + Desk-A + Desk-B + root shops; sites under multi merchants",
+    "  Tree shape:      Agent → merchants only (single_location)",
   );
   console.log("\nRe-run bills for new shops:");
   console.log("  node scripts/seed-load-bills.mjs");

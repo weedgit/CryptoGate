@@ -11,6 +11,7 @@ import {
   removeOrgUser,
   inviteOrgUser,
   assignOrgUserRole,
+  patchOrgProfile,
   type OrgMember,
   type InviteOrgUserResult,
   type PaymentOrder,
@@ -33,6 +34,7 @@ export {
   removeOrgUser,
   inviteOrgUser,
   assignOrgUserRole,
+  patchOrgProfile,
 };
 export type { PaymentOrder, Session, OrgMember, InviteOrgUserResult };
 
@@ -55,6 +57,7 @@ export type OrgAccount = {
   status?: "active" | "paused";
   country?: string | null;
   legalName?: string | null;
+  iconKey?: string | null;
   createdAt?: string;
   orderCreateSuspended?: boolean;
 };

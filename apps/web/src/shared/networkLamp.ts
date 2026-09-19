@@ -1,7 +1,7 @@
 /**
  * Orderability lamp — mirrors apps/api network-lamp.mjs (keep rules in sync).
  *
- * Open / Paused / Down / Off — answers “can this network take payments now?”
+ * Online / Paused / Down / Off — answers “can this network take payments now?”
  */
 
 export type NetworkLampCode = "open" | "paused" | "down" | "off" | "checking";
@@ -45,10 +45,10 @@ export function computeOrderabilityLamp(input: NetworkLampInput): NetworkLamp {
     return { code: "paused", label: "Paused", tone: "warn" };
   }
 
-  return { code: "open", label: "Open", tone: "ok" };
+  return { code: "open", label: "Online", tone: "ok" };
 }
 
-/** Sort rank for tables (Open first). */
+/** Sort rank for tables (Online first). */
 export const NETWORK_LAMP_SORT_RANK: Record<NetworkLampCode, number> = {
   open: 0,
   paused: 1,

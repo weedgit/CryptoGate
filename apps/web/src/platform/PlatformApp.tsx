@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import "../styles/merchant.css";
 import "../styles/components.css";
 import { logout, type Session } from "./api";
@@ -15,22 +15,22 @@ import { platformRoute } from "../shared/portalRouting";
 import { LazyRoute } from "../shared/LazyRoute";
 import { lazyNamed } from "../shared/lazyNamed";
 
+function AccountsOrgRedirect({ kind }: { kind: "agents" | "merchants" }) {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const qs = searchParams.toString();
+  const target = platformRoute(`accounts/${kind}/${id ?? ""}`);
+  return <Navigate to={qs ? `${target}?${qs}` : target} replace />;
+}
+
 const DashboardPage = lazyNamed(
   () => import("./DashboardPage"),
   "DashboardPage",
 );
 
-const ArchitecturePage = lazyNamed(
-  () => import("./ArchitecturePage"),
-  "ArchitecturePage",
-);
-const PlatformMerchantsRoutes = lazyNamed(
-  () => import("./PlatformMerchantsRoutes"),
-  "PlatformMerchantsRoutes",
-);
-const PlatformAgentsRoutes = lazyNamed(
-  () => import("./PlatformAgentsRoutes"),
-  "PlatformAgentsRoutes",
+const PlatformAccountsRoutes = lazyNamed(
+  () => import("./PlatformAccountsRoutes"),
+  "PlatformAccountsRoutes",
 );
 const AuditLogPage = lazyNamed(() => import("./AuditLogPage"), "AuditLogPage");
 const CompliancePage = lazyNamed(
@@ -143,32 +143,56 @@ export function PlatformApp() {
       <Route element={shell}>
         <Route index element={<DashboardPage session={session} />} />
         <Route
-          path="agents"
-          element={<PlatformAgentsRoutes session={session} />}
+          path="accounts"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/agents"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/agents/:id"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/merchants"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/merchants/:id"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/:id"
+          element={<PlatformAccountsRoutes session={session} />}
         />
         <Route
           path="agents/new"
-          element={<PlatformAgentsRoutes session={session} />}
-        />
-        <Route
-          path="agents/:id"
-          element={<PlatformAgentsRoutes session={session} />}
-        />
-        <Route
-          path="merchants"
-          element={<PlatformMerchantsRoutes session={session} />}
+          element={<PlatformAccountsRoutes session={session} />}
         />
         <Route
           path="merchants/new"
-          element={<PlatformMerchantsRoutes session={session} />}
-        />
-        <Route
-          path="merchants/:id"
-          element={<PlatformMerchantsRoutes session={session} />}
+          element={<PlatformAccountsRoutes session={session} />}
         />
         <Route
           path="architecture"
-          element={<ArchitecturePage session={session} />}
+          element={<Navigate to={platformRoute("accounts")} replace />}
+        />
+        <Route
+          path="agents"
+          element={<Navigate to={platformRoute("accounts/agents")} replace />}
+        />
+        <Route
+          path="agents/:id"
+          element={<AccountsOrgRedirect kind="agents" />}
+        />
+        <Route
+          path="merchants"
+          element={<Navigate to={platformRoute("accounts/merchants")} replace />}
+        />
+        <Route
+          path="merchants/:id"
+          element={<AccountsOrgRedirect kind="merchants" />}
         />
         <Route
           path="service-bills/new"

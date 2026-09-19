@@ -13,14 +13,16 @@ Fill remaining client fields after they pick Option A, B, or C (or hybrid) from 
 ## LOCKED STYLE ({{LOCKED_STYLE}})
 
 ```
-Background ink #0B0F14; surfaces #12181F / #1E2A36 border.
-Primary accent teal-cyan #00D4C8.
-Warn amber #FFB703.
-Anomaly / motion-spec note #FF5A6A (do not show spec stickies in product UI).
+Background ink #0B0F14; sidebar #11151C; surfaces #161B24 / elevated #1C2330; border #252D3A.
+Primary accent teal-cyan #00D4C8 (payment rail + primary CTA — never orange as brand).
+Warn amber #FFB703 (service bills / soft urgency).
+Anomaly / danger #FF5A6A.
+OK / completed #00E676.
 Muted text #8A9BB0; footer #5A6A7A.
 Type: Outfit (headings / merchant), Geist or IBM Plex Mono (amounts, addresses, countdown).
-Glass: 8–12% white fill, 12px radius cards.
+Cards: solid charcoal panels, 12px radius, soft elevation (not heavy glass / gold chrome).
 No purple gradients, emoji, meme crypto, “Mark paid”, or confetti on Completed.
+Dashboard polish reference: dark SaaS density + teal active nav (not restaurant orange).
 ```
 
 ## LOCKED LAYOUT ({{LOCKED_LAYOUT}})

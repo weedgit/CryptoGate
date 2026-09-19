@@ -15,9 +15,11 @@ export function onboardReturnPath(
   return raw;
 }
 
-export const ARCHITECTURE_RETURN_TO = platformRoute("architecture");
+export const ACCOUNTS_RETURN_TO = platformRoute("accounts");
+/** @deprecated use ACCOUNTS_RETURN_TO */
+export const ARCHITECTURE_RETURN_TO = ACCOUNTS_RETURN_TO;
 
-export function withReturnTo(href: string, returnTo = ARCHITECTURE_RETURN_TO): string {
+export function withReturnTo(href: string, returnTo = ACCOUNTS_RETURN_TO): string {
   const [path, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
   params.set("returnTo", returnTo);

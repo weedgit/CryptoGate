@@ -22,9 +22,11 @@ Figma has **no published Variables collections** yet (queried 2026-08-27). CSS f
 | Token | Value | Use |
 | --- | --- | --- |
 | `--bg` | `#0B0F14` | Page background |
-| `--surface` | `#12181F` | Cards / panels |
-| `--border` | `#1E2A36` | Hairlines |
-| `--teal` / `--accent` | `#00D4C8` | Payment-order rail, primary CTA |
+| `--sidebar` | `#11151C` | Portal sidebar |
+| `--surface` | `#161B24` | Cards / panels |
+| `--surface-elevated` | `#1C2330` | KPI / elevated cards |
+| `--border` | `#252D3A` | Hairlines |
+| `--teal` / `--accent` | `#00D4C8` | Payment-order rail, primary CTA, active nav |
 | `--teal-hover` / `--teal-pressed` | `#00F1E6` / `#00B2AA` | Button states (Figma 02) |
 | `--warn` | `#FFB703` | Service-bill rail, pending badge, soft urgency |
 | `--anomaly` | `#FF5A6A` | Payment Anomaly, danger button |

@@ -32,10 +32,6 @@ const AgentMerchantsRoutes = lazyNamed(
   () => import("./AgentMerchantsRoutes"),
   "AgentMerchantsRoutes",
 );
-const AgentSubAgentsRoutes = lazyNamed(
-  () => import("./AgentSubAgentsRoutes"),
-  "AgentSubAgentsRoutes",
-);
 const ServiceBillDetailPage = lazyNamed(
   () => import("./ServiceBillDetailPage"),
   "ServiceBillDetailPage",
@@ -143,15 +139,15 @@ export function AgentApp() {
         />
         <Route
           path="agents"
-          element={<AgentSubAgentsRoutes session={session} />}
+          element={<Navigate to={agentRoute("merchants")} replace />}
         />
         <Route
           path="agents/new"
-          element={<AgentSubAgentsRoutes session={session} />}
+          element={<Navigate to={agentRoute("merchants")} replace />}
         />
         <Route
           path="agents/:id"
-          element={<AgentSubAgentsRoutes session={session} />}
+          element={<Navigate to={agentRoute("merchants")} replace />}
         />
         <Route path="settings" element={<AgentSettingsPage session={session} />} />
         <Route path="settings/team" element={<TeamSettingsPage session={session} />} />

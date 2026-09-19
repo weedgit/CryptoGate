@@ -899,7 +899,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                           <td onClick={(e) => e.stopPropagation()}>
                             <Link
                               className="plat-commissions__agent-link"
-                              to={platformRoute(`agents/${row.payeeOrgId}`)}
+                              to={platformRoute(`accounts/agents/${row.payeeOrgId}`)}
                             >
                               {row.payeeName}
                             </Link>
@@ -1093,7 +1093,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                       <td onClick={(e) => e.stopPropagation()}>
                         <Link
                           className="plat-commissions__agent-link"
-                          to={platformRoute(`agents/${h.payeeOrgId}`)}
+                          to={platformRoute(`accounts/agents/${h.payeeOrgId}`)}
                         >
                           {h.payeeName}
                         </Link>
@@ -1248,7 +1248,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                       <td>
                         <Link
                           className="plat-commissions__agent-link"
-                          to={platformRoute(`agents/${h.payeeOrgId}`)}
+                          to={platformRoute(`accounts/agents/${h.payeeOrgId}`)}
                         >
                           {h.payeeName}
                         </Link>
@@ -1257,7 +1257,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                         {h.payerOrgId ? (
                           <Link
                             className="plat-commissions__agent-link"
-                            to={platformRoute(`agents/${h.payerOrgId}`)}
+                            to={platformRoute(`accounts/agents/${h.payerOrgId}`)}
                           >
                             {byId.get(h.payerOrgId)?.name ?? h.payerOrgId}
                           </Link>

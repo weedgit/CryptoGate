@@ -59,21 +59,66 @@ describe("org create rules", () => {
     assert.equal(r.code, "invalid_parent");
   });
 
-  it("rejects agent_sub when max depth is exceeded", () => {
-    const r = validateCreateOrg(
-      { type: "agent_sub", name: "Too deep", parentId: "a2" },
-      { parent: agentSub, maxAgentDepth: 2, agentDepthOfParent: 2 },
-    );
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "agent_depth_exceeded");
-  });
-
-  it("allows agent_sub under agent within depth", () => {
+  it("rejects agent_sub create in Phase 1", () => {
     const r = validateCreateOrg(
       { type: "agent_sub", name: "ISO child", parentId: "a1" },
       { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, "phase1_org_type_disabled");
+  });
+
+  it("allows multi_location merchant under agent", () => {
+    const r = validateCreateOrg(
+      {
+        type: "merchant",
+        name: "Hotel Group",
+        parentId: "a1",
+        structure: "multi_location",
+      },
+      { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
+    );
     assert.equal(r.ok, true);
+    assert.equal(r.insert.structure, "multi_location");
+  });
+
+  it("allows merchant_site under multi_location merchant", () => {
+    const r = validateCreateOrg(
+      { type: "merchant_site", name: "Downtown", parentId: "m1" },
+      { parent: merchantMulti, maxAgentDepth: 2, agentDepthOfParent: 1 },
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.insert.type, "merchant_site");
+    assert.equal(r.insert.parentId, "m1");
+  });
+
+  it("rejects merchant_site under single_location merchant", () => {
+    const single = {
+      id: "m2",
+      type: "merchant",
+      parent_id: "a1",
+      structure: "single_location",
+    };
+    const r = validateCreateOrg(
+      { type: "merchant_site", name: "Branch", parentId: "m2" },
+      { parent: single, maxAgentDepth: 2, agentDepthOfParent: 1 },
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, "invalid_parent");
+  });
+
+  it("rejects merchant under agent_sub in Phase 1", () => {
+    const r = validateCreateOrg(
+      {
+        type: "merchant",
+        name: "Under Sub",
+        parentId: "a2",
+        structure: "single_location",
+      },
+      { parent: agentSub, maxAgentDepth: 2, agentDepthOfParent: 2 },
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, "invalid_parent");
   });
 
   it("allows merchant under platform", () => {
@@ -97,19 +142,6 @@ describe("org create rules", () => {
     );
     assert.equal(r.ok, false);
     assert.equal(r.code, "invalid_structure");
-  });
-
-  it("rejects merchant_site under single-location merchant", () => {
-    const r = validateCreateOrg(
-      { type: "merchant_site", name: "Downtown", parentId: "m1" },
-      {
-        parent: { ...merchantMulti, structure: "single_location" },
-        maxAgentDepth: 2,
-        agentDepthOfParent: 1,
-      },
-    );
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "invalid_parent");
   });
 
   it("counts agent depth on a parent chain", () => {

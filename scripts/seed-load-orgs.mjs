@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * Bulk local load seed — 100 agents, 100 sub-agents, 100 merchants,
+ * Bulk local load seed — 100 agents, 100 merchants,
  * each merchant with a cashier + payment-order / audit history.
  * Every 5th merchant is multi_location with one merchant_site child.
+ * No agent_sub (Phase 1).
  *
- * Hierarchy (Phase 1 depth 2):
- *   Platform → Load Agent N → Load Sub-Agent N
- *   Merchant N parent = Sub-Agent N when N even, else Agent N
- *   → each agent subtree starts with exactly 1 merchant account
+ * Hierarchy:
+ *   Platform → Load Agent N → Load Merchant N
  *
  * For denser Accounts tree (extra desks + shops):
  *   node scripts/seed-load-accounts-rich.mjs
@@ -77,10 +76,6 @@ function pad(n) {
 
 function agentName(n) {
   return `${PREFIX} Agent ${pad(n)}`;
-}
-
-function subAgentName(n) {
-  return `${PREFIX} Sub-Agent ${pad(n)}`;
 }
 
 function merchantName(n) {
@@ -227,8 +222,6 @@ async function main() {
   /** @type {string[]} */
   const agentIds = [];
   /** @type {string[]} */
-  const subAgentIds = [];
-  /** @type {string[]} */
   const merchantIds = [];
 
   console.log(`Creating ${COUNT} agents…`);
@@ -245,26 +238,12 @@ async function main() {
     if (i % 20 === 0) console.log(`  agents ${i}/${COUNT}`);
   }
 
-  console.log(`Creating ${COUNT} sub-agents…`);
-  for (let i = 1; i <= COUNT; i++) {
-    const created = await insertOrgAccount({
-      type: "agent_sub",
-      name: subAgentName(i),
-      parentId: agentIds[i - 1],
-      structure: null,
-      maxAgentDepth: null,
-    });
-    if (!created.ok) throw new Error(`sub-agent ${i} failed`);
-    subAgentIds.push(created.row.id);
-    if (i % 20 === 0) console.log(`  sub-agents ${i}/${COUNT}`);
-  }
-
   console.log(`Creating ${COUNT} merchants + commercial + cashiers + history…`);
   const tiers = ["small", "mid", "enterprise"];
   const feeByTier = { small: "1.8", mid: "1.2", enterprise: "0.9" };
 
   for (let i = 1; i <= COUNT; i++) {
-    const parentId = i % 2 === 0 ? subAgentIds[i - 1] : agentIds[i - 1];
+    const parentId = agentIds[i - 1];
     const structure = i % 5 === 0 ? "multi_location" : "single_location";
     const created = await insertOrgAccount({
       type: "merchant",
@@ -328,10 +307,6 @@ async function main() {
       `UPDATE org_accounts SET created_at = $2 WHERE id = $1 AND created_at > $2`,
       [agentIds[i - 1], daysAgo(100 - (i % 90)).toISOString()],
     );
-    await pool.query(
-      `UPDATE org_accounts SET created_at = $2 WHERE id = $1 AND created_at > $2`,
-      [subAgentIds[i - 1], daysAgo(95 - (i % 85)).toISOString()],
-    );
 
     await insertAudit(pool, {
       actorUserId: platformOwner.id,
@@ -346,13 +321,6 @@ async function main() {
       action: "org_create",
       metadata: { type: "agent", name: agentName(i), seed: "load" },
       createdAt: daysAgo(100 - (i % 90), 2),
-    });
-    await insertAudit(pool, {
-      actorUserId: platformOwner.id,
-      orgId: subAgentIds[i - 1],
-      action: "org_create",
-      metadata: { type: "agent_sub", name: subAgentName(i), seed: "load" },
-      createdAt: daysAgo(95 - (i % 85), 1),
     });
 
     const orderCount = 4 + (i % 5);
@@ -383,7 +351,6 @@ async function main() {
 
   console.log("\nLoad seed ready:");
   console.log(`  Agents:      ${COUNT}  (${agentName(1)} … ${agentName(COUNT)})`);
-  console.log(`  Sub-agents:  ${COUNT}  (${subAgentName(1)} … ${subAgentName(COUNT)})`);
   console.log(`  Merchants:   ${COUNT}  (${merchantName(1)} … ${merchantName(COUNT)})`);
   console.log(`  Cashiers:    ${COUNT}  (${cashierEmail(1)} … ${cashierEmail(COUNT)})`);
   console.log(`  Cashier pw:  ${CASHIER_PASSWORD}`);

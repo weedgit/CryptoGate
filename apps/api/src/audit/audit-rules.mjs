@@ -7,6 +7,7 @@ export const AUDIT_ACTIONS = {
   mfaReset: "mfa_reset",
   orgCreate: "org_create",
   orgStatus: "org_status",
+  orgProfile: "org_profile",
   orgDelete: "org_delete",
   orgUserInvite: "org_user_invite",
   orgUserRole: "org_user_role",

@@ -16,6 +16,7 @@ import {
   listSettlement,
   listXpub,
   updateMerchantCommercial,
+  patchOrgProfile,
   type ComplianceOverride,
   type FeeTierBand,
   type AuditLogEntry,
@@ -35,6 +36,8 @@ import {
   STRUCTURE_LABELS,
 } from "./merchantSubtree";
 import { FundAmount } from "./FundAmount";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import {
   formatOnboardDate,
   merchantBillingPeriodStartMs,
@@ -709,6 +712,9 @@ export function MerchantDetailCard({
   );
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileEditBusy, setProfileEditBusy] = useState(false);
+  const [profileEditError, setProfileEditError] = useState<string | null>(null);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
@@ -945,8 +951,27 @@ export function MerchantDetailCard({
       />
       <header className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
-          <div className="b3-agent-detail__avatar" aria-hidden>
-            {initials(org.name)}
+          <div className="b3-agent-detail__avatar-wrap">
+            <OrgBrandMark
+              name={org.name}
+              iconKey={org.iconKey}
+              size={44}
+              className="b3-agent-detail__avatar"
+            />
+            {canManage ? (
+              <button
+                type="button"
+                className="b3-agent-detail__avatar-edit"
+                disabled={busy || profileEditBusy}
+                onClick={() => {
+                  setProfileEditError(null);
+                  setProfileEditOpen(true);
+                }}
+                title="Edit name and icon"
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
           <div className="b3-agent-detail__titles">
             <div className="b3-agent-detail__title-row">
@@ -1006,6 +1031,32 @@ export function MerchantDetailCard({
           ) : null}
         </div>
       </header>
+
+      <OrgProfileEditModal
+        open={profileEditOpen}
+        name={org.name}
+        iconKey={org.iconKey}
+        busy={profileEditBusy}
+        error={profileEditError}
+        onClose={() => {
+          if (!profileEditBusy) setProfileEditOpen(false);
+        }}
+        onSave={async (next) => {
+          setProfileEditBusy(true);
+          setProfileEditError(null);
+          try {
+            const updated = await patchOrgProfile(org.id, next);
+            onOrgPatched?.(updated);
+            setProfileEditOpen(false);
+          } catch (err) {
+            setProfileEditError(
+              err instanceof ApiError ? err.message : "Failed to update profile",
+            );
+          } finally {
+            setProfileEditBusy(false);
+          }
+        }}
+      />
 
       {inviteCreds ? (
         <div className="b3-agent-detail__invite-creds">
@@ -1334,7 +1385,7 @@ export function MerchantDetailCard({
                 tone: "warn",
                 /** Notice only — action already done; do not pin Action required dock. */
                 unresolved: false,
-                href: `${platformRoute(`merchants/${encodeURIComponent(org.id)}`)}?tab=compliance`,
+                href: `${platformRoute(`accounts/merchants/${encodeURIComponent(org.id)}`)}?tab=compliance`,
                 hrefLabel: "Open merchant",
               });
             }}

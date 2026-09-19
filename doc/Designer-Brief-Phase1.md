@@ -37,10 +37,10 @@ We provide:
 | **Viewer** | Read-only |
 | **Cashier** | Create/manage own payment orders only (merchant/site) |
 
-**Phase 1 redesign preference (pending client lock):**
-- Keep tree simple: Platform → Agent → Merchant → Cashier  
-- Keep **Merchant (site)** as **branches/locations only** (same wallet & billing as parent)  
-- Avoid deep **sub-agent** complexity in new UI  
+**Phase 1 org preference (locked):**
+- Flat: Platform → Agent → Merchant → Cashier  
+- **Removed:** Agent (sub), Merchant (site)  
+- Multi-shop: Cashiers + order reference under one merchant  
 - Do **not** design full KYC/KYB or Memo/Tag matching as primary flows yet  
 
 ---

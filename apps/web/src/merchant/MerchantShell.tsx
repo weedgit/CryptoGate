@@ -10,6 +10,8 @@ import { NavLink, useLocation, useMatch } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
+import { ThemeToggleButton } from "../shared/ThemeToggleButton";
+import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
@@ -25,7 +27,7 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
-import { GateLogoMark } from "../auth/GateLogoMark";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import {
   countUnreadMerchantAlerts,
@@ -72,16 +74,16 @@ const OWNER_GROUPS: NavGroup[] = [
         Icon: OrdersNavIcon,
       },
       {
-        to: merchantRoute("service-bills"),
-        label: "Service Bills",
-        matchPrefix: merchantRoute("service-bills"),
-        Icon: BillsNavIcon,
-      },
-      {
         to: merchantRoute("sites"),
         label: "Sites",
         matchPrefix: merchantRoute("sites"),
         Icon: SitesNavIcon,
+      },
+      {
+        to: merchantRoute("service-bills"),
+        label: "Service Bills",
+        matchPrefix: merchantRoute("service-bills"),
+        Icon: BillsNavIcon,
       },
       {
         to: merchantRoute("reports"),
@@ -183,15 +185,26 @@ export function MerchantShell({
   const onOrdersNew = useMatch({ path: merchantRoute("orders/new"), end: true });
   const showCashierBanner = sessionIsCashierOnly(session) && Boolean(onOrdersNew);
   const cashier = sessionIsCashierOnly(session);
-  const groups = cashier ? CASHIER_GROUPS : OWNER_GROUPS;
   const merchantId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekMerchantOrgs());
+  const homeOrg = useMemo(
+    () => (merchantId ? orgs?.find((o) => o.id === merchantId) ?? null : null),
+    [merchantId, orgs],
+  );
   const locationKind = useMemo(
     () => sessionLocationKind(session, orgs),
     [session, orgs],
   );
+  const groups = useMemo(() => {
+    if (cashier) return CASHIER_GROUPS;
+    if (locationKind === "multi") return OWNER_GROUPS;
+    return OWNER_GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter((item) => item.to !== merchantRoute("sites")),
+    }));
+  }, [cashier, locationKind]);
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
@@ -259,9 +272,16 @@ export function MerchantShell({
       />
       <aside id="portal-sidebar" className="sidebar" aria-label="Merchant navigation">
         <div className="logo-row">
-          <GateLogoMark size={32} className="logo-mark" />
+          <OrgBrandMark
+            name={homeOrg?.name ?? (cashier ? "Cashier" : "Merchant")}
+            iconKey={homeOrg?.iconKey}
+            size={32}
+            className="logo-mark"
+          />
           <div className="logo-copy">
-            <p className="logo-title">PaymentGate</p>
+            <p className="logo-title">
+              {homeOrg?.name ?? (cashier ? "Cashier" : "Merchant")}
+            </p>
             <div className="logo-badges">
               <span className="logo-badge">
                 {cashier ? "Cashier" : "Merchant"}
@@ -321,7 +341,9 @@ export function MerchantShell({
           </div>
           <div className="topbar-center" id="merchant-topbar-center" />
           <div className="topbar-right">
+            <TopbarSearch placeholder="Search orders…" />
             <div className="topbar-actions" id="merchant-topbar-actions" />
+            <ThemeToggleButton />
             <AlertsBellButton
               open={alertsOpen}
               unreadCount={unreadAlerts}

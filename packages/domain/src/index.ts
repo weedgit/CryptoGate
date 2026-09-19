@@ -918,6 +918,7 @@ export const AuditAction = {
   MfaVerifyLogin: "mfa_verify_login",
   OrgCreate: "org_create",
   OrgStatus: "org_status",
+  OrgProfile: "org_profile",
   OrgDelete: "org_delete",
   OrgUserInvite: "org_user_invite",
   OrgUserRole: "org_user_role",

@@ -10,13 +10,11 @@ import {
 import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
 import {
-  AgentsNavIcon,
   ArchitectureNavIcon,
   AuditLogNavIcon,
   ComplianceNavIcon,
   DashboardNavIcon,
   HealthNavIcon,
-  MerchantsNavIcon,
   NetworkNavIcon,
   ServiceBillsNavIcon,
   FeesNavIcon,
@@ -25,7 +23,6 @@ import {
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { GateLogoMark } from "../auth/GateLogoMark";
-import { chainEnvironmentLabel } from "../shared/assetNetworks";
 import { sessionIsPlatformViewerOnly } from "./org";
 import { AlertsDrawer, platformAlertsSource } from "./ui/AlertsDrawer";
 import {
@@ -34,6 +31,8 @@ import {
 } from "./platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
+import { ThemeToggleButton } from "../shared/ThemeToggleButton";
+import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import {
@@ -47,45 +46,11 @@ import {
 import { platformRoute } from "../shared/portalRouting";
 import { prefetchPlatformRoute } from "./prefetchRoutes";
 
-function TopbarStatusPill({
-  label,
-  title,
-  ok = true,
-}: {
-  label: string;
-  title?: string;
-  ok?: boolean;
-}) {
-  return (
-    <span
-      className={`net-indicator topbar-status__pill${ok ? "" : " is-warn"}`}
-      title={title}
-    >
-      <span
-        className={`net-indicator-dot${ok ? "" : " is-warn"}`}
-        aria-hidden
-      />
-      {label}
-    </span>
-  );
-}
-
-function TopbarStatusRail() {
-  const [health, setHealth] = useState({
-    api: true,
-    database: true,
-    webhook: true,
-  });
-
+function PlatformHealthBeacon() {
   useEffect(() => {
     ensureHealthPolling(true);
     const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
       syncPlatformHealthAlerts(next);
-      if (next === "unreachable") {
-        setHealth({ api: false, database: false, webhook: false });
-      } else {
-        setHealth(next);
-      }
     };
     const unsub = subscribeSharedHealth(sync);
     void fetchPlatformHealth().then(sync);
@@ -94,28 +59,7 @@ function TopbarStatusRail() {
       ensureHealthPolling(false);
     };
   }, []);
-
-  const chainLabel = chainEnvironmentLabel();
-
-  return (
-    <div className="topbar-status" aria-label="System status">
-      <TopbarStatusPill
-        label={chainLabel}
-        title={`Settlement rail · ${chainLabel}`}
-      />
-      <TopbarStatusPill label="API" title="API process" ok={health.api} />
-      <TopbarStatusPill
-        label="Database"
-        title="Postgres"
-        ok={health.database}
-      />
-      <TopbarStatusPill
-        label="Webhook"
-        title="Webhook delivery worker"
-        ok={health.webhook}
-      />
-    </div>
-  );
+  return null;
 }
 
 type NavItem = {
@@ -123,7 +67,12 @@ type NavItem = {
   label: string;
   end?: boolean;
   matchPrefix?: string;
+  matchPrefixes?: string[];
+  /** Exact path match only (for parent that has children). */
+  exactActive?: boolean;
   Icon: ComponentType<{ className?: string }>;
+  /** Omit on nested items to show label-only (tree dot still marks the branch). */
+  children?: Array<Omit<NavItem, "children" | "Icon"> & { Icon?: NavItem["Icon"] }>;
 };
 
 type NavGroup = {
@@ -142,22 +91,28 @@ const NAV_GROUPS: NavGroup[] = [
         Icon: DashboardNavIcon,
       },
       {
-        to: platformRoute("architecture"),
-        label: "Architecture",
-        matchPrefix: platformRoute("architecture"),
+        to: platformRoute("accounts"),
+        label: "Accounts",
+        exactActive: true,
+        matchPrefixes: [
+          platformRoute("accounts"),
+          platformRoute("agents"),
+          platformRoute("merchants"),
+          platformRoute("architecture"),
+        ],
         Icon: ArchitectureNavIcon,
-      },
-      {
-        to: platformRoute("agents"),
-        label: "Agents",
-        matchPrefix: platformRoute("agents"),
-        Icon: AgentsNavIcon,
-      },
-      {
-        to: platformRoute("merchants"),
-        label: "Merchants",
-        matchPrefix: platformRoute("merchants"),
-        Icon: MerchantsNavIcon,
+        children: [
+          {
+            to: platformRoute("accounts/agents"),
+            label: "Agents",
+            matchPrefix: platformRoute("accounts/agents"),
+          },
+          {
+            to: platformRoute("accounts/merchants"),
+            label: "Merchants",
+            matchPrefix: platformRoute("accounts/merchants"),
+          },
+        ],
       },
       {
         to: platformRoute("compliance"),
@@ -234,10 +189,39 @@ function navItemClass(
   item: NavItem,
   isActive: boolean,
 ): string {
+  if (item.exactActive) {
+    const base = item.to.replace(/\/$/, "") || "/";
+    const onNamedChild =
+      item.children?.some(
+        (c) =>
+          pathname === c.to ||
+          pathname.startsWith(`${c.to}/`) ||
+          (c.matchPrefix != null && pathname.startsWith(c.matchPrefix)),
+      ) ?? false;
+    if (onNamedChild) return "nav-item";
+    if (pathname === base || pathname === `${base}/`) {
+      return "nav-item active";
+    }
+    if (pathname.startsWith(`${base}/`)) {
+      return "nav-item active";
+    }
+    const prefixHit =
+      item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false;
+    return `nav-item${prefixHit && !onNamedChild ? " active" : ""}`;
+  }
   const prefixActive =
-    item.matchPrefix != null && pathname.startsWith(item.matchPrefix);
+    (item.matchPrefix != null && pathname.startsWith(item.matchPrefix)) ||
+    (item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false);
   const active = isActive || prefixActive;
   return `nav-item${active ? " active" : ""}`;
+}
+
+function navBranchOpen(pathname: string, item: NavItem): boolean {
+  if (!item.children?.length) return false;
+  if (pathname.startsWith(item.to)) return true;
+  return (
+    item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false
+  );
 }
 
 export function PlatformShell({
@@ -311,6 +295,7 @@ export function PlatformShell({
     <div
       className={`shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
+      <PlatformHealthBeacon />
       <button
         type="button"
         className="portal-nav-backdrop"
@@ -325,26 +310,14 @@ export function PlatformShell({
         onWheel={onSidebarWheel}
       >
         <div className="logo-row">
-          <GateLogoMark size={32} className="logo-mark" />
+          <GateLogoMark size={52} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">PAYMENTGATE</p>
-              <span className="logo-badge">PLATFORM</span>
+              <p className="logo-title">PaymentGate</p>
+              <span className="logo-rule" aria-hidden />
+              <span className="logo-tagline">Powering payment</span>
             </div>
           ) : null}
-          <button
-            type="button"
-            className="sidebar-toggle"
-            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!navCollapsed}
-            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => setCollapsed((v) => !v)}
-          >
-            <SidebarCollapseIcon
-              className="sidebar-toggle-icon"
-              expanded={!navCollapsed}
-            />
-          </button>
         </div>
         <nav className="nav-list" aria-label="Platform" ref={navRef}>
           {NAV_GROUPS.map((group, groupIndex) => (
@@ -365,52 +338,139 @@ export function PlatformShell({
                 const { Icon } = item;
                 const delayMs = 120 + navDelayIndex * 38;
                 navDelayIndex += 1;
+                const hasChildren = Boolean(item.children?.length) && !navCollapsed;
+                const branchOpen = hasChildren
+                  ? navBranchOpen(location.pathname, item)
+                  : false;
                 return (
-                  <NavLink
+                  <div
                     key={item.to}
-                    to={item.to}
-                    end={item.end ?? false}
-                    title={item.label}
-                    aria-label={item.label}
-                    style={{ "--nav-delay": `${delayMs}ms` } as CSSProperties}
-                    className={({ isActive }) =>
-                      navItemClass(location.pathname, item, isActive)
-                    }
-                    onMouseEnter={() => prefetchPlatformRoute(navPrefetchKey(item))}
-                    onFocus={() => prefetchPlatformRoute(navPrefetchKey(item))}
+                    className={`nav-branch${branchOpen ? " is-open" : ""}${
+                      hasChildren ? " has-children" : ""
+                    }`}
                   >
-                    <Icon />
-                    {!navCollapsed ? <span>{item.label}</span> : null}
-                  </NavLink>
+                    <NavLink
+                      to={item.to}
+                      end={item.end ?? false}
+                      title={item.label}
+                      aria-label={item.label}
+                      aria-expanded={hasChildren ? branchOpen : undefined}
+                      style={{ "--nav-delay": `${delayMs}ms` } as CSSProperties}
+                      className={({ isActive }) =>
+                        navItemClass(location.pathname, item, isActive)
+                      }
+                      onMouseEnter={() =>
+                        prefetchPlatformRoute(navPrefetchKey(item))
+                      }
+                      onFocus={() => prefetchPlatformRoute(navPrefetchKey(item))}
+                    >
+                      <Icon />
+                      {!navCollapsed ? <span>{item.label}</span> : null}
+                      {hasChildren ? (
+                        <span className="nav-branch__chevron" aria-hidden>
+                          <svg viewBox="0 0 10 6" width="10" height="6" fill="none">
+                            <path
+                              d="M1 1l4 4 4-4"
+                              stroke="currentColor"
+                              strokeWidth="1.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </NavLink>
+                    {hasChildren && branchOpen ? (
+                      <div className="nav-sub" role="group" aria-label={item.label}>
+                        {item.children!.map((child) => {
+                          const ChildIcon = child.Icon;
+                          const childDelay = 120 + navDelayIndex * 38;
+                          navDelayIndex += 1;
+                          return (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              title={child.label}
+                              aria-label={child.label}
+                              style={
+                                {
+                                  "--nav-delay": `${childDelay}ms`,
+                                } as CSSProperties
+                              }
+                              className={({ isActive }) => {
+                                const prefixActive =
+                                  child.matchPrefix != null &&
+                                  location.pathname.startsWith(child.matchPrefix);
+                                return `nav-sub__item${
+                                  isActive || prefixActive ? " is-active" : ""
+                                }`;
+                              }}
+                              onMouseEnter={() =>
+                                prefetchPlatformRoute(
+                                  child.to.replace(/^\//, ""),
+                                )
+                              }
+                              onFocus={() =>
+                                prefetchPlatformRoute(
+                                  child.to.replace(/^\//, ""),
+                                )
+                              }
+                            >
+                              <span className="nav-sub__dot" aria-hidden />
+                              {ChildIcon ? <ChildIcon /> : null}
+                              <span>{child.label}</span>
+                            </NavLink>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          <SidebarProfileMenu
-            session={session}
-            variant="platform"
-            collapsed={navCollapsed}
-            onSignOut={onSignOut}
-            onSessionRefresh={onSessionRefresh}
-          />
-        </div>
       </aside>
       <div className="main" ref={mainRef}>
-        <header className="topbar">
+        <header className="topbar topbar--chrome">
           <div className="topbar-left">
             <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
+            <button
+              type="button"
+              className="sidebar-toggle sidebar-toggle--topbar"
+              aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!navCollapsed}
+              title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => setCollapsed((v) => !v)}
+            >
+              <SidebarCollapseIcon
+                className="sidebar-toggle-icon"
+                expanded={!navCollapsed}
+              />
+            </button>
             <div className="topbar-leading" id="platform-topbar-leading" />
-            <TopbarStatusRail />
           </div>
-          <div className="topbar-center" id="platform-topbar-center" />
+          <div className="topbar-center">
+            <TopbarSearch placeholder="Search merchants, transactions, or accounts..." />
+            <div className="topbar-center-slot" id="platform-topbar-center" />
+          </div>
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
-            <AlertsBellButton
-              open={alertsOpen}
-              unreadCount={unreadAlerts}
-              onOpen={() => setAlertsOpen(true)}
+            <div className="topbar-utils" role="group" aria-label="Utilities">
+              <AlertsBellButton
+                open={alertsOpen}
+                unreadCount={unreadAlerts}
+                onOpen={() => setAlertsOpen(true)}
+              />
+              <ThemeToggleButton />
+            </div>
+            <span className="topbar-divider" aria-hidden />
+            <SidebarProfileMenu
+              session={session}
+              variant="platform"
+              placement="topbar"
+              onSignOut={onSignOut}
+              onSessionRefresh={onSessionRefresh}
             />
           </div>
         </header>

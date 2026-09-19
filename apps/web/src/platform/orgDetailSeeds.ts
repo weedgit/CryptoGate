@@ -407,7 +407,7 @@ function liveToMerchantRows(
   }));
 }
 
-/** Live Accounts forest for agent detail — org_accounts from API only. */
+/** Live Accounts forest for agent detail — merchants with nested sites. */
 export function buildAgentAccountsForest(input: {
   agentId: string;
   agentName: string;
@@ -426,55 +426,32 @@ export function buildAgentAccountsForest(input: {
   }>;
   parentNameById: Map<string, string>;
 }): AgentAccountsForest {
-  const { agentName, liveSubAgents, liveMerchants, parentNameById } = input;
+  const { agentName, liveMerchants, parentNameById } = input;
 
   const liveMerchantCount = liveMerchants.filter((m) => m.type === "merchant").length;
   const liveRows = liveToMerchantRows(liveMerchants, agentName, parentNameById);
   const liveMerchantRows = liveRows.filter((m) => m.type === "merchant");
   const liveSiteRows = liveRows.filter((m) => m.type === "merchant_site");
 
-  const liveSubIds = new Set(liveSubAgents.map((s) => s.id));
-
-  type MutableNode = AccountTreeNode;
-  const subNodes: MutableNode[] = liveSubAgents.map((s) => ({
-    id: s.id,
-    name: s.name,
-    type: "agent_sub",
-    status: s.status ?? "active",
-    parentName: agentName,
-    merchantsManaged: 0,
-    children: [],
-  }));
-  const subById = new Map(subNodes.map((s) => [s.id, s]));
-
-  const rootMerchants: MutableNode[] = [];
-
-  function attachSites(
-    merchantNode: MutableNode,
-    merchantId: string,
-    merchantName: string,
-  ) {
+  const tree: AccountTreeNode[] = liveMerchantRows.map((m) => {
+    const children: AccountTreeNode[] = [];
     for (const site of liveSiteRows) {
       const under =
-        site.parentId === merchantId ||
-        (!site.parentId && site.parentName === merchantName);
+        site.parentId === m.id ||
+        (!site.parentId && site.parentName === m.name);
       if (!under) continue;
-      if (merchantNode.children.some((c) => c.id === site.id)) continue;
-      merchantNode.children.push({
+      children.push({
         id: site.id,
         name: site.name,
         type: site.type,
         status: site.status,
         structure: null,
-        parentId: merchantId,
-        parentName: merchantName,
+        parentId: m.id,
+        parentName: m.name,
         children: [],
       });
     }
-  }
-
-  for (const m of liveMerchantRows) {
-    const node: MutableNode = {
+    return {
       id: m.id,
       name: m.name,
       type: m.type,
@@ -482,29 +459,11 @@ export function buildAgentAccountsForest(input: {
       structure: m.structure ?? null,
       parentId: m.parentId ?? null,
       parentName: m.parentName,
-      children: [],
+      children,
     };
-    attachSites(node, m.id, m.name);
-    if (m.parentId && liveSubIds.has(m.parentId)) {
-      subById.get(m.parentId)?.children.push(node);
-    } else {
-      rootMerchants.push(node);
-    }
-  }
+  });
 
-  for (const sub of subNodes) {
-    sub.merchantsManaged = sub.children.filter((c) => c.type === "merchant").length;
-  }
-
-  const tree = [...subNodes, ...rootMerchants];
-  const merchantNames: string[] = [];
-  const walkNames = (nodes: AccountTreeNode[]) => {
-    for (const n of nodes) {
-      if (n.type === "merchant") merchantNames.push(n.name);
-      walkNames(n.children);
-    }
-  };
-  walkNames(tree);
+  const merchantNames = tree.map((n) => n.name);
 
   return { tree, liveMerchantCount, merchantNames };
 }

@@ -10,7 +10,6 @@ import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import {
   agentDepthOfNode,
   buildPlatformOrgForest,
-  canAddSubAgentUnderNode,
   childTypeCounts,
   collectTreeNodeIds,
   countTreeNodes,
@@ -51,12 +50,98 @@ import { STRUCTURE_LABELS } from "./onboardMerchant";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
+import { ArchitectureNavIcon } from "../platform/NavIcons";
 
-const STATUS_PILLS: { id: OrgTreeFilter["status"]; label: string }[] = [
+const STATUS_FILTERS: {
+  id: OrgTreeFilter["status"];
+  label: string;
+}[] = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
   { id: "paused", label: "Paused" },
 ];
+
+function StatusFilterIcon({ id }: { id: OrgTreeFilter["status"] }) {
+  if (id === "active") {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
+        <circle cx="12" cy="12" r="3.25" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (id === "paused") {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="7" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
+        <rect x="14" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="5" y="5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
+      <rect x="13.5" y="5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
+      <rect x="5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
+      <rect x="13.5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function OnboardPlusIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function TreeExpandIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 10.25 12 16.25 18 10.25"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 5.75 12 11.75 18 5.75"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TreeCollapseIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 13.75 12 7.75 18 13.75"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 18.25 12 12.25 18 18.25"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 const TYPE_OPTIONS: { id: OrgTreeFilter["type"]; label: string }[] = [
   { id: "all", label: "All types" },
@@ -191,6 +276,8 @@ function OrgTreeItem({
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const isPaused = node.status === "paused";
+  const isAgent = node.type === "agent" || node.type === "agent_sub";
+  const isMerchant = node.type === "merchant";
 
   const select = () => onSelect(node.id);
   const toggle = () => {
@@ -214,7 +301,6 @@ function OrgTreeItem({
         onClick={select}
         onDoubleClick={(e) => {
           e.preventDefault();
-          select();
           toggle();
         }}
         role="presentation"
@@ -229,6 +315,10 @@ function OrgTreeItem({
               e.stopPropagation();
               onToggle(node.id);
             }}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
           >
             <span className={`b3-accounts__caret${isOpen ? " is-open" : ""}`} />
           </button>
@@ -240,38 +330,50 @@ function OrgTreeItem({
         )}
         <span
           className={`b3-accounts__badge b3-accounts__badge--${treeBadgeClass(node.type)}`}
-          aria-hidden
+          title={orgTypeLabel(node.type)}
+          aria-label={orgTypeLabel(node.type)}
         >
           {treeBadgeIcon(node.type)}
         </span>
-        <button
-          type="button"
-          className="b3-accounts__name org-architecture__name"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.stopPropagation();
-            select();
-          }}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            select();
-            toggle();
-          }}
-        >
+        <span className="b3-accounts__name org-architecture__name">
           <span className="b3-accounts__name-text">{node.name}</span>
-          <span className="org-architecture__row-meta">
-            {isPaused ? (
-              <span className="org-architecture__paused-dot" title="Paused" />
-            ) : null}
+        </span>
+        <span className="org-architecture__row-meta" aria-hidden={false}>
+          <span className="org-architecture__meta-count">
             {hasChildren ? (
               <span className="org-architecture__child-count">{node.children.length}</span>
             ) : null}
-            <span className="org-architecture__type-pill">
-              {orgTypeLabel(node.type)}
+          </span>
+          <span className="org-architecture__meta-onboard">
+            {isAgent || isMerchant ? (
+              <span
+                className="org-architecture__onboard-date"
+                title={
+                  node.createdAt
+                    ? `Onboarded ${formatOnboardDate(node.createdAt)}`
+                    : "Onboard date unknown"
+                }
+              >
+                {node.createdAt ? formatOnboardDate(node.createdAt) : "—"}
+              </span>
+            ) : (
+              <span className="org-architecture__onboard-date is-empty">—</span>
+            )}
+          </span>
+          <span className="org-architecture__meta-status">
+            <span
+              className={`org-agents__status org-architecture__budget${
+                isPaused ? " is-paused" : " is-active"
+              }`}
+              title="Account status"
+            >
+              {isPaused ? "Paused" : "Active"}
             </span>
           </span>
-        </button>
+          <span className="org-architecture__meta-budget">
+            <span className="org-architecture__budget org-architecture__budget--empty">—</span>
+          </span>
+        </span>
       </div>
       {hasChildren && isOpen
         ? node.children.map((child) => (
@@ -320,7 +422,7 @@ function OrgTreeDetail({
   const detailHref = agentDetailHref(node.type, node.id);
   const detailLabel = agentDetailLabel(node.type);
   const canAdd = orgCanAddChild(node.type);
-  const canSubAgent = canAddSubAgentUnderNode(node, byId);
+  const canSubAgent = false; // Phase 1: no nested agents
   const breadcrumb = orgBreadcrumbPath(node.id, byId);
   const ownerEmail = ownerEmailByOrgId.get(node.id) ?? null;
   const isPaused = node.status === "paused";
@@ -635,6 +737,7 @@ const EMPTY_FILTER: OrgTreeFilter = {
   query: "",
   type: "all",
   status: "all",
+  pay: "all",
 };
 
 const EMPTY_FOREST: PlatformOrgForest = {
@@ -1129,49 +1232,11 @@ export function ArchitecturePage({ session }: { session: Session }) {
                 </select>
               </label>
 
-              <div className="org-agents__pills" role="group" aria-label="Status filter">
-                {STATUS_PILLS.map((pill) => (
-                  <button
-                    key={pill.id}
-                    type="button"
-                    className={`org-agents__pill org-architecture__pill${
-                      filter.status === pill.id ? " is-active" : ""
-                    }`}
-                    aria-pressed={filter.status === pill.id}
-                    onClick={() =>
-                      setFilter((f) => ({ ...f, status: pill.id }))
-                    }
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
-
               <div
                 className="org-architecture__tree-btns"
                 role="group"
                 aria-label="Tree actions"
               >
-                <button
-                  type="button"
-                  className="org-architecture__icon-btn"
-                  onClick={expandAll}
-                  title="Expand all nodes"
-                >
-                  Expand all
-                </button>
-                <button
-                  type="button"
-                  className="org-architecture__icon-btn"
-                  onClick={collapseAll}
-                  title={
-                    selectedId
-                      ? "Collapse all except the selected branch"
-                      : "Collapse all nodes"
-                  }
-                >
-                  Collapse all
-                </button>
                 <button
                   type="button"
                   className="org-architecture__icon-btn"
@@ -1229,18 +1294,89 @@ export function ArchitecturePage({ session }: { session: Session }) {
         </p>
       ) : null}
 
-      <div className="panel org-architecture__workspace">
+      <div className="org-architecture__workspace">
         <div className="org-architecture__map">
           <section className="org-architecture__tree-pane" aria-label="Org hierarchy">
             <header className="org-architecture__pane-head org-architecture__pane-head--row">
-              <h3 className="org-architecture__pane-title">Hierarchy</h3>
-              <p className="org-architecture__pane-sub">
-                {loading ? "Loading…" : `${visibleCount.toLocaleString()} visible nodes`}
-              </p>
+              <div className="org-architecture__pane-title-cluster">
+                <span className="org-architecture__pane-mark" aria-hidden>
+                  <ArchitectureNavIcon />
+                </span>
+                <h3 className="org-architecture__pane-title">Architecture</h3>
+                <span
+                  className="org-architecture__pane-count"
+                  aria-label="Visible node count"
+                >
+                  {loading ? "…" : visibleCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="org-architecture__pane-toolbar">
+                <div
+                  className="org-architecture__pane-tree-btns"
+                  role="group"
+                  aria-label="Status filter"
+                >
+                  {STATUS_FILTERS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`org-architecture__pane-icon-btn${
+                        filter.status === item.id ? " is-active" : ""
+                      }`}
+                      aria-pressed={filter.status === item.id}
+                      title={item.label}
+                      aria-label={item.label}
+                      onClick={() =>
+                        setFilter((f) => ({ ...f, status: item.id }))
+                      }
+                    >
+                      <StatusFilterIcon id={item.id} />
+                    </button>
+                  ))}
+                </div>
+                <div
+                  className="org-architecture__pane-tree-btns"
+                  role="group"
+                  aria-label="Tree expand collapse"
+                >
+                  <button
+                    type="button"
+                    className="org-architecture__pane-icon-btn"
+                    onClick={expandAll}
+                    title="Expand all"
+                    aria-label="Expand all"
+                  >
+                    <TreeExpandIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="org-architecture__pane-icon-btn"
+                    onClick={collapseAll}
+                    title={
+                      selectedId
+                        ? "Collapse all except the selected branch"
+                        : "Collapse all"
+                    }
+                    aria-label="Collapse all"
+                  >
+                    <TreeCollapseIcon />
+                  </button>
+                </div>
+                {canOnboard ? (
+                  <Link
+                    className="org-architecture__pane-onboard"
+                    to={`${agentRoute("merchants/new")}?returnTo=${encodeURIComponent(agentRoute("architecture"))}`}
+                    title="Onboard merchant"
+                    aria-label="Onboard merchant"
+                  >
+                    <OnboardPlusIcon />
+                  </Link>
+                ) : null}
+              </div>
             </header>
             <div
               ref={treeRef}
-              className="org-architecture__tree-scroll b3-accounts__tree"
+              className="org-architecture__tree-scroll"
               role="tree"
               tabIndex={0}
               aria-label="Org hierarchy"

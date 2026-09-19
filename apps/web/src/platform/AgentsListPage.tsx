@@ -947,6 +947,11 @@ export function AgentsListPage({ session }: Props) {
               onPause={() => setSuspendTarget(selected)}
               onRun={() => void onSetStatus(selected, "active")}
               onDelete={() => openDelete(selected)}
+              onOrgPatched={(next) => {
+                setOrgs((prev) =>
+                  prev.map((o) => (o.id === next.id ? { ...o, ...next } : o)),
+                );
+              }}
             />
           ) : (
             <div className="org-split__empty b3-empty" aria-label="No agent selected">

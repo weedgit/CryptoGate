@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   changePassword,
@@ -10,6 +10,7 @@ import {
   updateProfile,
   type Session,
 } from "../merchant/api";
+import { readOrgIconFile } from "../shared/orgBrand";
 import { FieldControl } from "../ui/FieldControl";
 import { AuthToast } from "./AuthToast";
 import { MfaEnrollmentWizard } from "./MfaEnrollmentWizard";
@@ -18,7 +19,9 @@ import {
   evaluatePasswordPolicy,
 } from "./passwordPolicy";
 import {
+  sessionAvatarInitials,
   sessionDisplayLabel,
+  sessionHasAvatar,
   sessionHasCustomDisplayName,
 } from "./profileIdentity";
 
@@ -75,25 +78,38 @@ function ProfileForm({
   variant: "platform" | "agent" | "merchant";
   onSessionRefresh?: (session: Session) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [displayName, setDisplayName] = useState(session.displayName ?? "");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
+  );
   const [timezone, setTimezone] = useState(session.timezone || "UTC");
   const [busy, setBusy] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   useEffect(() => {
     setDisplayName(session.displayName ?? "");
+    setAvatarUrl(
+      sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
+    );
     setTimezone(session.timezone || "UTC");
-  }, [session.displayName, session.timezone]);
+  }, [session.displayName, session.avatarUrl, session.timezone]);
+
+  const savedAvatar = sessionHasAvatar(session)
+    ? (session.avatarUrl ?? null)
+    : null;
 
   const dirty = useMemo(() => {
     const name = displayName.trim();
     const savedName = (session.displayName ?? "").trim();
     return (
       name !== savedName ||
+      avatarUrl !== savedAvatar ||
       timezone !== (session.timezone || "UTC")
     );
-  }, [displayName, timezone, session]);
+  }, [displayName, avatarUrl, timezone, session, savedAvatar]);
 
   const timezoneChoices = useMemo(() => {
     const set = new Set<string>(TIMEZONE_OPTIONS);
@@ -104,16 +120,41 @@ function ProfileForm({
   const sidebarLabel = useMemo(() => sessionDisplayLabel(session), [session]);
   const hasCustomName = sessionHasCustomDisplayName(session);
   const namePlaceholder = hasCustomName ? "Display name" : sidebarLabel;
+  const initials = useMemo(
+    () =>
+      sessionAvatarInitials({
+        email: session.email,
+        displayName: displayName.trim() || session.displayName,
+      }),
+    [session.email, session.displayName, displayName],
+  );
+
+  async function onPickFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setOk(null);
+    setReadingFile(true);
+    try {
+      const dataUrl = await readOrgIconFile(file);
+      setAvatarUrl(dataUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not use that image");
+    } finally {
+      setReadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!dirty || busy) return;
+    if (!dirty || busy || readingFile) return;
     setBusy(true);
     setError(null);
     setOk(null);
     try {
       const next = await updateProfile({
         displayName: displayName.trim() || null,
+        avatarUrl,
         timezone,
       });
       onSessionRefresh?.(next);
@@ -124,6 +165,64 @@ function ProfileForm({
       setBusy(false);
     }
   }
+
+  const saving = busy || readingFile;
+
+  const avatarEditor = (
+    <div className="profile-avatar-editor">
+      <div className="profile-avatar-editor__preview" aria-hidden>
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="profile-avatar-editor__img" />
+        ) : (
+          <span className="profile-avatar-editor__initials">{initials}</span>
+        )}
+      </div>
+      <div className="profile-avatar-editor__copy">
+        <span className="profile-avatar-editor__label">Avatar</span>
+        <p className="plat-settings__row-hint profile-avatar-editor__hint">
+          {avatarUrl
+            ? "Custom photo shown in the top bar and sidebar."
+            : "No photo yet — showing your initials as the default avatar."}
+        </p>
+        <div className="profile-avatar-editor__actions">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
+            className="sr-only"
+            disabled={saving}
+            onChange={(e) => void onPickFile(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="login-btn-secondary profile-avatar-editor__btn"
+            disabled={saving}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {readingFile
+              ? "Reading…"
+              : avatarUrl
+                ? "Change photo…"
+                : "Upload photo…"}
+          </button>
+          {avatarUrl ? (
+            <button
+              type="button"
+              className="btn-ghost profile-avatar-editor__btn"
+              disabled={saving}
+              onClick={() => {
+                setAvatarUrl(null);
+                setError(null);
+                setOk(null);
+              }}
+            >
+              Use default
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 
   if (variant === "platform") {
     return (
@@ -137,6 +236,9 @@ function ProfileForm({
           <h3 className="plat-settings__card-title">Account</h3>
         </div>
         <div className="plat-settings__row plat-settings__row--stack">
+          {avatarEditor}
+        </div>
+        <div className="plat-settings__row plat-settings__row--stack">
           <label className="plat-settings__field" htmlFor="profile-name">
             <span>Display name</span>
             <FieldControl icon="user">
@@ -145,7 +247,7 @@ function ProfileForm({
                 className="plat-settings__input"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                disabled={busy}
+                disabled={saving}
                 maxLength={120}
                 placeholder={namePlaceholder}
                 autoComplete="name"
@@ -181,7 +283,7 @@ function ProfileForm({
                 id="profile-timezone"
                 className="plat-settings__select plat-settings__select--block"
                 value={timezone}
-                disabled={busy}
+                disabled={saving}
                 onChange={(e) => setTimezone(e.target.value)}
               >
                 {timezoneChoices.map((tz) => (
@@ -202,7 +304,7 @@ function ProfileForm({
           <button
             type="submit"
             className="plat-settings__save"
-            disabled={busy || !dirty}
+            disabled={saving || !dirty}
           >
             {busy ? "Saving…" : "Save profile"}
           </button>
@@ -220,15 +322,16 @@ function ProfileForm({
       />
       <h2>Profile</h2>
       <p className="muted">
-        Display name and timezone for timestamps in this portal.
+        Avatar, display name, and timezone for this portal.
       </p>
+      {avatarEditor}
       <label className="field">
         <span>Name</span>
         <input
           className="field-control"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          disabled={busy}
+          disabled={saving}
           maxLength={120}
           placeholder={namePlaceholder}
           autoComplete="name"
@@ -249,7 +352,7 @@ function ProfileForm({
         <select
           className="field-control"
           value={timezone}
-          disabled={busy}
+          disabled={saving}
           onChange={(e) => setTimezone(e.target.value)}
         >
           {timezoneChoices.map((tz) => (
@@ -262,8 +365,8 @@ function ProfileForm({
           Order times, bills, and activity display in this timezone.
         </span>
       </label>
-      {ok ? <p className="banner banner-ok">{ok}</p> : null}
-      <button type="submit" className="btn-primary" disabled={busy || !dirty}>
+      {ok ? <p className="banner banner-ok" role="status">{ok}</p> : null}
+      <button type="submit" className="btn-primary" disabled={saving || !dirty}>
         {busy ? "Saving…" : "Save profile"}
       </button>
     </form>

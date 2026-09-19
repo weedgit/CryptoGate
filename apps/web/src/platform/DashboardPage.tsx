@@ -9,11 +9,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { NetworkId } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
+import { GateLogoMark } from "../auth/GateLogoMark";
 import { platformRoute } from "../shared/portalRouting";
-import { AnimatedFundAmount } from "../shared/AnimatedFundAmount";
 import {
   useDashboardLiveEvents,
   type DashboardLiveSlice,
@@ -37,12 +37,6 @@ import {
   invoiceStatsFromBills,
 } from "./dashboardBillPeriod";
 import { listCommissionPayouts } from "../commercial/commissionPayoutRecords";
-import {
-  AgentsNavIcon,
-  ComplianceNavIcon,
-  HealthNavIcon,
-  ServiceBillsNavIcon,
-} from "./NavIcons";
 import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
@@ -455,10 +449,11 @@ function buildOrgOverviewCard(args: {
     formatSeriesValue: (n: number) => `${formatMoneyFigure(n)} USD`,
     chartColor: orgMetricChartColor(overviewId, kind),
     seriesStatus: "ready",
-    moreHref:
+    moreHref: platformRoute(
       kind === "merchant"
-        ? platformRoute(`merchants/${org.id}`)
-        : platformRoute(`agents/${org.id}`),
+        ? `accounts/merchants/${org.id}`
+        : `accounts/agents/${org.id}`,
+    ),
   };
 }
 
@@ -473,7 +468,293 @@ function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
   return total;
 }
 
-/** YYYY-MM keys covering the dashboard window (local calendar months). */
+function periodSettledOrderCount(
+  orders: PaymentOrder[],
+  from: Date,
+  to: Date,
+): { settled: number; total: number } {
+  let settled = 0;
+  let total = 0;
+  for (const o of orders) {
+    if (!inWindow(o.expiresAt, from, to)) continue;
+    total += 1;
+    if (isSettledOrder(o.status)) settled += 1;
+  }
+  return { settled, total };
+}
+
+function seriesTrendPct(values: number[]): number | null {
+  if (values.length < 4) return null;
+  const mid = Math.floor(values.length / 2);
+  const a = values.slice(0, mid).reduce((s, n) => s + n, 0);
+  const b = values.slice(mid).reduce((s, n) => s + n, 0);
+  if (a <= 0) return b > 0 ? 100 : 0;
+  return Math.round(((b - a) / a) * 100);
+}
+
+function MiniSpark({
+  values,
+  className = "",
+}: {
+  values: number[];
+  className?: string;
+}) {
+  const gradId = useId().replace(/:/g, "");
+  const geometry = useMemo(() => {
+    if (values.length < 2) return null;
+    const max = Math.max(...values, 1e-9);
+    const w = 132;
+    const h = 40;
+    const pts = values.map((v, i) => {
+      const x = (i / (values.length - 1)) * w;
+      const y = h - (v / max) * (h - 8) - 4;
+      return { x, y };
+    });
+    const line = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const area = [
+      `0,${h}`,
+      ...pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`),
+      `${w},${h}`,
+    ].join(" ");
+    return { line, area, pts, w, h };
+  }, [values]);
+  if (!geometry) return null;
+  const last = geometry.pts[geometry.pts.length - 1]!;
+  return (
+    <div
+      className={`pg-kpi__spark-wrap${className ? ` ${className}` : ""}`}
+      aria-hidden
+    >
+      <svg
+        className="pg-kpi__spark"
+        viewBox={`0 0 ${geometry.w} ${geometry.h}`}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id={`pg-spark-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.52" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.06" />
+          </linearGradient>
+        </defs>
+        <polygon points={geometry.area} fill={`url(#pg-spark-${gradId})`} />
+        <polyline
+          points={geometry.line}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.65"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="nonScalingStroke"
+        />
+      </svg>
+      {/* CSS dots stay circular — SVG circles stretch with preserveAspectRatio=none */}
+      <div className="pg-kpi__spark-dots">
+        {geometry.pts.map((p, i) => {
+          const isLast = i === geometry.pts.length - 1;
+          return (
+            <span
+              key={i}
+              className={
+                isLast ? "pg-kpi__spark-dot is-end" : "pg-kpi__spark-dot"
+              }
+              style={{
+                left: `${(p.x / geometry.w) * 100}%`,
+                top: `${(p.y / geometry.h) * 100}%`,
+              }}
+            />
+          );
+        })}
+        <span
+          className="pg-kpi__spark-dot-ring"
+          style={{
+            left: `${(last.x / geometry.w) * 100}%`,
+            top: `${(last.y / geometry.h) * 100}%`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+type KpiAccent = "blue" | "teal" | "gold" | "violet" | "ok" | "danger" | "warn" | "slate";
+
+function DashKpiCard({
+  accent,
+  label,
+  value,
+  hint,
+  trend,
+  spark,
+  href,
+  linkLabel,
+}: {
+  accent: KpiAccent;
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  trend?: number | null;
+  spark?: number[];
+  href?: string;
+  linkLabel?: string;
+}) {
+  return (
+    <div className={`pg-kpi is-${accent}`}>
+      <div className="pg-kpi__top">
+        <span className="pg-kpi__icon" aria-hidden>
+          <DashKpiIcon accent={accent} />
+        </span>
+        <span className="pg-kpi__label">{label}</span>
+      </div>
+      <div className="pg-kpi__metrics">
+        <span className="pg-kpi__value">{value}</span>
+        {trend != null ? (
+          <span className={`pg-kpi__trend${trend >= 0 ? " is-up" : " is-down"}`}>
+            <span className="pg-kpi__trend-pct">
+              {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+            </span>
+            <span className="pg-kpi__trend-sub">vs prior</span>
+          </span>
+        ) : hint ? (
+          <span className="pg-kpi__hint">{hint}</span>
+        ) : null}
+      </div>
+      {spark && spark.length > 1 ? <MiniSpark values={spark} /> : null}
+      {href && linkLabel ? (
+        <Link to={href} className="pg-kpi__link">
+          <span className="pg-kpi__link-text">{linkLabel}</span>
+          <span className="pg-kpi__link-arrow" aria-hidden>
+            →
+          </span>
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function DashKpiIcon({ accent }: { accent: KpiAccent }) {
+  const p = {
+    width: 22,
+    height: 22,
+    viewBox: "0 0 24 24",
+    fill: "none" as const,
+    "aria-hidden": true,
+  };
+  if (accent === "blue") {
+    /* Merchants — storefront (matches MerchantsNavIcon) */
+    return (
+      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9 12 3l9 6" />
+        <path d="M5 10v10h14V10" />
+        <path d="M9 20v-6h6v6" />
+      </svg>
+    );
+  }
+  if (accent === "teal") {
+    /* Agents — people (matches AgentsNavIcon) */
+    return (
+      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+  if (accent === "gold") {
+    /* Mockup: check in circle / badge */
+    return (
+      <svg {...p}>
+        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="M8.2 12.15 10.7 14.6 15.9 9.2"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (accent === "violet") {
+    /* Volume — Lucide trending-up */
+    return (
+      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+        <polyline points="16 7 22 7 22 13" />
+      </svg>
+    );
+  }
+  if (accent === "ok") {
+    return (
+      <svg {...p}>
+        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="M8.2 12.15 10.7 14.6 15.9 9.2"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (accent === "danger") {
+    return (
+      <svg {...p}>
+        <path
+          d="M12 3.4 21.2 19.6H2.8L12 3.4Z"
+          fill="currentColor"
+          opacity="0.2"
+        />
+        <path
+          d="M12 3.4 21.2 19.6H2.8L12 3.4Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M12 9.2v4.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="16.6" r="1.15" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (accent === "warn") {
+    return (
+      <svg {...p}>
+        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M12 7.4v5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="15.9" r="1.15" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...p}>
+      <path
+        d="M12 3.2 19.6 7.4v9.2L12 20.8 4.4 16.6V7.4L12 3.2Z"
+        fill="currentColor"
+        opacity="0.22"
+      />
+      <path
+        d="M12 3.2 19.6 7.4 12 11.6 4.4 7.4 12 3.2Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <path
+        d="M12 11.6 19.6 7.4v9.2L12 20.8V11.6Z"
+        fill="currentColor"
+        opacity="0.7"
+      />
+      <path
+        d="M12 11.6 4.4 7.4v9.2L12 20.8V11.6Z"
+        fill="currentColor"
+        opacity="0.52"
+      />
+    </svg>
+  );
+}
+
 function commissionMonthKeys(from: Date, to: Date): Set<string> {
   const keys = new Set<string>();
   const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
@@ -528,6 +809,14 @@ function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
 
 function formatMoneyFigure(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Always show two decimal places for KPI fund amounts (mockup: $89,460.00). */
+function formatMoneyFigureFixed(n: number): string {
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatUsd(n: number): string {
@@ -605,6 +894,101 @@ function MetricLines({
   );
 }
 
+function DashOnboardMenu() {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`pg-dash__onboard-wrap${open ? " is-open" : ""}`}
+    >
+      <button
+        type="button"
+        className="pg-dash__onboard"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <svg
+          className="pg-dash__onboard-icon"
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M12 5v14M5 12h14"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+        Onboard
+        <svg
+          className="pg-dash__onboard-chevron"
+          viewBox="0 0 10 6"
+          width="10"
+          height="6"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M1 1l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open ? (
+        <ul id={menuId} className="pg-dash__onboard-menu" role="menu">
+          <li role="none">
+            <Link
+              role="menuitem"
+              className="pg-dash__onboard-option"
+              to={platformRoute("agents/new")}
+              onClick={() => setOpen(false)}
+            >
+              Onboard agent
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              role="menuitem"
+              className="pg-dash__onboard-option"
+              to={platformRoute("merchants/new")}
+              onClick={() => setOpen(false)}
+            >
+              Onboard merchant
+            </Link>
+          </li>
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function DashboardPage({ session }: Props) {
   const isViewer = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
 
@@ -653,11 +1037,6 @@ export function DashboardPage({ session }: Props) {
   const [editMode, setEditMode] = useState(false);
   const chartPanelRef = useRef<HTMLDivElement>(null);
   const healthCardRef = useRef<HTMLDivElement>(null);
-  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-
-  useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("platform-topbar-center"));
-  }, []);
 
   useLayoutEffect(() => {
     const chartPanel = chartPanelRef.current;
@@ -1301,84 +1680,92 @@ export function DashboardPage({ session }: Props) {
     [overviewIds, persistOverviewIds],
   );
 
-  const periodPortal = topbarSlot
-    ? createPortal(
-        <div className="plat-period-controls plat-period-controls--topbar" aria-label="Period">
-          <div className="plat-period-pills plat-period-pills--topbar" role="group" aria-label="Quick periods">
-            {PERIOD_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
-                onClick={() => onPeriodSelect(opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <div className="plat-period-dates plat-period-dates--topbar" aria-label="Date range">
-            <label className="plat-period-date">
-              <span className="plat-period-date__label">Start</span>
-              <input
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(e) => onStartDateChange(e.target.value)}
-                onWheel={(e) => e.currentTarget.blur()}
-              />
-            </label>
-            <span className="plat-period-dates__sep" aria-hidden="true">
-              –
-            </span>
-            <label className="plat-period-date">
-              <span className="plat-period-date__label">End</span>
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => onEndDateChange(e.target.value)}
-                onWheel={(e) => e.currentTarget.blur()}
-              />
-            </label>
-          </div>
-          {loading && hasLoaded ? (
-            <span className="plat-period-refresh" role="status">
-              Updating…
-            </span>
-          ) : updatedAt ? (
-            <span
-              className="plat-period-updated"
-              title={new Date(updatedAt).toLocaleString()}
-            >
-              Updated {formatUpdatedClock(updatedAt)}
-            </span>
-          ) : null}
+  const periodControls = (
+    <div className="pg-dash__period" aria-label="Period">
+      <div className="pg-dash__period-pills" role="group" aria-label="Quick periods">
+        {PERIOD_OPTIONS.map((opt) => (
           <button
+            key={opt.id}
             type="button"
-            className="plat-period-refresh-btn"
-            onClick={refreshDashboard}
-            disabled={loading}
-            aria-label="Refresh dashboard"
+            className={`pg-dash__period-pill${period === opt.id ? " is-active" : ""}`}
+            onClick={() => onPeriodSelect(opt.id)}
           >
-            Refresh
+            {opt.label}
           </button>
-        </div>,
-        topbarSlot,
-      )
-    : null;
+        ))}
+      </div>
+      <div className="pg-dash__period-dates" aria-label="Date range">
+        <label className="pg-dash__period-date">
+          <span className="sr-only">Start</span>
+          <input
+            type="date"
+            value={startDate}
+            max={endDate || undefined}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
+          />
+        </label>
+        <span className="pg-dash__period-sep" aria-hidden>
+          –
+        </span>
+        <label className="pg-dash__period-date">
+          <span className="sr-only">End</span>
+          <input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => onEndDateChange(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
+          />
+        </label>
+      </div>
+      <button
+        type="button"
+        className="pg-dash__period-refresh"
+        onClick={refreshDashboard}
+        disabled={loading}
+        aria-label="Refresh dashboard"
+        title={
+          updatedAt
+            ? `Updated ${formatUpdatedClock(updatedAt)}`
+            : "Refresh dashboard"
+        }
+      >
+        {loading && hasLoaded ? "…" : "↻"}
+      </button>
+    </div>
+  );
+
+  const welcomeName =
+    session.displayName?.trim() ||
+    session.email.split("@")[0] ||
+    "Admin";
+
+  const orderCounts = useMemo(
+    () =>
+      periodSettledOrderCount(orders, chartWindow.from, chartWindow.to),
+    [orders, chartWindow.from, chartWindow.to],
+  );
+
+  const volumeTrend = useMemo(() => seriesTrendPct(series), [series]);
+
+  const successRate =
+    orderCounts.total > 0
+      ? Math.round((orderCounts.settled / orderCounts.total) * 1000) / 10
+      : 100;
+
+  const sparkSeed = useMemo(() => {
+    if (series.length > 1) return series;
+    return [2, 3, 2.4, 4, 3.6, 5, 4.2, 6];
+  }, [series]);
 
   if (loading && !hasLoaded) {
-    return (
-      <>
-        {periodPortal}
-        <PagePending />
-      </>
-    );
+    return <PagePending />;
   }
 
   return (
     <div
-      className={`dash-page plat-dash${loading ? " is-period-refresh" : ""}`}
+      className={`dash-page plat-dash pg-dash${loading ? " is-period-refresh" : ""}`}
       aria-busy={loading}
     >
       <AuthToast message={error} tone="error" onDismiss={dismissError} />
@@ -1389,158 +1776,128 @@ export function DashboardPage({ session }: Props) {
         </div>
       ) : null}
 
-      {periodPortal}
-
-      <div className="plat-overview-grid">
-        <div className="plat-overview-card glass-tone-blue">
-          <div className="plat-overview-card__head">
-            <div className="plat-overview-card__title">
-              <span className="plat-overview-card__icon" aria-hidden>
-                <AgentsNavIcon />
-              </span>
-              <h2>Accounts</h2>
-            </div>
-            <CardHelp text="Who’s on the platform: totals, who had payment activity, and who is paused." />
-          </div>
-          <AccountRows title="Merchants" slice={stats.merchants} />
-          <AccountRows title="Agents" slice={stats.agents} />
+      <header className="pg-dash__hero">
+        <div className="pg-dash__hero-copy">
+          <h1 className="pg-dash__welcome">Hello, {welcomeName}!</h1>
+          <p className="pg-dash__lede">
+            Here’s what’s happening with your payment ecosystem today.
+          </p>
         </div>
+        <div className="pg-dash__hero-actions">
+          {periodControls}
+          {!isViewer ? <DashOnboardMenu /> : null}
+        </div>
+      </header>
 
-        <div className="plat-overview-card glass-tone-emerald">
-          <div className="plat-overview-card__head">
-            <div className="plat-overview-card__title">
-              <span className="plat-overview-card__icon" aria-hidden>
-                <ComplianceNavIcon />
-              </span>
-              <h2>Attention</h2>
-            </div>
-            <CardHelp text="Open payment anomalies (ops queue) and platform→agent commissions for months in this period." />
+      <div className="pg-dash__kpi-row">
+        <DashKpiCard
+          accent="blue"
+          label="Total Merchants"
+          value={stats.merchants.total.toLocaleString()}
+          hint={
+            stats.newMerchants > 0
+              ? `+${stats.newMerchants} new in period`
+              : `${stats.merchants.active} active`
+          }
+          spark={sparkSeed.map((v, i) => v * (0.7 + ((i * 17) % 5) * 0.08))}
+          href={platformRoute("accounts/merchants")}
+          linkLabel="View Merchants"
+        />
+        <DashKpiCard
+          accent="teal"
+          label="Total Agents"
+          value={stats.agents.total.toLocaleString()}
+          hint={
+            stats.newAgents > 0
+              ? `+${stats.newAgents} new in period`
+              : `${stats.agents.active} active`
+          }
+          spark={sparkSeed.map((v, i) => v * (0.85 + ((i * 13) % 4) * 0.06))}
+          href={platformRoute("accounts/agents")}
+          linkLabel="View Agents"
+        />
+        <DashKpiCard
+          accent="gold"
+          label="Total Transactions"
+          value={orderCounts.settled.toLocaleString()}
+          trend={volumeTrend}
+          spark={sparkSeed}
+          href={platformRoute("compliance")}
+          linkLabel="View Transactions"
+        />
+        <DashKpiCard
+          accent="violet"
+          label="Total Volume"
+          value={
+            <span className="pg-kpi__money">
+              ${formatMoneyFigureFixed(stats.volume)}
+            </span>
+          }
+          trend={volumeTrend}
+          spark={series.length > 1 ? series : sparkSeed}
+          href={platformRoute("service-bills")}
+          linkLabel="View Volume"
+        />
+        <div className="pg-feature" aria-label="Platform fees collected">
+          <div className="pg-feature__top">
+            <span className="pg-feature__icon" aria-hidden>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <path d="M2 10h20" />
+                <path d="M6 15h4" />
+              </svg>
+            </span>
+            <p className="pg-feature__kicker">Platform fees</p>
           </div>
-          <MetricLines
-            rows={[
-              {
-                label: "Anomalies",
-                value: (
-                  <Link className="plat-metric-line__link" to={platformRoute("compliance")}>
-                    {stats.anomalies}
-                  </Link>
-                ),
-              },
-              {
-                label: "Owed",
-                value: (
-                  <Link
-                    className="plat-metric-line__link"
-                    to={platformRoute("commissions")}
-                    aria-label={`Commission owed ${formatUsd(stats.commissionOwed)}`}
-                  >
-                    <span className="fund-amount">
-                      {formatMoneyFigure(stats.commissionOwed)}
-                      <span className="plat-fund-currency">USD</span>
-                    </span>
-                  </Link>
-                ),
-              },
-              {
-                label: "Paid",
-                value: (
-                  <Link
-                    className="plat-metric-line__link"
-                    to={platformRoute("commissions")}
-                    aria-label={`Commission paid ${formatUsd(stats.commissionPaid)}`}
-                  >
-                    <span className="fund-amount">
-                      {formatMoneyFigure(stats.commissionPaid)}
-                      <span className="plat-fund-currency">USD</span>
-                    </span>
-                  </Link>
-                ),
-              },
-            ]}
+          <p className="pg-feature__value">
+            ${formatMoneyFigureFixed(stats.collected)}
+          </p>
+          <p className="pg-feature__label">
+            from invoices · {periodLabel}
+          </p>
+          <p className="pg-feature__sub">
+            of ${formatMoneyFigureFixed(stats.fees)} billed
+          </p>
+          <Link
+            to={platformRoute("service-bills")}
+            className="pg-feature__link"
+          >
+            <span className="pg-feature__link-text">View Volume</span>
+            <span className="pg-feature__link-arrow" aria-hidden>
+              →
+            </span>
+          </Link>
+          <img
+            className="pg-feature__globe"
+            src="/brand/growth-chart.png"
+            alt=""
+            width={168}
+            height={168}
+            draggable={false}
           />
         </div>
-
-        <div className="plat-overview-card glass-tone-amber">
-          <div className="plat-overview-card__head">
-            <div className="plat-overview-card__title">
-              <span className="plat-overview-card__icon" aria-hidden>
-                <ServiceBillsNavIcon />
-              </span>
-              <h2>Invoices</h2>
-            </div>
-            <CardHelp text={`Service bills in ${periodLabel}: issued, paid, or overdue (period-scoped).`} />
-          </div>
-          <MetricLines
-            rows={[
-              { label: "Issued", value: stats.invoicesIssued },
-              { label: "Paid", value: stats.invoicesPaid },
-              { label: "Overdue", value: stats.invoicesOverdue },
-            ]}
-          />
-        </div>
-
-        <section className="plat-fund-rail" aria-label="Observed volume">
-          <div className="plat-fund-rail__eyebrow">
-            <div className="plat-fund-rail__eyebrow-title">
-              <span className="plat-overview-card__icon" aria-hidden>
-                <HealthNavIcon />
-              </span>
-              <span>Volume</span>
-            </div>
-            <CardHelp
-              text={`Observed settled merchant volume in ${periodLabel} (non-custodial — funds stay in merchant wallets). Fees are volume-fee line items on service bills overlapping this range — not estimated from live volume.`}
-            />
-          </div>
-          <div className="plat-fund-rail__primary">
-            <div className="plat-fund-rail__copy">
-              <p className="plat-fund-rail__pair-labels">
-                <span>Observed</span>
-                <span aria-hidden>/</span>
-                <span>Fees</span>
-              </p>
-              <span className="plat-fund-rail__hint">
-                Settled / fees · <span className="plat-fund-rail__hint-unit">USD</span>
-              </span>
-            </div>
-            <p className="plat-fund-rail__pair" aria-label="Observed volume and fees in US dollars">
-              <AnimatedFundAmount
-                className="plat-fund-rail__total"
-                value={stats.volume}
-                showUnit={false}
-              />
-              <span className="plat-fund-rail__slash" aria-hidden>
-                /
-              </span>
-              <AnimatedFundAmount className="plat-fund-rail__fees" value={stats.fees} />
-            </p>
-          </div>
-          <div className="plat-fund-rail__secondary">
-            <div className="plat-fund-rail__copy">
-              <span className="plat-fund-rail__label">Collected</span>
-              <span className="plat-fund-rail__hint">
-                Paid fees · <span className="plat-fund-rail__hint-unit">USD</span>
-              </span>
-            </div>
-            <p
-              className="plat-fund-rail__collected-wrap"
-              aria-label="Collected in US dollars"
-            >
-              <AnimatedFundAmount
-                className="plat-fund-rail__collected"
-                value={stats.collected}
-              />
-            </p>
-          </div>
-        </section>
       </div>
 
-      <div className="dash-split">
+      <div className="dash-split pg-dash__split">
         <div
           ref={chartPanelRef}
-          className="panel dash-chart-panel glass-tone-slate"
+          className="panel dash-chart-panel glass-tone-slate pg-chart-panel"
         >
           <div className="dash-chart-panel__head">
             <div className="dash-chart-panel__title-row">
+              <div className="pg-chart-panel__heading">
+                <h2>Transaction Volume</h2>
+                <p>Total successful transaction volume over time.</p>
+              </div>
               <div className="dash-chart-panel__filters">
                 <VolumeScopeToggle
                   scope={volumeScope}
@@ -1604,8 +1961,22 @@ export function DashboardPage({ session }: Props) {
 
         <div
           ref={healthCardRef}
-          className="panel glass-tone-emerald plat-health-card"
+          className="panel glass-tone-emerald plat-health-card pg-networks-panel"
         >
+          <div className="pg-networks-panel__head">
+            <div className="pg-networks-panel__title-row">
+              <div className="pg-networks-panel__titles">
+                <h2>Networks &amp; Assets</h2>
+                <p>Live settlement rails</p>
+              </div>
+              <Link
+                to={platformRoute("settings/networks")}
+                className="pg-networks-panel__more"
+              >
+                More →
+              </Link>
+            </div>
+          </div>
           <div className="plat-health-pairs">
             <AssetNetworkTables
               compact
@@ -1613,8 +1984,61 @@ export function DashboardPage({ session }: Props) {
               volumeScope={volumeScope}
               onSelect={onVolumeSelect}
               reloadToken={pairsReloadToken}
+              networkIds={[
+                NetworkId.Tron,
+                NetworkId.Ethereum,
+                NetworkId.Solana,
+              ]}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="pg-dash__status-row">
+        <DashKpiCard
+          accent="ok"
+          label="Successful Payments"
+          value={orderCounts.settled.toLocaleString()}
+          hint={`${successRate}% success rate`}
+        />
+        <DashKpiCard
+          accent="danger"
+          label="Overdue Invoices"
+          value={stats.invoicesOverdue.toLocaleString()}
+          hint={
+            stats.invoicesOverdue > 0 ? "Needs attention" : "All clear"
+          }
+          href={platformRoute("service-bills")}
+          linkLabel="Review bills"
+        />
+        <DashKpiCard
+          accent="violet"
+          label="Pending Payouts"
+          value={stats.commissionOwed > 0 ? formatMoneyFigure(stats.commissionOwed) : "0"}
+          hint={stats.commissionOwed > 0 ? "Commission owed" : "Scheduled"}
+          href={platformRoute("commissions")}
+          linkLabel="View payouts"
+        />
+        <DashKpiCard
+          accent="slate"
+          label="Flagged for Review"
+          value={stats.anomalies.toLocaleString()}
+          hint={
+            stats.anomalies > 0 ? "Open anomalies" : "No action required"
+          }
+          href={platformRoute("compliance")}
+          linkLabel="Open queue"
+        />
+        <div className="pg-cta">
+          <GateLogoMark size={36} className="pg-cta__mark" alt="" />
+          <div className="pg-cta__copy">
+            <strong>Scale faster with PaymentGate</strong>
+            <span>Grow agents, merchants, and settlement coverage.</span>
+          </div>
+          <Link className="pg-cta__btn" to={platformRoute("settings/team")}>
+            Contact Sales
+            <span aria-hidden>→</span>
+          </Link>
         </div>
       </div>
 

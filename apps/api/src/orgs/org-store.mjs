@@ -2,7 +2,7 @@ import { getPool } from "../db/pool.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
-  "id, type, name, parent_id, structure, max_agent_depth, status, country, billing_email, legal_name, created_at";
+  "id, type, name, parent_id, structure, max_agent_depth, status, country, billing_email, legal_name, icon_key, created_at";
 
 /**
  * @param {string} id
@@ -175,6 +175,49 @@ export async function updateOrgStatus(orgId, status) {
      WHERE id = $1
      RETURNING ${ORG_COLS}`,
     [orgId, status],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} orgId
+ * @param {{ name: string, iconKey: string | null }} profile
+ */
+export async function updateOrgProfile(orgId, profile) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `UPDATE org_accounts
+     SET name = $2,
+         icon_key = $3,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING ${ORG_COLS}`,
+    [orgId, profile.name, profile.iconKey],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Sibling name clash excluding the org being renamed.
+ * @param {string | null} parentId
+ * @param {string} name
+ * @param {string} excludeOrgId
+ */
+export async function findSiblingByNormalizedNameExcluding(
+  parentId,
+  name,
+  excludeOrgId,
+) {
+  if (!parentId) return null;
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT ${ORG_COLS}
+     FROM org_accounts
+     WHERE parent_id = $1
+       AND id <> $3
+       AND lower(btrim(name)) = lower(btrim($2))
+     LIMIT 1`,
+    [parentId, name, excludeOrgId],
   );
   return rows[0] ?? null;
 }

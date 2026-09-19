@@ -305,7 +305,7 @@ export function NetworkCatalogPage({ session }: Props) {
                   <div className="plat-network-card__head-status">
                     <NetworkStatusLamp
                       lamp={lamp}
-                      title="Orderability — Open means deposits can be accepted now"
+                      title="Orderability — Online means deposits can be accepted now"
                     />
                     {isMaint ? (
                       <span className="plat-network-card__status plat-network-card__status--maint">

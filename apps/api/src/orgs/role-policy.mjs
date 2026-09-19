@@ -7,6 +7,18 @@ const ORDER_CREATE_ROLES = new Set(["owner", "administrator", "cashier"]);
 const SETTINGS_ROLES = new Set(["owner", "administrator"]);
 
 /**
+ * Owner/Admin on the org itself, or platform operator — edit name / brand icon.
+ * @param {{ platformOperator: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canEditOrgProfile(caller, org) {
+  if (org.type === "platform") return false;
+  if (canManagePlatform(caller)) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  return SETTINGS_ROLES.has(role);
+}
+
+/**
  * Platform staff (O/A/V) may read platform-wide lists; operators may write.
  * @param {{ platformOperator: boolean, memberships: { orgType: string, role: string }[] }} caller
  */

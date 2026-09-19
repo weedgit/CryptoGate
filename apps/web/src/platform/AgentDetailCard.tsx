@@ -16,6 +16,7 @@ import {
   getAgentPayout,
   listSettlement,
   putAgentCommission,
+  patchOrgProfile,
   type AgentCommissionSettings,
   type AgentPayoutAddress,
   type AuditLogEntry,
@@ -24,6 +25,8 @@ import {
   type PaymentOrder,
   type ServiceBill,
 } from "./api";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree, subAgentsUnderAgent } from "./agentSubtree";
 import { formatShortDate, orgTypeLabel } from "./org";
 import { FundAmount } from "./FundAmount";
@@ -523,20 +526,22 @@ function AccountDetailPanel({
     node.merchantsManaged,
     merchantChildren.length,
   ]);
-  const detailHref = isSub
-    ? platformRoute(`agents/${node.id}`)
-    : node.type === "merchant"
-      ? platformRoute(`merchants/${node.id}`)
-      : node.type === "merchant_site" && node.parentId
-        ? `${platformRoute(`merchants/${node.parentId}`)}?tab=sites`
-        : null;
-  const detailLabel = isSub
-    ? "Open agent detail"
-    : node.type === "merchant_site"
-      ? "Open merchant (Sites)"
+  const detailHref =
+    node.type === "agent" || node.type === "agent_sub"
+      ? platformRoute(`accounts/agents/${node.id}`)
       : node.type === "merchant"
-        ? "Open merchant detail"
-        : null;
+        ? platformRoute(`accounts/merchants/${node.id}`)
+        : node.type === "merchant_site" && node.parentId
+          ? `${platformRoute(`accounts/merchants/${node.parentId}`)}?tab=sites`
+          : null;
+  const detailLabel =
+    node.type === "agent" || node.type === "agent_sub"
+      ? "Open in Accounts"
+      : node.type === "merchant"
+        ? "Open in Accounts"
+        : node.type === "merchant_site"
+          ? "Open merchant"
+          : null;
 
   useEffect(() => {
     if (!isSub && !isMerchant) {
@@ -934,6 +939,7 @@ type Props = {
   onPause: () => void;
   onRun: () => void;
   onDelete: () => void;
+  onOrgPatched?: (org: OrgAccount) => void;
 };
 
 /** Figma `b3-agent-detail` — solid card (no gradient); lives in Agents master–detail. */
@@ -947,8 +953,12 @@ export function AgentDetailCard({
   onPause,
   onRun,
   onDelete,
+  onOrgPatched,
 }: Props) {
   const [tab, setTab] = useState<TabId>("overview");
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileEditBusy, setProfileEditBusy] = useState(false);
+  const [profileEditError, setProfileEditError] = useState<string | null>(null);
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [subtreeOrders, setSubtreeOrders] = useState<PaymentOrder[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
@@ -1245,8 +1255,27 @@ export function AgentDetailCard({
       />
       <header className="b3-agent-detail__head">
         <div className="b3-agent-detail__identity">
-          <div className="b3-agent-detail__avatar" aria-hidden>
-            {initials(org.name)}
+          <div className="b3-agent-detail__avatar-wrap">
+            <OrgBrandMark
+              name={org.name}
+              iconKey={org.iconKey}
+              size={44}
+              className="b3-agent-detail__avatar"
+            />
+            {canManage ? (
+              <button
+                type="button"
+                className="b3-agent-detail__avatar-edit"
+                disabled={busy || profileEditBusy}
+                onClick={() => {
+                  setProfileEditError(null);
+                  setProfileEditOpen(true);
+                }}
+                title="Edit name and icon"
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
           <div className="b3-agent-detail__titles">
             <div className="b3-agent-detail__title-row">
@@ -1302,6 +1331,32 @@ export function AgentDetailCard({
           ) : null}
         </div>
       </header>
+
+      <OrgProfileEditModal
+        open={profileEditOpen}
+        name={org.name}
+        iconKey={org.iconKey}
+        busy={profileEditBusy}
+        error={profileEditError}
+        onClose={() => {
+          if (!profileEditBusy) setProfileEditOpen(false);
+        }}
+        onSave={async (next) => {
+          setProfileEditBusy(true);
+          setProfileEditError(null);
+          try {
+            const updated = await patchOrgProfile(org.id, next);
+            onOrgPatched?.(updated);
+            setProfileEditOpen(false);
+          } catch (err) {
+            setProfileEditError(
+              err instanceof ApiError ? err.message : "Failed to update profile",
+            );
+          } finally {
+            setProfileEditBusy(false);
+          }
+        }}
+      />
 
       {inviteCreds ? (
         <div className="b3-agent-detail__invite-creds">

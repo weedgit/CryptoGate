@@ -79,7 +79,7 @@ export async function findUserById(id) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT id, email, mfa_enrolled_at, mfa_pending_secret, display_name, locale, timezone,
-            mfa_enforcement, session_timeout_minutes, must_change_password
+            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url
      FROM users
      WHERE id = $1`,
     [id],
@@ -100,6 +100,10 @@ function mapUserRow(row) {
     mfaEnrollmentPending:
       Boolean(row.mfa_pending_secret) && row.mfa_enrolled_at == null,
     displayName: row.display_name ?? null,
+    avatarUrl:
+      typeof row.avatar_url === "string" && row.avatar_url.trim()
+        ? row.avatar_url
+        : null,
     locale: row.locale || "en",
     timezone: row.timezone || "UTC",
     mfaEnforcement: Boolean(row.mfa_enforcement),
@@ -110,11 +114,28 @@ function mapUserRow(row) {
   };
 }
 
+/** Max length for custom avatar data-URL stored on users.avatar_url. */
+export const USER_AVATAR_DATA_URL_MAX_LEN = 180_000;
+
+const USER_AVATAR_DATA_URL_RE =
+  /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
+
+/**
+ * @param {unknown} value
+ * @returns {value is string}
+ */
+export function isUserAvatarValue(value) {
+  if (typeof value !== "string" || value.length === 0) return false;
+  if (value.length > USER_AVATAR_DATA_URL_MAX_LEN) return false;
+  return USER_AVATAR_DATA_URL_RE.test(value);
+}
+
 /**
  * Update personal profile + security prefs. Email is not changed here.
  * @param {string} userId
  * @param {{
  *   displayName?: string | null,
+ *   avatarUrl?: string | null,
  *   locale?: string,
  *   timezone?: string,
  *   mfaEnforcement?: boolean,
@@ -130,6 +151,20 @@ export async function updateUserProfile(userId, input) {
     const raw =
       input.displayName === null ? "" : String(input.displayName).trim();
     displayName = raw ? raw.slice(0, 120) : null;
+  }
+  let avatarUrl = current.avatarUrl;
+  if (input.avatarUrl !== undefined) {
+    if (input.avatarUrl === null || input.avatarUrl === "") {
+      avatarUrl = null;
+    } else if (isUserAvatarValue(input.avatarUrl)) {
+      avatarUrl = input.avatarUrl;
+    } else {
+      const err = new Error(
+        "avatarUrl must be a small PNG/JPEG/WebP/GIF image",
+      );
+      err.code = "avatar_invalid";
+      throw err;
+    }
   }
   const locale =
     typeof input.locale === "string" && input.locale.trim()
@@ -152,17 +187,20 @@ export async function updateUserProfile(userId, input) {
   const { rows } = await pool.query(
     `UPDATE users
      SET display_name = $2,
-         locale = $3,
-         timezone = $4,
-         mfa_enforcement = $5,
-         session_timeout_minutes = $6,
+         avatar_url = $3,
+         locale = $4,
+         timezone = $5,
+         mfa_enforcement = $6,
+         session_timeout_minutes = $7,
          updated_at = now()
      WHERE id = $1
      RETURNING id, email, mfa_enrolled_at, display_name, locale, timezone,
-               mfa_enforcement, session_timeout_minutes`,
+               mfa_enforcement, session_timeout_minutes, avatar_url,
+               must_change_password, mfa_pending_secret`,
     [
       userId,
       displayName,
+      avatarUrl,
       locale,
       timezone,
       mfaEnforcement,

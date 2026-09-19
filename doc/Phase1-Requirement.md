@@ -14,41 +14,41 @@ Company B will perform the following product design, development, and technology
 
 Company B must implement the account hierarchy, roles, permissions, and audit rules defined in [Business-Model.md](Business-Model.md) (including the **Terminology** section). Product and UI must use the canonical terms there; deprecated names (sub-merchant, branch, location account, sub-agent account, reader, guest invoice, etc.) must not appear in user-facing copy.
 
-**Organization hierarchy (org account types)**
+**Organization hierarchy (org account types) — Phase 1 lock**
 
-1. **Platform** at the root; **agent account** nodes under Platform only (or nested under another agent, shown as **agent (sub) account** when parent context matters). **Platform Owner** configures **max agent depth** globally (Phase 1 default: **2** — agent account → agent (sub) account → merchant account).
-2. **Merchant account** (single-location or multi-location structure) under an agent account, or under Platform when no external agent is assigned (platform acts as channel).
-3. **Merchant (site) account** (multi-location merchants only) and **Cashier** users under merchant accounts only; no agent accounts under merchants.
-4. Agent portal and merchant portal (separate apps or role-based shells) with tree-scoped data visibility.
+1. **Platform** at the root; **agent account** nodes **under Platform only** (no nested agents / agent (sub)).
+2. **Merchant account** under an agent account, or under Platform when no external agent is assigned. Merchants may be **single_location** or **multi_location**.
+3. **Cashier** users under **merchant** accounts only; no agent accounts under merchants.
+4. Optional: **Merchant (site)** under a multi_location merchant for branch ops. Agent portal and merchant portal with scoped data visibility.
+5. **Out of Phase 1 product:** agent (sub) only. See [Business-Model.md](Business-Model.md).
 
 **User roles (inside each org account)**
 
-5. On the **Platform** org account: **Owner**, **Administrator**, **Viewer**. On agent, merchant, and merchant (site) accounts: **Owner**, **Administrator**, **Viewer**; on merchant and merchant (site) accounts only: **Cashier**.
-6. **Owner** may add and remove **Administrator** and **Viewer** on Platform, agent, merchant, and merchant (site) accounts; **Administrator cannot** add or remove team members.
+5. On the **Platform** org account: **Owner**, **Administrator**, **Viewer**. On agent and merchant accounts: **Owner**, **Administrator**, **Viewer**; on merchant accounts only: **Cashier**.
+6. **Owner** may add and remove **Administrator** and **Viewer** on Platform, agent, and merchant accounts; **Administrator cannot** add or remove team members.
 7. **Cashier** may create and manage **own payment orders** only; cannot change settlement address, xPub, fee rates, or org settings.
-8. Users on **agent accounts** (Owner/Administrator) may onboard merchants and agent (sub) accounts within depth limit, set volume fee **within platform bands**, and view subtree volume and service bills — **read-only** on merchant credentials and settlement settings; **agent accounts must not create payment orders for merchants**.
-9. **Merchant Owner/Administrator** may manage org settings, view all Cashiers in the merchant account, and create payment orders; **merchant (site) Owner/Administrator** creates payment orders for that site and sees that site's data only (unless parent role scope applies).
-10. Merchant (site) settings (wallet address, xPub, payment matching mode, order delete period) **inherit parent merchant defaults**; overrides require **merchant Owner** approval. Platform Owner may override for compliance only (logged).
+8. Users on **agent accounts** (Owner/Administrator) may onboard merchants, set volume fee **within platform bands**, and view merchant volume and service bills — **read-only** on merchant credentials and settlement settings; **agent accounts must not create payment orders for merchants**.
+9. **Merchant Owner/Administrator** may manage org settings, view all Cashiers in the merchant account, and create payment orders.
 
 **Payment orders vs service bills**
 
-11. **Payment order** — customer collection; created by merchant, merchant (site), or Cashier; payer sends funds to **merchant wallet** (non-custodial, 100% to merchant).
+11. **Payment order** — customer collection; created by merchant Owner/Administrator or Cashier; payer sends funds to **merchant wallet** (non-custodial, 100% to merchant).
 12. **Service bill** — SaaS subscription plus volume fee on confirmed payment-order volume; system-generated per billing period; payable via separate checkout (QR code, payment link, or agreed off-platform settlement) to the **platform billing wallet**; not deducted from payer on-chain payments.
-13. Merchant, merchant (site), and agent portals show applicable **service bills** in their own UI; agent accounts view service bill data across their subtree.
+13. Merchant and agent portals show applicable **service bills** in their own UI; agent accounts view service bill data for their merchants.
 
 **Platform fee policy**
 
 14. Tiered pricing by merchant size (Small / Mid / Enterprise): subscription plus volume fee band; default small-tier ceiling **2%**; see [Business-Model.md](Business-Model.md).
-15. Platform Owner sets global tiers, subscription amounts, min/max volume fee bands, and **max agent nesting depth** (Phase 1 default **2**); Platform Owner/Administrator may onboard agents and manage service bills; agent-account administrators assign merchant rate **within band**; Enterprise custom rates require **Platform Owner** approval; fee changes apply to the **next billing period**.
-16. **Agent commission:** Platform pays **top-level agents only** as a rebate from collected platform fees (Option A). Agents pay their **agent (sub)** accounts. Merchants do not pay a separate agent fee. Payouts use a **payout slip** (QR + payment link to the payee’s payout address); every statement and payment is saved in history.
+15. Platform Owner sets global tiers, subscription amounts, min/max volume fee bands; Platform Owner/Administrator may onboard agents and manage service bills; agent-account administrators assign merchant rate **within band**; Enterprise custom rates require **Platform Owner** approval; fee changes apply to the **next billing period**.
+16. **Agent commission:** Platform pays **agents** (parent = Platform) as a rebate from collected platform fees (Option A). **No** sub-agent cascade in Phase 1. Merchants do not pay a separate agent fee. Payouts use a **payout slip** (QR + payment link to the agent’s payout address); every statement and payment is saved in history.
 
 **Core account functions**
 
 17. Merchant and agent account registration, login, and identity verification (scope of KYC/KYB to be confirmed separately).
 18. Merchant and agent API keys, webhooks, and security settings (scoped by role).
 19. Setting up and managing merchant payment receive addresses and optional xPub (per [Phase1-Project-Plan.md](Phase1-Project-Plan.md) matching modes).
-20. Viewing transaction history, order status, payment data, and service bill statements; exporting reports scoped to org tree.
-21. **Platform administration backend:** agent and merchant management, global fee tier configuration, **max agent nesting depth**, billing wallet, compliance override, immutable audit log review.
+20. Viewing transaction history, order status, payment data, and service bill statements; exporting reports scoped to org visibility.
+21. **Platform administration backend:** agent and merchant management, global fee tier configuration, billing wallet, compliance override, immutable audit log review.
 22. **Immutable audit log:** all login and privileged actions recorded append-only; no user may delete audit records.
 
 Whether the merchant KYC/KYB verification function is included in the Phase 1 business scope will be determined based on the final product requirements document confirmed by both parties.

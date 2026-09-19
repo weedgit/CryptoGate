@@ -20,9 +20,15 @@ function portalSubpath(): string {
 
 function prefetchPlatform(sub: string) {
   if (!sub) warm(() => import("../platform/DashboardPage"));
-  else if (sub === "architecture") warm(() => import("../platform/ArchitecturePage"));
-  else if (sub.startsWith("agents")) warm(() => import("../platform/AgentsListPage"));
-  else if (sub.startsWith("merchants")) warm(() => import("../platform/MerchantsListPage"));
+  else if (
+    sub === "accounts" ||
+    sub.startsWith("accounts/") ||
+    sub === "architecture" ||
+    sub.startsWith("agents") ||
+    sub.startsWith("merchants")
+  ) {
+    warm(() => import("../platform/PlatformAccountsRoutes"));
+  }
   else if (sub.startsWith("service-bills")) {
     if (sub.includes("/")) warm(() => import("../platform/ServiceBillDetailPage"));
     else warm(() => import("../platform/ServiceBillsListPage"));

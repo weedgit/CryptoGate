@@ -1,11 +1,9 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import type { Session } from "./api";
+import type { OrgAccount, Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
-import { GateLogoMark } from "../auth/GateLogoMark";
 import {
-  AgentsNavIcon,
   ArchitectureNavIcon,
   DashboardNavIcon,
   FeesNavIcon,
@@ -22,6 +20,9 @@ import {
 } from "../platform/platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { ThemeToggleButton } from "../shared/ThemeToggleButton";
+import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import {
@@ -33,7 +34,8 @@ import {
   subscribeSharedHealth,
 } from "../shared/healthPolling";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
-import { sessionIsAgentViewerOnly } from "./org";
+import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { primaryAgentOrgId, sessionIsAgentViewerOnly } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 import { prefetchAgentRoute } from "./prefetchRoutes";
 
@@ -60,12 +62,6 @@ const NAV: NavItem[] = [
     label: "Merchants",
     matchPrefix: agentRoute("merchants"),
     Icon: MerchantsNavIcon,
-  },
-  {
-    to: agentRoute("agents"),
-    label: "Sub-agents",
-    matchPrefix: agentRoute("agents"),
-    Icon: AgentsNavIcon,
   },
   {
     to: agentRoute("service-bills"),
@@ -122,6 +118,12 @@ export function AgentShell({
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const agentOrgId = useMemo(() => primaryAgentOrgId(session), [session]);
+  const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekAgentOrgs());
+  const homeOrg = useMemo(
+    () => (agentOrgId ? orgs?.find((o) => o.id === agentOrgId) ?? null : null),
+    [agentOrgId, orgs],
+  );
   const { mobileNavOpen, isTabletOrBelow, closeMobileNav, toggleMobileNav } =
     usePortalMobileNav();
   /** Drawer must show labels even if desktop preference is collapsed. */
@@ -131,6 +133,20 @@ export function AgentShell({
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAgentOrgs()
+      .then((rows) => {
+        if (!cancelled) setOrgs(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOrgs((prev) => prev ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.userId]);
 
   useEffect(() => {
     const sync = () => setUnreadAlerts(countUnreadPlatformAlerts());
@@ -172,10 +188,15 @@ export function AgentShell({
       />
       <aside id="portal-sidebar" className="sidebar" aria-label="Agent navigation">
         <div className="logo-row">
-          <GateLogoMark size={32} className="logo-mark" />
+          <OrgBrandMark
+            name={homeOrg?.name ?? "Agent"}
+            iconKey={homeOrg?.iconKey}
+            size={32}
+            className="logo-mark"
+          />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">PaymentGate</p>
+              <p className="logo-title">{homeOrg?.name ?? "Agent"}</p>
               <span className="logo-badge">AGENT PORTAL</span>
             </div>
           ) : null}
@@ -253,7 +274,9 @@ export function AgentShell({
           </div>
           <div className="topbar-center" id="agent-topbar-center" />
           <div className="topbar-right">
+            <TopbarSearch placeholder="Search merchants…" />
             <div className="topbar-actions" id="agent-topbar-actions" />
+            <ThemeToggleButton />
             <AlertsBellButton
               open={alertsOpen}
               unreadCount={unreadAlerts}

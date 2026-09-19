@@ -597,7 +597,7 @@ export function CompliancePage() {
                       {orgId ? (
                         <Link
                           className="plat-compliance__merchant"
-                          to={`${platformRoute(`merchants/${orgId}`)}?tab=compliance`}
+                          to={`${platformRoute(`accounts/merchants/${orgId}`)}?tab=compliance`}
                           title={`Open ${merchantName}`}
                         >
                           {merchantName}

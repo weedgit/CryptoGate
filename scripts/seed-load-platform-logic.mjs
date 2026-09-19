@@ -7,12 +7,11 @@
  *   - settlement_addresses — USDT/tron (+ ethereum for every 3rd merchant)
  *   - merchant_xpubs — watch-only BIP32 test vector for Mode S only
  *   - service_bills — calendar-month rows per merchant (paid fees → commission base)
- *   - agent_commission — varied % for agent / agent_sub (sub rates lower)
+ *   - agent_commission — varied % for top-level agents only (Phase 1)
  *   - agent_payout_addresses — USDT/tron payout per agent org
  *   - commission_payouts — amounts derived from paid bill volume fees (matches UI logic)
  *   - enterprise_rate_approvals — pending outside-band rates (sample + named fixtures)
  *   - payment_anomaly orders — Compliance tab fixtures (Shop *-R1, Demo, samples)
- *   - multi_location sites — ensure ≥1 merchant_site child
  *   - audit org_status reason — for paused orgs
  *
  * Prerequisites: seed-local (Demo Merchant) and/or seed-load-orgs.
@@ -24,20 +23,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findUserByEmail } from "../apps/api/src/auth/users.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
-import { insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 
 const MATCHING_CYCLE = ["B", "C", "D", "S"];
 const COMMISSION_CYCLE = ["10", "12", "15", "18", "20"];
-/** Sub-agent share of platform fee on their own subtree merchants (parent pays). */
-const SUB_COMMISSION_CYCLE = ["5", "8", "10", "12"];
 /** Named local-review fixtures — keep stable when re-running platform-logic. */
 const NAMED_AGENT_COMMISSION = {
   "Demo Agent": "15",
-  "Demo Sub-Agent": "10",
 };
 /** Local review invoices for these orgs live in seed-local — do not overwrite. */
-const REVIEW_NAMED_ORGS = new Set(["Demo Agent", "Demo Sub-Agent"]);
+const REVIEW_NAMED_ORGS = new Set(["Demo Agent"]);
 const LOGIC_BILL_REF_PREFIX = "logic-bill-";
 /** Monthly bills aligned to commission period keys (YYYY-MM). */
 const COMMISSION_BILL_MONTHS = 8;
@@ -472,7 +467,7 @@ async function main() {
   const { rows: agents } = await pool.query(
     `SELECT id, name, type, status
      FROM org_accounts
-     WHERE type IN ('agent', 'agent_sub')
+     WHERE type = 'agent'
      ORDER BY name ASC`,
   );
 
@@ -483,7 +478,6 @@ async function main() {
   let matching = 0;
   let settlement = 0;
   let xpubs = 0;
-  let sites = 0;
   let enterprise = 0;
   let commission = 0;
   let payouts = 0;
@@ -493,7 +487,7 @@ async function main() {
 
   const { rows: orgGraph } = await pool.query(
     `SELECT id, name, type, parent_id FROM org_accounts
-     WHERE type IN ('platform', 'agent', 'agent_sub', 'merchant')
+     WHERE type IN ('platform', 'agent', 'merchant')
      ORDER BY name ASC`,
   );
   const orgById = new Map(orgGraph.map((o) => [o.id, o]));
@@ -519,7 +513,7 @@ async function main() {
     ]),
   );
 
-  // --- Merchants: matching + settlement + xPub + sites + enterprise ---
+  // --- Merchants: matching + settlement + xPub + enterprise ---
   for (const m of merchants) {
     const n = indexFromName(m.name);
     const mode = MATCHING_CYCLE[(n - 1) % MATCHING_CYCLE.length];
@@ -565,30 +559,6 @@ async function main() {
         [m.id, VECTOR_XPUB],
       );
       if (xRes.rowCount) xpubs += 1;
-    }
-
-    if (m.structure === "multi_location") {
-      const { rows: siteRows } = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM org_accounts
-         WHERE type = 'merchant_site' AND parent_id = $1`,
-        [m.id],
-      );
-      let have = siteRows[0]?.n ?? 0;
-      const want = Math.max(2, have);
-      while (have < want) {
-        have += 1;
-        const site = await insertOrgAccount({
-          type: "merchant_site",
-          name: `${m.name} · Site ${have}`,
-          parentId: m.id,
-          structure: null,
-          maxAgentDepth: null,
-        });
-        if (site.ok) sites += 1;
-        else if (site.code !== "duplicate_sibling_name") {
-          throw new Error(`site for ${m.name}: ${site.code}`);
-        }
-      }
     }
 
     // Pending enterprise approval for a sparse sample (out-of-band rate).
@@ -701,10 +671,8 @@ async function main() {
   // --- Agents: commission + payout ---
   for (const a of agents) {
     const n = indexFromName(a.name);
-    const cycle =
-      a.type === "agent_sub" ? SUB_COMMISSION_CYCLE : COMMISSION_CYCLE;
     const pct =
-      NAMED_AGENT_COMMISSION[a.name] ?? cycle[(n - 1) % cycle.length];
+      NAMED_AGENT_COMMISSION[a.name] ?? COMMISSION_CYCLE[(n - 1) % COMMISSION_CYCLE.length];
     const cRes = await pool.query(
       `INSERT INTO agent_commission (org_id, commission_percent, effective_from)
        VALUES ($1, $2, date_trunc('month', now() AT TIME ZONE 'utc')::date)
@@ -750,8 +718,6 @@ async function main() {
   const topLevelAgents = agents.filter(
     (a) => a.type === "agent" && parentType(a.id) === "platform",
   );
-  const subAgents = agents.filter((a) => a.type === "agent_sub");
-
   for (const agent of topLevelAgents) {
     if (REVIEW_NAMED_ORGS.has(agent.name)) continue;
     const merchantIds = await merchantIdsInSubtree(pool, agent.id);
@@ -791,55 +757,13 @@ async function main() {
     }
   }
 
-  for (const sub of subAgents) {
-    if (REVIEW_NAMED_ORGS.has(sub.name)) continue;
-    const parentId = orgById.get(sub.id)?.parent_id;
-    const parent = parentId ? orgById.get(parentId) : null;
-    if (!parent || parent.type !== "agent") continue;
-
-    const merchantIds = await merchantIdsInSubtree(pool, sub.id);
-    const bills = await loadBillsForMerchants(pool, merchantIds);
-    const pct = commissionByOrg.get(sub.id) ?? "10";
-    const statements = commissionStatementsFromBills(bills, merchantIds, pct);
-    const dest = payoutAddrByOrg.get(sub.id);
-    for (const stmt of statements) {
-      if (stmt.platformFeeCollected <= 0 && stmt.commissionAmount <= 0) continue;
-      const isCurrent = stmt.periodKey === currentMonthKey;
-      const paidAt =
-        !isCurrent && stmt.hasPaid
-          ? daysAgo(3 + (indexFromName(sub.name) % 8)).toISOString()
-          : null;
-      const result = await upsertCommissionPayoutSeed(pool, {
-        payeeOrgId: sub.id,
-        payeeName: sub.name,
-        payer: "agent",
-        payerOrgId: parent.id,
-        periodKey: stmt.periodKey,
-        periodLabel: stmt.periodLabel,
-        platformFeeCollected: stmt.platformFeeCollected,
-        commissionPercent: stmt.commissionPercent,
-        commissionAmount: stmt.commissionAmount,
-        payoutStatus: isCurrent ? "ready" : stmt.hasPaid ? "paid" : "ready",
-        payoutAddress: dest?.address ?? null,
-        asset: dest?.asset ?? "USDT",
-        network: dest?.network ?? "tron",
-        paymentLink: `/agent/commissions?payee=${encodeURIComponent(sub.id)}&period=${encodeURIComponent(stmt.periodKey)}`,
-        txRef:
-          !isCurrent && stmt.hasPaid
-            ? `seed-agent-${sub.id.slice(0, 8)}-${stmt.periodKey}`
-            : null,
-        paidAt,
-      });
-      if (result === "insert" || result === "update") commissionPayouts += 1;
-    }
-  }
   }
 
   // --- Suspend audit with optional reason (paused Load orgs) ---
   const { rows: paused } = await pool.query(
     `SELECT id, name, type FROM org_accounts
      WHERE status = 'paused'
-       AND type IN ('agent', 'agent_sub', 'merchant')
+       AND type IN ('agent', 'merchant')
      ORDER BY name ASC`,
   );
   for (let i = 0; i < paused.length; i++) {
@@ -881,16 +805,6 @@ async function main() {
      GROUP BY matching_mode
      ORDER BY matching_mode`,
   );
-  const { rows: multiWithSites } = await pool.query(
-    `SELECT COUNT(*)::int AS n
-     FROM org_accounts m
-     WHERE m.type = 'merchant'
-       AND m.structure = 'multi_location'
-       AND EXISTS (
-         SELECT 1 FROM org_accounts s
-         WHERE s.parent_id = m.id AND s.type = 'merchant_site'
-       )`,
-  );
   const { rows: modeSWithXpub } = await pool.query(
     `SELECT COUNT(*)::int AS n
      FROM merchant_matching_settings mms
@@ -929,7 +843,6 @@ async function main() {
   console.log(`  Matching modes upserted:   ${matching}`);
   console.log(`  Settlement addresses:      ${settlement}`);
   console.log(`  Mode S xPubs:              ${xpubs}`);
-  console.log(`  Sites backfilled:          ${sites}`);
   console.log(`  Enterprise pending:        ${enterprise}`);
   console.log(`  Logic service bills:       ${logicBills}`);
   console.log(`  Compliance anomalies:      ${anomalies}`);
@@ -941,7 +854,6 @@ async function main() {
   console.log(
     `  Matching mix: ${modeCounts.map((r) => `${r.matching_mode}=${r.n}`).join(" · ") || "(none)"}`,
   );
-  console.log(`  Multi-location with sites: ${multiWithSites[0]?.n ?? 0}`);
   console.log(`  Merchants with settlement: ${withSettlement[0]?.n ?? 0}`);
   console.log(`  Mode S with xPub:          ${modeSWithXpub[0]?.n ?? 0}`);
   console.log(
@@ -953,7 +865,6 @@ async function main() {
   console.log("\nUI checks:");
   console.log("  Settlement → Mode / Scope follow B·C·D·S");
   console.log("  Addresses appear for every merchant; xPub only when Mode = S");
-  console.log("  Sites → multi merchants list sites; single shows empty state");
   console.log("  Compliance → pending enterprise + payment anomalies");
   console.log("  Agents → Profile commission + payout address");
   console.log(
@@ -963,7 +874,7 @@ async function main() {
     "  Service bills → one row per merchant per calendar month (logic-bill-*)",
   );
   console.log(
-    "\nTry: Load Shop 001-R1 (anomalies + enterprise) · Demo Agent (/agent/commissions sub-payouts)",
+    "\nTry: Load Shop 001-R1 (anomalies + enterprise) · Demo Agent (/agent/commissions)",
   );
 }
 

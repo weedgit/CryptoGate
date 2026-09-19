@@ -7,8 +7,8 @@ const LIVE_ALERTS: AlertItem[] = [];
 const listeners = new Set<Listener>();
 
 /**
- * Merchants detail is `/platform/merchants/:id?tab=…`.
- * Older alerts used `?id=` on the list path (no detail pane).
+ * Account detail is `/accounts/:id?tab=…`.
+ * Older alerts used `?id=` on the merchants list path (no detail pane).
  */
 export function normalizePlatformAlertHref(
   href: string | undefined,
@@ -17,13 +17,27 @@ export function normalizePlatformAlertHref(
   const q = href.indexOf("?");
   const path = q >= 0 ? href.slice(0, q) : href;
   const search = q >= 0 ? href.slice(q + 1) : "";
-  if (path !== platformRoute("merchants") || !search) return href;
+  const merchantsList = platformRoute("merchants");
+  const agentsList = platformRoute("agents");
+  if (
+    (path !== merchantsList && path !== agentsList) ||
+    !search
+  ) {
+    // Also rewrite /merchants/:id → /accounts/:id
+    if (path.startsWith(`${merchantsList}/`) || path.startsWith(`${agentsList}/`)) {
+      const id = path.split("/").pop();
+      if (id) {
+        return `${platformRoute(`accounts/${encodeURIComponent(id)}`)}${search ? `?${search}` : ""}`;
+      }
+    }
+    return href;
+  }
   const params = new URLSearchParams(search);
   const id = params.get("id");
   if (!id) return href;
   params.delete("id");
   const rest = params.toString();
-  return `${platformRoute(`merchants/${encodeURIComponent(id)}`)}${rest ? `?${rest}` : ""}`;
+  return `${platformRoute(`accounts/${encodeURIComponent(id)}`)}${rest ? `?${rest}` : ""}`;
 }
 
 function withNormalizedHref(alert: AlertItem): AlertItem {

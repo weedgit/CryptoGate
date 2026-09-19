@@ -15,7 +15,7 @@ import {
   handleDeletePosPin,
   handleVerifyPosPin,
 } from "./auth-routes.mjs";
-import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handleSetOrgStatus } from "../orgs/org-routes.mjs";
+import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handlePatchOrg, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
   handleAdminDeleteMemberPosPin,
@@ -904,6 +904,10 @@ export async function handleRequest(req, res) {
     const orgId = decodeURIComponent(orgMatch[1]);
     if (method === "GET") {
       await handleGetOrg(req, res, orgId);
+      return;
+    }
+    if (method === "PATCH") {
+      await handlePatchOrg(req, res, orgId);
       return;
     }
     if (method === "DELETE") {
