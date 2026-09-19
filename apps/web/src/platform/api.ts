@@ -625,6 +625,28 @@ export async function getWatcherHealth(): Promise<WatcherHealthList> {
   return (await res.json()) as WatcherHealthList;
 }
 
+export type BackupStatus = {
+  status: "ok" | "failed" | "stale" | "unknown";
+  detail: string;
+  lastAt: string | null;
+  ageHours: number | null;
+  staleAfterHours: number;
+  bytes: number | null;
+  offsite: boolean | null;
+  errors: number | null;
+  message: string | null;
+  checkedAt?: string;
+};
+
+export async function getBackupStatus(): Promise<BackupStatus> {
+  const res = await apiFetch(`${API_BASE}/platform/backup-status`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as BackupStatus;
+}
+
 export type NetworkOrderabilityLamp = {
   code: "open" | "paused" | "down" | "off" | "checking";
   label: string;

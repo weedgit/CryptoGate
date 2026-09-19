@@ -11,13 +11,7 @@ const NETWORK_TITLE = {
   [NetworkId.Ethereum]: "Ethereum",
   [NetworkId.Tron]: "TRON",
   [NetworkId.TronNile]: "TRON Nile",
-  [NetworkId.BnbSmartChain]: "BNB Smart Chain",
-  [NetworkId.Polygon]: "Polygon",
-  [NetworkId.ArbitrumOne]: "Arbitrum One",
   [NetworkId.Solana]: "Solana",
-  [NetworkId.Ton]: "TON",
-  [NetworkId.Base]: "Base",
-  [NetworkId.Bitcoin]: "Bitcoin",
 };
 
 /**

@@ -30,6 +30,7 @@ import { getEffectiveFulfillmentPolicy } from "../fulfillment-policy/fulfillment
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 import { resolveSiteInherit } from "../sites/site-inherit.mjs";
 import { getEffectiveNetworkMaintenance } from "../platform-settings/network-maintenance-store.mjs";
+import { resolveOrderQuote } from "../rates/resolve-order-quote.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -202,6 +203,28 @@ export async function handleCreatePaymentOrder(req, res) {
           return { kind: "replay", row: existing };
         }
 
+        const quoted = await resolveOrderQuote({
+          orgId: scope.orgId,
+          amountUsd: validated.parsed.amountUsd,
+          invoiceAmount: validated.parsed.invoiceAmount,
+          invoiceCurrency: validated.parsed.invoiceCurrency,
+          invoiceDenomination: validated.parsed.invoiceDenomination,
+          amountCrypto: validated.parsed.amountCrypto,
+          asset: validated.parsed.asset,
+          network: validated.parsed.network,
+          decimals: validated.parsed.config.decimals,
+          minAmount: validated.parsed.config.minAmount,
+        });
+        if (!quoted.ok) {
+          return {
+            kind: "error",
+            status: quoted.status,
+            code: quoted.code,
+            message: quoted.message,
+          };
+        }
+        const quote = quoted.quote;
+
         const matchingMode = await getEffectiveMatchingMode(
           inherit.matchingOrgId,
           client,
@@ -223,7 +246,7 @@ export async function handleCreatePaymentOrder(req, res) {
           matchingMode,
           asset: validated.parsed.asset,
           network: validated.parsed.network,
-          amount: validated.parsed.amount,
+          amount: quote.payAmount,
           idempotencyKey,
           requiredConfirmations: validated.parsed.config.requiredConfirmations,
         });
@@ -240,6 +263,9 @@ export async function handleCreatePaymentOrder(req, res) {
         const expiresAt = new Date(
           Date.now() + validated.parsed.validitySeconds * 1000,
         );
+        const quoteExp = new Date(quote.quoteExpiresAt);
+        const effectiveExpires =
+          quoteExp < expiresAt ? quoteExp : expiresAt;
         const inserted = await insertPaymentOrder(
           {
             orgId: scope.orgId,
@@ -253,13 +279,29 @@ export async function handleCreatePaymentOrder(req, res) {
             memoOrTag: assigned.assign.memoOrTag,
             asset: validated.parsed.asset,
             network: validated.parsed.network,
-            expiresAt,
-            requiredConfirmations: assigned.assign.requiredConfirmations,
+            expiresAt: effectiveExpires,
+            requiredConfirmations: validated.parsed.config.requiredConfirmations,
             idempotencyKey,
             idempotencyBodyHash: bodyHash,
             merchantMetadata: validated.parsed.merchantMetadata,
             underpayTolerance,
             fulfillmentPolicy,
+            invoiceAmountUsd: quote.invoiceAmountUsd,
+            invoiceAmount: quote.invoiceAmount,
+            invoiceCurrency: quote.invoiceCurrency,
+            invoiceDenomination: quote.invoiceDenomination,
+            marketRate: quote.marketRate,
+            pricingRate: quote.pricingRate,
+            pricingMode: quote.pricingMode,
+            rateSource: quote.rateSource,
+            rateFetchedAt: quote.rateFetchedAt,
+            quoteExpiresAt: quote.quoteExpiresAt,
+            payAmountBaseUnits: quote.payAmountBaseUnits,
+            assetDecimals: quote.assetDecimals,
+            rateSources: quote.rateSources,
+            referenceRate: quote.referenceRate,
+            referenceSource: quote.referenceSource,
+            rateWarning: quote.rateWarning,
           },
           client,
         );

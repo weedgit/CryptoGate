@@ -11,6 +11,11 @@ const ORDER_SELECT = `
   idempotency_body_hash, merchant_metadata, underpay_tolerance,
   fulfillment_policy,
   anomaly_reason, anomaly_resolution_note, anomaly_resolved_at,
+  invoice_amount_usd, invoice_currency, market_rate, pricing_rate,
+  pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
+  pay_amount_base_units, asset_decimals,
+  rate_sources, reference_rate, reference_source, rate_warning,
+  invoice_amount, invoice_denomination,
   created_at, updated_at
 `;
 
@@ -337,12 +342,19 @@ export async function insertPaymentOrder(input, client) {
          payable_amount, receive_address, address_source, hd_index, memo_or_tag,
          asset, network, expires_at, required_confirmations,
          idempotency_key, idempotency_body_hash, merchant_metadata,
-         underpay_tolerance, fulfillment_policy
+         underpay_tolerance, fulfillment_policy,
+         invoice_amount_usd, invoice_currency, market_rate, pricing_rate,
+         pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
+         pay_amount_base_units, asset_decimals,
+         rate_sources, reference_rate, reference_source, rate_warning,
+         invoice_amount, invoice_denomination
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
-         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+         $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+         $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
+         $29::jsonb, $30, $31, $32, $33, $34
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -364,6 +376,22 @@ export async function insertPaymentOrder(input, client) {
         input.merchantMetadata,
         input.underpayTolerance ?? "0",
         input.fulfillmentPolicy ?? "on_completed",
+        input.invoiceAmountUsd ?? input.payableAmount,
+        input.invoiceCurrency ?? "USD",
+        input.marketRate ?? null,
+        input.pricingRate ?? null,
+        input.pricingMode ?? null,
+        input.rateSource ?? null,
+        input.rateFetchedAt ?? null,
+        input.quoteExpiresAt ?? null,
+        input.payAmountBaseUnits ?? null,
+        input.assetDecimals ?? null,
+        input.rateSources ? JSON.stringify(input.rateSources) : null,
+        input.referenceRate ?? null,
+        input.referenceSource ?? null,
+        input.rateWarning ?? null,
+        input.invoiceAmount ?? input.invoiceAmountUsd ?? input.payableAmount,
+        input.invoiceDenomination ?? "fiat",
       ],
     );
     return { ok: true, row: rows[0] };

@@ -110,7 +110,7 @@ describe("@paymentgate/domain", () => {
     assert.equal(AuditAction.ProfileUpdate, "profile_update");
   });
 
-  it("registers Phase 1 catalog; mainnet env hides Nile testnet", () => {
+  it("registers Ethereum / Tron / Solana rails; mainnet env hides Nile testnet", () => {
     assert.equal(resolveChainEnvironment("mainnet"), ChainEnvironment.Mainnet);
     const row = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron, "mainnet");
     assert.ok(row);
@@ -124,21 +124,23 @@ describe("@paymentgate/domain", () => {
       getAssetNetworkConfig(AssetCode.USDT, NetworkId.TronNile, "mainnet"),
       undefined,
     );
-    assert.equal(listAssetNetworkRegistry("mainnet").length, 15);
-    assert.equal(ASSET_NETWORK_REGISTRY.length, 16);
+    assert.equal(listAssetNetworkRegistry("mainnet").length, 7);
+    assert.equal(ASSET_NETWORK_REGISTRY.length, 8);
     const enabledMainnet = listAssetNetworkRegistry("mainnet").filter((r) => r.enabled);
     assert.equal(enabledMainnet.length, 7);
-    assert.equal(
-      getAssetNetworkConfig(AssetCode.USDT, NetworkId.BnbSmartChain, "mainnet"),
-      undefined,
-    );
+    assert.ok(getAssetNetworkConfig(AssetCode.USDT, NetworkId.Solana, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.TRX, NetworkId.Tron, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.ETH, NetworkId.Ethereum, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.USDC, NetworkId.Ethereum, "mainnet"));
+    assert.ok(getAssetNetworkConfig(AssetCode.USDC, NetworkId.Solana, "mainnet"));
     assert.equal(
       getAssetNetworkConfig(AssetCode.BTC, NetworkId.Bitcoin, "mainnet"),
       undefined,
     );
-    assert.ok(getAssetNetworkConfig(AssetCode.USDT, NetworkId.Solana, "mainnet"));
-    assert.ok(getAssetNetworkConfig(AssetCode.TRX, NetworkId.Tron, "mainnet"));
-    assert.ok(getAssetNetworkConfig(AssetCode.ETH, NetworkId.Ethereum, "mainnet"));
+    assert.equal(
+      getAssetNetworkConfig(AssetCode.USDT, NetworkId.Polygon, "mainnet"),
+      undefined,
+    );
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
     assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);
@@ -159,11 +161,6 @@ describe("@paymentgate/domain", () => {
     assert.equal(
       findAssetNetworkRow(AssetCode.USDT, NetworkId.Ethereum, "mainnet"),
       USDT_ETHEREUM,
-    );
-    assert.equal(
-      findAssetNetworkRow(AssetCode.BTC, NetworkId.Bitcoin, "mainnet")
-        ?.contractAddress,
-      null,
     );
   });
 
@@ -229,17 +226,16 @@ describe("@paymentgate/domain", () => {
     assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /memo/i);
   });
 
-  it("maps Mode S HD derivation families for all Phase 1 networks", () => {
+  it("maps Mode S HD derivation families for Phase 1 networks", () => {
     assert.equal(resolveHdDerivationFamily(NetworkId.Tron), HdDerivationFamily.Tron);
     assert.equal(resolveHdDerivationFamily(NetworkId.TronNile), HdDerivationFamily.Tron);
     assert.equal(resolveHdDerivationFamily(NetworkId.Ethereum), HdDerivationFamily.Evm);
-    assert.equal(resolveHdDerivationFamily(NetworkId.BnbSmartChain), HdDerivationFamily.Evm);
-    assert.equal(resolveHdDerivationFamily(NetworkId.Bitcoin), HdDerivationFamily.Bitcoin);
     assert.equal(resolveHdDerivationFamily(NetworkId.Solana), HdDerivationFamily.Solana);
-    assert.equal(resolveHdDerivationFamily(NetworkId.Ton), HdDerivationFamily.Ton);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Bitcoin), HdDerivationFamily.Bitcoin);
+    assert.equal(resolveHdDerivationFamily(NetworkId.Polygon), HdDerivationFamily.Evm);
     assert.equal(supportsModeSHdDerivation(NetworkId.Tron), true);
     assert.equal(supportsModeSHdDerivation("unknown"), false);
-    assert.equal(hdDerivationPathTemplate(NetworkId.Ton), "subwallet/{index}");
     assert.equal(hdDerivationPathTemplate(NetworkId.Ethereum), "0/{index}");
+    assert.equal(hdDerivationPathTemplate(NetworkId.Solana), "0/{index}");
   });
 });

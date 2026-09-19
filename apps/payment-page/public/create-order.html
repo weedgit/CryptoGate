@@ -82,8 +82,18 @@
       </p>
       <p id="form-error" hidden></p>
       <label>
-        Amount
+        Invoice amount
         <input name="amount" type="text" value="245.00" required />
+        Currency
+        <select name="invoiceCurrency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select>
+        Denomination
+        <select name="invoiceDenomination">
+          <option value="fiat">Fiat</option>
+          <option value="crypto">Exact crypto</option>
+        </select>
       </label>
       <label>
         Asset

@@ -31,5 +31,7 @@ export function prefetchPlatformRoute(path: string) {
   else if (path === "settings/networks") warm(() => import("./NetworkCatalogPage"));
   else if (path === "settings/team") warm(() => import("./PlatformTeamPage"));
   else if (path === "settings/fee-tiers") warm(() => import("./FeeTiersSettingsPage"));
+  else if (path === "settings/rates")
+    warm(() => import("./RatesPricingSettingsPage"));
   else if (path === "ops/health") warm(() => import("./SystemHealthPage"));
 }

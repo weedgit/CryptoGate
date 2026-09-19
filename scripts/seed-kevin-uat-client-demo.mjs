@@ -400,7 +400,8 @@ async function seedQuickOrders(pool, orgId, key, address, mode, cashierIds, owne
     await pool.query(
       `INSERT INTO payment_orders (
          org_id, created_by, order_number, status, matching_mode,
-         payable_amount, receive_address, address_source, asset, network,
+         payable_amount, invoice_amount_usd, invoice_currency,
+         receive_address, address_source, asset, network,
          expires_at, required_confirmations,
          idempotency_key, idempotency_body_hash, merchant_metadata,
          created_at, updated_at,
@@ -408,7 +409,7 @@ async function seedQuickOrders(pool, orgId, key, address, mode, cashierIds, owne
        ) VALUES (
          $1, $2,
          'CG-DEMO-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-         'completed', $3, $4, $5, 'main',
+         'completed', $3, $4, $4, 'USD', $5, 'main',
          $6, $7, $8, 19,
          $9, $10, '{"seed":"client-demo"}'::jsonb,
          $11, $11,

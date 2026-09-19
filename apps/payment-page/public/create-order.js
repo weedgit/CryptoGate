@@ -10,12 +10,27 @@ form?.addEventListener("submit", async (event) => {
   const data = new FormData(form);
   const minutes = Number(data.get("validity")) || 15;
   const orgId = String(data.get("orgId") || "").trim();
-  const body = {
-    amount: String(data.get("amount") || "").trim(),
-    asset: String(data.get("asset") || "USDT"),
-    network: String(data.get("network") || "tron"),
-    validitySeconds: Math.max(60, Math.round(minutes * 60)),
-  };
+  const denomination = String(data.get("invoiceDenomination") || "fiat");
+  const invoiceCurrency = String(data.get("invoiceCurrency") || "USD");
+  const amount = String(data.get("amount") || "").trim();
+  const body =
+    denomination === "crypto"
+      ? {
+          amountCrypto: amount,
+          invoiceDenomination: "crypto",
+          asset: String(data.get("asset") || "USDT"),
+          network: String(data.get("network") || "tron"),
+          validitySeconds: Math.max(60, Math.round(minutes * 60)),
+        }
+      : {
+          amountUsd: amount,
+          invoiceAmount: amount,
+          invoiceCurrency,
+          invoiceDenomination: "fiat",
+          asset: String(data.get("asset") || "USDT"),
+          network: String(data.get("network") || "tron"),
+          validitySeconds: Math.max(60, Math.round(minutes * 60)),
+        };
   if (orgId) body.orgId = orgId;
 
   let res;

@@ -10,6 +10,10 @@ import { createPortal } from "react-dom";
 export type ChartPoint = { x: number; y: number };
 
 export function formatChartDay(label: string): string {
+  const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
+  if (hour) {
+    return formatChartDay(`${hour[1]}-${hour[2]}-${hour[3]}`);
+  }
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
   if (!m) return label;
   const months = [
@@ -30,8 +34,37 @@ export function formatChartDay(label: string): string {
   return `${month} ${Number(m[3])}, ${m[1]}`;
 }
 
-/** Day-bucket labels → date + start-of-day time for chart footers. */
+/** Compact X-axis tick — day "Sep 13" or hour "14:00". */
+export function formatChartAxisDay(label: string): string {
+  const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
+  if (hour) return `${hour[4]}:00`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
+  if (!m) return label;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = months[Number(m[2]) - 1] ?? m[2];
+  return `${month} ${Number(m[3])}`;
+}
+
+/** Day/hour-bucket labels → date + time for chart footers. */
 export function formatChartDateTime(label: string): string {
+  const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
+  if (hour) {
+    const day = formatChartDay(`${hour[1]}-${hour[2]}-${hour[3]}`);
+    return `${day} · ${hour[4]}:00`;
+  }
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
   if (!m) return label;
   const day = formatChartDay(label);

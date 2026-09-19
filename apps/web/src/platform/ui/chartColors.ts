@@ -1,23 +1,28 @@
-/** Metric spark accents — distinct on dark dashboard; volume chart stays teal. */
+/** Metric spark accents — matched to doc/image/dashboard-metric.png. */
 export const METRIC_CHART_COLORS = {
-  accounts: "#38bdf8",
-  invoices: "#818cf8",
-  fees: "#fbbf24",
+  /** Soft indigo-violet (Invoices) */
+  invoices: "#9c84f0",
+  /** Bright gold (Fees) */
+  fees: "#fcd818",
+  /** Cyan (Account count) */
+  accounts: "#30d8fc",
+  /** Teal (agent fallback) */
   agent: "#2dd4bf",
-  merchant: "#fb923c",
+  /** Lime (merchant cards in mockup) */
+  merchant: "#78a848",
 } as const;
 
 const ORG_PALETTE = [
+  "#78a848",
+  "#f084cc",
+  "#30d8fc",
+  "#9c84f0",
+  "#fcd818",
   "#2dd4bf",
-  "#fb923c",
-  "#38bdf8",
-  "#f472b6",
-  "#a3e635",
-  "#22d3ee",
   "#e879f9",
   "#60a5fa",
-  "#facc15",
-  "#f87171",
+  "#f472b6",
+  "#a3e635",
 ] as const;
 
 export function hexToRgba(hex: string, alpha: number): string {
@@ -30,7 +35,7 @@ export function hexToRgba(hex: string, alpha: number): string {
           .join("")
       : raw;
   const n = Number.parseInt(full, 16);
-  if (!Number.isFinite(n)) return `rgba(52, 211, 153, ${alpha})`;
+  if (!Number.isFinite(n)) return `rgba(156, 132, 240, ${alpha})`;
   const r = (n >> 16) & 255;
   const g = (n >> 8) & 255;
   const b = n & 255;
@@ -51,7 +56,10 @@ export function orgMetricChartColor(
   kind: "agent" | "merchant",
 ): string {
   const idx = hashHue(`${kind}:${overviewId}`) % ORG_PALETTE.length;
-  return ORG_PALETTE[idx] ?? (kind === "agent"
-    ? METRIC_CHART_COLORS.agent
-    : METRIC_CHART_COLORS.merchant);
+  return (
+    ORG_PALETTE[idx] ??
+    (kind === "agent"
+      ? METRIC_CHART_COLORS.agent
+      : METRIC_CHART_COLORS.merchant)
+  );
 }

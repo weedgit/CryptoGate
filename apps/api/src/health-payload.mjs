@@ -1,4 +1,8 @@
 import { getPool } from "./db/pool.mjs";
+import {
+  backupHealthFields,
+  resolveBackupStatus,
+} from "./ops/backup-status.mjs";
 import { getWebhookDeliveryWorkerSnapshot } from "./webhooks/webhook-delivery-job.mjs";
 
 /**
@@ -160,6 +164,12 @@ export async function getHealthPayload(opts = {}) {
   }
   if (webhook.lastTickAt !== undefined) {
     payload.webhookLastTickAt = webhook.lastTickAt;
+  }
+
+  const backup = await resolveBackupStatus();
+  Object.assign(payload, backupHealthFields(backup));
+  if (backup.status === "failed" || backup.status === "stale") {
+    if (payload.status === "ok") payload.status = "degraded";
   }
 
   return payload;

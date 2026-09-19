@@ -181,7 +181,7 @@ export function AssetIcon({ asset }: { asset: string }) {
           <UsdcGlyph />
         </IconShell>
       );
-    case AssetCode.BTC:
+    case "BTC":
       return (
         <IconShell bg="#f7931a" title="BTC">
           <BtcGlyph />
@@ -226,19 +226,19 @@ export function NetworkIcon({ network }: { network: string }) {
           <EthGlyph />
         </IconShell>
       );
-    case NetworkId.BnbSmartChain:
+    case "bnb_smart_chain":
       return (
         <IconShell bg="#f3ba2f" title="BNB Smart Chain">
           <BnbGlyph />
         </IconShell>
       );
-    case NetworkId.Polygon:
+    case "polygon":
       return (
         <IconShell bg="#8247e5" title="Polygon">
           <PolygonGlyph />
         </IconShell>
       );
-    case NetworkId.ArbitrumOne:
+    case "arbitrum_one":
       return (
         <IconShell bg="#12aaff" title="Arbitrum One">
           <ArbGlyph />
@@ -253,13 +253,13 @@ export function NetworkIcon({ network }: { network: string }) {
           <SolGlyph />
         </IconShell>
       );
-    case NetworkId.Ton:
+    case "ton":
       return (
         <IconShell bg="#0098ea" title="TON">
           <TonGlyph />
         </IconShell>
       );
-    case NetworkId.Base:
+    case "base":
       return (
         <IconShell bg="#0052ff" title="Base">
           <svg viewBox="4 4 24 24" width="17" height="17" aria-hidden="true">
@@ -268,7 +268,7 @@ export function NetworkIcon({ network }: { network: string }) {
           </svg>
         </IconShell>
       );
-    case NetworkId.Bitcoin:
+    case "bitcoin":
       return (
         <IconShell bg="#f7931a" title="Bitcoin">
           <BtcGlyph />
@@ -308,7 +308,7 @@ export function QrCenterNetworkMark({ network }: { network: string }) {
     );
   }
 
-  if (network === NetworkId.BnbSmartChain) {
+  if (network === "bnb_smart_chain") {
     return (
       <span className="qr-center-mark" style={{ background: "#f3ba2f" }} title="BNB Smart Chain" aria-hidden>
         <BnbGlyph size={34} />

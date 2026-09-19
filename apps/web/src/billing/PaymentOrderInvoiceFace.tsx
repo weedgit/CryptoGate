@@ -9,6 +9,14 @@ export type PoInvoiceOrder = {
   matchingMode: string;
   payableAmount: string;
   receivedAmount?: string | null;
+  invoiceAmountUsd?: string | null;
+  pricingRate?: string | null;
+  pricingMode?: string | null;
+  rateSource?: string | null;
+  referenceRate?: string | null;
+  referenceSource?: string | null;
+  rateWarning?: string | null;
+  quoteExpiresAt?: string | null;
   asset: string;
   network: string;
   networkLabel: string;
@@ -226,6 +234,29 @@ export function PaymentOrderInvoiceFace({
           </tr>
         </thead>
         <tbody>
+          {order.invoiceAmountUsd ? (
+            <tr>
+              <td>Invoice (USD)</td>
+              <td>
+                {order.pricingRate
+                  ? `1 ${order.asset} = $${order.pricingRate}${
+                      order.rateSource ? ` · ${order.rateSource}` : ""
+                    }${order.pricingMode ? ` · ${order.pricingMode}` : ""}${
+                      order.referenceRate
+                        ? ` · ref $${order.referenceRate}${
+                            order.referenceSource
+                              ? ` (${order.referenceSource})`
+                              : ""
+                          }`
+                        : ""
+                    }${order.rateWarning ? ` · ${order.rateWarning}` : ""}`
+                  : "Locked USD invoice"}
+              </td>
+              <td className="sb-invoice__amt">
+                ${order.invoiceAmountUsd} USD
+              </td>
+            </tr>
+          ) : null}
           <tr className="sb-invoice__total-row">
             <td>Crypto collection</td>
             <td>

@@ -11,6 +11,8 @@ describe("health-payload", () => {
     assert.ok(p.timestamp);
     assert.equal(p.webhook, "unknown");
     assert.match(String(p.webhookDetail), /not started/i);
+    assert.equal(p.backup, "unknown");
+    assert.match(String(p.backupDetail), /no backup/i);
   });
 
   it("skips db when DATABASE_URL unset", async () => {

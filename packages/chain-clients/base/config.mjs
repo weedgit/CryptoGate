@@ -1,5 +1,4 @@
-import { AssetCode, NetworkId, getAssetNetworkConfig } from "@paymentgate/domain";
-
+/** Archived — not a Phase 1 rail. */
 function readInt(name, fallback) {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
@@ -8,21 +7,19 @@ function readInt(name, fallback) {
   return n;
 }
 
-/** @param {string} [asset] */
-export function getBaseRuntimeConfig(asset = AssetCode.USDC) {
+export function getBaseRuntimeConfig(asset = "USDC") {
   const raw = (process.env.BASE_RPC_URL ?? "").trim();
   const rpcUrl = raw.replace(/\/+$/, "");
-  const row = getAssetNetworkConfig(asset, NetworkId.Base);
   return {
     rpcUrl,
     apiKey: (process.env.BASE_API_KEY ?? "").trim(),
-    usdtContractAddress: row?.contractAddress ?? "",
-    decimals: row?.decimals ?? 6,
-    requiredConfirmations: row?.requiredConfirmations ?? 12,
-    asset: row?.asset ?? asset,
-    network: NetworkId.Base,
+    usdtContractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    decimals: 6,
+    requiredConfirmations: 12,
+    asset,
+    network: "base",
     blockLookback: readInt("BASE_BLOCK_LOOKBACK", 4000),
     configured: rpcUrl.length > 0,
-    pairEnabled: Boolean(row),
+    pairEnabled: false,
   };
 }

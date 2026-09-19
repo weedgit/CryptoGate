@@ -63,7 +63,36 @@ pg_restore --list "paymentgate-*.dump" | head
 
 Store `.dump` files in encrypted object storage; **never** commit dumps to git.
 
-### 2.3 Local development
+### 2.3 VPS host dump (`deploy/backup.sh`)
+
+On the self-hosted VPS (Docker Postgres `paymentgate-postgres`), schedule:
+
+```bash
+# Daily 03:15 UTC — example crontab
+15 3 * * * /root/CryptoGate/deploy/backup.sh >> /var/log/paymentgate-backup.log 2>&1
+```
+
+The script writes `/var/backups/paymentgate/status.json` (override with `PAYMENTGATE_BACKUP_STATUS_PATH`). The API reads that file for:
+
+- `GET /health` → `backup` / `backupDetail` / `backupLastAt`
+- `GET /v1/platform/backup-status` (platform roles) → full snapshot for the dashboard **DB Backup** card
+- Ops → System Health KPI
+
+Optional env:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PAYMENTGATE_BACKUP_DIR` | `/var/backups/paymentgate` | Dump root |
+| `PAYMENTGATE_BACKUP_STATUS_PATH` | `$DIR/status.json` | Status file API reads |
+| `PAYMENTGATE_BACKUP_STALE_HOURS` | `36` | Mark **stale** after this age |
+| `PAYMENTGATE_BACKUP_CONTAINER` | `paymentgate-postgres` | Docker Postgres container |
+| `PAYMENTGATE_BACKUP_PGUSER` / `PGDB` | `cryptogate` | Role / database inside container |
+| `PAYMENTGATE_BACKUP_RCLONE_REMOTE` | unset | Off-box copy target |
+| `PAYMENTGATE_BACKUP_KEEP_DAYS` | `14` | Local prune |
+
+Ensure the API process can **read** the status path (same host, or mount the file into the API container).
+
+### 2.4 Local development
 
 Docker Compose volume `paymentgate_pgdata` holds dev data only. Optional before destructive experiments:
 

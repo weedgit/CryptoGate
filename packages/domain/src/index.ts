@@ -270,9 +270,9 @@ export type AssetNetwork = {
  * Per asset+network catalog. Confirmations, decimals, and Mode D support
  * come from here — not magic numbers in API, watcher, or payment-page.
  *
- * Phase 1 access list: Phase1-Project-Plan §VI / M3-04. Only rows with
- * `enabled: true` accept create-order; Phase 1 enables Tron / Ethereum / Solana
- * rails only (see V3 handoff). Other rows stay catalogued for later go-live.
+ * Product access list: only Ethereum / Tron / Solana pairs are in
+ * `ASSET_NETWORK_REGISTRY` with `enabled: true` (create-order + UI).
+ * Other §VI constants remain exported but disabled and unlisted.
  * Rows with `chainEnv: testnet` are visible only when resolveChainEnvironment()
  * is testnet — never in production product builds.
  */
@@ -352,7 +352,7 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
 export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.BnbSmartChain,
-  /** Phase 1 POS rails: Tron / Ethereum / Solana only (V3 handoff). */
+  /** Not a product rail — Ethereum / Tron / Solana only. */
   enabled: false,
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "BNB Smart Chain BEP-20",
@@ -534,25 +534,16 @@ export const TRX_TRON: AssetNetworkConfig = {
 };
 
 /**
- * Full Phase 1 §VI catalog plus thin local testnet rows.
- * Prefer `listAssetNetworkRegistry()` / `getAssetNetworkConfig()` so testnet
- * rows are hidden when chain env is mainnet.
+ * Product rails: Ethereum / Tron / Solana only (+ Tron Nile when testnet).
+ * Other §VI pair constants stay exported for clients but are not listed here.
  */
 export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   USDT_TRON,
   USDT_TRON_NILE,
   USDT_ETHEREUM,
-  USDT_BNB_SMART_CHAIN,
-  USDT_POLYGON,
-  USDT_ARBITRUM_ONE,
   USDT_SOLANA,
-  USDT_TON,
   USDC_ETHEREUM,
-  USDC_POLYGON,
-  USDC_ARBITRUM_ONE,
-  USDC_BASE,
   USDC_SOLANA,
-  BTC_BITCOIN,
   ETH_ETHEREUM,
   TRX_TRON,
 ];
@@ -713,6 +704,16 @@ export type Money = {
 export const PaymentOrderColumn = {
   matchingMode: "matching_mode",
   payableAmount: "payable_amount",
+  invoiceAmountUsd: "invoice_amount_usd",
+  invoiceCurrency: "invoice_currency",
+  marketRate: "market_rate",
+  pricingRate: "pricing_rate",
+  pricingMode: "pricing_mode",
+  rateSource: "rate_source",
+  rateFetchedAt: "rate_fetched_at",
+  quoteExpiresAt: "quote_expires_at",
+  payAmountBaseUnits: "pay_amount_base_units",
+  assetDecimals: "asset_decimals",
   receiveAddress: "receive_address",
   addressSource: "address_source",
   hdIndex: "hd_index",
@@ -739,6 +740,55 @@ export type PaymentOrderAssignFields = {
   memoOrTag: string | null;
 };
 
+/** Merchant-selectable pricing modes (Phase 1). */
+export const PricingMode = {
+  Pegged1to1: "pegged_1to1",
+  Market: "market",
+} as const;
+
+export type PricingMode = (typeof PricingMode)[keyof typeof PricingMode];
+
+/** Applied quote tag after depeg evaluation. */
+export const AppliedPricingMode = {
+  Pegged1to1: "pegged_1to1",
+  Market: "market",
+  DepegMarket: "depeg_market",
+  CryptoExact: "crypto_exact",
+} as const;
+
+export type AppliedPricingMode =
+  (typeof AppliedPricingMode)[keyof typeof AppliedPricingMode];
+
+export const InvoiceCurrency = {
+  USD: "USD",
+  EUR: "EUR",
+} as const;
+
+export type InvoiceCurrency = (typeof InvoiceCurrency)[keyof typeof InvoiceCurrency];
+
+export const InvoiceDenomination = {
+  Fiat: "fiat",
+  Crypto: "crypto",
+} as const;
+
+export type InvoiceDenomination =
+  (typeof InvoiceDenomination)[keyof typeof InvoiceDenomination];
+
+export const SUPPORTED_INVOICE_CURRENCIES = ["USD", "EUR"] as const;
+
+export const DEFAULT_QUOTE_LOCK_SECONDS = 900;
+export const ALLOWED_QUOTE_LOCK_SECONDS = [300, 600, 900, 1800] as const;
+export const DEFAULT_DEPEG_THRESHOLD_BPS = 100;
+
+export const STABLECOIN_ASSETS: ReadonlySet<string> = new Set([
+  AssetCode.USDT,
+  AssetCode.USDC,
+]);
+
+export function isStablecoinAsset(asset: string): boolean {
+  return STABLECOIN_ASSETS.has(asset);
+}
+
 /**
  * Shared payment-order shape (API camelCase).
  * Receive address is merchant-controlled; platform has no spend keys.
@@ -750,6 +800,24 @@ export type PaymentOrder = PaymentOrderAssignFields & {
   receivedAmount: Money | null;
   asset: AssetCode;
   network: NetworkId;
+  /** Invoice value in USD (locked business amount for volume). */
+  invoiceAmountUsd?: string;
+  /** Original invoice major (USD/EUR/crypto) before FX. */
+  invoiceAmount?: string;
+  invoiceCurrency?: string;
+  invoiceDenomination?: InvoiceDenomination | string;
+  marketRate?: string | null;
+  pricingRate?: string | null;
+  pricingMode?: AppliedPricingMode | string | null;
+  rateSource?: string | null;
+  rateSources?: Array<{ source: string; rate: string }> | null;
+  referenceRate?: string | null;
+  referenceSource?: string | null;
+  rateWarning?: string | null;
+  rateFetchedAt?: string | null;
+  quoteExpiresAt?: string | null;
+  payAmountBaseUnits?: string | null;
+  assetDecimals?: number | null;
   /** ISO-8601 timestamp */
   expiresAt: string;
   /** ISO-8601 timestamp */

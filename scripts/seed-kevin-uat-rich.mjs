@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Kevin UAT rich history — extra merchants, cashiers, 3-month orders,
- * service bills (volume-aligned), and commission payouts.
+ * dense last-30-day volume (dashboard chart/KPI graphics), service bills
+ * (volume-aligned), and commission payouts.
  *
  * Prerequisites: seed-local + seed-kevin-uat.
  * Idempotent: ON CONFLICT / skip when month bill exists.
@@ -38,6 +39,20 @@ const ONBOARD_AT = "2026-06-01T00:00:00.000Z";
 const HISTORY_MONTHS = 3;
 const MIN_CASHIERS = 4;
 const BILL_REF_PREFIX = "kevin-uat-bill-";
+
+/**
+ * Dashboard Networks & Assets preview pairs (platform dash filters).
+ * Dense volume is spread across these so Network/Asset dropdowns show real charts.
+ */
+const DASHBOARD_VOLUME_PAIRS = [
+  { asset: "USDT", network: "tron" },
+  { asset: "TRX", network: "tron" },
+  { asset: "USDT", network: "ethereum" },
+  { asset: "USDC", network: "ethereum" },
+  { asset: "ETH", network: "ethereum" },
+  { asset: "USDT", network: "solana" },
+  { asset: "USDC", network: "solana" },
+];
 
 /** BIP32 test vector 1 public xPub — watch-only; never a spend key. */
 const VECTOR_XPUB =
@@ -604,7 +619,8 @@ async function seedOrderHistory(
       await pool.query(
         `INSERT INTO payment_orders (
            org_id, created_by, order_number, status, matching_mode,
-           payable_amount, receive_address, address_source, asset, network,
+           payable_amount, invoice_amount_usd, invoice_currency,
+           receive_address, address_source, asset, network,
            expires_at, required_confirmations,
            idempotency_key, idempotency_body_hash, merchant_metadata,
            created_at, updated_at,
@@ -612,7 +628,7 @@ async function seedOrderHistory(
          ) VALUES (
            $1, $2,
            'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-           'completed', $3, $4, $5, 'main',
+           'completed', $3, $4, $4, 'USD', $5, 'main',
            $6, $7, $8, 19,
            $9, $10, $11::jsonb,
            $12, $12,
@@ -656,7 +672,8 @@ async function seedOrderHistory(
       await pool.query(
         `INSERT INTO payment_orders (
            org_id, created_by, order_number, status, matching_mode,
-           payable_amount, receive_address, address_source, asset, network,
+           payable_amount, invoice_amount_usd, invoice_currency,
+           receive_address, address_source, asset, network,
            expires_at, required_confirmations,
            idempotency_key, idempotency_body_hash, merchant_metadata,
            created_at, updated_at,
@@ -664,7 +681,7 @@ async function seedOrderHistory(
          ) VALUES (
            $1, $2,
            'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-           $3, $4, $5, $6, 'main',
+           $3, $4, $5, $5, 'USD', $6, 'main',
            $7, $8, $9, 19,
            $10, $11, '{"seed":"kevin-uat-rich"}'::jsonb,
            $12, $12,
@@ -690,6 +707,76 @@ async function seedOrderHistory(
             : null,
           0,
           anomalyReason,
+        ],
+      );
+    }
+  }
+
+  // Dense last-30-day volume so dashboard sparklines + Transaction Volume chart render.
+  // Spread across dashboard Network×Asset pairs so filters (e.g. Tron/TRX) show data.
+  const wave = [420, 510, 380, 640, 720, 590, 880, 760, 910, 680, 540, 790, 860];
+  for (let daysBack = 29; daysBack >= 0; daysBack -= 1) {
+    const createdAt = new Date();
+    createdAt.setUTCHours(11 + (daysBack % 6), (daysBack * 11) % 60, 0, 0);
+    createdAt.setUTCDate(createdAt.getUTCDate() - daysBack);
+    const dayKey = createdAt.toISOString().slice(0, 10);
+    const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
+
+    for (let pi = 0; pi < DASHBOARD_VOLUME_PAIRS.length; pi += 1) {
+      slot += 1;
+      const pair = DASHBOARD_VOLUME_PAIRS[pi];
+      const amount = (
+        wave[daysBack % wave.length] +
+        (slot % 7) * 15 +
+        pi * 35 +
+        (daysBack % 5) * 12
+      ).toFixed(2);
+      const idem = `kevin-rich-${merchantKey}-daily-${dayKey}-${pair.asset}-${pair.network}`;
+      const bodyHash = createHash("sha256").update(idem).digest("hex");
+      const cashierId = cashierIds[slot % cashierIds.length] ?? ownerId;
+      const fromAddress = NILE_PAYER_WALLETS[slot % NILE_PAYER_WALLETS.length];
+      const txHash = createHash("sha256")
+        .update(`uat-tx-${idem}`)
+        .digest("hex");
+
+      await pool.query(
+        `INSERT INTO payment_orders (
+           org_id, created_by, order_number, status, matching_mode,
+           payable_amount, invoice_amount_usd, invoice_currency,
+           receive_address, address_source, asset, network,
+           expires_at, required_confirmations,
+           idempotency_key, idempotency_body_hash, merchant_metadata,
+           created_at, updated_at,
+           received_amount, tx_hash, confirmations, from_address, confirmed_at
+         ) VALUES (
+           $1, $2,
+           'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
+           'completed', $3, $4, $4, 'USD', $5, 'main',
+           $6, $7, $8, 19,
+           $9, $10, $11::jsonb,
+           $12, $12,
+           $4, $13, 19, $14, $12
+         )
+         ON CONFLICT (org_id, idempotency_key) DO NOTHING`,
+        [
+          orgId,
+          cashierId,
+          matchingMode,
+          amount,
+          receiveAddress,
+          pair.asset,
+          pair.network,
+          expiresAt.toISOString(),
+          idem,
+          bodyHash,
+          JSON.stringify({
+            seed: "kevin-uat-rich",
+            daily: dayKey,
+            pair: `${pair.asset}:${pair.network}`,
+          }),
+          createdAt.toISOString(),
+          txHash,
+          fromAddress,
         ],
       );
     }
@@ -935,6 +1022,27 @@ async function main() {
         status,
       });
     }
+  }
+
+  // Align paid_at into the recent window so Platform Fees "collected" shows on 7d/30d.
+  console.log("Aligning paid bill timestamps for dashboard fee cards…");
+  const { rows: paidBills } = await pool.query(
+    `SELECT id FROM service_bills
+     WHERE status = 'paid' AND payment_reference LIKE $1
+     ORDER BY period_start DESC`,
+    [`${BILL_REF_PREFIX}%`],
+  );
+  for (let i = 0; i < paidBills.length; i += 1) {
+    const daysAgo = 2 + (i % 12);
+    const paidAt = new Date();
+    paidAt.setUTCDate(paidAt.getUTCDate() - daysAgo);
+    paidAt.setUTCHours(15, 30, 0, 0);
+    await pool.query(
+      `UPDATE service_bills
+       SET paid_at = $2::timestamptz, updated_at = now()
+       WHERE id = $1`,
+      [paidBills[i].id, paidAt.toISOString()],
+    );
   }
 
   console.log("Syncing commission payouts from paid volume fees…");

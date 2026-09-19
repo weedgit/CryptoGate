@@ -37,6 +37,10 @@ const NotificationsSettingsPage = lazyNamed(
   () => import("./NotificationsSettingsPage"),
   "NotificationsSettingsPage",
 );
+const PricingSettingsPage = lazyNamed(
+  () => import("./PricingSettingsPage"),
+  "PricingSettingsPage",
+);
 const TeamSettingsPage = lazyNamed(
   () => import("./TeamSettingsPage"),
   "TeamSettingsPage",
@@ -184,6 +188,14 @@ export function MerchantApp() {
           element={
             <OwnerOnly session={session} area="notification settings">
               <NotificationsSettingsPage session={session} />
+            </OwnerOnly>
+          }
+        />
+        <Route
+          path="settings/pricing"
+          element={
+            <OwnerOnly session={session} area="pricing settings">
+              <PricingSettingsPage session={session} />
             </OwnerOnly>
           }
         />

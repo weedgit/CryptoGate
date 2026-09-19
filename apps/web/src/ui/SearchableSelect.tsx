@@ -33,6 +33,8 @@ type Props = {
   ariaLabel?: string;
   /** When true, option icons appear in the menu only — not in the closed trigger. */
   hideTriggerIcon?: boolean;
+  /** Floor for portal menu width (avoids clipping long option labels). */
+  menuMinWidth?: number;
 };
 
 type MenuPos = { top: number; left: number; width: number; maxHeight: number };
@@ -52,6 +54,7 @@ export function SearchableSelect({
   invalid = false,
   ariaLabel,
   hideTriggerIcon = false,
+  menuMinWidth = 0,
 }: Props) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -79,7 +82,7 @@ export function SearchableSelect({
     });
   }, [options, query]);
 
-  const showSearch = options.length > 5;
+  const showSearch = options.length > 4;
 
   const updatePos = () => {
     const el = triggerRef.current;
@@ -90,10 +93,13 @@ export function SearchableSelect({
     const spaceAbove = rect.top - gap;
     const preferBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
     const maxHeight = Math.min(280, Math.max(140, preferBelow ? spaceBelow : spaceAbove));
+    const width = Math.max(rect.width, menuMinWidth);
+    const maxLeft = Math.max(8, window.innerWidth - width - 8);
+    const left = Math.min(Math.max(8, rect.left), maxLeft);
     setPos({
       top: preferBelow ? rect.bottom + gap : Math.max(8, rect.top - gap - maxHeight),
-      left: rect.left,
-      width: rect.width,
+      left,
+      width,
       maxHeight,
     });
   };
@@ -108,7 +114,7 @@ export function SearchableSelect({
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open]);
+  }, [open, menuMinWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,6 +152,7 @@ export function SearchableSelect({
         top: pos.top,
         left: pos.left,
         width: pos.width,
+        minWidth: pos.width,
         maxHeight: pos.maxHeight,
       }
     : undefined;

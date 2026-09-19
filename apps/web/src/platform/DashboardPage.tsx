@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,9 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "react-router-dom";
-import { NetworkId } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
-import { GateLogoMark } from "../auth/GateLogoMark";
 import { platformRoute } from "../shared/portalRouting";
 import {
   useDashboardLiveEvents,
@@ -20,6 +17,7 @@ import {
 } from "../shared/useDashboardLiveEvents";
 import {
   ApiError,
+  getBackupStatus,
   getPlatformDashboardSummary,
   getPlatformOrgs,
   getPlatformOrders,
@@ -27,6 +25,7 @@ import {
   peekPlatformOrgs,
   peekPlatformOrders,
   peekPlatformServiceBills,
+  type BackupStatus,
   type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
@@ -41,14 +40,13 @@ import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
 import { ChartHelpButton } from "./ui/ChartHelpButton";
-import { VolumeScopeToggle } from "./ui/VolumeScopeToggle";
+import { VolumeFilterSelect } from "./ui/VolumeFilterSelect";
 import {
-  chartTitleFromFilter,
-  isSameSelection,
+  chartFilterAsset,
+  chartFilterDetail,
   matchesVolumeFilter,
   volumeFilterFromSelection,
   type VolumeChartFilter,
-  type VolumeScope,
   type VolumeSelection,
 } from "./volumeFilter";
 import {
@@ -201,6 +199,43 @@ function buildUtcDayKeys(from: Date, to: Date): string[] {
   return dayKeys;
 }
 
+/** Local hour bucket — e.g. `2026-09-20T14`. */
+function toHourKey(d: Date): string {
+  return `${toDateInputValue(d)}T${String(d.getHours()).padStart(2, "0")}`;
+}
+
+function isHourKey(key: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}$/.test(key);
+}
+
+function isSingleCalendarDay(from: Date, to: Date): boolean {
+  return toDateInputValue(from) === toDateInputValue(to);
+}
+
+/**
+ * Hourly keys from 00:00 of `from` through the last elapsed hour
+ * (capped by `to` and now — no empty future hours for Today).
+ */
+function buildHourKeys(from: Date, to: Date, now = new Date()): string[] {
+  const keys: string[] = [];
+  const cursor = startOfDay(from);
+  cursor.setMinutes(0, 0, 0);
+  const endCap = new Date(Math.min(to.getTime(), now.getTime()));
+  const endHour = new Date(endCap);
+  endHour.setMinutes(0, 0, 0);
+  while (cursor.getTime() <= endHour.getTime()) {
+    keys.push(toHourKey(cursor));
+    cursor.setHours(cursor.getHours() + 1);
+  }
+  if (keys.length === 0) keys.push(toHourKey(startOfDay(from)));
+  return keys;
+}
+
+function buildChartKeys(from: Date, to: Date): string[] {
+  if (isSingleCalendarDay(from, to)) return buildHourKeys(from, to);
+  return buildDayKeys(from, to);
+}
+
 function normalizeVolumeDayKey(raw: string): string {
   const s = String(raw ?? "");
   const iso = /^(\d{4}-\d{2}-\d{2})/.exec(s);
@@ -223,7 +258,7 @@ function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] }
     from.setDate(from.getDate() - 29);
   }
 
-  return { from, to, dayKeys: buildDayKeys(from, to) };
+  return { from, to, dayKeys: buildChartKeys(from, to) };
 }
 
 function inWindow(iso: string | null | undefined, from: Date, to: Date): boolean {
@@ -233,11 +268,16 @@ function inWindow(iso: string | null | undefined, from: Date, to: Date): boolean
   return t >= from.getTime() && t <= to.getTime();
 }
 
-function dayKey(iso: string | null | undefined): string | null {
+/** Day or hour bucket key matching `keys` granularity. */
+function seriesBucketKey(
+  iso: string | null | undefined,
+  hourly: boolean,
+): string | null {
   if (!iso) return null;
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return null;
-  return toDateInputValue(new Date(t));
+  const d = new Date(t);
+  return hourly ? toHourKey(d) : toDateInputValue(d);
 }
 
 function isSettledOrder(status: string): boolean {
@@ -331,40 +371,39 @@ function pausedOrgIdsFromOrgs(orgs: OrgAccount[]): Set<string> {
   return paused;
 }
 
+function orderVolumeUsd(o: PaymentOrder): number {
+  const raw = o.invoiceAmountUsd ?? o.payableAmount?.amount;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Native token amount settled (received) or quoted payable. */
+function orderVolumeAsset(o: PaymentOrder): number {
+  const raw = o.receivedAmount?.amount ?? o.payableAmount?.amount;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function volumeSeries(
   orders: PaymentOrder[],
   days: string[],
   filter: VolumeChartFilter = { scope: "all" },
   orgScope: Set<string> | null = null,
+  mode: "usd" | "asset" = "usd",
 ): number[] {
+  const hourly = days.length > 0 && isHourKey(days[0]!);
   const map = new Map(days.map((d) => [d, 0]));
+  const amountOf = mode === "asset" ? orderVolumeAsset : orderVolumeUsd;
   for (const o of orders) {
     if (!isSettledOrder(o.status)) continue;
     if (!matchesVolumeFilter(o, filter)) continue;
     if (orgScope && (!o.orgId || !orgScope.has(o.orgId))) continue;
-    const key = dayKey(o.expiresAt);
+    const key = seriesBucketKey(o.expiresAt, hourly);
     if (!key || !map.has(key)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) map.set(key, (map.get(key) ?? 0) + n);
+    const n = amountOf(o);
+    if (n) map.set(key, (map.get(key) ?? 0) + n);
   }
   return days.map((d) => map.get(d) ?? 0);
-}
-
-function filteredVolumeTotal(
-  orders: PaymentOrder[],
-  from: Date,
-  to: Date,
-  filter: VolumeChartFilter,
-): number {
-  let total = 0;
-  for (const o of orders) {
-    if (!isSettledOrder(o.status)) continue;
-    if (!matchesVolumeFilter(o, filter)) continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
 }
 
 function orgFeeTotal(
@@ -395,8 +434,8 @@ function orgVolumeTotal(
     if (!isSettledOrder(o.status)) continue;
     if (!o.orgId || !orgScope.has(o.orgId)) continue;
     if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
+    const n = orderVolumeUsd(o);
+    if (n) total += n;
   }
   return total;
 }
@@ -462,8 +501,8 @@ function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
   for (const o of orders) {
     if (!isSettledOrder(o.status)) continue;
     if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
+    const n = orderVolumeUsd(o);
+    if (n) total += n;
   }
   return total;
 }
@@ -481,6 +520,21 @@ function periodSettledOrderCount(
     if (isSettledOrder(o.status)) settled += 1;
   }
   return { settled, total };
+}
+
+/** Daily event counts aligned to `days` (same key format as `dayKey`). */
+function dailyCountSeries(
+  timestamps: Iterable<string | null | undefined>,
+  days: string[],
+): number[] {
+  const hourly = days.length > 0 && isHourKey(days[0]!);
+  const map = new Map(days.map((d) => [d, 0]));
+  for (const ts of timestamps) {
+    const key = seriesBucketKey(ts, hourly);
+    if (!key || !map.has(key)) continue;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return days.map((d) => map.get(d) ?? 0);
 }
 
 function seriesTrendPct(values: number[]): number | null {
@@ -531,17 +585,30 @@ function MiniSpark({
         preserveAspectRatio="none"
       >
         <defs>
-          <linearGradient id={`pg-spark-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.52" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0.06" />
+          <linearGradient
+            id={`pg-spark-${gradId}`}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+            gradientUnits="objectBoundingBox"
+          >
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.45" />
+            <stop offset="50%" stopColor="currentColor" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <polygon points={geometry.area} fill={`url(#pg-spark-${gradId})`} />
+        <polygon
+          className="pg-kpi__spark-fill"
+          points={geometry.area}
+          fill={`url(#pg-spark-${gradId})`}
+        />
         <polyline
+          className="pg-kpi__spark-line"
           points={geometry.line}
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.65"
+          strokeWidth="1.85"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="nonScalingStroke"
@@ -597,6 +664,19 @@ function DashKpiCard({
   href?: string;
   linkLabel?: string;
 }) {
+  const meta =
+    trend != null ? (
+      <span className={`pg-kpi__trend${trend >= 0 ? " is-up" : " is-down"}`}>
+        <span className="pg-kpi__trend-pct">
+          {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+        </span>
+        <span className="pg-kpi__trend-sub">vs prior</span>
+      </span>
+    ) : hint ? (
+      <span className="pg-kpi__hint">{hint}</span>
+    ) : null;
+  const hasSpark = Boolean(spark && spark.length > 1);
+
   return (
     <div className={`pg-kpi is-${accent}`}>
       <div className="pg-kpi__top">
@@ -607,18 +687,14 @@ function DashKpiCard({
       </div>
       <div className="pg-kpi__metrics">
         <span className="pg-kpi__value">{value}</span>
-        {trend != null ? (
-          <span className={`pg-kpi__trend${trend >= 0 ? " is-up" : " is-down"}`}>
-            <span className="pg-kpi__trend-pct">
-              {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
-            </span>
-            <span className="pg-kpi__trend-sub">vs prior</span>
-          </span>
-        ) : hint ? (
-          <span className="pg-kpi__hint">{hint}</span>
-        ) : null}
+        {!hasSpark && meta ? <div className="pg-kpi__meta-inline">{meta}</div> : null}
       </div>
-      {spark && spark.length > 1 ? <MiniSpark values={spark} /> : null}
+      {hasSpark ? (
+        <div className="pg-kpi__spark-block">
+          {meta ? <div className="pg-kpi__meta">{meta}</div> : null}
+          <MiniSpark values={spark!} />
+        </div>
+      ) : null}
       {href && linkLabel ? (
         <Link to={href} className="pg-kpi__link">
           <span className="pg-kpi__link-text">{linkLabel}</span>
@@ -633,26 +709,39 @@ function DashKpiCard({
 
 function DashKpiIcon({ accent }: { accent: KpiAccent }) {
   const p = {
-    width: 22,
-    height: 22,
+    width: 36,
+    height: 36,
     viewBox: "0 0 24 24",
-    fill: "none" as const,
+    fill: "currentColor" as const,
     "aria-hidden": true,
   };
   if (accent === "blue") {
-    /* Merchants — storefront (matches MerchantsNavIcon) */
+    /* Merchants — bank building asset */
     return (
-      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9 12 3l9 6" />
-        <path d="M5 10v10h14V10" />
-        <path d="M9 20v-6h6v6" />
-      </svg>
+      <img
+        className="pg-kpi__icon-img"
+        src="/brand/merchants-icon.png"
+        alt=""
+        width={36}
+        height={36}
+        draggable={false}
+      />
     );
   }
   if (accent === "teal") {
-    /* Agents — people (matches AgentsNavIcon) */
+    /* Agents — people outline (original) */
     return (
-      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width={36}
+        height={36}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -661,96 +750,50 @@ function DashKpiIcon({ accent }: { accent: KpiAccent }) {
     );
   }
   if (accent === "gold") {
-    /* Mockup: check in circle / badge */
+    /* Transactions — stacked coins asset */
     return (
-      <svg {...p}>
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-        <path
-          d="M8.2 12.15 10.7 14.6 15.9 9.2"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <img
+        className="pg-kpi__icon-img"
+        src="/brand/transactions-icon.png"
+        alt=""
+        width={36}
+        height={36}
+        draggable={false}
+      />
     );
   }
   if (accent === "violet") {
-    /* Volume — Lucide trending-up */
+    /* Volume — filled trending-up */
     return (
-      <svg {...p} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <polyline points="16 7 22 7 22 13" />
+      <svg {...p}>
+        <path d="M21.5 6.2v5.6h-1.9V9.45l-6.55 6.55-3.4-3.4-5.9 5.9-1.35-1.35 7.25-7.25 3.4 3.4 5.2-5.2H15.9V6.2h5.6Z" />
       </svg>
     );
   }
   if (accent === "ok") {
     return (
       <svg {...p}>
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-        <path
-          d="M8.2 12.15 10.7 14.6 15.9 9.2"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.05 13.55-3.55-3.55 1.45-1.45 2.1 2.1 4.55-4.55 1.45 1.45-6 6Z" />
       </svg>
     );
   }
   if (accent === "danger") {
     return (
       <svg {...p}>
-        <path
-          d="M12 3.4 21.2 19.6H2.8L12 3.4Z"
-          fill="currentColor"
-          opacity="0.2"
-        />
-        <path
-          d="M12 3.4 21.2 19.6H2.8L12 3.4Z"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path d="M12 9.2v4.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="12" cy="16.6" r="1.15" fill="currentColor" />
+        <path d="M12 2.6 22.2 20.4H1.8L12 2.6Zm-.95 6.3v5.2h1.9V8.9h-1.9Zm.95 8.55a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z" />
       </svg>
     );
   }
   if (accent === "warn") {
     return (
       <svg {...p}>
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2" />
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M12 7.4v5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="12" cy="15.9" r="1.15" fill="currentColor" />
+        <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-.95 5.4v5.6h1.9V7.4h-1.9Zm.95 9.35a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z" />
       </svg>
     );
   }
   return (
     <svg {...p}>
-      <path
-        d="M12 3.2 19.6 7.4v9.2L12 20.8 4.4 16.6V7.4L12 3.2Z"
-        fill="currentColor"
-        opacity="0.22"
-      />
-      <path
-        d="M12 3.2 19.6 7.4 12 11.6 4.4 7.4 12 3.2Z"
-        fill="currentColor"
-        opacity="0.9"
-      />
-      <path
-        d="M12 11.6 19.6 7.4v9.2L12 20.8V11.6Z"
-        fill="currentColor"
-        opacity="0.7"
-      />
-      <path
-        d="M12 11.6 4.4 7.4v9.2L12 20.8V11.6Z"
-        fill="currentColor"
-        opacity="0.52"
-      />
+      <path d="M12 2.8 20.2 7.4v9.2L12 21.2 3.8 16.6V7.4L12 2.8Zm0 2.2L5.7 8.55 12 12.1l6.3-3.55L12 5ZM5.7 10.65v5.2L11.05 19V13.8L5.7 10.65Zm7.35 3.15V19l5.35-3.15v-5.2L13.05 13.8Z" />
     </svg>
   );
 }
@@ -791,6 +834,30 @@ function seriesFromVolumeByDay(
   return series;
 }
 
+function isFlatZeroSeries(values: number[]): boolean {
+  return values.length > 0 && values.every((v) => !v);
+}
+
+/** Keep axis labels while loading — empty values so VolumeChart draws no line. */
+function pendingVolumeChart(labels: string[]): {
+  series: number[];
+  dayLabels: string[];
+} {
+  return { series: [], dayLabels: labels };
+}
+
+function sameChartWindow(
+  held: { dayLabels: string[] },
+  labels: string[],
+): boolean {
+  return (
+    held.dayLabels.length === labels.length &&
+    held.dayLabels[0] === labels[0] &&
+    held.dayLabels[held.dayLabels.length - 1] ===
+      labels[labels.length - 1]
+  );
+}
+
 /** Volume fees paid in period — collected platform fees. */
 function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
   let total = 0;
@@ -828,15 +895,6 @@ function formatUpdatedClock(ts: number): string {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function PeriodUsd({ n }: { n: number }) {
-  return (
-    <>
-      {formatMoneyFigure(n)}
-      <span className="dash-chart-panel__period-unit">USD</span>
-    </>
-  );
 }
 
 function formatAxisUsd(n: number): string {
@@ -1008,6 +1066,7 @@ export function DashboardPage({ session }: Props) {
   const lastFetchAt = useRef(0);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [pairsReloadToken, setPairsReloadToken] = useState(0);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
@@ -1020,13 +1079,17 @@ export function DashboardPage({ session }: Props) {
   >([]);
   /** Total-scope chart waits for SQL volumeByDay so we don't flash orders→SQL. */
   const [sqlVolumeReady, setSqlVolumeReady] = useState(false);
+  /** Orders applied for this period — unlocks Today/hourly chart without waiting on summary/commissions. */
+  const [ordersReady, setOrdersReady] = useState(false);
   const heldVolumeChartRef = useRef<{
     series: number[];
     dayLabels: string[];
-    chartPeriodTotal: number;
   } | null>(null);
-  const [volumeScope, setVolumeScope] = useState<VolumeScope>("total");
-  const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(null);
+  const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(
+    null,
+  );
+  /** When an asset is selected: compare USD (convert rate) vs native asset on two axes. */
+  const [compareUsdAsset, setCompareUsdAsset] = useState(false);
   const [volumeMaximized, setVolumeMaximized] = useState(false);
   const [volumeZoomed, setVolumeZoomed] = useState(false);
   const [volumeFsZoomed, setVolumeFsZoomed] = useState(false);
@@ -1035,37 +1098,6 @@ export function DashboardPage({ session }: Props) {
   const [overviewIds, setOverviewIds] = useState<string[]>(() => loadOverviewIds());
   const [addChartsOpen, setAddChartsOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const chartPanelRef = useRef<HTMLDivElement>(null);
-  const healthCardRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const chartPanel = chartPanelRef.current;
-    const healthCard = healthCardRef.current;
-    if (!chartPanel || !healthCard) return;
-
-    const mq = window.matchMedia("(max-width: 1100px)");
-
-    const syncChartHeight = () => {
-      if (mq.matches) {
-        chartPanel.style.height = "";
-        return;
-      }
-      chartPanel.style.height = `${healthCard.getBoundingClientRect().height}px`;
-    };
-
-    syncChartHeight();
-    const observer = new ResizeObserver(syncChartHeight);
-    observer.observe(healthCard);
-    mq.addEventListener("change", syncChartHeight);
-    window.addEventListener("resize", syncChartHeight);
-
-    return () => {
-      observer.disconnect();
-      mq.removeEventListener("change", syncChartHeight);
-      window.removeEventListener("resize", syncChartHeight);
-      chartPanel.style.height = "";
-    };
-  }, [loading]);
 
   const onPeriodSelect = useCallback((id: PeriodId) => {
     const { from, to } = periodWindow(id);
@@ -1095,7 +1127,7 @@ export function DashboardPage({ session }: Props) {
     setError(null);
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
-    const dayKeys = buildDayKeys(from, to);
+    const dayKeys = buildChartKeys(from, to);
 
     const applyCore = (
       nextOrgs: OrgAccount[],
@@ -1140,8 +1172,9 @@ export function DashboardPage({ session }: Props) {
       setPeriodDayKeys(dayKeys);
     };
 
-    // Freeze Total chart until this fetch's summary arrives (avoids orders→SQL flash).
+    // Freeze Total chart until this fetch's volume source arrives (avoids zero→real flash).
     setSqlVolumeReady(false);
+    setOrdersReady(false);
 
     const cachedOrgs = peekPlatformOrgs();
     const cachedBills = peekPlatformServiceBills();
@@ -1150,6 +1183,7 @@ export function DashboardPage({ session }: Props) {
     if (hadCache) {
       applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? []);
       setHasLoaded(true);
+      setOrdersReady(true);
     }
 
     if (initialLoad.current) {
@@ -1161,14 +1195,40 @@ export function DashboardPage({ session }: Props) {
 
     const fetchOpts = force ? { force: true as const } : undefined;
     const orgsPromise = getPlatformOrgs(fetchOpts);
-    const ordersPromise = getPlatformOrders(fetchOpts);
+    const ordersPromise = getPlatformOrders(fetchOpts).then((nextOrders) => {
+      if (gen !== loadGen.current) return nextOrders;
+      // Unlock hourly/Today chart as soon as orders land — don't wait on summary/commissions.
+      setOrders(nextOrders);
+      setPeriodDayKeys(dayKeys);
+      setOrdersReady(true);
+      setHasLoaded(true);
+      return nextOrders;
+    });
     const billsPromise = getPlatformServiceBills(fetchOpts).catch(
       () => [] as ServiceBill[],
     );
     const summaryPromise = getPlatformDashboardSummary(
       from.toISOString(),
       to.toISOString(),
-    ).catch(() => null);
+    )
+      .then((summary) => {
+        if (gen !== loadGen.current) return summary;
+        // Unlock multi-day SQL volume chart as soon as summary lands.
+        if (summary) {
+          setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
+        } else {
+          setSummaryVolumeByDay([]);
+        }
+        setSqlVolumeReady(true);
+        return summary;
+      })
+      .catch(() => {
+        if (gen === loadGen.current) {
+          setSummaryVolumeByDay([]);
+          setSqlVolumeReady(true);
+        }
+        return null;
+      });
     const commissionsPromise = listCommissionPayouts({ payer: "platform" }).catch(
       () => [],
     );
@@ -1185,6 +1245,7 @@ export function DashboardPage({ session }: Props) {
       if (gen !== loadGen.current) return;
       applyCore(nextOrgs, nextOrders, nextBills);
       setHasLoaded(true);
+      setOrdersReady(true);
       setLoading(false);
 
       const monthKeys = commissionMonthKeys(from, to);
@@ -1210,7 +1271,6 @@ export function DashboardPage({ session }: Props) {
       commissionPaid = Math.round(commissionPaid * 100) / 100;
 
       if (summary) {
-        setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
         setStats((prev) => ({
           ...prev,
           newMerchants: summary.signups.newMerchants,
@@ -1224,7 +1284,6 @@ export function DashboardPage({ session }: Props) {
           commissionPaid,
         }));
       } else {
-        setSummaryVolumeByDay([]);
         setStats((prev) => ({
           ...prev,
           commissionOwed,
@@ -1246,6 +1305,7 @@ export function DashboardPage({ session }: Props) {
             : err.message
           : "Failed to load dashboard";
       setError(text);
+      setOrdersReady(true);
       setSqlVolumeReady(true);
     } finally {
       if (gen === loadGen.current) {
@@ -1415,6 +1475,21 @@ export function DashboardPage({ session }: Props) {
     void load({ force: true });
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const snap = await getBackupStatus();
+        if (!cancelled) setBackupStatus(snap);
+      } catch {
+        if (!cancelled) setBackupStatus(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pairsReloadToken]);
+
   const periodLabel =
     period === "custom"
       ? `${startDate} – ${endDate}`
@@ -1423,70 +1498,144 @@ export function DashboardPage({ session }: Props) {
   const chartWindow = useMemo(() => {
     const from = parseDateInput(startDate, false);
     const to = parseDateInput(endDate, true);
-    const keys = periodDayKeys.length ? periodDayKeys : buildDayKeys(from, to);
-    return { from, to, keys };
+    const hourly = isSingleCalendarDay(from, to);
+    const keys = hourly
+      ? buildHourKeys(from, to)
+      : periodDayKeys.length
+        ? periodDayKeys
+        : buildDayKeys(from, to);
+    return { from, to, keys, hourly };
   }, [startDate, endDate, periodDayKeys]);
 
-  const volumeFilter = useMemo(
-    () => volumeFilterFromSelection(volumeScope, volumeSelection),
-    [volumeScope, volumeSelection],
+  const volumeFilter: VolumeChartFilter = useMemo(
+    () => volumeFilterFromSelection(volumeSelection),
+    [volumeSelection],
   );
+  const chartDetail = chartFilterDetail(volumeFilter);
+  const selectedAsset = chartFilterAsset(volumeFilter);
+  const canCompareUsdAsset = selectedAsset != null;
 
-  const onVolumeSelect = useCallback((selection: VolumeSelection) => {
-    setVolumeSelection((prev) => {
-      if (prev && isSameSelection(prev, selection)) {
-        setVolumeScope("total");
-        return null;
+  useEffect(() => {
+    if (!canCompareUsdAsset) setCompareUsdAsset(false);
+  }, [canCompareUsdAsset]);
+
+  /** Unfiltered platform volume — KPI sparks/trends stay stable when the chart asset changes. */
+  const { series: totalVolumeSeries, dayLabels: totalVolumeDayLabels } = useMemo(() => {
+    const { from, to, keys, hourly } = chartWindow;
+    const held = heldVolumeChartRef.current;
+
+    // Today / single-day: hour buckets from orders — SQL volumeByDay is day-only.
+    if (hourly) {
+      // Wait only for orders (not full dashboard load).
+      if (!ordersReady) {
+        if (held && sameChartWindow(held, keys) && held.series.length > 0) {
+          return held;
+        }
+        return pendingVolumeChart(keys);
       }
-      setVolumeScope("asset");
-      return selection;
-    });
-  }, []);
+      const next = {
+        series: volumeSeries(orders, keys, { scope: "all" }),
+        dayLabels: keys,
+      };
+      heldVolumeChartRef.current = next;
+      return next;
+    }
 
-  const onVolumeScopeChange = useCallback((scope: VolumeScope) => {
-    setVolumeScope(scope);
-  }, []);
-
-  const chartTitle = chartTitleFromFilter(volumeFilter);
-
-  const { series, dayLabels, chartPeriodTotal } = useMemo(() => {
-    const { from, to, keys } = chartWindow;
-    if (volumeFilter.scope === "all") {
-      if (!sqlVolumeReady) {
-        const held = heldVolumeChartRef.current;
-        if (held && held.dayLabels.length > 0) return held;
-        const sqlKeys = buildUtcDayKeys(from, to);
-        return {
-          series: sqlKeys.map(() => 0),
-          dayLabels: sqlKeys,
-          chartPeriodTotal: 0,
-        };
+    if (!sqlVolumeReady) {
+      const sqlKeys = keys.length ? keys : buildUtcDayKeys(from, to);
+      if (
+        held &&
+        held.series.length > 0 &&
+        !isFlatZeroSeries(held.series) &&
+        (sameChartWindow(held, sqlKeys) || sameChartWindow(held, keys))
+      ) {
+        return held;
       }
-      if (summaryVolumeByDay.length > 0) {
-        const sqlKeys = buildUtcDayKeys(from, to);
-        const next = {
-          series: seriesFromVolumeByDay(sqlKeys, summaryVolumeByDay),
-          dayLabels: sqlKeys,
-          chartPeriodTotal: stats.volume,
-        };
-        heldVolumeChartRef.current = next;
-        return next;
-      }
+      return pendingVolumeChart(sqlKeys);
+    }
+    if (summaryVolumeByDay.length > 0) {
+      const sqlKeys = buildUtcDayKeys(from, to);
+      const next = {
+        series: seriesFromVolumeByDay(sqlKeys, summaryVolumeByDay),
+        dayLabels: sqlKeys,
+      };
+      heldVolumeChartRef.current = next;
+      return next;
     }
     const next = {
-      series: volumeSeries(orders, keys, volumeFilter),
+      series: volumeSeries(orders, keys, { scope: "all" }),
       dayLabels: keys,
-      chartPeriodTotal: filteredVolumeTotal(orders, from, to, volumeFilter),
     };
-    if (volumeFilter.scope === "all") heldVolumeChartRef.current = next;
+    heldVolumeChartRef.current = next;
     return next;
+  }, [orders, chartWindow, summaryVolumeByDay, sqlVolumeReady, ordersReady]);
+
+  const {
+    series,
+    dayLabels,
+    secondarySeries,
+    valueUnit,
+    secondaryUnit,
+  } = useMemo(() => {
+    if (volumeFilter.scope === "all") {
+      return {
+        series: totalVolumeSeries,
+        dayLabels: totalVolumeDayLabels,
+        secondarySeries: undefined as number[] | undefined,
+        valueUnit: "usd" as const,
+        secondaryUnit: undefined as string | undefined,
+      };
+    }
+    const { keys, hourly } = chartWindow;
+    const ready = hourly ? ordersReady : sqlVolumeReady;
+    if (!ready) {
+      const pending = pendingVolumeChart(keys);
+      return {
+        ...pending,
+        secondarySeries: undefined as number[] | undefined,
+        valueUnit: "usd" as const,
+        secondaryUnit: undefined as string | undefined,
+      };
+    }
+
+    const asset = chartFilterAsset(volumeFilter);
+    if (asset) {
+      const assetSeries = volumeSeries(orders, keys, volumeFilter, null, "asset");
+      if (compareUsdAsset) {
+        return {
+          series: volumeSeries(orders, keys, volumeFilter, null, "usd"),
+          dayLabels: keys,
+          secondarySeries: assetSeries,
+          valueUnit: "usd" as const,
+          secondaryUnit: asset,
+        };
+      }
+      return {
+        series: assetSeries,
+        dayLabels: keys,
+        secondarySeries: undefined as number[] | undefined,
+        valueUnit: asset,
+        secondaryUnit: undefined as string | undefined,
+      };
+    }
+
+    // Network-only filter — stay in USD (mixed assets).
+    return {
+      series: volumeSeries(orders, keys, volumeFilter, null, "usd"),
+      dayLabels: keys,
+      secondarySeries: undefined as number[] | undefined,
+      valueUnit: "usd" as const,
+      secondaryUnit: undefined as string | undefined,
+    };
   }, [
     orders,
     chartWindow,
     volumeFilter,
-    summaryVolumeByDay,
-    stats.volume,
+    totalVolumeSeries,
+    totalVolumeDayLabels,
+    ordersReady,
     sqlVolumeReady,
+    compareUsdAsset,
   ]);
 
   const baseChartCatalog: OverviewChartCard[] = useMemo(() => {
@@ -1747,17 +1896,40 @@ export function DashboardPage({ session }: Props) {
     [orders, chartWindow.from, chartWindow.to],
   );
 
-  const volumeTrend = useMemo(() => seriesTrendPct(series), [series]);
+  const kpiSparks = useMemo(() => {
+    const days = chartWindow.keys.length
+      ? chartWindow.keys
+      : totalVolumeDayLabels;
+    const merchantSpark = dailyCountSeries(
+      orgs.filter((o) => isMerchantType(o.type)).map((o) => o.createdAt),
+      days,
+    );
+    const agentSpark = dailyCountSeries(
+      orgs.filter((o) => isAgentType(o.type)).map((o) => o.createdAt),
+      days,
+    );
+    const txSpark = dailyCountSeries(
+      orders
+        .filter((o) => isSettledOrder(o.status))
+        .map((o) => o.expiresAt),
+      days,
+    );
+    const volumeSpark =
+      totalVolumeSeries.length > 1 ? totalVolumeSeries : days.map(() => 0);
+    return {
+      merchants: merchantSpark,
+      agents: agentSpark,
+      transactions: txSpark,
+      volume: volumeSpark,
+      txTrend: seriesTrendPct(txSpark),
+      volumeTrend: seriesTrendPct(volumeSpark),
+    };
+  }, [orgs, orders, chartWindow.keys, totalVolumeSeries, totalVolumeDayLabels]);
 
   const successRate =
     orderCounts.total > 0
       ? Math.round((orderCounts.settled / orderCounts.total) * 1000) / 10
       : 100;
-
-  const sparkSeed = useMemo(() => {
-    if (series.length > 1) return series;
-    return [2, 3, 2.4, 4, 3.6, 5, 4.2, 6];
-  }, [series]);
 
   if (loading && !hasLoaded) {
     return <PagePending />;
@@ -1799,7 +1971,7 @@ export function DashboardPage({ session }: Props) {
               ? `+${stats.newMerchants} new in period`
               : `${stats.merchants.active} active`
           }
-          spark={sparkSeed.map((v, i) => v * (0.7 + ((i * 17) % 5) * 0.08))}
+          spark={kpiSparks.merchants}
           href={platformRoute("accounts/merchants")}
           linkLabel="View Merchants"
         />
@@ -1812,7 +1984,7 @@ export function DashboardPage({ session }: Props) {
               ? `+${stats.newAgents} new in period`
               : `${stats.agents.active} active`
           }
-          spark={sparkSeed.map((v, i) => v * (0.85 + ((i * 13) % 4) * 0.06))}
+          spark={kpiSparks.agents}
           href={platformRoute("accounts/agents")}
           linkLabel="View Agents"
         />
@@ -1820,8 +1992,8 @@ export function DashboardPage({ session }: Props) {
           accent="gold"
           label="Total Transactions"
           value={orderCounts.settled.toLocaleString()}
-          trend={volumeTrend}
-          spark={sparkSeed}
+          trend={kpiSparks.txTrend}
+          spark={kpiSparks.transactions}
           href={platformRoute("compliance")}
           linkLabel="View Transactions"
         />
@@ -1833,28 +2005,22 @@ export function DashboardPage({ session }: Props) {
               ${formatMoneyFigureFixed(stats.volume)}
             </span>
           }
-          trend={volumeTrend}
-          spark={series.length > 1 ? series : sparkSeed}
+          trend={kpiSparks.volumeTrend}
+          spark={kpiSparks.volume}
           href={platformRoute("service-bills")}
           linkLabel="View Volume"
         />
         <div className="pg-feature" aria-label="Platform fees collected">
           <div className="pg-feature__top">
             <span className="pg-feature__icon" aria-hidden>
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="5" width="20" height="14" rx="2" />
-                <path d="M2 10h20" />
-                <path d="M6 15h4" />
-              </svg>
+              <img
+                className="pg-feature__icon-img"
+                src="/brand/wallet-icon.png"
+                alt=""
+                width={40}
+                height={40}
+                draggable={false}
+              />
             </span>
             <p className="pg-feature__kicker">Platform fees</p>
           </div>
@@ -1889,28 +2055,47 @@ export function DashboardPage({ session }: Props) {
 
       <div className="dash-split pg-dash__split">
         <div
-          ref={chartPanelRef}
           className="panel dash-chart-panel glass-tone-slate pg-chart-panel"
         >
           <div className="dash-chart-panel__head">
             <div className="dash-chart-panel__title-row">
               <div className="pg-chart-panel__heading">
-                <h2>Transaction Volume</h2>
-                <p>Total successful transaction volume over time.</p>
+                <span className="pg-chart-panel__title-icon" aria-hidden>
+                  <img
+                    className="pg-chart-panel__title-icon-img"
+                    src="/brand/volume-chart-icon.png"
+                    alt=""
+                    width={48}
+                    height={48}
+                    draggable={false}
+                  />
+                </span>
+                <div className="pg-chart-panel__heading-text">
+                  <h2>Transaction Volume</h2>
+                  <p>
+                    {chartDetail
+                      ? compareUsdAsset
+                        ? `USD (convert rate) vs ${selectedAsset} over time.`
+                        : `Successful ${chartDetail} volume over time.`
+                      : "Total successful transaction volume over time."}
+                  </p>
+                </div>
               </div>
               <div className="dash-chart-panel__filters">
-                <VolumeScopeToggle
-                  scope={volumeScope}
+                <VolumeFilterSelect
                   selection={volumeSelection}
-                  onScopeChange={onVolumeScopeChange}
+                  onChange={setVolumeSelection}
                 />
-              </div>
-              <div className="dash-chart-panel__title-main">
-                <p className="dash-chart-panel__period-total" aria-label="Period total volume">
-                  <span className="dash-chart-panel__period-value">
-                    <PeriodUsd n={chartPeriodTotal} />
-                  </span>
-                </p>
+                {canCompareUsdAsset ? (
+                  <label className="volume-compare-toggle">
+                    <input
+                      type="checkbox"
+                      checked={compareUsdAsset}
+                      onChange={(e) => setCompareUsdAsset(e.target.checked)}
+                    />
+                    <span>USD + {selectedAsset}</span>
+                  </label>
+                ) : null}
               </div>
               <div className="dash-chart-panel__tools">
                 <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
@@ -1953,6 +2138,9 @@ export function DashboardPage({ session }: Props) {
           <VolumeChart
             values={series}
             labels={dayLabels}
+            secondaryValues={secondarySeries}
+            valueUnit={valueUnit}
+            secondaryUnit={secondaryUnit}
             showZoomBar={false}
             onZoomedChange={setVolumeZoomed}
             zoomApiRef={volumeZoomApiRef}
@@ -1960,35 +2148,47 @@ export function DashboardPage({ session }: Props) {
         </div>
 
         <div
-          ref={healthCardRef}
-          className="panel glass-tone-emerald plat-health-card pg-networks-panel"
+          className="panel glass-tone-slate plat-health-card pg-networks-panel"
         >
           <div className="pg-networks-panel__head">
             <div className="pg-networks-panel__title-row">
               <div className="pg-networks-panel__titles">
-                <h2>Networks &amp; Assets</h2>
-                <p>Live settlement rails</p>
+                <h2>
+                  <span className="pg-networks-panel__title-icon" aria-hidden>
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="6" cy="7" r="2.25" />
+                      <circle cx="18" cy="7" r="2.25" />
+                      <circle cx="12" cy="17" r="2.25" />
+                      <path d="M8 7h8" />
+                      <path d="M7.2 8.6 10.8 15" />
+                      <path d="M16.8 8.6 13.2 15" />
+                    </svg>
+                  </span>
+                  Networks &amp; Assets
+                </h2>
               </div>
               <Link
                 to={platformRoute("settings/networks")}
                 className="pg-networks-panel__more"
               >
-                More →
+                View All →
               </Link>
             </div>
           </div>
           <div className="plat-health-pairs">
             <AssetNetworkTables
               compact
-              selection={volumeSelection}
-              volumeScope={volumeScope}
-              onSelect={onVolumeSelect}
+              sortable={false}
               reloadToken={pairsReloadToken}
-              networkIds={[
-                NetworkId.Tron,
-                NetworkId.Ethereum,
-                NetworkId.Solana,
-              ]}
             />
           </div>
         </div>
@@ -2029,38 +2229,68 @@ export function DashboardPage({ session }: Props) {
           href={platformRoute("compliance")}
           linkLabel="Open queue"
         />
-        <div className="pg-cta">
-          <GateLogoMark size={36} className="pg-cta__mark" alt="" />
-          <div className="pg-cta__copy">
-            <strong>Scale faster with PaymentGate</strong>
-            <span>Grow agents, merchants, and settlement coverage.</span>
-          </div>
-          <Link className="pg-cta__btn" to={platformRoute("settings/team")}>
-            Contact Sales
-            <span aria-hidden>→</span>
-          </Link>
-        </div>
+        <DashKpiCard
+          accent={
+            backupStatus == null
+              ? "slate"
+              : backupStatus.status === "ok"
+                ? "ok"
+                : backupStatus.status === "stale"
+                  ? "warn"
+                  : backupStatus.status === "failed"
+                    ? "danger"
+                    : "slate"
+          }
+          label="DB Backup"
+          value={
+            backupStatus == null
+              ? "—"
+              : backupStatus.status === "ok"
+                ? "OK"
+                : backupStatus.status === "stale"
+                  ? "Stale"
+                  : backupStatus.status === "failed"
+                    ? "Failed"
+                    : "None"
+          }
+          hint={
+            backupStatus == null
+              ? "Checking backup…"
+              : backupStatus.detail
+          }
+          href={platformRoute("ops/health")}
+          linkLabel="View health"
+        />
       </div>
 
       <ChartMaximizeOverlay
         open={volumeMaximized}
-        title={chartTitle}
+        title={
+          chartDetail ? `Transaction Volume (${chartDetail})` : "Transaction Volume"
+        }
         onClose={() => setVolumeMaximized(false)}
         header={
           <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
+            <h2 className="chart-maximize-overlay__title">
+              {chartDetail
+                ? `Transaction Volume (${chartDetail})`
+                : "Transaction Volume"}
+            </h2>
             <div className="dash-chart-panel__filters">
-              <VolumeScopeToggle
-                scope={volumeScope}
+              <VolumeFilterSelect
                 selection={volumeSelection}
-                onScopeChange={onVolumeScopeChange}
+                onChange={setVolumeSelection}
               />
-            </div>
-            <div className="dash-chart-panel__title-main">
-              <p className="dash-chart-panel__period-total" aria-label="Period total volume">
-                <span className="dash-chart-panel__period-value">
-                  <PeriodUsd n={chartPeriodTotal} />
-                </span>
-              </p>
+              {canCompareUsdAsset ? (
+                <label className="volume-compare-toggle">
+                  <input
+                    type="checkbox"
+                    checked={compareUsdAsset}
+                    onChange={(e) => setCompareUsdAsset(e.target.checked)}
+                  />
+                  <span>USD + {selectedAsset}</span>
+                </label>
+              ) : null}
             </div>
             <div className="dash-chart-panel__tools">
               <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
@@ -2106,8 +2336,12 @@ export function DashboardPage({ session }: Props) {
         }
       >
         <VolumeChart
+          key={`vol-fs-${dayLabels[0] ?? ""}-${dayLabels.length}-${series.length}-${compareUsdAsset ? "cmp" : "one"}`}
           values={series}
           labels={dayLabels}
+          secondaryValues={secondarySeries}
+          valueUnit={valueUnit}
+          secondaryUnit={secondaryUnit}
           size="fullscreen"
           showZoomBar={false}
           onZoomedChange={setVolumeFsZoomed}

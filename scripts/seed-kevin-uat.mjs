@@ -314,7 +314,8 @@ async function ensureSampleOrders(
     await pool.query(
       `INSERT INTO payment_orders (
          org_id, created_by, order_number, status, matching_mode,
-         payable_amount, receive_address, address_source, asset, network,
+         payable_amount, invoice_amount_usd, invoice_currency,
+         receive_address, address_source, asset, network,
          expires_at, required_confirmations,
          idempotency_key, idempotency_body_hash, merchant_metadata,
          created_at, updated_at,
@@ -322,7 +323,7 @@ async function ensureSampleOrders(
        ) VALUES (
          $1, $2,
          'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-         $3, $4, $5, $6, 'main',
+         $3, $4, $5, $5, 'USD', $6, 'main',
          $7, $8, $9, 19,
          $10, $11, '{"seed":"kevin-uat"}'::jsonb,
          $12, $12,

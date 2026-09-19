@@ -452,6 +452,18 @@ export function OrderDetailPage({
   const status = order?.status ?? pay?.status ?? "pending_payment";
   const orderNumber = order?.orderNumber ?? pay?.orderNumber ?? id ?? "—";
   const amount = order?.payableAmount.amount ?? pay?.payableAmount.amount ?? "—";
+  const invoiceUsd =
+    order?.invoiceAmountUsd ?? pay?.invoiceAmountUsd ?? null;
+  const pricingRate = order?.pricingRate ?? pay?.pricingRate ?? null;
+  const rateSource = order?.rateSource ?? pay?.rateSource ?? null;
+  const pricingMode = order?.pricingMode ?? pay?.pricingMode ?? null;
+  const quoteExpiresAt =
+    order?.quoteExpiresAt ?? pay?.quoteExpiresAt ?? null;
+  const referenceRate =
+    order?.referenceRate ?? pay?.referenceRate ?? null;
+  const referenceSource =
+    order?.referenceSource ?? pay?.referenceSource ?? null;
+  const rateWarning = order?.rateWarning ?? pay?.rateWarning ?? null;
   const asset = order?.asset ?? pay?.asset ?? "USDT";
   const network = order?.network ?? pay?.network ?? "tron";
   const address = order?.receiveAddress ?? pay?.receiveAddress ?? "";
@@ -540,6 +552,35 @@ export function OrderDetailPage({
                   {amount} {asset}
                 </span>
               </span>
+              {invoiceUsd ? (
+                <>
+                  <span className="order-detail-topbar__sep" aria-hidden>
+                    ·
+                  </span>
+                  <span className="order-detail-topbar__net" title="Invoice">
+                    {order?.invoiceDenomination === "crypto" ||
+                    pay?.invoiceDenomination === "crypto"
+                      ? `${invoiceUsd ? `~$${invoiceUsd} USD · ` : ""}${amount} ${asset} (exact)`
+                      : `$${invoiceUsd} ${order?.invoiceCurrency === "EUR" || pay?.invoiceCurrency === "EUR" ? "USD equiv" : "USD"}${
+                          (order?.invoiceCurrency === "EUR" ||
+                            pay?.invoiceCurrency === "EUR") &&
+                          (order?.invoiceAmount || pay?.invoiceAmount)
+                            ? ` · ${order?.invoiceAmount ?? pay?.invoiceAmount} EUR`
+                            : ""
+                        }`}
+                    {pricingRate
+                      ? ` · 1 ${asset} = $${pricingRate}${rateSource ? ` (${rateSource})` : ""}${pricingMode ? ` · ${pricingMode}` : ""}${
+                          referenceRate
+                            ? ` · ref $${referenceRate}${referenceSource ? ` (${referenceSource})` : ""}`
+                            : ""
+                        }${rateWarning ? ` · ${rateWarning}` : ""}`
+                      : ""}
+                    {quoteExpiresAt && status === "pending_payment"
+                      ? ` · quote ${formatExpiryRemaining(quoteExpiresAt) ?? ""}`
+                      : ""}
+                  </span>
+                </>
+              ) : null}
               <span className="order-detail-topbar__sep" aria-hidden>
                 ·
               </span>
@@ -579,6 +620,14 @@ export function OrderDetailPage({
               matchingModeLabel: matchingModeLabel(mode),
               payableAmount: amount,
               receivedAmount: received ?? null,
+              invoiceAmountUsd: invoiceUsd,
+              pricingRate,
+              pricingMode,
+              rateSource,
+              referenceRate,
+              referenceSource,
+              rateWarning,
+              quoteExpiresAt,
               asset,
               network,
               networkLabel: networkLabel(network),

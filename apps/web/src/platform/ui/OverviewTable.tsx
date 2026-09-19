@@ -153,7 +153,7 @@ export function Sparkline({
   const baseline = h - padBottom;
   const safe = values.length ? values : [0, 0];
   const max = Math.max(...safe, 0);
-  const yTicks = niceAxisTicks(max, fullscreen ? 5 : 4);
+  const yTicks = niceAxisTicks(max, fullscreen ? 6 : 5);
   const yTop = chartScaleTop(max, fullscreen ? 5 : 4);
   const moneyAxis = /fee|volume|\$|usd/i.test(metric);
   const pts = safe.map((v, i) => {
@@ -408,6 +408,72 @@ export function Sparkline({
   );
 }
 
+export function MetricCardIcon({ id }: { id: string }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true as const,
+  };
+  if (id === "invoices") {
+    return (
+      <svg {...common}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M8 13h8" />
+        <path d="M8 17h6" />
+      </svg>
+    );
+  }
+  if (id === "fees") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v10" />
+        <path d="M9.5 9.5c.6-1 1.7-1.5 2.7-1.5 1.4 0 2.5.8 2.5 2s-1.1 2-2.5 2h-1c-1.4 0-2.5.8-2.5 2s1.1 2 2.5 2c1 0 2.1-.5 2.7-1.5" />
+      </svg>
+    );
+  }
+  if (id === "accounts") {
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+  if (id.startsWith("agent:")) {
+    return (
+      <svg {...common}>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    );
+  }
+  if (id.startsWith("merchant:")) {
+    return (
+      <svg {...common}>
+        <path d="M3 9h18l-1.5 11h-15z" />
+        <path d="M5 9V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M4 19V5" />
+      <path d="M4 19h16" />
+      <path d="M8 15l3-4 3 2 4-6" />
+    </svg>
+  );
+}
+
 export function OverviewChartCardView({
   card,
   selectMode,
@@ -432,6 +498,15 @@ export function OverviewChartCardView({
   onPointerDownDrag?: (e: ReactPointerEvent<HTMLElement>) => void;
 }) {
   const [maximized, setMaximized] = useState(false);
+  const accent = card.chartColor ?? "#9c84f0";
+  const accentStyle = {
+    "--chart-accent": accent,
+    "--chart-accent-soft": hexToRgba(accent, 0.45),
+    "--chart-accent-fill": hexToRgba(accent, 0.16),
+    "--chart-accent-border": hexToRgba(accent, 0.42),
+    "--chart-accent-glow": hexToRgba(accent, 0.14),
+    "--chart-accent-chip": hexToRgba(accent, 0.2),
+  } as CSSProperties;
 
   if (placeholder) {
     return (
@@ -456,6 +531,7 @@ export function OverviewChartCardView({
           .filter(Boolean)
           .join(" ")}
         data-chart-id={ghost ? undefined : card.id}
+        style={accentStyle}
         onPointerDown={editMode && !ghost ? onPointerDownDrag : undefined}
       >
         <div
@@ -466,7 +542,11 @@ export function OverviewChartCardView({
               <span className="overview-chart-card__grip" aria-hidden="true">
                 ⋮⋮
               </span>
-            ) : null}
+            ) : (
+              <span className="overview-chart-card__icon" aria-hidden>
+                <MetricCardIcon id={card.id} />
+              </span>
+            )}
             <h3 className="overview-chart-card__title">{card.title}</h3>
             {card.help && !editMode ? (
               <span className="overview-chart-card__info" title={card.help}>
@@ -474,20 +554,7 @@ export function OverviewChartCardView({
               </span>
             ) : null}
           </div>
-          {card.seriesStatus !== "pending" &&
-          card.seriesStatus !== "error" &&
-          !card.empty ? (
-            <p className="overview-chart-card__value">{card.value}</p>
-          ) : (
-            <span className="overview-chart-card__value-spacer" aria-hidden="true" />
-          )}
           <div className="overview-chart-card__actions">
-            {card.compareLabel &&
-            card.seriesStatus !== "pending" &&
-            card.seriesStatus !== "error" &&
-            !card.empty ? (
-              <p className="overview-chart-card__compare">{card.compareLabel}</p>
-            ) : null}
             {!selectMode &&
             !editMode &&
             !ghost &&
@@ -526,6 +593,19 @@ export function OverviewChartCardView({
           </div>
         </div>
 
+        {card.seriesStatus !== "pending" &&
+        card.seriesStatus !== "error" &&
+        !card.empty ? (
+          <div className="overview-chart-card__metrics">
+            <p className="overview-chart-card__value">{card.value}</p>
+            {card.compareLabel ? (
+              <p className="overview-chart-card__compare">{card.compareLabel}</p>
+            ) : null}
+          </div>
+        ) : (
+          <span className="overview-chart-card__value-spacer" aria-hidden="true" />
+        )}
+
         {card.seriesStatus === "pending" ? (
           <div className="overview-chart-card__pending" aria-busy="true">
             <div className="overview-chart-card__pending-chart" aria-hidden>
@@ -560,6 +640,7 @@ export function OverviewChartCardView({
           {card.moreHref && !selectMode && !editMode && card.seriesStatus !== "pending" ? (
             <Link to={card.moreHref} className="overview-chart-card__more">
               {card.moreLabel ?? "More details"}
+              <span aria-hidden> →</span>
             </Link>
           ) : (
             <span className="overview-chart-card__more overview-chart-card__more--muted">
@@ -751,7 +832,12 @@ export function OverviewTable({
       aria-label={title}
     >
       <header className="overview-charts__head">
-        <h2 className="overview-charts__title">{title}</h2>
+        <div className="overview-charts__heading">
+          <h2 className="overview-charts__title">{title}</h2>
+          <p className="overview-charts__subtitle">
+            Track your business performance in real time
+          </p>
+        </div>
         <div className="overview-charts__toolbar">
           {filters ? <div className="overview-charts__filters">{filters}</div> : null}
           {action ? <div className="overview-charts__actions">{action}</div> : null}

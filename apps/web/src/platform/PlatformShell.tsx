@@ -162,6 +162,12 @@ const NAV_GROUPS: NavGroup[] = [
         Icon: FeesNavIcon,
       },
       {
+        to: platformRoute("settings/rates"),
+        label: "Rates",
+        matchPrefix: platformRoute("settings/rates"),
+        Icon: FeesNavIcon,
+      },
+      {
         to: platformRoute("audit"),
         label: "Audit",
         matchPrefix: platformRoute("audit"),
@@ -232,6 +238,10 @@ export function PlatformShell({
 }: Props) {
   const location = useLocation();
   const readOnly = sessionIsPlatformViewerOnly(session);
+  const dashboardPath = platformRoute();
+  const onDashboard =
+    location.pathname === dashboardPath ||
+    location.pathname === `${dashboardPath}/`;
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -451,7 +461,8 @@ export function PlatformShell({
             <div className="topbar-leading" id="platform-topbar-leading" />
           </div>
           <div className="topbar-center">
-            <TopbarSearch placeholder="Search merchants, transactions, or accounts..." />
+            {/* Topbar search only dispatches an event; nothing on Dashboard listens. */}
+            {!onDashboard ? <TopbarSearch placeholder="Search" /> : null}
             <div className="topbar-center-slot" id="platform-topbar-center" />
           </div>
           <div className="topbar-right">

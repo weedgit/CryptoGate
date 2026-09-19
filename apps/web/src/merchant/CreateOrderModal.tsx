@@ -118,6 +118,8 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
   const navigate = useNavigate();
   const initial = defaultLivePair();
   const [amount, setAmount] = useState("");
+  const [denomination, setDenomination] = useState<"fiat" | "crypto">("fiat");
+  const [invoiceCurrency, setInvoiceCurrency] = useState<"USD" | "EUR">("USD");
   const [asset, setAsset] = useState<string>(initial.asset);
   const [network, setNetwork] = useState<string>(initial.network);
   const [validitySeconds, setValiditySeconds] = useState(1800);
@@ -271,7 +273,14 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
     setError(null);
     try {
       const order = await createOrder({
-        amount: trimmed,
+        ...(denomination === "crypto"
+          ? { amountCrypto: trimmed, invoiceDenomination: "crypto" }
+          : {
+              amountUsd: trimmed,
+              invoiceAmount: trimmed,
+              invoiceCurrency,
+              invoiceDenomination: "fiat",
+            }),
         asset,
         network,
         validitySeconds,
@@ -441,8 +450,51 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                 </aside>
               ) : null}
 
+              <div className="profile-settings-card__grid">
+                <label className="plat-settings__field" htmlFor="create-denom">
+                  <span>Invoice type</span>
+                  <select
+                    id="create-denom"
+                    className="plat-settings__input"
+                    value={denomination}
+                    disabled={loading || formLocked}
+                    onChange={(e) =>
+                      setDenomination(e.target.value as "fiat" | "crypto")
+                    }
+                  >
+                    <option value="fiat">Fiat (USD / EUR)</option>
+                    <option value="crypto">Exact crypto amount</option>
+                  </select>
+                </label>
+                {denomination === "fiat" ? (
+                  <label className="plat-settings__field" htmlFor="create-ccy">
+                    <span>Currency</span>
+                    <select
+                      id="create-ccy"
+                      className="plat-settings__input"
+                      value={invoiceCurrency}
+                      disabled={loading || formLocked}
+                      onChange={(e) =>
+                        setInvoiceCurrency(e.target.value as "USD" | "EUR")
+                      }
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </label>
+                ) : (
+                  <p className="muted" style={{ alignSelf: "end" }}>
+                    Customer pays exactly this {asset} amount.
+                  </p>
+                )}
+              </div>
+
               <label className="plat-settings__field" htmlFor="create-amount">
-                <span>Payment amount</span>
+                <span>
+                  {denomination === "crypto"
+                    ? `Amount (${asset})`
+                    : `Invoice amount (${invoiceCurrency})`}
+                </span>
                 <FieldControl
                   icon="coins"
                   invalid={!!amountError}
@@ -465,7 +517,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                     aria-describedby={amountError ? "create-amount-error" : undefined}
                   />
                   <span className="create-order-amount__asset" aria-hidden="true">
-                    {asset}
+                    {denomination === "crypto" ? asset : invoiceCurrency}
                   </span>
                 </FieldControl>
                 {amountError ? (
@@ -587,13 +639,18 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
                 </div>
                 <div className="create-order-preview-card__amount">
                   <p className="create-order-preview-card__amount-label">
-                    Amount to send
+                    Invoice
                   </p>
                   <p className="create-order-preview-card__amount-value fund-amount">
                     {previewAmount}{" "}
                     <span className="create-order-preview-card__amount-unit">
-                      {asset}
+                      {denomination === "crypto" ? asset : invoiceCurrency}
                     </span>
+                  </p>
+                  <p className="create-order-preview-card__amount-label">
+                    {denomination === "crypto"
+                      ? "Exact crypto invoice"
+                      : `Pay with ${asset}`}
                   </p>
                 </div>
                 <p className="create-order-preview-card__network">

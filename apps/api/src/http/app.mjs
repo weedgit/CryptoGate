@@ -36,6 +36,7 @@ import {
   handleGetPaymentOrderOnChain,
   handleGetPaymentOrderPayment,
 } from "../orders/order-routes.mjs";
+import { handleRefreshPaymentOrderQuote } from "../orders/order-quote-routes.mjs";
 import { handleListPaymentOrders } from "../orders/order-list-routes.mjs";
 import {
   handleGetAgentDashboardSummary,
@@ -104,6 +105,13 @@ import {
   handlePutFeeTierSettings,
   handlePutPlatformOrgPolicy,
 } from "../platform-settings/platform-settings-routes.mjs";
+import {
+  handleGetMerchantPricingSettings,
+  handleGetPlatformPricingSettings,
+  handlePutMerchantPricingSettings,
+  handlePutPlatformPricingSettings,
+} from "../rates/pricing-settings-routes.mjs";
+import { handleGetBackupStatus } from "../ops/backup-status-routes.mjs";
 import { handleGetWatcherHealth } from "../ops/watcher-health-routes.mjs";
 import {
   handleGetNetworkCatalog,
@@ -292,6 +300,16 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  const orderQuoteMatch = path.match(/^\/v1\/orders\/([^/]+)\/quote$/);
+  if (method === "POST" && orderQuoteMatch) {
+    await handleRefreshPaymentOrderQuote(
+      req,
+      res,
+      decodeURIComponent(orderQuoteMatch[1]),
+    );
+    return;
+  }
+
   const onChainMatch = path.match(/^\/v1\/orders\/([^/]+)\/on-chain$/);
   if (method === "GET" && onChainMatch) {
     await handleGetPaymentOrderOnChain(
@@ -352,6 +370,19 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutMatchingMode(req, res, orgId);
+      return;
+    }
+  }
+
+  const orgPricingMatch = path.match(/^\/v1\/orgs\/([^/]+)\/pricing$/);
+  if (orgPricingMatch) {
+    const orgId = decodeURIComponent(orgPricingMatch[1]);
+    if (method === "GET") {
+      await handleGetMerchantPricingSettings(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutMerchantPricingSettings(req, res, orgId);
       return;
     }
   }
@@ -665,6 +696,17 @@ export async function handleRequest(req, res) {
     }
   }
 
+  if (path === "/v1/platform/settings/pricing") {
+    if (method === "GET") {
+      await handleGetPlatformPricingSettings(req, res);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutPlatformPricingSettings(req, res);
+      return;
+    }
+  }
+
   if (path === "/v1/platform/enterprise-rate-approvals" && method === "GET") {
     await handleListEnterpriseRateApprovals(req, res, url);
     return;
@@ -672,6 +714,11 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/platform/watcher-health" && method === "GET") {
     await handleGetWatcherHealth(req, res);
+    return;
+  }
+
+  if (path === "/v1/platform/backup-status" && method === "GET") {
+    await handleGetBackupStatus(req, res);
     return;
   }
 

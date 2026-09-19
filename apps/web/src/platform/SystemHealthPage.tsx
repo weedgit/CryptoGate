@@ -26,6 +26,10 @@ type HealthPayload = {
   webhookPendingOutbox?: number;
   webhookOverdueDeliveries?: number;
   webhookLastTickAt?: string | null;
+  backup?: string;
+  backupDetail?: string;
+  backupLastAt?: string | null;
+  backupAgeHours?: number | null;
 };
 
 type CheckTone = "ok" | "warn";
@@ -160,6 +164,17 @@ export function SystemHealthPage() {
             {loading && !health
               ? "Delivery worker"
               : health?.webhookDetail?.trim() || "Outbox fan-out on API"}
+          </p>
+        </div>
+        <div className="plat-ops-health__kpi">
+          <p className="plat-ops-health__kpi-label">DB backup</p>
+          <p className="plat-ops-health__kpi-value">
+            {loading && !health ? "…" : statusLabel(health?.backup, "—")}
+          </p>
+          <p className="plat-ops-health__kpi-copy">
+            {loading && !health
+              ? "deploy/backup.sh"
+              : health?.backupDetail?.trim() || "status.json"}
           </p>
         </div>
         <div className="plat-ops-health__kpi">

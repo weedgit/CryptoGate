@@ -14,7 +14,8 @@ import { roleLabel } from "../merchant/org";
 import { platformRoleKey, platformRoleLabel } from "../platform/org";
 import { ProfileNavIcon, SignOutNavIcon } from "../platform/NavIcons";
 import { RoleBadge } from "../shared/RoleBadge";
-import { sessionDisplayLabel, sessionHasAvatar, sessionAvatarInitials } from "./profileIdentity";
+import { DefaultUserAvatar } from "./DefaultUserAvatar";
+import { sessionDisplayLabel, sessionHasAvatar } from "./profileIdentity";
 import { SecuritySettingsPage } from "./SecuritySettingsPage";
 
 type Props = {
@@ -36,12 +37,10 @@ function profileIdentity(
   role: string;
   roleKey: string;
   email: string;
-  initials: string;
   avatarUrl: string | null;
 } {
   const email = session.email;
   const name = sessionDisplayLabel(session);
-  const initials = sessionAvatarInitials(session);
   const avatarUrl = sessionHasAvatar(session)
     ? (session.avatarUrl ?? "").trim()
     : null;
@@ -66,7 +65,7 @@ function profileIdentity(
     role = m ? roleLabel(m.role) : "Merchant";
   }
 
-  return { name, role, roleKey, email, initials, avatarUrl };
+  return { name, role, roleKey, email, avatarUrl };
 }
 
 export function SidebarProfileMenu({
@@ -210,7 +209,12 @@ export function SidebarProfileMenu({
         aria-label={ariaLabel}
         onClick={() => setMenuOpen((v) => !v)}
       >
-        <span className="sidebar-profile__avatar" aria-hidden>
+        <span
+          className={`sidebar-profile__avatar${
+            identity.avatarUrl ? "" : " sidebar-profile__avatar--default"
+          }`}
+          aria-hidden
+        >
           {identity.avatarUrl ? (
             <img
               className="sidebar-profile__avatar-img"
@@ -219,7 +223,7 @@ export function SidebarProfileMenu({
               draggable={false}
             />
           ) : (
-            identity.initials
+            <DefaultUserAvatar className="sidebar-profile__avatar-img sidebar-profile__avatar-img--default" />
           )}
         </span>
         {isTopbar ? (

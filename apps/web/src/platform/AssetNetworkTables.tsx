@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   NetworkId,
-  type AssetCode,
   type AssetNetworkConfig,
 } from "@paymentgate/domain";
 import { NetworkIcon } from "./cryptoIcons";
@@ -16,22 +15,15 @@ import {
 import { getNetworksStatus, type NetworkOrderabilityLamp } from "./api";
 import {
   rowHighlight,
-  type VolumeScope,
   type VolumeSelection,
 } from "./volumeFilter";
 
-/** Short network names for catalog tables (Plan §VI / M3-04). */
+/** Short network names for catalog tables (Ethereum / Tron / Solana). */
 const NETWORK_SHORT_LABEL: Record<string, string> = {
   [NetworkId.Ethereum]: "Ethereum",
   [NetworkId.Tron]: "Tron",
   [NetworkId.TronNile]: "Tron Nile",
-  [NetworkId.BnbSmartChain]: "BNB Smart Chain",
-  [NetworkId.Polygon]: "Polygon PoS",
-  [NetworkId.ArbitrumOne]: "Arbitrum One",
   [NetworkId.Solana]: "Solana",
-  [NetworkId.Ton]: "TON",
-  [NetworkId.Base]: "Base",
-  [NetworkId.Bitcoin]: "Bitcoin",
 };
 
 type SortKey = "network" | "asset" | "status";
@@ -174,10 +166,38 @@ function SortHeader({
   );
 }
 
+function StaticHeader({
+  label,
+  align,
+}: {
+  label: string;
+  align?: "end" | "center";
+}) {
+  return (
+    <th
+      className={[
+        align === "end" ? "plat-pair-table__th--end" : "",
+        align === "center" ? "plat-pair-table__th--center" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span
+        className={`plat-pair-table__th-static${
+          align === "end" ? " plat-pair-table__th-static--end" : ""
+        }${align === "center" ? " plat-pair-table__th-static--center" : ""}`}
+      >
+        {label}
+      </span>
+    </th>
+  );
+}
+
 type Props = {
   compact?: boolean;
+  /** When false, column headers are plain labels (no arrange/sort controls). */
+  sortable?: boolean;
   selection?: VolumeSelection | null;
-  volumeScope?: VolumeScope;
   onSelect?: (selection: VolumeSelection) => void;
   /** Bump (e.g. dashboard Refresh) to force a networks-status reload. */
   reloadToken?: number;
@@ -190,13 +210,15 @@ const PAIRS_FOCUS_THROTTLE_MS = 30_000;
 /** Single §VI catalog table: network, asset, orderability lamp. */
 export function AssetNetworkTables({
   compact,
+  sortable = true,
   selection = null,
-  volumeScope = "total",
   onSelect,
   reloadToken = 0,
   networkIds,
 }: Props) {
-  const [sort, setSort] = useState<SortState | null>({ key: "status", dir: "asc" });
+  const [sort, setSort] = useState<SortState | null>(
+    sortable ? { key: "status", dir: "asc" } : null,
+  );
   const [lampByPair, setLampByPair] = useState<Map<
     string,
     NetworkOrderabilityLamp
@@ -243,19 +265,9 @@ export function AssetNetworkTables({
     if (!networkIds?.length) {
       return sortRows(all, sort, lampByPair);
     }
-    const preferAssets = ["USDT", "USDC", "ETH", "TRX", "SOL"] as const;
-    const preview: AssetNetworkConfig[] = [];
-    for (const id of networkIds) {
-      const candidates = all.filter((row) => row.network === id);
-      if (!candidates.length) continue;
-      const preferred =
-        preferAssets
-          .map((asset) => candidates.find((row) => row.asset === asset))
-          .find((row): row is AssetNetworkConfig => Boolean(row)) ??
-        candidates[0];
-      preview.push(preferred);
-    }
-    return sortRows(preview, sort, lampByPair);
+    const allow = new Set(networkIds);
+    const filtered = all.filter((row) => allow.has(row.network));
+    return sortRows(filtered, sort, lampByPair);
   }, [sort, lampByPair, networkIds]);
 
   const onSort = (key: SortKey) => {
@@ -265,18 +277,8 @@ export function AssetNetworkTables({
     });
   };
 
-  const pickNetwork = (network: AssetNetworkConfig["network"], event: MouseEvent) => {
-    event.stopPropagation();
-    onSelect?.({ kind: "network", network });
-  };
-
-  const pickAsset = (asset: AssetCode, event: MouseEvent) => {
-    event.stopPropagation();
-    onSelect?.({ kind: "asset", asset });
-  };
-
   const pickPair = (row: AssetNetworkConfig) => {
-    onSelect?.({ kind: "pair", asset: row.asset, network: row.network });
+    onSelect?.({ asset: row.asset, network: row.network });
   };
 
   return (
@@ -293,27 +295,37 @@ export function AssetNetworkTables({
         </colgroup>
         <thead>
           <tr>
-            <SortHeader label="Network" sortKey="network" sort={sort} onSort={onSort} />
-            <SortHeader
-              label="Asset"
-              sortKey="asset"
-              align="center"
-              sort={sort}
-              onSort={onSort}
-            />
-            <SortHeader
-              label="Status"
-              sortKey="status"
-              align="end"
-              sort={sort}
-              onSort={onSort}
-            />
+            {sortable ? (
+              <>
+                <SortHeader label="Network" sortKey="network" sort={sort} onSort={onSort} />
+                <SortHeader
+                  label="Asset"
+                  sortKey="asset"
+                  align="center"
+                  sort={sort}
+                  onSort={onSort}
+                />
+                <SortHeader
+                  label="Status"
+                  sortKey="status"
+                  align="end"
+                  sort={sort}
+                  onSort={onSort}
+                />
+              </>
+            ) : (
+              <>
+                <StaticHeader label="Network" />
+                <StaticHeader label="Asset" align="center" />
+                <StaticHeader label="Status" align="end" />
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => {
             const lamp = lampForRow(row, lampByPair);
-            const hl = rowHighlight(row, selection, volumeScope);
+            const hl = rowHighlight(row, selection);
 
             return (
               <tr
@@ -322,7 +334,6 @@ export function AssetNetworkTables({
                   selectable ? "plat-pair-row--selectable" : "",
                   hl.pairActive ? "is-active" : "",
                   hl.matchActive ? "is-match" : "",
-                  hl.networkPick || hl.assetPick ? "is-picked" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -343,24 +354,19 @@ export function AssetNetworkTables({
                     ? `Filter volume for ${row.asset} on ${networkLabel(row)}`
                     : undefined
                 }
+                title={
+                  selectable
+                    ? `Show volume for ${row.asset} on ${networkLabel(row)}`
+                    : undefined
+                }
               >
-                <td
-                  className={`plat-pair-network-cell${hl.networkPick ? " is-pick" : ""}`}
-                  onClick={selectable ? (event) => pickNetwork(row.network, event) : undefined}
-                  title={selectable ? `All assets on ${networkLabel(row)}` : undefined}
-                >
+                <td className="plat-pair-network-cell">
                   <span className="plat-pair-cell">
                     <NetworkIcon network={row.network} />
                     <span>{networkLabel(row)}</span>
                   </span>
                 </td>
-                <td
-                  className={`plat-pair-asset-cell${hl.assetPick ? " is-pick" : ""}`}
-                  onClick={selectable ? (event) => pickAsset(row.asset, event) : undefined}
-                  title={selectable ? `All ${row.asset} networks` : undefined}
-                >
-                  {row.asset}
-                </td>
+                <td className="plat-pair-asset-cell">{row.asset}</td>
                 <td className="plat-pair-status-cell">
                   <NetworkStatusLamp
                     lamp={lamp}

@@ -53,7 +53,7 @@ export async function summarizePaymentOrders(query) {
 
   const { rows: dayRows } = await pool.query(
     `SELECT date_trunc('day', o.expires_at AT TIME ZONE 'UTC')::date AS day,
-            COALESCE(SUM(o.payable_amount::numeric), 0) AS volume
+            COALESCE(SUM(COALESCE(o.invoice_amount_usd, o.payable_amount)::numeric), 0) AS volume
      FROM payment_orders o
      WHERE o.status = ANY($3::text[])
        AND o.expires_at >= $1::timestamptz
@@ -66,7 +66,7 @@ export async function summarizePaymentOrders(query) {
 
   const { rows: orgRows } = await pool.query(
     `SELECT o.org_id,
-            COALESCE(SUM(o.payable_amount::numeric), 0) AS volume
+            COALESCE(SUM(COALESCE(o.invoice_amount_usd, o.payable_amount)::numeric), 0) AS volume
      FROM payment_orders o
      WHERE o.status = ANY($3::text[])
        AND o.expires_at >= $1::timestamptz

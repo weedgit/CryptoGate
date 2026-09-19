@@ -131,7 +131,8 @@ async function insertOrder(pool, {
   await pool.query(
     `INSERT INTO payment_orders (
        org_id, created_by, order_number, status, matching_mode,
-       payable_amount, receive_address, address_source, hd_index, memo_or_tag,
+       payable_amount, invoice_amount_usd, invoice_currency,
+       receive_address, address_source, hd_index, memo_or_tag,
        asset, network, expires_at, required_confirmations,
        idempotency_key, idempotency_body_hash, merchant_metadata,
        created_at, updated_at,
@@ -139,7 +140,7 @@ async function insertOrder(pool, {
      ) VALUES (
        $1, $2,
        'CG-RICH-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-       $3, 'B', $4, $5, 'main', NULL, NULL,
+       $3, 'B', $4, $4, 'USD', $5, 'main', NULL, NULL,
        $6, $7, $8, 19,
        $9, $10, '{}'::jsonb,
        $11, $11,

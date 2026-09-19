@@ -105,7 +105,8 @@ async function insertComplianceAnomaly(pool, {
   const { rowCount } = await pool.query(
     `INSERT INTO payment_orders (
        org_id, created_by, order_number, status, matching_mode,
-       payable_amount, receive_address, address_source, hd_index, memo_or_tag,
+       payable_amount, invoice_amount_usd, invoice_currency,
+       receive_address, address_source, hd_index, memo_or_tag,
        asset, network, expires_at, required_confirmations,
        idempotency_key, idempotency_body_hash, merchant_metadata,
        created_at, updated_at,
@@ -113,7 +114,7 @@ async function insertComplianceAnomaly(pool, {
      ) VALUES (
        $1, $2,
        'CG-CMP-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-       'payment_anomaly', 'B', $3, $4, 'main', NULL, NULL,
+       'payment_anomaly', 'B', $3, $3, 'USD', $4, 'main', NULL, NULL,
        'USDT', 'tron', $5, 19,
        $6, $7, '{"seed":"platform-logic-compliance"}'::jsonb,
        $8, $8,

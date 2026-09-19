@@ -126,6 +126,12 @@ const OWNER_GROUPS: NavGroup[] = [
         matchPrefix: merchantRoute("settings/notifications"),
         Icon: AlertsNavIcon,
       },
+      {
+        to: merchantRoute("settings/pricing"),
+        label: "Pricing",
+        matchPrefix: merchantRoute("settings/pricing"),
+        Icon: SettlementNavIcon,
+      },
     ],
   },
 ];

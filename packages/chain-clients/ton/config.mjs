@@ -1,5 +1,4 @@
-import { AssetCode, NetworkId, getAssetNetworkConfig } from "@paymentgate/domain";
-
+/** Archived — not a Phase 1 rail. */
 function readInt(name, fallback) {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
@@ -8,21 +7,19 @@ function readInt(name, fallback) {
   return n;
 }
 
-/** @param {string} [asset] */
-export function getTonRuntimeConfig(asset = AssetCode.USDT) {
+export function getTonRuntimeConfig(asset = "USDT") {
   const raw = (process.env.TON_RPC_URL ?? "").trim();
   const baseUrl = raw.replace(/\/+$/, "");
-  const row = getAssetNetworkConfig(asset, NetworkId.Ton);
   return {
     baseUrl,
     apiKey: (process.env.TON_API_KEY ?? "").trim(),
-    jettonMaster: row?.contractAddress ?? "",
-    decimals: row?.decimals ?? 6,
-    requiredConfirmations: row?.requiredConfirmations ?? 5,
-    asset: row?.asset ?? asset,
-    network: NetworkId.Ton,
+    jettonMaster: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+    decimals: 6,
+    requiredConfirmations: 5,
+    asset,
+    network: "ton",
     eventLimit: readInt("TON_EVENT_LIMIT", 30),
     configured: baseUrl.length > 0,
-    pairEnabled: Boolean(row),
+    pairEnabled: false,
   };
 }

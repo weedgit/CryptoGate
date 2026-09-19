@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   ChartHoverTip,
+  formatChartAxisDay,
   formatChartDateTime,
   useLineChartHover,
 } from "../ui/ChartHover";
@@ -19,12 +20,21 @@ function formatAxisUsd(n: number): string {
   return formatAxisNumber(n, true);
 }
 
+function formatAxisAsset(n: number, asset: string): string {
+  const body = formatAxisNumber(n, false);
+  return `${body} ${asset}`;
+}
+
 function formatMoneyFigure(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function formatUsd(n: number): string {
   return `${formatMoneyFigure(n)} USD`;
+}
+
+function formatAssetAmount(n: number, asset: string): string {
+  return `${formatMoneyFigure(n)} ${asset}`;
 }
 
 function clientToSvgX(
@@ -72,6 +82,9 @@ function clampViewWindow(
 export function VolumeChart({
   values,
   labels,
+  secondaryValues,
+  valueUnit = "usd",
+  secondaryUnit,
   size = "default",
   showZoomBar = true,
   onZoomedChange,
@@ -79,6 +92,12 @@ export function VolumeChart({
 }: {
   values: number[];
   labels: string[];
+  /** Optional second series (typically native asset when comparing to USD). */
+  secondaryValues?: number[];
+  /** Left-axis unit: USD or an asset code. */
+  valueUnit?: "usd" | string;
+  /** Right-axis unit when secondaryValues is set. */
+  secondaryUnit?: string;
   size?: "default" | "fullscreen";
   /** When false, parent renders zoom controls (e.g. beside chart help). */
   showZoomBar?: boolean;
@@ -87,12 +106,17 @@ export function VolumeChart({
 }) {
   const reactId = useId().replace(/:/g, "");
   const fillId = `platVolFill-${reactId}`;
+  const fillSecondaryId = `platVolFillSec-${reactId}`;
   const fullscreen = size === "fullscreen";
-  const h = fullscreen ? 360 : 360;
-  const padLeft = fullscreen ? 78 : 68;
-  const padRight = fullscreen ? 16 : 14;
+  const dual =
+    Boolean(secondaryValues) &&
+    secondaryValues!.length === values.length &&
+    Boolean(secondaryUnit);
+  const h = fullscreen ? 360 : 220;
+  const padLeft = fullscreen ? 88 : 76;
+  const padRight = dual ? (fullscreen ? 88 : 76) : fullscreen ? 16 : 14;
   const padTop = fullscreen ? 14 : 14;
-  const padBottom = fullscreen ? 36 : 28;
+  const padBottom = fullscreen ? 40 : 32;
   const baseline = h - padBottom;
   const lastIndex = Math.max(values.length - 1, 0);
   const minSpan = Math.min(2, Math.max(lastIndex, 1));
@@ -107,8 +131,6 @@ export function VolumeChart({
     const sync = () => {
       const { width, height } = el.getBoundingClientRect();
       if (width < 40 || height < 40) return;
-      // Match viewBox aspect to the painted box so the chart fills width
-      // without letterboxing or stretching axis text.
       setVbW(Math.max(280, Math.round((width / height) * h)));
       setLayoutReady(true);
     };
@@ -136,7 +158,7 @@ export function VolumeChart({
 
   useEffect(() => {
     setView({ start: 0, end: Math.max(values.length - 1, 0) });
-  }, [values.length, labels[0], labels[labels.length - 1]]);
+  }, [values.length, labels[0], labels[labels.length - 1], dual]);
 
   const zoomed = view.start > 0.01 || view.end < lastIndex - 0.01;
 
@@ -180,7 +202,7 @@ export function VolumeChart({
 
   const visible = useMemo(() => {
     if (values.length === 0) {
-      return { idxs: [] as number[], max: 1 };
+      return { idxs: [] as number[], max: 1, maxSecondary: 1 };
     }
     const lo = Math.max(0, Math.floor(view.start));
     const hi = Math.min(lastIndex, Math.ceil(view.end));
@@ -188,15 +210,26 @@ export function VolumeChart({
     for (let i = lo; i <= hi; i++) idxs.push(i);
     if (idxs.length === 0) idxs.push(0);
     let max = 1;
-    for (const i of idxs) max = Math.max(max, values[i] ?? 0);
-    return { idxs, max };
-  }, [values, view.start, view.end, lastIndex]);
+    let maxSecondary = 1;
+    for (const i of idxs) {
+      max = Math.max(max, values[i] ?? 0);
+      if (dual) maxSecondary = Math.max(maxSecondary, secondaryValues![i] ?? 0);
+    }
+    return { idxs, max, maxSecondary };
+  }, [values, secondaryValues, dual, view.start, view.end, lastIndex]);
 
   const yTicks = useMemo(
-    () => niceAxisTicks(visible.max, fullscreen ? 5 : 4),
+    () => niceAxisTicks(visible.max, fullscreen ? 6 : 5),
     [visible.max, fullscreen],
   );
-  const yTop = chartScaleTop(visible.max, fullscreen ? 5 : 4);
+  const yTop = chartScaleTop(visible.max, fullscreen ? 6 : 5);
+  const yTicksSecondary = useMemo(
+    () => (dual ? niceAxisTicks(visible.maxSecondary, fullscreen ? 6 : 5) : []),
+    [dual, visible.maxSecondary, fullscreen],
+  );
+  const yTopSecondary = dual
+    ? chartScaleTop(visible.maxSecondary, fullscreen ? 6 : 5)
+    : 1;
 
   const indexToX = useCallback(
     (i: number) => {
@@ -212,14 +245,20 @@ export function VolumeChart({
     [baseline, yTop, plotH],
   );
 
+  const secondaryToY = useCallback(
+    (v: number) => baseline - (v / yTopSecondary) * plotH,
+    [baseline, yTopSecondary, plotH],
+  );
+
   const pts = useMemo(
     () =>
       visible.idxs.map((i) => ({
         i,
         x: indexToX(i),
         y: valueToY(values[i] ?? 0),
+        y2: dual ? secondaryToY(secondaryValues![i] ?? 0) : valueToY(values[i] ?? 0),
       })),
-    [visible.idxs, indexToX, valueToY, values],
+    [visible.idxs, indexToX, valueToY, secondaryToY, values, secondaryValues, dual],
   );
 
   const hoverPts = useMemo(() => pts.map((p) => ({ x: p.x, y: p.y })), [pts]);
@@ -234,8 +273,6 @@ export function VolumeChart({
       const isZoomed = start > 0.01 || end < lastIndex - 0.01;
       if (!isZoomed) return;
 
-      // Trackpad horizontal scroll / shift+wheel → pan when already zoomed.
-      // Vertical wheel does not zoom (use +/- controls).
       const panDelta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
       if (panDelta === 0) return;
@@ -262,18 +299,28 @@ export function VolumeChart({
       ? `M ${pts[0].x} ${pts[0].y} L ${pts[0].x} ${baseline} L ${pts[pts.length - 1].x} ${baseline} L ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`
       : "";
 
-  const seriesAnimKey = `${labels[0] ?? ""}|${labels[labels.length - 1] ?? ""}|${values.length}|${Math.round(values[0] ?? 0)}|${Math.round(values[values.length - 1] ?? 0)}`;
+  const lineSecondary = dual
+    ? pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y2}`).join(" ")
+    : "";
+  const areaSecondary =
+    dual && pts.length > 0
+      ? `${lineSecondary} L ${pts[pts.length - 1].x} ${baseline} L ${pts[0].x} ${baseline} Z`
+      : "";
+
+  const seriesAnimKey = `${labels[0] ?? ""}|${labels[labels.length - 1] ?? ""}|${values.length}|${Math.round(values[0] ?? 0)}|${Math.round(values[values.length - 1] ?? 0)}|${dual ? "d" : "s"}|${valueUnit}`;
   const prevSeriesAnimKey = useRef("");
-  /** axis = X wipe first; series = clip wipe of line/fill; idle = done */
   const [revealPhase, setRevealPhase] = useState<"axis" | "series" | "idle">(
     "idle",
   );
   const AXIS_REVEAL_MS = 520;
   const SERIES_REVEAL_MS = 900;
+  const hasDrawableSeries = values.length > 0 && Boolean(line);
 
   useLayoutEffect(() => {
-    if (!layoutReady || !line) {
-      if (!line) setRevealPhase("idle");
+    if (!layoutReady) return;
+
+    if (!hasDrawableSeries) {
+      setRevealPhase("idle");
       return;
     }
 
@@ -281,7 +328,6 @@ export function VolumeChart({
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Zoom/pan rewrite path coords — only replay when the series itself changes.
     if (prevSeriesAnimKey.current === seriesAnimKey || reduceMotion) {
       setRevealPhase("idle");
       if (reduceMotion) prevSeriesAnimKey.current = seriesAnimKey;
@@ -305,23 +351,27 @@ export function VolumeChart({
       cancelled = true;
       window.clearTimeout(startSeries);
       window.clearTimeout(done);
-      setRevealPhase("idle");
     };
-  }, [seriesAnimKey, layoutReady]);
+  }, [seriesAnimKey, layoutReady, hasDrawableSeries]);
 
   const active = !dragging && revealPhase === "idle" && hover ? pts[hover.index] : null;
-  const activeValue =
-    active != null ? values[active.i] : undefined;
-  const activeLabel =
-    active != null ? labels[active.i] : undefined;
+  const activeValue = active != null ? values[active.i] : undefined;
+  const activeSecondary =
+    active != null && dual ? secondaryValues![active.i] : undefined;
+  const activeLabel = active != null ? labels[active.i] : undefined;
 
-  /** Points whose X sits inside the plot — grids/labels must not spill into gutters when zoomed. */
   const inPlotPts = useMemo(
     () => pts.filter((p) => p.x >= padLeft - 0.01 && p.x <= w - padRight + 0.01),
     [pts, padLeft, w, padRight],
   );
 
   const xLabelStep = Math.max(1, Math.ceil(inPlotPts.length / (fullscreen ? 10 : 7)));
+
+  const formatPrimaryAxis = (n: number) =>
+    valueUnit === "usd" ? formatAxisUsd(n) : formatAxisAsset(n, valueUnit);
+
+  const formatSecondaryAxis = (n: number) =>
+    secondaryUnit ? formatAxisAsset(n, secondaryUnit) : formatAxisUsd(n);
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 || lastIndex <= 0) return;
@@ -402,7 +452,7 @@ export function VolumeChart({
   return (
     <div
       ref={wrapRef}
-      className={`chart-hover${zoomed ? " chart-hover--zoomed" : ""}`}
+      className={`chart-hover${zoomed ? " chart-hover--zoomed" : ""}${dual ? " chart-hover--dual" : ""}`}
     >
       {showZoomBar && zoomed ? (
         <div className="volume-chart__zoom-bar">
@@ -412,9 +462,21 @@ export function VolumeChart({
           </button>
         </div>
       ) : null}
+      {dual ? (
+        <div className="volume-chart__legend" aria-hidden>
+          <span className="volume-chart__legend-item is-usd">
+            <i />
+            USD
+          </span>
+          <span className="volume-chart__legend-item is-asset">
+            <i />
+            {secondaryUnit}
+          </span>
+        </div>
+      ) : null}
       <svg
         ref={svgRef}
-        className={`volume-chart volume-chart--plat-ref${fullscreen ? " volume-chart--fullscreen" : ""}${dragging ? " is-dragging" : ""}${zoomed ? " is-zoomed" : ""}${revealPhase === "axis" ? " is-axis-revealing" : ""}`}
+        className={`volume-chart volume-chart--plat-ref${fullscreen ? " volume-chart--fullscreen" : ""}${dragging ? " is-dragging" : ""}${zoomed ? " is-zoomed" : ""}${revealPhase === "axis" ? " is-axis-revealing" : ""}${dual ? " volume-chart--dual" : ""}`}
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
         role="img"
@@ -438,6 +500,16 @@ export function VolumeChart({
           <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--volume-fill-top, rgba(52, 211, 153, 0.18))" />
             <stop offset="100%" stopColor="var(--volume-fill-bottom, rgba(52, 211, 153, 0))" />
+          </linearGradient>
+          <linearGradient id={fillSecondaryId} x1="0" y1="0" x2="0" y2="1">
+            <stop
+              offset="0%"
+              stopColor="var(--volume-secondary-fill-top, rgba(48, 216, 252, 0.28))"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--volume-secondary-fill-bottom, rgba(48, 216, 252, 0))"
+            />
           </linearGradient>
           <clipPath id={`platVolClip-${reactId}`}>
             <rect x={padLeft} y={padTop - 2} width={plotW} height={plotH + 4} />
@@ -463,14 +535,35 @@ export function VolumeChart({
                 y={y}
                 textAnchor="end"
                 dominantBaseline="middle"
-                fontSize={fullscreen ? 11 : 9}
+                fontSize={fullscreen ? 12 : 11}
+                fontWeight={500}
                 fontFamily="var(--font-mono)"
               >
-                {formatAxisUsd(tick)}
+                {formatPrimaryAxis(tick)}
               </text>
             </g>
           );
         })}
+        {dual
+          ? yTicksSecondary.map((tick) => {
+              const y = secondaryToY(tick);
+              return (
+                <text
+                  key={`yt2-${tick}`}
+                  className="volume-chart__ylabel volume-chart__ylabel--secondary"
+                  x={w - padRight + 8}
+                  y={y}
+                  textAnchor="start"
+                  dominantBaseline="middle"
+                  fontSize={fullscreen ? 12 : 11}
+                  fontWeight={500}
+                  fontFamily="var(--font-mono)"
+                >
+                  {formatSecondaryAxis(tick)}
+                </text>
+              );
+            })
+          : null}
         <g clipPath={`url(#platVolClip-${reactId})`}>
           {inPlotPts.map((p, idx) => {
             const show =
@@ -507,6 +600,14 @@ export function VolumeChart({
                 stroke="none"
               />
             ) : null}
+            {areaSecondary ? (
+              <path
+                className="volume-chart__history-fill volume-chart__history-fill--secondary"
+                d={areaSecondary}
+                fill={`url(#${fillSecondaryId})`}
+                stroke="none"
+              />
+            ) : null}
             {frame ? (
               <path className="volume-chart__frame" d={frame} fill="none" />
             ) : null}
@@ -514,20 +615,46 @@ export function VolumeChart({
               className="volume-chart__line"
               d={line}
               fill="none"
+              stroke="currentColor"
               strokeWidth={fullscreen ? 3 : 2.5}
             />
+            {lineSecondary ? (
+              <path
+                className="volume-chart__line volume-chart__line--secondary"
+                d={lineSecondary}
+                fill="none"
+                strokeWidth={fullscreen ? 2.75 : 2.25}
+              />
+            ) : null}
             {pts.map((p) => (
               <circle
-                key={p.i}
+                key={`p-${p.i}`}
                 className="volume-chart__point"
                 cx={p.x}
                 cy={p.y}
                 r={fullscreen ? 5.5 : 4.75}
+                fill="currentColor"
                 opacity={
                   revealPhase === "idle" && active && active.i !== p.i ? 0.4 : 1
                 }
               />
             ))}
+            {dual
+              ? pts.map((p) => (
+                  <circle
+                    key={`p2-${p.i}`}
+                    className="volume-chart__point volume-chart__point--secondary"
+                    cx={p.x}
+                    cy={p.y2}
+                    r={fullscreen ? 5 : 4.25}
+                    opacity={
+                      revealPhase === "idle" && active && active.i !== p.i
+                        ? 0.4
+                        : 1
+                    }
+                  />
+                ))
+              : null}
           </g>
           {active &&
           active.x >= padLeft &&
@@ -552,6 +679,22 @@ export function VolumeChart({
                 cy={active.y}
                 r={fullscreen ? 6 : 5}
               />
+              {dual ? (
+                <>
+                  <circle
+                    className="chart-hover__dot-ring chart-hover__dot-ring--secondary"
+                    cx={active.x}
+                    cy={active.y2}
+                    r={fullscreen ? 11 : 9}
+                  />
+                  <circle
+                    className="chart-hover__dot chart-hover__dot--secondary"
+                    cx={active.x}
+                    cy={active.y2}
+                    r={fullscreen ? 5.5 : 4.5}
+                  />
+                </>
+              ) : null}
             </>
           ) : null}
         </g>
@@ -573,12 +716,13 @@ export function VolumeChart({
                 key={`xl-${p.i}`}
                 className="volume-chart__xlabel"
                 x={x}
-                y={h - 8}
+                y={h - 10}
                 textAnchor={anchor}
-                fontSize={fullscreen ? 11 : 9}
+                fontSize={fullscreen ? 12 : 11}
+                fontWeight={500}
                 fontFamily="var(--font-mono)"
               >
-                {label.slice(5)}
+                {formatChartAxisDay(label)}
               </text>
             );
           })}
@@ -590,9 +734,23 @@ export function VolumeChart({
       {active && activeLabel != null && activeValue != null && hover ? (
         <ChartHoverTip clientX={hover.clientX} clientY={hover.clientY}>
           <p className="chart-hover__tip-row">
-            <span className="chart-hover__tip-k">Volume</span>
-            <span className="chart-hover__tip-v">{formatUsd(activeValue)}</span>
+            <span className="chart-hover__tip-k">
+              {valueUnit === "usd" ? "USD" : valueUnit}
+            </span>
+            <span className="chart-hover__tip-v">
+              {valueUnit === "usd"
+                ? formatUsd(activeValue)
+                : formatAssetAmount(activeValue, valueUnit)}
+            </span>
           </p>
+          {dual && activeSecondary != null && secondaryUnit ? (
+            <p className="chart-hover__tip-row">
+              <span className="chart-hover__tip-k">{secondaryUnit}</span>
+              <span className="chart-hover__tip-v">
+                {formatAssetAmount(activeSecondary, secondaryUnit)}
+              </span>
+            </p>
+          ) : null}
         </ChartHoverTip>
       ) : null}
     </div>

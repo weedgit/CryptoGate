@@ -19,11 +19,11 @@ import {
   evaluatePasswordPolicy,
 } from "./passwordPolicy";
 import {
-  sessionAvatarInitials,
   sessionDisplayLabel,
   sessionHasAvatar,
   sessionHasCustomDisplayName,
 } from "./profileIdentity";
+import { DefaultUserAvatar } from "./DefaultUserAvatar";
 
 type Props = {
   session: Session;
@@ -120,14 +120,6 @@ function ProfileForm({
   const sidebarLabel = useMemo(() => sessionDisplayLabel(session), [session]);
   const hasCustomName = sessionHasCustomDisplayName(session);
   const namePlaceholder = hasCustomName ? "Display name" : sidebarLabel;
-  const initials = useMemo(
-    () =>
-      sessionAvatarInitials({
-        email: session.email,
-        displayName: displayName.trim() || session.displayName,
-      }),
-    [session.email, session.displayName, displayName],
-  );
 
   async function onPickFile(file: File | undefined) {
     if (!file) return;
@@ -170,11 +162,16 @@ function ProfileForm({
 
   const avatarEditor = (
     <div className="profile-avatar-editor">
-      <div className="profile-avatar-editor__preview" aria-hidden>
+      <div
+        className={`profile-avatar-editor__preview${
+          avatarUrl ? "" : " profile-avatar-editor__preview--default"
+        }`}
+        aria-hidden
+      >
         {avatarUrl ? (
           <img src={avatarUrl} alt="" className="profile-avatar-editor__img" />
         ) : (
-          <span className="profile-avatar-editor__initials">{initials}</span>
+          <DefaultUserAvatar className="profile-avatar-editor__img profile-avatar-editor__img--default" />
         )}
       </div>
       <div className="profile-avatar-editor__copy">
@@ -182,7 +179,7 @@ function ProfileForm({
         <p className="plat-settings__row-hint profile-avatar-editor__hint">
           {avatarUrl
             ? "Custom photo shown in the top bar and sidebar."
-            : "No photo yet — showing your initials as the default avatar."}
+            : "No photo yet — showing the default profile icon."}
         </p>
         <div className="profile-avatar-editor__actions">
           <input

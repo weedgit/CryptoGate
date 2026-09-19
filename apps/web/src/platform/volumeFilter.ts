@@ -1,13 +1,14 @@
 import { NetworkId, type AssetCode } from "@paymentgate/domain";
 import type { PaymentOrder } from "./api";
 
-export type VolumeScope = "total" | "asset";
-
-/** User pick from the network status table — one active at a time. */
-export type VolumeSelection =
-  | { kind: "pair"; asset: AssetCode; network: NetworkId }
-  | { kind: "network"; network: NetworkId }
-  | { kind: "asset"; asset: AssetCode };
+/**
+ * Chart filter picks from the two volume dropdowns (and table row clicks).
+ * Either field may be null — both null = Total Volume.
+ */
+export type VolumeSelection = {
+  network: NetworkId | null;
+  asset: AssetCode | null;
+};
 
 export type VolumeChartFilter =
   | { scope: "all" }
@@ -18,31 +19,30 @@ export type VolumeChartFilter =
 const NETWORK_LABEL: Record<string, string> = {
   [NetworkId.Ethereum]: "Ethereum",
   [NetworkId.Tron]: "Tron",
-  [NetworkId.BnbSmartChain]: "BNB Smart Chain",
-  [NetworkId.Polygon]: "Polygon PoS",
-  [NetworkId.ArbitrumOne]: "Arbitrum One",
+  [NetworkId.TronNile]: "Tron Nile",
   [NetworkId.Solana]: "Solana",
-  [NetworkId.Ton]: "TON",
-  [NetworkId.Base]: "Base",
-  [NetworkId.Bitcoin]: "Bitcoin",
 };
 
 export function networkChartLabel(network: NetworkId | string): string {
   return NETWORK_LABEL[network] ?? network;
 }
 
+export function emptyVolumeSelection(): VolumeSelection {
+  return { network: null, asset: null };
+}
+
+export function isEmptyVolumeSelection(selection: VolumeSelection | null): boolean {
+  return !selection || (!selection.network && !selection.asset);
+}
+
 export function volumeFilterFromSelection(
-  scope: VolumeScope,
   selection: VolumeSelection | null,
 ): VolumeChartFilter {
-  if (scope !== "asset" || !selection) return { scope: "all" };
-  if (selection.kind === "asset") return { scope: "asset", asset: selection.asset };
-  if (selection.kind === "network") return { scope: "network", network: selection.network };
-  return {
-    scope: "pair",
-    asset: selection.asset,
-    network: selection.network,
-  };
+  if (isEmptyVolumeSelection(selection)) return { scope: "all" };
+  const { network, asset } = selection!;
+  if (network && asset) return { scope: "pair", asset, network };
+  if (network) return { scope: "network", network };
+  return { scope: "asset", asset: asset! };
 }
 
 export function matchesVolumeFilter(
@@ -69,66 +69,45 @@ export function chartFilterDetail(filter: VolumeChartFilter): string | null {
   return `${filter.asset} · ${networkChartLabel(filter.network)}`;
 }
 
+/** Asset code when filter pins a single asset (asset or pair). */
+export function chartFilterAsset(
+  filter: VolumeChartFilter,
+): AssetCode | null {
+  if (filter.scope === "asset" || filter.scope === "pair") return filter.asset;
+  return null;
+}
+
 export function selectionSummary(selection: VolumeSelection | null): string | null {
-  if (!selection) return null;
-  if (selection.kind === "asset") return selection.asset;
-  if (selection.kind === "network") return networkChartLabel(selection.network);
-  return `${selection.asset} · ${networkChartLabel(selection.network)}`;
+  if (isEmptyVolumeSelection(selection)) return null;
+  const { network, asset } = selection!;
+  if (network && asset) return `${asset} · ${networkChartLabel(network)}`;
+  if (network) return networkChartLabel(network);
+  return asset;
 }
 
 export function isSameSelection(a: VolumeSelection, b: VolumeSelection): boolean {
-  if (a.kind !== b.kind) return false;
-  if (a.kind === "asset" && b.kind === "asset") return a.asset === b.asset;
-  if (a.kind === "network" && b.kind === "network") return a.network === b.network;
-  if (a.kind === "pair" && b.kind === "pair") {
-    return a.asset === b.asset && a.network === b.network;
-  }
-  return false;
+  return a.network === b.network && a.asset === b.asset;
 }
 
 export type RowHighlight = {
   pairActive: boolean;
   matchActive: boolean;
-  networkPick: boolean;
-  assetPick: boolean;
 };
 
 export function rowHighlight(
   row: { asset: AssetCode; network: NetworkId },
   selection: VolumeSelection | null,
-  scope: VolumeScope,
 ): RowHighlight {
-  if (!selection) {
-    return { pairActive: false, matchActive: false, networkPick: false, assetPick: false };
+  if (isEmptyVolumeSelection(selection)) {
+    return { pairActive: false, matchActive: false };
   }
-
-  const filtering = scope === "asset";
-
-  if (selection.kind === "pair") {
-    const hit = row.asset === selection.asset && row.network === selection.network;
-    return {
-      pairActive: filtering && hit,
-      matchActive: filtering && hit,
-      networkPick: hit,
-      assetPick: hit,
-    };
-  }
-
-  if (selection.kind === "network") {
-    const hit = row.network === selection.network;
-    return {
-      pairActive: false,
-      matchActive: filtering && hit,
-      networkPick: hit,
-      assetPick: false,
-    };
-  }
-
-  const hit = row.asset === selection.asset;
+  const { network, asset } = selection!;
+  const networkOk = !network || row.network === network;
+  const assetOk = !asset || row.asset === asset;
+  const hit = networkOk && assetOk;
+  const pairHit = Boolean(network && asset && hit);
   return {
-    pairActive: false,
-    matchActive: filtering && hit,
-    networkPick: false,
-    assetPick: hit,
+    pairActive: pairHit,
+    matchActive: hit,
   };
 }

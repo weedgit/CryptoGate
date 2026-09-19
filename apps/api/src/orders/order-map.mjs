@@ -102,6 +102,39 @@ export function toPaymentDetails(row) {
   if (row.matching_mode === "D" && row.memo_or_tag) {
     details.memoWarning = "Include the memo/tag or the payment cannot be matched.";
   }
+  if (row.invoice_amount_usd != null) {
+    details.invoiceAmountUsd = String(row.invoice_amount_usd);
+    details.invoiceCurrency = row.invoice_currency ?? "USD";
+  }
+  if (row.invoice_amount != null) {
+    details.invoiceAmount = String(row.invoice_amount);
+  }
+  if (row.invoice_denomination != null) {
+    details.invoiceDenomination = row.invoice_denomination;
+  }
+  if (row.pricing_rate != null) {
+    details.pricingRate = String(row.pricing_rate);
+    details.marketRate =
+      row.market_rate != null ? String(row.market_rate) : null;
+    details.pricingMode = row.pricing_mode ?? null;
+    details.rateSource = row.rate_source ?? null;
+    details.rateFetchedAt = row.rate_fetched_at
+      ? expiresAtIso(row.rate_fetched_at)
+      : null;
+    details.quoteExpiresAt = row.quote_expires_at
+      ? expiresAtIso(row.quote_expires_at)
+      : null;
+  }
+  if (row.rate_sources != null) {
+    details.rateSources = row.rate_sources;
+  }
+  if (row.reference_rate != null) {
+    details.referenceRate = String(row.reference_rate);
+    details.referenceSource = row.reference_source ?? null;
+  }
+  if (row.rate_warning != null) {
+    details.rateWarning = String(row.rate_warning);
+  }
   return details;
 }
 
@@ -167,6 +200,42 @@ export function toPaymentOrder(row) {
   const merchantReference = merchantReferenceFromMetadata(row.merchant_metadata);
   if (merchantReference) {
     order.merchantReference = merchantReference;
+  }
+  if (row.invoice_amount_usd != null) {
+    order.invoiceAmountUsd = String(row.invoice_amount_usd);
+    order.invoiceCurrency = row.invoice_currency ?? "USD";
+  }
+  if (row.invoice_amount != null) {
+    order.invoiceAmount = String(row.invoice_amount);
+  }
+  if (row.invoice_denomination != null) {
+    order.invoiceDenomination = row.invoice_denomination;
+  }
+  if (row.market_rate != null) order.marketRate = String(row.market_rate);
+  if (row.pricing_rate != null) order.pricingRate = String(row.pricing_rate);
+  if (row.pricing_mode != null) order.pricingMode = row.pricing_mode;
+  if (row.rate_source != null) order.rateSource = row.rate_source;
+  if (row.rate_fetched_at != null) {
+    order.rateFetchedAt = expiresAtIso(row.rate_fetched_at);
+  }
+  if (row.quote_expires_at != null) {
+    order.quoteExpiresAt = expiresAtIso(row.quote_expires_at);
+  }
+  if (row.pay_amount_base_units != null) {
+    order.payAmountBaseUnits = String(row.pay_amount_base_units);
+  }
+  if (row.asset_decimals != null) {
+    order.assetDecimals = Number(row.asset_decimals);
+  }
+  if (row.rate_sources != null) {
+    order.rateSources = row.rate_sources;
+  }
+  if (row.reference_rate != null) {
+    order.referenceRate = String(row.reference_rate);
+    order.referenceSource = row.reference_source ?? null;
+  }
+  if (row.rate_warning != null) {
+    order.rateWarning = String(row.rate_warning);
   }
   return order;
 }

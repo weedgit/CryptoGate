@@ -109,7 +109,7 @@ export function ChartMaximizeOverlay({
 
   return createPortal(
     <div
-      className="chart-maximize-overlay"
+      className="chart-maximize-overlay platform-shell pg-dash"
       role="dialog"
       aria-modal="true"
       aria-label={title}

@@ -128,6 +128,9 @@ const amountEl = document.getElementById("amount");
 const amountValueEl = document.getElementById("amount-value");
 const amountAssetEl = document.getElementById("amount-asset");
 const amountCopyEl = document.getElementById("amount-copy");
+const invoiceLabelEl = document.getElementById("invoice-label");
+const invoiceUsdEl = document.getElementById("invoice-usd");
+const rateEvidenceEl = document.getElementById("rate-evidence");
 const networkEl = document.getElementById("network");
 const assetMarkEl = document.getElementById("asset-mark");
 const networkMarkEl = document.getElementById("network-mark");
@@ -285,6 +288,11 @@ function demoView() {
     merchantName: "Hotel Marrakech — Casablanca",
     payableAmount: amount,
     copyAmount: amount,
+    invoiceAmountUsd: amount,
+    pricingRate: "1",
+    pricingMode: "pegged_1to1",
+    rateSource: "peg",
+    quoteExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     asset,
     network,
     networkLabel: networkLabelFor(asset, network),
@@ -327,6 +335,14 @@ function fromPaymentOrder(order) {
     merchantName: "Merchant",
     payableAmount: amount,
     copyAmount: amount,
+    invoiceAmountUsd: order.invoiceAmountUsd || null,
+    pricingRate: order.pricingRate || null,
+    pricingMode: order.pricingMode || null,
+    rateSource: order.rateSource || null,
+    referenceRate: order.referenceRate || null,
+    referenceSource: order.referenceSource || null,
+    rateWarning: order.rateWarning || null,
+    quoteExpiresAt: order.quoteExpiresAt || null,
     asset,
     network,
     networkLabel: networkLabelFor(asset, network),
@@ -369,6 +385,14 @@ function fromPaymentDetails(d) {
     merchantName: d.merchantName || "Merchant",
     payableAmount: amount,
     copyAmount: d.copyAmount || amount,
+    invoiceAmountUsd: d.invoiceAmountUsd || null,
+    pricingRate: d.pricingRate || null,
+    pricingMode: d.pricingMode || null,
+    rateSource: d.rateSource || null,
+    referenceRate: d.referenceRate || null,
+    referenceSource: d.referenceSource || null,
+    rateWarning: d.rateWarning || null,
+    quoteExpiresAt: d.quoteExpiresAt || null,
     asset,
     network,
     networkLabel: networkLabelFor(asset, network),
@@ -735,10 +759,53 @@ function paint(view) {
     Boolean(view.memoOrTag || view.memoWarning);
 
   if (amountLabelEl) {
-    amountLabelEl.textContent = isModeC ? "Exact payable" : "Total payable";
+    amountLabelEl.textContent = isModeC ? "Exact payable" : "Pay";
   }
   if (view.merchantName) {
     document.title = `Pay · ${view.merchantName}`;
+  }
+  if (invoiceUsdEl && invoiceLabelEl) {
+    if (view.invoiceAmountUsd) {
+      invoiceLabelEl.hidden = false;
+      invoiceUsdEl.hidden = false;
+      invoiceUsdEl.textContent = `$${view.invoiceAmountUsd} USD`;
+    } else {
+      invoiceLabelEl.hidden = true;
+      invoiceUsdEl.hidden = true;
+      invoiceUsdEl.textContent = "";
+    }
+  }
+  if (rateEvidenceEl) {
+    if (view.pricingRate) {
+      const bits = [`1 ${view.asset} = $${view.pricingRate}`];
+      if (view.rateSource) bits.push(view.rateSource);
+      if (view.pricingMode) bits.push(view.pricingMode);
+      if (view.referenceRate) {
+        bits.push(
+          `ref $${view.referenceRate}${
+            view.referenceSource ? ` (${view.referenceSource})` : ""
+          }`,
+        );
+      }
+      if (view.rateWarning) bits.push(view.rateWarning);
+      if (view.quoteExpiresAt && view.status === "pending_payment") {
+        const left = remainingSeconds(view.quoteExpiresAt);
+        if (left > 0) {
+          const m = Math.floor(left / 60);
+          const s = left % 60;
+          bits.push(
+            `quote ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
+          );
+        } else {
+          bits.push("quote expired");
+        }
+      }
+      rateEvidenceEl.hidden = false;
+      rateEvidenceEl.textContent = bits.join(" · ");
+    } else {
+      rateEvidenceEl.hidden = true;
+      rateEvidenceEl.textContent = "";
+    }
   }
   if (amountValueEl) amountValueEl.textContent = view.payableAmount;
   if (amountAssetEl) amountAssetEl.textContent = view.asset;

@@ -1,9 +1,15 @@
 /**
- * BNB Smart Chain JSON-RPC runtime config (X-06).
- * Contract + confirmations + decimals from @paymentgate/domain USDT_BNB_SMART_CHAIN.
+ * BNB Smart Chain JSON-RPC runtime config (archived — not a Phase 1 rail).
+ * Values were formerly in @paymentgate/domain; kept local for optional tooling.
  */
 
-import { USDT_BNB_SMART_CHAIN } from "@paymentgate/domain";
+const USDT_BNB = {
+  asset: "USDT",
+  network: "bnb_smart_chain",
+  contractAddress: "0x55d398326f99059fF775485246999027B3197955",
+  decimals: 18,
+  requiredConfirmations: 15,
+};
 
 function readInt(name, fallback) {
   const raw = process.env[name];
@@ -32,12 +38,12 @@ export function getBnbSmartChainRuntimeConfig() {
   return {
     rpcUrl,
     apiKey: (process.env.BSC_API_KEY ?? "").trim(),
-    usdtContractAddress: USDT_BNB_SMART_CHAIN.contractAddress,
-    decimals: USDT_BNB_SMART_CHAIN.decimals,
-    requiredConfirmations: USDT_BNB_SMART_CHAIN.requiredConfirmations,
-    asset: USDT_BNB_SMART_CHAIN.asset,
-    network: USDT_BNB_SMART_CHAIN.network,
+    usdtContractAddress: USDT_BNB.contractAddress,
+    decimals: USDT_BNB.decimals,
+    requiredConfirmations: USDT_BNB.requiredConfirmations,
+    asset: USDT_BNB.asset,
+    network: USDT_BNB.network,
     blockLookback: readInt("BSC_BLOCK_LOOKBACK", 2000),
-    configured: rpcUrl.length > 0,
+    configured: Boolean(rpcUrl),
   };
 }

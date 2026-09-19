@@ -23,18 +23,12 @@ export function webChainEnvOverride(): string | undefined {
   return trimmed || undefined;
 }
 
-/** Short network names for dropdowns and tables (Phase 1 §VI / M3-04). */
+/** Short network names for dropdowns and tables. */
 export const NETWORK_SHORT_LABEL: Record<string, string> = {
   [NetworkId.Ethereum]: "Ethereum",
   [NetworkId.Tron]: "Tron",
   [NetworkId.TronNile]: "Tron Nile (testnet)",
-  [NetworkId.BnbSmartChain]: "BNB Smart Chain",
-  [NetworkId.Polygon]: "Polygon PoS",
-  [NetworkId.ArbitrumOne]: "Arbitrum One",
   [NetworkId.Solana]: "Solana",
-  [NetworkId.Ton]: "TON",
-  [NetworkId.Base]: "Base",
-  [NetworkId.Bitcoin]: "Bitcoin",
 };
 
 /** Visible registry for current chain env (mainnet product vs local testnet). */

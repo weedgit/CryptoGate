@@ -27,14 +27,13 @@ import {
   ChartMaximizeButton,
   ChartMaximizeOverlay,
 } from "../platform/ui/ChartMaximize";
-import { VolumeScopeToggle } from "../platform/ui/VolumeScopeToggle";
+import { VolumeFilterSelect } from "../platform/ui/VolumeFilterSelect";
 import {
   chartTitleFromFilter,
   isSameSelection,
   matchesVolumeFilter,
   volumeFilterFromSelection,
   type VolumeChartFilter,
-  type VolumeScope,
   type VolumeSelection,
 } from "../platform/volumeFilter";
 import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
@@ -305,6 +304,14 @@ function resolveMerchantBillStatus(
   return null;
 }
 
+function orderVolumeUsd(o: PaymentOrder): number {
+  const raw =
+    (o as PaymentOrder & { invoiceAmountUsd?: string }).invoiceAmountUsd ??
+    o.payableAmount?.amount;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function periodVolume(
   orders: PaymentOrder[],
   from: Date,
@@ -316,8 +323,8 @@ function periodVolume(
     if (!isSettledOrder(o.status)) continue;
     if (!matchesVolumeFilter(o, filter)) continue;
     if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
+    const n = orderVolumeUsd(o);
+    if (n) total += n;
   }
   return total;
 }
@@ -335,8 +342,8 @@ function volumeSeries(
     if (orgScope && (!o.orgId || !orgScope.has(o.orgId))) continue;
     const key = dayKey(o.expiresAt);
     if (!key || !map.has(key)) continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) map.set(key, (map.get(key) ?? 0) + n);
+    const n = orderVolumeUsd(o);
+    if (n) map.set(key, (map.get(key) ?? 0) + n);
   }
   return days.map((d) => map.get(d) ?? 0);
 }
@@ -446,7 +453,6 @@ export function DashboardPage({ session }: Props) {
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [periodDayKeys, setPeriodDayKeys] = useState<string[]>([]);
-  const [volumeScope, setVolumeScope] = useState<VolumeScope>("total");
   const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(null);
   const [volumeMaximized, setVolumeMaximized] = useState(false);
   const [volumeZoomed, setVolumeZoomed] = useState(false);
@@ -781,23 +787,19 @@ export function DashboardPage({ session }: Props) {
   }, [startDate, endDate, periodDayKeys]);
 
   const volumeFilter = useMemo(
-    () => volumeFilterFromSelection(volumeScope, volumeSelection),
-    [volumeScope, volumeSelection],
+    () => volumeFilterFromSelection(volumeSelection),
+    [volumeSelection],
   );
 
   const onVolumeSelect = useCallback((selection: VolumeSelection) => {
     setVolumeSelection((prev) => {
-      if (prev && isSameSelection(prev, selection)) {
-        setVolumeScope("total");
-        return null;
-      }
-      setVolumeScope("asset");
+      if (prev && isSameSelection(prev, selection)) return null;
       return selection;
     });
   }, []);
 
-  const onVolumeScopeChange = useCallback((scope: VolumeScope) => {
-    setVolumeScope(scope);
+  const onVolumeFilterChange = useCallback((selection: VolumeSelection | null) => {
+    setVolumeSelection(selection);
   }, []);
 
   const chartTitle = chartTitleFromFilter(volumeFilter);
@@ -833,8 +835,8 @@ export function DashboardPage({ session }: Props) {
           continue;
         }
         if (!inWindow(o.expiresAt, from, to)) continue;
-        const n = Number(o.payableAmount.amount);
-        if (Number.isFinite(n)) volume += n;
+        const n = orderVolumeUsd(o);
+        if (n) volume += n;
       }
 
       let feesPaid = 0;
@@ -1129,10 +1131,9 @@ export function DashboardPage({ session }: Props) {
           <div className="dash-chart-panel__head">
             <div className="dash-chart-panel__title-row">
               <div className="dash-chart-panel__filters">
-                <VolumeScopeToggle
-                  scope={volumeScope}
+                <VolumeFilterSelect
                   selection={volumeSelection}
-                  onScopeChange={onVolumeScopeChange}
+                  onChange={onVolumeFilterChange}
                 />
               </div>
               <div className="dash-chart-panel__title-main">
@@ -1200,7 +1201,6 @@ export function DashboardPage({ session }: Props) {
             <AssetNetworkTables
               compact
               selection={volumeSelection}
-              volumeScope={volumeScope}
               onSelect={onVolumeSelect}
               reloadToken={pairsReloadToken}
             />
@@ -1215,10 +1215,9 @@ export function DashboardPage({ session }: Props) {
         header={
           <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
             <div className="dash-chart-panel__filters">
-              <VolumeScopeToggle
-                scope={volumeScope}
+              <VolumeFilterSelect
                 selection={volumeSelection}
-                onScopeChange={onVolumeScopeChange}
+                onChange={onVolumeFilterChange}
               />
             </div>
             <div className="dash-chart-panel__title-main">

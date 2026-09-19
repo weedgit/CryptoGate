@@ -1,4 +1,3 @@
-import { AssetCode } from "@paymentgate/domain";
 import { getBitcoinRuntimeConfig } from "./config.mjs";
 import {
   fetchBitcoinTransfersForAddresses,
@@ -11,7 +10,7 @@ export { mapBitcoinOutput };
 export { extraWatcherBackoffMs, isRetryableBitcoinStatus } from "./backoff.mjs";
 
 export async function healthCheck() {
-  const cfg = getBitcoinRuntimeConfig(AssetCode.BTC);
+  const cfg = getBitcoinRuntimeConfig("BTC");
   return {
     ok: true,
     network: "bitcoin",
@@ -35,7 +34,7 @@ export function dedupeTransfersByTxHash(transfers) {
 
 export async function listRecentTransfers(options = {}) {
   const watched = (options.watchedAddresses ?? []).map((a) => a.trim()).filter(Boolean);
-  const asset = options.asset ?? AssetCode.BTC;
+  const asset = options.asset ?? "BTC";
   const stubRaw = process.env.WATCHER_STUB_TRANSFERS;
   if (stubRaw) {
     try {
@@ -100,7 +99,7 @@ export async function getTransactionConfirmationState(args) {
     return { confirmations: 0, presence: stubPresence };
   }
 
-  const cfg = getBitcoinRuntimeConfig(args?.asset ?? AssetCode.BTC);
+  const cfg = getBitcoinRuntimeConfig(args?.asset ?? "BTC");
   if (!cfg.configured || !args?.txHash) {
     return { confirmations: 0, presence: "unknown" };
   }
@@ -115,7 +114,7 @@ export async function getTransactionConfirmations(args) {
   return (await getTransactionConfirmationState(args)).confirmations;
 }
 
-export function getBitcoinConfig(asset = AssetCode.BTC) {
+export function getBitcoinConfig(asset = "BTC") {
   const cfg = getBitcoinRuntimeConfig(asset);
   return {
     network: cfg.network,

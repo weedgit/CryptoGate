@@ -41,6 +41,10 @@ const FeeTiersSettingsPage = lazyNamed(
   () => import("./FeeTiersSettingsPage"),
   "FeeTiersSettingsPage",
 );
+const RatesPricingSettingsPage = lazyNamed(
+  () => import("./RatesPricingSettingsPage"),
+  "RatesPricingSettingsPage",
+);
 const NetworkCatalogPage = lazyNamed(
   () => import("./NetworkCatalogPage"),
   "NetworkCatalogPage",
@@ -226,6 +230,10 @@ export function PlatformApp() {
         <Route
           path="settings/fee-tiers"
           element={<FeeTiersSettingsPage session={session} />}
+        />
+        <Route
+          path="settings/rates"
+          element={<RatesPricingSettingsPage session={session} />}
         />
         <Route
           path="settings/billing-wallet"

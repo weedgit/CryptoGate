@@ -2,6 +2,11 @@ import { getAssetNetworkConfig } from "@paymentgate/domain";
 
 const ALLOWED_KEYS = new Set([
   "amount",
+  "amountUsd",
+  "amountCrypto",
+  "invoiceAmount",
+  "invoiceCurrency",
+  "invoiceDenomination",
   "asset",
   "network",
   "validitySeconds",
@@ -62,21 +67,78 @@ export function amountToMinor(amount, decimals) {
  * @returns {{ ok: true, parsed: object } | { ok: false, status: number, code: string, message: string }}
  */
 export function validateCreateOrderBody(body) {
-  const amount = typeof body?.amount === "string" ? body.amount.trim() : "";
+  const amountUsdRaw =
+    typeof body?.amountUsd === "string" ? body.amountUsd.trim() : "";
+  const amountLegacy =
+    typeof body?.amount === "string" ? body.amount.trim() : "";
+  const amountCryptoRaw =
+    typeof body?.amountCrypto === "string" ? body.amountCrypto.trim() : "";
+  const invoiceAmountRaw =
+    typeof body?.invoiceAmount === "string" ? body.invoiceAmount.trim() : "";
+  const invoiceCurrencyRaw =
+    typeof body?.invoiceCurrency === "string"
+      ? body.invoiceCurrency.trim().toUpperCase()
+      : "USD";
+  const denominationRaw =
+    typeof body?.invoiceDenomination === "string"
+      ? body.invoiceDenomination.trim().toLowerCase()
+      : amountCryptoRaw
+        ? "crypto"
+        : "fiat";
   const asset = typeof body?.asset === "string" ? body.asset : "";
   const network = typeof body?.network === "string" ? body.network : "";
   const validitySeconds = body?.validitySeconds;
   const orgId =
     typeof body?.orgId === "string" && body.orgId.trim() ? body.orgId.trim() : null;
 
-  if (!amount || !asset || !network) {
+  const invoiceDenomination =
+    denominationRaw === "crypto" || amountCryptoRaw ? "crypto" : "fiat";
+  const invoiceCurrency =
+    invoiceCurrencyRaw === "EUR" ? "EUR" : "USD";
+
+  if (!asset || !network) {
     return {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "amount, asset, and network are required",
+      message: "asset and network are required",
     };
   }
+
+  let invoiceAmount = "";
+  let amountCrypto = null;
+  if (invoiceDenomination === "crypto") {
+    amountCrypto = amountCryptoRaw || invoiceAmountRaw || amountLegacy;
+    invoiceAmount = amountCrypto;
+    if (!amountCrypto || !/^\d+(\.\d+)?$/.test(amountCrypto) || Number(amountCrypto) <= 0) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_amount",
+        message: "amountCrypto must be a positive decimal string",
+      };
+    }
+  } else {
+    invoiceAmount =
+      invoiceAmountRaw || amountUsdRaw || amountLegacy;
+    if (!invoiceAmount || !/^\d+(\.\d+)?$/.test(invoiceAmount) || Number(invoiceAmount) <= 0) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_amount",
+        message: "invoice amount (amountUsd/amount) must be a positive decimal string",
+      };
+    }
+    if (invoiceCurrency !== "USD" && invoiceCurrency !== "EUR") {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "invoiceCurrency must be USD or EUR",
+      };
+    }
+  }
+
   if (!Number.isInteger(validitySeconds) || validitySeconds < 60) {
     return {
       ok: false,
@@ -93,17 +155,6 @@ export function validateCreateOrderBody(body) {
       status: 422,
       code: "asset_network_disabled",
       message: "Asset and network are not enabled",
-    };
-  }
-
-  const minor = amountToMinor(amount, config.decimals);
-  const minMinor = amountToMinor(config.minAmount, config.decimals);
-  if (minor === null || minMinor === null || minor < minMinor) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_amount",
-      message: `Amount must be a decimal string of at least ${config.minAmount} ${asset}`,
     };
   }
 
@@ -134,7 +185,16 @@ export function validateCreateOrderBody(body) {
   return {
     ok: true,
     parsed: {
-      amount,
+      /** @deprecated use invoiceAmount; kept for idempotency hash compat */
+      amountUsd: invoiceDenomination === "fiat" && invoiceCurrency === "USD"
+        ? invoiceAmount
+        : invoiceAmount,
+      invoiceAmount,
+      invoiceCurrency: invoiceDenomination === "crypto" ? "USD" : invoiceCurrency,
+      invoiceDenomination,
+      amountCrypto,
+      /** Filled after quote — token major units for matching assign. */
+      amount: invoiceAmount,
       asset,
       network,
       validitySeconds,
@@ -172,7 +232,11 @@ export function stubAssignOnCreate(input) {
  */
 export function idempotencyBodyHashPayload(parsed) {
   return JSON.stringify({
-    amount: parsed.amount,
+    amountUsd: parsed.amountUsd ?? parsed.amount,
+    invoiceAmount: parsed.invoiceAmount ?? null,
+    invoiceCurrency: parsed.invoiceCurrency ?? "USD",
+    invoiceDenomination: parsed.invoiceDenomination ?? "fiat",
+    amountCrypto: parsed.amountCrypto ?? null,
     asset: parsed.asset,
     network: parsed.network,
     validitySeconds: parsed.validitySeconds,

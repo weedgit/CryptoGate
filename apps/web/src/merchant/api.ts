@@ -9,7 +9,7 @@ export type Session = {
   email: string;
   /** Optional display name (A10). */
   displayName?: string | null;
-  /** Optional profile photo data-URL; null/absent uses initials. */
+  /** Optional profile photo data-URL; null/absent uses the default avatar icon. */
   avatarUrl?: string | null;
   /** UI language preference (A10). */
   locale?: string;
@@ -52,6 +52,23 @@ export type PaymentOrder = {
   createdBy?: string;
   createdByEmail?: string | null;
   merchantReference?: string | null;
+  /** Invoice USD (volume unit). */
+  invoiceAmountUsd?: string;
+  invoiceAmount?: string;
+  invoiceCurrency?: string;
+  invoiceDenomination?: string;
+  marketRate?: string | null;
+  pricingRate?: string | null;
+  pricingMode?: string | null;
+  rateSource?: string | null;
+  rateSources?: Array<{ source: string; rate: string }> | null;
+  referenceRate?: string | null;
+  referenceSource?: string | null;
+  rateWarning?: string | null;
+  rateFetchedAt?: string | null;
+  quoteExpiresAt?: string | null;
+  payAmountBaseUnits?: string | null;
+  assetDecimals?: number | null;
   /** Present when status is payment_anomaly (match / reorg reason code). */
   anomalyReason?: string | null;
   /** Staff note after resolve; order status is cancelled. */
@@ -90,6 +107,18 @@ export type PaymentDetails = {
   confirmedAt?: string | null;
   anomalyReason?: string | null;
   merchantName?: string;
+  invoiceAmountUsd?: string;
+  invoiceCurrency?: string;
+  pricingRate?: string | null;
+  marketRate?: string | null;
+  pricingMode?: string | null;
+  rateSource?: string | null;
+  rateSources?: Array<{ source: string; rate: string }> | null;
+  referenceRate?: string | null;
+  referenceSource?: string | null;
+  rateWarning?: string | null;
+  rateFetchedAt?: string | null;
+  quoteExpiresAt?: string | null;
 };
 
 export class ApiError extends Error {
@@ -265,7 +294,11 @@ export async function resetPasswordWithToken(
 }
 
 export async function createOrder(input: {
-  amount: string;
+  amountUsd?: string;
+  amountCrypto?: string;
+  invoiceAmount?: string;
+  invoiceCurrency?: "USD" | "EUR";
+  invoiceDenomination?: "fiat" | "crypto";
   asset: string;
   network: string;
   validitySeconds: number;
@@ -280,7 +313,17 @@ export async function createOrder(input: {
       "Idempotency-Key": `web-${crypto.randomUUID()}`,
     },
     body: JSON.stringify({
-      amount: input.amount,
+      ...(input.invoiceDenomination === "crypto" || input.amountCrypto
+        ? {
+            amountCrypto: input.amountCrypto ?? input.invoiceAmount,
+            invoiceDenomination: "crypto",
+          }
+        : {
+            amountUsd: input.amountUsd ?? input.invoiceAmount,
+            invoiceAmount: input.invoiceAmount ?? input.amountUsd,
+            invoiceCurrency: input.invoiceCurrency ?? "USD",
+            invoiceDenomination: "fiat",
+          }),
       asset: input.asset,
       network: input.network,
       validitySeconds: input.validitySeconds,
@@ -1499,4 +1542,107 @@ export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePrevi
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgDeletePreview;
+}
+
+export async function getPlatformPricingSettings(): Promise<{
+  ratesEnabled: boolean;
+  modePegged1to1Enabled: boolean;
+  modeMarketEnabled: boolean;
+  depegThresholdBps: number;
+  allowedQuoteLockSeconds: number[];
+  minRateSources: number;
+  rateVenues: string[];
+  chainlinkReferenceEnabled: boolean;
+  referenceDeviationBps: number;
+}> {
+  const res = await apiFetch(`${API_BASE}/platform/settings/pricing`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    ratesEnabled: boolean;
+    modePegged1to1Enabled: boolean;
+    modeMarketEnabled: boolean;
+    depegThresholdBps: number;
+    allowedQuoteLockSeconds: number[];
+    minRateSources: number;
+    rateVenues: string[];
+    chainlinkReferenceEnabled: boolean;
+    referenceDeviationBps: number;
+  };
+}
+
+export async function putPlatformPricingSettings(body: {
+  ratesEnabled?: boolean;
+  modePegged1to1Enabled?: boolean;
+  modeMarketEnabled?: boolean;
+  depegThresholdBps?: number;
+  allowedQuoteLockSeconds?: number[];
+  minRateSources?: number;
+  rateVenues?: string[];
+  chainlinkReferenceEnabled?: boolean;
+  referenceDeviationBps?: number;
+}): Promise<unknown> {
+  const res = await apiFetch(`${API_BASE}/platform/settings/pricing`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return res.json();
+}
+
+export async function getMerchantPricingSettings(orgId: string): Promise<{
+  pricingMode: string;
+  quoteLockSeconds: number;
+  effective?: {
+    ratesEnabled: boolean;
+    modeAvailable: boolean;
+    pricingMode: string;
+    quoteLockSeconds: number;
+  };
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/pricing`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    pricingMode: string;
+    quoteLockSeconds: number;
+    effective?: {
+      ratesEnabled: boolean;
+      modeAvailable: boolean;
+      pricingMode: string;
+      quoteLockSeconds: number;
+    };
+  };
+}
+
+export async function putMerchantPricingSettings(
+  orgId: string,
+  body: { pricingMode?: string; quoteLockSeconds?: number },
+): Promise<unknown> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/pricing`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return res.json();
 }

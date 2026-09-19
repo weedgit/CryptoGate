@@ -21,4 +21,6 @@ export function prefetchMerchantRoute(path: string) {
     warm(() => import("./IntegrationsPage"));
   else if (path === "settings/notifications")
     warm(() => import("./NotificationsSettingsPage"));
+  else if (path === "settings/pricing")
+    warm(() => import("./PricingSettingsPage"));
 }
