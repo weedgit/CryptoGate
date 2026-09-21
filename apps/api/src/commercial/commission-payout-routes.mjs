@@ -392,83 +392,15 @@ export async function handleGenerateCommissionInvoices(req, res) {
 
 /**
  * POST /v1/commission-payouts/generate-sub
- * After the caller received this period, issue invoices to direct sub-agents.
+ * Nested agents removed — endpoint kept only to return a clear error.
  */
 export async function handleGenerateSubAgentCommissionInvoices(req, res) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-
-  let body = {};
-  try {
-    body = await readJsonBody(req);
-  } catch {
-    sendError(res, 400, "invalid_json", "Request body must be JSON");
-    return;
-  }
-
-  const payerOrgId =
-    typeof body?.payerOrgId === "string" && body.payerOrgId.trim()
-      ? body.payerOrgId.trim()
-      : (caller.memberships.find(
-          (m) =>
-            (m.orgType === "agent" || m.orgType === "agent_sub") &&
-            canManageAgentCommissionPayout(caller, m.orgId),
-        )?.orgId ?? "");
-
-  if (!canManageAgentCommissionPayout(caller, payerOrgId)) {
-    sendError(
-      res,
-      403,
-      "forbidden",
-      "Not allowed to issue sub-agent commission invoices",
-    );
-    return;
-  }
-
-  const periodKey =
-    typeof body?.periodKey === "string" && body.periodKey.trim()
-      ? body.periodKey.trim()
-      : defaultCommissionPeriodKey();
-  const validated = validatePeriodKey(periodKey);
-  if (!validated.ok) {
-    sendError(res, validated.status, validated.code, validated.message);
-    return;
-  }
-
-  const result = await generateSubAgentCommissionInvoices(
-    payerOrgId,
-    periodKey,
+  sendError(
+    res,
+    403,
+    "org_type_disabled",
+    "Sub-agent commission invoices are no longer available",
   );
-  if (!result.ok) {
-    sendError(res, result.status, result.code, result.message);
-    return;
-  }
-
-  await insertAuditEvent({
-    actorUserId: caller.userId,
-    orgId: payerOrgId,
-    action: AUDIT_ACTIONS.commissionPayoutGenerate,
-    metadata: {
-      periodKey: result.periodKey,
-      payer: "agent",
-      created: result.created.length,
-      skipped: result.skipped.length,
-    },
-  });
-  for (const row of result.created) {
-    emitDashboardLive({
-      type: "commission.issued",
-      slices: ["commissions"],
-      orgId: row.payee_org_id,
-      parentId: row.payer_org_id ?? payerOrgId,
-    });
-  }
-  sendJson(res, 200, {
-    periodKey: result.periodKey,
-    periodLabel: result.periodLabel,
-    created: result.created.map(toCommissionPayout),
-    skipped: result.skipped,
-  });
 }
 
 /**

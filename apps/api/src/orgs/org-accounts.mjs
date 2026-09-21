@@ -7,9 +7,6 @@ export const ORG_TYPES = [
   "merchant_site",
 ];
 
-/** OpenAPI OrgAccount.structure — merchant accounts only. */
-export const MERCHANT_STRUCTURES = ["single_location", "multi_location"];
-
 /** Org operational status (B2 suspend / resume). */
 export const ORG_STATUSES = ["active", "paused"];
 
@@ -47,10 +44,10 @@ export const DEFAULT_MAX_AGENT_DEPTH = 2;
 
 /**
  * Map a DB row to OpenAPI OrgAccount.
- * @param {{ id: string, type: string, name: string, parent_id: string | null, structure?: string | null, status?: string, country?: string | null, legal_name?: string | null, icon_key?: string | null, created_at?: Date | string }} row
+ * @param {{ id: string, type: string, name: string, parent_id: string | null, status?: string, country?: string | null, legal_name?: string | null, icon_key?: string | null, created_at?: Date | string }} row
  */
 export function toOrgAccount(row) {
-  /** @type {{ id: string, type: string, name: string, parentId: string | null, status: string, structure?: string, country?: string, legalName?: string, iconKey?: string, createdAt?: string }} */
+  /** @type {{ id: string, type: string, name: string, parentId: string | null, status: string, country?: string, legalName?: string, iconKey?: string, createdAt?: string }} */
   const account = {
     id: row.id,
     type: row.type,
@@ -58,9 +55,6 @@ export function toOrgAccount(row) {
     parentId: row.parent_id ?? null,
     status: row.status === "paused" ? "paused" : "active",
   };
-  if (row.structure) {
-    account.structure = row.structure;
-  }
   if (row.country) {
     account.country = row.country;
   }

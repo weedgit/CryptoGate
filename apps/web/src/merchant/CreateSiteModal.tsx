@@ -15,10 +15,16 @@ import {
   createOrg,
   inviteOrgUser,
   listOrgMemberEmails,
+  type OrgAccount,
   type Session,
 } from "./api";
 import { getMerchantOrgs, invalidateMerchantOrgList } from "./merchantOrgList";
-import { parentMerchantOrgId, sessionCanManageSites } from "./org";
+import {
+  parentMerchantOrgId,
+  primaryMerchantOrgId,
+  sessionCanManageSites,
+  sitesInMerchantSubtree,
+} from "./org";
 import {
   fetchRegisteredEmailIndex,
   registeredEmailConflict,
@@ -34,18 +40,34 @@ type Props = {
 };
 
 export function CreateSiteModal({ session, onClose }: Props) {
-  const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
+  const merchantId = useMemo(() => parentMerchantOrgId(session), [session]);
+  const homeOrgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const navigate = useNavigate();
   const nameRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
-  const [orgs, setOrgs] = useState<OrgRef[]>([]);
+  const [parentId, setParentId] = useState<string>("");
+  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [registeredEmails, setRegisteredEmails] = useState<
     Map<string, RegisteredEmailRef>
   >(() => new Map());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const parentOptions = useMemo(() => {
+    if (!merchantId) return [];
+    const merchant = orgs.find((o) => o.id === merchantId);
+    const sites = sitesInMerchantSubtree(orgs, merchantId) as OrgAccount[];
+    const options: { id: string; label: string }[] = [];
+    if (merchant) {
+      options.push({ id: merchant.id, label: `${merchant.name} (merchant)` });
+    }
+    for (const site of sites) {
+      options.push({ id: site.id, label: site.name });
+    }
+    return options;
+  }, [orgs, merchantId]);
 
   const requestClose = useCallback(() => {
     if (!busy) onClose();
@@ -73,9 +95,21 @@ export function CreateSiteModal({ session, onClose }: Props) {
 
   useEffect(() => {
     getMerchantOrgs()
-      .then(setOrgs)
+      .then((list) => {
+        setOrgs(list);
+        const defaultParent =
+          homeOrgId &&
+          list.some(
+            (o) =>
+              o.id === homeOrgId &&
+              (o.type === "merchant" || o.type === "merchant_site"),
+          )
+            ? homeOrgId
+            : merchantId ?? "";
+        setParentId((prev) => prev || defaultParent || "");
+      })
       .catch(() => setOrgs([]));
-  }, []);
+  }, [merchantId, homeOrgId]);
 
   useEffect(() => {
     if (orgs.length === 0) {
@@ -83,7 +117,10 @@ export function CreateSiteModal({ session, onClose }: Props) {
       return;
     }
     let cancelled = false;
-    void fetchRegisteredEmailIndex(orgs, listOrgMemberEmails).then((index) => {
+    void fetchRegisteredEmailIndex(
+      orgs as OrgRef[],
+      listOrgMemberEmails,
+    ).then((index) => {
       if (!cancelled) setRegisteredEmails(index);
     });
     return () => {
@@ -101,6 +138,10 @@ export function CreateSiteModal({ session, onClose }: Props) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!parentId) return;
+    if (!sessionCanManageSites(session)) {
+      setError("Owner or Administrator required to create sites");
+      return;
+    }
     const ownerConflict = validateOwnerEmail();
     if (ownerConflict) {
       setError(ownerConflict);
@@ -109,7 +150,10 @@ export function CreateSiteModal({ session, onClose }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const freshIndex = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
+      const freshIndex = await fetchRegisteredEmailIndex(
+        orgs as OrgRef[],
+        listOrgMemberEmails,
+      );
       setRegisteredEmails(freshIndex);
       const freshConflict = validateOwnerEmail(freshIndex);
       if (freshConflict) {
@@ -125,7 +169,10 @@ export function CreateSiteModal({ session, onClose }: Props) {
       invalidateMerchantOrgList();
       if (ownerEmail.trim()) {
         try {
-          await inviteOrgUser(site.id, { email: ownerEmail.trim(), role: "owner" });
+          await inviteOrgUser(site.id, {
+            email: ownerEmail.trim(),
+            role: "owner",
+          });
         } catch (inviteErr) {
           const msg =
             inviteErr instanceof ApiError && inviteErr.code === "email_taken"
@@ -165,8 +212,11 @@ export function CreateSiteModal({ session, onClose }: Props) {
         >
           <header className="b3-commission-modal__head create-site-modal__head">
             <div className="create-site-modal__titles">
-              <h3 id="create-site-modal-title">Add merchant site</h3>
-              <p>New location under your multi-location parent</p>
+              <h3 id="create-site-modal-title">Add site</h3>
+              <p>
+                New location under the merchant or another site. No separate
+                sub-site type — a child site is still a site.
+              </p>
             </div>
             <button
               type="button"
@@ -181,6 +231,29 @@ export function CreateSiteModal({ session, onClose }: Props) {
 
           <form className="create-site-modal__form" onSubmit={onSubmit}>
             <div className="b3-commission-modal__body create-site-modal__body">
+              <label className="b3-commission-modal__field">
+                <span className="b3-commission-modal__label">Parent</span>
+                <div className="b3-commission-modal__input-wrap">
+                  <select
+                    className="b3-commission-modal__input"
+                    required
+                    value={parentId}
+                    onChange={(e) => setParentId(e.target.value)}
+                    disabled={busy || parentOptions.length === 0}
+                  >
+                    {parentOptions.length === 0 ? (
+                      <option value="">Loading…</option>
+                    ) : (
+                      parentOptions.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </label>
+
               <label className="b3-commission-modal__field">
                 <span className="b3-commission-modal__label">Site name</span>
                 <div className="b3-commission-modal__input-wrap">
@@ -216,8 +289,8 @@ export function CreateSiteModal({ session, onClose }: Props) {
               </label>
 
               <p className="b3-commission-modal__hint create-site-modal__hint">
-                Wallet, matching, fulfillment, and retention inherit from the
-                parent merchant.
+                Sites manage invoices and cashiers only. Wallet, matching,
+                fulfillment, and retention inherit from the parent merchant.
               </p>
             </div>
 
@@ -233,7 +306,7 @@ export function CreateSiteModal({ session, onClose }: Props) {
               <button
                 type="submit"
                 className="b3-commission-modal__save"
-                disabled={busy || !name.trim()}
+                disabled={busy || !name.trim() || !parentId}
               >
                 {busy ? "Creating…" : "Create site"}
               </button>

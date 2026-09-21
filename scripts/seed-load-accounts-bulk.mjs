@@ -6,7 +6,7 @@
  * Idempotent: skips when "Load Bulk 001-01" already exists.
  *
  * Placement (Phase 1):
- *   All bulk merchants hang directly under the Load agent (single_location only).
+ *   All bulk merchants hang directly under the Load agent.
  *
  * Targets: Load Agent 001, Load Agent 010 (50 merchants each after seed)
  *
@@ -149,7 +149,6 @@ async function main() {
         type: "merchant",
         name,
         parentId: agent.id,
-        structure: "single_location",
         maxAgentDepth: null,
       });
       if (!merchant.ok) {

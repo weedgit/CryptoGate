@@ -1,3 +1,4 @@
+import { PricingRateMode } from "@paymentgate/domain";
 import { nextBillingPeriodStart } from "../platform-settings/fee-tier-rules.mjs";
 
 export const DEFAULT_AGENT_COMMISSION_PERCENT = "15";
@@ -34,15 +35,38 @@ export function validateUpdateAgentCommissionBody(body) {
   if (!body || typeof body !== "object") {
     return fail(400, "invalid_request", "Request body required");
   }
-  const commissionPercent = parseCommissionPercent(body.commissionPercent);
-  if (commissionPercent === null) {
+  const rateModeRaw =
+    typeof body.rateMode === "string" ? body.rateMode.trim() : "";
+  const rateMode =
+    rateModeRaw === PricingRateMode.Fixed || rateModeRaw === "fixed"
+      ? PricingRateMode.Fixed
+      : rateModeRaw === PricingRateMode.Automatic || rateModeRaw === "automatic"
+        ? PricingRateMode.Automatic
+        : rateModeRaw
+          ? null
+          : undefined;
+  if (rateModeRaw && rateMode === null) {
+    return fail(400, "invalid_request", "rateMode must be automatic or fixed");
+  }
+  const commissionPercent =
+    body.commissionPercent === undefined || body.commissionPercent === null
+      ? null
+      : parseCommissionPercent(body.commissionPercent);
+  if (
+    rateMode !== PricingRateMode.Automatic &&
+    commissionPercent === null
+  ) {
     return fail(
       422,
       "invalid_commission",
       `commissionPercent must be a number from ${AGENT_COMMISSION_MIN} to ${AGENT_COMMISSION_MAX}`,
     );
   }
-  return { ok: true, commissionPercent };
+  return {
+    ok: true,
+    commissionPercent,
+    rateMode: rateMode ?? PricingRateMode.Fixed,
+  };
 }
 
 /**
@@ -56,6 +80,7 @@ export function toAgentCommissionSettings(row) {
   return {
     orgId: row.org_id,
     commissionPercent: row.commission_percent,
+    rateMode: row.rate_mode === "fixed" ? "fixed" : "automatic",
     effectiveFrom,
     updatedAt:
       row.updated_at instanceof Date

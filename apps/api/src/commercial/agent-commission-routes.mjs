@@ -8,6 +8,7 @@ import {
   canReadAgentCommission,
   canReadCommissionPayouts,
   canUpdateAgentCommission,
+  canUpdatePlatformOwnerSettings,
 } from "../orgs/role-policy.mjs";
 import {
   agentCommissionAllowedOnOrgType,
@@ -20,6 +21,7 @@ import {
   listAgentCommissionsByOrgIds,
   upsertAgentCommission,
 } from "./agent-commission-store.mjs";
+import { defaultAgentSchedulePlan } from "../platform-settings/pricing-resolve.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -90,15 +92,11 @@ export async function handleGetAgentCommission(req, res, orgId) {
 
 /**
  * PUT /v1/orgs/{orgId}/agent-commission — applies immediately.
+ * Fixed overrides and automatic resets require Platform Owner.
  */
 export async function handlePutAgentCommission(req, res, orgId) {
   const loaded = await loadVisibleAgentOrg(req, res, orgId);
   if (!loaded) return;
-
-  if (!canUpdateAgentCommission(loaded.caller, loaded.org)) {
-    sendError(res, 403, "forbidden", "Not allowed to change agent commission");
-    return;
-  }
 
   let body;
   try {
@@ -114,10 +112,38 @@ export async function handlePutAgentCommission(req, res, orgId) {
     return;
   }
 
+  const needsOwner =
+    parsed.rateMode === "fixed" || parsed.rateMode === "automatic";
+  if (needsOwner && !canUpdatePlatformOwnerSettings(loaded.caller)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only platform Owner may set or clear fixed agent commission rates",
+    );
+    return;
+  }
+  if (!needsOwner && !canUpdateAgentCommission(loaded.caller, loaded.org)) {
+    sendError(res, 403, "forbidden", "Not allowed to change agent commission");
+    return;
+  }
+
   const previous = await findAgentCommission(orgId);
+  let commissionPercent = parsed.commissionPercent;
+  let rateMode = parsed.rateMode;
+
+  if (rateMode === "automatic") {
+    const plan = await defaultAgentSchedulePlan();
+    commissionPercent = plan.commissionPercent;
+    rateMode = "automatic";
+  } else {
+    rateMode = "fixed";
+  }
+
   const row = await upsertAgentCommission({
     orgId,
-    commissionPercent: parsed.commissionPercent,
+    commissionPercent,
+    rateMode,
   });
 
   await insertAuditEvent({
@@ -127,6 +153,7 @@ export async function handlePutAgentCommission(req, res, orgId) {
     metadata: {
       previousPercent: previous?.commission_percent ?? null,
       commissionPercent: row.commission_percent,
+      rateMode: row.rate_mode,
       apply: "immediate",
     },
   });
@@ -136,8 +163,12 @@ export async function handlePutAgentCommission(req, res, orgId) {
 
 /**
  * Called after agent org create.
- * @param {{ orgId: string, commissionPercent?: string }} input
+ * @param {{ orgId: string, commissionPercent?: string, rateMode?: "automatic" | "fixed" }} input
  */
 export async function bootstrapAgentCommission(input) {
-  return ensureAgentCommission(input.orgId, input.commissionPercent);
+  return ensureAgentCommission(
+    input.orgId,
+    input.commissionPercent,
+    input.rateMode ?? "automatic",
+  );
 }

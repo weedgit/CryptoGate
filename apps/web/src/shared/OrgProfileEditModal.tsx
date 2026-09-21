@@ -2,21 +2,29 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { OrgBrandMark } from "./OrgBrandMark";
 import { isCustomOrgIcon, readOrgIconFile } from "./orgBrand";
+import { ONBOARD_COUNTRY_OPTIONS } from "./onboardMerchantUi";
+import { SearchableSelect } from "../ui/SearchableSelect";
 
 type Props = {
   open: boolean;
   name: string;
   iconKey?: string | null;
+  country?: string | null;
   busy?: boolean;
   error?: string | null;
   onClose: () => void;
-  onSave: (next: { name: string; iconKey: string | null }) => void | Promise<void>;
+  onSave: (next: {
+    name: string;
+    iconKey: string | null;
+    country: string;
+  }) => void | Promise<void>;
 };
 
 export function OrgProfileEditModal({
   open,
   name,
   iconKey = null,
+  country = "",
   busy = false,
   error = null,
   onClose,
@@ -26,16 +34,29 @@ export function OrgProfileEditModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [draftName, setDraftName] = useState(name);
   const [draftIcon, setDraftIcon] = useState<string | null>(iconKey ?? null);
+  const [draftCountry, setDraftCountry] = useState(country?.trim() ?? "");
   const [fileError, setFileError] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
+
+  const countryOptions = (() => {
+    const current = draftCountry.trim();
+    if (
+      current &&
+      !ONBOARD_COUNTRY_OPTIONS.some((o) => o.id === current)
+    ) {
+      return [{ id: current, label: current }, ...ONBOARD_COUNTRY_OPTIONS];
+    }
+    return ONBOARD_COUNTRY_OPTIONS;
+  })();
 
   useEffect(() => {
     if (!open) return;
     setDraftName(name);
     setDraftIcon(iconKey ?? null);
+    setDraftCountry(country?.trim() ?? "");
     setFileError(null);
     setReadingFile(false);
-  }, [open, name, iconKey]);
+  }, [open, name, iconKey, country]);
 
   if (!open) return null;
 
@@ -55,6 +76,7 @@ export function OrgProfileEditModal({
   };
 
   const saving = busy || readingFile;
+  const canSave = draftName.trim().length >= 2 && draftCountry.trim().length > 0;
 
   return createPortal(
     <div
@@ -102,6 +124,21 @@ export function OrgProfileEditModal({
               autoFocus
             />
           </label>
+
+          <div className="field">
+            <span className="field-label" id={`${titleId}-country`}>
+              Country
+            </span>
+            <SearchableSelect
+              id={`${titleId}-country-select`}
+              value={draftCountry}
+              options={countryOptions}
+              placeholder="Select country"
+              emptyLabel="Select country"
+              disabled={saving}
+              onChange={setDraftCountry}
+            />
+          </div>
 
           <div className="org-profile-edit-modal__icons">
             <p className="field-label">Icon</p>
@@ -153,11 +190,12 @@ export function OrgProfileEditModal({
           <button
             type="button"
             className="btn-primary"
-            disabled={saving || draftName.trim().length < 2}
+            disabled={saving || !canSave}
             onClick={() =>
               void onSave({
                 name: draftName.trim(),
                 iconKey: draftIcon,
+                country: draftCountry.trim(),
               })
             }
           >

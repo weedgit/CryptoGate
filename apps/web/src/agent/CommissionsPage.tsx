@@ -809,7 +809,7 @@ export function CommissionsPage({ session }: Props) {
             </>
           ) : null}
 
-          {!loading && (isTopLevel || subs.length > 0) ? (
+          {!loading && subs.length > 0 ? (
             <>
               <div className="plat-commissions__section-head">
                 <h2 className="plat-commissions__history-title">
@@ -845,8 +845,7 @@ export function CommissionsPage({ session }: Props) {
               </div>
               {subs.length === 0 ? (
                 <p className="plat-bills__empty">
-                  No sub-agents yet.{" "}
-                  <Link to={agentRoute("agents/new")}>Add a sub-agent</Link>
+                  No nested agent accounts under this agent.
                 </p>
               ) : receivedPeriods.length === 0 && openSubInvoices.length === 0 ? (
                 <p className="plat-bills__empty">

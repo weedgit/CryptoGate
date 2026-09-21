@@ -454,7 +454,7 @@ async function main() {
   }
 
   const { rows: merchants } = await pool.query(
-    `SELECT id, name, structure, status
+    `SELECT id, name, status
      FROM org_accounts
      WHERE type = 'merchant'
      ORDER BY name ASC`,

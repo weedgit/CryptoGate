@@ -17,9 +17,9 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 **Organization hierarchy (org account types) — Phase 1 lock**
 
 1. **Platform** at the root; **agent account** nodes **under Platform only** (no nested agents / agent (sub)).
-2. **Merchant account** under an agent account, or under Platform when no external agent is assigned. Merchants may be **single_location** or **multi_location**.
+2. **Merchant account** under an agent account, or under Platform when no external agent is assigned. Sites are optional under any merchant (no single/multi structure).
 3. **Cashier** users under **merchant** accounts only; no agent accounts under merchants.
-4. Optional: **Merchant (site)** under a multi_location merchant for branch ops. Agent portal and merchant portal with scoped data visibility.
+4. Optional: **Merchant (site)** under a merchant for branch ops. Agent portal and merchant portal with scoped data visibility.
 5. **Out of Phase 1 product:** agent (sub) only. See [Business-Model.md](Business-Model.md).
 
 **User roles (inside each org account)**

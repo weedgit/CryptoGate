@@ -15,16 +15,17 @@ import {
   updateFeeTierSettings,
   type EnterpriseRateApproval,
   type FeeTierBand,
+  type FeeTierEffectiveTiming,
   type Session,
 } from "./api";
 import { BillingWalletPanel } from "./BillingWalletPanel";
 import {
   formatTierPercent,
   formatTierSubscription,
+  formatVolumeBand,
   nextBillingPeriodLabel,
   TIER_ORDER,
   TIER_TITLE,
-  TIER_VOLUME_BAND,
   tierFeatures,
   tiersSnapshot,
 } from "./feeTierDisplay";
@@ -79,6 +80,11 @@ export function FeeTiersSettingsPage({ session }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [billingDirty, setBillingDirty] = useState(false);
+  const [effectiveTiming, setEffectiveTiming] =
+    useState<FeeTierEffectiveTiming>("next_billing_cycle");
+  const [pendingEffectiveFrom, setPendingEffectiveFrom] = useState<string | null>(
+    null,
+  );
 
   const pendingOverrideCount = useMemo(
     () => approvals.filter((a) => a.status === "pending").length,
@@ -110,6 +116,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
       setTiers(settings.tiers);
       setSavedSnapshot(tiersSnapshot(settings.tiers));
       setUpdatedAt(settings.updatedAt);
+      setPendingEffectiveFrom(settings.pendingEffectiveFrom ?? null);
       setApprovals(
         [...pending, ...approved].sort((a, b) =>
           b.createdAt.localeCompare(a.createdAt),
@@ -185,11 +192,16 @@ export function FeeTiersSettingsPage({ session }: Props) {
     setError(null);
     setMessage(null);
     try {
-      const saved = await updateFeeTierSettings({ tiers });
+      const saved = await updateFeeTierSettings({ tiers, effectiveTiming });
       setTiers(saved.tiers);
       setSavedSnapshot(tiersSnapshot(saved.tiers));
       setUpdatedAt(saved.updatedAt);
-      setMessage("Fee tiers saved — changes apply to the next billing period.");
+      setPendingEffectiveFrom(saved.pendingEffectiveFrom ?? null);
+      setMessage(
+        effectiveTiming === "immediate"
+          ? "Fee tiers saved — schedule is live immediately."
+          : `Fee tiers saved — changes apply next billing period (${billingNote}).`,
+      );
       setTab("pricing");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save fee tiers");
@@ -280,7 +292,12 @@ export function FeeTiersSettingsPage({ session }: Props) {
           <div className="plat-fee-tiers__banner" role="status">
             <span className="plat-fee-tiers__banner-icon" aria-hidden />
             <p>
-              Scheduled revision: changes apply next billing period ({billingNote})
+              Merchants and agents follow the volume schedule automatically.
+              Platform Owner may lock fixed specials per org. Band edits can
+              apply immediately or from the next billing period ({billingNote})
+              {pendingEffectiveFrom
+                ? ` — pending schedule live ${pendingEffectiveFrom}`
+                : ""}.
             </p>
           </div>
 
@@ -314,11 +331,13 @@ export function FeeTiersSettingsPage({ session }: Props) {
                       </span>
                     </p>
                     <p className="plat-fee-tier-card__band">
-                      {TIER_VOLUME_BAND[tier.tier] ?? "Volume band"}
+                      {formatVolumeBand(tier)}
                     </p>
                     <p className="plat-fee-tier-card__range">
-                      Agent band {formatTierPercent(tier.volumeFeeMinPercent)} –{" "}
-                      {formatTierPercent(tier.volumeFeeMaxPercent)}
+                      Merchant fee {formatTierPercent(tier.defaultSignupPercent)}
+                      {" · "}
+                      Agent commission{" "}
+                      {formatTierPercent(tier.agentCommissionPercent ?? "15")}
                     </p>
                   </div>
                   <ul className="plat-fee-tier-card__features" aria-label="Tier assignment notes">
@@ -344,8 +363,9 @@ export function FeeTiersSettingsPage({ session }: Props) {
         <div className="plat-fee-bands">
           <div className="plat-fee-bands__notice" role="status">
             <p>
-              Band settings apply to the <strong>next billing period</strong> only
-              — not retroactive on open service bills.
+              Independent merchant volume fees and agent commissions per tier.
+              Choose when schedule changes take effect below — not retroactive
+              on open service bills.
             </p>
           </div>
 
@@ -375,8 +395,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
                     <div>
                       <h3>{TIER_TITLE[tier.tier] ?? tier.tier}</h3>
                       <p>
-                        {TIER_VOLUME_BAND[tier.tier] ?? "Volume band"} · Agent
-                        assigns rate within min/max band
+                        {formatVolumeBand(tier)} · automatic schedule rates
                       </p>
                     </div>
                     {popular ? (
@@ -468,6 +487,64 @@ export function FeeTiersSettingsPage({ session }: Props) {
                         </span>
                       </div>
                     </div>
+
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor={`${tier.tier}-vmin`}>
+                        Volume min (USD)
+                      </label>
+                      <input
+                        id={`${tier.tier}-vmin`}
+                        className="b4-field__control"
+                        inputMode="decimal"
+                        value={tier.volumeMinUsd ?? "0"}
+                        onChange={(e) =>
+                          patchTier(index, { volumeMinUsd: e.target.value })
+                        }
+                        disabled={!canEdit || busy}
+                      />
+                    </div>
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor={`${tier.tier}-vmax`}>
+                        Volume max (USD)
+                      </label>
+                      <input
+                        id={`${tier.tier}-vmax`}
+                        className="b4-field__control"
+                        inputMode="decimal"
+                        value={tier.volumeMaxUsd ?? ""}
+                        onChange={(e) =>
+                          patchTier(index, {
+                            volumeMaxUsd: e.target.value.trim()
+                              ? e.target.value
+                              : null,
+                          })
+                        }
+                        disabled={!canEdit || busy}
+                        placeholder="Unbounded"
+                      />
+                    </div>
+                    <div className="b4-field">
+                      <label className="b4-field__label" htmlFor={`${tier.tier}-agent`}>
+                        Agent commission
+                      </label>
+                      <div className="plat-fee-bands__affix-wrap plat-fee-bands__affix-wrap--suffix">
+                        <input
+                          id={`${tier.tier}-agent`}
+                          className="b4-field__control plat-fee-bands__affix-input plat-fee-bands__affix-input--suffix"
+                          inputMode="decimal"
+                          value={tier.agentCommissionPercent ?? "15"}
+                          onChange={(e) =>
+                            patchTier(index, {
+                              agentCommissionPercent: e.target.value,
+                            })
+                          }
+                          disabled={!canEdit || busy}
+                        />
+                        <span className="plat-fee-bands__affix plat-fee-bands__affix--suffix" aria-hidden>
+                          %
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="b4-field plat-fee-bands__notes">
@@ -493,6 +570,28 @@ export function FeeTiersSettingsPage({ session }: Props) {
               );
             })}
             </div>
+
+            {canEdit ? (
+              <div className="plat-fee-bands__timing b4-field" style={{ marginTop: "1.25rem" }}>
+                <label className="b4-field__label" htmlFor="fee-tier-timing">
+                  When schedule changes take effect
+                </label>
+                <select
+                  id="fee-tier-timing"
+                  className="b4-field__control"
+                  value={effectiveTiming}
+                  onChange={(e) =>
+                    setEffectiveTiming(e.target.value as FeeTierEffectiveTiming)
+                  }
+                  disabled={busy}
+                >
+                  <option value="next_billing_cycle">
+                    Next billing cycle ({billingNote})
+                  </option>
+                  <option value="immediate">Immediately</option>
+                </select>
+              </div>
+            ) : null}
 
             {canEdit ? (
               <div className="plat-fee-bands__actions">
@@ -522,7 +621,8 @@ export function FeeTiersSettingsPage({ session }: Props) {
             <div className="plat-fee-tiers__overrides-titles">
               <h2>Custom merchant rate overrides</h2>
               <p className="plat-fee-tiers__overrides-lede">
-                Enterprise volume fees requested by agents at merchant onboard.
+                Fixed specials and legacy enterprise rate requests. Prefer locking
+                a fixed rate from the merchant detail page (Platform Owner).
                 Approved rates stay here until you change or revoke them.
               </p>
             </div>

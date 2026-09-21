@@ -983,10 +983,12 @@ export function DashboardPage({ session }: Props) {
               </span>
               <h2>Accounts</h2>
             </div>
-            <CardHelp text="Merchants and agent (sub) accounts in your subtree: totals, payment activity, and paused." />
+            <CardHelp text="Merchants in your subtree: totals, payment activity, and paused." />
           </div>
           <AccountRows title="Merchants" slice={stats.merchants} />
-          <AccountRows title="Agent (sub)" slice={stats.subAgents} />
+          {stats.subAgents.total > 0 ? (
+            <AccountRows title="Agents" slice={stats.subAgents} />
+          ) : null}
         </div>
 
         <div className="plat-overview-card glass-tone-emerald">

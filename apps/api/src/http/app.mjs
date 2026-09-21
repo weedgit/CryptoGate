@@ -15,6 +15,12 @@ import {
   handleDeletePosPin,
   handleVerifyPosPin,
 } from "./auth-routes.mjs";
+import {
+  handleSendEmailOtp,
+  handleSendPhoneOtp,
+  handleVerifyEmailOtp,
+  handleVerifyPhoneOtp,
+} from "./contact-verify-routes.mjs";
 import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handlePatchOrg, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
@@ -150,6 +156,7 @@ import {
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
+import { rejectUnverifiedLiveAction } from "../auth/contact-verification.mjs";
 
 /**
  * HTTP router for apps/api. Auth paths match OpenAPI servers.url `/v1`.
@@ -243,6 +250,24 @@ export async function handleRequest(req, res) {
     await handleVerifyPosPin(req, res);
     return;
   }
+  if (method === "POST" && path === "/v1/auth/contact/email/send") {
+    await handleSendEmailOtp(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/auth/contact/email/verify") {
+    await handleVerifyEmailOtp(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/auth/contact/phone/send") {
+    await handleSendPhoneOtp(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/auth/contact/phone/verify") {
+    await handleVerifyPhoneOtp(req, res);
+    return;
+  }
+
+  if (await rejectUnverifiedLiveAction(req, res, method, path)) return;
 
   if (method === "GET" && path === "/v1/orgs") {
     await handleListOrgs(req, res);

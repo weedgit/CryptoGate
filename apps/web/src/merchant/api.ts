@@ -16,6 +16,21 @@ export type Session = {
   /** IANA timezone (A10). */
   timezone?: string;
   mustChangePassword?: boolean;
+  /** True after invite-reset token use or email OTP. */
+  emailVerified?: boolean;
+  /** E.164 mobile, when set. */
+  phone?: string | null;
+  phoneVerified?: boolean;
+  /** emailVerified AND phoneVerified. */
+  contactVerified?: boolean;
+  /** Business name + country set on the setup org. */
+  profileComplete?: boolean;
+  /** Settlement (merchant) or payout (agent) address set. */
+  walletSet?: boolean;
+  /** contactVerified AND profileComplete AND walletSet. */
+  setupReady?: boolean;
+  /** Org id whose profile/wallet must be completed. */
+  setupOrgId?: string | null;
   /** True when TOTP enrollment completed; Owner/Admin must enroll when false. */
   mfaEnrolled?: boolean;
   /** Setup started but 6-digit verify not finished — reopen setup to view secret again. */
@@ -1148,7 +1163,6 @@ export type OrgAccount = {
   name: string;
   parentId: string | null;
   status?: "active" | "paused";
-  structure?: string;
   country?: string | null;
   legalName?: string | null;
   iconKey?: string | null;
@@ -1247,12 +1261,19 @@ export async function setOrgStatus(
 
 export async function patchOrgProfile(
   orgId: string,
-  body: { name: string; iconKey?: string | null },
+  body: { name: string; iconKey?: string | null; country?: string },
 ): Promise<OrgAccount> {
-  const payload: { name: string; iconKey: string | null } = {
+  const payload: {
+    name: string;
+    iconKey: string | null;
+    country?: string;
+  } = {
     name: body.name.trim(),
     iconKey: body.iconKey ?? null,
   };
+  if (typeof body.country === "string" && body.country.trim()) {
+    payload.country = body.country.trim();
+  }
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
     method: "PATCH",
     credentials: "include",
@@ -1302,6 +1323,57 @@ export async function changePassword(body: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as Session;
+}
+
+export type ContactOtpSendResult = {
+  status: "sent" | "already_verified";
+  phone?: string;
+  expiresAt?: string;
+  devCode?: string;
+  session?: Session;
+};
+
+export async function sendEmailOtp(): Promise<ContactOtpSendResult> {
+  const res = await apiFetch(`${API_BASE}/auth/contact/email/send`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ContactOtpSendResult;
+}
+
+export async function verifyEmailOtp(code: string): Promise<Session> {
+  const res = await apiFetch(`${API_BASE}/auth/contact/email/verify`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code.trim() }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as Session;
+}
+
+export async function sendPhoneOtp(phone?: string): Promise<ContactOtpSendResult> {
+  const res = await apiFetch(`${API_BASE}/auth/contact/phone/send`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(phone ? { phone } : {}),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ContactOtpSendResult;
+}
+
+export async function verifyPhoneOtp(code: string): Promise<Session> {
+  const res = await apiFetch(`${API_BASE}/auth/contact/phone/verify`, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code.trim() }),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as Session;
@@ -1494,7 +1566,6 @@ export async function createOrg(body: {
   type: string;
   name: string;
   parentId: string;
-  structure?: string;
 }): Promise<OrgAccount> {
   const res = await apiFetch(`${API_BASE}/orgs`, {
     method: "POST",

@@ -7,9 +7,9 @@ import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
   canBootstrapPlatform,
   canCreateOrgUnderParent,
-  canDeleteMerchantSite,
   canEditOrgProfile,
   canManageDirectChildOrg,
+  canManageMerchantSiteTree,
   canManagePlatform,
 } from "./role-policy.mjs";
 import {
@@ -39,10 +39,11 @@ import {
 } from "../commercial/merchant-commercial-routes.mjs";
 import { validateCommercialOnCreate } from "../commercial/merchant-commercial-rules.mjs";
 import { bootstrapAgentCommission } from "../commercial/agent-commission-routes.mjs";
+import { parseCommissionPercent } from "../commercial/agent-commission-rules.mjs";
 import {
-  DEFAULT_AGENT_COMMISSION_PERCENT,
-  parseCommissionPercent,
-} from "../commercial/agent-commission-rules.mjs";
+  defaultAgentSchedulePlan,
+  defaultMerchantSchedulePlan,
+} from "../platform-settings/pricing-resolve.mjs";
 
 const MANAGEABLE_ORG_TYPES = new Set(["agent", "agent_sub", "merchant"]);
 
@@ -67,12 +68,12 @@ async function assertMayDeleteOrg(caller, row, orgId, res) {
     return false;
   }
   if (row.type === "merchant_site") {
-    if (!canDeleteMerchantSite(caller, row)) {
+    if (!(await canManageMerchantSiteTree(caller, row))) {
       sendError(
         res,
         403,
         "forbidden",
-        "Parent merchant Owner or Administrator required",
+        "Parent merchant or site Owner or Administrator required",
       );
       return false;
     }
@@ -201,6 +202,20 @@ export async function handlePatchOrg(req, res, orgId) {
     iconKey = body.iconKey;
   }
 
+  let country;
+  if (typeof body?.country === "string") {
+    const trimmed = body.country.trim();
+    if (!trimmed) {
+      sendError(res, 400, "invalid_request", "country is required");
+      return;
+    }
+    if (trimmed.length > 80) {
+      sendError(res, 400, "invalid_request", "country is too long");
+      return;
+    }
+    country = trimmed;
+  }
+
   if (row.parent_id) {
     const clash = await findSiblingByNormalizedNameExcluding(
       row.parent_id,
@@ -218,7 +233,7 @@ export async function handlePatchOrg(req, res, orgId) {
     }
   }
 
-  const updated = await updateOrgProfile(orgId, { name, iconKey });
+  const updated = await updateOrgProfile(orgId, { name, iconKey, country });
   if (!updated) {
     sendError(res, 404, "not_found", "Org not found");
     return;
@@ -231,6 +246,7 @@ export async function handlePatchOrg(req, res, orgId) {
     action: AUDIT_ACTIONS.orgProfile,
     metadata: {
       name,
+      country: country ?? undefined,
       iconKey: iconKey?.startsWith("data:") ? "custom_image" : iconKey,
     },
   }).catch(() => {});
@@ -253,12 +269,12 @@ export async function handleSetOrgStatus(req, res, orgId) {
     return;
   }
   if (row.type === "merchant_site") {
-    if (!canDeleteMerchantSite(caller, row)) {
+    if (!(await canManageMerchantSiteTree(caller, row))) {
       sendError(
         res,
         403,
         "forbidden",
-        "Parent merchant Owner or Administrator required",
+        "Parent merchant or site Owner or Administrator required",
       );
       return;
     }
@@ -553,7 +569,7 @@ export async function handleCreateOrg(req, res) {
     }
   }
 
-  /** @type {{ tier: string, volumeFeePercent: string, needsApproval?: boolean } | null} */
+  /** @type {{ tier: string, volumeFeePercent: string, rateMode: string, needsApproval?: boolean } | null} */
   let commercialPlan = null;
   if (result.insert.type === "merchant") {
     const parsed = parseCommercialOnCreate(body?.commercial);
@@ -561,16 +577,30 @@ export async function handleCreateOrg(req, res) {
       sendError(res, parsed.status, parsed.code, parsed.message);
       return;
     }
-    const bandCheck = await validateCommercialOnCreate(parsed.tier, parsed.volumeFeePercent);
-    if (!bandCheck.ok) {
-      sendError(res, bandCheck.status, bandCheck.code, bandCheck.message);
-      return;
+    if (parsed.omitted) {
+      const schedule = await defaultMerchantSchedulePlan();
+      commercialPlan = {
+        tier: schedule.tier,
+        volumeFeePercent: schedule.volumeFeePercent,
+        rateMode: "automatic",
+        needsApproval: false,
+      };
+    } else {
+      const bandCheck = await validateCommercialOnCreate(
+        parsed.tier,
+        parsed.volumeFeePercent,
+      );
+      if (!bandCheck.ok) {
+        sendError(res, bandCheck.status, bandCheck.code, bandCheck.message);
+        return;
+      }
+      commercialPlan = {
+        tier: parsed.tier,
+        volumeFeePercent: parsed.volumeFeePercent,
+        rateMode: "automatic",
+        needsApproval: bandCheck.needsApproval,
+      };
     }
-    commercialPlan = {
-      tier: parsed.tier,
-      volumeFeePercent: parsed.volumeFeePercent,
-      needsApproval: bandCheck.needsApproval,
-    };
   }
 
   const inserted = await insertOrgAccount(result.insert);
@@ -602,6 +632,7 @@ export async function handleCreateOrg(req, res) {
       orgId: inserted.row.id,
       tier: commercialPlan.tier,
       volumeFeePercent: commercialPlan.volumeFeePercent,
+      rateMode: commercialPlan.rateMode,
       actorUserId: caller.userId,
       needsApproval: commercialPlan.needsApproval,
     });
@@ -609,10 +640,20 @@ export async function handleCreateOrg(req, res) {
 
   if (inserted.row.type === "agent" || inserted.row.type === "agent_sub") {
     const fromBody = parseCommissionPercent(body?.commissionPercent);
-    await bootstrapAgentCommission({
-      orgId: inserted.row.id,
-      commissionPercent: fromBody ?? DEFAULT_AGENT_COMMISSION_PERCENT,
-    });
+    if (fromBody) {
+      await bootstrapAgentCommission({
+        orgId: inserted.row.id,
+        commissionPercent: fromBody,
+        rateMode: "fixed",
+      });
+    } else {
+      const schedule = await defaultAgentSchedulePlan();
+      await bootstrapAgentCommission({
+        orgId: inserted.row.id,
+        commissionPercent: schedule.commissionPercent,
+        rateMode: "automatic",
+      });
+    }
   }
 
   await insertAuditEvent({

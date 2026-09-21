@@ -1,8 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { isChunkLoadError } from "./lazyChunkRecovery";
 
 type Props = {
   children: ReactNode;
+  /** When this key changes, a prior error is cleared (e.g. route pathname). */
+  resetKey?: string;
 };
 
 type State = {
@@ -20,6 +23,16 @@ export class RouteErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (import.meta.env.DEV) {
       console.error("[RouteErrorBoundary]", error, info.componentStack);
+    }
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (
+      this.state.error &&
+      prevProps.resetKey !== this.props.resetKey &&
+      this.props.resetKey != null
+    ) {
+      this.setState({ error: null });
     }
   }
 
@@ -54,4 +67,14 @@ export class RouteErrorBoundary extends Component<Props, State> {
       </div>
     );
   }
+}
+
+/** Resets the error UI when the user navigates to another route. */
+export function RoutedErrorBoundary({ children }: { children: ReactNode }) {
+  const { pathname, search } = useLocation();
+  return (
+    <RouteErrorBoundary resetKey={`${pathname}${search}`}>
+      {children}
+    </RouteErrorBoundary>
+  );
 }

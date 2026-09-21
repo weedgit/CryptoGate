@@ -33,7 +33,6 @@ export async function ensureLoadSeed() {
       type: "platform",
       name: "Load Platform",
       parentId: null,
-      structure: null,
       maxAgentDepth: 2,
     });
     if (!created.ok) throw new Error("could not create platform org");
@@ -57,7 +56,6 @@ export async function ensureLoadSeed() {
       type: "merchant",
       name: "M4-12 Load Merchant",
       parentId: platform.id,
-      structure: "single_location",
       maxAgentDepth: null,
     });
     if (!created.ok) throw new Error("could not create merchant org");

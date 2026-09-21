@@ -22,7 +22,57 @@ import {
   useLineChartHover,
 } from "./ChartHover";
 import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "./chartAxis";
+import { AssetIcon } from "../cryptoIcons";
 import { hexToRgba } from "./chartColors";
+
+function UpdatedClockIcon() {
+  return (
+    <svg
+      className="overview-chart-card__foot-icon"
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      aria-hidden
+    >
+      <circle
+        cx="6"
+        cy="6"
+        r="4.15"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <path
+        d="M6 3.75V6.15L7.65 7.15"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MoreChevronIcon() {
+  return (
+    <svg
+      className="overview-chart-card__foot-icon"
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M4.5 2.75L7.75 6L4.5 9.25"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export type OverviewChartCard = {
   id: string;
@@ -31,6 +81,10 @@ export type OverviewChartCard = {
   help?: string;
   value: ReactNode;
   compareLabel?: string;
+  /** Period-over-period % from series halves; omit/null hides the chip. */
+  trendPercent?: number | null;
+  /** e.g. "vs previous 7d" */
+  trendLabel?: string;
   series: number[];
   seriesLabels?: string[];
   /** Tooltip metric label (e.g. Volume, Fees). */
@@ -46,6 +100,48 @@ export type OverviewChartCard = {
   moreHref?: string;
   moreLabel?: string;
 };
+
+/**
+ * Second-half sum vs first-half sum of a series.
+ * Returns null when too short or both halves are empty (no chip).
+ */
+export function trendFromSeries(values: number[]): number | null {
+  if (values.length < 4) return null;
+  const mid = Math.floor(values.length / 2);
+  let a = 0;
+  let b = 0;
+  for (let i = 0; i < mid; i++) a += values[i] ?? 0;
+  for (let i = mid; i < values.length; i++) b += values[i] ?? 0;
+  if (a <= 0 && b <= 0) return null;
+  if (a <= 0) return b > 0 ? 100 : null;
+  const pct = Math.round(((b - a) / a) * 100);
+  return pct === 0 ? null : pct;
+}
+
+/**
+ * Second-half avg vs first-half avg for convert-rate series (ignores zeros).
+ */
+export function trendFromRateSeries(values: number[]): number | null {
+  if (values.length < 4) return null;
+  const mid = Math.floor(values.length / 2);
+  const avg = (from: number, to: number): number | null => {
+    let sum = 0;
+    let n = 0;
+    for (let i = from; i < to; i++) {
+      const v = values[i] ?? 0;
+      if (v > 0) {
+        sum += v;
+        n += 1;
+      }
+    }
+    return n > 0 ? sum / n : null;
+  };
+  const a = avg(0, mid);
+  const b = avg(mid, values.length);
+  if (a == null || b == null || a <= 0) return null;
+  const pct = Math.round(((b - a) / a) * 100);
+  return pct === 0 ? null : pct;
+}
 
 type Props = {
   title?: string;
@@ -123,11 +219,11 @@ export function Sparkline({
   const reactId = useId().replace(/:/g, "");
   const fillId = `metricFill-${reactId}`;
   const fullscreen = size === "fullscreen";
-  const h = fullscreen ? 360 : 256;
-  const padLeft = fullscreen ? 68 : 56;
+  const h = fullscreen ? 360 : 128;
+  const padLeft = fullscreen ? 68 : 44;
   const padRight = fullscreen ? 14 : 10;
-  const padTop = fullscreen ? 16 : 12;
-  const padBottom = fullscreen ? 32 : 28;
+  const padTop = fullscreen ? 16 : 4;
+  const padBottom = fullscreen ? 32 : 22;
   const plotRef = useRef<HTMLDivElement>(null);
   const [vbW, setVbW] = useState(fullscreen ? 960 : 320);
   const [layoutReady, setLayoutReady] = useState(false);
@@ -420,34 +516,9 @@ export function MetricCardIcon({ id }: { id: string }) {
     strokeLinejoin: "round" as const,
     "aria-hidden": true as const,
   };
-  if (id === "invoices") {
-    return (
-      <svg {...common}>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <path d="M14 2v6h6" />
-        <path d="M8 13h8" />
-        <path d="M8 17h6" />
-      </svg>
-    );
-  }
-  if (id === "fees") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v10" />
-        <path d="M9.5 9.5c.6-1 1.7-1.5 2.7-1.5 1.4 0 2.5.8 2.5 2s-1.1 2-2.5 2h-1c-1.4 0-2.5.8-2.5 2s1.1 2 2.5 2c1 0 2.1-.5 2.7-1.5" />
-      </svg>
-    );
-  }
-  if (id === "accounts") {
-    return (
-      <svg {...common}>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    );
+  if (id.startsWith("rate:")) {
+    const asset = id.slice("rate:".length).split(":")[0] ?? "";
+    return <AssetIcon asset={asset} />;
   }
   if (id.startsWith("agent:")) {
     return (
@@ -554,6 +625,36 @@ export function OverviewChartCardView({
               </span>
             ) : null}
           </div>
+
+          {/* Dashboard Metrics: value sits in the header row (mockup). */}
+          {!selectMode &&
+          card.seriesStatus !== "pending" &&
+          card.seriesStatus !== "error" &&
+          !card.empty ? (
+            <div className="overview-chart-card__metrics overview-chart-card__metrics--inline">
+              <p className="overview-chart-card__value">{card.value}</p>
+              {card.compareLabel ? (
+                <p className="overview-chart-card__compare">{card.compareLabel}</p>
+              ) : null}
+              {card.trendPercent != null ? (
+                <div
+                  className={`overview-chart-card__trend${card.trendPercent >= 0 ? " is-up" : " is-down"}`}
+                >
+                  <span className="overview-chart-card__trend-pct">
+                    {card.trendPercent >= 0 ? "↗" : "↘"}{" "}
+                    {card.trendPercent >= 0 ? "+" : ""}
+                    {card.trendPercent}%
+                  </span>
+                  {card.trendLabel ? (
+                    <span className="overview-chart-card__trend-label">
+                      {card.trendLabel}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="overview-chart-card__actions">
             {!selectMode &&
             !editMode &&
@@ -593,18 +694,36 @@ export function OverviewChartCardView({
           </div>
         </div>
 
-        {card.seriesStatus !== "pending" &&
+        {/* Add charts picker: stacked value under the title (separate from dashboard). */}
+        {selectMode &&
+        card.seriesStatus !== "pending" &&
         card.seriesStatus !== "error" &&
         !card.empty ? (
-          <div className="overview-chart-card__metrics">
-            <p className="overview-chart-card__value">{card.value}</p>
-            {card.compareLabel ? (
-              <p className="overview-chart-card__compare">{card.compareLabel}</p>
+          <div className="overview-chart-card__metrics overview-chart-card__metrics--stacked">
+            <div className="overview-chart-card__metrics-main">
+              <p className="overview-chart-card__value">{card.value}</p>
+              {card.compareLabel ? (
+                <p className="overview-chart-card__compare">{card.compareLabel}</p>
+              ) : null}
+            </div>
+            {card.trendPercent != null ? (
+              <div
+                className={`overview-chart-card__trend${card.trendPercent >= 0 ? " is-up" : " is-down"}`}
+              >
+                <span className="overview-chart-card__trend-pct">
+                  {card.trendPercent >= 0 ? "↗" : "↘"}{" "}
+                  {card.trendPercent >= 0 ? "+" : ""}
+                  {card.trendPercent}%
+                </span>
+                {card.trendLabel ? (
+                  <span className="overview-chart-card__trend-label">
+                    {card.trendLabel}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        ) : (
-          <span className="overview-chart-card__value-spacer" aria-hidden="true" />
-        )}
+        ) : null}
 
         {card.seriesStatus === "pending" ? (
           <div className="overview-chart-card__pending" aria-busy="true">
@@ -633,6 +752,7 @@ export function OverviewChartCardView({
 
         <footer className="overview-chart-card__foot">
           <span className="overview-chart-card__updated">
+            <UpdatedClockIcon />
             {card.seriesStatus === "pending"
               ? "Fetching series…"
               : (card.updatedLabel ?? "Updated just now")}
@@ -640,11 +760,12 @@ export function OverviewChartCardView({
           {card.moreHref && !selectMode && !editMode && card.seriesStatus !== "pending" ? (
             <Link to={card.moreHref} className="overview-chart-card__more">
               {card.moreLabel ?? "More details"}
-              <span aria-hidden> →</span>
+              <MoreChevronIcon />
             </Link>
           ) : (
             <span className="overview-chart-card__more overview-chart-card__more--muted">
               {editMode ? "Drag to reorder" : (card.moreLabel ?? "More details")}
+              {!editMode ? <MoreChevronIcon /> : null}
             </span>
           )}
         </footer>
@@ -655,13 +776,56 @@ export function OverviewChartCardView({
           open={maximized}
           title={card.title}
           onClose={() => setMaximized(false)}
+          panelStyle={accentStyle}
+          header={
+            <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
+              <div className="pg-chart-panel__heading overview-metric-maximize__heading">
+                <span className="overview-chart-card__icon" aria-hidden>
+                  <MetricCardIcon id={card.id} />
+                </span>
+                <div className="pg-chart-panel__heading-text">
+                  <h2 className="chart-maximize-overlay__title">{card.title}</h2>
+                  <p>
+                    {card.help ??
+                      `${card.seriesMetric ?? card.title} history for the selected period.`}
+                  </p>
+                </div>
+              </div>
+              <div className="dash-chart-panel__tools">
+                <button
+                  type="button"
+                  className="chart-maximize-overlay__close"
+                  aria-label="Close fullscreen chart"
+                  onClick={() => setMaximized(false)}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          }
         >
-          <div className="chart-maximize-overlay__meta">
+          <div className="chart-maximize-overlay__meta overview-metric-maximize__meta">
             <p className="overview-chart-card__value overview-chart-card__value--lg">
               {card.value}
             </p>
             {card.compareLabel ? (
               <p className="overview-chart-card__compare">{card.compareLabel}</p>
+            ) : null}
+            {card.trendPercent != null ? (
+              <div
+                className={`overview-chart-card__trend${card.trendPercent >= 0 ? " is-up" : " is-down"}`}
+              >
+                <span className="overview-chart-card__trend-pct">
+                  {card.trendPercent >= 0 ? "↗" : "↘"}{" "}
+                  {card.trendPercent >= 0 ? "+" : ""}
+                  {card.trendPercent}%
+                </span>
+                {card.trendLabel ? (
+                  <span className="overview-chart-card__trend-label">
+                    {card.trendLabel}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <div className="chart-maximize-overlay__spark-wrap">
@@ -675,9 +839,23 @@ export function OverviewChartCardView({
               color={card.chartColor}
             />
           </div>
-          <p className="muted">
-            {card.updatedLabel ?? "Updated just now"}
-          </p>
+          <footer className="overview-metric-maximize__foot">
+            <span className="overview-chart-card__updated">
+              <UpdatedClockIcon />
+              {card.updatedLabel ?? "Updated just now"}
+            </span>
+            {card.moreHref ? (
+              <Link to={card.moreHref} className="overview-chart-card__more">
+                {card.moreLabel ?? "More details"}
+                <MoreChevronIcon />
+              </Link>
+            ) : (
+              <span className="overview-chart-card__more overview-chart-card__more--muted">
+                {card.moreLabel ?? "More details"}
+                <MoreChevronIcon />
+              </span>
+            )}
+          </footer>
         </ChartMaximizeOverlay>
       ) : null}
     </>

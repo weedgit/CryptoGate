@@ -140,7 +140,6 @@ export async function ensureV032Seed() {
       type: "platform",
       name: "V032 Test Platform",
       parentId: null,
-      structure: null,
       maxAgentDepth: 2,
     });
     if (!created.ok) throw new Error("could not create platform org");
@@ -165,7 +164,6 @@ export async function ensureV032Seed() {
       type: "merchant",
       name: merchantName,
       parentId: platform.id,
-      structure: "single_location",
       maxAgentDepth: null,
     });
     if (!created.ok) throw new Error("could not create merchant org");

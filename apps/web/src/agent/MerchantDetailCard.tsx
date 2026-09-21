@@ -31,10 +31,6 @@ import {
   type SeedAuditEntry,
 } from "../platform/orgDetailSeeds";
 import { merchantSites } from "./merchantSubtree";
-import {
-  STRUCTURE_LABELS,
-  type MerchantStructure,
-} from "./onboardMerchant";
 import { formatShortDate, formatUsd } from "./org";
 
 const TABS = [
@@ -159,12 +155,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
   );
 }
 
-function MerchantSitesEmpty({
-  structure,
-}: {
-  structure: string | null | undefined;
-}) {
-  const isMulti = structure === "multi_location";
+function MerchantSitesEmpty() {
   return (
     <div className="b3-agent-detail__empty" role="status">
       <div className="b3-agent-detail__empty-mark" aria-hidden>
@@ -190,26 +181,16 @@ function MerchantSitesEmpty({
           />
         </svg>
       </div>
-      <p className="b3-agent-detail__empty-title">
-        {isMulti ? "No merchant sites yet" : "Single-location merchant"}
-      </p>
+      <p className="b3-agent-detail__empty-title">No merchant sites yet</p>
       <p className="b3-agent-detail__empty-copy">
-        {isMulti
-          ? "This merchant is multi-location, but no site orgs are linked yet. Sites appear here once created under this account."
-          : "This account operates as one location. Payment orders and settlement stay on the merchant — separate site orgs are not used."}
+        No site orgs are linked yet. Sites appear here once created under this
+        account.
       </p>
       <ul className="b3-agent-detail__empty-hints">
-        {isMulti ? (
-          <>
-            <li>Each outlet is a merchant (site) under this parent</li>
-            <li>Sites can override wallet or matching only with merchant Owner approval</li>
-          </>
-        ) : (
-          <>
-            <li>Structure is set at onboard and shown on Overview → Profile</li>
-            <li>Switch to multi-location only when the merchant needs separate site orgs</li>
-          </>
-        )}
+        <li>Each outlet is a site under this merchant (sites may nest)</li>
+        <li>
+          Sites can override wallet or matching only with merchant Owner approval
+        </li>
       </ul>
     </div>
   );
@@ -259,13 +240,6 @@ export function MerchantDetailCard({
 
   const status = org.status ?? "active";
   const sites = useMemo(() => merchantSites(org.id, orgs), [org.id, orgs]);
-  const structureLabel = useMemo(() => {
-    if (!org.structure) return "—";
-    if (org.structure in STRUCTURE_LABELS) {
-      return STRUCTURE_LABELS[org.structure as MerchantStructure];
-    }
-    return org.structure;
-  }, [org.structure]);
   const parent = useMemo(
     () =>
       org.parentId ? (orgs.find((o) => o.id === org.parentId) ?? null) : null,
@@ -571,10 +545,6 @@ export function MerchantDetailCard({
                     </p>
                   </div>
                   <div className="b3-profile__field">
-                    <p className="b3-profile__label">Structure</p>
-                    <p className="b3-profile__value">{structureLabel}</p>
-                  </div>
-                  <div className="b3-profile__field">
                     <div className="b3-profile__field-head">
                       <p className="b3-profile__label">Commercial tier</p>
                       <div className="b3-profile__field-head-end">
@@ -680,7 +650,7 @@ export function MerchantDetailCard({
 
         {tab === "sites" ? (
           sites.length === 0 ? (
-            <MerchantSitesEmpty structure={org.structure} />
+            <MerchantSitesEmpty />
           ) : (
             <section className="b3-card b3-card--section b3-card--flat b3-merchant-sites">
               <div className="b3-profile__head">

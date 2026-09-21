@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { sessionLiveActionsUnlocked } from "../auth/contactVerification";
 import {
   looksLikeEmailQuery,
   orgEmailsMapFromBulkRows,
@@ -48,7 +49,6 @@ import {
   type Session,
 } from "./api";
 import { MerchantDetailCard } from "./MerchantDetailCard";
-import { STRUCTURE_LABELS } from "./onboardMerchant";
 import {
   primaryAgentOrgId,
   sessionCanManageDirectChild,
@@ -67,7 +67,6 @@ type MerchantBillStatus = "overdue" | "issued" | "paid";
 type SortKey =
   | "name"
   | "tier"
-  | "structure"
   | "fee"
   | "volume"
   | "bill"
@@ -345,7 +344,9 @@ export function MerchantsListPage({ session }: Props) {
   const detailTab = searchParams.get("tab") ?? undefined;
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canOnboard = useMemo(
-    () => sessionCanOnboardMerchant(session),
+    () =>
+      sessionCanOnboardMerchant(session) &&
+      sessionLiveActionsUnlocked(session),
     [session],
   );
 
@@ -588,11 +589,6 @@ export function MerchantsListPage({ session }: Props) {
         const at = commercialById.get(a.id)?.tier ?? "";
         const bt = commercialById.get(b.id)?.tier ?? "";
         return at.localeCompare(bt) * dir;
-      }
-      if (sort.key === "structure") {
-        const as = a.structure ?? "";
-        const bs = b.structure ?? "";
-        return as.localeCompare(bs) * dir;
       }
       if (sort.key === "fee") {
         const af = Number(commercialById.get(a.id)?.volumeFeePercent ?? NaN);
@@ -910,7 +906,6 @@ export function MerchantsListPage({ session }: Props) {
                     <col className="org-agents__col-num" />
                     <col className="org-agents__col-name" />
                     <col className="org-agents__col-tier" />
-                    <col className="org-agents__col-structure" />
                     <col className="org-agents__col-fee" />
                     <col className="org-agents__col-volume" />
                     <col className="org-agents__col-bill" />
@@ -930,13 +925,6 @@ export function MerchantsListPage({ session }: Props) {
                         sortKey="tier"
                         sort={sort}
                         onSort={onSort}
-                      />
-                      <SortHeader
-                        label="Structure"
-                        sortKey="structure"
-                        sort={sort}
-                        onSort={onSort}
-                        className="org-agents__th-structure"
                       />
                       <SortHeader
                         label="Fee %"
@@ -996,13 +984,6 @@ export function MerchantsListPage({ session }: Props) {
                           </td>
                           <td>
                             {commercial ? tierLabel(commercial.tier) : "—"}
-                          </td>
-                          <td className="org-agents__td-structure">
-                            {row.structure
-                              ? (STRUCTURE_LABELS[
-                                  row.structure as keyof typeof STRUCTURE_LABELS
-                                ] ?? row.structure)
-                              : "—"}
                           </td>
                           <td>
                             {commercial
@@ -1111,7 +1092,7 @@ export function MerchantsListPage({ session }: Props) {
               </div>
               <p className="b3-empty__title">Merchant detail</p>
               <p className="b3-empty__copy">
-                Select a row to inspect structure, fees, and service bills.
+                Select a row to inspect fees and service bills.
               </p>
               <ul className="b3-empty__hints">
                 <li>Click a row to open overview</li>

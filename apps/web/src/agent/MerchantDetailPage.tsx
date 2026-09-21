@@ -17,7 +17,6 @@ import {
 } from "./api";
 import { tierLabel } from "../commercialLabels";
 import { merchantSites } from "./merchantSubtree";
-import { STRUCTURE_LABELS, type MerchantStructure } from "./onboardMerchant";
 import { formatShortDate, formatUsd, orgTypeLabel } from "./org";
 
 type LocationState = {
@@ -96,14 +95,6 @@ export function MerchantDetailPage() {
     () => (id ? merchantSites(id, orgs) : []),
     [id, orgs],
   );
-
-  const structure = useMemo(() => {
-    if (!org?.structure) return "—";
-    if (org.structure in STRUCTURE_LABELS) {
-      return STRUCTURE_LABELS[org.structure as MerchantStructure];
-    }
-    return org.structure;
-  }, [org]);
 
   const openOrders = useMemo(
     () =>
@@ -301,8 +292,6 @@ export function MerchantDetailPage() {
             <dd className="mono">{org.id}</dd>
             <dt>Type</dt>
             <dd>{orgTypeLabel(org.type)}</dd>
-            <dt>Structure</dt>
-            <dd>{structure}</dd>
             <dt>Status</dt>
             <dd>
               <span className="status-badge tone-ok">Active</span>
@@ -342,9 +331,7 @@ export function MerchantDetailPage() {
         <>
           {sites.length === 0 ? (
             <p style={{ color: "var(--muted)" }}>
-              {org.structure === "multi_location"
-                ? "No merchant (site) orgs under this account yet."
-                : "Single-location merchant — no separate site orgs."}
+              No sites under this account yet.
             </p>
           ) : (
             <table className="data-table b3-merchant-sites__table">

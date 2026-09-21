@@ -58,9 +58,9 @@ export function platformRoleMark(role: PlatformRoleKey): string {
 
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
-  if (type === "agent_sub") return "Agent (sub)";
+  if (type === "agent_sub") return "Agent";
   if (type === "merchant") return "Merchant";
-  if (type === "merchant_site") return "Merchant (site)";
+  if (type === "merchant_site") return "Site";
   if (type === "platform") return "Platform";
   return type;
 }

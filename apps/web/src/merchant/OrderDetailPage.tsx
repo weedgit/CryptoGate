@@ -207,8 +207,20 @@ export function OrderDetailPage({
       if (orderOrgId) {
         const siteOrMerchant = await getOrg(orderOrgId).catch(() => null);
         let seller: OrgAccount | null = siteOrMerchant;
-        if (siteOrMerchant?.type === "merchant_site" && siteOrMerchant.parentId) {
-          seller = await getOrg(siteOrMerchant.parentId).catch(() => siteOrMerchant);
+        if (siteOrMerchant?.type === "merchant_site") {
+          let walkId = siteOrMerchant.parentId;
+          const seen = new Set<string>([siteOrMerchant.id]);
+          while (walkId && !seen.has(walkId)) {
+            seen.add(walkId);
+            const row = await getOrg(walkId).catch(() => null);
+            if (!row) break;
+            if (row.type === "merchant") {
+              seller = row;
+              break;
+            }
+            if (row.type !== "merchant_site") break;
+            walkId = row.parentId;
+          }
         }
         setSellerOrg(seller);
         const sellerId = seller?.id ?? orderOrgId;

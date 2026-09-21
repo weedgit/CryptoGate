@@ -66,6 +66,81 @@ describe("fee tier rules (X-01 v0.3.3)", () => {
   it("next billing period is ISO date", () => {
     assert.match(nextBillingPeriodStart(), /^\d{4}-\d{2}-\d{2}$/);
   });
+  it("accepts volume breakpoints and agent commission", () => {
+    const ok = validateFeeTierBand({
+      tier: MerchantTier.Small,
+      subscriptionAmountUsd: "49.00",
+      volumeFeeMinPercent: "1.2",
+      volumeFeeMaxPercent: "2.0",
+      defaultSignupPercent: "2.0",
+      volumeMinUsd: "0",
+      volumeMaxUsd: "50000",
+      agentCommissionPercent: "15",
+    });
+    assert.equal(ok.ok, true);
+    if (ok.ok) {
+      assert.equal(ok.band.agentCommissionPercent, "15");
+      assert.equal(ok.band.volumeMinUsd, "0");
+    }
+  });
+
+  it("parses effectiveTiming on PUT body", () => {
+    const body = {
+      tiers: [
+        {
+          tier: MerchantTier.Small,
+          subscriptionAmountUsd: "49.00",
+          volumeFeeMinPercent: "1.2",
+          volumeFeeMaxPercent: "2.0",
+          defaultSignupPercent: "2.0",
+          volumeMinUsd: "0",
+          volumeMaxUsd: "50000",
+          agentCommissionPercent: "15",
+        },
+        {
+          tier: MerchantTier.Mid,
+          subscriptionAmountUsd: "199.00",
+          volumeFeeMinPercent: "0.8",
+          volumeFeeMaxPercent: "1.5",
+          defaultSignupPercent: "1.2",
+          volumeMinUsd: "50000",
+          volumeMaxUsd: "500000",
+          agentCommissionPercent: "18",
+        },
+        {
+          tier: MerchantTier.Enterprise,
+          subscriptionAmountUsd: "0.00",
+          volumeFeeMinPercent: "0.5",
+          volumeFeeMaxPercent: "1.0",
+          defaultSignupPercent: "0.8",
+          volumeMinUsd: "500000",
+          volumeMaxUsd: null,
+          agentCommissionPercent: "20",
+        },
+      ],
+      effectiveTiming: "immediate",
+    };
+    const ok = validateUpdateFeeTierSettingsBody(body);
+    assert.equal(ok.ok, true);
+    if (ok.ok) assert.equal(ok.effectiveTiming, "immediate");
+  });
+});
+
+describe("resolveTierForVolume", () => {
+  it("picks tier by volume breakpoints", async () => {
+    const { resolveTierForVolume } = await import(
+      "../src/platform-settings/fee-tier-rules.mjs"
+    );
+    const bands = [
+      { tier: "small", volume_min_usd: "0", volume_max_usd: "50000" },
+      { tier: "mid", volume_min_usd: "50000", volume_max_usd: "500000" },
+      { tier: "enterprise", volume_min_usd: "500000", volume_max_usd: null },
+    ];
+    assert.equal(resolveTierForVolume(0, bands), "small");
+    assert.equal(resolveTierForVolume(49999, bands), "small");
+    assert.equal(resolveTierForVolume(50000, bands), "mid");
+    assert.equal(resolveTierForVolume(500000, bands), "enterprise");
+  });
 });
 
 describe("merchant commercial rules (X-01)", () => {

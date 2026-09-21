@@ -60,8 +60,9 @@ export function canCreateOrgUnderParent(caller, parentRole) {
 }
 
 /**
- * Parent merchant Owner/Admin may delete an empty merchant (site) org.
+ * Parent merchant Owner/Admin may delete an empty merchant site org.
  * Platform operators use the general org delete path.
+ * Immediate-parent check only — prefer `canManageMerchantSiteTree` for nested sites.
  * @param {{ platformOperator: boolean, memberships: { orgId: string, role: string }[] }} caller
  * @param {{ type: string, parent_id?: string | null }} siteOrg
  */
@@ -72,6 +73,40 @@ export function canDeleteMerchantSite(caller, siteOrg) {
   if (!parentId) return false;
   const parentRole = roleOnOrg(caller.memberships, parentId);
   return canManageOrgTree(parentRole);
+}
+
+/**
+ * Platform operator, or Owner/Admin on any ancestor merchant/site in the chain.
+ * @param {{ platformOperator: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ type: string, parent_id?: string | null, parentId?: string | null }} siteOrg
+ * @param {(id: string) => Promise<object | null> | object | null} [getById]
+ */
+export async function canManageMerchantSiteTree(
+  caller,
+  siteOrg,
+  getById = findOrgByIdLazy,
+) {
+  if (siteOrg.type !== "merchant_site") return false;
+  if (caller.platformOperator) return true;
+  let currentId = siteOrg.parent_id ?? siteOrg.parentId ?? null;
+  const seen = new Set();
+  while (currentId) {
+    if (seen.has(currentId)) break;
+    seen.add(currentId);
+    const role = roleOnOrg(caller.memberships, currentId);
+    if (canManageOrgTree(role)) return true;
+    const row = await getById(currentId);
+    if (!row) break;
+    if (row.type !== "merchant" && row.type !== "merchant_site") break;
+    currentId = row.parent_id ?? row.parentId ?? null;
+  }
+  return false;
+}
+
+/** Lazy import to avoid circular deps at module load. */
+async function findOrgByIdLazy(id) {
+  const { findOrgById } = await import("./org-store.mjs");
+  return findOrgById(id);
 }
 
 /**

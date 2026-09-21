@@ -1,4 +1,4 @@
-import { MerchantTier } from "@paymentgate/domain";
+import { MerchantTier, PricingRateMode } from "@paymentgate/domain";
 import {
   isPercentWithinBand,
   nextBillingPeriodStart,
@@ -21,15 +21,34 @@ export function validateUpdateMerchantCommercialBody(body, currentTier) {
   if (!Object.values(MerchantTier).includes(tier)) {
     return fail(400, "invalid_request", "Invalid tier");
   }
+  const rateModeRaw =
+    typeof body.rateMode === "string" ? body.rateMode.trim() : "";
+  const rateMode =
+    rateModeRaw === PricingRateMode.Fixed || rateModeRaw === "fixed"
+      ? PricingRateMode.Fixed
+      : rateModeRaw === PricingRateMode.Automatic || rateModeRaw === "automatic"
+        ? PricingRateMode.Automatic
+        : rateModeRaw
+          ? null
+          : undefined;
+  if (rateModeRaw && rateMode === null) {
+    return fail(400, "invalid_request", "rateMode must be automatic or fixed");
+  }
   const volumeFeePercent =
     typeof body.volumeFeePercent === "string"
       ? body.volumeFeePercent.trim()
       : "";
-  if (!volumeFeePercent) {
+  if (!volumeFeePercent && rateMode !== PricingRateMode.Automatic) {
     return fail(400, "invalid_request", "volumeFeePercent is required");
   }
   const reason = typeof body.reason === "string" ? body.reason.trim() : undefined;
-  return { ok: true, tier, volumeFeePercent, reason };
+  return {
+    ok: true,
+    tier,
+    volumeFeePercent: volumeFeePercent || null,
+    rateMode,
+    reason,
+  };
 }
 
 /**
@@ -46,13 +65,26 @@ export function commercialNeedsEnterpriseApproval(tier, volumeFeePercent, bandRo
  * @param {string} tier
  * @param {string} volumeFeePercent
  * @param {object} bandRow
+ * @param {"automatic" | "fixed"} [rateMode]
  */
-export function validateCommercialAgainstBand(tier, volumeFeePercent, bandRow) {
+export function validateCommercialAgainstBand(
+  tier,
+  volumeFeePercent,
+  bandRow,
+  rateMode = "automatic",
+) {
   if (!bandRow) {
     return fail(422, "invalid_band", "Tier band not configured");
   }
+  // Fixed Owner overrides may sit outside the published band.
+  if (rateMode === "fixed") {
+    return { ok: true, needsApproval: false };
+  }
   if (tier === MerchantTier.Enterprise) {
-    return { ok: true, needsApproval: !isPercentWithinBand(volumeFeePercent, bandRow) };
+    return {
+      ok: true,
+      needsApproval: !isPercentWithinBand(volumeFeePercent, bandRow),
+    };
   }
   if (!isPercentWithinBand(volumeFeePercent, bandRow)) {
     return fail(
@@ -78,6 +110,7 @@ export function toMerchantCommercialSettings(row, bandRow, pendingApprovalStatus
     orgId: row.org_id,
     tier: row.tier,
     volumeFeePercent: row.volume_fee_percent,
+    rateMode: row.rate_mode === "fixed" ? "fixed" : "automatic",
     subscriptionAmountUsd: bandRow.subscription_amount_usd,
     bandMinPercent: bandRow.volume_fee_min_percent,
     bandMaxPercent: bandRow.volume_fee_max_percent,

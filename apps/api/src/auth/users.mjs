@@ -28,14 +28,25 @@ export async function createUser(input) {
     err.code = policy.code;
     throw err;
   }
+  const invited = input.invited === true;
   const passwordHash = await hashPassword(input.password);
   const pool = getPool();
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (email, password_hash, session_timeout_minutes)
-       VALUES ($1, $2, $3)
+      `INSERT INTO users (
+         email, password_hash, session_timeout_minutes,
+         email_verified_at, phone_verified_at, must_change_password
+       )
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email`,
-      [email, passwordHash, normalizeSessionTimeoutMinutes()],
+      [
+        email,
+        passwordHash,
+        normalizeSessionTimeoutMinutes(),
+        invited ? null : new Date().toISOString(),
+        invited ? null : new Date().toISOString(),
+        invited,
+      ],
     );
     return { id: rows[0].id, email: rows[0].email };
   } catch (err) {
@@ -55,7 +66,8 @@ export async function createUser(input) {
 export async function findUserByEmail(email) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, password_hash, mfa_enrolled_at, must_change_password
+    `SELECT id, email, password_hash, mfa_enrolled_at, must_change_password,
+            email_verified_at, phone, phone_verified_at
      FROM users
      WHERE email = $1`,
     [normalizeEmail(email)],
@@ -68,6 +80,9 @@ export async function findUserByEmail(email) {
     passwordHash: row.password_hash,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
     mustChangePassword: row.must_change_password === true,
+    emailVerified: Boolean(row.email_verified_at),
+    phone: typeof row.phone === "string" && row.phone.trim() ? row.phone : null,
+    phoneVerified: Boolean(row.phone_verified_at),
   };
 }
 
@@ -79,7 +94,8 @@ export async function findUserById(id) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT id, email, mfa_enrolled_at, mfa_pending_secret, display_name, locale, timezone,
-            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url
+            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
+            email_verified_at, phone, phone_verified_at
      FROM users
      WHERE id = $1`,
     [id],
@@ -111,6 +127,9 @@ function mapUserRow(row) {
       row.session_timeout_minutes,
     ),
     mustChangePassword: row.must_change_password === true,
+    emailVerified: Boolean(row.email_verified_at),
+    phone: typeof row.phone === "string" && row.phone.trim() ? row.phone : null,
+    phoneVerified: Boolean(row.phone_verified_at),
   };
 }
 
@@ -196,7 +215,8 @@ export async function updateUserProfile(userId, input) {
      WHERE id = $1
      RETURNING id, email, mfa_enrolled_at, display_name, locale, timezone,
                mfa_enforcement, session_timeout_minutes, avatar_url,
-               must_change_password, mfa_pending_secret`,
+               must_change_password, mfa_pending_secret,
+               email_verified_at, phone, phone_verified_at`,
     [
       userId,
       displayName,
@@ -282,6 +302,59 @@ export async function updateUserPassword(userId, password) {
      SET password_hash = $2, must_change_password = false, updated_at = now()
      WHERE id = $1`,
     [userId, passwordHash],
+  );
+}
+
+/**
+ * Invite URL / email OTP proved control of the inbox.
+ * @param {string} userId
+ */
+export async function markEmailVerified(userId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
+     WHERE id = $1`,
+    [userId],
+  );
+}
+
+/**
+ * Store an unverified mobile number (E.164). Replaces a previous unverified number.
+ * @param {string} userId
+ * @param {string} phone
+ */
+export async function setUserPhone(userId, phone) {
+  const pool = getPool();
+  try {
+    await pool.query(
+      `UPDATE users
+       SET phone = $2,
+           phone_verified_at = CASE WHEN phone IS DISTINCT FROM $2 THEN NULL ELSE phone_verified_at END,
+           updated_at = now()
+       WHERE id = $1`,
+      [userId, phone],
+    );
+  } catch (err) {
+    if (err && err.code === "23505") {
+      const dup = new Error("This phone number is already registered");
+      dup.code = "phone_taken";
+      throw dup;
+    }
+    throw err;
+  }
+}
+
+/**
+ * @param {string} userId
+ */
+export async function markPhoneVerified(userId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET phone_verified_at = now(), updated_at = now()
+     WHERE id = $1 AND phone IS NOT NULL`,
+    [userId],
   );
 }
 

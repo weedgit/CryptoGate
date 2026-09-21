@@ -2,7 +2,7 @@ import { getPool } from "../db/pool.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
-  "id, type, name, parent_id, structure, max_agent_depth, status, country, billing_email, legal_name, icon_key, created_at";
+  "id, type, name, parent_id, max_agent_depth, status, country, billing_email, legal_name, icon_key, created_at";
 
 /**
  * @param {string} id
@@ -95,7 +95,7 @@ export async function findSiblingByNormalizedName(parentId, name) {
 }
 
 /**
- * @param {{ type: string, name: string, parentId: string | null, structure: string | null, maxAgentDepth: number | null }} insert
+ * @param {{ type: string, name: string, parentId: string | null, maxAgentDepth: number | null, country?: string | null, legalName?: string | null }} insert
  */
 export async function insertOrgAccount(insert) {
   const pool = getPool();
@@ -103,17 +103,16 @@ export async function insertOrgAccount(insert) {
   try {
     const { rows } = await pool.query(
       `INSERT INTO org_accounts (
-         type, name, parent_id, structure, max_agent_depth,
+         type, name, parent_id, max_agent_depth,
          country, billing_email, legal_name,
          mfa_enforcement, session_timeout_minutes
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING ${ORG_COLS}`,
       [
         insert.type,
         insert.name,
         insert.parentId,
-        insert.structure,
         insert.maxAgentDepth,
         insert.country ?? null,
         null,
@@ -129,16 +128,15 @@ export async function insertOrgAccount(insert) {
       try {
         const { rows } = await pool.query(
           `INSERT INTO org_accounts (
-             type, name, parent_id, structure, max_agent_depth,
+             type, name, parent_id, max_agent_depth,
              country, billing_email, legal_name
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING ${ORG_COLS}`,
           [
             insert.type,
             insert.name,
             insert.parentId,
-            insert.structure,
             insert.maxAgentDepth,
             insert.country ?? null,
             null,
@@ -185,14 +183,19 @@ export async function updateOrgStatus(orgId, status) {
  */
 export async function updateOrgProfile(orgId, profile) {
   const pool = getPool();
+  const country =
+    typeof profile.country === "string" && profile.country.trim()
+      ? profile.country.trim()
+      : null;
   const { rows } = await pool.query(
     `UPDATE org_accounts
      SET name = $2,
          icon_key = $3,
+         country = COALESCE($4, country),
          updated_at = now()
      WHERE id = $1
      RETURNING ${ORG_COLS}`,
-    [orgId, profile.name, profile.iconKey],
+    [orgId, profile.name, profile.iconKey, country],
   );
   return rows[0] ?? null;
 }
@@ -235,7 +238,7 @@ export async function countChildOrgs(orgId) {
 }
 
 /**
- * Direct children of a given type (merchant_site under a merchant).
+ * Direct children of a given type (e.g. merchant_site under a merchant or site).
  * @param {string} parentId
  * @param {string} type
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
@@ -250,6 +253,35 @@ export async function listChildOrgsByType(parentId, type, client) {
     [parentId, type],
   );
   return rows;
+}
+
+/**
+ * All descendant orgs of `type` under `rootId` (BFS; unlimited depth).
+ * @param {string} rootId
+ * @param {string} type
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function listDescendantOrgsByType(rootId, type, client) {
+  /** @type {object[]} */
+  const out = [];
+  /** @type {string[]} */
+  let frontier = [rootId];
+  const seen = new Set([rootId]);
+  while (frontier.length > 0) {
+    /** @type {string[]} */
+    const next = [];
+    for (const id of frontier) {
+      const kids = await listChildOrgsByType(id, type, client);
+      for (const kid of kids) {
+        if (seen.has(kid.id)) continue;
+        seen.add(kid.id);
+        out.push(kid);
+        next.push(kid.id);
+      }
+    }
+    frontier = next;
+  }
+  return out;
 }
 
 /**

@@ -8,28 +8,46 @@ export const TIER_TITLE: Record<string, string> = {
   enterprise: "Enterprise Tier",
 };
 
+export function formatVolumeBand(tier: FeeTierBand): string {
+  const min = Number(tier.volumeMinUsd ?? 0);
+  const maxRaw = tier.volumeMaxUsd;
+  const max =
+    maxRaw === null || maxRaw === undefined || maxRaw === ""
+      ? null
+      : Number(maxRaw);
+  const fmt = (n: number) =>
+    n >= 1000
+      ? `$${(n / 1000).toLocaleString("en-US", { maximumFractionDigits: 0 })}K`
+      : `$${n.toLocaleString("en-US")}`;
+  if (max === null || !Number.isFinite(max)) {
+    return `${fmt(Number.isFinite(min) ? min : 0)}+ /mo`;
+  }
+  return `${fmt(Number.isFinite(min) ? min : 0)} – ${fmt(max)} /mo`;
+}
+
+/** @deprecated Prefer formatVolumeBand(tier) with live breakpoints. */
 export const TIER_VOLUME_BAND: Record<string, string> = {
   small: "0 – $50K /mo",
   mid: "$50K – $500K /mo",
   enterprise: "$500K+ /mo",
 };
 
-/** Tier assignment help when tierDescription is empty (B8 — pricing profile only, not feature gates). */
+/** Tier assignment help when tierDescription is empty. */
 export const TIER_DEFAULT_FEATURES: Record<string, string[]> = {
   small: [
-    "Typical profile: single-location merchant, low monthly volume",
-    "USD 49/mo subscription + volume fee on confirmed payment orders",
-    "Agent assigns rate within 1.2% – 2.0% band (default 2% at signup)",
+    "Automatic merchant volume fee for this monthly volume band",
+    "Subscription + volume fee on confirmed payment orders",
+    "Automatic agent commission from the schedule for this tier",
   ],
   mid: [
-    "Typical profile: multi-location parent merchant or steady high volume",
-    "USD 199/mo subscription + volume fee on confirmed payment orders",
-    "Agent assigns rate within 0.8% – 1.5% band",
+    "Automatic merchant volume fee for this monthly volume band",
+    "Subscription + volume fee on confirmed payment orders",
+    "Automatic agent commission from the schedule for this tier",
   ],
   enterprise: [
-    "Typical profile: large group — custom contract terms",
-    "Custom subscription and volume fee; Owner approval for out-of-band rates",
-    "Agent rate within 0.5% – 1.0% unless Owner approves otherwise",
+    "Automatic merchant volume fee for high monthly volume",
+    "Owner may lock a fixed special rate outside the schedule",
+    "Automatic agent commission from the schedule for this tier",
   ],
 };
 

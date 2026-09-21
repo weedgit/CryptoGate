@@ -1,23 +1,37 @@
 import { sendError } from "../http/json.mjs";
-import { findOrgById, listChildOrgsByType } from "../orgs/org-store.mjs";
+import { findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
+import { findOrgById, listDescendantOrgsByType } from "../orgs/org-store.mjs";
 import { parentIdOf, isSiteWalletKind } from "./site-override-rules.mjs";
 
 /**
+ * Resolve the org that owns wallet / matching / fulfillment settings.
+ * Sites always inherit from the billing merchant (walk site → … → merchant).
+ *
  * @param {object} org
  * @param {string} kind
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  * @returns {Promise<{ orgId: string, source: "merchant" | "inherit" | "override", parentOrgId: string | null }>}
  */
 export async function settingsLookupOrgId(org, _kind, _client) {
-  const parentId = parentIdOf(org);
-  if (org.type !== "merchant_site" || !parentId) {
+  if (org.type !== "merchant_site") {
     return { orgId: org.id, source: "merchant", parentOrgId: null };
   }
-  return { orgId: parentId, source: "inherit", parentOrgId: parentId };
+  const billing = await findBillingMerchantOrg(org);
+  if (billing) {
+    return { orgId: billing.id, source: "inherit", parentOrgId: billing.id };
+  }
+  const parentId = parentIdOf(org);
+  return {
+    orgId: parentId ?? org.id,
+    source: "inherit",
+    parentOrgId: parentId,
+  };
 }
 
 /**
- * Sites that still inherit this merchant's wallet share Mode C/D/S uniqueness.
+ * Sites that inherit this merchant's wallet share Mode C/D/S uniqueness.
+ * Includes nested site descendants (unlimited depth).
+ *
  * @param {object} org
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  * @returns {Promise<string[]>}
@@ -29,7 +43,11 @@ export async function walletGroupOrgIds(org, client) {
   if (!walletOrg) return [org.id];
   if (walletOrg.type === "merchant_site") return [walletOrg.id];
 
-  const sites = await listChildOrgsByType(walletOrg.id, "merchant_site", client);
+  const sites = await listDescendantOrgsByType(
+    walletOrg.id,
+    "merchant_site",
+    client,
+  );
   const ids = [walletOrg.id];
   for (const site of sites) {
     const siteLookup = await settingsLookupOrgId(site, "settlement", client);
@@ -70,7 +88,7 @@ export async function denySiteWriteWithoutOverride(res, org, kind, _caller) {
       res,
       403,
       "site_wallet_forbidden",
-      "Merchant (site) uses the parent merchant wallet; settlement and xPub cannot be set on a site",
+      "Site uses the parent merchant wallet; settlement and xPub cannot be set on a site",
     );
     return true;
   }
@@ -78,7 +96,7 @@ export async function denySiteWriteWithoutOverride(res, org, kind, _caller) {
     res,
     403,
     "site_inherit_only",
-    "Merchant (site) inherits matching, fulfillment, and retention from the parent merchant",
+    "Site inherits matching, fulfillment, and retention from the parent merchant",
   );
   return true;
 }

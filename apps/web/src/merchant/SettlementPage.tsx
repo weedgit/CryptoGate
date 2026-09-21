@@ -17,6 +17,7 @@ import {
   putMatchingMode,
   putSettlement,
   putXpub,
+  getSession,
   type HdPoolAddress,
   type Session,
   type SettlementAddress,
@@ -54,7 +55,10 @@ import {
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { isMatchingModeSelectable, MatchingMode } from "@paymentgate/domain";
 
-type Props = { session: Session };
+type Props = {
+  session: Session;
+  onSessionRefresh?: (session: Session) => void;
+};
 
 type PendingMfa =
   | {
@@ -78,7 +82,7 @@ function settlementStatusLabel(status: string): string {
   return status === "pending_cool_down" ? "Cool-down" : "Active";
 }
 
-export function SettlementPage({ session }: Props) {
+export function SettlementPage({ session, onSessionRefresh }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -332,6 +336,13 @@ export function SettlementPage({ session }: Props) {
         });
         setAddrValue("");
         setSuccess("Settlement address saved — cool-down may apply");
+        if (onSessionRefresh) {
+          try {
+            onSessionRefresh(await getSession());
+          } catch {
+            /* ignore */
+          }
+        }
         try {
           await reloadSettlementAddresses();
         } catch {
@@ -436,9 +447,9 @@ export function SettlementPage({ session }: Props) {
 
       {readOnly || fulfillmentReadOnly ? (
         <p className="plat-settings__notice" role="status">
-          Inheriting parent merchant defaults. This site uses the parent
-          merchant wallet, matching mode, fulfillment, and order retention.
-          Change those on the parent merchant.
+          Inheriting billing merchant defaults. This site has no wallet of its
+          own — settlement, matching, fulfillment, and retention come from the
+          parent merchant. Change those on the merchant account.
         </p>
       ) : null}
 

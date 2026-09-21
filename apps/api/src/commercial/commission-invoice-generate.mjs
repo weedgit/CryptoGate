@@ -8,10 +8,10 @@ import { getPool } from "../db/pool.mjs";
 import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
 } from "./agent-commission-rules.mjs";
-import { listAgentCommissionsByOrgIds } from "./agent-commission-store.mjs";
 import { listAgentPayoutAddressesByOrgIds } from "./agent-payout-store.mjs";
 import { upsertIssuedCommissionInvoiceRow, findReceivedCommissionForPayee } from "./commission-payout-store.mjs";
 import { parentPayoutAllowsSubInvoices } from "./commission-payout-rules.mjs";
+import { resolveAgentCommissionForPayout } from "../platform-settings/pricing-resolve.mjs";
 
 const MONTH_LABELS = [
   "Jan",
@@ -200,13 +200,7 @@ export async function generateMonthlyCommissionInvoices(periodKey) {
   const byId = new Map(orgs.map((o) => [o.id, o]));
   const topAgents = orgs.filter((o) => isTopLevelAgent(o, byId));
   const agentIds = topAgents.map((a) => a.id);
-  const [commissions, payouts] = await Promise.all([
-    listAgentCommissionsByOrgIds(agentIds),
-    listAgentPayoutAddressesByOrgIds(agentIds),
-  ]);
-  const pctBy = new Map(
-    commissions.map((c) => [c.org_id, String(c.commission_percent)]),
-  );
+  const payouts = await listAgentPayoutAddressesByOrgIds(agentIds);
   const payoutBy = new Map(
     payouts.map((p) => [
       p.org_id,
@@ -217,11 +211,12 @@ export async function generateMonthlyCommissionInvoices(periodKey) {
   const created = [];
   const skipped = [];
   for (const agent of topAgents) {
+    const resolved = await resolveAgentCommissionForPayout(agent.id);
     const input = await buildInvoiceForAgent(
       agent.id,
       agent.name,
       periodKey,
-      pctBy.get(agent.id) ?? DEFAULT_AGENT_COMMISSION_PERCENT,
+      resolved.commissionPercent ?? DEFAULT_AGENT_COMMISSION_PERCENT,
       payoutBy.get(agent.id) ?? null,
     );
     const row = await upsertIssuedCommissionInvoiceRow(input);
@@ -283,13 +278,7 @@ export async function generateSubAgentCommissionInvoices(
   const orgs = await listOrgAccounts();
   const subs = directChildAgents(orgs, parentAgentId);
   const subIds = subs.map((s) => s.id);
-  const [commissions, payouts] = await Promise.all([
-    listAgentCommissionsByOrgIds(subIds),
-    listAgentPayoutAddressesByOrgIds(subIds),
-  ]);
-  const pctBy = new Map(
-    commissions.map((c) => [c.org_id, String(c.commission_percent)]),
-  );
+  const payouts = await listAgentPayoutAddressesByOrgIds(subIds);
   const payoutBy = new Map(
     payouts.map((p) => [
       p.org_id,
@@ -300,11 +289,12 @@ export async function generateSubAgentCommissionInvoices(
   const created = [];
   const skipped = [];
   for (const sub of subs) {
+    const resolved = await resolveAgentCommissionForPayout(sub.id);
     const input = await buildInvoiceForAgent(
       sub.id,
       sub.name,
       periodKey,
-      pctBy.get(sub.id) ?? DEFAULT_AGENT_COMMISSION_PERCENT,
+      resolved.commissionPercent ?? DEFAULT_AGENT_COMMISSION_PERCENT,
       payoutBy.get(sub.id) ?? null,
       {
         payer: "agent",

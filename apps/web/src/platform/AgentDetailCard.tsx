@@ -109,7 +109,7 @@ function KpiHelp({ text }: { text: string }) {
 
 const KPI_HELP = {
   merchants:
-    "Merchant accounts in this agent’s subtree (including merchants under sub-agents). Sites are not counted here.",
+    "Merchant accounts in this agent’s subtree. Sites are not counted here.",
   volumeMtd:
     "Confirmed payment-order volume from the 1st of this month through today, across the agent subtree.",
   commissionMtd:
@@ -192,13 +192,6 @@ function AgentTabEmpty({
       ) : null}
     </div>
   );
-}
-
-function structureDisplay(structure: string | null | undefined): string {
-  if (!structure) return "—";
-  if (structure === "single_location") return "Single location";
-  if (structure === "multi_location") return "Multi-location";
-  return structure.replace(/_/g, " ");
 }
 
 function preferredOrgEmail(members: OrgMember[]): string | null {
@@ -499,7 +492,19 @@ function AccountDetailPanel({
         : null,
     [isMerchant, merchantOrders, orgMeta?.createdAt, effectiveFeePercent],
   );
-  const siteCount = node.children.filter((c) => c.type === "merchant_site").length;
+  const siteCount = useMemo(() => {
+    function countSites(
+      n: { type: string; children: { type: string; children: unknown[] }[] },
+    ): number {
+      let total = 0;
+      for (const c of n.children) {
+        if (c.type === "merchant_site") total += 1;
+        total += countSites(c as typeof n);
+      }
+      return total;
+    }
+    return countSites(node);
+  }, [node]);
   const merchantChildren = node.children.filter((c) => c.type === "merchant");
   const subMerchantIds = useMemo(
     () => (isSub ? merchantOrgIdsInAgentSubtree(node.id, orgs) : new Set<string>()),
@@ -702,7 +707,7 @@ function AccountDetailPanel({
       ) : null}
 
       {isSub && subAgentKpis ? (
-        <div className="b3-accounts__kpi-grid" aria-label="Sub-agent snapshot">
+        <div className="b3-accounts__kpi-grid" aria-label="Agent snapshot">
           <div className="b3-accounts__kpi">
             <p className="b3-accounts__kpi-label">Volume (MTD)</p>
             <p className="b3-accounts__kpi-value">
@@ -735,12 +740,6 @@ function AccountDetailPanel({
             <div>
               <dt>Parent</dt>
               <dd title={node.parentName}>{node.parentName}</dd>
-            </div>
-          ) : null}
-          {node.type === "merchant" || node.type === "merchant_site" ? (
-            <div>
-              <dt>Structure</dt>
-              <dd>{structureDisplay(node.structure)}</dd>
             </div>
           ) : null}
           {isMerchant ? (
@@ -1179,12 +1178,32 @@ export function AgentDetailCard({
     try {
       const updated = await putAgentCommission(org.id, {
         commissionPercent: commissionDraft.trim(),
+        rateMode: "fixed",
       });
       setCommission(updated);
       setCommissionEditOpen(false);
     } catch (err) {
       setCommissionError(
         err instanceof ApiError ? err.message : "Could not update commission",
+      );
+    } finally {
+      setCommissionBusy(false);
+    }
+  }
+
+  async function resetCommissionToSchedule() {
+    if (!canManage || commissionBusy) return;
+    setCommissionBusy(true);
+    setCommissionError(null);
+    try {
+      const updated = await putAgentCommission(org.id, {
+        rateMode: "automatic",
+      });
+      setCommission(updated);
+      setCommissionEditOpen(false);
+    } catch (err) {
+      setCommissionError(
+        err instanceof ApiError ? err.message : "Could not reset to schedule",
       );
     } finally {
       setCommissionBusy(false);
@@ -1300,6 +1319,12 @@ export function AgentDetailCard({
         <div className="b3-agent-detail__head-actions">
           {canManage ? (
             <>
+              <Link
+                className="b3-agent-detail__onboard"
+                to={`${platformRoute("merchants/new")}?parentId=${encodeURIComponent(org.id)}`}
+              >
+                Onboard
+              </Link>
               {status === "active" ? (
                 <button
                   type="button"
@@ -1430,7 +1455,7 @@ export function AgentDetailCard({
             </div>
 
             <div className="b3-agent-detail__overview-stack">
-              <section className="b3-card b3-card--section b3-card--flat">
+              <section className="b3-agent-detail__profile" aria-label="Profile">
                 <div className="b3-profile__head">
                   <h3 className="b3-card__heading">Profile</h3>
                 </div>
@@ -1447,7 +1472,7 @@ export function AgentDetailCard({
                       <p className="b3-profile__value">
                         {overviewLoading && !commission
                           ? "…"
-                          : `${commissionPercent}%`}
+                          : `${commission?.rateMode === "fixed" ? "Fixed" : "Automatic"} · ${commissionPercent}%`}
                       </p>
                       {canManage ? (
                         <button
@@ -1528,10 +1553,9 @@ export function AgentDetailCard({
             <AgentTabEmpty
               icon="accounts"
               title="No accounts in this subtree yet"
-              copy="Sub-agents and merchants onboarded under this agent appear here as a browsable hierarchy."
+              copy="Merchants onboarded under this agent appear here as a browsable hierarchy."
               hints={[
                 "Onboard merchants from Platform → Merchants",
-                "Onboard sub-agents when this agent needs a regional desk or partner channel",
               ]}
             />
           ) : (
@@ -1842,8 +1866,9 @@ export function AgentDetailCard({
                 </header>
                 <div className="b3-commission-modal__body">
                   <p className="b3-commission-modal__hint">
-                    Percent of platform fee paid to this agent. The new rate
-                    applies immediately to commission accruals.
+                    Lock a fixed commission % (Platform Owner). Automatic agents
+                    follow the volume schedule. The new fixed rate applies
+                    immediately to commission accruals.
                   </p>
                   <label className="b3-commission-modal__field">
                     <span className="b3-commission-modal__label">
@@ -1875,11 +1900,19 @@ export function AgentDetailCard({
                   </button>
                   <button
                     type="button"
+                    className="b3-commission-modal__cancel"
+                    disabled={commissionBusy}
+                    onClick={() => void resetCommissionToSchedule()}
+                  >
+                    Use schedule
+                  </button>
+                  <button
+                    type="button"
                     className="b3-commission-modal__save"
                     disabled={commissionBusy || !commissionDraft.trim()}
                     onClick={() => void saveCommission()}
                   >
-                    {commissionBusy ? "Saving…" : "Save changes"}
+                    {commissionBusy ? "Saving…" : "Lock fixed rate"}
                   </button>
                 </footer>
               </div>

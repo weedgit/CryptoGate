@@ -85,6 +85,17 @@ export function isPosPinVerifyPath(method, path) {
   return method === "POST" && path === "/v1/auth/pos-pin/verify";
 }
 
+/** Email / SMS OTP send+verify — same bucket intensity as login. */
+export function isContactOtpPath(method, path) {
+  return (
+    method === "POST" &&
+    (path === "/v1/auth/contact/email/send" ||
+      path === "/v1/auth/contact/email/verify" ||
+      path === "/v1/auth/contact/phone/send" ||
+      path === "/v1/auth/contact/phone/verify")
+  );
+}
+
 /**
  * @param {string} method
  * @param {string} path

@@ -35,6 +35,8 @@ type Props = {
   onClose: () => void;
   /** Merchant default matching mode (read-only on create). */
   matchingMode?: string;
+  /** Contact verification still pending — do not create. */
+  locked?: boolean;
 };
 
 type BlockingOrderInfo = {
@@ -114,7 +116,7 @@ function parseBlockingOrder(details: unknown): BlockingOrderInfo | null {
   };
 }
 
-export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
+export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }: Props) {
   const navigate = useNavigate();
   const initial = defaultLivePair();
   const [amount, setAmount] = useState("");
@@ -333,6 +335,42 @@ export function CreateOrderModal({ onClose, matchingMode = "B" }: Props) {
   const previewAmount = formatPreviewAmount(amount);
   const previewReference = merchantReference.trim();
   const formLocked = Boolean(amountLock && !amountLock.cleared);
+  if (locked) {
+    return createPortal(
+      <div
+        className="b3-commission-modal-backdrop create-order-modal-backdrop"
+        role="presentation"
+        onClick={onClose}
+      >
+        <div
+          className="b3-commission-modal create-order-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-order-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="b3-commission-modal__head">
+            <h3 id="create-order-modal-title">CREATE PAYMENT ORDER</h3>
+            <button
+              type="button"
+              className="b3-commission-modal__close create-order-modal__close"
+              aria-label="Close"
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </header>
+          <div className="b3-commission-modal__body">
+            <p>
+              Verify email and phone before creating an order. Use the banner at
+              the top of the page.
+            </p>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
   return createPortal(
     <>
       <AuthToast

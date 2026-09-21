@@ -118,41 +118,26 @@ export function roleLabel(role: string): string {
   return role;
 }
 
-export function structureLabel(structure: string | undefined): string {
-  if (structure === "single_location") return "Single location";
-  if (structure === "multi_location") return "Multi-location";
-  return structure ?? "—";
-}
-
-/** Sidebar location badge: Multi / Single / Site. */
-export type LocationKind = "multi" | "single" | "site";
+/** Sidebar location badge: Merchant / Site (no structure field). */
+export type LocationKind = "merchant" | "site";
 
 export function locationKindLabel(kind: LocationKind): string {
-  if (kind === "multi") return "Multi";
-  if (kind === "single") return "Single";
-  return "Site";
+  if (kind === "site") return "Site";
+  return "Merchant";
 }
 
 export function locationKindTitle(kind: LocationKind): string {
-  if (kind === "multi") return "Multi-location merchant";
-  if (kind === "single") return "Single-location merchant";
-  return "Merchant site";
+  if (kind === "site") return "Merchant site";
+  return "Merchant";
 }
 
 /**
- * Parent merchant membership wins (Multi / Single). Site-only login → Site.
- * Returns null until org structure is loaded.
+ * Merchant membership → merchant; site-only login → site.
+ * All merchants may manage sites; structure is not used.
  */
-export function sessionLocationKind(
-  session: Session,
-  orgs: Array<{ id: string; structure?: string | null }> | null,
-): LocationKind | null {
-  const merchant = session.memberships.find((m) => m.orgType === "merchant");
-  if (merchant) {
-    const org = orgs?.find((o) => o.id === merchant.orgId);
-    if (org?.structure === "multi_location") return "multi";
-    if (org?.structure === "single_location") return "single";
-    return null;
+export function sessionLocationKind(session: Session): LocationKind | null {
+  if (session.memberships.some((m) => m.orgType === "merchant")) {
+    return "merchant";
   }
   if (session.memberships.some((m) => m.orgType === "merchant_site")) {
     return "site";
@@ -162,14 +147,14 @@ export function sessionLocationKind(
 
 export function orgTypeLabel(type: string): string {
   if (type === "merchant") return "Merchant";
-  if (type === "merchant_site") return "Merchant (site)";
+  if (type === "merchant_site") return "Site";
   if (type === "agent") return "Agent";
-  if (type === "agent_sub") return "Agent (sub)";
+  if (type === "agent_sub") return "Agent";
   if (type === "platform") return "Platform";
   return type;
 }
 
-/** O / A may create and manage merchant sites under a multi-location parent. */
+/** O / A may create and manage sites under a merchant (or under a site). */
 export function sessionCanManageSites(session: Session): boolean {
   return session.memberships.some((m) =>
     ["owner", "administrator"].includes(m.role),
@@ -180,4 +165,35 @@ export function sessionCanManageSites(session: Session): boolean {
 export function parentMerchantOrgId(session: Session): string | null {
   const merchant = session.memberships.find((m) => m.orgType === "merchant");
   return merchant?.orgId ?? primaryMerchantOrgId(session);
+}
+
+/**
+ * All `merchant_site` orgs under a merchant root (BFS; unlimited nesting).
+ * Sites under sites are included — there is no separate sub-site type.
+ */
+export function sitesInMerchantSubtree(
+  orgs: ReadonlyArray<{ id: string; type: string; parentId?: string | null }>,
+  merchantId: string,
+): Array<{ id: string; type: string; parentId?: string | null }> {
+  const children = new Map<string, string[]>();
+  for (const o of orgs) {
+    if (o.type !== "merchant_site" || !o.parentId) continue;
+    const list = children.get(o.parentId);
+    if (list) list.push(o.id);
+    else children.set(o.parentId, [o.id]);
+  }
+  const byId = new Map(orgs.map((o) => [o.id, o]));
+  const out: Array<{ id: string; type: string; parentId?: string | null }> = [];
+  const queue = [...(children.get(merchantId) ?? [])];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const row = byId.get(id);
+    if (!row || row.type !== "merchant_site") continue;
+    out.push(row);
+    for (const childId of children.get(id) ?? []) queue.push(childId);
+  }
+  return out;
 }

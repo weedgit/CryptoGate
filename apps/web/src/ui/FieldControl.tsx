@@ -38,6 +38,8 @@ type Props = {
   icon?: FieldControlIcon;
   /** Custom leading mark (e.g. asset icon); takes precedence over `icon`. */
   leading?: ReactNode;
+  /** Optional trailing control (e.g. number spin). */
+  trailing?: ReactNode;
   children: ReactNode;
   invalid?: boolean;
   showPassword?: boolean;
@@ -51,6 +53,7 @@ type Props = {
 export function FieldControl({
   icon,
   leading,
+  trailing,
   children,
   invalid = false,
   showPassword,
@@ -66,6 +69,7 @@ export function FieldControl({
         icon || leading ? "field-shell--icon" : "",
         leading ? "field-shell--custom-icon" : "",
         withToggle ? "field-shell--toggle" : "",
+        trailing ? "field-shell--trailing" : "",
         invalid ? "is-invalid" : "",
         shellClassName,
       ]
@@ -78,6 +82,7 @@ export function FieldControl({
         </span>
       ) : null}
       {children}
+      {trailing}
       {withToggle ? (
         <button
           type="button"

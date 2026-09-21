@@ -17,6 +17,7 @@ import {
   inviteOrgUser,
   listOrgMemberEmails,
   patchOrgProfile,
+  getSession,
   removeOrgUser,
   setOrgUserStatus,
   type InviteOrgUserResult,
@@ -38,7 +39,6 @@ import {
   sessionCanManageMemberPosPin,
   sessionCanManageTeam,
   sessionRoleOnOrg,
-  structureLabel,
 } from "./org";
 import {
   fetchRegisteredEmailIndex,
@@ -47,7 +47,10 @@ import {
 } from "../shared/registeredEmails";
 import type { OrgRef } from "../shared/registeredEmails";
 
-type Props = { session: Session };
+type Props = {
+  session: Session;
+  onSessionRefresh?: (session: Session) => void;
+};
 
 const INVITE_ROLES = ["administrator", "viewer", "cashier"] as const;
 const NON_CASHIER_INVITE_ROLES = ["administrator", "viewer"] as const;
@@ -102,7 +105,7 @@ type RemoveTarget = { userId: string; email: string };
 type PosPinTarget = { userId: string; email: string };
 
 /** D16 — Merchant team settings (platform team chrome). */
-export function TeamSettingsPage({ session }: Props) {
+export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canManage = useMemo(
     () => (orgId ? sessionCanManageTeam(session, orgId) : false),
@@ -440,9 +443,6 @@ export function TeamSettingsPage({ session }: Props) {
               <span className="plat-team__org-chip">
                 {orgTypeLabel(org.type)}
               </span>
-              <span className="plat-team__org-chip plat-team__org-chip--muted">
-                {structureLabel(org.structure)}
-              </span>
               {canEditProfile ? (
                 <button
                   type="button"
@@ -465,6 +465,7 @@ export function TeamSettingsPage({ session }: Props) {
         open={profileEditOpen}
         name={org?.name ?? ""}
         iconKey={org?.iconKey}
+        country={org?.country}
         busy={profileEditBusy}
         error={profileEditError}
         onClose={() => {
@@ -480,6 +481,9 @@ export function TeamSettingsPage({ session }: Props) {
             setToast({ message: "Organization profile saved", tone: "ok" });
             setProfileEditOpen(false);
             await getMerchantOrgs({ force: true });
+            if (onSessionRefresh) {
+              onSessionRefresh(await getSession());
+            }
           } catch (err) {
             setProfileEditError(
               err instanceof ApiError ? err.message : "Failed to update profile",

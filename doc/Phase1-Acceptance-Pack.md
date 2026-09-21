@@ -307,4 +307,4 @@ Existing smoke: [X-07-E2E-Smoke.md](X-07-E2E-Smoke.md).
 2. Is **full KYC/KYB** a Phase 1 go-live blocker?  
 3. Commercial chain focus **TRON + Solana + Ethereum** first?
 
-**Org tree:** locked — no sub-agent; merchant sites allowed under multi_location.
+**Org tree:** locked — no sub-agent; merchant sites allowed under any merchant.

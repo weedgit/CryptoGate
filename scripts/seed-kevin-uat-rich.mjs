@@ -54,6 +54,46 @@ const DASHBOARD_VOLUME_PAIRS = [
   { asset: "USDC", network: "solana" },
 ];
 
+/**
+ * Demo USD-per-token rates for dual volume chart review (not live market).
+ * Stables stay ~1; volatile assets diverge so USD vs token lines separate.
+ */
+const SEED_USD_PER_TOKEN = {
+  USDT: 1,
+  USDC: 1,
+  TRX: 0.14,
+  ETH: 3200,
+  BTC: 95_000,
+  SOL: 145,
+  BNB: 580,
+};
+
+function formatSeedTokenAmount(asset, n) {
+  if (asset === "ETH" || asset === "BTC") return n.toFixed(6);
+  if (asset === "SOL") return n.toFixed(4);
+  return n.toFixed(2);
+}
+
+/**
+ * @param {string} asset
+ * @param {string|number} usdMajor invoice USD
+ * @param {number} [daySalt] slight rate wobble so series diverge day-to-day
+ */
+function seedQuoteFromUsd(asset, usdMajor, daySalt = 0) {
+  const usd = Number(usdMajor);
+  const base = SEED_USD_PER_TOKEN[asset] ?? 1;
+  const wobble =
+    base === 1 ? 1 : 1 + ((((daySalt % 11) + 11) % 11) - 5) * 0.008;
+  const rate = base * wobble;
+  const payable = rate === 0 ? 0 : usd / rate;
+  return {
+    invoiceUsd: usd.toFixed(2),
+    payable: formatSeedTokenAmount(asset, payable),
+    pricingRate: rate.toFixed(8).replace(/\.?0+$/, "") || String(rate),
+    marketRate: rate.toFixed(8).replace(/\.?0+$/, "") || String(rate),
+  };
+}
+
 /** BIP32 test vector 1 public xPub — watch-only; never a spend key. */
 const VECTOR_XPUB =
   "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
@@ -266,7 +306,6 @@ async function ensureOrg(parentId, spec) {
     type: "merchant",
     name: spec.name,
     parentId,
-    structure: "single_location",
     maxAgentDepth: null,
     country: "MA",
     legalName: spec.legalName,
@@ -606,6 +645,11 @@ async function seedOrderHistory(
       createdAt.setUTCHours(10 + (di % 8), (di * 7) % 60, 0, 0);
 
       const amount = amounts[(slot + di) % amounts.length].toFixed(2);
+      const quote = seedQuoteFromUsd(
+        UAT_SETTLEMENT.asset,
+        amount,
+        monthsBack * 31 + day,
+      );
       const idem = `kevin-rich-${merchantKey}-${monthKey}-d${day}`;
       const bodyHash = createHash("sha256").update(idem).digest("hex");
       const expiresAt = new Date(createdAt.getTime() + 30 * 60 * 1000);
@@ -620,6 +664,7 @@ async function seedOrderHistory(
         `INSERT INTO payment_orders (
            org_id, created_by, order_number, status, matching_mode,
            payable_amount, invoice_amount_usd, invoice_currency,
+           market_rate, pricing_rate,
            receive_address, address_source, asset, network,
            expires_at, required_confirmations,
            idempotency_key, idempotency_body_hash, merchant_metadata,
@@ -628,18 +673,21 @@ async function seedOrderHistory(
          ) VALUES (
            $1, $2,
            'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-           'completed', $3, $4, $4, 'USD', $5, 'main',
-           $6, $7, $8, 19,
-           $9, $10, $11::jsonb,
-           $12, $12,
-           $4, $13, 19, $14, $12
+           'completed', $3, $4, $5, 'USD', $6, $7, $8, 'main',
+           $9, $10, $11, 19,
+           $12, $13, $14::jsonb,
+           $15, $15,
+           $4, $16, 19, $17, $15
          )
          ON CONFLICT (org_id, idempotency_key) DO NOTHING`,
         [
           orgId,
           cashierId,
           matchingMode,
-          amount,
+          quote.payable,
+          quote.invoiceUsd,
+          quote.marketRate,
+          quote.pricingRate,
           receiveAddress,
           UAT_SETTLEMENT.asset,
           UAT_SETTLEMENT.network,
@@ -731,6 +779,7 @@ async function seedOrderHistory(
         pi * 35 +
         (daysBack % 5) * 12
       ).toFixed(2);
+      const quote = seedQuoteFromUsd(pair.asset, amount, daysBack * 10 + pi);
       const idem = `kevin-rich-${merchantKey}-daily-${dayKey}-${pair.asset}-${pair.network}`;
       const bodyHash = createHash("sha256").update(idem).digest("hex");
       const cashierId = cashierIds[slot % cashierIds.length] ?? ownerId;
@@ -743,6 +792,7 @@ async function seedOrderHistory(
         `INSERT INTO payment_orders (
            org_id, created_by, order_number, status, matching_mode,
            payable_amount, invoice_amount_usd, invoice_currency,
+           market_rate, pricing_rate,
            receive_address, address_source, asset, network,
            expires_at, required_confirmations,
            idempotency_key, idempotency_body_hash, merchant_metadata,
@@ -751,18 +801,21 @@ async function seedOrderHistory(
          ) VALUES (
            $1, $2,
            'CG-UAT-' || lpad(nextval('payment_orders_order_number_seq')::text, 8, '0'),
-           'completed', $3, $4, $4, 'USD', $5, 'main',
-           $6, $7, $8, 19,
-           $9, $10, $11::jsonb,
-           $12, $12,
-           $4, $13, 19, $14, $12
+           'completed', $3, $4, $5, 'USD', $6, $7, $8, 'main',
+           $9, $10, $11, 19,
+           $12, $13, $14::jsonb,
+           $15, $15,
+           $4, $16, 19, $17, $15
          )
          ON CONFLICT (org_id, idempotency_key) DO NOTHING`,
         [
           orgId,
           cashierId,
           matchingMode,
-          amount,
+          quote.payable,
+          quote.invoiceUsd,
+          quote.marketRate,
+          quote.pricingRate,
           receiveAddress,
           pair.asset,
           pair.network,
@@ -781,6 +834,52 @@ async function seedOrderHistory(
       );
     }
   }
+}
+
+/** Rewrite existing rich-seed quotes so volatile assets are not 1:1 with USD. */
+async function resyncSeedFxQuotes(pool) {
+  const { rows } = await pool.query(
+    `SELECT id, asset, invoice_amount_usd, payable_amount, created_at
+     FROM payment_orders
+     WHERE status = 'completed'
+       AND (
+         merchant_metadata->>'seed' = 'kevin-uat-rich'
+         OR idempotency_key LIKE 'kevin-rich-%'
+       )`,
+  );
+  let updated = 0;
+  for (const row of rows) {
+    const usdBase = row.invoice_amount_usd ?? row.payable_amount;
+    if (usdBase == null) continue;
+    const daySalt = row.created_at
+      ? Math.floor(new Date(row.created_at).getTime() / 86_400_000)
+      : 0;
+    const quote = seedQuoteFromUsd(row.asset, usdBase, daySalt);
+    const { rowCount } = await pool.query(
+      `UPDATE payment_orders
+       SET invoice_amount_usd = $2,
+           payable_amount = $3,
+           received_amount = $3,
+           market_rate = $4,
+           pricing_rate = $5,
+           updated_at = now()
+       WHERE id = $1
+         AND (
+           payable_amount IS DISTINCT FROM $3
+           OR invoice_amount_usd IS DISTINCT FROM $2
+           OR pricing_rate IS DISTINCT FROM $5
+         )`,
+      [
+        row.id,
+        quote.invoiceUsd,
+        quote.payable,
+        quote.marketRate,
+        quote.pricingRate,
+      ],
+    );
+    if (rowCount) updated += 1;
+  }
+  return updated;
 }
 
 async function main() {
@@ -1129,6 +1228,10 @@ async function main() {
   }
 
   console.log(`Commission payouts written/updated: ${commissionRows}`);
+
+  console.log("Resyncing seed FX quotes (TRX/ETH ≠ 1 USD)…");
+  const fxPatched = await resyncSeedFxQuotes(pool);
+  console.log(`  Orders re-quoted: ${fxPatched}`);
 
   console.log("\nKevin UAT rich seed complete.");
   console.log(`  Merchants in tree: ${merchantCatalog.size}`);

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { PortalShellBoot } from "./auth/PortalShellBoot";
 import "./styles/loading.css";
 import { lazyNamed } from "./shared/lazyNamed";
@@ -35,9 +35,10 @@ function LegacyPortalRoutes() {
 
 export function App() {
   const dedicatedPortal = portalFromHostname();
+  const { pathname, search } = useLocation();
 
   return (
-    <RouteErrorBoundary>
+    <RouteErrorBoundary resetKey={`${pathname}${search}`}>
       <Suspense fallback={<PortalFallback />}>
         {dedicatedPortal === "platform" ? (
           <PlatformApp />

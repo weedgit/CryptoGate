@@ -33,7 +33,6 @@ import type { Session } from "../merchant/api";
 import { relativeAlertTime, upsertPlatformAlert } from "./platformAlerts";
 import {
   merchantSites,
-  STRUCTURE_LABELS,
 } from "./merchantSubtree";
 import { FundAmount } from "./FundAmount";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
@@ -56,7 +55,7 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
-import { formatShortDate } from "./org";
+import { formatShortDate, sessionIsPlatformOwner } from "./org";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -140,8 +139,7 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
   );
 }
 
-function MerchantSitesEmpty({ structure }: { structure: string | null | undefined }) {
-  const isMulti = structure === "multi_location";
+function MerchantSitesEmpty() {
   return (
     <div className="b3-agent-detail__empty" role="status">
       <div className="b3-agent-detail__empty-mark" aria-hidden>
@@ -167,26 +165,16 @@ function MerchantSitesEmpty({ structure }: { structure: string | null | undefine
           />
         </svg>
       </div>
-      <p className="b3-agent-detail__empty-title">
-        {isMulti ? "No merchant sites yet" : "Single-location merchant"}
-      </p>
+      <p className="b3-agent-detail__empty-title">No merchant sites yet</p>
       <p className="b3-agent-detail__empty-copy">
-        {isMulti
-          ? "This merchant is multi-location, but no site orgs are linked yet. Sites appear here once created under this account."
-          : "This account operates as one location. Payment orders and settlement stay on the merchant — separate site orgs are not used."}
+        No site orgs are linked yet. Sites appear here once created under this
+        account.
       </p>
       <ul className="b3-agent-detail__empty-hints">
-        {isMulti ? (
-          <>
-            <li>Each outlet is a merchant (site) under this parent</li>
-            <li>Sites can override wallet or matching only with merchant Owner approval</li>
-          </>
-        ) : (
-          <>
-            <li>Structure is set at onboard and shown on Overview → Profile</li>
-            <li>Switch to multi-location only when the merchant needs separate site orgs</li>
-          </>
-        )}
+        <li>Each outlet is a site under this merchant (sites may nest)</li>
+        <li>
+          Sites can override wallet or matching only with merchant Owner approval
+        </li>
       </ul>
     </div>
   );
@@ -698,6 +686,10 @@ export function MerchantDetailCard({
   onOrgPatched,
   inviteCreds,
 }: Props) {
+  const canEditCommercial = useMemo(
+    () => sessionIsPlatformOwner(session),
+    [session],
+  );
   const [tab, setTab] = useState<TabId>(() =>
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
   );
@@ -728,9 +720,6 @@ export function MerchantDetailCard({
   const [siteEmails, setSiteEmails] = useState<SiteEmailIndex>(() => new Map());
 
   const status = org.status ?? "active";
-  const structureLabel = org.structure
-    ? (STRUCTURE_LABELS[org.structure] ?? org.structure.replace("_", " "))
-    : "—";
   const sites = useMemo(() => merchantSites(org.id, orgs), [org.id, orgs]);
   const merchantBills = useMemo(
     () => bills.filter((b) => b.orgId === org.id),
@@ -814,11 +803,11 @@ export function MerchantDetailCard({
   );
 
   useEffect(() => {
-    if (!commercialEditOpen || !canManage) return;
+    if (!commercialEditOpen || !canEditCommercial) return;
     void getFeeTierSettings()
       .then((settings) => setFeeTiers(settings.tiers))
       .catch(() => setFeeTiers([]));
-  }, [commercialEditOpen, canManage]);
+  }, [commercialEditOpen, canEditCommercial]);
 
   useEffect(() => {
     if (!commercialEditOpen) return;
@@ -830,13 +819,14 @@ export function MerchantDetailCard({
   }, [commercialEditOpen, commercialBusy]);
 
   async function saveCommercial() {
-    if (!canManage || commercialBusy || !commercial) return;
+    if (!canEditCommercial || commercialBusy || !commercial) return;
     setCommercialBusy(true);
     setCommercialError(null);
     try {
       const updated = await updateMerchantCommercial(org.id, {
         tier: editTier,
         volumeFeePercent: editVolume.trim(),
+        rateMode: "fixed",
         reason: editReason.trim() || undefined,
       });
       setCommercial(updated);
@@ -845,6 +835,27 @@ export function MerchantDetailCard({
     } catch (err) {
       setCommercialError(
         err instanceof ApiError ? err.message : "Could not update commercial tier",
+      );
+    } finally {
+      setCommercialBusy(false);
+    }
+  }
+
+  async function resetCommercialToSchedule() {
+    if (!canEditCommercial || commercialBusy || !commercial) return;
+    setCommercialBusy(true);
+    setCommercialError(null);
+    try {
+      const updated = await updateMerchantCommercial(org.id, {
+        rateMode: "automatic",
+        reason: editReason.trim() || "reset to volume schedule",
+      });
+      setCommercial(updated);
+      setCommercialEditOpen(false);
+      setEditReason("");
+    } catch (err) {
+      setCommercialError(
+        err instanceof ApiError ? err.message : "Could not reset to schedule",
       );
     } finally {
       setCommercialBusy(false);
@@ -1120,10 +1131,6 @@ export function MerchantDetailCard({
                     </p>
                   </div>
                   <div className="b3-profile__field">
-                    <p className="b3-profile__label">Structure</p>
-                    <p className="b3-profile__value">{structureLabel}</p>
-                  </div>
-                  <div className="b3-profile__field">
                     <div className="b3-profile__field-head">
                       <p className="b3-profile__label">Commercial tier</p>
                       <div className="b3-profile__field-head-end">
@@ -1134,7 +1141,7 @@ export function MerchantDetailCard({
                             <span className="b3-profile__pill b3-profile__pill--tier">
                               {tierLabel(commercial.tier)}
                             </span>
-                            {canManage ? (
+                            {canEditCommercial ? (
                               <button
                                 type="button"
                                 className="b3-profile__edit-btn"
@@ -1158,7 +1165,8 @@ export function MerchantDetailCard({
                     </div>
                     {commercial ? (
                       <p className="b3-profile__meta">
-                        {commercial.volumeFeePercent}% volume fee ·{" "}
+                        {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}{" "}
+                        · {commercial.volumeFeePercent}% volume fee ·{" "}
                         <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
                         / mo subscription
                         {commercial.enterpriseApprovalStatus === "pending" ? (
@@ -1234,7 +1242,7 @@ export function MerchantDetailCard({
 
         {tab === "sites" ? (
           sites.length === 0 ? (
-            <MerchantSitesEmpty structure={org.structure} />
+            <MerchantSitesEmpty />
           ) : (
             <section className="b3-card b3-card--section b3-card--flat b3-merchant-sites">
               <div className="b3-profile__head">
@@ -1423,9 +1431,9 @@ export function MerchantDetailCard({
                 </header>
                 <div className="b3-commission-modal__body">
                   <p className="b3-commission-modal__hint">
-                    Set the merchant tier and volume fee within platform bands.
-                    The new rate applies immediately. Enterprise custom rates
-                    outside the band require Compliance approval.
+                    Lock a fixed special rate (Platform Owner). Automatic
+                    merchants follow the volume schedule at bill time. Fixed
+                    rates apply immediately and skip band approval.
                   </p>
                   <label className="b3-commission-modal__field">
                     <span className="b3-commission-modal__label">
@@ -1501,11 +1509,19 @@ export function MerchantDetailCard({
                   </button>
                   <button
                     type="button"
+                    className="b3-commission-modal__cancel"
+                    disabled={commercialBusy}
+                    onClick={() => void resetCommercialToSchedule()}
+                  >
+                    Use schedule
+                  </button>
+                  <button
+                    type="button"
                     className="b3-commission-modal__save"
                     disabled={commercialBusy || !editVolume.trim()}
                     onClick={() => void saveCommercial()}
                   >
-                    {commercialBusy ? "Saving…" : "Save changes"}
+                    {commercialBusy ? "Saving…" : "Lock fixed rate"}
                   </button>
                 </footer>
               </div>

@@ -7,7 +7,6 @@ const platform = {
   id: "p1",
   type: "platform",
   parent_id: null,
-  structure: null,
   max_agent_depth: 2,
 };
 
@@ -15,21 +14,18 @@ const agent = {
   id: "a1",
   type: "agent",
   parent_id: "p1",
-  structure: null,
 };
 
 const agentSub = {
   id: "a2",
   type: "agent_sub",
   parent_id: "a1",
-  structure: null,
 };
 
-const merchantMulti = {
+const merchant = {
   id: "m1",
   type: "merchant",
   parent_id: "a1",
-  structure: "multi_location",
 };
 
 const byId = {
@@ -59,52 +55,56 @@ describe("org create rules", () => {
     assert.equal(r.code, "invalid_parent");
   });
 
-  it("rejects agent_sub create in Phase 1", () => {
+  it("rejects agent_sub create", () => {
     const r = validateCreateOrg(
       { type: "agent_sub", name: "ISO child", parentId: "a1" },
       { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, false);
-    assert.equal(r.code, "phase1_org_type_disabled");
+    assert.equal(r.code, "org_type_disabled");
   });
 
-  it("allows multi_location merchant under agent", () => {
+  it("allows merchant under agent", () => {
     const r = validateCreateOrg(
       {
         type: "merchant",
         name: "Hotel Group",
         parentId: "a1",
-        structure: "multi_location",
       },
       { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
-    assert.equal(r.insert.structure, "multi_location");
+    assert.equal(r.insert.type, "merchant");
+    assert.equal(r.insert.parentId, "a1");
   });
 
-  it("allows merchant_site under multi_location merchant", () => {
+  it("allows merchant_site under any merchant", () => {
     const r = validateCreateOrg(
       { type: "merchant_site", name: "Downtown", parentId: "m1" },
-      { parent: merchantMulti, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: merchant, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.type, "merchant_site");
     assert.equal(r.insert.parentId, "m1");
   });
 
-  it("rejects merchant_site under single_location merchant", () => {
-    const single = {
-      id: "m2",
-      type: "merchant",
-      parent_id: "a1",
-      structure: "single_location",
+  it("allows merchant_site under another site (nested, same type)", () => {
+    const site = {
+      id: "s1",
+      type: "merchant_site",
+      parent_id: "m1",
     };
     const r = validateCreateOrg(
-      { type: "merchant_site", name: "Branch", parentId: "m2" },
-      { parent: single, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { type: "merchant_site", name: "Floor 2", parentId: "s1" },
+      {
+        parent: site,
+        maxAgentDepth: 2,
+        agentDepthOfParent: 1,
+      },
     );
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "invalid_parent");
+    assert.equal(r.ok, true);
+    assert.equal(r.insert.type, "merchant_site");
+    assert.equal(r.insert.parentId, "s1");
   });
 
   it("rejects merchant under agent_sub in Phase 1", () => {
@@ -113,7 +113,6 @@ describe("org create rules", () => {
         type: "merchant",
         name: "Under Sub",
         parentId: "a2",
-        structure: "single_location",
       },
       { parent: agentSub, maxAgentDepth: 2, agentDepthOfParent: 2 },
     );
@@ -127,7 +126,6 @@ describe("org create rules", () => {
         type: "merchant",
         name: "Direct Hotel",
         parentId: "p1",
-        structure: "single_location",
       },
       { parent: platform, maxAgentDepth: 2, agentDepthOfParent: 0 },
     );
@@ -135,13 +133,18 @@ describe("org create rules", () => {
     assert.equal(r.insert.parentId, "p1");
   });
 
-  it("requires merchant structure", () => {
+  it("ignores legacy structure on create", () => {
     const r = validateCreateOrg(
-      { type: "merchant", name: "Hotel", parentId: "a1" },
+      {
+        type: "merchant",
+        name: "Hotel",
+        parentId: "a1",
+        structure: "single_location",
+      },
       { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
     );
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "invalid_structure");
+    assert.equal(r.ok, true);
+    assert.equal(r.insert.structure, undefined);
   });
 
   it("counts agent depth on a parent chain", () => {

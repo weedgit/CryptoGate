@@ -30,7 +30,7 @@ type Props = {
   onApply: (ids: string[]) => void;
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 12;
 
 function orgCardId(kind: "merchant" | "agent", orgId: string): string {
   return `${kind}:${orgId}`;
@@ -53,6 +53,199 @@ function shellCard(opt: AccountPickOption): OverviewChartCard {
     seriesStatus: "pending",
     moreLabel: "More details",
   };
+}
+
+function isMacPlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+}
+
+function AddChartsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path
+        d="M3.5 14.5V16.5H16.5V14.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.5 12.5L8.25 8.75L10.75 11L14.5 5.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChartsGridIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <rect
+        x="2.5"
+        y="2.5"
+        width="5.5"
+        height="5.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <rect
+        x="10"
+        y="2.5"
+        width="5.5"
+        height="5.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <rect
+        x="2.5"
+        y="10"
+        width="5.5"
+        height="5.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <rect
+        x="10"
+        y="10"
+        width="5.5"
+        height="5.5"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+function ApplyCheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M2.5 7.2L5.4 10.1L11.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PlatformSectionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M2.2 4.2L7 1.8L11.8 4.2L7 6.6L2.2 4.2Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.2 7L7 9.4L11.8 7"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.2 9.8L7 12.2L11.8 9.8"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MerchantsSectionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M2.5 5.5V12H11.5V5.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M1.8 5.5L3.2 2.5H10.8L12.2 5.5H1.8Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.5 12V8.2H8.5V12"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AgentsSectionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <circle cx="7" cy="4.2" r="2" stroke="currentColor" strokeWidth="1.25" />
+      <path
+        d="M3.2 11.5C3.5 9.4 5 8.1 7 8.1C9 8.1 10.5 9.4 10.8 11.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <circle cx="11.2" cy="5.2" r="1.35" stroke="currentColor" strokeWidth="1.15" />
+      <circle cx="2.8" cy="5.2" r="1.35" stroke="currentColor" strokeWidth="1.15" />
+    </svg>
+  );
+}
+
+function sectionIcon(title: string) {
+  if (title === "Platform") return <PlatformSectionIcon />;
+  if (title === "Merchants") return <MerchantsSectionIcon />;
+  if (title === "Agents") return <AgentsSectionIcon />;
+  return <PlatformSectionIcon />;
+}
+
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle
+        cx="7"
+        cy="7"
+        r="4.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M10.4 10.4L13.2 13.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SectionInfoIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+      <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+      <path
+        d="M6 5.2V8.2"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <circle cx="6" cy="3.7" r="0.7" fill="currentColor" />
+    </svg>
+  );
 }
 
 function LazySelectCard({
@@ -101,12 +294,16 @@ function LazySelectCard({
 
 function ChartSection({
   title,
+  description,
+  hint,
   cards,
   draft,
   onToggle,
   onVisible,
 }: {
   title: string;
+  description?: string;
+  hint?: string;
   cards: OverviewChartCard[];
   draft: Set<string>;
   onToggle: (id: string) => void;
@@ -139,26 +336,61 @@ function ChartSection({
     return () => io.disconnect();
   }, [cards.length, limit]);
 
+  const visible = cards.slice(0, limit);
+  const hasMore = visible.length < cards.length;
+  const selectedInSection = cards.reduce(
+    (n, c) => n + (draft.has(c.id) ? 1 : 0),
+    0,
+  );
+  const countLabel =
+    cards.length === 0
+      ? null
+      : `${selectedInSection} / ${cards.length}`;
+
+  const heading = (
+    <div className="add-charts-modal__cat-row">
+      <div className="add-charts-modal__cat-left">
+        <h3 className="add-charts-modal__cat">
+          <span className="add-charts-modal__cat-icon" aria-hidden>
+            {sectionIcon(title)}
+          </span>
+          <span className="add-charts-modal__cat-label">{title}</span>
+          {countLabel ? (
+            <span
+              className="add-charts-modal__section-count"
+              title={`${selectedInSection} selected of ${cards.length}`}
+            >
+              {countLabel}
+            </span>
+          ) : null}
+        </h3>
+        {hint ? (
+          <p className="add-charts-modal__cat-hint">
+            <span className="add-charts-modal__cat-hint-icon" aria-hidden>
+              <SectionInfoIcon />
+            </span>
+            {hint}
+          </p>
+        ) : null}
+      </div>
+      {description ? (
+        <p className="add-charts-modal__cat-desc">{description}</p>
+      ) : null}
+    </div>
+  );
+
   if (cards.length === 0) {
     return (
       <section className="add-charts-modal__section">
-        <h3 className="add-charts-modal__cat">{title}</h3>
+        {heading}
         <p className="muted">No matching charts.</p>
       </section>
     );
   }
 
-  const visible = cards.slice(0, limit);
-  const hasMore = visible.length < cards.length;
-
   return (
     <section className="add-charts-modal__section">
-      <h3 className="add-charts-modal__cat">
-        {title}
-        <span className="add-charts-modal__count">
-          {hasMore ? `${visible.length} / ${cards.length}` : String(cards.length)}
-        </span>
-      </h3>
+      {heading}
       <div className="add-charts-modal__grid">
         {visible.map((card) => (
           <LazySelectCard
@@ -202,6 +434,12 @@ export function AddChartsModal({
   const [query, setQuery] = useState("");
   const [resolved, setResolved] = useState<Record<string, OverviewChartCard>>({});
   const inflight = useRef(new Set<string>());
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const [modKey, setModKey] = useState("Ctrl");
+
+  useEffect(() => {
+    setModKey(isMacPlatform() ? "⌘" : "Ctrl");
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -209,12 +447,23 @@ export function AddChartsModal({
     setQuery("");
     setResolved({});
     inflight.current.clear();
+    const t = window.setTimeout(() => searchRef.current?.focus(), 40);
+    return () => window.clearTimeout(t);
   }, [open, selectedIds]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -296,6 +545,10 @@ export function AddChartsModal({
     onApply([...kept, ...added]);
   };
 
+  const selectedCount = draft.length;
+  const selectedLabel =
+    selectedCount === 1 ? "1 chart selected" : `${selectedCount} charts selected`;
+
   return (
     <div className="add-charts-modal" role="presentation" onClick={onClose}>
       <div
@@ -306,7 +559,17 @@ export function AddChartsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="add-charts-modal__head">
-          <h2 id="add-charts-title">Add charts</h2>
+          <div className="add-charts-modal__head-main">
+            <span className="add-charts-modal__badge" aria-hidden>
+              <AddChartsIcon />
+            </span>
+            <div className="add-charts-modal__titles">
+              <h2 id="add-charts-title">Add charts</h2>
+              <p className="add-charts-modal__subtitle">
+                Choose metrics for your overview
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             className="add-charts-modal__close"
@@ -320,14 +583,24 @@ export function AddChartsModal({
         <div className="add-charts-modal__toolbar">
           <label className="add-charts-modal__search">
             <span className="sr-only">Search charts</span>
+            <span className="add-charts-modal__search-icon" aria-hidden>
+              <SearchIcon />
+            </span>
             <input
+              ref={searchRef}
               type="search"
               value={query}
               placeholder="Search platform, merchants, agents…"
               onChange={(e) => setQuery(e.target.value)}
             />
+            <kbd className="add-charts-modal__kbd" aria-hidden>
+              {modKey} K
+            </kbd>
           </label>
-          <p className="add-charts-modal__hint muted">
+          <p className="add-charts-modal__hint">
+            <span className="add-charts-modal__hint-icon" aria-hidden>
+              <SectionInfoIcon />
+            </span>
             Scroll to browse accounts. Chart history loads as each card enters
             view.
           </p>
@@ -336,12 +609,14 @@ export function AddChartsModal({
         <div className="add-charts-modal__body">
           <ChartSection
             title="Platform"
+            description="One convert-rate chart per Networks & Assets pair"
             cards={filteredPlatform}
             draft={draftSet}
             onToggle={toggle}
           />
           <ChartSection
             title="Merchants"
+            description="Select merchants to add individual charts"
             cards={merchantCards}
             draft={draftSet}
             onToggle={toggle}
@@ -349,6 +624,7 @@ export function AddChartsModal({
           />
           <ChartSection
             title="Agents"
+            description="Select agents to add individual charts"
             cards={agentCards}
             draft={draftSet}
             onToggle={toggle}
@@ -357,16 +633,34 @@ export function AddChartsModal({
         </div>
 
         <footer className="add-charts-modal__foot">
-          <button type="button" className="add-charts-modal__cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="add-charts-modal__apply"
-            onClick={applyOrdered}
-          >
-            Apply
-          </button>
+          <div className="add-charts-modal__selection" aria-live="polite">
+            <span className="add-charts-modal__selection-icon" aria-hidden>
+              <ChartsGridIcon />
+            </span>
+            <div className="add-charts-modal__selection-text">
+              <p className="add-charts-modal__selected">{selectedLabel}</p>
+              <p className="add-charts-modal__selection-hint">
+                Choose charts to add to your dashboard
+              </p>
+            </div>
+          </div>
+          <div className="add-charts-modal__foot-actions">
+            <button
+              type="button"
+              className="add-charts-modal__cancel"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="add-charts-modal__apply"
+              onClick={applyOrdered}
+            >
+              <ApplyCheckIcon />
+              Apply
+            </button>
+          </div>
         </footer>
       </div>
     </div>

@@ -161,9 +161,31 @@ export type FeeTierBand = {
   subscriptionAmountUsd: string;
   volumeFeeMinPercent: string;
   volumeFeeMaxPercent: string;
+  /** Automatic merchant volume fee % when rate_mode=automatic for this tier. */
   defaultSignupPercent: string;
+  /** Monthly volume floor (USD) for automatic tier assignment. */
+  volumeMinUsd: string;
+  /** Monthly volume ceiling (USD); omit/null = unbounded. */
+  volumeMaxUsd?: string | null;
+  /** Automatic agent commission % of collected platform volume fee for this tier. */
+  agentCommissionPercent: string;
   tierDescription?: string;
 };
+
+/** Org pricing mode: follow volume schedule, or operator-locked fixed rate. */
+export const PricingRateMode = {
+  Automatic: "automatic",
+  Fixed: "fixed",
+} as const;
+export type PricingRateMode =
+  (typeof PricingRateMode)[keyof typeof PricingRateMode];
+
+export const FeeTierEffectiveTiming = {
+  Immediate: "immediate",
+  NextBillingCycle: "next_billing_cycle",
+} as const;
+export type FeeTierEffectiveTiming =
+  (typeof FeeTierEffectiveTiming)[keyof typeof FeeTierEffectiveTiming];
 
 /** Phase 1 seed values — Platform Owner may change via PUT /platform/settings/fee-tiers. */
 export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
@@ -173,6 +195,9 @@ export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
     volumeFeeMinPercent: "1.2",
     volumeFeeMaxPercent: "2.0",
     defaultSignupPercent: "2.0",
+    volumeMinUsd: "0",
+    volumeMaxUsd: "50000",
+    agentCommissionPercent: "15",
   },
   {
     tier: MerchantTier.Mid,
@@ -180,6 +205,9 @@ export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
     volumeFeeMinPercent: "0.8",
     volumeFeeMaxPercent: "1.5",
     defaultSignupPercent: "1.2",
+    volumeMinUsd: "50000",
+    volumeMaxUsd: "500000",
+    agentCommissionPercent: "18",
   },
   {
     tier: MerchantTier.Enterprise,
@@ -187,6 +215,9 @@ export const DEFAULT_FEE_TIER_BANDS: readonly FeeTierBand[] = [
     volumeFeeMinPercent: "0.5",
     volumeFeeMaxPercent: "1.0",
     defaultSignupPercent: "0.8",
+    volumeMinUsd: "500000",
+    volumeMaxUsd: null,
+    agentCommissionPercent: "20",
   },
 ] as const;
 
@@ -1021,7 +1052,8 @@ export const AuditAction = {
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 
 /** Merchant (site) setting kinds kept for historical override rows.
- *  Sites always inherit wallet and ops settings from the parent merchant. */
+ *  Sites always inherit wallet and ops settings from the billing merchant
+ *  (walk site → … → merchant). Nested sites use the same type — no sub-site. */
 export const SiteOverrideKind = {
   MatchingMode: "matching_mode",
   OrderRetention: "order_retention",

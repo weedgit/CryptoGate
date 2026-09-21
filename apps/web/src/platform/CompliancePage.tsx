@@ -378,10 +378,11 @@ export function CompliancePage() {
                 </svg>
               </span>
               <input
-                className="org-agents__search"
+                className="field-control org-agents__search"
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search order, merchant, address"
+                placeholder="Search order, merchant, or address"
                 aria-label="Search payment anomalies"
               />
             </label>,
@@ -392,35 +393,9 @@ export function CompliancePage() {
       {topbarActionsSlot
         ? createPortal(
             <div className="plat-compliance__topbar-actions">
-              <div
-                className="plat-compliance__pills"
-                role="group"
-                aria-label="Matching mode filter"
-              >
-                {(
-                  [
-                    { id: "" as const, label: "All" },
-                    { id: "B" as const, label: `B · ${modeCounts.B}` },
-                    { id: "C" as const, label: `C · ${modeCounts.C}` },
-                    { id: "D" as const, label: `D · ${modeCounts.D}` },
-                    { id: "S" as const, label: `S · ${modeCounts.S}` },
-                  ] as const
-                ).map((pill) => (
-                  <button
-                    key={pill.id || "all"}
-                    type="button"
-                    className={`plat-compliance__pill${
-                      modeFilter === pill.id ? " is-active" : ""
-                    }`}
-                    onClick={() => setModeFilter(pill.id)}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
               <button
                 type="button"
-                className="btn-ghost btn-inline"
+                className="plat-compliance__refresh"
                 onClick={() => void load()}
                 disabled={loading}
               >
@@ -437,6 +412,35 @@ export function CompliancePage() {
           Click an order to review evidence. Platform cannot mark paid — the
           merchant reconciles and resolves the anomaly.
         </p>
+      </div>
+
+      <div className="plat-compliance__toolbar">
+        <div
+          className="plat-compliance__pills"
+          role="group"
+          aria-label="Matching mode filter"
+        >
+          {(
+            [
+              { id: "" as const, label: "All" },
+              { id: "B" as const, label: `B · ${modeCounts.B}` },
+              { id: "C" as const, label: `C · ${modeCounts.C}` },
+              { id: "D" as const, label: `D · ${modeCounts.D}` },
+              { id: "S" as const, label: `S · ${modeCounts.S}` },
+            ] as const
+          ).map((pill) => (
+            <button
+              key={pill.id || "all"}
+              type="button"
+              className={`plat-compliance__pill${
+                modeFilter === pill.id ? " is-active" : ""
+              }`}
+              onClick={() => setModeFilter(pill.id)}
+            >
+              {pill.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div

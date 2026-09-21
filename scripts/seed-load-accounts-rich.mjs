@@ -12,8 +12,8 @@
  *   └── Load Shop N-R2           (new)
  *
  * Rules (Phase 1 lock):
- *   Platform → Agent → Merchant (single_location) → Cashiers only
- *   No agent_sub, merchant_site, or multi_location.
+ *   Platform → Agent → Merchant → Cashiers only
+ *   No agent_sub in this seed (sites optional elsewhere).
  *
  * Usage: node scripts/seed-load-accounts-rich.mjs
  */
@@ -187,7 +187,6 @@ async function createMerchantBundle({
     type: "merchant",
     name,
     parentId,
-    structure: "single_location",
     maxAgentDepth: null,
   });
   if (!created.ok) {
@@ -357,7 +356,7 @@ async function main() {
     `  Per agent:       ~${expect} merchants (1 seed-load-orgs + R1 + R2)`,
   );
   console.log(
-    "  Tree shape:      Agent → merchants only (single_location)",
+    "  Tree shape:      Agent → merchants only",
   );
   console.log("\nRe-run bills for new shops:");
   console.log("  node scripts/seed-load-bills.mjs");

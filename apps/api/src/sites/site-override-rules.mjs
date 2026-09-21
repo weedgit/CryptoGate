@@ -41,7 +41,7 @@ export function validateOverrideRequestBody(body) {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "Merchant (site) inherits parent settings; overrides are not available",
+      message: "Site inherits parent settings; overrides are not available",
     };
   }
   const payload = body?.payload && typeof body.payload === "object" ? body.payload : {};

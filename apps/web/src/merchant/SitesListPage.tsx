@@ -16,7 +16,6 @@ import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
-  getOrg,
   listOrgMemberEmails,
   type OrgAccount,
   type Session,
@@ -25,7 +24,7 @@ import { getMerchantOrgs, invalidateMerchantOrgList, peekMerchantOrgs } from "./
 import {
   parentMerchantOrgId,
   sessionCanManageSites,
-  structureLabel,
+  sitesInMerchantSubtree,
 } from "./org";
 import { SiteDetailCard } from "./SiteDetailCard";
 
@@ -62,23 +61,16 @@ export function SitesListPage({ session }: Props) {
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const canManage = useMemo(() => sessionCanManageSites(session), [session]);
   const cachedOrgs = peekMerchantOrgs();
-  const initialParent =
-    parentId && cachedOrgs
-      ? (cachedOrgs.find((o) => o.id === parentId) ?? null)
-      : null;
   const initialSites =
     parentId && cachedOrgs
-      ? cachedOrgs.filter(
-          (o) => o.type === "merchant_site" && o.parentId === parentId,
-        )
+      ? (sitesInMerchantSubtree(cachedOrgs, parentId) as OrgAccount[])
       : [];
-  const [parent, setParent] = useState<OrgAccount | null>(initialParent);
   const [sites, setSites] = useState<OrgAccount[]>(initialSites);
   const [siteEmails, setSiteEmails] = useState<
     Map<string, { emails: string[]; ownerEmail?: string | null }>
   >(() => new Map());
   const [hasLoaded, setHasLoaded] = useState(
-    () => cachedOrgs != null && initialParent != null,
+    () => cachedOrgs != null && parentId != null,
   );
   const [loading, setLoading] = useState(
     () => !cachedOrgs && parentId != null,
@@ -98,15 +90,11 @@ export function SitesListPage({ session }: Props) {
     if (!hasLoaded) setLoading(true);
     setError(null);
     try {
-      const [merchant, all, emails] = await Promise.all([
-        getOrg(parentId),
+      const [all, emails] = await Promise.all([
         getMerchantOrgs(),
         listOrgMemberEmails({ types: ["merchant_site"] }).catch(() => []),
       ]);
-      setParent(merchant);
-      const nextSites = all.filter(
-        (o) => o.type === "merchant_site" && o.parentId === parentId,
-      );
+      const nextSites = sitesInMerchantSubtree(all, parentId) as OrgAccount[];
       setSites(nextSites);
       const map = new Map<
         string,
@@ -143,7 +131,6 @@ export function SitesListPage({ session }: Props) {
     setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
   }, []);
 
-  const multiLocation = parent?.structure === "multi_location";
   const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -180,17 +167,11 @@ export function SitesListPage({ session }: Props) {
     query,
   });
 
-  const soloMerchant = !loading && !multiLocation;
-
   return (
-    <div
-      className={`org-agents org-agents--split${
-        soloMerchant ? " merchant-sites--solo" : ""
-      }`}
-    >
+    <div className="org-agents org-agents--split">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
-      {multiLocation && topbarSlot
+      {topbarSlot
         ? createPortal(
             <label className="org-agents__search-wrap">
               <span className="org-agents__search-icon" aria-hidden>
@@ -222,7 +203,7 @@ export function SitesListPage({ session }: Props) {
           )
         : null}
 
-      {multiLocation && topbarActionsSlot
+      {topbarActionsSlot
         ? createPortal(
             <div className="org-agents__actions" aria-label="Site actions">
               <div
@@ -259,43 +240,6 @@ export function SitesListPage({ session }: Props) {
 
       {loading && !hasLoaded ? (
         <PagePending />
-      ) : !multiLocation ? (
-        <div className="merchant-sites__empty-stage">
-          <section className="merchant-sites__empty merchant-sites__empty--centered">
-            <span className="merchant-sites__empty-icon" aria-hidden>
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
-                <path
-                  d="M4 20V10l8-6 8 6v10H4Z"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M9 20v-6h6v6"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <h2 className="merchant-sites__empty-title">
-              Single-location merchant
-            </h2>
-            <p className="merchant-sites__empty-copy">
-              Site accounts are available when your merchant structure is{" "}
-              {structureLabel("multi_location")}.
-            </p>
-            <p className="merchant-sites__empty-copy merchant-sites__empty-copy--sub">
-              Structure is read-only on the Team page.
-            </p>
-            <Link
-              className="btn-secondary btn-inline merchant-sites__empty-action"
-              to={merchantRoute("settings/team")}
-            >
-              View team &amp; organization
-            </Link>
-          </section>
-        </div>
       ) : (
         <div className="org-split">
           <div className="org-split__list">
@@ -314,16 +258,16 @@ export function SitesListPage({ session }: Props) {
                   </span>
                   <h2 className="merchant-sites__empty-title">No sites yet</h2>
                   <p className="merchant-sites__empty-copy">
-                    Create a merchant (site) account for each location. Sites
-                    inherit wallet, matching, fulfillment, and retention from the
-                    parent.
+                    Create a site for each location. Sites may nest under other
+                    sites. They inherit wallet, matching, fulfillment, and
+                    retention from the parent merchant — sites have no wallets.
                   </p>
                   {canManage ? (
                     <Link
                       className="btn-primary btn-inline merchant-sites__empty-action"
                       to={merchantRoute("sites/new")}
                     >
-                      New site
+                      Add site
                     </Link>
                   ) : null}
                 </section>

@@ -57,6 +57,10 @@ const ServiceBillsListPage = lazyNamed(
   () => import("./ServiceBillsListPage"),
   "ServiceBillsListPage",
 );
+const MerchantSitesRoutes = lazyNamed(
+  () => import("./MerchantSitesRoutes"),
+  "MerchantSitesRoutes",
+);
 
 function MerchantShellLayout({
   session,
@@ -167,7 +171,10 @@ export function MerchantApp() {
           path="settings/settlement"
           element={
             <OwnerOnly session={session} area="settlement settings">
-              <SettlementPage session={session} />
+              <SettlementPage
+                session={session}
+                onSessionRefresh={setSession}
+              />
             </OwnerOnly>
           }
         />
@@ -203,7 +210,10 @@ export function MerchantApp() {
           path="settings/team"
           element={
             <OwnerOnly session={session} area="team settings">
-              <TeamSettingsPage session={session} />
+              <TeamSettingsPage
+                session={session}
+                onSessionRefresh={setSession}
+              />
             </OwnerOnly>
           }
         />
@@ -241,7 +251,7 @@ export function MerchantApp() {
         />
         <Route
           path="sites/*"
-          element={<Navigate to={merchantRoute()} replace />}
+          element={<MerchantSitesRoutes session={session} />}
         />
         <Route
           path="reports/*"

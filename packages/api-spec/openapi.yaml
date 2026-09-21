@@ -260,6 +260,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /auth/contact/email/send:
+    post:
+      tags: [auth]
+      operationId: sendEmailOtp
+      summary: Send a 6-digit email OTP. Invite-reset already proves email.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Code sent (or already verified)
+        "401":
+          description: Not authenticated
+        "429":
+          description: Cooldown
+  /auth/contact/email/verify:
+    post:
+      tags: [auth]
+      operationId: verifyEmailOtp
+      summary: Confirm the email OTP
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              additionalProperties: false
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /auth/contact/phone/send:
+    post:
+      tags: [auth]
+      operationId: sendPhoneOtp
+      summary: Save E.164 mobile number and send SMS OTP
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                phone:
+                  type: string
+                  description: E.164, e.g. +6591234567
+      responses:
+        "200":
+          description: Code sent
+        "400":
+          description: Invalid phone
+        "409":
+          description: Phone already registered
+  /auth/contact/phone/verify:
+    post:
+      tags: [auth]
+      operationId: verifyPhoneOtp
+      summary: Confirm the SMS OTP
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              additionalProperties: false
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
   /auth/pos-pin:
     get:
       tags: [auth]
@@ -3139,8 +3232,8 @@ paths:
       operationId: updateFeeTierSettings
       summary: Update global tier bands (Platform Owner only)
       description: >
-        Changes apply to the **next billing period** only — not retroactive.
-        Platform Administrator may read but not edit. Logged to audit.
+        Choose effectiveTiming immediate or next_billing_cycle. Not retroactive
+        on open bills. Platform Administrator may read but not edit. Logged to audit.
       security:
         - sessionCookie: []
       requestBody:
@@ -4226,7 +4319,7 @@ components:
           description: Required to change agent payout address
     AgentCommissionSettings:
       type: object
-      required: [orgId, commissionPercent, effectiveFrom]
+      required: [orgId, commissionPercent, rateMode, effectiveFrom]
       properties:
         orgId:
           type: string
@@ -4235,6 +4328,9 @@ components:
           type: string
           description: Percent of platform fee paid to the agent (rebate)
           example: "15"
+        rateMode:
+          type: string
+          enum: [automatic, fixed]
         effectiveFrom:
           type: string
           format: date
@@ -4243,12 +4339,15 @@ components:
           format: date-time
     UpdateAgentCommissionRequest:
       type: object
-      required: [commissionPercent]
       properties:
         commissionPercent:
           type: string
-          description: Applies immediately (0–100)
+          description: Fixed commission percent (0–100); required unless rateMode=automatic
           example: "18"
+        rateMode:
+          type: string
+          enum: [automatic, fixed]
+          description: Platform Owner only — fixed locks a special; automatic returns to schedule
     CommissionPayout:
       type: object
       required:
@@ -4599,6 +4698,12 @@ components:
         - email
         - memberships
         - mustChangePassword
+        - emailVerified
+        - phoneVerified
+        - contactVerified
+        - profileComplete
+        - walletSet
+        - setupReady
         - mfaEnrolled
         - mfaEnforcement
         - sessionTimeoutMinutes
@@ -4623,6 +4728,37 @@ components:
         mustChangePassword:
           type: boolean
           description: When true, portals must block until POST /auth/change-password succeeds
+        emailVerified:
+          type: boolean
+          description: True after invite-reset token use or email OTP
+        phone:
+          type: string
+          nullable: true
+          description: E.164 mobile number
+        phoneVerified:
+          type: boolean
+        contactVerified:
+          type: boolean
+          description: >
+            emailVerified AND phoneVerified.
+        profileComplete:
+          type: boolean
+          description: Setup org has business name and country.
+        walletSet:
+          type: boolean
+          description: >
+            Merchant settlement address or agent payout address is set.
+        setupReady:
+          type: boolean
+          description: >
+            contactVerified AND profileComplete AND walletSet.
+            Agent/merchant live actions stay locked until true.
+            Platform operators and API keys are exempt.
+        setupOrgId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Org whose profile and wallet must be completed.
         mfaEnrolled:
           type: boolean
           description: >
@@ -4663,10 +4799,6 @@ components:
           description: >
             When true, POST /orders is blocked by B7 suspend_order_create
             (merchant account may still be active).
-        structure:
-          type: string
-          enum: [single_location, multi_location]
-          description: Merchant accounts only
         createdAt:
           type: string
           format: date-time
@@ -4687,14 +4819,11 @@ components:
           type: string
         parentId:
           type: string
-        structure:
-          type: string
-          enum: [single_location, multi_location]
         commercial:
           $ref: "#/components/schemas/MerchantCommercialOnCreate"
           description: >
-            Required when type is merchant. Agent assigns tier and volume fee
-            within platform band; Enterprise custom rates may enter pending approval.
+            Optional when type is merchant. When omitted, Mid automatic schedule
+            rates are applied. Explicit commercial still validates against bands.
         commissionPercent:
           type: string
           description: >
@@ -4708,8 +4837,10 @@ components:
           description: Legal entity name when different from display name
     MerchantCommercialOnCreate:
       type: object
-      required: [tier, volumeFeePercent]
       additionalProperties: false
+      description: >
+        Optional on merchant create. When omitted, the merchant is bootstrapped
+        onto the Mid automatic volume schedule.
       properties:
         tier:
           $ref: "#/components/schemas/MerchantTier"
@@ -5584,6 +5715,8 @@ components:
         - volumeFeeMinPercent
         - volumeFeeMaxPercent
         - defaultSignupPercent
+        - volumeMinUsd
+        - agentCommissionPercent
       properties:
         tier:
           $ref: "#/components/schemas/MerchantTier"
@@ -5599,8 +5732,21 @@ components:
           example: "2.0"
         defaultSignupPercent:
           type: string
-          description: Default rate at merchant signup (within min–max)
+          description: Automatic merchant volume fee % for this tier when rate_mode=automatic
           example: "2.0"
+        volumeMinUsd:
+          type: string
+          description: Monthly volume floor (USD) for automatic tier assignment
+          example: "0"
+        volumeMaxUsd:
+          type: string
+          nullable: true
+          description: Monthly volume ceiling (USD); null = unbounded
+          example: "50000"
+        agentCommissionPercent:
+          type: string
+          description: Automatic agent commission % of platform volume fee for this tier
+          example: "15"
         tierDescription:
           type: string
           description: Editable help text for platform UI (B8)
@@ -5617,6 +5763,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        pendingEffectiveFrom:
+          type: string
+          format: date
+          nullable: true
+          description: When deferred schedule rows become live (next billing cycle)
     UpdatePlatformFeeTierSettingsRequest:
       type: object
       required: [tiers]
@@ -5628,6 +5779,12 @@ components:
           maxItems: 3
           items:
             $ref: "#/components/schemas/FeeTierBand"
+        effectiveTiming:
+          type: string
+          enum: [immediate, next_billing_cycle]
+          description: >
+            immediate applies the schedule now; next_billing_cycle defers until
+            the first day of the next calendar month (UTC).
     PlatformOrgPolicy:
       type: object
       required: [maxAgentDepth, mfaEnforcement, sessionTimeoutMinutes]
@@ -5707,6 +5864,7 @@ components:
         - orgId
         - tier
         - volumeFeePercent
+        - rateMode
         - subscriptionAmountUsd
         - bandMinPercent
         - bandMaxPercent
@@ -5721,6 +5879,10 @@ components:
           type: string
           description: Effective rate for current billing period
           example: "2.0"
+        rateMode:
+          type: string
+          enum: [automatic, fixed]
+          description: automatic follows volume schedule; fixed is Owner-locked
         pendingVolumeFeePercent:
           type: string
           nullable: true
@@ -5749,6 +5911,10 @@ components:
           $ref: "#/components/schemas/MerchantTier"
         volumeFeePercent:
           type: string
+        rateMode:
+          type: string
+          enum: [automatic, fixed]
+          description: Platform Owner only — fixed locks a special; automatic returns to schedule
         reason:
           type: string
           description: Optional note; logged to audit

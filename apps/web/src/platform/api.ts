@@ -62,7 +62,6 @@ export type OrgAccount = {
   parentId: string | null;
   status?: "active" | "paused";
   orderCreateSuspended?: boolean;
-  structure?: string | null;
   country?: string | null;
   legalName?: string | null;
   iconKey?: string | null;
@@ -111,6 +110,8 @@ export type PlatformOrgMemberEmailRow = {
   emails: string[];
   /** Preferred Owner-role email when present. */
   ownerEmail?: string | null;
+  /** Active cashier memberships on this org (merchant / site). */
+  cashierCount?: number;
 };
 
 export async function listPlatformOrgMemberEmails(opts?: {
@@ -361,7 +362,6 @@ export async function createOrg(body: {
   type: string;
   name: string;
   parentId: string;
-  structure?: string;
   country?: string;
   legalName?: string;
   commissionPercent?: string;
@@ -438,12 +438,18 @@ export type FeeTierBand = {
   volumeFeeMinPercent: string;
   volumeFeeMaxPercent: string;
   defaultSignupPercent: string;
+  volumeMinUsd?: string;
+  volumeMaxUsd?: string | null;
+  agentCommissionPercent?: string;
   tierDescription?: string;
 };
+
+export type FeeTierEffectiveTiming = "immediate" | "next_billing_cycle";
 
 export type PlatformFeeTierSettings = {
   tiers: FeeTierBand[];
   updatedAt: string | null;
+  pendingEffectiveFrom?: string | null;
 };
 
 export type PlatformOrgPolicy = {
@@ -474,6 +480,7 @@ export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
 
 export async function updateFeeTierSettings(body: {
   tiers: FeeTierBand[];
+  effectiveTiming?: FeeTierEffectiveTiming;
 }): Promise<PlatformFeeTierSettings> {
   const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
     method: "PUT",
@@ -803,6 +810,7 @@ export type MerchantCommercialSettings = {
   orgId: string;
   tier: string;
   volumeFeePercent: string;
+  rateMode?: "automatic" | "fixed";
   pendingVolumeFeePercent?: string | null;
   subscriptionAmountUsd: string;
   bandMinPercent: string;
@@ -827,7 +835,12 @@ export async function getMerchantCommercial(
 
 export async function updateMerchantCommercial(
   orgId: string,
-  body: { tier?: string; volumeFeePercent?: string; reason?: string },
+  body: {
+    tier?: string;
+    volumeFeePercent?: string;
+    rateMode?: "automatic" | "fixed";
+    reason?: string;
+  },
 ): Promise<MerchantCommercialSettings> {
   const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
@@ -858,6 +871,7 @@ export type AgentPayoutAddress = {
 export type AgentCommissionSettings = {
   orgId: string;
   commissionPercent: string;
+  rateMode?: "automatic" | "fixed";
   effectiveFrom: string;
   updatedAt?: string;
 };
@@ -935,7 +949,10 @@ export async function listAgentCommissions(): Promise<AgentCommissionSettings[]>
 
 export async function putAgentCommission(
   orgId: string,
-  body: { commissionPercent: string },
+  body: {
+    commissionPercent?: string;
+    rateMode?: "automatic" | "fixed";
+  },
 ): Promise<AgentCommissionSettings> {
   const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,

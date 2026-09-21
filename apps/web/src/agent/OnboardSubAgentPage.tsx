@@ -1,7 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
 import {
   canCreateAgentUnderParent,
   DEFAULT_MAX_AGENT_DEPTH,
@@ -18,7 +17,6 @@ import { FieldControl } from "../ui/FieldControl";
 import {
   ApiError,
   createOrg,
-  getAgentCommission,
   inviteOrgUser,
   listOrgMemberEmails,
   listOrgs,
@@ -40,20 +38,10 @@ function agentReturnPrefix(): string {
 
 type Props = { session: Session };
 
-type WizardState = {
-  legalName: string;
-  displayName: string;
-  country: string;
-  commissionPercent: string;
+type FormState = {
+  businessName: string;
   ownerEmail: string;
 };
-
-const STEPS = [
-  { label: "Details", title: "Legal entity & contact" },
-  { label: "Commercial", title: "Commission terms" },
-  { label: "Owner", title: "Owner invitation" },
-  { label: "Review", title: "Review & create" },
-] as const;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,40 +53,6 @@ function returnPath(searchParams: URLSearchParams): string {
   const raw = searchParams.get("returnTo")?.trim();
   if (!raw || !raw.startsWith(agentReturnPrefix())) return agentRoute("agents");
   return raw;
-}
-
-function StepIndicator({ step }: { step: number }) {
-  return (
-    <nav className="b4-wizard__steps" aria-label="Wizard progress">
-      {STEPS.map((s, i) => {
-        const done = i < step;
-        const active = i === step;
-        return (
-          <div
-            key={s.label}
-            className={`b4-wizard__step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
-          >
-            <span className="b4-wizard__step-mark" aria-hidden>
-              {done ? (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path
-                    d="M2 5.2 4.1 7.3 8 3.4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : active ? (
-                <span className="b4-wizard__step-dot" />
-              ) : null}
-            </span>
-            <span className="b4-wizard__step-label">{s.label}</span>
-          </div>
-        );
-      })}
-    </nav>
-  );
 }
 
 /** C4 — Onboard agent (sub) under the current agent; parent fixed. */
@@ -114,7 +68,6 @@ export function OnboardSubAgentPage({ session }: Props) {
     searchParams.get("parentId")?.trim() || sessionAgentId || "";
   const backTo = useMemo(() => returnPath(searchParams), [searchParams]);
 
-  const [step, setStep] = useState(0);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -122,21 +75,19 @@ export function OnboardSubAgentPage({ session }: Props) {
   const [registeredEmails, setRegisteredEmails] = useState<
     Map<string, RegisteredEmailRef>
   >(() => new Map());
-  const [form, setForm] = useState<WizardState>({
-    legalName: "",
-    displayName: "",
-    country: "",
-    commissionPercent: DEFAULT_AGENT_COMMISSION_PERCENT,
+  const [form, setForm] = useState<FormState>({
+    businessName: "",
     ownerEmail: "",
   });
 
   const dismissToast = useCallback(() => setError(null), []);
 
   const patch = useCallback(
-    <K extends keyof WizardState>(key: K, value: WizardState[K]) => {
+    <K extends keyof FormState>(key: K, value: FormState[K]) => {
       setForm((prev) => ({ ...prev, [key]: value }));
+      if (error) setError(null);
     },
-    [],
+    [error],
   );
 
   useEffect(() => {
@@ -149,17 +100,6 @@ export function OnboardSubAgentPage({ session }: Props) {
         setOrgs(rows);
         const index = await fetchRegisteredEmailIndex(rows, listOrgMemberEmails);
         if (!cancelled) setRegisteredEmails(index);
-        if (sessionAgentId) {
-          const commission = await getAgentCommission(sessionAgentId).catch(
-            () => null,
-          );
-          if (!cancelled && commission?.commissionPercent) {
-            setForm((prev) => ({
-              ...prev,
-              commissionPercent: commission.commissionPercent,
-            }));
-          }
-        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -175,7 +115,7 @@ export function OnboardSubAgentPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sessionAgentId]);
+  }, []);
 
   const parentOrg = useMemo(
     () => orgs.find((o) => o.id === parentId) ?? null,
@@ -211,53 +151,25 @@ export function OnboardSubAgentPage({ session }: Props) {
     }
   }, [canOnboard, booting, parentId, parentOrg, depthOk]);
 
-  const apiName = form.displayName.trim() || form.legalName.trim();
+  const apiName = form.businessName.trim();
 
-  function validateStep(): string | null {
-    if (step === 0) {
-      if (!form.legalName.trim() && !form.displayName.trim()) {
-        return "Enter a legal or display name.";
-      }
-      if (!form.country.trim()) return "Country is required.";
+  function validate(): string | null {
+    if (!apiName) {
+      return "Business name is required.";
     }
-    if (step === 1) {
-      const n = Number(form.commissionPercent);
-      if (!Number.isFinite(n) || n < 0 || n > 100) {
-        return "Commission percent must be between 0 and 100.";
-      }
+    if (!form.ownerEmail.trim() || !isValidEmail(form.ownerEmail)) {
+      return "Enter a valid owner email.";
     }
-    if (step === 2) {
-      if (!form.ownerEmail.trim() || !isValidEmail(form.ownerEmail)) {
-        return "Enter a valid owner email.";
-      }
-      const conflict = registeredEmailConflict(
-        form.ownerEmail,
-        registeredEmails,
-      );
-      if (conflict) return conflict;
-    }
+    const conflict = registeredEmailConflict(
+      form.ownerEmail,
+      registeredEmails,
+    );
+    if (conflict) return conflict;
     return null;
   }
 
-  function next() {
-    const msg = validateStep();
-    if (msg) {
-      setError(msg);
-      return;
-    }
-    setError(null);
-    window.setTimeout(() => {
-      setStep((s) => Math.min(s + 1, STEPS.length - 1));
-    }, 0);
-  }
-
-  function back() {
-    setError(null);
-    setStep((s) => Math.max(s - 1, 0));
-  }
-
   async function handleCreate() {
-    const msg = validateStep();
+    const msg = validate();
     if (msg) {
       setError(msg);
       return;
@@ -279,16 +191,13 @@ export function OnboardSubAgentPage({ session }: Props) {
       const conflict = registeredEmailConflict(form.ownerEmail, freshIndex);
       if (conflict) {
         setError(conflict);
-        setStep(2);
         return;
       }
       const created = await createOrg({
         type: "agent_sub",
         name: apiName,
         parentId,
-        legalName: form.legalName.trim() || undefined,
-        country: form.country.trim(),
-        commissionPercent: form.commissionPercent.trim() || undefined,
+        legalName: apiName,
       });
       mergeAgentOrg(created);
       const invitedEmail = form.ownerEmail.trim();
@@ -300,7 +209,7 @@ export function OnboardSubAgentPage({ session }: Props) {
       navigate(agentRoute(`agents/${created.id}`), {
         state: {
           invitationSent: true,
-          displayName: form.displayName.trim() || apiName,
+          displayName: apiName,
           onboardedOrgId: created.id,
           inviteCreds: onboardInviteCreds(invitedEmail, invite),
         },
@@ -312,7 +221,6 @@ export function OnboardSubAgentPage({ session }: Props) {
         );
       } else if (err instanceof ApiError && err.code === "email_taken") {
         setError(REGISTERED_EMAIL_API_MESSAGE);
-        setStep(2);
       } else {
         setError(
           err instanceof ApiError ? err.message : "Failed to create sub-agent",
@@ -325,21 +233,17 @@ export function OnboardSubAgentPage({ session }: Props) {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (step < STEPS.length - 1) {
-      next();
-      return;
-    }
     void handleCreate();
   }
 
   if (!canOnboard) {
     return (
       <OnboardWizardPortal>
-      <div className="b4-wizard-page">
-        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
-        <p className="muted">You do not have permission to onboard sub-agents.</p>
-        <Link to={backTo}>← Back</Link>
-      </div>
+        <div className="b4-wizard-page">
+          <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+          <p className="muted">You do not have permission to onboard sub-agents.</p>
+          <Link to={backTo}>← Back</Link>
+        </div>
       </OnboardWizardPortal>
     );
   }
@@ -348,7 +252,7 @@ export function OnboardSubAgentPage({ session }: Props) {
     return (
       <OnboardWizardLoading
         title="Onboard sub-agent"
-        copy="Checking nesting depth and preparing the sub-agent wizard."
+        copy="Checking nesting depth and preparing the form."
         closeTo={backTo}
       />
     );
@@ -357,11 +261,11 @@ export function OnboardSubAgentPage({ session }: Props) {
   if (!parentId || !parentOrg) {
     return (
       <OnboardWizardPortal>
-      <div className="b4-wizard-page">
-        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
-        <p className="muted">Could not load the parent agent for this wizard.</p>
-        <Link to={backTo}>← Back</Link>
-      </div>
+        <div className="b4-wizard-page">
+          <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+          <p className="muted">Could not load the parent agent for this form.</p>
+          <Link to={backTo}>← Back</Link>
+        </div>
       </OnboardWizardPortal>
     );
   }
@@ -369,137 +273,86 @@ export function OnboardSubAgentPage({ session }: Props) {
   if (!depthOk) {
     return (
       <OnboardWizardPortal>
-      <div className="b4-wizard-page">
-        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
-        <div className="b4-wizard-backdrop">
-          <div className="b4-wizard" role="dialog" aria-modal="true">
-            <header className="b4-wizard__head">
-              <h2 className="b4-wizard__title">Onboard sub-agent</h2>
-              <Link className="b4-wizard__close" to={backTo} aria-label="Close">
-                ×
-              </Link>
-            </header>
-            <div className="b4-wizard__body">
-              <p className="muted">
-                Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached under{" "}
-                <strong>{parentOrg.name}</strong>. You can still onboard
-                merchants under this account.
-              </p>
-              <p>
-                <Link className="btn-primary" to={agentRoute("merchants/new")}>
-                  Onboard merchant
-                </Link>{" "}
-                <Link className="btn-ghost" to={backTo}>
+        <div className="b4-wizard-page">
+          <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+          <div className="b4-wizard-backdrop">
+            <div className="b4-wizard" role="dialog" aria-modal="true">
+              <header className="b4-wizard__head">
+                <h2 className="b4-wizard__title">Onboard sub-agent</h2>
+                <Link className="b4-wizard__close" to={backTo} aria-label="Close">
+                  ×
+                </Link>
+              </header>
+              <div className="b4-wizard__body">
+                <p className="muted">
+                  Max agent depth ({DEFAULT_MAX_AGENT_DEPTH}) reached under{" "}
+                  {parentOrg.name}.
+                </p>
+              </div>
+              <footer className="b4-wizard__foot">
+                <Link className="b4-wizard__cancel" to={backTo}>
                   Cancel
                 </Link>
-              </p>
+              </footer>
             </div>
           </div>
         </div>
-      </div>
       </OnboardWizardPortal>
     );
   }
 
   return (
     <OnboardWizardPortal>
-    <div className="b4-wizard-page">
-      <AuthToast message={error} tone="error" onDismiss={dismissToast} />
-      <div className="b4-wizard-backdrop">
-        <div
-          className="b4-wizard"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="c4-wizard-title"
-        >
-          <header className="b4-wizard__head">
-            <div>
-              <p className="b4-wizard__eyebrow muted">Agent (sub) account</p>
+      <div className="b4-wizard-page">
+        <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+        <div className="b4-wizard-backdrop">
+          <div
+            className="b4-wizard b4-wizard--single"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="c4-wizard-title"
+          >
+            <header className="b4-wizard__head">
               <h2 id="c4-wizard-title" className="b4-wizard__title">
-                {STEPS[step]?.title ?? "Onboard sub-agent"}
+                Onboard sub-agent
               </h2>
-              <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
-                Parent: {parentOrg.name}
-              </p>
-            </div>
-            <Link className="b4-wizard__close" to={backTo} aria-label="Close">
-              ×
-            </Link>
-          </header>
+              <Link className="b4-wizard__close" to={backTo} aria-label="Close">
+                ×
+              </Link>
+            </header>
 
-          <StepIndicator step={step} />
+            <form className="b4-wizard__form" onSubmit={onSubmit}>
+              <div className="b4-wizard__body">
+                <p className="b4-field__hint" style={{ marginTop: 0 }}>
+                  Parent: {parentOrg.name}
+                </p>
 
-          <form className="b4-wizard__form" onSubmit={onSubmit}>
-            <div className="b4-wizard__body">
-              {step === 0 ? (
-                <>
-                  <div className="b4-field">
-                    <label className="b4-field__label" htmlFor="c4-legal">
-                      Legal name
-                    </label>
-                    <FieldControl icon="user">
-                      <input
-                        id="c4-legal"
-                        className="b4-field__control"
-                        value={form.legalName}
-                        onChange={(e) => patch("legalName", e.target.value)}
-                        autoComplete="organization"
-                      />
-                    </FieldControl>
-                  </div>
-                  <div className="b4-field">
-                    <label className="b4-field__label" htmlFor="c4-display">
-                      Display name
-                    </label>
-                    <FieldControl icon="user">
-                      <input
-                        id="c4-display"
-                        className="b4-field__control"
-                        value={form.displayName}
-                        onChange={(e) => patch("displayName", e.target.value)}
-                        placeholder="Shown in agent portal"
-                      />
-                    </FieldControl>
-                  </div>
-                  <div className="b4-field">
-                    <label className="b4-field__label" htmlFor="c4-country">
-                      Country
-                    </label>
-                    <FieldControl icon="globe">
-                      <input
-                        id="c4-country"
-                        className="b4-field__control"
-                        value={form.country}
-                        onChange={(e) => patch("country", e.target.value)}
-                      />
-                    </FieldControl>
-                  </div>
-                </>
-              ) : null}
-
-              {step === 1 ? (
                 <div className="b4-field">
-                  <label className="b4-field__label" htmlFor="c4-commission">
-                    Commission % of platform fee
+                  <label className="b4-field__label" htmlFor="c4-business">
+                    Business name
                   </label>
-                  <FieldControl>
+                  <FieldControl icon="user">
                     <input
-                      id="c4-commission"
+                      id="c4-business"
                       className="b4-field__control"
-                      inputMode="decimal"
-                      value={form.commissionPercent}
-                      onChange={(e) =>
-                        patch("commissionPercent", e.target.value)
-                      }
+                      value={form.businessName}
+                      onChange={(e) => patch("businessName", e.target.value)}
+                      placeholder="e.g. Atlas Agent"
+                      autoComplete="organization"
+                      autoFocus
                     />
                   </FieldControl>
                   <p className="b4-field__hint">
-                    Platform pays this rebate from collected fees (Option A).
+                    Shown in PaymentGate and on invoices.
                   </p>
                 </div>
-              ) : null}
 
-              {step === 2 ? (
+                <div className="b4-field">
+                  <p className="b4-field__hint">
+                    Commission follows the platform volume schedule automatically.
+                  </p>
+                </div>
+
                 <div className="b4-field">
                   <label className="b4-field__label" htmlFor="c4-owner">
                     Owner email
@@ -517,61 +370,26 @@ export function OnboardSubAgentPage({ session }: Props) {
                     Invitation is sent after create.
                   </p>
                 </div>
-              ) : null}
+              </div>
 
-              {step === 3 ? (
-                <dl className="b4-review">
-                  <div className="b4-review__row">
-                    <dt>Parent</dt>
-                    <dd>{parentOrg.name}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Name</dt>
-                    <dd>{apiName}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Country</dt>
-                    <dd>{form.country}</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Commission</dt>
-                    <dd>{form.commissionPercent}%</dd>
-                  </div>
-                  <div className="b4-review__row">
-                    <dt>Owner invite</dt>
-                    <dd>{form.ownerEmail}</dd>
-                  </div>
-                </dl>
-              ) : null}
-            </div>
-
-            <footer className="b4-wizard__foot">
-              {step > 0 ? (
+              <footer className="b4-wizard__foot">
+                <div className="b4-wizard__foot-left">
+                  <Link className="b4-wizard__cancel" to={backTo}>
+                    Cancel
+                  </Link>
+                </div>
                 <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={back}
+                  type="submit"
+                  className="b4-wizard__continue"
                   disabled={busy}
                 >
-                  Back
+                  {busy ? "Creating…" : "Create sub-agent"}
                 </button>
-              ) : (
-                <Link className="btn-ghost" to={backTo}>
-                  Cancel
-                </Link>
-              )}
-              <button type="submit" className="btn-primary" disabled={busy}>
-                {step < STEPS.length - 1
-                  ? "Continue"
-                  : busy
-                    ? "Creating…"
-                    : "Create sub-agent"}
-              </button>
-            </footer>
-          </form>
+              </footer>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
     </OnboardWizardPortal>
   );
 }

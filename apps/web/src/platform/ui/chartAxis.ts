@@ -32,9 +32,10 @@ export function formatAxisNumber(n: number, money = false): string {
  */
 export function niceAxisTicks(maxValue: number, targetCount = 5): number[] {
   const max = Math.max(maxValue, 0);
-  if (max === 0) return [0];
+  // All-zero series still need a unit grid so horizontal lines remain visible.
+  const span = max === 0 ? 1 : max;
   const gaps = Math.max(targetCount - 1, 1);
-  const rough = max / gaps;
+  const rough = span / gaps;
   const mag = 10 ** Math.floor(Math.log10(rough));
   const residual = rough / mag;
   let step: number;
@@ -44,7 +45,7 @@ export function niceAxisTicks(maxValue: number, targetCount = 5): number[] {
   else if (residual <= 7) step = 5 * mag;
   else step = 10 * mag;
 
-  const top = Math.ceil(max / step) * step;
+  const top = Math.ceil(span / step) * step;
   const ticks: number[] = [];
   for (let v = 0; v <= top + step * 0.001; v += step) {
     ticks.push(Number(v.toPrecision(12)));
@@ -59,7 +60,7 @@ export function niceAxisTicks(maxValue: number, targetCount = 5): number[] {
           : step === 2.5 * mag
             ? 5 * mag
             : 10 * mag;
-    const top2 = Math.ceil(max / coarser) * coarser;
+    const top2 = Math.ceil(span / coarser) * coarser;
     const out: number[] = [];
     for (let v = 0; v <= top2 + coarser * 0.001; v += coarser) {
       out.push(Number(v.toPrecision(12)));
@@ -76,3 +77,26 @@ export function chartScaleTop(maxValue: number, targetCount = 5): number {
   const tickTop = ticks[ticks.length - 1] ?? 0;
   return Math.max(tickTop, max || 1);
 }
+
+/**
+ * Extra headroom applied to the secondary (USD) dual-axis scale.
+ * Independent auto-scales of convert-rate pairs otherwise map to the same pixels;
+ * stretching one unit grid separates the two lines without changing the data.
+ */
+export const DUAL_AXIS_SECONDARY_HEADROOM = 1.45;
+
+/**
+ * Nice ticks + scale top for a dual-axis series, optionally with headroom.
+ * Pass headroom > 1 on one side only so constant-FX volume pairs diverge visually.
+ */
+export function dualAxisScale(
+  maxValue: number,
+  targetCount = 5,
+  headroom = 1,
+): { ticks: number[]; top: number } {
+  const padded = Math.max(maxValue, 0) * Math.max(headroom, 1);
+  const ticks = niceAxisTicks(padded, targetCount);
+  const top = chartScaleTop(padded, targetCount);
+  return { ticks, top };
+}
+

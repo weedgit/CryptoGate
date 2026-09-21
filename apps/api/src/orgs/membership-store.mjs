@@ -123,7 +123,7 @@ export async function listMembershipsForOrg(orgId) {
  * Owner / administrator emails are ordered first so callers can pick a contact without a second pass.
  * @param {string[]} orgIds
  * @param {string[] | null} [orgTypes] when set, only rows whose org_accounts.type matches
- * @returns {Promise<{ orgId: string, emails: string[], ownerEmail: string | null }[]>}
+ * @returns {Promise<{ orgId: string, emails: string[], ownerEmail: string | null, cashierCount: number }[]>}
  */
 export async function listMemberEmailsGroupedByOrg(orgIds, orgTypes = null) {
   if (orgIds.length === 0) return [];
@@ -151,21 +151,28 @@ export async function listMemberEmailsGroupedByOrg(orgIds, orgTypes = null) {
        m.created_at ASC`,
     params,
   );
-  /** @type {Map<string, { emails: string[], ownerEmail: string | null }>} */
+  /** @type {Map<string, { emails: string[], ownerEmail: string | null, cashierCount: number }>} */
   const byOrg = new Map();
   for (const row of rows) {
     const email =
       typeof row.email === "string" ? row.email.trim().toLowerCase() : "";
-    if (!email) continue;
-    const cur = byOrg.get(row.org_id) ?? { emails: [], ownerEmail: null };
-    if (!cur.emails.includes(email)) cur.emails.push(email);
-    if (row.role === "owner" && !cur.ownerEmail) cur.ownerEmail = email;
+    const cur = byOrg.get(row.org_id) ?? {
+      emails: [],
+      ownerEmail: null,
+      cashierCount: 0,
+    };
+    if (row.role === "cashier") cur.cashierCount += 1;
+    if (email) {
+      if (!cur.emails.includes(email)) cur.emails.push(email);
+      if (row.role === "owner" && !cur.ownerEmail) cur.ownerEmail = email;
+    }
     byOrg.set(row.org_id, cur);
   }
   return [...byOrg.entries()].map(([orgId, value]) => ({
     orgId,
     emails: value.emails,
     ownerEmail: value.ownerEmail,
+    cashierCount: value.cashierCount,
   }));
 }
 
@@ -250,7 +257,11 @@ export async function provisionUserForInvite(email) {
   }
   const temporaryPassword = `${randomBytes(12).toString("base64url")}9aA!`;
   try {
-    const user = await createUser({ email, password: temporaryPassword });
+    const user = await createUser({
+      email,
+      password: temporaryPassword,
+      invited: true,
+    });
     return {
       id: user.id,
       email: user.email,

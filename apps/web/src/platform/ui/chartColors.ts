@@ -1,16 +1,29 @@
 /** Metric spark accents — matched to doc/image/dashboard-metric.png. */
 export const METRIC_CHART_COLORS = {
-  /** Soft indigo-violet (Invoices) */
+  /** Soft indigo-violet (legacy / fallback) */
   invoices: "#9c84f0",
-  /** Bright gold (Fees) */
+  /** Bright gold (legacy) */
   fees: "#fcd818",
-  /** Cyan (Account count) */
+  /** Cyan (legacy) */
   accounts: "#30d8fc",
   /** Teal (agent fallback) */
   agent: "#2dd4bf",
   /** Lime (merchant cards in mockup) */
   merchant: "#78a848",
 } as const;
+
+/** Brand accents for asset convert-rate overview cards. */
+const ASSET_RATE_COLORS: Record<string, string> = {
+  USDT: "#26a17b",
+  USDC: "#2775ca",
+  BTC: "#f7931a",
+  ETH: "#627eea",
+  TRX: "#ef0027",
+};
+
+export function assetRateChartColor(asset: string): string {
+  return ASSET_RATE_COLORS[asset] ?? METRIC_CHART_COLORS.invoices;
+}
 
 const ORG_PALETTE = [
   "#78a848",

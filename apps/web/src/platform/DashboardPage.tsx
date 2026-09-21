@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { GateLogoMark } from "../auth/GateLogoMark";
 import { platformRoute } from "../shared/portalRouting";
 import {
   useDashboardLiveEvents,
@@ -60,14 +61,15 @@ import {
 } from "./ui/ChartHover";
 import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "./ui/chartAxis";
 import { VolumeChart, type VolumeChartZoomApi } from "./charts/VolumeChart";
-import { OverviewTable, type OverviewChartCard } from "./ui/OverviewTable";
+import { OverviewTable, type OverviewChartCard, trendFromRateSeries, trendFromSeries } from "./ui/OverviewTable";
 import {
-  METRIC_CHART_COLORS,
+  assetRateChartColor,
   orgMetricChartColor,
 } from "./ui/chartColors";
 import {
   sessionIsPlatformViewerOnly,
 } from "./org";
+import { visibleRegistry, networkShortLabel } from "../shared/assetNetworks";
 
 type Props = { session: Session };
 
@@ -103,11 +105,104 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "1m", label: "1m" },
 ];
 
-const OVERVIEW_STORAGE_KEY = "paymentgate.platform.overviewCharts.v2";
-const DEFAULT_OVERVIEW_IDS = ["invoices", "fees", "accounts"];
+function overviewTrendLabel(period: string): string {
+  if (period === "7d") return "vs previous 7d";
+  if (period === "1m") return "vs previous 1m";
+  if (period === "today") return "vs prior half";
+  return "vs prior period";
+}
+
+const OVERVIEW_STORAGE_KEY = "paymentgate.platform.overviewCharts.v5";
+const OVERVIEW_STORAGE_KEY_LEGACY = [
+  "paymentgate.platform.overviewCharts.v4",
+  "paymentgate.platform.overviewCharts.v3",
+  "paymentgate.platform.overviewCharts.v2",
+] as const;
+const LEGACY_PLATFORM_IDS = new Set(["invoices", "fees", "accounts"]);
+
+/** One convert-rate card per Networks & Assets pair (not de-duped by asset). */
+const RATE_PAIRS = visibleRegistry();
+
+/** Preferred default Metrics row — three cards, matching the mockup grid. */
+const DEFAULT_RATE_PREFS: readonly { asset: string; network: string }[] = [
+  { asset: "ETH", network: "ethereum" },
+  { asset: "TRX", network: "tron" },
+  { asset: "USDT", network: "tron" },
+];
+
+function defaultOverviewIds(): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const pref of DEFAULT_RATE_PREFS) {
+    const row = RATE_PAIRS.find(
+      (r) => r.asset === pref.asset && r.network === pref.network,
+    );
+    if (!row) continue;
+    const id = rateOverviewId(row.asset, row.network);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  // Pad from registry if a preferred pair is missing in this chain env.
+  for (const row of RATE_PAIRS) {
+    if (ids.length >= 3) break;
+    const id = rateOverviewId(row.asset, row.network);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+const DEFAULT_OVERVIEW_IDS = defaultOverviewIds();
 
 function isOrgOverviewId(id: string): boolean {
   return id.startsWith("merchant:") || id.startsWith("agent:");
+}
+
+function isRateOverviewId(id: string): boolean {
+  return id.startsWith("rate:");
+}
+
+/** `rate:USDT:solana` or legacy `rate:USDT`. */
+function parseRateOverviewId(
+  id: string,
+): { asset: string; network: string | null } | null {
+  const m = /^rate:([^:]+)(?::(.+))?$/.exec(id);
+  if (!m) return null;
+  return { asset: m[1]!, network: m[2] ?? null };
+}
+
+function rateOverviewId(asset: string, network: string): string {
+  return `rate:${asset}:${network}`;
+}
+
+function expandRateOverviewId(id: string): string[] {
+  const parsed = parseRateOverviewId(id);
+  if (!parsed) return [id];
+  if (parsed.network) return [id];
+  // Legacy asset-only id → one preferred pair for that asset (not every network).
+  const pref = DEFAULT_RATE_PREFS.find((p) => p.asset === parsed.asset);
+  if (
+    pref &&
+    RATE_PAIRS.some(
+      (r) => r.asset === pref.asset && r.network === pref.network,
+    )
+  ) {
+    return [rateOverviewId(pref.asset, pref.network)];
+  }
+  const first = RATE_PAIRS.find((row) => row.asset === parsed.asset);
+  return first ? [rateOverviewId(first.asset, first.network)] : [id];
+}
+
+function allRegistryRateIds(): string[] {
+  return RATE_PAIRS.map((row) => rateOverviewId(row.asset, row.network));
+}
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
 }
 
 function parseOrgOverviewId(
@@ -118,15 +213,45 @@ function parseOrgOverviewId(
   return { kind: m[1] as "merchant" | "agent", orgId: m[2] };
 }
 
+function normalizeOverviewIds(parsed: string[]): string[] {
+  const withoutLegacy = parsed.filter((id) => !LEGACY_PLATFORM_IDS.has(id));
+  const expanded: string[] = [];
+  const seen = new Set<string>();
+  for (const id of withoutLegacy) {
+    const next = isRateOverviewId(id) ? expandRateOverviewId(id) : [id];
+    for (const x of next) {
+      if (seen.has(x)) continue;
+      seen.add(x);
+      expanded.push(x);
+    }
+  }
+  const rates = expanded.filter(isRateOverviewId);
+  const orgs = expanded.filter(isOrgOverviewId);
+  // Prior default selected every registry pair — collapse to the 3-card default.
+  if (rates.length > 0 && sameIdSet(rates, allRegistryRateIds())) {
+    return [...DEFAULT_OVERVIEW_IDS, ...orgs];
+  }
+  if (rates.length === 0) {
+    return [...DEFAULT_OVERVIEW_IDS, ...orgs];
+  }
+  return expanded.length ? expanded : DEFAULT_OVERVIEW_IDS;
+}
+
 function loadOverviewIds(): string[] {
   try {
-    const raw = localStorage.getItem(OVERVIEW_STORAGE_KEY);
+    let raw: string | null = localStorage.getItem(OVERVIEW_STORAGE_KEY);
+    if (!raw) {
+      for (const key of OVERVIEW_STORAGE_KEY_LEGACY) {
+        raw = localStorage.getItem(key);
+        if (raw) break;
+      }
+    }
     if (!raw) return DEFAULT_OVERVIEW_IDS;
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
       return DEFAULT_OVERVIEW_IDS;
     }
-    return parsed.length ? parsed : DEFAULT_OVERVIEW_IDS;
+    return normalizeOverviewIds(parsed);
   } catch {
     return DEFAULT_OVERVIEW_IDS;
   }
@@ -372,9 +497,82 @@ function pausedOrgIdsFromOrgs(orgs: OrgAccount[]): Set<string> {
 }
 
 function orderVolumeUsd(o: PaymentOrder): number {
-  const raw = o.invoiceAmountUsd ?? o.payableAmount?.amount;
+  // Invoice USD only — never fall back to payable crypto amount (that mixed ETH into "USD").
+  const raw = o.invoiceAmountUsd;
+  if (raw == null || raw === "") return 0;
   const n = Number(raw);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Locked USD per 1 token from the order quote. */
+function orderPricingRate(o: PaymentOrder): number | null {
+  const raw = o.pricingRate ?? o.marketRate;
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function orderRateTimestamp(o: PaymentOrder): string | null {
+  return o.rateFetchedAt ?? o.createdAt ?? o.expiresAt ?? null;
+}
+
+/**
+ * Daily (or hourly) average locked convert rate for one asset (+ optional network).
+ * Empty buckets forward-fill the last known rate (no invented quotes).
+ */
+function assetRateSeries(
+  orders: PaymentOrder[],
+  days: string[],
+  asset: string,
+  network: string | null = null,
+): { series: number[]; quoteCount: number; latest: number | null } {
+  const hourly = days.length > 0 && isHourKey(days[0]!);
+  const sums = new Map(days.map((d) => [d, 0]));
+  const counts = new Map(days.map((d) => [d, 0]));
+  let quoteCount = 0;
+  let latest: number | null = null;
+  let latestTs = -Infinity;
+
+  for (const o of orders) {
+    if (o.asset !== asset) continue;
+    if (network && o.network !== network) continue;
+    const rate = orderPricingRate(o);
+    if (rate == null) continue;
+    const ts = orderRateTimestamp(o);
+    const key = seriesBucketKey(ts, hourly);
+    if (!key || !sums.has(key)) continue;
+    sums.set(key, (sums.get(key) ?? 0) + rate);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    quoteCount += 1;
+    const t = ts ? Date.parse(ts) : NaN;
+    if (Number.isFinite(t) && t >= latestTs) {
+      latestTs = t;
+      latest = rate;
+    }
+  }
+
+  const series = days.map((d) => {
+    const c = counts.get(d) ?? 0;
+    if (c <= 0) return 0;
+    return (sums.get(d) ?? 0) / c;
+  });
+
+  let last = 0;
+  for (let i = 0; i < series.length; i++) {
+    if ((series[i] ?? 0) > 0) last = series[i]!;
+    else if (last > 0) series[i] = last;
+  }
+
+  if (latest == null) {
+    for (let i = series.length - 1; i >= 0; i--) {
+      if ((series[i] ?? 0) > 0) {
+        latest = series[i]!;
+        break;
+      }
+    }
+  }
+
+  return { series, quoteCount, latest };
 }
 
 /** Native token amount settled (received) or quoted payable. */
@@ -463,6 +661,7 @@ function buildOrgOverviewCard(args: {
   to: Date;
   keys: string[];
   children: Map<string, string[]>;
+  trendLabel?: string;
 }): OverviewChartCard {
   const { overviewId, kind, org, orders, bills, from, to, keys, children } = args;
   const scope = subtreeIds(org.id, children);
@@ -482,6 +681,8 @@ function buildOrgOverviewCard(args: {
         : "Settled merchant volume and paid volume fees for this agent subtree.",
     value: volFeeValue(volume, fees),
     compareLabel: kind === "merchant" ? "Merchant" : "Agent",
+    trendPercent: trendFromSeries(buckets),
+    trendLabel: args.trendLabel,
     series: buckets,
     seriesLabels: keys,
     seriesMetric: "Volume",
@@ -878,6 +1079,26 @@ function formatMoneyFigure(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+/** Convert-rate display — more precision for sub-$1 / stable pegs. */
+function formatRateFigure(n: number): string {
+  if (n >= 1000) {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+  if (n >= 1) {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  }
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 6,
+  });
+}
+
 /** Always show two decimal places for KPI fund amounts (mockup: $89,460.00). */
 function formatMoneyFigureFixed(n: number): string {
   return n.toLocaleString(undefined, {
@@ -952,101 +1173,6 @@ function MetricLines({
   );
 }
 
-function DashOnboardMenu() {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const menuId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div
-      ref={rootRef}
-      className={`pg-dash__onboard-wrap${open ? " is-open" : ""}`}
-    >
-      <button
-        type="button"
-        className="pg-dash__onboard"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <svg
-          className="pg-dash__onboard-icon"
-          viewBox="0 0 24 24"
-          width="15"
-          height="15"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M12 5v14M5 12h14"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-        Onboard
-        <svg
-          className="pg-dash__onboard-chevron"
-          viewBox="0 0 10 6"
-          width="10"
-          height="6"
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M1 1l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      {open ? (
-        <ul id={menuId} className="pg-dash__onboard-menu" role="menu">
-          <li role="none">
-            <Link
-              role="menuitem"
-              className="pg-dash__onboard-option"
-              to={platformRoute("agents/new")}
-              onClick={() => setOpen(false)}
-            >
-              Onboard agent
-            </Link>
-          </li>
-          <li role="none">
-            <Link
-              role="menuitem"
-              className="pg-dash__onboard-option"
-              to={platformRoute("merchants/new")}
-              onClick={() => setOpen(false)}
-            >
-              Onboard merchant
-            </Link>
-          </li>
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
 export function DashboardPage({ session }: Props) {
   const isViewer = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
 
@@ -1089,7 +1215,7 @@ export function DashboardPage({ session }: Props) {
     null,
   );
   /** When an asset is selected: compare USD (convert rate) vs native asset on two axes. */
-  const [compareUsdAsset, setCompareUsdAsset] = useState(false);
+  const [compareUsdAsset, setCompareUsdAsset] = useState(true);
   const [volumeMaximized, setVolumeMaximized] = useState(false);
   const [volumeZoomed, setVolumeZoomed] = useState(false);
   const [volumeFsZoomed, setVolumeFsZoomed] = useState(false);
@@ -1515,9 +1641,11 @@ export function DashboardPage({ session }: Props) {
   const selectedAsset = chartFilterAsset(volumeFilter);
   const canCompareUsdAsset = selectedAsset != null;
 
+  // Selecting an asset turns compare on so both USD + native lines appear immediately.
   useEffect(() => {
-    if (!canCompareUsdAsset) setCompareUsdAsset(false);
-  }, [canCompareUsdAsset]);
+    if (canCompareUsdAsset) setCompareUsdAsset(true);
+    else setCompareUsdAsset(false);
+  }, [selectedAsset, canCompareUsdAsset]);
 
   /** Unfiltered platform volume — KPI sparks/trends stay stable when the chart asset changes. */
   const { series: totalVolumeSeries, dayLabels: totalVolumeDayLabels } = useMemo(() => {
@@ -1601,13 +1729,14 @@ export function DashboardPage({ session }: Props) {
     const asset = chartFilterAsset(volumeFilter);
     if (asset) {
       const assetSeries = volumeSeries(orders, keys, volumeFilter, null, "asset");
+      // Asset always uses the left axis so the unit does not jump when compare toggles.
       if (compareUsdAsset) {
         return {
-          series: volumeSeries(orders, keys, volumeFilter, null, "usd"),
+          series: assetSeries,
           dayLabels: keys,
-          secondarySeries: assetSeries,
-          valueUnit: "usd" as const,
-          secondaryUnit: asset,
+          secondarySeries: volumeSeries(orders, keys, volumeFilter, null, "usd"),
+          valueUnit: asset,
+          secondaryUnit: "usd",
         };
       }
       return {
@@ -1641,68 +1770,47 @@ export function DashboardPage({ session }: Props) {
   const baseChartCatalog: OverviewChartCard[] = useMemo(() => {
     const { keys } = chartWindow;
     const labels = keys.length ? keys : dayLabels;
-    const money = (n: number) => (
-      <span className="fund-amount">
-        {formatMoneyFigure(n)}
-        <span className="plat-fund-currency">USD</span>
-      </span>
-    );
-    const fmtMoney = (n: number) => `${formatMoneyFigure(n)} USD`;
-    const fmtCount = (n: number) =>
-      Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const accountTotal = stats.merchants.total + stats.agents.total;
-    // No synthetic sparklines — empty series until real history exists.
-    const emptySeries = keys.map(() => 0);
+    const trendLabel = overviewTrendLabel(period);
+    const fmtRate = (n: number) => `${formatRateFigure(n)} USD`;
 
-    const base: OverviewChartCard[] = [
-      {
-        id: "invoices",
+    return RATE_PAIRS.map((row) => {
+      const asset = row.asset;
+      const network = row.network;
+      const netLabel = networkShortLabel(network);
+      const { series, quoteCount, latest } = assetRateSeries(
+        orders,
+        labels,
+        asset,
+        network,
+      );
+      const empty = latest == null;
+      const money = (n: number) => (
+        <span className="fund-amount">
+          {formatRateFigure(n)}
+          <span className="plat-fund-currency">USD</span>
+        </span>
+      );
+      return {
+        id: rateOverviewId(asset, network),
         category: "Platform",
-        title: "Invoices",
-        help: "Service bills issued / paid / overdue in the selected period.",
-        value: stats.invoicesIssued,
-        compareLabel: `${stats.invoicesPaid} paid · ${stats.invoicesOverdue} overdue`,
-        series: emptySeries,
+        title: `${asset} · ${netLabel}`,
+        help: `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
+        value: empty ? "—" : money(latest),
+        compareLabel: empty
+          ? `No quotes · ${periodLabel}`
+          : `${quoteCount.toLocaleString()} quote${quoteCount === 1 ? "" : "s"} · ${periodLabel}`,
+        trendPercent: empty ? null : trendFromRateSeries(series),
+        trendLabel,
+        series: empty ? labels.map(() => 0) : series,
         seriesLabels: labels,
-        seriesMetric: "Invoices",
-        formatSeriesValue: fmtCount,
-        chartColor: METRIC_CHART_COLORS.invoices,
-        seriesStatus: "ready",
-        moreHref: platformRoute("service-bills"),
-      },
-      {
-        id: "fees",
-        category: "Platform",
-        title: "Fees",
-        help: "Platform volume fees billed in the period. Collected is the paid subset.",
-        value: money(stats.fees),
-        compareLabel: `${formatMoneyFigure(stats.collected)} collected · ${periodLabel}`,
-        series: emptySeries,
-        seriesLabels: labels,
-        seriesMetric: "Fees",
-        formatSeriesValue: fmtMoney,
-        chartColor: METRIC_CHART_COLORS.fees,
-        seriesStatus: "ready",
-        moreHref: platformRoute("service-bills"),
-      },
-      {
-        id: "accounts",
-        category: "Platform",
-        title: "Account count",
-        help: "Merchants and agents on the platform.",
-        value: accountTotal,
-        compareLabel: `${stats.merchants.total} merchants · ${stats.agents.total} agents`,
-        series: emptySeries,
-        seriesLabels: labels,
-        seriesMetric: "Accounts",
-        formatSeriesValue: fmtCount,
-        chartColor: METRIC_CHART_COLORS.accounts,
-        seriesStatus: "ready",
-      },
-    ];
-
-    return base;
-  }, [chartWindow, dayLabels, stats, periodLabel]);
+        seriesMetric: `${asset} rate`,
+        formatSeriesValue: fmtRate,
+        chartColor: assetRateChartColor(asset),
+        seriesStatus: "ready" as const,
+        empty,
+      };
+    });
+  }, [chartWindow, dayLabels, orders, periodLabel, period]);
 
   const [orgChartCards, setOrgChartCards] = useState<OverviewChartCard[]>([]);
   useEffect(() => {
@@ -1734,6 +1842,7 @@ export function DashboardPage({ session }: Props) {
             to,
             keys: labels,
             children,
+            trendLabel: overviewTrendLabel(period),
           }),
         );
       }
@@ -1743,7 +1852,7 @@ export function DashboardPage({ session }: Props) {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [overviewIds, orgs, orders, bills, chartWindow, dayLabels]);
+  }, [overviewIds, orgs, orders, bills, chartWindow, dayLabels, period]);
 
   const chartCatalog = useMemo(
     () => [...baseChartCatalog, ...orgChartCards],
@@ -1775,9 +1884,10 @@ export function DashboardPage({ session }: Props) {
         to,
         keys: labels,
         children: buildChildrenMap(orgs),
+        trendLabel: overviewTrendLabel(period),
       });
     },
-    [orgs, orders, bills, chartWindow, dayLabels],
+    [orgs, orders, bills, chartWindow, dayLabels, period],
   );
 
   const merchantPickOptions = useMemo(
@@ -1885,11 +1995,6 @@ export function DashboardPage({ session }: Props) {
     </div>
   );
 
-  const welcomeName =
-    session.displayName?.trim() ||
-    session.email.split("@")[0] ||
-    "Admin";
-
   const orderCounts = useMemo(
     () =>
       periodSettledOrderCount(orders, chartWindow.from, chartWindow.to),
@@ -1949,15 +2054,152 @@ export function DashboardPage({ session }: Props) {
       ) : null}
 
       <header className="pg-dash__hero">
-        <div className="pg-dash__hero-copy">
-          <h1 className="pg-dash__welcome">Hello, {welcomeName}!</h1>
-          <p className="pg-dash__lede">
-            Here’s what’s happening with your payment ecosystem today.
-          </p>
+        <div className="pg-dash__hero-top">
+          <div className="pg-dash__hero-brand">
+            <GateLogoMark size={140} className="pg-dash__mark" alt="" />
+            <div className="pg-dash__hero-copy">
+              <p className="pg-dash__eyebrow">Platform</p>
+              <h1 className="pg-dash__welcome">PaymentGate</h1>
+              <p className="pg-dash__lede">
+                Here’s what’s happening with your payment ecosystem today.
+              </p>
+            </div>
+          </div>
+          <div className="pg-dash__hero-aside">
+            <ul className="pg-dash__hero-highlights" aria-label="Platform highlights">
+              <li className="pg-dash__hero-highlight" data-tone="blue">
+                <span className="pg-dash__hero-highlight-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.5" />
+                    <path
+                      d="M3.75 12h16.5M12 3.75c2.4 2.6 3.6 5.4 3.6 8.25S14.4 17.65 12 20.25C9.6 17.65 8.4 14.85 8.4 12S9.6 6.35 12 3.75Z"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span className="pg-dash__hero-highlight-copy">
+                  <span className="pg-dash__hero-highlight-title">Global network</span>
+                  <span className="pg-dash__hero-highlight-sub">Trusted infrastructure</span>
+                </span>
+              </li>
+              <li className="pg-dash__hero-highlight" data-tone="teal">
+                <span className="pg-dash__hero-highlight-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 3.6 20.1 8.1v7.8L12 20.4 3.9 15.9V8.1L12 3.6Z"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 12.15 20.1 8.1M12 12.15 3.9 8.1M12 12.15V20.4"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span className="pg-dash__hero-highlight-copy">
+                  <span className="pg-dash__hero-highlight-title">Secure &amp; compliant</span>
+                  <span className="pg-dash__hero-highlight-sub">Built for growth</span>
+                </span>
+              </li>
+              <li className="pg-dash__hero-highlight" data-tone="blue">
+                <span className="pg-dash__hero-highlight-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M4.5 16.5V19.5M9.5 12.5V19.5M14.5 9.5V19.5M19.5 5.5V19.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M4.2 11.2 10.3 6.8l4.1 3.1 5.4-6.2"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span className="pg-dash__hero-highlight-copy">
+                  <span className="pg-dash__hero-highlight-title">Real-time insights</span>
+                  <span className="pg-dash__hero-highlight-sub">Your payments, in control</span>
+                </span>
+              </li>
+            </ul>
+            <div className="pg-dash__hero-toolbar">
+              {periodControls}
+            </div>
+          </div>
         </div>
-        <div className="pg-dash__hero-actions">
-          {periodControls}
-          {!isViewer ? <DashOnboardMenu /> : null}
+        <div className="pg-dash__hero-aura" aria-hidden>
+          <svg
+            className="pg-dash__hero-aura-svg"
+            viewBox="0 0 640 160"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="pg-hero-gold-a" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
+                <stop offset="20%" stopColor="rgba(255,220,140,0.62)" />
+                <stop offset="52%" stopColor="rgba(255,193,69,0.38)" />
+                <stop offset="80%" stopColor="rgba(255,208,96,0.2)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <linearGradient id="pg-hero-gold-b" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
+                <stop offset="16%" stopColor="rgba(255,230,160,0.42)" />
+                <stop offset="48%" stopColor="rgba(255,193,69,0.22)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <linearGradient id="pg-hero-gold-fill" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0.12)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <radialGradient id="pg-hero-dot-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(255,230,160,0.95)" />
+                <stop offset="55%" stopColor="rgba(255,193,69,0.45)" />
+                <stop offset="100%" stopColor="rgba(255,193,69,0)" />
+              </radialGradient>
+            </defs>
+            <path
+              d="M20 118 C 140 118, 200 42, 320 48 C 440 54, 500 108, 620 102"
+              fill="none"
+              stroke="url(#pg-hero-gold-a)"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            />
+            <path
+              d="M40 128 C 160 124, 220 68, 340 72 C 460 76, 520 120, 600 116"
+              fill="none"
+              stroke="url(#pg-hero-gold-b)"
+              strokeWidth="1.15"
+              strokeLinecap="round"
+              opacity="0.85"
+            />
+            <path
+              d="M60 132 C 180 128, 240 86, 360 88 C 480 90, 530 122, 580 120 L 580 148 L 60 148 Z"
+              fill="url(#pg-hero-gold-fill)"
+              opacity="0.55"
+            />
+            <g className="pg-dash__hero-dots" fill="#ffd060">
+              <circle cx="212" cy="58" r="0.85" opacity="0.4" />
+              <circle cx="248" cy="44" r="1.2" opacity="0.58" />
+              <circle cx="336" cy="52" r="1.1" opacity="0.52" />
+              <circle cx="392" cy="58" r="0.8" opacity="0.38" />
+              <circle cx="448" cy="72" r="1.15" opacity="0.48" />
+              <circle cx="498" cy="96" r="0.9" opacity="0.36" />
+              <circle cx="542" cy="108" r="1" opacity="0.44" />
+              <circle cx="268" cy="78" r="0.9" opacity="0.32" />
+              <circle cx="420" cy="64" r="0.95" opacity="0.4" />
+              <circle cx="520" cy="112" r="1.05" opacity="0.36" />
+              <circle cx="230" cy="52" r="1.8" fill="url(#pg-hero-dot-glow)" opacity="0.5" />
+              <circle cx="410" cy="60" r="1.55" fill="url(#pg-hero-dot-glow)" opacity="0.4" />
+            </g>
+          </svg>
         </div>
       </header>
 
@@ -2086,16 +2328,26 @@ export function DashboardPage({ session }: Props) {
                   selection={volumeSelection}
                   onChange={setVolumeSelection}
                 />
-                {canCompareUsdAsset ? (
-                  <label className="volume-compare-toggle">
-                    <input
-                      type="checkbox"
-                      checked={compareUsdAsset}
-                      onChange={(e) => setCompareUsdAsset(e.target.checked)}
-                    />
-                    <span>USD + {selectedAsset}</span>
-                  </label>
-                ) : null}
+                <label
+                  className={`volume-compare-toggle${canCompareUsdAsset ? "" : " is-disabled"}`}
+                  title={
+                    canCompareUsdAsset
+                      ? `Show USD (convert rate) and ${selectedAsset} together`
+                      : "Select an asset first to compare USD vs native amount"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={canCompareUsdAsset && compareUsdAsset}
+                    disabled={!canCompareUsdAsset}
+                    onChange={(e) => setCompareUsdAsset(e.target.checked)}
+                  />
+                  <span>
+                    {canCompareUsdAsset
+                      ? `USD + ${selectedAsset}`
+                      : "USD + asset"}
+                  </span>
+                </label>
               </div>
               <div className="dash-chart-panel__tools">
                 <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">
@@ -2271,26 +2523,57 @@ export function DashboardPage({ session }: Props) {
         onClose={() => setVolumeMaximized(false)}
         header={
           <div className="dash-chart-panel__title-row chart-maximize-overlay__title-row">
-            <h2 className="chart-maximize-overlay__title">
-              {chartDetail
-                ? `Transaction Volume (${chartDetail})`
-                : "Transaction Volume"}
-            </h2>
+            <div className="pg-chart-panel__heading">
+              <span className="pg-chart-panel__title-icon" aria-hidden>
+                <img
+                  className="pg-chart-panel__title-icon-img"
+                  src="/brand/volume-chart-icon.png"
+                  alt=""
+                  width={48}
+                  height={48}
+                  draggable={false}
+                />
+              </span>
+              <div className="pg-chart-panel__heading-text">
+                <h2 className="chart-maximize-overlay__title">
+                  {chartDetail
+                    ? `Transaction Volume (${chartDetail})`
+                    : "Transaction Volume"}
+                </h2>
+                <p>
+                  {chartDetail
+                    ? compareUsdAsset
+                      ? `USD (convert rate) vs ${selectedAsset} over time.`
+                      : `Successful ${chartDetail} volume over time.`
+                    : "Total successful transaction volume over time."}
+                </p>
+              </div>
+            </div>
             <div className="dash-chart-panel__filters">
               <VolumeFilterSelect
                 selection={volumeSelection}
                 onChange={setVolumeSelection}
               />
-              {canCompareUsdAsset ? (
-                <label className="volume-compare-toggle">
-                  <input
-                    type="checkbox"
-                    checked={compareUsdAsset}
-                    onChange={(e) => setCompareUsdAsset(e.target.checked)}
-                  />
-                  <span>USD + {selectedAsset}</span>
-                </label>
-              ) : null}
+              <label
+                className={`volume-compare-toggle${canCompareUsdAsset ? "" : " is-disabled"}`}
+                title={
+                  canCompareUsdAsset
+                    ? `Show USD (convert rate) and ${selectedAsset} together`
+                    : "Select an asset first to compare USD vs native amount"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={canCompareUsdAsset && compareUsdAsset}
+                  disabled={!canCompareUsdAsset}
+                  onChange={(e) => setCompareUsdAsset(e.target.checked)}
+                />
+                <span>
+                  {canCompareUsdAsset
+                    ? `USD + ${selectedAsset}`
+                    : "USD + asset"}
+                </span>
+              </label>
             </div>
             <div className="dash-chart-panel__tools">
               <div className="volume-chart__zoom-bar volume-chart__zoom-bar--tools">

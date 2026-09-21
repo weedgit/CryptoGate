@@ -346,12 +346,6 @@ export function SiteDetailCard({
                   </p>
                 </div>
                 <div className="b3-profile__field">
-                  <p className="b3-profile__label">Structure</p>
-                  <p className="b3-profile__value">
-                    {site.structure?.replace(/_/g, " ") ?? "—"}
-                  </p>
-                </div>
-                <div className="b3-profile__field">
                   <p className="b3-profile__label">Settings</p>
                   <p className="b3-profile__value">
                     Inherits parent merchant (wallet, matching, fulfillment,

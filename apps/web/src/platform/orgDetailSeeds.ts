@@ -256,13 +256,12 @@ export type MerchantListRow = {
   id: string;
   name: string;
   type: string;
-  structure?: string | null;
   parentName: string;
   parentId?: string | null;
   status: string;
 };
 
-/** Place each merchant_site directly under its parent merchant. */
+/** Place each merchant_site under its billing merchant (nested sites flatten here). */
 export function groupMerchantsUnderParents(
   rows: MerchantListRow[],
 ): MerchantListRow[] {
@@ -272,18 +271,31 @@ export function groupMerchantsUnderParents(
     (r) => r.type !== "merchant" && r.type !== "merchant_site",
   );
 
+  const byId = new Map(rows.map((r) => [r.id, r]));
   const merchantIds = new Set(merchants.map((m) => m.id));
   const merchantNames = new Set(merchants.map((m) => m.name));
   const sitesByKey = new Map<string, MerchantListRow[]>();
   const orphans: MerchantListRow[] = [];
 
+  function billingMerchantKey(site: MerchantListRow): string | null {
+    let id = site.parentId ?? null;
+    const seen = new Set<string>([site.id]);
+    while (id) {
+      if (seen.has(id)) return null;
+      seen.add(id);
+      if (merchantIds.has(id)) return `id:${id}`;
+      const row = byId.get(id);
+      if (!row) break;
+      if (row.type === "merchant") return `id:${row.id}`;
+      if (row.type !== "merchant_site") break;
+      id = row.parentId ?? null;
+    }
+    if (merchantNames.has(site.parentName)) return `name:${site.parentName}`;
+    return null;
+  }
+
   for (const site of sites) {
-    const key =
-      site.parentId && merchantIds.has(site.parentId)
-        ? `id:${site.parentId}`
-        : merchantNames.has(site.parentName)
-          ? `name:${site.parentName}`
-          : null;
+    const key = billingMerchantKey(site);
     if (!key) {
       orphans.push(site);
       continue;
@@ -369,7 +381,6 @@ export type AccountTreeNode = {
   name: string;
   type: string;
   status: string;
-  structure?: string | null;
   parentId?: string | null;
   parentName?: string;
   merchantsManaged?: number;
@@ -387,7 +398,6 @@ function liveToMerchantRows(
     id: string;
     name: string;
     type: string;
-    structure?: string | null;
     parentId?: string | null;
     status?: string | null;
   }>,
@@ -398,7 +408,6 @@ function liveToMerchantRows(
     id: m.id,
     name: m.name,
     type: m.type,
-    structure: m.structure ?? null,
     parentId: m.parentId ?? null,
     parentName: m.parentId
       ? (parentNameById.get(m.parentId) ?? m.parentId)
@@ -420,7 +429,6 @@ export function buildAgentAccountsForest(input: {
     id: string;
     name: string;
     type: string;
-    structure?: string | null;
     parentId?: string | null;
     status?: string | null;
   }>;
@@ -445,7 +453,6 @@ export function buildAgentAccountsForest(input: {
         name: site.name,
         type: site.type,
         status: site.status,
-        structure: null,
         parentId: m.id,
         parentName: m.name,
         children: [],
@@ -456,7 +463,6 @@ export function buildAgentAccountsForest(input: {
       name: m.name,
       type: m.type,
       status: m.status,
-      structure: m.structure ?? null,
       parentId: m.parentId ?? null,
       parentName: m.parentName,
       children,

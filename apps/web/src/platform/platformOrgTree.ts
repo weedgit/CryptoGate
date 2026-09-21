@@ -6,7 +6,6 @@ export type PlatformOrgTreeNode = {
   name: string;
   type: string;
   status: string;
-  structure?: string | null;
   country?: string | null;
   legalName?: string | null;
   createdAt?: string | null;
@@ -88,7 +87,6 @@ export function buildPlatformOrgForest(
       name: org.name,
       type: org.type,
       status: org.status ?? "active",
-      structure: org.structure ?? null,
       country: org.country ?? null,
       legalName: org.legalName ?? null,
       createdAt: org.createdAt ?? null,
@@ -379,12 +377,11 @@ export function agentDepthOfNode(
 }
 
 export function canAddSubAgentUnderNode(
-  node: PlatformOrgTreeNode,
-  byId: ReadonlyMap<string, PlatformOrgTreeNode>,
-  maxDepth = DEFAULT_MAX_AGENT_DEPTH,
+  _node: PlatformOrgTreeNode,
+  _byId: ReadonlyMap<string, PlatformOrgTreeNode>,
+  _maxDepth = DEFAULT_MAX_AGENT_DEPTH,
 ): boolean {
-  if (node.type !== "agent" && node.type !== "agent_sub") return false;
-  return agentDepthOfNode(node, byId) + 1 <= maxDepth;
+  return false;
 }
 
 export function orgBreadcrumbPath(

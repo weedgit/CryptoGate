@@ -238,10 +238,6 @@ export function PlatformShell({
 }: Props) {
   const location = useLocation();
   const readOnly = sessionIsPlatformViewerOnly(session);
-  const dashboardPath = platformRoute();
-  const onDashboard =
-    location.pathname === dashboardPath ||
-    location.pathname === `${dashboardPath}/`;
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -320,14 +316,26 @@ export function PlatformShell({
         onWheel={onSidebarWheel}
       >
         <div className="logo-row">
-          <GateLogoMark size={52} className="logo-mark" />
+          <GateLogoMark size={64} className="logo-mark" />
           {!navCollapsed ? (
             <div className="logo-copy">
               <p className="logo-title">PaymentGate</p>
-              <span className="logo-rule" aria-hidden />
               <span className="logo-tagline">Powering payment</span>
             </div>
           ) : null}
+          <button
+            type="button"
+            className="sidebar-toggle sidebar-toggle--rail"
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!navCollapsed}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            <SidebarCollapseIcon
+              className="sidebar-toggle-icon"
+              expanded={!navCollapsed}
+            />
+          </button>
         </div>
         <nav className="nav-list" aria-label="Platform" ref={navRef}>
           {NAV_GROUPS.map((group, groupIndex) => (
@@ -441,28 +449,14 @@ export function PlatformShell({
           ))}
         </nav>
       </aside>
-      <div className="main" ref={mainRef}>
+      <div className="main">
         <header className="topbar topbar--chrome">
           <div className="topbar-left">
             <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
-            <button
-              type="button"
-              className="sidebar-toggle sidebar-toggle--topbar"
-              aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-expanded={!navCollapsed}
-              title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={() => setCollapsed((v) => !v)}
-            >
-              <SidebarCollapseIcon
-                className="sidebar-toggle-icon"
-                expanded={!navCollapsed}
-              />
-            </button>
             <div className="topbar-leading" id="platform-topbar-leading" />
           </div>
           <div className="topbar-center">
-            {/* Topbar search only dispatches an event; nothing on Dashboard listens. */}
-            {!onDashboard ? <TopbarSearch placeholder="Search" /> : null}
+            <TopbarSearch placeholder="Search merchants, agents, accounts..." />
             <div className="topbar-center-slot" id="platform-topbar-center" />
           </div>
           <div className="topbar-right">
@@ -485,18 +479,20 @@ export function PlatformShell({
             />
           </div>
         </header>
-        <UnresolvedAlertsBanner
-          source={platformAlertsSource}
-          onOpenAlerts={() => setAlertsOpen(true)}
-        />
-        <div className="body">
-          {readOnly ? (
-            <div className="banner banner-warn" style={{ marginBottom: 16 }}>
-              Read-only mode — Viewer accounts cannot issue bills or change
-              settings.
-            </div>
-          ) : null}
-          {children}
+        <div className="main__scroll" ref={mainRef}>
+          <UnresolvedAlertsBanner
+            source={platformAlertsSource}
+            onOpenAlerts={() => setAlertsOpen(true)}
+          />
+          <div className="body">
+            {readOnly ? (
+              <div className="banner banner-warn" style={{ marginBottom: 16 }}>
+                Read-only mode — Viewer accounts cannot issue bills or change
+                settings.
+              </div>
+            ) : null}
+            {children}
+          </div>
         </div>
       </div>
 

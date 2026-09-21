@@ -93,7 +93,8 @@ export function SearchableSelect({
     const spaceAbove = rect.top - gap;
     const preferBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
     const maxHeight = Math.min(280, Math.max(140, preferBelow ? spaceBelow : spaceAbove));
-    const width = Math.max(rect.width, menuMinWidth);
+    /* Floor so short triggers ("All") don't clip longer option labels. */
+    const width = Math.max(rect.width, menuMinWidth || 128);
     const maxLeft = Math.max(8, window.innerWidth - width - 8);
     const left = Math.min(Math.max(8, rect.left), maxLeft);
     setPos({
@@ -151,8 +152,9 @@ export function SearchableSelect({
     ? {
         top: pos.top,
         left: pos.left,
-        width: pos.width,
         minWidth: pos.width,
+        width: "max-content",
+        maxWidth: Math.min(320, typeof window !== "undefined" ? window.innerWidth - 16 : 320),
         maxHeight: pos.maxHeight,
       }
     : undefined;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
@@ -29,7 +29,7 @@ import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { PagePending } from "./ui/PlatformPending";
-import { STRUCTURE_LABELS } from "./merchantSubtree";
+import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
   formatOnboardDate,
@@ -128,265 +128,6 @@ function isPayAllowedInContext(
   return payFiltersForContext(accountsView, type).some((item) => item.id === pay);
 }
 
-function StatusFilterIcon({ id }: { id: OrgTreeFilter["status"] }) {
-  if (id === "active") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
-        <circle cx="12" cy="12" r="3.25" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (id === "paused") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <rect x="7" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
-        <rect x="14" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="5" y="5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
-      <rect x="13.5" y="5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
-      <rect x="5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
-      <rect x="13.5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-
-/** Distinct payment-status glyphs — readable at toolbar size. */
-function PayFilterIcon({ id }: { id: OrgTreeFilter["pay"] }) {
-  if (id === "all") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
-        <path
-          d="M12 7.75v8.5M14.75 9.25c0-1-.9-1.75-2.75-1.75s-2.75.75-2.75 1.75S10.9 11 12 11s2.75.7 2.75 1.75S13.85 14.5 12 14.5s-2.75-.75-2.75-1.75"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  if (id === "paid") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
-        <path
-          d="M8.25 12.25 10.75 14.75 15.75 9.5"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  if (id === "overdue") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M12 3.75 21 19.5H3L12 3.75Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M12 9.5v4.5"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-        />
-        <circle cx="12" cy="16.75" r="1.15" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (id === "issued") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M6.75 4.5h7L17.5 8.25V19.5H6.75V4.5Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M13.75 4.5v3.75H17.5"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9.25 12h5.5M9.25 15h3.75"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-        <circle cx="9.25" cy="12" r="0.9" fill="currentColor" />
-        <circle cx="9.25" cy="15" r="0.9" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (id === "pending") {
-    return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M7 4.75h10"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-        <path
-          d="M7 19.25h10"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-        <path
-          d="M8.5 4.75 12 12 15.5 4.75"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8.5 19.25 12 12 15.5 19.25"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  // scheduled — calendar with clock mark
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="4.5"
-        y="6"
-        width="15"
-        height="13.5"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path d="M4.5 10.25h15" stroke="currentColor" strokeWidth="1.75" />
-      <path
-        d="M8.25 4.5v3M15.75 4.5v3"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-      <circle cx="14.25" cy="15" r="3.25" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M14.25 13.75v1.5l1 0.75"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function OnboardPlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function PaneOnboardMenu({
-  preferMerchant = false,
-}: {
-  preferMerchant?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const agentItem = (
-    <li key="agent" role="none">
-      <Link
-        role="menuitem"
-        className="org-architecture__pane-onboard-option"
-        to={platformRoute("agents/new")}
-        onClick={() => setOpen(false)}
-      >
-        Onboard agent
-      </Link>
-    </li>
-  );
-  const merchantItem = (
-    <li key="merchant" role="none">
-      <Link
-        role="menuitem"
-        className="org-architecture__pane-onboard-option"
-        to={platformRoute("merchants/new")}
-        onClick={() => setOpen(false)}
-      >
-        Onboard merchant
-      </Link>
-    </li>
-  );
-
-  return (
-    <div
-      ref={rootRef}
-      className={`org-architecture__pane-onboard-wrap${open ? " is-open" : ""}`}
-    >
-      <button
-        type="button"
-        className="org-architecture__pane-onboard"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        title="Onboard"
-        aria-label="Onboard"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <OnboardPlusIcon />
-      </button>
-      {open ? (
-        <ul className="org-architecture__pane-onboard-menu" role="menu">
-          {preferMerchant ? (
-            <>
-              {merchantItem}
-              {agentItem}
-            </>
-          ) : (
-            <>
-              {agentItem}
-              {merchantItem}
-            </>
-          )}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
 function TreeExpandIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -399,6 +140,88 @@ function TreeExpandIcon() {
       />
       <path
         d="M6 5.75 12 11.75 18 5.75"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CtxPlusIcon() {
+  return (
+    <span className="org-architecture__ctx-icon org-architecture__ctx-icon--add" aria-hidden>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+function CtxPauseIcon() {
+  return (
+    <span className="org-architecture__ctx-icon org-architecture__ctx-icon--suspend" aria-hidden>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+        <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
+        <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
+function CtxPlayIcon() {
+  return (
+    <span className="org-architecture__ctx-icon org-architecture__ctx-icon--active" aria-hidden>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+        <path d="M8 5.5v13l11-6.5L8 5.5Z" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
+function CtxTrashIcon() {
+  return (
+    <span className="org-architecture__ctx-icon org-architecture__ctx-icon--danger" aria-hidden>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12"
+          stroke="currentColor"
+          strokeWidth="1.85"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 4.5v5h-5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 14.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 19.5v-5h5"
         stroke="currentColor"
         strokeWidth="1.75"
         strokeLinecap="round"
@@ -428,14 +251,6 @@ function TreeCollapseIcon() {
     </svg>
   );
 }
-
-const TYPE_OPTIONS: { id: OrgTreeFilter["type"]; label: string }[] = [
-  { id: "all", label: "All types" },
-  { id: "platform", label: "Platform" },
-  { id: "agent", label: "Agent" },
-  { id: "merchant", label: "Merchant" },
-  { id: "site", label: "Sites" },
-];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -478,7 +293,7 @@ function CopyOrgId({ id }: { id: string }) {
 }
 
 const REGISTRATION_HELP: Record<string, string> = {
-  Country: "Country captured on the onboard Details step.",
+  Country: "Country is set in organization settings after invite.",
   "Owner email":
     "Portal Owner invite when present; otherwise the first team member on this account (for example Cashier on load-seed merchants).",
 };
@@ -555,9 +370,9 @@ function resolveMerchantFeeStatus(
 }
 
 function commissionPayoutLabel(status: AgentPayoutStatus): string {
-  if (status === "paid") return "Paid";
-  if (status === "pending") return "Pending";
-  return "Scheduled";
+  if (status === "paid") return "PAID";
+  if (status === "pending") return "PENDING";
+  return "SCHEDULED";
 }
 
 function countStatusKeys(
@@ -581,152 +396,229 @@ type PlatformMetricFilter = Pick<OrgTreeFilter, "type" | "status" | "pay">;
 
 type DetailAccent = "blue" | "teal" | "gold" | "violet" | "ok" | "danger" | "warn" | "slate";
 
-function DetailStatIcon({ accent }: { accent: DetailAccent }) {
+type DetailTableCell = {
+  label: string;
+  value: number;
+  accent?: DetailAccent;
+  critical?: boolean;
+  active?: boolean;
+  onClick?: () => void;
+};
+
+function PlatformDetailTableIcon({ tone }: { tone: DetailAccent }) {
   const common = {
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     viewBox: "0 0 24 24",
-    fill: "none" as const,
-    "aria-hidden": true,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true as const,
   };
-  if (accent === "blue") {
+  if (tone === "ok" || tone === "teal") {
+    /* Agents — people */
     return (
       <svg {...common}>
-        <path
-          d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-        />
-        <path
-          d="M3.5 19.25c.7-2.4 2.7-3.75 4.5-3.75s3.8 1.35 4.5 3.75M11.5 19.25c.7-2.4 2.7-3.75 4.5-3.75s3.8 1.35 4.5 3.75"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     );
   }
-  if (accent === "teal") {
+  if (tone === "violet") {
+    /* Merchants — storefront */
     return (
       <svg {...common}>
-        <path
-          d="M12 3.5 19.5 8v8L12 20.5 4.5 16V8L12 3.5Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path d="M12 12v8.5M4.5 8 12 12l7.5-4" stroke="currentColor" strokeWidth="1.75" />
+        <path d="M3 9 12 3l9 6" />
+        <path d="M5 10v10h14V10" />
+        <path d="M9 20v-6h6v6" />
       </svg>
     );
   }
-  if (accent === "gold") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
-        <path
-          d="M12 8v8M14.5 9.5c0-.9-.9-1.5-2.5-1.5s-2.5.6-2.5 1.5S10.9 11 12 11s2.5.6 2.5 1.5S13.6 14 12 14s-2.5-.6-2.5-1.5"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  if (accent === "violet") {
-    return (
-      <svg {...common}>
-        <path
-          d="M4.5 8.5h15v9.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V8.5Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-        />
-        <path
-          d="M8 8.5V7a4 4 0 0 1 8 0v1.5"
-          stroke="currentColor"
-          strokeWidth="1.75"
-        />
-      </svg>
-    );
-  }
-  if (accent === "ok") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
-        <path
-          d="M8.5 12.25 10.75 14.5 15.5 9.5"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  if (accent === "danger") {
-    return (
-      <svg {...common}>
-        <path
-          d="M12 3.75 21 19.5H3L12 3.75Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinejoin="round"
-        />
-        <path d="M12 9.5v4.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-        <circle cx="12" cy="16.75" r="1.1" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (accent === "warn") {
-    return (
-      <svg {...common}>
-        <path
-          d="M7 4.75h10M7 19.25h10M8.5 4.75 12 12l3.5-7.25M8.5 19.25 12 12l3.5 7.25"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
+  /* Accounts — single user */
   return (
     <svg {...common}>
-      <rect x="7" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
-      <rect x="14" y="6" width="3" height="12" rx="1.25" fill="currentColor" />
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
     </svg>
   );
 }
 
-function PlatformMetricCard({
-  label,
-  value,
-  hint,
-  active,
-  accent,
-  onClick,
+function PlatformDetailTable({
+  title,
+  tone = "gold",
+  ariaLabel,
+  onViewDetails,
+  columns,
 }: {
-  label: string;
-  value: number;
-  hint?: string;
-  active?: boolean;
-  accent: DetailAccent;
-  onClick: () => void;
+  title: string;
+  tone?: DetailAccent;
+  ariaLabel: string;
+  onViewDetails: () => void;
+  columns: DetailTableCell[];
 }) {
   return (
-    <button
-      type="button"
-      className={`platform-detail__stat is-${accent}${active ? " is-active" : ""}`}
-      onClick={onClick}
-      aria-pressed={active === true}
+    <section
+      className={`platform-detail__table-block is-${tone}`}
+      aria-label={ariaLabel}
     >
-      <span className="platform-detail__stat-icon" aria-hidden>
-        <DetailStatIcon accent={accent} />
-      </span>
-      <span className="platform-detail__stat-label">{label}</span>
-      <span className="platform-detail__stat-value">{value.toLocaleString()}</span>
-      {hint ? <span className="platform-detail__stat-hint">{hint}</span> : null}
-      <span className="platform-detail__stat-wave" aria-hidden />
-    </button>
+      <div className="platform-detail__table-head">
+        <div className="platform-detail__table-title">
+          <span className="platform-detail__table-icon" aria-hidden>
+            <PlatformDetailTableIcon tone={tone} />
+          </span>
+          <h4 className="platform-detail__section-title">{title}</h4>
+        </div>
+        <button
+          type="button"
+          className="platform-detail__band-link"
+          onClick={onViewDetails}
+        >
+          View details
+          <span aria-hidden>→</span>
+        </button>
+      </div>
+      <table className="platform-detail__table">
+        <tbody>
+          {columns.map((col) => {
+            const accent = col.accent ?? "slate";
+            const critical = Boolean(col.critical && col.value > 0);
+            const clickable = Boolean(col.onClick);
+            return (
+              <tr
+                key={col.label}
+                className={[
+                  "platform-detail__tr",
+                  `is-${accent}`,
+                  col.active ? "is-active" : "",
+                  critical ? "is-critical" : "",
+                  col.value === 0 ? "is-quiet" : "",
+                  clickable ? "is-clickable" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={clickable ? col.onClick : undefined}
+                onKeyDown={
+                  clickable
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          col.onClick?.();
+                        }
+                      }
+                    : undefined
+                }
+                role={clickable ? "button" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                aria-pressed={clickable ? col.active === true : undefined}
+              >
+                <th scope="row">{col.label}</th>
+                <td>{col.value.toLocaleString()}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function DetailOnboardMenu({ disabled = false }: { disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuId = "platform-detail-onboard-menu";
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`pg-dash__onboard-wrap${open ? " is-open" : ""}`}
+    >
+      <button
+        type="button"
+        className="pg-dash__onboard"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
+        disabled={disabled}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <svg
+          className="pg-dash__onboard-icon"
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M12 5v14M5 12h14"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+        Onboard
+        <svg
+          className="pg-dash__onboard-chevron"
+          viewBox="0 0 10 6"
+          width="10"
+          height="6"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M1 1l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open ? (
+        <ul id={menuId} className="pg-dash__onboard-menu" role="menu">
+          <li role="none">
+            <Link
+              role="menuitem"
+              className="pg-dash__onboard-option"
+              to={platformRoute("agents/new")}
+              onClick={() => setOpen(false)}
+            >
+              New Agent
+            </Link>
+          </li>
+          <li role="none">
+            <Link
+              role="menuitem"
+              className="pg-dash__onboard-option"
+              to={platformRoute("merchants/new")}
+              onClick={() => setOpen(false)}
+            >
+              New Merchant
+            </Link>
+          </li>
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
@@ -735,11 +627,11 @@ function PlatformDetailPanel({
   byId,
   budgets,
   platformStats,
+  cashierCount,
   filter,
   canManage,
   busy,
   onFilter,
-  onAdd,
 }: {
   node: PlatformOrgTreeNode;
   byId: Map<string, PlatformOrgTreeNode>;
@@ -752,11 +644,11 @@ function PlatformDetailPanel({
     sites: number;
     paused: number;
   };
+  cashierCount: number;
   filter: OrgTreeFilter;
   canManage: boolean;
   busy: boolean;
   onFilter: (next: PlatformMetricFilter) => void;
-  onAdd: () => void;
 }) {
   const teamHref = platformRoute("settings/team");
 
@@ -797,269 +689,277 @@ function PlatformDetailPanel({
     filter.status === m.status &&
     filter.pay === m.pay;
 
-  const activeRate =
-    metrics.all > 0 ? Math.round((metrics.active / metrics.all) * 1000) / 10 : 100;
 
   return (
     <div className="platform-detail">
       <header className="platform-detail__hero">
-        <div className="platform-detail__hero-main">
-          <GateLogoMark size={48} className="platform-detail__mark" alt="" />
-          <div className="platform-detail__identity">
-            <p className="platform-detail__eyebrow">Platform</p>
-            <h3 className="platform-detail__title">{node.name}</h3>
-            <p className="platform-detail__subtitle">
-              Network overview — filter the org tree from these cards.
-            </p>
-          </div>
+        <div className="platform-detail__hero-aura" aria-hidden>
+          <svg
+            className="platform-detail__hero-aura-svg"
+            viewBox="0 0 640 120"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="pd-hero-gold-a" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
+                <stop offset="12%" stopColor="rgba(255,220,140,0.2)" />
+                <stop offset="36%" stopColor="rgba(255,220,140,0.7)" />
+                <stop offset="58%" stopColor="rgba(255,193,69,0.42)" />
+                <stop offset="82%" stopColor="rgba(255,208,96,0.18)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <linearGradient id="pd-hero-gold-b" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
+                <stop offset="14%" stopColor="rgba(255,230,160,0.16)" />
+                <stop offset="40%" stopColor="rgba(255,230,160,0.48)" />
+                <stop offset="68%" stopColor="rgba(255,193,69,0.22)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <linearGradient id="pd-hero-gold-c" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
+                <stop offset="20%" stopColor="rgba(255,208,96,0.12)" />
+                <stop offset="48%" stopColor="rgba(255,208,96,0.34)" />
+                <stop offset="74%" stopColor="rgba(255,220,140,0.14)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+              <linearGradient id="pd-hero-gold-fill" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255,208,96,0.08)" />
+                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M40 78 C 140 74, 200 32, 300 38 C 420 46, 500 72, 620 68"
+              fill="none"
+              stroke="url(#pd-hero-gold-a)"
+              strokeWidth="1.55"
+              strokeLinecap="round"
+            />
+            <path
+              d="M60 88 C 160 84, 220 48, 320 52 C 440 58, 520 80, 600 78"
+              fill="none"
+              stroke="url(#pd-hero-gold-b)"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+            <path
+              d="M50 64 C 150 60, 210 92, 320 86 C 450 78, 530 44, 630 48"
+              fill="none"
+              stroke="url(#pd-hero-gold-c)"
+              strokeWidth="1"
+              strokeLinecap="round"
+              opacity="0.7"
+            />
+            <path
+              d="M90 92 C 190 88, 250 58, 360 60 C 480 62, 540 82, 600 80 L 600 110 L 90 110 Z"
+              fill="url(#pd-hero-gold-fill)"
+              opacity="0.4"
+            />
+          </svg>
         </div>
-        <div className="platform-detail__hero-actions">
-          {canManage ? (
-            <button
-              type="button"
-              className="platform-detail__btn-gold"
-              disabled={busy}
-              onClick={onAdd}
-            >
-              Add account
-            </button>
-          ) : null}
-          <Link className="platform-detail__team-link" to={teamHref} title="Open platform team">
-            Team
-            <span aria-hidden>→</span>
-          </Link>
+        <div className="platform-detail__hero-top">
+          <div className="platform-detail__hero-main">
+            <GateLogoMark size={88} className="platform-detail__mark" alt="" />
+            <div className="platform-detail__identity">
+              <p className="platform-detail__eyebrow">Platform</p>
+              <h3 className="platform-detail__title">{node.name}</h3>
+              <p className="platform-detail__subtitle">
+                Network overview — filter the org tree from these metrics.
+              </p>
+            </div>
+          </div>
+          <div className="platform-detail__hero-actions">
+            {canManage ? <DetailOnboardMenu disabled={busy} /> : null}
+          </div>
         </div>
       </header>
 
-      <div className="platform-detail__metrics">
-        <PlatformMetricCard
-          accent="blue"
-          label="Merchants"
-          value={metrics.merchants}
-          hint="In network"
-          active={networkActive({ type: "merchant", status: "all", pay: "all" })}
-          onClick={() => onFilter({ type: "merchant", status: "all", pay: "all" })}
-        />
-        <PlatformMetricCard
-          accent="teal"
-          label="Agents"
-          value={metrics.agents}
-          hint="Distribution"
-          active={networkActive({ type: "agent", status: "all", pay: "all" })}
-          onClick={() => onFilter({ type: "agent", status: "all", pay: "all" })}
-        />
-        <PlatformMetricCard
-          accent="gold"
-          label="Accounts"
-          value={Math.max(0, metrics.all)}
-          hint="All orgs"
-          active={networkActive({ type: "all", status: "all", pay: "all" })}
-          onClick={() => onFilter({ type: "all", status: "all", pay: "all" })}
-        />
-        <PlatformMetricCard
-          accent="violet"
-          label="Sites"
-          value={metrics.sites}
-          hint="Storefronts"
-          active={networkActive({ type: "site", status: "all", pay: "all" })}
-          onClick={() => onFilter({ type: "site", status: "all", pay: "all" })}
+      <div className="platform-detail__body">
+        <PlatformDetailTable
+          title="Accounts"
+          tone="blue"
+          ariaLabel="Accounts"
+          onViewDetails={() => onFilter({ type: "all", status: "all", pay: "all" })}
+          columns={[
+            {
+              label: "Total",
+              value: Math.max(0, metrics.all),
+              accent: "gold",
+              active: networkActive({ type: "all", status: "all", pay: "all" }),
+              onClick: () => onFilter({ type: "all", status: "all", pay: "all" }),
+            },
+            {
+              label: "Active",
+              value: metrics.active,
+              accent: "ok",
+              active: networkActive({ type: "all", status: "active", pay: "all" }),
+              onClick: () => onFilter({ type: "all", status: "active", pay: "all" }),
+            },
+            {
+              label: "Paused",
+              value: metrics.paused,
+              accent: "slate",
+              active: networkActive({ type: "all", status: "paused", pay: "all" }),
+              onClick: () => onFilter({ type: "all", status: "paused", pay: "all" }),
+            },
+            {
+              label: "Sites",
+              value: metrics.sites,
+              accent: "violet",
+              active: networkActive({ type: "site", status: "all", pay: "all" }),
+              onClick: () => onFilter({ type: "site", status: "all", pay: "all" }),
+            },
+            {
+              label: "Cashiers",
+              value: Math.max(0, cashierCount),
+              accent: "slate",
+            },
+          ]}
         />
 
-        <button
-          type="button"
-          className={`platform-detail__feature${
-            networkActive({ type: "all", status: "all", pay: "all" }) ? " is-active" : ""
-          }`}
-          onClick={() => onFilter({ type: "all", status: "all", pay: "all" })}
-          aria-pressed={networkActive({ type: "all", status: "all", pay: "all" })}
-        >
-          <span className="platform-detail__feature-kicker">Trusted network</span>
-          <span className="platform-detail__feature-value">
-            {Math.max(0, metrics.all).toLocaleString()}
-            <span>+</span>
-          </span>
-          <span className="platform-detail__feature-label">orgs across agents & merchants</span>
-          <span className="platform-detail__feature-orb" aria-hidden />
-        </button>
+        <PlatformDetailTable
+          title="Agents"
+          tone="ok"
+          ariaLabel="Agents"
+          onViewDetails={() => onFilter({ type: "agent", status: "all", pay: "all" })}
+          columns={[
+            {
+              label: "Agents",
+              value: metrics.agents,
+              accent: "teal",
+              active: networkActive({ type: "agent", status: "all", pay: "all" }),
+              onClick: () => onFilter({ type: "agent", status: "all", pay: "all" }),
+            },
+            {
+              label: "Paid",
+              value: metrics.agentPay.paid ?? 0,
+              accent: "ok",
+              active: networkActive({ type: "agent", status: "all", pay: "paid" }),
+              onClick: () => onFilter({ type: "agent", status: "all", pay: "paid" }),
+            },
+            {
+              label: "Pending",
+              value: metrics.agentPay.pending ?? 0,
+              accent: "warn",
+              active: networkActive({ type: "agent", status: "all", pay: "pending" }),
+              onClick: () => onFilter({ type: "agent", status: "all", pay: "pending" }),
+            },
+            {
+              label: "Scheduled",
+              value: metrics.agentPay.scheduled ?? 0,
+              accent: "slate",
+              active: networkActive({ type: "agent", status: "all", pay: "scheduled" }),
+              onClick: () => onFilter({ type: "agent", status: "all", pay: "scheduled" }),
+            },
+          ]}
+        />
+
+        <PlatformDetailTable
+          title="Merchants"
+          tone="violet"
+          ariaLabel="Merchants"
+          onViewDetails={() => onFilter({ type: "merchant", status: "all", pay: "all" })}
+          columns={[
+            {
+              label: "Merchants",
+              value: metrics.merchants,
+              accent: "blue",
+              active: networkActive({ type: "merchant", status: "all", pay: "all" }),
+              onClick: () => onFilter({ type: "merchant", status: "all", pay: "all" }),
+            },
+            {
+              label: "Paid",
+              value: metrics.merchantPay.paid ?? 0,
+              accent: "ok",
+              active: networkActive({ type: "merchant", status: "all", pay: "paid" }),
+              onClick: () => onFilter({ type: "merchant", status: "all", pay: "paid" }),
+            },
+            {
+              label: "Overdue",
+              value: metrics.merchantPay.overdue ?? 0,
+              accent: "danger",
+              critical: true,
+              active: networkActive({ type: "merchant", status: "all", pay: "overdue" }),
+              onClick: () => onFilter({ type: "merchant", status: "all", pay: "overdue" }),
+            },
+            {
+              label: "Issued",
+              value: metrics.merchantPay.issued ?? 0,
+              accent: "blue",
+              active: networkActive({ type: "merchant", status: "all", pay: "issued" }),
+              onClick: () => onFilter({ type: "merchant", status: "all", pay: "issued" }),
+            },
+          ]}
+        />
+
       </div>
 
-      <div className="platform-detail__panels">
-        <section className="platform-detail__panel" aria-label="Merchant billing">
-          <div className="platform-detail__panel-head">
-            <h4 className="platform-detail__section-title">Merchant billing</h4>
-            <span className="platform-detail__panel-chip">Fees</span>
-          </div>
-          <div className="platform-detail__status-grid">
-            <PlatformMetricCard
-              accent="ok"
-              label="Paid"
-              value={metrics.merchantPay.paid ?? 0}
-              hint="Settled"
-              active={networkActive({
-                type: "merchant",
-                status: "all",
-                pay: "paid",
-              })}
-              onClick={() =>
-                onFilter({ type: "merchant", status: "all", pay: "paid" })
-              }
-            />
-            <PlatformMetricCard
-              accent="danger"
-              label="Overdue"
-              value={metrics.merchantPay.overdue ?? 0}
-              hint="Needs attention"
-              active={networkActive({
-                type: "merchant",
-                status: "all",
-                pay: "overdue",
-              })}
-              onClick={() =>
-                onFilter({ type: "merchant", status: "all", pay: "overdue" })
-              }
-            />
-            <PlatformMetricCard
-              accent="warn"
-              label="Issued"
-              value={metrics.merchantPay.issued ?? 0}
-              hint="Awaiting pay"
-              active={networkActive({
-                type: "merchant",
-                status: "all",
-                pay: "issued",
-              })}
-              onClick={() =>
-                onFilter({ type: "merchant", status: "all", pay: "issued" })
-              }
-            />
-          </div>
-        </section>
-
-        <section className="platform-detail__panel" aria-label="Agent payouts">
-          <div className="platform-detail__panel-head">
-            <h4 className="platform-detail__section-title">Agent payouts</h4>
-            <span className="platform-detail__panel-chip">Commission</span>
-          </div>
-          <div className="platform-detail__status-grid">
-            <PlatformMetricCard
-              accent="ok"
-              label="Paid"
-              value={metrics.agentPay.paid ?? 0}
-              hint="Sent"
-              active={networkActive({
-                type: "agent",
-                status: "all",
-                pay: "paid",
-              })}
-              onClick={() =>
-                onFilter({ type: "agent", status: "all", pay: "paid" })
-              }
-            />
-            <PlatformMetricCard
-              accent="warn"
-              label="Pending"
-              value={metrics.agentPay.pending ?? 0}
-              hint="In queue"
-              active={networkActive({
-                type: "agent",
-                status: "all",
-                pay: "pending",
-              })}
-              onClick={() =>
-                onFilter({ type: "agent", status: "all", pay: "pending" })
-              }
-            />
-            <PlatformMetricCard
-              accent="violet"
-              label="Scheduled"
-              value={metrics.agentPay.scheduled ?? 0}
-              hint="Upcoming"
-              active={networkActive({
-                type: "agent",
-                status: "all",
-                pay: "scheduled",
-              })}
-              onClick={() =>
-                onFilter({ type: "agent", status: "all", pay: "scheduled" })
-              }
-            />
-          </div>
-        </section>
-      </div>
-
-      <div className="platform-detail__footer-row" role="group" aria-label="Org status">
-        <PlatformMetricCard
-          accent="ok"
-          label="Active"
-          value={metrics.active}
-          hint={`${activeRate}% healthy`}
-          active={networkActive({ type: "all", status: "active", pay: "all" })}
-          onClick={() => onFilter({ type: "all", status: "active", pay: "all" })}
-        />
-        <PlatformMetricCard
-          accent="slate"
-          label="Paused"
-          value={metrics.paused}
-          hint={metrics.paused > 0 ? "Needs review" : "No action"}
-          active={networkActive({ type: "all", status: "paused", pay: "all" })}
-          onClick={() => onFilter({ type: "all", status: "paused", pay: "all" })}
-        />
-        <PlatformMetricCard
-          accent="danger"
-          label="Overdue bills"
-          value={metrics.merchantPay.overdue ?? 0}
-          hint="Merchant fees"
-          active={networkActive({
-            type: "merchant",
-            status: "all",
-            pay: "overdue",
-          })}
-          onClick={() =>
-            onFilter({ type: "merchant", status: "all", pay: "overdue" })
-          }
-        />
-        <PlatformMetricCard
-          accent="violet"
-          label="Pending payouts"
-          value={metrics.agentPay.pending ?? 0}
-          hint="Agent queue"
-          active={networkActive({
-            type: "agent",
-            status: "all",
-            pay: "pending",
-          })}
-          onClick={() =>
-            onFilter({ type: "agent", status: "all", pay: "pending" })
-          }
-        />
-      </div>
+      <Link className="platform-detail__team-link" to={teamHref} title="Open platform team">
+        Team
+        <span aria-hidden>→</span>
+      </Link>
     </div>
   );
+}
+
+/** Org tree geometry — must match merchant.css (.b3-accounts__row / guides). */
+const TREE_PAD = 10;
+const TREE_GUIDE = 16;
+const TREE_CHEVRON_HALF = 10;
+
+/**
+ * Caret center X for a row at `depth`.
+ * Guides take `depth * GUIDE` after pad; chevron follows with no gap so the
+ * child caret sits on the parent rail (not under the parent badge).
+ */
+function treeCaretX(depth: number): number {
+  return TREE_PAD + depth * TREE_GUIDE + TREE_CHEVRON_HALF;
 }
 
 function OrgTreeItem({
   node,
   depth,
+  ancestors = [],
+  isLast = true,
   expanded,
   selectedId,
   onSelect,
   onToggle,
   budgets,
+  canManage,
+  busy,
+  onSuspend,
+  onActivate,
+  onDelete,
 }: {
   node: PlatformOrgTreeNode;
   depth: number;
+  /** Vertical guide columns for levels above this node (length === max(0, depth - 1)). */
+  ancestors?: boolean[];
+  isLast?: boolean;
   expanded: Set<string>;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   budgets: TreeRowBudgets;
+  canManage: boolean;
+  busy: boolean;
+  onSuspend: (node: PlatformOrgTreeNode) => void;
+  onActivate: (node: PlatformOrgTreeNode) => void;
+  onDelete: (node: PlatformOrgTreeNode) => void;
 }) {
+  const navigate = useNavigate();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const isPaused = node.status === "paused";
   const isAgent = node.type === "agent" || node.type === "agent_sub";
   const isMerchant = node.type === "merchant";
+  const canOnboard = canManage && orgCanAddChild(node.type);
+  const canLifecycle = canManage && node.type !== "platform" && node.type !== "merchant_site";
+  const hasMenu = canOnboard || canLifecycle;
   const commission = isAgent
     ? (budgets.commissionByAgentId.get(node.id) ?? null)
     : null;
@@ -1072,10 +972,76 @@ function OrgTreeItem({
     if (hasChildren) onToggle(node.id);
   };
 
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  useEffect(() => {
+    if (!menu) return;
+    // Defer close listeners so the opening right-click doesn't immediately dismiss.
+    const timer = window.setTimeout(() => {
+      const onDoc = (event: MouseEvent) => {
+        if (!(event.target instanceof Node)) return;
+        if (!menuRef.current?.contains(event.target)) closeMenu();
+      };
+      const onKey = (event: globalThis.KeyboardEvent) => {
+        if (event.key === "Escape") closeMenu();
+      };
+      const onScroll = () => closeMenu();
+      document.addEventListener("mousedown", onDoc);
+      document.addEventListener("keydown", onKey);
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", onScroll);
+      closeCleanup = () => {
+        document.removeEventListener("mousedown", onDoc);
+        document.removeEventListener("keydown", onKey);
+        window.removeEventListener("scroll", onScroll, true);
+        window.removeEventListener("resize", onScroll);
+      };
+    }, 0);
+    let closeCleanup: (() => void) | undefined;
+    return () => {
+      window.clearTimeout(timer);
+      closeCleanup?.();
+    };
+  }, [menu, closeMenu]);
+
+  const caretX = treeCaretX(depth);
+  const parentDepth = depth - 1;
+  const parentRailX = depth > 0 ? treeCaretX(parentDepth) : TREE_PAD + TREE_CHEVRON_HALF;
+  const forkGuideStart = TREE_PAD + Math.max(0, parentDepth) * TREE_GUIDE;
+  const forkLeft = depth > 0 ? parentRailX - forkGuideStart : TREE_CHEVRON_HALF;
+  const forkWidth = depth > 0 ? caretX - parentRailX : 0;
+
+  const onboardHref =
+    node.type === "platform"
+      ? withReturnTo(platformRoute("agents/new"))
+      : isAgent
+        ? withReturnTo(
+            `${platformRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
+          )
+        : null;
+  const onboardLabel =
+    node.type === "platform" ? "New Agent" : isAgent ? "New Merchant" : "New";
+
+  const menuStyle = menu
+    ? (() => {
+        const pad = 8;
+        const w = 188;
+        const h = 168;
+        const x = Math.min(menu.x, window.innerWidth - w - pad);
+        const y = Math.min(menu.y, window.innerHeight - h - pad);
+        return {
+          position: "fixed",
+          left: Math.max(pad, x),
+          top: Math.max(pad, y),
+          zIndex: 1200,
+        } as CSSProperties;
+      })()
+    : undefined;
+
   return (
     <div
       id={`org-tree-${node.id}`}
-      className="b3-accounts__node"
+      className={`b3-accounts__node${hasChildren && isOpen ? " is-open" : ""}`}
       role="treeitem"
       aria-expanded={hasChildren ? isOpen : undefined}
       aria-selected={isSelected}
@@ -1085,14 +1051,41 @@ function OrgTreeItem({
         className={`b3-accounts__row org-architecture__row${isSelected ? " is-selected" : ""}${
           node.type === "merchant_site" ? " is-site" : ""
         }${isPaused ? " is-paused" : ""}`}
-        style={{ paddingLeft: 10 + depth * 16 }}
+        style={
+          {
+            ["--tree-stem-x"]: `${caretX}px`,
+            ["--tree-guide-w"]: `${TREE_GUIDE}px`,
+            ["--tree-fork-left"]: `${forkLeft}px`,
+            ["--tree-fork-width"]: `${forkWidth}px`,
+          } as CSSProperties
+        }
         onClick={select}
         onDoubleClick={(e) => {
           e.preventDefault();
           toggle();
         }}
+        onContextMenu={(e) => {
+          if (!hasMenu) return;
+          e.preventDefault();
+          e.stopPropagation();
+          select();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         role="presentation"
       >
+        {depth > 0 ? (
+          <span className="b3-accounts__guides" aria-hidden>
+            {ancestors.map((show, index) => (
+              <span
+                key={`a-${index}`}
+                className={`b3-accounts__guide${show ? " is-line" : ""}`}
+              />
+            ))}
+            <span
+              className={`b3-accounts__guide is-fork${isLast ? " is-last" : ""}`}
+            />
+          </span>
+        ) : null}
         {hasChildren ? (
           <button
             type="button"
@@ -1155,7 +1148,7 @@ function OrgTreeItem({
               }`}
               title="Account status"
             >
-              {isPaused ? "Paused" : "Active"}
+              {isPaused ? "PAUSED" : "ACTIVE"}
             </span>
           </span>
           <span className="org-architecture__meta-budget">
@@ -1201,19 +1194,144 @@ function OrgTreeItem({
           </span>
         </span>
       </div>
-      {hasChildren && isOpen
-        ? node.children.map((child) => (
+      {hasChildren && isOpen ? (
+        <div
+          className="b3-accounts__children"
+          style={
+            {
+              /* Align continuous rail with this node's caret (includes row gap). */
+              ["--tree-line-x"]: `${caretX}px`,
+            } as CSSProperties
+          }
+        >
+          {node.children.map((child, index) => (
             <OrgTreeItem
               key={child.id}
               node={child}
               depth={depth + 1}
+              ancestors={depth > 0 ? [...ancestors, !isLast] : []}
+              isLast={index === node.children.length - 1}
               expanded={expanded}
               selectedId={selectedId}
               onSelect={onSelect}
               onToggle={onToggle}
               budgets={budgets}
+              canManage={canManage}
+              busy={busy}
+              onSuspend={onSuspend}
+              onActivate={onActivate}
+              onDelete={onDelete}
             />
-          ))
+          ))}
+        </div>
+      ) : null}
+      {menu && hasMenu
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="org-architecture__ctx-menu"
+              style={menuStyle}
+              role="menu"
+              aria-label={`${node.name} actions`}
+            >
+              {canOnboard && onboardHref ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="org-architecture__ctx-item"
+                  disabled={busy}
+                  onClick={() => {
+                    closeMenu();
+                    navigate(onboardHref);
+                  }}
+                >
+                  <CtxPlusIcon />
+                  <span className="org-architecture__ctx-copy">
+                    <span className="org-architecture__ctx-label">{onboardLabel}</span>
+                  </span>
+                </button>
+              ) : null}
+              {canOnboard && node.type === "platform" ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="org-architecture__ctx-item"
+                  disabled={busy}
+                  onClick={() => {
+                    closeMenu();
+                    navigate(withReturnTo(platformRoute("merchants/new")));
+                  }}
+                >
+                  <CtxPlusIcon />
+                  <span className="org-architecture__ctx-copy">
+                    <span className="org-architecture__ctx-label">New Merchant</span>
+                  </span>
+                </button>
+              ) : null}
+              {canOnboard && canLifecycle ? (
+                <div className="org-architecture__ctx-sep" role="separator" />
+              ) : null}
+              {canLifecycle ? (
+                isPaused ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="org-architecture__ctx-item org-architecture__ctx-item--active"
+                    disabled={busy}
+                    onClick={() => {
+                      closeMenu();
+                      onActivate(node);
+                    }}
+                  >
+                    <CtxPlayIcon />
+                    <span className="org-architecture__ctx-copy">
+                      <span className="org-architecture__ctx-label">Active</span>
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="org-architecture__ctx-item org-architecture__ctx-item--suspend"
+                    disabled={busy}
+                    onClick={() => {
+                      closeMenu();
+                      onSuspend(node);
+                    }}
+                  >
+                    <CtxPauseIcon />
+                    <span className="org-architecture__ctx-copy">
+                      <span className="org-architecture__ctx-label">Suspend</span>
+                    </span>
+                  </button>
+                )
+              ) : null}
+              {canLifecycle ? (
+                <>
+                  <div className="org-architecture__ctx-sep" role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="org-architecture__ctx-item org-architecture__ctx-item--danger"
+                    disabled={busy}
+                    onClick={() => {
+                      closeMenu();
+                      onDelete(node);
+                    }}
+                  >
+                    <CtxTrashIcon />
+                    <span className="org-architecture__ctx-copy">
+                      <span className="org-architecture__ctx-label">Delete</span>
+                      <span className="org-architecture__ctx-hint">
+                        This action cannot be undone.
+                      </span>
+                    </span>
+                  </button>
+                </>
+              ) : null}
+            </div>,
+            document.body,
+          )
         : null}
     </div>
   );
@@ -1226,6 +1344,7 @@ function OrgTreeDetail({
   canManage,
   busy,
   platformStats,
+  cashierCount,
   budgets,
   filter,
   onFilter,
@@ -1246,6 +1365,7 @@ function OrgTreeDetail({
     sites: number;
     paused: number;
   } | null;
+  cashierCount?: number;
   budgets?: TreeRowBudgets | null;
   filter?: OrgTreeFilter;
   onFilter?: (next: PlatformMetricFilter) => void;
@@ -1254,13 +1374,10 @@ function OrgTreeDetail({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const addMenuRef = useRef<HTMLDivElement | null>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const counts = childTypeCounts(node);
   const detailHref = orgDetailHref(node.type, node.id, node.parentId);
   const detailLabel = orgDetailLabel(node.type);
   const canAdd = orgCanAddChild(node.type);
-  const canSubAgent = false; // Phase 1: no nested agents
   const breadcrumb = orgBreadcrumbPath(node.id, byId);
   const ownerEmail = ownerEmailByOrgId.get(node.id) ?? null;
   const isPaused = node.status === "paused";
@@ -1273,27 +1390,14 @@ function OrgTreeDetail({
   const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
   const depth = isAgent ? agentDepthOfNode(node, byId) : null;
   const ops = useOrgTreeOpsExtras(node);
-
-  useEffect(() => {
-    setAddMenuOpen(false);
-  }, [node.id]);
-
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const onDocPointer = (e: MouseEvent) => {
-      if (!(e.target instanceof Node)) return;
-      if (!addMenuRef.current?.contains(e.target)) setAddMenuOpen(false);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setAddMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [addMenuOpen]);
+  const onboardHref = isAgentParent
+    ? withReturnTo(
+        `${platformRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
+      )
+    : orgAddChildHref(node.type)
+      ? withReturnTo(orgAddChildHref(node.type)!)
+      : null;
+  const onboardLabel = isAgentParent ? "New Merchant" : "New Agent";
 
   if (isPlatform && platformStats && budgets && filter && onFilter) {
     return (
@@ -1302,14 +1406,11 @@ function OrgTreeDetail({
         byId={byId}
         budgets={budgets}
         platformStats={platformStats}
+        cashierCount={cashierCount ?? 0}
         filter={filter}
         canManage={canManage}
         busy={busy}
         onFilter={onFilter}
-        onAdd={() => {
-          const href = orgAddChildHref(node.type);
-          if (href) navigate(withReturnTo(href));
-        }}
       />
     );
   }
@@ -1320,7 +1421,6 @@ function OrgTreeDetail({
       value: formatOnboardDate(node.createdAt),
       always: true,
     },
-    { label: "Legal name", value: node.legalName, always: false },
     { label: "Country", value: node.country, always: false },
     { label: "Owner email", value: ownerEmail, always: false },
   ];
@@ -1354,73 +1454,15 @@ function OrgTreeDetail({
           </div>
           {showActions ? (
             <div className="org-architecture__actions" aria-label="Org actions">
-              {canAdd ? (
-                isAgentParent ? (
-                  <div className="org-architecture__add-wrap" ref={addMenuRef}>
-                    <button
-                      type="button"
-                      className="org-architecture__action org-architecture__action--add"
-                      disabled={busy}
-                      aria-expanded={addMenuOpen}
-                      aria-haspopup="menu"
-                      onClick={() => setAddMenuOpen((open) => !open)}
-                    >
-                      Add
-                    </button>
-                    {addMenuOpen ? (
-                      <div
-                        className="org-architecture__add-menu"
-                        role="menu"
-                        aria-label="Add child account"
-                      >
-                        {canSubAgent ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="org-architecture__add-option"
-                            onClick={() => {
-                              setAddMenuOpen(false);
-                              navigate(
-                                withReturnTo(
-                                  `${platformRoute("agents/new")}?kind=agent_sub&parentId=${encodeURIComponent(node.id)}`,
-                                ),
-                              );
-                            }}
-                          >
-                            Sub-agent
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="org-architecture__add-option"
-                          onClick={() => {
-                            setAddMenuOpen(false);
-                            navigate(
-                              withReturnTo(
-                                `${platformRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
-                              ),
-                            );
-                          }}
-                        >
-                          Merchant
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="org-architecture__action org-architecture__action--add"
-                    disabled={busy}
-                    onClick={() => {
-                      const href = orgAddChildHref(node.type);
-                      if (href) navigate(withReturnTo(href));
-                    }}
-                  >
-                    Add
-                  </button>
-                )
+              {canAdd && onboardHref ? (
+                <button
+                  type="button"
+                  className="org-architecture__action org-architecture__action--add"
+                  disabled={busy}
+                  onClick={() => navigate(onboardHref)}
+                >
+                  {onboardLabel}
+                </button>
               ) : null}
               {canDelete ? (
                 <>
@@ -1542,14 +1584,6 @@ function OrgTreeDetail({
           {isMerchant ? (
             <>
               <MetaRow
-                label="Structure"
-                value={
-                  node.structure
-                    ? (STRUCTURE_LABELS[node.structure] ?? node.structure)
-                    : "-"
-                }
-              />
-              <MetaRow
                 label="Tier"
                 value={
                   ops.loading
@@ -1663,6 +1697,8 @@ export function AccountsPage({ session }: { session: Session }) {
   const [ownerEmailByOrgId, setOwnerEmailByOrgId] = useState<Map<string, string>>(
     () => new Map(),
   );
+  const [cashierCount, setCashierCount] = useState(0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [suspendTarget, setSuspendTarget] = useState<PlatformOrgTreeNode | null>(
     null,
@@ -1671,7 +1707,6 @@ export function AccountsPage({ session }: { session: Session }) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTone, setToastTone] = useState<"ok" | "error">("ok");
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
 
@@ -1687,7 +1722,6 @@ export function AccountsPage({ session }: { session: Session }) {
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("platform-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   useLayoutEffect(() => {
@@ -1733,6 +1767,10 @@ export function AccountsPage({ session }: { session: Session }) {
       setBills(billRows);
       setForest(nextForest);
       setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
+      setCashierCount(
+        emailRows.reduce((sum, row) => sum + (row.cashierCount ?? 0), 0),
+      );
+      setLastUpdatedAt(Date.now());
       // Do not reset expansion on every load — selection/nav must not collapse
       // nodes the user just opened (e.g. double-click expand).
       setExpanded((prev) => {
@@ -1785,6 +1823,7 @@ export function AccountsPage({ session }: { session: Session }) {
       const nextForest = buildPlatformOrgForest(detail);
       setOrgs(detail);
       setForest(nextForest);
+      setLastUpdatedAt(Date.now());
       setExpanded((prev) => {
         if (accountsView !== "tree") {
           // Keep scoped tabs collapsed; only preserve ids still present.
@@ -1829,9 +1868,13 @@ export function AccountsPage({ session }: { session: Session }) {
     ]);
     const nextForest = buildPlatformOrgForest(orgs);
     setOrgs(orgs);
-    setForest(nextForest);
-    setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
-    setExpanded((prev) => {
+      setForest(nextForest);
+      setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
+      setCashierCount(
+        emailRows.reduce((sum, row) => sum + (row.cashierCount ?? 0), 0),
+      );
+      setLastUpdatedAt(Date.now());
+      setExpanded((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
         if (nextForest.byId.has(id)) next.add(id);
@@ -1989,6 +2032,28 @@ export function AccountsPage({ session }: { session: Session }) {
     [filteredRoots],
   );
 
+  const agentFootCount = useMemo(() => {
+    let n = 0;
+    const walk = (nodes: PlatformOrgTreeNode[]) => {
+      for (const node of nodes) {
+        if (node.type === "agent" || node.type === "agent_sub") n += 1;
+        if (node.children.length) walk(node.children);
+      }
+    };
+    walk(filteredRoots);
+    return n;
+  }, [filteredRoots]);
+
+  const lastUpdatedLabel = useMemo(() => {
+    if (lastUpdatedAt == null) return "—";
+    const sec = Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000));
+    if (sec < 15) return "just now";
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    return `${Math.floor(min / 60)}h ago`;
+  }, [lastUpdatedAt, loading]);
+
   const selectedNode =
     selectedId != null ? (forest.byId.get(selectedId) ?? null) : null;
 
@@ -2142,94 +2207,42 @@ export function AccountsPage({ session }: { session: Session }) {
 
       {topbarSlot
         ? createPortal(
-            <label className="org-agents__search-wrap">
-              <span className="org-agents__search-icon" aria-hidden>
-                <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
-                  <circle
-                    cx="8.5"
-                    cy="8.5"
-                    r="5.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M12.75 12.75 16.5 16.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
+            <label className="topbar-search">
+              <svg
+                className="topbar-search__icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
               <input
-                className="field-control org-agents__search"
+                className="topbar-search__input"
                 type="search"
                 placeholder={
                   accountsView === "agents"
                     ? "Search agents…"
                     : accountsView === "merchants"
                       ? "Search merchants…"
-                      : "Filter by org name…"
+                      : "Search accounts, merchants, or agents…"
                 }
                 value={filter.query}
                 onChange={(e) =>
                   setFilter((f) => ({ ...f, query: e.target.value }))
                 }
                 aria-label="Filter org tree"
+                autoComplete="off"
+                spellCheck={false}
               />
             </label>,
             topbarSlot,
-          )
-        : null}
-
-      {topbarActionsSlot
-        ? createPortal(
-            <div
-              className="org-architecture__topbar-actions"
-              aria-label="Accounts filters"
-            >
-              {accountsView === "tree" ? (
-                <label className="org-architecture__select-wrap">
-                  <span className="sr-only">Org type</span>
-                  <select
-                    className="org-architecture__select org-architecture__select--topbar"
-                    value={filter.type}
-                    aria-label="Org type"
-                    onChange={(e) =>
-                      setFilter((f) => {
-                        const type = e.target.value as OrgTreeFilter["type"];
-                        const pay = isPayAllowedInContext(f.pay, "tree", type)
-                          ? f.pay
-                          : "all";
-                        return { ...f, type, pay };
-                      })
-                    }
-                  >
-                    {TYPE_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-
-              <div
-                className="org-architecture__tree-btns"
-                role="group"
-                aria-label="Accounts actions"
-              >
-                <button
-                  type="button"
-                  className="org-architecture__icon-btn"
-                  onClick={() => void load()}
-                  disabled={loading}
-                  title="Refresh org list"
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>,
-            topbarActionsSlot,
           )
         : null}
 
@@ -2254,122 +2267,103 @@ export function AccountsPage({ session }: { session: Session }) {
           >
             <header className="org-architecture__pane-head org-architecture__pane-head--row">
               <div className="org-architecture__pane-title-cluster">
-                <span className="org-architecture__pane-mark" aria-hidden>
-                  {accountsView === "agents" ? (
-                    <AgentsNavIcon />
-                  ) : accountsView === "merchants" ? (
-                    <MerchantsNavIcon />
-                  ) : (
-                    <ArchitectureNavIcon />
-                  )}
-                </span>
-                <h3 className="org-architecture__pane-title">
-                  {accountsView === "agents"
-                    ? "Agents"
-                    : accountsView === "merchants"
-                      ? "Merchants"
-                      : "Architecture"}
-                </h3>
-                <span
-                  className="org-architecture__pane-count"
-                  aria-label="Visible node count"
-                >
-                  {loading ? "…" : visibleCount.toLocaleString()}
-                </span>
+                <div className="org-architecture__pane-title-row">
+                  <span className="org-architecture__pane-mark" aria-hidden>
+                    {accountsView === "agents" ? (
+                      <AgentsNavIcon />
+                    ) : accountsView === "merchants" ? (
+                      <MerchantsNavIcon />
+                    ) : (
+                      <ArchitectureNavIcon />
+                    )}
+                  </span>
+                  <h3 className="org-architecture__pane-title">
+                    {accountsView === "agents"
+                      ? "Agents"
+                      : accountsView === "merchants"
+                        ? "Merchants"
+                        : "Architecture"}
+                  </h3>
+                  <span
+                    className="org-architecture__pane-count"
+                    aria-label="Visible node count"
+                  >
+                    {loading ? "…" : visibleCount.toLocaleString()}
+                  </span>
+                </div>
               </div>
               <div className="org-architecture__pane-toolbar">
-                <div
-                  className="org-architecture__pane-tree-btns"
-                  role="group"
-                  aria-label="Status filter"
-                >
-                  {STATUS_FILTERS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`org-architecture__pane-icon-btn org-architecture__pane-icon-btn--status-${item.id}${
-                        filter.status === item.id ? " is-active" : ""
-                      }`}
-                      aria-pressed={filter.status === item.id}
-                      title={item.label}
-                      aria-label={item.label}
-                      onClick={() =>
-                        setFilter((f) => ({
-                          ...f,
-                          status: item.id,
-                          pay: item.id === "all" ? f.pay : "all",
-                        }))
-                      }
-                    >
-                      <StatusFilterIcon id={item.id} />
-                    </button>
-                  ))}
+                <div className="org-architecture__pane-filter">
+                  <SearchableSelect
+                    value={filter.status}
+                    options={STATUS_FILTERS}
+                    allowEmpty={false}
+                    menuMinWidth={128}
+                    ariaLabel="Status filter"
+                    onChange={(id) => {
+                      const status = id as OrgTreeFilter["status"];
+                      setFilter((f) => ({
+                        ...f,
+                        status,
+                        pay: status === "all" ? f.pay : "all",
+                      }));
+                    }}
+                  />
                 </div>
                 {visiblePayFilters.length > 0 ? (
-                  <div
-                    className="org-architecture__pane-tree-btns"
-                    role="group"
-                    aria-label={
-                      accountsView === "agents"
-                        ? "Agent payout filter"
-                        : accountsView === "merchants"
-                          ? "Merchant billing filter"
-                          : filter.type === "agent"
-                            ? "Agent payout filter"
-                            : filter.type === "merchant"
-                              ? "Merchant billing filter"
-                              : "Payment status filter"
-                    }
-                  >
-                    {visiblePayFilters.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`org-architecture__pane-icon-btn org-architecture__pane-icon-btn--pay-${item.id}${
-                          filter.pay === item.id ? " is-active" : ""
-                        }`}
-                        aria-pressed={filter.pay === item.id}
-                        title={item.title}
-                        aria-label={item.title}
-                        onClick={() =>
-                          setFilter((f) => {
-                            const nextPay = item.id;
-                            if (accountsView !== "tree") {
-                              return {
-                                ...f,
-                                pay: nextPay,
-                                status: "all",
-                              };
-                            }
-                            let nextType: OrgTreeFilter["type"] = "all";
-                            if (
-                              nextPay === "overdue" ||
-                              nextPay === "issued"
-                            ) {
-                              nextType = "merchant";
-                            } else if (
-                              nextPay === "pending" ||
-                              nextPay === "scheduled"
-                            ) {
-                              nextType = "agent";
-                            } else if (nextPay === "paid") {
-                              nextType =
-                                f.type === "merchant" || f.type === "agent"
-                                  ? f.type
-                                  : "all";
-                            }
+                  <div className="org-architecture__pane-filter">
+                    <SearchableSelect
+                      value={filter.pay}
+                      options={visiblePayFilters.map((item) => ({
+                        id: item.id,
+                        label: item.label,
+                      }))}
+                      allowEmpty={false}
+                      menuMinWidth={160}
+                      ariaLabel={
+                        accountsView === "agents"
+                          ? "Agent payout filter"
+                          : accountsView === "merchants"
+                            ? "Merchant billing filter"
+                            : filter.type === "agent"
+                              ? "Agent payout filter"
+                              : filter.type === "merchant"
+                                ? "Merchant billing filter"
+                                : "Payment status filter"
+                      }
+                      onChange={(id) => {
+                        const nextPay = id as OrgTreeFilter["pay"];
+                        setFilter((f) => {
+                          if (accountsView !== "tree") {
                             return {
                               ...f,
                               pay: nextPay,
                               status: "all",
-                              type: nextType,
                             };
-                          })
-                        }
-                      >
-                        <PayFilterIcon id={item.id} />
-                      </button>
-                    ))}
+                          }
+                          let nextType: OrgTreeFilter["type"] = "all";
+                          if (nextPay === "overdue" || nextPay === "issued") {
+                            nextType = "merchant";
+                          } else if (
+                            nextPay === "pending" ||
+                            nextPay === "scheduled"
+                          ) {
+                            nextType = "agent";
+                          } else if (nextPay === "paid") {
+                            nextType =
+                              f.type === "merchant" || f.type === "agent"
+                                ? f.type
+                                : "all";
+                          }
+                          return {
+                            ...f,
+                            pay: nextPay,
+                            status: "all",
+                            type: nextType,
+                          };
+                        });
+                      }}
+                    />
                   </div>
                 ) : null}
                 <div
@@ -2377,6 +2371,16 @@ export function AccountsPage({ session }: { session: Session }) {
                   role="group"
                   aria-label="Tree expand collapse"
                 >
+                  <button
+                    type="button"
+                    className="org-architecture__pane-icon-btn"
+                    onClick={() => void load()}
+                    disabled={loading}
+                    title="Refresh org list"
+                    aria-label="Refresh org list"
+                  >
+                    <RefreshIcon />
+                  </button>
                   <button
                     type="button"
                     className="org-architecture__pane-icon-btn"
@@ -2400,9 +2404,6 @@ export function AccountsPage({ session }: { session: Session }) {
                     <TreeCollapseIcon />
                   </button>
                 </div>
-                {canManage ? (
-                  <PaneOnboardMenu preferMerchant={accountsView === "merchants"} />
-                ) : null}
               </div>
             </header>
             <div
@@ -2440,10 +2441,30 @@ export function AccountsPage({ session }: { session: Session }) {
                     onSelect={onSelect}
                     onToggle={onToggle}
                     budgets={treeBudgets}
+                    canManage={canManage}
+                    busy={busy}
+                    onSuspend={(n) => setSuspendTarget(n)}
+                    onActivate={(n) => void onSetStatus(n, "active")}
+                    onDelete={(n) => openDelete(n)}
                   />
                 ))
               )}
             </div>
+            <footer className="org-architecture__tree-foot">
+              <span className="org-architecture__tree-foot-summary">
+                {loading
+                  ? "Loading accounts…"
+                  : accountsView === "agents"
+                    ? `Showing ${visibleCount.toLocaleString()} agent${visibleCount === 1 ? "" : "s"}`
+                    : accountsView === "merchants"
+                      ? `Showing ${visibleCount.toLocaleString()} merchant${visibleCount === 1 ? "" : "s"}`
+                      : `Showing ${visibleCount.toLocaleString()} account${visibleCount === 1 ? "" : "s"} across ${agentFootCount.toLocaleString()} agent${agentFootCount === 1 ? "" : "s"}`}
+              </span>
+              <span className="org-architecture__tree-foot-live">
+                <span className="org-architecture__live-dot" aria-hidden />
+                Last updated {lastUpdatedLabel}
+              </span>
+            </footer>
           </section>
 
           <aside className="org-architecture__detail-pane" aria-label="Account detail">
@@ -2510,6 +2531,9 @@ export function AccountsPage({ session }: { session: Session }) {
                   busy={busy}
                   platformStats={
                     selectedNode.type === "platform" ? forest.stats : null
+                  }
+                  cashierCount={
+                    selectedNode.type === "platform" ? cashierCount : undefined
                   }
                   budgets={
                     selectedNode.type === "platform" ? treeBudgets : null

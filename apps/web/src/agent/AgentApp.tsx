@@ -149,7 +149,15 @@ export function AgentApp() {
           path="agents/:id"
           element={<Navigate to={agentRoute("merchants")} replace />}
         />
-        <Route path="settings" element={<AgentSettingsPage session={session} />} />
+        <Route
+          path="settings"
+          element={
+            <AgentSettingsPage
+              session={session}
+              onSessionRefresh={setSession}
+            />
+          }
+        />
         <Route path="settings/team" element={<TeamSettingsPage session={session} />} />
         <Route
           path="settings/security"

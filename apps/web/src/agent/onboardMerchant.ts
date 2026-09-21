@@ -13,10 +13,3 @@ export const MERCHANT_TIER_LABELS: Record<MerchantTier, string> = {
   mid: "Mid",
   enterprise: "Enterprise",
 };
-
-export type MerchantStructure = "single_location" | "multi_location";
-
-export const STRUCTURE_LABELS: Record<MerchantStructure, string> = {
-  single_location: "Single location",
-  multi_location: "Multi-location",
-};

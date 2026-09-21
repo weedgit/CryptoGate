@@ -19,12 +19,16 @@ import {
   listMerchantCommercialByOrgIds,
 } from "./merchant-commercial-store.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
+import {
+  defaultMerchantSchedulePlan,
+} from "../platform-settings/pricing-resolve.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { collectAncestorOrgIds } from "../orgs/org-ancestry.mjs";
 import {
   canReadMerchantCommercial,
   canUpdateMerchantCommercial,
+  canUpdatePlatformOwnerSettings,
   isMerchantOrgType,
 } from "../orgs/role-policy.mjs";
 
@@ -97,6 +101,9 @@ export async function handleListMerchantCommercialSummaries(req, res, url) {
 
 /**
  * PUT /v1/orgs/{orgId}/commercial
+ * Fixed rate overrides require Platform Owner. Automatic resets also Owner-only.
+ * Legacy in-band tier/rate edits remain available to channel managers when
+ * rateMode is omitted (keeps existing agent tooling working).
  */
 export async function handlePutMerchantCommercial(req, res, orgId) {
   const caller = await requireCaller(req, res);
@@ -113,16 +120,6 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     return;
   }
   const ancestors = await collectAncestorOrgIds(org);
-  if (!canUpdateMerchantCommercial(caller, org, ancestors)) {
-    sendError(res, 403, "forbidden", "Not allowed to update merchant commercial settings");
-    return;
-  }
-
-  const existing = await findMerchantCommercial(orgId);
-  if (!existing) {
-    sendError(res, 404, "not_found", "Commercial settings not configured");
-    return;
-  }
 
   let body;
   try {
@@ -132,28 +129,80 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     return;
   }
 
+  const existing = await findMerchantCommercial(orgId);
+  if (!existing) {
+    sendError(res, 404, "not_found", "Commercial settings not configured");
+    return;
+  }
+
   const validated = validateUpdateMerchantCommercialBody(body, existing.tier);
   if (!validated.ok) {
     sendError(res, validated.status, validated.code, validated.message);
     return;
   }
 
+  const wantsFixed =
+    validated.rateMode === "fixed" ||
+    (validated.rateMode === undefined && existing.rate_mode === "fixed");
+  const wantsAutomatic = validated.rateMode === "automatic";
+
+  if (wantsFixed || wantsAutomatic) {
+    if (!canUpdatePlatformOwnerSettings(caller)) {
+      sendError(
+        res,
+        403,
+        "forbidden",
+        "Only platform Owner may set or clear fixed commercial rates",
+      );
+      return;
+    }
+  } else if (!canUpdateMerchantCommercial(caller, org, ancestors)) {
+    sendError(res, 403, "forbidden", "Not allowed to update merchant commercial settings");
+    return;
+  }
+
+  if (wantsAutomatic) {
+    const plan = await defaultMerchantSchedulePlan();
+    const updated = await applyMerchantCommercialImmediate(orgId, {
+      tier: plan.tier,
+      volumeFeePercent: plan.volumeFeePercent,
+      rateMode: "automatic",
+    });
+    await insertAuditEvent({
+      actorUserId: caller.userId,
+      orgId,
+      action: AUDIT_ACTIONS.merchantCommercialPut,
+      metadata: {
+        tier: plan.tier,
+        volumeFeePercent: plan.volumeFeePercent,
+        rateMode: "automatic",
+        reason: validated.reason ?? null,
+      },
+    });
+    const band = await findFeeTierBand(updated.tier);
+    sendJson(res, 200, toMerchantCommercialSettings(updated, band));
+    return;
+  }
+
+  const rateMode = wantsFixed ? "fixed" : "automatic";
+  const volumeFeePercent = validated.volumeFeePercent;
   const bandRow = await findFeeTierBand(validated.tier);
   const bandCheck = validateCommercialAgainstBand(
     validated.tier,
-    validated.volumeFeePercent,
+    volumeFeePercent,
     bandRow,
+    rateMode,
   );
   if (!bandCheck.ok) {
     sendError(res, bandCheck.status, bandCheck.code, bandCheck.message);
     return;
   }
 
-  if (bandCheck.needsApproval) {
+  if (bandCheck.needsApproval && rateMode !== "fixed") {
     await insertEnterpriseRateApproval({
       orgId,
       requestedTier: validated.tier,
-      requestedVolumeFeePercent: validated.volumeFeePercent,
+      requestedVolumeFeePercent: volumeFeePercent,
       requestedByUserId: caller.userId,
     });
     await setEnterpriseApprovalPending(orgId);
@@ -169,7 +218,7 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
       action: AUDIT_ACTIONS.merchantCommercialPut,
       metadata: {
         tier: validated.tier,
-        volumeFeePercent: validated.volumeFeePercent,
+        volumeFeePercent,
         pendingApproval: true,
         reason: validated.reason ?? null,
       },
@@ -179,7 +228,8 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
 
   const updated = await applyMerchantCommercialImmediate(orgId, {
     tier: validated.tier,
-    volumeFeePercent: validated.volumeFeePercent,
+    volumeFeePercent,
+    rateMode,
   });
   await insertAuditEvent({
     actorUserId: caller.userId,
@@ -187,7 +237,8 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     action: AUDIT_ACTIONS.merchantCommercialPut,
     metadata: {
       tier: validated.tier,
-      volumeFeePercent: validated.volumeFeePercent,
+      volumeFeePercent,
+      rateMode,
       reason: validated.reason ?? null,
     },
   });
@@ -201,15 +252,18 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
  *   orgId: string,
  *   tier: string,
  *   volumeFeePercent: string,
+ *   rateMode?: "automatic" | "fixed",
  *   actorUserId: string,
  *   needsApproval?: boolean,
  * }} input
  */
 export async function bootstrapMerchantCommercial(input) {
+  const rateMode = input.rateMode === "fixed" ? "fixed" : "automatic";
   const row = await insertMerchantCommercial({
     orgId: input.orgId,
     tier: input.tier,
     volumeFeePercent: input.volumeFeePercent,
+    rateMode,
     enterpriseApprovalStatus: input.needsApproval ? "pending" : null,
   });
   if (input.needsApproval) {
@@ -224,12 +278,16 @@ export async function bootstrapMerchantCommercial(input) {
 }
 
 /**
+ * Optional commercial on create — omit to auto-bootstrap Mid schedule.
  * @param {unknown} commercial
  * @param {string} [defaultTier]
  */
 export function parseCommercialOnCreate(commercial, defaultTier = MerchantTier.Mid) {
-  if (!commercial || typeof commercial !== "object") {
-    return fail(400, "invalid_request", "commercial is required for merchant orgs");
+  if (commercial === undefined || commercial === null) {
+    return { ok: true, omitted: true };
+  }
+  if (typeof commercial !== "object") {
+    return fail(400, "invalid_request", "commercial must be an object");
   }
   const tier =
     typeof commercial.tier === "string" ? commercial.tier : defaultTier;
@@ -241,9 +299,9 @@ export function parseCommercialOnCreate(commercial, defaultTier = MerchantTier.M
       ? commercial.volumeFeePercent.trim()
       : "";
   if (!volumeFeePercent) {
-    return fail(400, "invalid_request", "commercial.volumeFeePercent is required");
+    return fail(400, "invalid_request", "commercial.volumeFeePercent is required when commercial is provided");
   }
-  return { ok: true, tier, volumeFeePercent };
+  return { ok: true, omitted: false, tier, volumeFeePercent };
 }
 
 function fail(status, code, message) {

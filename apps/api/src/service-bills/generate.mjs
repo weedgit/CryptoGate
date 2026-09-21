@@ -1,8 +1,7 @@
 import { ServiceBillStatus } from "@paymentgate/domain";
-import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
-import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
+import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
 import { addUsdAmounts } from "./service-bill-rules.mjs";
 import {
   defaultDueAt,
@@ -21,6 +20,9 @@ import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 /**
  * Issue one service bill per active merchant for the period from confirmed volume.
  * Does not debit payer on-chain amounts — USD subscription + volume fee only.
+ *
+ * Automatic merchants: tier + fee follow the volume schedule for billed volume.
+ * Fixed merchants: keep the Owner-locked rate.
  *
  * @param {{
  *   periodStart?: string,
@@ -60,18 +62,6 @@ export async function generateServiceBillsForPeriod(input = {}) {
       continue;
     }
 
-    const commercial = await findMerchantCommercial(merchant.id);
-    if (!commercial) {
-      skipped.push({ orgId: merchant.id, reason: "no_commercial" });
-      continue;
-    }
-
-    const band = await findFeeTierBand(commercial.tier);
-    if (!band) {
-      skipped.push({ orgId: merchant.id, reason: "no_fee_tier" });
-      continue;
-    }
-
     const subtree = await listOrgsInSubtree([merchant.id]);
     const volumeOrgIds = subtree
       .filter((r) => r.type === "merchant" || r.type === "merchant_site")
@@ -82,11 +72,21 @@ export async function generateServiceBillsForPeriod(input = {}) {
       exclusiveEndIso,
     );
     const billedVolumeUsd = roundUsd(volumeRaw);
+
+    const resolved = await resolveMerchantRatesForBilling(
+      merchant.id,
+      Number(billedVolumeUsd),
+    );
+    if (!resolved) {
+      skipped.push({ orgId: merchant.id, reason: "no_commercial" });
+      continue;
+    }
+
     const volumeFeeAmount = volumeFeeUsd(
       billedVolumeUsd,
-      commercial.volume_fee_percent,
+      resolved.volumeFeePercent,
     );
-    const subscriptionAmount = roundUsd(band.subscription_amount_usd);
+    const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
     const totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
 
     const row = await insertServiceBill({
@@ -98,8 +98,8 @@ export async function generateServiceBillsForPeriod(input = {}) {
       totalAmount,
       dueAt,
       status: ServiceBillStatus.Issued,
-      tier: commercial.tier,
-      volumeFeePercent: String(commercial.volume_fee_percent),
+      tier: resolved.tier,
+      volumeFeePercent: String(resolved.volumeFeePercent),
       billedVolumeUsd,
     });
     issued.push(row);

@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { PagePending } from "../platform/ui/PlatformPending";
-import { RouteErrorBoundary } from "./RouteErrorBoundary";
+import { RoutedErrorBoundary } from "./RouteErrorBoundary";
 
 /** Keep shell chrome mounted while a lazy route chunk loads. */
 export function LazyRoute({
@@ -10,8 +10,8 @@ export function LazyRoute({
   title?: string;
 }) {
   return (
-    <RouteErrorBoundary>
+    <RoutedErrorBoundary>
       <Suspense fallback={<PagePending />}>{children}</Suspense>
-    </RouteErrorBoundary>
+    </RoutedErrorBoundary>
   );
 }

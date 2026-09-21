@@ -15,6 +15,7 @@ import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
+import { VerifyContactBanner } from "../auth/VerifyContactBanner";
 import {
   AlertsNavIcon,
   BillsNavIcon,
@@ -200,16 +201,18 @@ export function MerchantShell({
     [merchantId, orgs],
   );
   const locationKind = useMemo(
-    () => sessionLocationKind(session, orgs),
-    [session, orgs],
+    () => sessionLocationKind(session),
+    [session],
   );
   const groups = useMemo(() => {
     if (cashier) return CASHIER_GROUPS;
-    if (locationKind === "multi") return OWNER_GROUPS;
-    return OWNER_GROUPS.map((g) => ({
-      ...g,
-      items: g.items.filter((item) => item.to !== merchantRoute("sites")),
-    }));
+    if (locationKind === "site") {
+      return OWNER_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((item) => item.to !== merchantRoute("sites")),
+      }));
+    }
+    return OWNER_GROUPS;
   }, [cashier, locationKind]);
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -292,7 +295,7 @@ export function MerchantShell({
               <span className="logo-badge">
                 {cashier ? "Cashier" : "Merchant"}
               </span>
-              {locationKind ? (
+              {locationKind === "site" ? (
                 <span
                   className="logo-badge logo-badge--location"
                   title={locationKindTitle(locationKind)}
@@ -362,6 +365,13 @@ export function MerchantShell({
           onOpenAlerts={() => setAlertsOpen(true)}
         />
         <div className="body">
+          {onSessionRefresh ? (
+            <VerifyContactBanner
+              session={session}
+              onSession={onSessionRefresh}
+              portal="merchant"
+            />
+          ) : null}
           {cashier && showCashierBanner ? <CashierRestrictedBanner /> : null}
           {children}
         </div>

@@ -49,6 +49,7 @@ describe("session payload", () => {
     assert.equal(session.memberships[0].role, "cashier");
     assert.equal(session.mfaEnrolled, true);
     assert.equal(session.mustChangePassword, false);
+    assert.equal(session.contactVerified, false);
   });
 
   it("defaults memberships and MFA flags (user prefs off)", () => {
@@ -59,6 +60,9 @@ describe("session payload", () => {
     assert.deepEqual(session.memberships, []);
     assert.equal(session.mfaEnrolled, false);
     assert.equal(session.mustChangePassword, false);
+    assert.equal(session.emailVerified, false);
+    assert.equal(session.phoneVerified, false);
+    assert.equal(session.contactVerified, false);
     assert.equal(session.mfaEnforcement, false);
     assert.equal(session.sessionTimeoutMinutes, 120);
   });

@@ -95,3 +95,14 @@ export async function sendPasswordResetEmail(input) {
     text: `Reset your password: ${input.resetUrl}`,
   });
 }
+
+/**
+ * @param {{ to: string, code: string }} input
+ */
+export async function sendEmailOtp(input) {
+  return sendTransactionalEmail({
+    to: input.to,
+    subject: "PaymentGate email verification",
+    text: `Your verification code is ${input.code}. It expires in 10 minutes.`,
+  });
+}

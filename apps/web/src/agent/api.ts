@@ -53,7 +53,6 @@ export type OrgAccount = {
   type: string;
   name: string;
   parentId: string | null;
-  structure?: string | null;
   status?: "active" | "paused";
   country?: string | null;
   legalName?: string | null;
@@ -318,6 +317,7 @@ export type MerchantCommercialSettings = {
   orgId: string;
   tier: string;
   volumeFeePercent: string;
+  rateMode?: "automatic" | "fixed";
   pendingVolumeFeePercent?: string | null;
   subscriptionAmountUsd: string;
   bandMinPercent: string;
@@ -332,6 +332,9 @@ export type FeeTierBand = {
   volumeFeeMinPercent: string;
   volumeFeeMaxPercent: string;
   defaultSignupPercent: string;
+  volumeMinUsd?: string;
+  volumeMaxUsd?: string | null;
+  agentCommissionPercent?: string;
   tierDescription?: string;
 };
 
@@ -401,7 +404,6 @@ export async function createOrg(body: {
   type: string;
   name: string;
   parentId: string;
-  structure?: string;
   country?: string;
   legalName?: string;
   commercial?: { tier: string; volumeFeePercent: string };

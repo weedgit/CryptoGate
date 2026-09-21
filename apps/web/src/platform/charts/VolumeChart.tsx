@@ -14,7 +14,7 @@ import {
   formatChartDateTime,
   useLineChartHover,
 } from "../ui/ChartHover";
-import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "../ui/chartAxis";
+import { formatAxisNumber, dualAxisScale, DUAL_AXIS_SECONDARY_HEADROOM } from "../ui/chartAxis";
 
 function formatAxisUsd(n: number): string {
   return formatAxisNumber(n, true);
@@ -26,11 +26,15 @@ function formatAxisAsset(n: number, asset: string): string {
 }
 
 function formatMoneyFigure(n: number): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
+/** Mockup-style USD — `$1,234.56` (no trailing unit). */
 function formatUsd(n: number): string {
-  return `${formatMoneyFigure(n)} USD`;
+  return `$${formatMoneyFigure(n)}`;
 }
 
 function formatAssetAmount(n: number, asset: string): string {
@@ -112,6 +116,7 @@ export function VolumeChart({
     Boolean(secondaryValues) &&
     secondaryValues!.length === values.length &&
     Boolean(secondaryUnit);
+  const primaryIsAsset = valueUnit !== "usd";
   const h = fullscreen ? 360 : 220;
   const padLeft = fullscreen ? 88 : 76;
   const padRight = dual ? (fullscreen ? 88 : 76) : fullscreen ? 16 : 14;
@@ -218,18 +223,27 @@ export function VolumeChart({
     return { idxs, max, maxSecondary };
   }, [values, secondaryValues, dual, view.start, view.end, lastIndex]);
 
-  const yTicks = useMemo(
-    () => niceAxisTicks(visible.max, fullscreen ? 6 : 5),
-    [visible.max, fullscreen],
+  const tickTarget = fullscreen ? 6 : 5;
+  // Dual compare: stretch the USD unit grid so convert-rate pairs don't share pixels.
+  const primaryScale = useMemo(
+    () => dualAxisScale(visible.max, tickTarget, 1),
+    [visible.max, tickTarget],
   );
-  const yTop = chartScaleTop(visible.max, fullscreen ? 6 : 5);
-  const yTicksSecondary = useMemo(
-    () => (dual ? niceAxisTicks(visible.maxSecondary, fullscreen ? 6 : 5) : []),
-    [dual, visible.maxSecondary, fullscreen],
+  const secondaryScale = useMemo(
+    () =>
+      dual
+        ? dualAxisScale(
+            visible.maxSecondary,
+            tickTarget,
+            DUAL_AXIS_SECONDARY_HEADROOM,
+          )
+        : { ticks: [] as number[], top: 1 },
+    [dual, visible.maxSecondary, tickTarget],
   );
-  const yTopSecondary = dual
-    ? chartScaleTop(visible.maxSecondary, fullscreen ? 6 : 5)
-    : 1;
+  const yTicks = primaryScale.ticks;
+  const yTop = primaryScale.top;
+  const yTicksSecondary = secondaryScale.ticks;
+  const yTopSecondary = secondaryScale.top;
 
   const indexToX = useCallback(
     (i: number) => {
@@ -371,7 +385,11 @@ export function VolumeChart({
     valueUnit === "usd" ? formatAxisUsd(n) : formatAxisAsset(n, valueUnit);
 
   const formatSecondaryAxis = (n: number) =>
-    secondaryUnit ? formatAxisAsset(n, secondaryUnit) : formatAxisUsd(n);
+    secondaryUnit === "usd"
+      ? formatAxisUsd(n)
+      : formatAxisAsset(n, secondaryUnit ?? "");
+
+  const secondaryIsUsd = dual && secondaryUnit === "usd";
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 || lastIndex <= 0) return;
@@ -462,21 +480,25 @@ export function VolumeChart({
           </button>
         </div>
       ) : null}
-      {dual ? (
+      {dual || primaryIsAsset ? (
         <div className="volume-chart__legend" aria-hidden>
-          <span className="volume-chart__legend-item is-usd">
-            <i />
-            USD
-          </span>
           <span className="volume-chart__legend-item is-asset">
             <i />
-            {secondaryUnit}
+            {primaryIsAsset ? valueUnit : secondaryUnit}
           </span>
+          {dual ? (
+            <span
+              className={`volume-chart__legend-item${secondaryIsUsd ? " is-usd" : " is-asset"}`}
+            >
+              <i />
+              {secondaryUnit === "usd" ? "USD" : secondaryUnit}
+            </span>
+          ) : null}
         </div>
       ) : null}
       <svg
         ref={svgRef}
-        className={`volume-chart volume-chart--plat-ref${fullscreen ? " volume-chart--fullscreen" : ""}${dragging ? " is-dragging" : ""}${zoomed ? " is-zoomed" : ""}${revealPhase === "axis" ? " is-axis-revealing" : ""}${dual ? " volume-chart--dual" : ""}`}
+        className={`volume-chart volume-chart--plat-ref${fullscreen ? " volume-chart--fullscreen" : ""}${dragging ? " is-dragging" : ""}${zoomed ? " is-zoomed" : ""}${revealPhase === "axis" ? " is-axis-revealing" : ""}${dual ? " volume-chart--dual" : ""}${primaryIsAsset ? " volume-chart--asset-primary" : ""}${secondaryIsUsd ? " volume-chart--usd-secondary" : ""}`}
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
         role="img"
@@ -600,9 +622,10 @@ export function VolumeChart({
                 stroke="none"
               />
             ) : null}
-            {areaSecondary ? (
+            {/* Dual compare: skip secondary fill so overlapping FX-scaled paths stay readable. */}
+            {areaSecondary && !secondaryIsUsd ? (
               <path
-                className="volume-chart__history-fill volume-chart__history-fill--secondary"
+                className="volume-chart__history-fill volume-chart__history-fill--asset"
                 d={areaSecondary}
                 fill={`url(#${fillSecondaryId})`}
                 stroke="none"
@@ -612,28 +635,40 @@ export function VolumeChart({
               <path className="volume-chart__frame" d={frame} fill="none" />
             ) : null}
             <path
-              className="volume-chart__line"
+              className={`volume-chart__line${primaryIsAsset ? " volume-chart__line--asset" : ""}`}
               d={line}
               fill="none"
-              stroke="currentColor"
+              style={{
+                stroke: primaryIsAsset ? "var(--volume-asset, #30d8fc)" : "#fbbf24",
+              }}
               strokeWidth={fullscreen ? 3 : 2.5}
             />
             {lineSecondary ? (
               <path
-                className="volume-chart__line volume-chart__line--secondary"
+                className={`volume-chart__line${secondaryIsUsd ? " volume-chart__line--usd" : " volume-chart__line--asset"}`}
                 d={lineSecondary}
                 fill="none"
+                style={{
+                  stroke: secondaryIsUsd
+                    ? "#fbbf24"
+                    : "var(--volume-asset, #30d8fc)",
+                  strokeDasharray: secondaryIsUsd ? "7 5" : undefined,
+                }}
                 strokeWidth={fullscreen ? 2.75 : 2.25}
               />
             ) : null}
             {pts.map((p) => (
               <circle
                 key={`p-${p.i}`}
-                className="volume-chart__point"
+                className={`volume-chart__point${primaryIsAsset ? " volume-chart__point--asset" : ""}`}
                 cx={p.x}
                 cy={p.y}
                 r={fullscreen ? 5.5 : 4.75}
-                fill="currentColor"
+                style={{
+                  fill: primaryIsAsset
+                    ? "var(--volume-asset-point, #a5f3fc)"
+                    : "#fde68a",
+                }}
                 opacity={
                   revealPhase === "idle" && active && active.i !== p.i ? 0.4 : 1
                 }
@@ -643,10 +678,15 @@ export function VolumeChart({
               ? pts.map((p) => (
                   <circle
                     key={`p2-${p.i}`}
-                    className="volume-chart__point volume-chart__point--secondary"
+                    className={`volume-chart__point${secondaryIsUsd ? " volume-chart__point--usd" : " volume-chart__point--asset"}`}
                     cx={p.x}
                     cy={p.y2}
                     r={fullscreen ? 5 : 4.25}
+                    style={{
+                      fill: secondaryIsUsd
+                        ? "#fde68a"
+                        : "var(--volume-asset-point, #a5f3fc)",
+                    }}
                     opacity={
                       revealPhase === "idle" && active && active.i !== p.i
                         ? 0.4
@@ -668,13 +708,13 @@ export function VolumeChart({
                 y2={baseline}
               />
               <circle
-                className="chart-hover__dot-ring"
+                className={`chart-hover__dot-ring${primaryIsAsset ? " chart-hover__dot-ring--asset" : ""}`}
                 cx={active.x}
                 cy={active.y}
                 r={fullscreen ? 12 : 10}
               />
               <circle
-                className="chart-hover__dot"
+                className={`chart-hover__dot${primaryIsAsset ? " chart-hover__dot--asset" : ""}`}
                 cx={active.x}
                 cy={active.y}
                 r={fullscreen ? 6 : 5}
@@ -682,13 +722,13 @@ export function VolumeChart({
               {dual ? (
                 <>
                   <circle
-                    className="chart-hover__dot-ring chart-hover__dot-ring--secondary"
+                    className={`chart-hover__dot-ring${secondaryIsUsd ? " chart-hover__dot-ring--usd" : " chart-hover__dot-ring--asset"}`}
                     cx={active.x}
                     cy={active.y2}
                     r={fullscreen ? 11 : 9}
                   />
                   <circle
-                    className="chart-hover__dot chart-hover__dot--secondary"
+                    className={`chart-hover__dot${secondaryIsUsd ? " chart-hover__dot--usd" : " chart-hover__dot--asset"}`}
                     cx={active.x}
                     cy={active.y2}
                     r={fullscreen ? 5.5 : 4.5}
@@ -733,24 +773,38 @@ export function VolumeChart({
       </p>
       {active && activeLabel != null && activeValue != null && hover ? (
         <ChartHoverTip clientX={hover.clientX} clientY={hover.clientY}>
-          <p className="chart-hover__tip-row">
-            <span className="chart-hover__tip-k">
-              {valueUnit === "usd" ? "USD" : valueUnit}
-            </span>
-            <span className="chart-hover__tip-v">
-              {valueUnit === "usd"
-                ? formatUsd(activeValue)
-                : formatAssetAmount(activeValue, valueUnit)}
-            </span>
-          </p>
           {dual && activeSecondary != null && secondaryUnit ? (
-            <p className="chart-hover__tip-row">
-              <span className="chart-hover__tip-k">{secondaryUnit}</span>
+            <>
+              <p className="chart-hover__tip-row">
+                <span className="chart-hover__tip-k">
+                  {valueUnit === "usd" ? "USD" : valueUnit}
+                </span>
+                <span className="chart-hover__tip-v">
+                  {valueUnit === "usd"
+                    ? formatUsd(activeValue)
+                    : formatAssetAmount(activeValue, valueUnit)}
+                </span>
+              </p>
+              <p className="chart-hover__tip-row">
+                <span className="chart-hover__tip-k">
+                  {secondaryUnit === "usd" ? "USD" : secondaryUnit}
+                </span>
+                <span className="chart-hover__tip-v">
+                  {secondaryUnit === "usd"
+                    ? formatUsd(activeSecondary)
+                    : formatAssetAmount(activeSecondary, secondaryUnit)}
+                </span>
+              </p>
+            </>
+          ) : (
+            <p className="chart-hover__tip-row chart-hover__tip-row--solo">
               <span className="chart-hover__tip-v">
-                {formatAssetAmount(activeSecondary, secondaryUnit)}
+                {valueUnit === "usd"
+                  ? formatUsd(activeValue)
+                  : formatAssetAmount(activeValue, valueUnit)}
               </span>
             </p>
-          ) : null}
+          )}
         </ChartHoverTip>
       ) : null}
     </div>

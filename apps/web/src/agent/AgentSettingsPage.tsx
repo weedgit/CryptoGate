@@ -25,6 +25,7 @@ import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import {
   ApiError,
   getAgentPayout,
+  getSession,
   putAgentPayout,
   patchOrgProfile,
   type AgentPayoutAddress,
@@ -40,7 +41,10 @@ import {
   sessionIsAgentViewerOnly,
 } from "./org";
 
-type Props = { session: Session };
+type Props = {
+  session: Session;
+  onSessionRefresh?: (session: Session) => void;
+};
 
 type PendingPayout = {
   asset: string;
@@ -57,7 +61,7 @@ function profileValue(raw: string | null | undefined): {
 }
 
 /** C12 — Agent org settings (profile + payout address). */
-export function AgentSettingsPage({ session }: Props) {
+export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const canEditPayout = useMemo(
     () => sessionCanOnboardMerchant(session),
@@ -165,6 +169,9 @@ export function AgentSettingsPage({ session }: Props) {
       } else {
         setSavedMsg("Payout address saved");
       }
+      if (onSessionRefresh) {
+        onSessionRefresh(await getSession());
+      }
     } catch (err) {
       throw new Error(
         err instanceof ApiError ? err.message : "Failed to save payout address",
@@ -173,7 +180,6 @@ export function AgentSettingsPage({ session }: Props) {
   }
 
   const country = profileValue(org?.country);
-  const legalName = profileValue(org?.legalName);
   const payoutPairLabel = payout
     ? isPlatformFeePair(payout.asset, payout.network)
       ? `${PLATFORM_FEE_ASSET} · ${feeNetworkLabel}`
@@ -226,7 +232,7 @@ export function AgentSettingsPage({ session }: Props) {
               />
               <dl className="plat-settings__dl plat-settings__dl--rows">
                 <div>
-                  <dt>Name</dt>
+                  <dt>Business name</dt>
                   <dd>{org?.name ?? "Agent"}</dd>
                 </div>
                 <div>
@@ -239,12 +245,6 @@ export function AgentSettingsPage({ session }: Props) {
                     {country.text}
                   </dd>
                 </div>
-                <div>
-                  <dt>Legal name</dt>
-                  <dd className={legalName.empty ? "is-empty" : undefined}>
-                    {legalName.text}
-                  </dd>
-                </div>
               </dl>
             </div>
           </div>
@@ -254,6 +254,7 @@ export function AgentSettingsPage({ session }: Props) {
           open={profileEditOpen}
           name={org?.name ?? ""}
           iconKey={org?.iconKey}
+          country={org?.country}
           busy={profileEditBusy}
           error={profileEditError}
           onClose={() => {
@@ -269,6 +270,9 @@ export function AgentSettingsPage({ session }: Props) {
               setSavedMsg("Organization profile saved");
               setProfileEditOpen(false);
               await getAgentOrgs({ force: true });
+              if (onSessionRefresh) {
+                onSessionRefresh(await getSession());
+              }
             } catch (err) {
               setProfileEditError(
                 err instanceof ApiError ? err.message : "Failed to update profile",

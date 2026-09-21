@@ -2,6 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
+import {
+  LIVE_ACTION_LOCKED_HINT,
+  sessionLiveActionsUnlocked,
+} from "../auth/contactVerification";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
@@ -360,12 +364,39 @@ function periodFilterLabel(filter: PeriodFilter): string {
   return PERIOD_OPTIONS.find((opt) => opt.id === filter)?.label.toLowerCase() ?? filter;
 }
 
+function CreateOrderCta({
+  cashierOnly,
+  unlocked,
+  className = "btn-primary btn-inline",
+  prefix = "",
+}: {
+  cashierOnly: boolean;
+  unlocked: boolean;
+  className?: string;
+  prefix?: string;
+}) {
+  const label = `${prefix}${cashierOnly ? "Create order" : "Create payment order"}`;
+  if (!unlocked) {
+    return (
+      <button type="button" className={className} disabled title={LIVE_ACTION_LOCKED_HINT}>
+        {label}
+      </button>
+    );
+  }
+  return (
+    <Link className={className} to={merchantRoute("orders/new")}>
+      {label}
+    </Link>
+  );
+}
+
 function OrdersListEmptyPanel({
   variant,
   query,
   statusFilter,
   periodFilter,
   cashierOnly,
+  canCreate,
   onClearSearch,
   onClearFilters,
 }: {
@@ -374,6 +405,7 @@ function OrdersListEmptyPanel({
   statusFilter: StatusFilter;
   periodFilter: PeriodFilter;
   cashierOnly: boolean;
+  canCreate: boolean;
   onClearSearch?: () => void;
   onClearFilters?: () => void;
 }) {
@@ -485,9 +517,7 @@ function OrdersListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-orders" ? (
-          <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
-            {cashierOnly ? "Create order" : "Create payment order"}
-          </Link>
+          <CreateOrderCta cashierOnly={cashierOnly} unlocked={canCreate} />
         ) : null}
       </div>
     </div>
@@ -498,6 +528,7 @@ export function OrdersListPage({ session }: Props) {
   const navigate = useNavigate();
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
   const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
+  const canCreate = useMemo(() => sessionLiveActionsUnlocked(session), [session]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
   const [query, setQuery] = useState("");
@@ -667,9 +698,12 @@ export function OrdersListPage({ session }: Props) {
                   Export CSV
                 </button>
               ) : null}
-              <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
-                + {cashierOnly ? "Create Order" : "Create Payment Order"}
-              </Link>
+              <CreateOrderCta
+                cashierOnly={cashierOnly}
+                unlocked={canCreate}
+                className="btn-primary btn-inline"
+                prefix="+ "
+              />
             </div>,
             topbarActionsSlot,
           )
@@ -693,6 +727,7 @@ export function OrdersListPage({ session }: Props) {
             statusFilter={statusFilter}
             periodFilter={periodFilter}
             cashierOnly={cashierOnly}
+            canCreate={canCreate}
             onClearSearch={() => setQuery("")}
             onClearFilters={() => {
               setStatusFilter("all");

@@ -24,6 +24,7 @@ import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
+import { VerifyContactBanner } from "../auth/VerifyContactBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import {
   fetchPlatformHealth,
@@ -289,6 +290,13 @@ export function AgentShell({
           onOpenAlerts={() => setAlertsOpen(true)}
         />
         <div className="body">
+          {onSessionRefresh ? (
+            <VerifyContactBanner
+              session={session}
+              onSession={onSessionRefresh}
+              portal="agent"
+            />
+          ) : null}
           {readOnly ? (
             <div className="banner banner-warn" style={{ marginBottom: 16 }}>
               Read-only mode — Viewer accounts cannot onboard merchants or change

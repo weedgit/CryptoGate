@@ -25,8 +25,3 @@ export function parentAgentName(
   }
   return byId.get(merchant.parentId)?.name ?? merchant.parentId;
 }
-
-export const STRUCTURE_LABELS: Record<string, string> = {
-  single_location: "Single location",
-  multi_location: "Multi-location",
-};

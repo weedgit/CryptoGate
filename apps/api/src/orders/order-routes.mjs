@@ -4,6 +4,7 @@ import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
+import { collectAncestorOrgIds } from "../orgs/org-ancestry.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
@@ -151,18 +152,23 @@ export async function handleCreatePaymentOrder(req, res) {
     );
     return;
   }
-  if (merchantOrg.type === "merchant_site" && merchantOrg.parent_id) {
-    const parentOrg = await findOrgById(merchantOrg.parent_id);
-    if (parentOrg?.status === "paused" || parentOrg?.order_create_suspended === true) {
-      sendError(
-        res,
-        403,
-        parentOrg.order_create_suspended ? "order_create_suspended" : "org_paused",
-        parentOrg.order_create_suspended
-          ? "Platform compliance has suspended payment order creation for the parent merchant"
-          : "Parent merchant account is paused; payment orders cannot be created",
-      );
-      return;
+  if (merchantOrg.type === "merchant_site") {
+    const ancestors = await collectAncestorOrgIds(merchantOrg);
+    for (const ancestorId of ancestors) {
+      const ancestor = await findOrgById(ancestorId);
+      if (!ancestor) continue;
+      if (ancestor.status === "paused" || ancestor.order_create_suspended === true) {
+        sendError(
+          res,
+          403,
+          ancestor.order_create_suspended ? "order_create_suspended" : "org_paused",
+          ancestor.order_create_suspended
+            ? "Platform compliance has suspended payment order creation for an ancestor merchant"
+            : "An ancestor merchant or site account is paused; payment orders cannot be created",
+        );
+        return;
+      }
+      if (ancestor.type === "merchant") break;
     }
   }
 

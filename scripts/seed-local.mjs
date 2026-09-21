@@ -117,7 +117,6 @@ async function main() {
     type: "platform",
     name: "PaymentGate",
     parentId: null,
-    structure: null,
     maxAgentDepth: 2,
   });
   if (!created.ok) throw new Error("could not create platform org");

@@ -74,12 +74,18 @@ export async function handlePutFeeTierSettings(req, res) {
     sendError(res, validated.status, validated.code, validated.message);
     return;
   }
-  const settings = await replaceFeeTierSettings(validated.tiers);
+  const settings = await replaceFeeTierSettings(
+    validated.tiers,
+    validated.effectiveTiming,
+  );
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId: null,
     action: AUDIT_ACTIONS.feeTierPut,
-    metadata: { tierCount: validated.tiers.length },
+    metadata: {
+      tierCount: validated.tiers.length,
+      effectiveTiming: validated.effectiveTiming,
+    },
   });
   sendJson(res, 200, settings);
 }
@@ -235,6 +241,7 @@ export async function handleDecideEnterpriseRateApproval(req, res, approvalId) {
     await applyMerchantCommercialImmediate(existing.org_id, {
       tier: existing.requested_tier,
       volumeFeePercent: existing.requested_volume_fee_percent,
+      rateMode: "fixed",
     });
   } else {
     await finalizeEnterpriseApproval(existing.org_id, "denied");

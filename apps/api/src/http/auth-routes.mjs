@@ -7,6 +7,7 @@ import {
   isUserAvatarValue,
   normalizeEmail,
   setUserPosPin,
+  markEmailVerified,
   updateUserPassword,
   updateUserProfile,
   userHasPosPin,
@@ -14,7 +15,7 @@ import {
 } from "../auth/users.mjs";
 import { validatePosPin } from "../auth/pos-pin-hash.mjs";
 import { verifyPassword } from "../auth/password-hash.mjs";
-import { sessionFromUser } from "../auth/session-payload.mjs";
+import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
 import {
   activatePendingMfa,
   clearUserMfa,
@@ -64,7 +65,7 @@ function setSessionCookie(res, token, ttlMs) {
 async function sessionPayload(user, memberships) {
   const memberRows =
     memberships ?? (await listMembershipsForUser(user.id));
-  return sessionFromUser(
+  return sessionFromUserWithSetup(
     {
       id: user.id,
       email: user.email,
@@ -77,6 +78,9 @@ async function sessionPayload(user, memberships) {
       timezone: user.timezone ?? "UTC",
       mfaEnforcement: user.mfaEnforcement === true,
       sessionTimeoutMinutes: user.sessionTimeoutMinutes,
+      emailVerified: user.emailVerified === true,
+      phone: user.phone ?? null,
+      phoneVerified: user.phoneVerified === true,
     },
     memberRows,
   );
@@ -108,7 +112,8 @@ export async function handleLogin(req, res) {
     return;
   }
 
-  const ttlMs = ttlMsForUser(await findUserById(user.id));
+  const profile = await findUserById(user.id);
+  const ttlMs = ttlMsForUser(profile ?? user);
   const created = await createSession({
     userId: user.id,
     ttlMs,
@@ -120,7 +125,7 @@ export async function handleLogin(req, res) {
   });
   setSessionCookie(res, created.token, ttlMs);
   sendJson(res, 200, {
-    session: await sessionPayload(user),
+    session: await sessionPayload(profile ?? user),
     mfaRequired: user.mfaEnrolled,
   });
 }
@@ -559,7 +564,8 @@ export async function handleChangePassword(req, res) {
     actorUserId: user.id,
     action: AUDIT_ACTIONS.passwordResetComplete,
   });
-  sendJson(res, 200, await sessionPayload({ id: user.id, email: user.email }));
+  const next = await findUserById(user.id);
+  sendJson(res, 200, await sessionPayload(next ?? { id: user.id, email: user.email }));
 }
 
 /**
@@ -597,6 +603,7 @@ export async function handleResetPassword(req, res) {
 
   await updateUserPassword(match.userId, password);
   await markPasswordResetUsed(token);
+  await markEmailVerified(match.userId);
   await insertAuditEvent({
     actorUserId: match.userId,
     action: AUDIT_ACTIONS.passwordResetComplete,

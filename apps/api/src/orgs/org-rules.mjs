@@ -1,6 +1,5 @@
 import {
   DEFAULT_MAX_AGENT_DEPTH,
-  MERCHANT_STRUCTURES,
   ORG_TYPES,
 } from "./org-accounts.mjs";
 
@@ -64,8 +63,12 @@ function withRegistration(insert, input) {
 }
 
 /**
- * @param {{ type?: unknown, name?: unknown, parentId?: unknown, structure?: unknown, country?: unknown, legalName?: unknown }} input
- * @param {{ parent: object | null, maxAgentDepth: number, agentDepthOfParent: number }} ctx
+ * @param {{ type?: unknown, name?: unknown, parentId?: unknown, country?: unknown, legalName?: unknown }} input
+ * @param {{
+ *   parent: object | null,
+ *   maxAgentDepth: number,
+ *   agentDepthOfParent: number,
+ * }} ctx
  * @returns {{ ok: true, insert: object } | { ok: false, status: number, code: string, message: string }}
  */
 export function validateCreateOrg(input, ctx) {
@@ -76,8 +79,6 @@ export function validateCreateOrg(input, ctx) {
     parentIdRaw === null || parentIdRaw === undefined || parentIdRaw === ""
       ? null
       : String(parentIdRaw);
-  const structure =
-    typeof input.structure === "string" ? input.structure : null;
 
   if (!ORG_TYPES.includes(type)) {
     return fail(400, "invalid_org_type", "Unknown org type");
@@ -86,21 +87,18 @@ export function validateCreateOrg(input, ctx) {
     return fail(400, "invalid_request", "Name is required");
   }
 
-  // Phase 1 lock: no nested agents. Merchant sites (sub-merchants) remain allowed.
+  // Nested agents removed — legacy agent_sub rows may remain read-only.
   if (type === "agent_sub") {
     return fail(
       403,
-      "phase1_org_type_disabled",
-      "Agent (sub) accounts are not available in Phase 1 — use a top-level agent under Platform",
+      "org_type_disabled",
+      "Sub-agent accounts are no longer available — create a top-level agent under Platform",
     );
   }
 
   if (type === "platform") {
     if (parentId) {
       return fail(400, "invalid_parent", "Platform has no parent");
-    }
-    if (structure) {
-      return fail(400, "invalid_structure", "Platform has no merchant structure");
     }
     return {
       ok: true,
@@ -109,7 +107,6 @@ export function validateCreateOrg(input, ctx) {
           type,
           name,
           parentId: null,
-          structure: null,
           maxAgentDepth: DEFAULT_MAX_AGENT_DEPTH,
         },
         input,
@@ -122,24 +119,6 @@ export function validateCreateOrg(input, ctx) {
   }
 
   const parent = ctx.parent;
-  if (type !== "merchant" && structure) {
-    return fail(400, "invalid_structure", "Only merchant accounts have structure");
-  }
-  if (type === "merchant") {
-    if (!structure || !MERCHANT_STRUCTURES.includes(structure)) {
-      return fail(400, "invalid_structure", "Merchant structure is required");
-    }
-  }
-
-  if (type === "merchant_site" && parent.type === "merchant") {
-    if (parent.structure !== "multi_location") {
-      return fail(
-        403,
-        "invalid_parent",
-        "Sites can only be created under a multi-location merchant",
-      );
-    }
-  }
 
   const parentOk = parentTypeAllowed(type, parent.type);
   if (!parentOk) {
@@ -160,7 +139,6 @@ export function validateCreateOrg(input, ctx) {
         type,
         name,
         parentId,
-        structure: type === "merchant" ? structure : null,
         maxAgentDepth: null,
       },
       input,
@@ -168,7 +146,8 @@ export function validateCreateOrg(input, ctx) {
   };
 }
 
-/** Phase 1 create graph: agent under platform; merchant under platform/agent; site under merchant. */
+/** Phase 1 create graph: agent under platform; merchant under platform/agent;
+ *  site under merchant or site (unlimited depth; no separate sub-site type). */
 function parentTypeAllowed(childType, parentType) {
   switch (childType) {
     case "agent":
@@ -176,7 +155,7 @@ function parentTypeAllowed(childType, parentType) {
     case "merchant":
       return parentType === "platform" || parentType === "agent";
     case "merchant_site":
-      return parentType === "merchant";
+      return parentType === "merchant" || parentType === "merchant_site";
     default:
       return false;
   }

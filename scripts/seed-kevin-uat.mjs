@@ -4,7 +4,7 @@
  *
  * Hierarchy (Phase 1):
  *   Platform → Kevin Agent → merchants
- *   (optional multi_location merchant → merchant_site children)
+ *   (optional merchant → merchant_site children)
  *   No agent_sub.
  *
  * Prerequisites: `node scripts/seed-local.mjs` (platform + owner).
@@ -64,7 +64,6 @@ const ORG_TREE = {
   merchantSingle: {
     name: "Kevin Single Merchant",
     type: "merchant",
-    structure: "single_location",
     displayName: "Kevin Single Merchant",
     legalName: "Kevin Single Merchant SARL AU",
     country: "MA",
@@ -89,7 +88,6 @@ const ORG_TREE = {
   merchantMulti: {
     name: "Kevin Multi Merchant",
     type: "merchant",
-    structure: "multi_location",
     displayName: "Kevin Multi Merchant",
     legalName: "Kevin Multi Merchant Group SA",
     country: "MA",
@@ -118,7 +116,6 @@ const ORG_TREE = {
   merchant2: {
     name: "Kevin Merchant #2",
     type: "merchant",
-    structure: "single_location",
     displayName: "Kevin Merchant #2",
     legalName: "Kevin Merchant Two Ltd",
     country: "MA",
@@ -239,7 +236,6 @@ async function ensureOrg(parentId, spec) {
     type: spec.type,
     name: spec.name,
     parentId,
-    structure: spec.structure ?? null,
     maxAgentDepth: null,
     country: spec.country,
     legalName: spec.legalName,

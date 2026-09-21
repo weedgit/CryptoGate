@@ -27,7 +27,6 @@ import {
   type Session,
 } from "./api";
 import { MerchantDetailCard } from "./MerchantDetailCard";
-import { STRUCTURE_LABELS } from "./merchantSubtree";
 import { OrgListPagination } from "./OrgListPagination";
 import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import type { OnboardNavigateState } from "../shared/onboardInviteState";
@@ -53,7 +52,7 @@ type StatusFilter = "all" | "active" | "paused";
 /** Open / latest service-bill status shown on the merchants list. */
 type MerchantBillStatus = "overdue" | "issued" | "paid";
 
-type SortKey = "name" | "structure" | "parent" | "bill" | "status";
+type SortKey = "name" | "parent" | "bill" | "status";
 type SortDir = "asc" | "desc";
 type SortState = { key: SortKey; dir: SortDir };
 
@@ -566,16 +565,6 @@ export function MerchantsListPage({ session }: Props) {
       if (sort.key === "name") {
         return dir * a.name.localeCompare(b.name);
       }
-      if (sort.key === "structure") {
-        const sa = a.structure
-          ? (STRUCTURE_LABELS[a.structure] ?? a.structure)
-          : "";
-        const sb = b.structure
-          ? (STRUCTURE_LABELS[b.structure] ?? b.structure)
-          : "";
-        const byStructure = dir * sa.localeCompare(sb);
-        return byStructure !== 0 ? byStructure : dir * a.name.localeCompare(b.name);
-      }
       if (sort.key === "parent") {
         const pa = a.parentId ? (byId.get(a.parentId)?.name ?? a.parentId) : "";
         const pb = b.parentId ? (byId.get(b.parentId)?.name ?? b.parentId) : "";
@@ -844,7 +833,6 @@ export function MerchantsListPage({ session }: Props) {
                   <colgroup>
                     <col className="org-agents__col-num" />
                     <col className="org-agents__col-name" />
-                    <col className="org-agents__col-structure" />
                     <col className="org-agents__col-parent" />
                     <col className="org-agents__col-bill" />
                     <col className="org-agents__col-status" />
@@ -857,13 +845,6 @@ export function MerchantsListPage({ session }: Props) {
                         sortKey="name"
                         sort={sort}
                         onSort={onSort}
-                      />
-                      <SortHeader
-                        label="Structure"
-                        sortKey="structure"
-                        sort={sort}
-                        onSort={onSort}
-                        className="org-agents__th-structure"
                       />
                       <SortHeader
                         label="Parent"
@@ -909,11 +890,6 @@ export function MerchantsListPage({ session }: Props) {
                           <td className="org-agents__idx">{rowNum}</td>
                           <td>
                             <span className="org-agents__name">{row.name}</span>
-                          </td>
-                          <td className="org-agents__td-structure">
-                            {row.structure
-                              ? (STRUCTURE_LABELS[row.structure] ?? row.structure)
-                              : "—"}
                           </td>
                           <td className="org-agents__td-parent">
                             <span
@@ -1010,7 +986,7 @@ export function MerchantsListPage({ session }: Props) {
               </div>
               <p className="b3-empty__title">Merchant detail</p>
               <p className="b3-empty__copy">
-                Select a row to inspect structure, fees, settlement, and orders.
+                Select a row to inspect fees, settlement, and orders.
               </p>
               <ul className="b3-empty__hints">
                 <li>Click a row to open overview</li>

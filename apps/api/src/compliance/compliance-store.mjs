@@ -68,7 +68,7 @@ export async function setOrderCreateSuspended(orgId, suspended) {
     `UPDATE org_accounts
      SET order_create_suspended = $2, updated_at = now()
      WHERE id = $1
-     RETURNING id, type, name, parent_id, structure, max_agent_depth, status,
+     RETURNING id, type, name, parent_id, max_agent_depth, status,
                order_create_suspended, country, billing_email, legal_name, created_at`,
     [orgId, suspended === true],
   );

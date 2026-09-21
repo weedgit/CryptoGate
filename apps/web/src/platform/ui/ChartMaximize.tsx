@@ -1,5 +1,6 @@
 import {
   useEffect,
+  type CSSProperties,
   type ReactNode,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -62,6 +63,8 @@ type OverlayProps = {
    * Include your own close control, or omit and use the default close via toolbar layout.
    */
   header?: ReactNode;
+  /** Optional style on the panel (e.g. metric accent CSS variables). */
+  panelStyle?: CSSProperties;
   children: ReactNode;
 };
 
@@ -74,6 +77,7 @@ export function ChartMaximizeOverlay({
   onClose,
   toolbar,
   header,
+  panelStyle,
   children,
 }: OverlayProps) {
   useEffect(() => {
@@ -108,14 +112,19 @@ export function ChartMaximizeOverlay({
   );
 
   return createPortal(
+    // Keep platform-shell and pg-dash nested (not on the same node) so
+    // `.platform-shell .pg-dash …` volume dual-series colors match the dashboard.
     <div
-      className="chart-maximize-overlay platform-shell pg-dash"
+      className="chart-maximize-overlay platform-shell"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onBackdrop}
     >
-      <div className="chart-maximize-overlay__panel">
+      <div
+        className="chart-maximize-overlay__panel pg-dash"
+        style={panelStyle}
+      >
         <header
           className={`chart-maximize-overlay__head${header ? " chart-maximize-overlay__head--custom" : ""}`}
         >

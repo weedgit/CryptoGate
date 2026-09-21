@@ -2,6 +2,7 @@ import { useMatch, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
 import type { Session } from "./api";
 import { CreateOrderModal } from "./CreateOrderModal";
+import { sessionLiveActionsUnlocked } from "../auth/contactVerification";
 import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersListPage } from "./OrdersListPage";
 
@@ -31,7 +32,10 @@ export function MerchantOrdersRoutes({ session }: Props) {
     <>
       <OrdersListPage session={session} />
       {createMatch ? (
-        <CreateOrderModal onClose={() => navigate(merchantRoute("orders"))} />
+        <CreateOrderModal
+          locked={!sessionLiveActionsUnlocked(session)}
+          onClose={() => navigate(merchantRoute("orders"))}
+        />
       ) : null}
     </>
   );

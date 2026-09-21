@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { sessionLiveActionsUnlocked } from "../auth/contactVerification";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { PagePending } from "../platform/ui/PlatformPending";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
@@ -46,7 +47,6 @@ import {
   sessionCanManageOrgAsParent,
   sessionCanOnboardMerchant,
 } from "./org";
-import { STRUCTURE_LABELS } from "./onboardMerchant";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
@@ -84,19 +84,6 @@ function StatusFilterIcon({ id }: { id: OrgTreeFilter["status"] }) {
       <rect x="13.5" y="5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
       <rect x="5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
       <rect x="13.5" y="13.5" width="5.5" height="5.5" rx="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-
-function OnboardPlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }
@@ -164,7 +151,7 @@ function displayOrDash(value: string | null | undefined): string {
 }
 
 const REGISTRATION_HELP: Record<string, string> = {
-  Country: "Country captured on the onboard Details step.",
+  Country: "Country is set in organization settings after invite.",
   "Owner email":
     "Portal Owner invite when present; otherwise the first team member on this account (for example Cashier on load-seed merchants).",
 };
@@ -252,7 +239,7 @@ function agentDetailHref(type: string, id: string): string | null {
 
 function agentDetailLabel(type: string): string | null {
   if (type === "merchant" || type === "merchant_site") return "Open merchant";
-  if (type === "agent_sub") return "Open sub-agent";
+  if (type === "agent_sub") return "Open agent";
   if (type === "agent") return "Open sub-agents";
   return null;
 }
@@ -416,48 +403,24 @@ function OrgTreeDetail({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
-  const addMenuRef = useRef<HTMLDivElement | null>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const counts = childTypeCounts(node);
   const detailHref = agentDetailHref(node.type, node.id);
   const detailLabel = agentDetailLabel(node.type);
   const canAdd = orgCanAddChild(node.type);
-  const canSubAgent = false; // Phase 1: no nested agents
   const breadcrumb = orgBreadcrumbPath(node.id, byId);
   const ownerEmail = ownerEmailByOrgId.get(node.id) ?? null;
   const isPaused = node.status === "paused";
   const isAgentParent = node.type === "agent" || node.type === "agent_sub";
-  const showAdd = canOnboard && canAdd && isAgentParent && canManageAsParent;
+  const showOnboard = canOnboard && canAdd && isAgentParent && canManageAsParent;
   const showLifecycle =
     canManageLifecycle &&
     (node.type === "merchant" || node.type === "agent_sub");
-  const showActions = showAdd || showLifecycle;
+  const showActions = showOnboard || showLifecycle;
   const isAgent = isAgentParent;
   const isMerchant = node.type === "merchant";
   const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
   const depth = isAgent ? agentDepthOfNode(node, byId) : null;
   const ops = useOrgTreeOpsExtras(node);
-
-  useEffect(() => {
-    setAddMenuOpen(false);
-  }, [node.id]);
-
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const onDocPointer = (e: MouseEvent) => {
-      if (!(e.target instanceof Node)) return;
-      if (!addMenuRef.current?.contains(e.target)) setAddMenuOpen(false);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setAddMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [addMenuOpen]);
 
   const contactRows = [
     {
@@ -465,7 +428,6 @@ function OrgTreeDetail({
       value: formatOnboardDate(node.createdAt),
       always: true,
     },
-    { label: "Legal name", value: node.legalName, always: false },
     { label: "Country", value: node.country, always: false },
     { label: "Owner email", value: ownerEmail, always: false },
   ];
@@ -499,55 +461,19 @@ function OrgTreeDetail({
           </div>
           {showActions ? (
             <div className="org-architecture__actions" aria-label="Org actions">
-              {showAdd ? (
-                <div className="org-architecture__add-wrap" ref={addMenuRef}>
-                  <button
-                    type="button"
-                    className="org-architecture__action org-architecture__action--add"
-                    disabled={busy}
-                    aria-expanded={addMenuOpen}
-                    aria-haspopup="menu"
-                    onClick={() => setAddMenuOpen((open) => !open)}
-                  >
-                    Add
-                  </button>
-                  {addMenuOpen ? (
-                    <div
-                      className="org-architecture__add-menu"
-                      role="menu"
-                      aria-label="Add child account"
-                    >
-                      {canSubAgent ? (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="org-architecture__add-option"
-                          onClick={() => {
-                            setAddMenuOpen(false);
-                            navigate(
-                              `${agentRoute("agents/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
-                            );
-                          }}
-                        >
-                          Sub-agent
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="org-architecture__add-option"
-                        onClick={() => {
-                          setAddMenuOpen(false);
-                          navigate(
-                            `${agentRoute("merchants/new?parentId=")}${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
-                          );
-                        }}
-                      >
-                        Merchant
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+              {showOnboard ? (
+                <button
+                  type="button"
+                  className="org-architecture__action org-architecture__action--add"
+                  disabled={busy}
+                  onClick={() => {
+                    navigate(
+                      `${agentRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}&returnTo=${encodeURIComponent(agentRoute("architecture"))}`,
+                    );
+                  }}
+                >
+                  Onboard
+                </button>
               ) : null}
               {showLifecycle ? (
                 <>
@@ -665,16 +591,6 @@ function OrgTreeDetail({
           {isMerchant ? (
             <>
               <MetaRow
-                label="Structure"
-                value={
-                  node.structure
-                    ? (STRUCTURE_LABELS[
-                        node.structure as keyof typeof STRUCTURE_LABELS
-                      ] ?? node.structure)
-                    : "-"
-                }
-              />
-              <MetaRow
                 label="Tier"
                 value={
                   ops.loading
@@ -771,7 +687,12 @@ export function ArchitecturePage({ session }: { session: Session }) {
   const location = useLocation();
   const prevPathRef = useRef(location.pathname);
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
-  const canOnboard = useMemo(() => sessionCanOnboardMerchant(session), [session]);
+  const canOnboard = useMemo(
+    () =>
+      sessionCanOnboardMerchant(session) &&
+      sessionLiveActionsUnlocked(session),
+    [session],
+  );
 
   const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekAgentOrgs() != null);
@@ -1362,16 +1283,6 @@ export function ArchitecturePage({ session }: { session: Session }) {
                     <TreeCollapseIcon />
                   </button>
                 </div>
-                {canOnboard ? (
-                  <Link
-                    className="org-architecture__pane-onboard"
-                    to={`${agentRoute("merchants/new")}?returnTo=${encodeURIComponent(agentRoute("architecture"))}`}
-                    title="Onboard merchant"
-                    aria-label="Onboard merchant"
-                  >
-                    <OnboardPlusIcon />
-                  </Link>
-                ) : null}
               </div>
             </header>
             <div

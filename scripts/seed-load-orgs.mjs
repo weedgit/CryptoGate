@@ -2,7 +2,7 @@
 /**
  * Bulk local load seed — 100 agents, 100 merchants,
  * each merchant with a cashier + payment-order / audit history.
- * Every 5th merchant is multi_location with one merchant_site child.
+ * Every 5th merchant gets one merchant_site child.
  * No agent_sub (Phase 1).
  *
  * Hierarchy:
@@ -231,7 +231,6 @@ async function main() {
       type: "agent",
       name: agentName(i),
       parentId: platform.id,
-      structure: null,
       maxAgentDepth: null,
     });
     if (!created.ok) throw new Error(`agent ${i} failed`);
@@ -245,24 +244,22 @@ async function main() {
 
   for (let i = 1; i <= COUNT; i++) {
     const parentId = agentIds[i - 1];
-    const structure = i % 5 === 0 ? "multi_location" : "single_location";
+    const withSite = i % 5 === 0;
     const created = await insertOrgAccount({
       type: "merchant",
       name: merchantName(i),
       parentId,
-      structure,
       maxAgentDepth: null,
     });
     if (!created.ok) throw new Error(`merchant ${i} failed`);
     const merchantId = created.row.id;
     merchantIds.push(merchantId);
 
-    if (structure === "multi_location") {
+    if (withSite) {
       const site = await insertOrgAccount({
         type: "merchant_site",
         name: `${merchantName(i)} · Site 1`,
         parentId: merchantId,
-        structure: null,
         maxAgentDepth: null,
       });
       if (!site.ok) throw new Error(`merchant site ${i} failed`);

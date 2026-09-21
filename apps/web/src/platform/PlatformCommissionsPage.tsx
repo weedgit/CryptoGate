@@ -152,8 +152,6 @@ export function PlatformCommissionsPage({ session }: Props) {
   hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] =
-    useState<HTMLElement | null>(null);
   const [slip, setSlip] = useState<CommissionPayoutRecord | null>(null);
   const [paidNote, setPaidNote] = useState("");
   const [generatePeriod, setGeneratePeriod] = useState(() =>
@@ -216,7 +214,6 @@ export function PlatformCommissionsPage({ session }: Props) {
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("platform-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const refreshPayouts = useCallback(async () => {
@@ -647,7 +644,7 @@ export function PlatformCommissionsPage({ session }: Props) {
 
       {topbarSlot
         ? createPortal(
-            <label className="org-agents__search-wrap">
+            <label className="org-agents__search-wrap plat-commissions__search-wrap">
               <span className="org-agents__search-icon" aria-hidden>
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
                   <circle
@@ -667,6 +664,7 @@ export function PlatformCommissionsPage({ session }: Props) {
               </span>
               <input
                 className="field-control org-agents__search"
+                type="search"
                 placeholder="Search agent, period, address, or ref…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -677,79 +675,78 @@ export function PlatformCommissionsPage({ session }: Props) {
           )
         : null}
 
-      {topbarActionsSlot && canPay
-        ? createPortal(
-            <div
-              className="org-agents__actions plat-commissions__generate"
-              aria-label="Commission invoice actions"
-            >
-              <label className="plat-commissions__period-input">
-                <span className="sr-only">Invoice billing period</span>
-                <span className="plat-commissions__period-field">
-                  <input
-                    className="field-control plat-commissions__period-control"
-                    type="month"
-                    value={generatePeriod}
-                    onChange={(e) => setGeneratePeriod(e.target.value)}
-                    aria-label="Invoice billing period"
-                  />
-                  <span className="plat-commissions__period-chevron" aria-hidden>
-                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-                      <rect
-                        x="2.25"
-                        y="3.25"
-                        width="11.5"
-                        height="10.5"
-                        rx="1.5"
-                        stroke="currentColor"
-                        strokeWidth="1.35"
-                      />
-                      <path
-                        d="M2.25 6.75h11.5M5.25 2v2.75M10.75 2v2.75"
-                        stroke="currentColor"
-                        strokeWidth="1.35"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>
-                </span>
-              </label>
-              <button
-                type="button"
-                className="btn-primary org-agents__cta"
-                disabled={busy}
-                onClick={() => void onGenerateInvoices()}
-              >
-                {busy ? "Generating…" : "Generate invoices"}
-              </button>
-            </div>,
-            topbarActionsSlot,
-          )
-        : null}
-
       {isViewer ? (
         <p className="banner banner-warn" style={{ marginBottom: 12 }}>
           Viewer — generate invoices and confirm payment are hidden.
         </p>
       ) : null}
 
-      <div
-        className="b3-agent-detail__tabs plat-commissions__tabs"
-        role="tablist"
-        aria-label="Commission scope"
-      >
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            className={`b3-agent-detail__tab${tab === t.id ? " is-active" : ""}`}
-            aria-selected={tab === t.id}
-            onClick={() => selectTab(t.id)}
+      <div className="plat-commissions__toolbar">
+        <div
+          className="b3-agent-detail__tabs plat-commissions__tabs"
+          role="tablist"
+          aria-label="Commission scope"
+        >
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              className={`b3-agent-detail__tab${tab === t.id ? " is-active" : ""}`}
+              aria-selected={tab === t.id}
+              onClick={() => selectTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {canPay ? (
+          <div
+            className="plat-commissions__generate"
+            aria-label="Commission invoice actions"
           >
-            {t.label}
-          </button>
-        ))}
+            <label className="plat-commissions__period-input">
+              <span className="sr-only">Invoice billing period</span>
+              <span className="plat-commissions__period-field">
+                <input
+                  className="field-control plat-commissions__period-control"
+                  type="month"
+                  value={generatePeriod}
+                  onChange={(e) => setGeneratePeriod(e.target.value)}
+                  aria-label="Invoice billing period"
+                />
+                <span className="plat-commissions__period-chevron" aria-hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                    <rect
+                      x="2.25"
+                      y="3.25"
+                      width="11.5"
+                      height="10.5"
+                      rx="1.5"
+                      stroke="currentColor"
+                      strokeWidth="1.35"
+                    />
+                    <path
+                      d="M2.25 6.75h11.5M5.25 2v2.75M10.75 2v2.75"
+                      stroke="currentColor"
+                      strokeWidth="1.35"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+              </span>
+            </label>
+            <button
+              type="button"
+              className="btn-primary plat-commissions__generate-btn"
+              disabled={busy}
+              onClick={() => void onGenerateInvoices()}
+            >
+              {busy ? "Generating…" : "Generate invoices"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {tab === "invoices" ? (
