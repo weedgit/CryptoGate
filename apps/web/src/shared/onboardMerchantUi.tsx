@@ -286,7 +286,14 @@ export function OnboardWizardBrandHead({
         </div>
       </div>
       <Link className="b4-wizard__close" to={closeTo} aria-label="Cancel and return">
-        ×
+        <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <path
+            d="M5 5l10 10M15 5L5 15"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+          />
+        </svg>
       </Link>
     </header>
   );

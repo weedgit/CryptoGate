@@ -35,7 +35,15 @@ function missingSetupParts(session: Session): string {
           : "email and phone",
     );
   }
-  if (session.profileComplete === false) parts.push("country");
+  const hasNames =
+    Boolean(session.firstName?.trim()) && Boolean(session.lastName?.trim());
+  if (!hasNames) parts.push("name");
+  if (!session.timezone?.trim()) parts.push("timezone");
+  if (session.profileComplete === false) {
+    parts.push(
+      session.setupOrgId ? "org profile (billing / country)" : "org profile",
+    );
+  }
   if (session.walletSet === false) parts.push("wallet");
   if (parts.length === 0) return "account setup";
   return parts.join(", ");
@@ -47,6 +55,10 @@ export function VerifyContactBanner({ session, onSession, portal }: Props) {
 
   const profilePath =
     portal === "agent" ? agentRoute("settings") : merchantRoute("settings/team");
+  const personPath =
+    portal === "agent"
+      ? agentRoute("settings/security")
+      : merchantRoute("settings/security");
   const walletPath =
     portal === "agent"
       ? agentRoute("settings")
@@ -72,6 +84,7 @@ export function VerifyContactBanner({ session, onSession, portal }: Props) {
           session={session}
           portal={portal}
           profilePath={profilePath}
+          personPath={personPath}
           walletPath={walletPath}
           onSession={(next) => {
             onSession(next);
@@ -88,6 +101,7 @@ function OrgSetupModal({
   session,
   portal,
   profilePath,
+  personPath,
   walletPath,
   onSession,
   onClose,
@@ -95,12 +109,18 @@ function OrgSetupModal({
   session: Session;
   portal: "agent" | "merchant";
   profilePath: string;
+  personPath: string;
   walletPath: string;
   onSession: (session: Session) => void;
   onClose: () => void;
 }) {
   const contactDone =
     session.emailVerified === true && session.phoneVerified === true;
+  const personDone =
+    session.personComplete === true ||
+    (Boolean(session.firstName?.trim()) &&
+      Boolean(session.lastName?.trim()) &&
+      Boolean(session.timezone?.trim()));
   const profileDone = session.profileComplete !== false;
   const walletDone = session.walletSet !== false;
 
@@ -129,7 +149,7 @@ function OrgSetupModal({
         <div className="login-card-head">
           <h2 id="verify-contact-title">Finish account setup</h2>
           <p>
-            Verify contacts, set country, and add a{" "}
+            Verify contacts, add your name, complete org profile, and add a{" "}
             {portal === "agent" ? "payout" : "settlement"} wallet before creating
             orders, merchants, or invites.
           </p>
@@ -150,14 +170,37 @@ function OrgSetupModal({
             )}
           </section>
           <section>
-            <h3>2. Business name &amp; country</h3>
+            <h3>2. Your name</h3>
+            {personDone ? (
+              <p className="verify-contact-step verify-contact-step--done">
+                Name set
+              </p>
+            ) : (
+              <p>
+                Add first and last name on your profile.{" "}
+                <Link
+                  to={personPath}
+                  onClick={() => {
+                    void refreshSession();
+                    onClose();
+                  }}
+                >
+                  Open profile
+                </Link>
+              </p>
+            )}
+          </section>
+          <section>
+            <h3>3. Business profile</h3>
             {profileDone ? (
               <p className="verify-contact-step verify-contact-step--done">
                 Profile complete
               </p>
             ) : (
               <p>
-                Set country on your organization.{" "}
+                Set billing email
+                {portal === "merchant" ? " and country" : ""} on your
+                organization.{" "}
                 <Link
                   to={profilePath}
                   onClick={() => {
@@ -172,7 +215,7 @@ function OrgSetupModal({
           </section>
           <section>
             <h3>
-              3. {portal === "agent" ? "Payout" : "Settlement"} wallet
+              4. {portal === "agent" ? "Payout" : "Settlement"} wallet
             </h3>
             {walletDone ? (
               <p className="verify-contact-step verify-contact-step--done">

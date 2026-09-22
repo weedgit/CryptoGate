@@ -25,6 +25,8 @@ export function sessionFromUser(user, memberships = []) {
   return {
     userId: user.id,
     email: user.email,
+    firstName: user.firstName ?? null,
+    lastName: user.lastName ?? null,
     displayName: user.displayName ?? null,
     avatarUrl: user.avatarUrl ?? null,
     locale: user.locale || "en",
@@ -55,6 +57,7 @@ export async function sessionFromUserWithSetup(user, memberships = []) {
   return {
     ...base,
     contactVerified: setup.contactVerified,
+    personComplete: setup.personComplete,
     profileComplete: setup.profileComplete,
     walletSet: setup.walletSet,
     setupReady: setup.setupReady,

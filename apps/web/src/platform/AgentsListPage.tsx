@@ -936,6 +936,7 @@ export function AgentsListPage({ session }: Props) {
             <AgentDetailCard
               org={selected}
               orgs={orgs}
+              session={session}
               canManage={canManage}
               busy={busyId === selected.id}
               invitationSent={inviteState.invitationSent === true}

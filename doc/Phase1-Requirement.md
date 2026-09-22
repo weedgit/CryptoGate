@@ -25,9 +25,11 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 **User roles (inside each org account)**
 
 5. On the **Platform** org account: **Owner**, **Administrator**, **Viewer**. On agent and merchant accounts: **Owner**, **Administrator**, **Viewer**; on merchant accounts only: **Cashier**.
-6. **Owner** may add and remove **Administrator** and **Viewer** on Platform, agent, and merchant accounts; **Administrator cannot** add or remove team members.
+6. **Owner** may add and remove **Administrator** and **Viewer** on Platform, agent, and merchant accounts; **Administrator cannot** add or remove team members. **Administrator cannot** change the org **Owner’s person profile**; Owner self-edits; **Platform Owner** may support-edit (audit).
 7. **Cashier** may create and manage **own payment orders** only; cannot change settlement address, xPub, fee rates, or org settings.
-8. Users on **agent accounts** (Owner/Administrator) may onboard merchants, set volume fee **within platform bands**, and view merchant volume and service bills — **read-only** on merchant credentials and settlement settings; **agent accounts must not create payment orders for merchants**.
+8. Users on **agent accounts** (Owner/Administrator) may **onboard merchants and sites** in their channel **only when the agent profile activity gate is satisfied**, and may view merchant volume and service bills — **read-only** on merchant credentials and settlement from the agent role; **no merchant/site fee settings** exist (Automatic or Platform Fixed only); **agent accounts must not create payment orders for merchants**.
+8a. Users on **merchant accounts** (Owner/Administrator) may **onboard sites** under the merchant (or under an existing site; **unlimited** nesting) **only when the merchant profile activity gate is satisfied**.
+8b. **Merchant/site team invites:** may invite **verified** Platform Owner/Administrator and **verified** Agent Owner/Administrator onto the merchant/site team; must **not** invite Platform Viewer or Agent Viewer. Platform/Agent O/A must **not** be used as the **Owner** email when **onboarding** a new merchant/site.
 9. **Merchant Owner/Administrator** may manage org settings, view all Cashiers in the merchant account, and create payment orders.
 
 **Payment orders vs service bills**
@@ -38,9 +40,12 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 
 **Platform fee policy**
 
-14. Tiered pricing by merchant size (Small / Mid / Enterprise): subscription plus volume fee band; default small-tier ceiling **2%**; see [Business-Model.md](Business-Model.md).
-15. Platform Owner sets global tiers, subscription amounts, min/max volume fee bands; Platform Owner/Administrator may onboard agents and manage service bills; agent-account administrators assign merchant rate **within band**; Enterprise custom rates require **Platform Owner** approval; fee changes apply to the **next billing period**.
-16. **Agent commission:** Platform pays **agents** (parent = Platform) as a rebate from collected platform fees (Option A). **No** sub-agent cascade in Phase 1. Merchants do not pay a separate agent fee. Payouts use a **payout slip** (QR + payment link to the agent’s payout address); every statement and payment is saved in history.
+14. Merchant platform fee: **Automatic** (by monthly payment volume schedule) or **Fixed** (**Platform Owner** only); see [Business-Model.md](Business-Model.md).
+15. Platform fee: **no fee settings** on merchant or site; billing merchant uses **Automatic** or **Fixed** (**Platform Owner** only). Platform Owner/Administrator may onboard agents and manage service bills; fee changes apply to the **next billing period**.
+16. **Agent commission:** Platform pays **agents** (parent = Platform) as a rebate from collected platform fees (Option A). Rate mode is **Automatic** or **Fixed**; **Platform Owner** applies changes (agent requests off-platform). Agent UI is view-only for commission. **No** sub-agent cascade in Phase 1. Merchants do not pay a separate agent fee. Payouts use a **payout slip** (QR + payment link to the agent’s payout address); **Platform Owner/Administrator may also set/change** that address (support override). Every statement and payment is saved in history.
+16a. **Agent onboard:** Platform creates with **business name + owner email** only. **Legal name** auto-filled from business name (optional; invoices only). Person profile uses **first name + last name** for **all** roles including Cashier. **Activity gate** before onboard merchant: first name, last name, billing email, email verified, phone verified, timezone, payout wallet address. Billing email may equal owner email; delivery fallback to owner email if unset. Contact verification is **email + phone (SMS) only** in Phase 1. **Platform Owner** may override email/phone verification status (audit logged); **Administrator cannot** change Owner person profile.
+16b. **Merchant onboard:** parent (read-only when preselected) + business name + owner email. Legal name same as agent. Owner email must not be Platform/Agent O/A. **Activity gate** = agent set **plus country** and **settlement wallet**. While watch-only: **self-profile only**. Sites nest under merchant/site with **unlimited** depth. Team invite rules: §8b.
+16c. **Cross-org help:** verified Platform/Agent O/A may join merchant/site team by invite; Viewers may not. Same email allowed for that invite path (multi-org membership).
 
 **Core account functions**
 
@@ -48,7 +53,7 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 18. Merchant and agent API keys, webhooks, and security settings (scoped by role).
 19. Setting up and managing merchant payment receive addresses and optional xPub (per [Phase1-Project-Plan.md](Phase1-Project-Plan.md) matching modes).
 20. Viewing transaction history, order status, payment data, and service bill statements; exporting reports scoped to org visibility.
-21. **Platform administration backend:** agent and merchant management, global fee tier configuration, billing wallet, compliance override, immutable audit log review.
+21. **Platform administration backend:** agent and merchant management, Automatic/Fixed fee configuration, billing wallet, agent payout override, compliance override, immutable audit log review.
 22. **Immutable audit log:** all login and privileged actions recorded append-only; no user may delete audit records.
 
 Whether the merchant KYC/KYB verification function is included in the Phase 1 business scope will be determined based on the final product requirements document confirmed by both parties.

@@ -21,7 +21,6 @@ import {
 import {
   sessionDisplayLabel,
   sessionHasAvatar,
-  sessionHasCustomDisplayName,
 } from "./profileIdentity";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
 
@@ -79,7 +78,8 @@ function ProfileForm({
   onSessionRefresh?: (session: Session) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [displayName, setDisplayName] = useState(session.displayName ?? "");
+  const [firstName, setFirstName] = useState(session.firstName ?? "");
+  const [lastName, setLastName] = useState(session.lastName ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
@@ -90,26 +90,26 @@ function ProfileForm({
   const [ok, setOk] = useState<string | null>(null);
 
   useEffect(() => {
-    setDisplayName(session.displayName ?? "");
+    setFirstName(session.firstName ?? "");
+    setLastName(session.lastName ?? "");
     setAvatarUrl(
       sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
     );
     setTimezone(session.timezone || "UTC");
-  }, [session.displayName, session.avatarUrl, session.timezone]);
+  }, [session.firstName, session.lastName, session.avatarUrl, session.timezone]);
 
   const savedAvatar = sessionHasAvatar(session)
     ? (session.avatarUrl ?? null)
     : null;
 
   const dirty = useMemo(() => {
-    const name = displayName.trim();
-    const savedName = (session.displayName ?? "").trim();
     return (
-      name !== savedName ||
+      firstName.trim() !== (session.firstName ?? "").trim() ||
+      lastName.trim() !== (session.lastName ?? "").trim() ||
       avatarUrl !== savedAvatar ||
       timezone !== (session.timezone || "UTC")
     );
-  }, [displayName, avatarUrl, timezone, session, savedAvatar]);
+  }, [firstName, lastName, avatarUrl, timezone, session, savedAvatar]);
 
   const timezoneChoices = useMemo(() => {
     const set = new Set<string>(TIMEZONE_OPTIONS);
@@ -118,8 +118,6 @@ function ProfileForm({
   }, [timezone]);
 
   const sidebarLabel = useMemo(() => sessionDisplayLabel(session), [session]);
-  const hasCustomName = sessionHasCustomDisplayName(session);
-  const namePlaceholder = hasCustomName ? "Display name" : sidebarLabel;
 
   async function onPickFile(file: File | undefined) {
     if (!file) return;
@@ -145,7 +143,8 @@ function ProfileForm({
     setOk(null);
     try {
       const next = await updateProfile({
-        displayName: displayName.trim() || null,
+        firstName: firstName.trim() || null,
+        lastName: lastName.trim() || null,
         avatarUrl,
         timezone,
       });
@@ -236,24 +235,41 @@ function ProfileForm({
           {avatarEditor}
         </div>
         <div className="plat-settings__row plat-settings__row--stack">
-          <label className="plat-settings__field" htmlFor="profile-name">
-            <span>Display name</span>
+          <label className="plat-settings__field" htmlFor="profile-first-name">
+            <span>First name</span>
             <FieldControl icon="user">
               <input
-                id="profile-name"
+                id="profile-first-name"
                 className="plat-settings__input"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
                 disabled={saving}
-                maxLength={120}
-                placeholder={namePlaceholder}
-                autoComplete="name"
+                maxLength={80}
+                placeholder="First name"
+                autoComplete="given-name"
               />
             </FieldControl>
-            {!hasCustomName ? (
+          </label>
+        </div>
+        <div className="plat-settings__row plat-settings__row--stack">
+          <label className="plat-settings__field" htmlFor="profile-last-name">
+            <span>Last name</span>
+            <FieldControl icon="user">
+              <input
+                id="profile-last-name"
+                className="plat-settings__input"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={saving}
+                maxLength={80}
+                placeholder="Last name"
+                autoComplete="family-name"
+              />
+            </FieldControl>
+            {!firstName.trim() && !lastName.trim() ? (
               <p className="plat-settings__row-hint profile-settings-card__name-hint">
-                Shown in the sidebar as{" "}
-                <strong>{sidebarLabel}</strong> until you save a display name.
+                Shown in the sidebar as <strong>{sidebarLabel}</strong> until you
+                save your name.
               </p>
             ) : null}
           </label>
@@ -319,24 +335,36 @@ function ProfileForm({
       />
       <h2>Profile</h2>
       <p className="muted">
-        Avatar, display name, and timezone for this portal.
+        Avatar, name, and timezone for this portal.
       </p>
       {avatarEditor}
       <label className="field">
-        <span>Name</span>
+        <span>First name</span>
         <input
           className="field-control"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
           disabled={saving}
-          maxLength={120}
-          placeholder={namePlaceholder}
-          autoComplete="name"
+          maxLength={80}
+          placeholder="First name"
+          autoComplete="given-name"
         />
-        {!hasCustomName ? (
+      </label>
+      <label className="field">
+        <span>Last name</span>
+        <input
+          className="field-control"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          disabled={saving}
+          maxLength={80}
+          placeholder="Last name"
+          autoComplete="family-name"
+        />
+        {!firstName.trim() && !lastName.trim() ? (
           <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
             Shown in the sidebar as <strong>{sidebarLabel}</strong> until you save
-            a display name.
+            your name.
           </span>
         ) : null}
       </label>
@@ -857,39 +885,48 @@ function PosPinForm({
         </strong>
       </p>
       {configured ? (
-        <FieldControl label="Current POS PIN">
+        <label className="field">
+          <span>Current POS PIN</span>
+          <FieldControl icon="lock">
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={currentPin}
+              onChange={(e) => setCurrentPin(e.target.value)}
+              maxLength={8}
+            />
+          </FieldControl>
+        </label>
+      ) : null}
+      <label className="field">
+        <span>New POS PIN (4–8 digits)</span>
+        <FieldControl icon="lock">
           <input
             type="password"
             inputMode="numeric"
             autoComplete="off"
-            value={currentPin}
-            onChange={(e) => setCurrentPin(e.target.value)}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
             maxLength={8}
           />
         </FieldControl>
-      ) : null}
-      <FieldControl label="New POS PIN (4–8 digits)">
-        <input
-          type="password"
-          inputMode="numeric"
-          autoComplete="off"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-          maxLength={8}
-        />
-      </FieldControl>
-      <FieldControl label="Confirm POS PIN">
-        <input
-          type="password"
-          inputMode="numeric"
-          autoComplete="off"
-          value={confirm}
-          onChange={(e) =>
-            setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
-          }
-          maxLength={8}
-        />
-      </FieldControl>
+      </label>
+      <label className="field">
+        <span>Confirm POS PIN</span>
+        <FieldControl icon="lock">
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={confirm}
+            onChange={(e) =>
+              setConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
+            }
+            maxLength={8}
+          />
+        </FieldControl>
+      </label>
       {error ? <p className="banner banner-error">{error}</p> : null}
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
       <div className="profile-settings-card__actions">

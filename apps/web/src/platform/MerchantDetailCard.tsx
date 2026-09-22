@@ -11,7 +11,6 @@ import {
   getMatchingMode,
   getOrgOverview,
   listComplianceOverrides,
-  listPlatformOrgMemberEmails,
   listServiceBills,
   listSettlement,
   listXpub,
@@ -22,7 +21,7 @@ import {
   type AuditLogEntry,
   type MerchantCommercialSettings,
   type OrgAccount,
-  type OrgMember,
+  type OrgPrimaryOwnerContact,
   type PaymentOrder,
   type ServiceBill,
   type SettlementAddress,
@@ -37,6 +36,8 @@ import {
 import { FundAmount } from "./FundAmount";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
+import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
+import { AccountsDetailHero } from "./AccountsDetailHero";
 import {
   formatOnboardDate,
   merchantBillingPeriodStartMs,
@@ -55,11 +56,10 @@ import {
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
-import { formatShortDate, sessionIsPlatformOwner } from "./org";
+import { formatShortDate, orgTypeLabel, sessionIsPlatformOwner } from "./org";
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "sites", label: "Sites" },
   { id: "settlement", label: "Settlement" },
   { id: "service-bills", label: "Service bills" },
   { id: "compliance", label: "Compliance" },
@@ -135,47 +135,6 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
           <span aria-hidden>→</span>
         </Link>
       ) : null}
-    </div>
-  );
-}
-
-function MerchantSitesEmpty() {
-  return (
-    <div className="b3-agent-detail__empty" role="status">
-      <div className="b3-agent-detail__empty-mark" aria-hidden>
-        <svg viewBox="0 0 48 48" width="36" height="36" fill="none">
-          <path
-            d="M8 34V18l16-8 16 8v16"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M16 34V24l8-4 8 4v10"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-            opacity="0.55"
-          />
-          <path
-            d="M24 10v6"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
-      </div>
-      <p className="b3-agent-detail__empty-title">No merchant sites yet</p>
-      <p className="b3-agent-detail__empty-copy">
-        No site orgs are linked yet. Sites appear here once created under this
-        account.
-      </p>
-      <ul className="b3-agent-detail__empty-hints">
-        <li>Each outlet is a site under this merchant (sites may nest)</li>
-        <li>
-          Sites can override wallet or matching only with merchant Owner approval
-        </li>
-      </ul>
     </div>
   );
 }
@@ -617,45 +576,6 @@ function MerchantSettlementPanel({
   );
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
-  }
-  return name.trim().slice(0, 2).toUpperCase() || "MC";
-}
-
-function shortId(id: string): string {
-  if (id.length <= 12) return id;
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
-}
-
-function preferredOrgEmail(members: OrgMember[]): string | null {
-  const preferred =
-    members.find((m) => /owner/i.test(m.role)) ??
-    members.find((m) => /admin/i.test(m.role)) ??
-    members[0];
-  const email = preferred?.email?.trim();
-  return email || null;
-}
-
-type SiteEmailIndex = Map<
-  string,
-  { emails: string[]; ownerEmail?: string | null }
->;
-
-function siteContactEmail(
-  site: OrgAccount,
-  emailByOrg: SiteEmailIndex,
-): string {
-  const row = emailByOrg.get(site.id);
-  return (
-    row?.ownerEmail?.trim() ||
-    row?.emails.find((e) => e.trim())?.trim() ||
-    "—"
-  );
-}
-
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
@@ -690,6 +610,10 @@ export function MerchantDetailCard({
     () => sessionIsPlatformOwner(session),
     [session],
   );
+  const canSupportOwner = canEditCommercial;
+  const [primaryOwner, setPrimaryOwner] = useState<OrgPrimaryOwnerContact | null>(
+    null,
+  );
   const [tab, setTab] = useState<TabId>(() =>
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
   );
@@ -707,7 +631,6 @@ export function MerchantDetailCard({
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [profileEditBusy, setProfileEditBusy] = useState(false);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
-  const [team, setTeam] = useState<OrgMember[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [commercialEditOpen, setCommercialEditOpen] = useState(false);
@@ -717,17 +640,12 @@ export function MerchantDetailCard({
   const [editVolume, setEditVolume] = useState("");
   const [editReason, setEditReason] = useState("");
   const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
-  const [siteEmails, setSiteEmails] = useState<SiteEmailIndex>(() => new Map());
 
   const status = org.status ?? "active";
   const sites = useMemo(() => merchantSites(org.id, orgs), [org.id, orgs]);
   const merchantBills = useMemo(
     () => bills.filter((b) => b.orgId === org.id),
     [bills, org.id],
-  );
-  const profileEmail = useMemo(
-    () => preferredOrgEmail(team) ?? "—",
-    [team],
   );
   const periodStart = useMemo(
     () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
@@ -786,7 +704,6 @@ export function MerchantDetailCard({
     );
     setTabError(null);
     setCommercial(null);
-    setTeam([]);
     setAudit([]);
     setOrders([]);
     setSettlement([]);
@@ -795,6 +712,7 @@ export function MerchantDetailCard({
     setBills([]);
     setCommercialEditOpen(false);
     setCommercialError(null);
+    setPrimaryOwner(null);
   }, [org.id, initialTab]);
 
   const selectedBand = useMemo(
@@ -868,17 +786,39 @@ export function MerchantDetailCard({
     void getOrgOverview(org.id)
       .then((data) => {
         if (cancelled) return;
-        setTeam(data.team);
         setAudit(data.audit);
         setCommercial(data.commercial);
         setOrders(data.orders);
+        const contact = data.primaryOwnerContact ?? null;
+        if (contact) {
+          setPrimaryOwner(contact);
+        } else {
+          const ownerRow =
+            (data.team ?? []).find((m) => m.role === "owner") ??
+            (data.team ?? [])[0] ??
+            null;
+          setPrimaryOwner(
+            ownerRow
+              ? {
+                  userId: ownerRow.userId,
+                  email: ownerRow.email,
+                  phone: null,
+                  timezone: "",
+                  emailVerified: false,
+                  phoneVerified: false,
+                  firstName: null,
+                  lastName: null,
+                }
+              : null,
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) {
-          setTeam([]);
           setAudit([]);
           setCommercial(null);
           setOrders([]);
+          setPrimaryOwner(null);
         }
       })
       .finally(() => {
@@ -888,32 +828,6 @@ export function MerchantDetailCard({
       cancelled = true;
     };
   }, [org.id]);
-
-  useEffect(() => {
-    if (tab !== "sites" || sites.length === 0) {
-      setSiteEmails(new Map());
-      return;
-    }
-    let cancelled = false;
-    void listPlatformOrgMemberEmails({ types: ["merchant_site"] })
-      .then((items) => {
-        if (cancelled) return;
-        const map: SiteEmailIndex = new Map();
-        for (const item of items) {
-          map.set(item.orgId, {
-            emails: item.emails ?? [],
-            ownerEmail: item.ownerEmail,
-          });
-        }
-        setSiteEmails(map);
-      })
-      .catch(() => {
-        if (!cancelled) setSiteEmails(new Map());
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, sites]);
 
   useEffect(() => {
     if (tab === "overview" || tab === "compliance") return;
@@ -951,7 +865,7 @@ export function MerchantDetailCard({
   }, [tab, org.id]);
 
   return (
-    <aside className="b3-agent-detail" aria-label="Merchant detail">
+    <aside className="platform-detail b3-agent-detail" aria-label="Merchant detail">
       <AuthToast
         message={tabError ?? commercialError}
         tone="error"
@@ -960,14 +874,16 @@ export function MerchantDetailCard({
           setCommercialError(null);
         }}
       />
-      <header className="b3-agent-detail__head">
-        <div className="b3-agent-detail__identity">
-          <div className="b3-agent-detail__avatar-wrap">
+      <AccountsDetailHero
+        eyebrow={orgTypeLabel(org.type)}
+        title={org.name}
+        mark={
+          <div className="platform-detail__mark-wrap b3-agent-detail__avatar-wrap">
             <OrgBrandMark
               name={org.name}
               iconKey={org.iconKey}
-              size={44}
-              className="b3-agent-detail__avatar"
+              size={72}
+              className="platform-detail__mark b3-agent-detail__avatar"
             />
             {canManage ? (
               <button
@@ -984,33 +900,25 @@ export function MerchantDetailCard({
               </button>
             ) : null}
           </div>
-          <div className="b3-agent-detail__titles">
-            <div className="b3-agent-detail__title-row">
-              <h2 className="b3-agent-detail__name">{org.name}</h2>
-              <span
-                className={`b3-agent-detail__status${
-                  status === "paused" ? " is-paused" : ""
-                }`}
-              >
-                {status === "paused" ? "PAUSED" : "ACTIVE"}
-              </span>
-            </div>
-            {profileEmail !== "—" ? (
-              <a
-                className="b3-agent-detail__email"
-                href={`mailto:${profileEmail}`}
-                title={profileEmail}
-              >
-                {profileEmail}
-              </a>
-            ) : (
-              <span className="b3-agent-detail__email">{profileEmail}</span>
-            )}
-          </div>
-        </div>
-        <div className="b3-agent-detail__head-actions">
-          {canManage ? (
+        }
+        status={
+          <span
+            className={`platform-detail__status${
+              status === "paused" ? " is-paused" : ""
+            }`}
+          >
+            {status === "paused" ? "PAUSED" : "ACTIVE"}
+          </span>
+        }
+        actions={
+          canManage ? (
             <>
+              <Link
+                className="b3-agent-detail__onboard"
+                to={`${platformRoute("sites/new")}?parentId=${encodeURIComponent(org.id)}`}
+              >
+                New Site
+              </Link>
               {status === "active" ? (
                 <button
                   type="button"
@@ -1039,14 +947,18 @@ export function MerchantDetailCard({
                 Delete
               </button>
             </>
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       <OrgProfileEditModal
         open={profileEditOpen}
         name={org.name}
         iconKey={org.iconKey}
+        country={org.country}
+        legalName={org.legalName}
+        billingEmail={org.billingEmail}
+        requireCountry={true}
         busy={profileEditBusy}
         error={profileEditError}
         onClose={() => {
@@ -1081,6 +993,7 @@ export function MerchantDetailCard({
         </div>
       ) : null}
 
+      <div className="platform-detail__body b3-agent-detail__shell">
       <div className="b3-agent-detail__tabs" role="tablist">
         {TABS.map((t) => (
           <button
@@ -1119,77 +1032,80 @@ export function MerchantDetailCard({
             </div>
 
             <div className="b3-agent-detail__overview-stack">
-              <section className="b3-card b3-card--section b3-card--flat">
-                <div className="b3-profile__head">
-                  <h3 className="b3-card__heading">Profile</h3>
-                </div>
-                <div className="b3-profile">
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Onboarded</p>
-                    <p className="b3-profile__value">
-                      {formatOnboardDate(org.createdAt)}
-                    </p>
-                  </div>
-                  <div className="b3-profile__field">
-                    <div className="b3-profile__field-head">
-                      <p className="b3-profile__label">Commercial tier</p>
-                      <div className="b3-profile__field-head-end">
-                        {overviewLoading && !commercial ? (
-                          <p className="b3-profile__value">…</p>
-                        ) : commercial ? (
-                          <>
-                            <span className="b3-profile__pill b3-profile__pill--tier">
-                              {tierLabel(commercial.tier)}
-                            </span>
-                            {canEditCommercial ? (
-                              <button
-                                type="button"
-                                className="b3-profile__edit-btn"
-                                disabled={busy || commercialBusy}
-                                onClick={() => {
-                                  setEditTier(commercial.tier as MerchantTier);
-                                  setEditVolume(commercial.volumeFeePercent);
-                                  setEditReason("");
-                                  setCommercialError(null);
-                                  setCommercialEditOpen(true);
-                                }}
-                              >
-                                Edit
-                              </button>
-                            ) : null}
-                          </>
-                        ) : (
-                          <p className="b3-profile__value">—</p>
-                        )}
+              <AccountOverviewProfile
+                org={org}
+                owner={primaryOwner}
+                ownerLoading={overviewLoading && !primaryOwner}
+                canEditOrg={canManage}
+                canEditOwner={canSupportOwner}
+                onEditOrg={() => {
+                  setProfileEditError(null);
+                  setProfileEditOpen(true);
+                }}
+                onOwnerUpdated={setPrimaryOwner}
+                extras={
+                  <>
+                    <div className="b3-profile__field">
+                      <div className="b3-profile__field-head">
+                        <p className="b3-profile__label">Commercial tier</p>
+                        <div className="b3-profile__field-head-end">
+                          {overviewLoading && !commercial ? (
+                            <p className="b3-profile__value">…</p>
+                          ) : commercial ? (
+                            <>
+                              <span className="b3-profile__pill b3-profile__pill--tier">
+                                {tierLabel(commercial.tier)}
+                              </span>
+                              {canEditCommercial ? (
+                                <button
+                                  type="button"
+                                  className="b3-profile__edit-btn"
+                                  disabled={busy || commercialBusy}
+                                  onClick={() => {
+                                    setEditTier(commercial.tier as MerchantTier);
+                                    setEditVolume(commercial.volumeFeePercent);
+                                    setEditReason("");
+                                    setCommercialError(null);
+                                    setCommercialEditOpen(true);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="b3-profile__value">—</p>
+                          )}
+                        </div>
                       </div>
+                      {commercial ? (
+                        <p className="b3-profile__meta">
+                          {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}{" "}
+                          · {commercial.volumeFeePercent}% volume fee ·{" "}
+                          <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
+                          / mo subscription
+                          {commercial.enterpriseApprovalStatus === "pending" ? (
+                            <> · Enterprise rate pending approval</>
+                          ) : null}
+                          {commercial.pendingVolumeFeePercent &&
+                          commercial.pendingVolumeFeePercent !==
+                            commercial.volumeFeePercent ? (
+                            <>
+                              {" "}
+                              · {commercial.pendingVolumeFeePercent}% scheduled
+                              from {formatOnboardDate(commercial.effectiveFrom)}
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
                     </div>
-                    {commercial ? (
-                      <p className="b3-profile__meta">
-                        {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}{" "}
-                        · {commercial.volumeFeePercent}% volume fee ·{" "}
-                        <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
-                        / mo subscription
-                        {commercial.enterpriseApprovalStatus === "pending" ? (
-                          <> · Enterprise rate pending approval</>
-                        ) : null}
-                        {commercial.pendingVolumeFeePercent &&
-                        commercial.pendingVolumeFeePercent !==
-                          commercial.volumeFeePercent ? (
-                          <>
-                            {" "}
-                            · {commercial.pendingVolumeFeePercent}% scheduled
-                            from {formatOnboardDate(commercial.effectiveFrom)}
-                          </>
-                        ) : null}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Sites</p>
-                    <p className="b3-profile__value">{sites.length}</p>
-                  </div>
-                </div>
-              </section>
+                    <div className="b3-profile__field">
+                      <p className="b3-profile__label">Sites</p>
+                      <p className="b3-profile__value">{sites.length}</p>
+                    </div>
+                  </>
+                }
+              />
 
               <section className="b3-card b3-card--section b3-card--flat b3-agent-detail__activity">
                 <div className="b3-agent-detail__activity-head">
@@ -1238,66 +1154,6 @@ export function MerchantDetailCard({
               </section>
             </div>
           </>
-        ) : null}
-
-        {tab === "sites" ? (
-          sites.length === 0 ? (
-            <MerchantSitesEmpty />
-          ) : (
-            <section className="b3-card b3-card--section b3-card--flat b3-merchant-sites">
-              <div className="b3-profile__head">
-                <h3 className="b3-card__heading">Merchant sites</h3>
-                <span className="b3-agent-detail__activity-cap">
-                  {sites.length} {sites.length === 1 ? "site" : "sites"}
-                </span>
-              </div>
-              <table className="data-table b3-merchant-sites__table">
-                <thead>
-                  <tr>
-                    <th>Site name</th>
-                    <th>Email</th>
-                    <th>Created</th>
-                    <th>Status</th>
-                    <th>ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sites.map((site) => (
-                    <tr key={site.id}>
-                      <td>
-                        <span className="b3-merchant-sites__name">
-                          {site.name}
-                        </span>
-                        {site.country ? (
-                          <span className="b3-merchant-sites__meta">
-                            {site.country}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="b3-merchant-sites__email">
-                        {siteContactEmail(site, siteEmails)}
-                      </td>
-                      <td className="b3-merchant-sites__created">
-                        {site.createdAt
-                          ? formatOnboardDate(site.createdAt)
-                          : "—"}
-                      </td>
-                      <td>
-                        <span
-                          className={`status-badge ${
-                            site.status === "paused" ? "tone-warn" : "tone-ok"
-                          }`}
-                        >
-                          {(site.status ?? "active").toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="mono">{shortId(site.id)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )
         ) : null}
 
         {tab === "settlement" ? (
@@ -1399,6 +1255,7 @@ export function MerchantDetailCard({
             }}
           />
         ) : null}
+      </div>
       </div>
 
       {commercialEditOpen && commercial

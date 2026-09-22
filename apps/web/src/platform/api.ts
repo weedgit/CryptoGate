@@ -64,6 +64,7 @@ export type OrgAccount = {
   orderCreateSuspended?: boolean;
   country?: string | null;
   legalName?: string | null;
+  billingEmail?: string | null;
   iconKey?: string | null;
   createdAt?: string;
 };
@@ -132,6 +133,17 @@ export async function listPlatformOrgMemberEmails(opts?: {
 /** Alias for listPlatformOrgMemberEmails (same bulk index). */
 export const listPlatformOrgEmails = listPlatformOrgMemberEmails;
 
+export type OrgPrimaryOwnerContact = {
+  userId: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email: string;
+  phone: string | null;
+  timezone: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+};
+
 export type OrgOverview = {
   team: OrgMember[];
   audit: AuditLogEntry[];
@@ -139,6 +151,7 @@ export type OrgOverview = {
   commercial: MerchantCommercialSettings | null;
   payout: AgentPayoutAddress | null;
   commission: AgentCommissionSettings | null;
+  primaryOwnerContact?: OrgPrimaryOwnerContact | null;
 };
 
 export async function getOrgOverview(orgId: string): Promise<OrgOverview> {
@@ -225,12 +238,21 @@ export async function setOrgStatus(
 
 export async function patchOrgProfile(
   orgId: string,
-  body: { name: string; iconKey?: string | null },
+  body: {
+    name: string;
+    iconKey?: string | null;
+    country?: string;
+    legalName?: string | null;
+    billingEmail?: string | null;
+  },
 ): Promise<OrgAccount> {
-  const payload: { name: string; iconKey: string | null } = {
+  const payload: Record<string, unknown> = {
     name: body.name.trim(),
     iconKey: body.iconKey ?? null,
   };
+  if (body.country !== undefined) payload.country = body.country;
+  if (body.legalName !== undefined) payload.legalName = body.legalName;
+  if (body.billingEmail !== undefined) payload.billingEmail = body.billingEmail;
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
     method: "PATCH",
     credentials: "include",
@@ -239,6 +261,52 @@ export async function patchOrgProfile(
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
+}
+
+/** Platform Owner only — edit org Owner person profile. */
+export async function patchOrgOwnerProfile(
+  orgId: string,
+  body: {
+    firstName?: string | null;
+    lastName?: string | null;
+    timezone?: string;
+  },
+): Promise<OrgPrimaryOwnerContact> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/owner-profile`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgPrimaryOwnerContact;
+}
+
+/** Platform Owner only — override Owner email/phone verification. */
+export async function putOrgOwnerVerification(
+  orgId: string,
+  body: { emailVerified?: boolean; phoneVerified?: boolean },
+): Promise<OrgPrimaryOwnerContact> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/owner-verification`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgPrimaryOwnerContact;
 }
 
 export async function deleteOrg(

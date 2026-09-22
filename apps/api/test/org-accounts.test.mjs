@@ -67,8 +67,10 @@ describe("org-accounts mapper", () => {
       parent_id: "p1",
       country: "Singapore",
       legal_name: "Demo Agent Pte Ltd",
+      billing_email: "billing@demo.example",
     });
     assert.equal(account.country, "Singapore");
     assert.equal(account.legalName, "Demo Agent Pte Ltd");
+    assert.equal(account.billingEmail, "billing@demo.example");
   });
 });

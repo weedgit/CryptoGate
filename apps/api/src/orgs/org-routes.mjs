@@ -11,6 +11,7 @@ import {
   canManageDirectChildOrg,
   canManageMerchantSiteTree,
   canManagePlatform,
+  canOnboardSiteUnderParentAsync,
 } from "./role-policy.mjs";
 import {
   deleteOrgCascade,
@@ -33,13 +34,8 @@ import {
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
-import {
-  bootstrapMerchantCommercial,
-  parseCommercialOnCreate,
-} from "../commercial/merchant-commercial-routes.mjs";
-import { validateCommercialOnCreate } from "../commercial/merchant-commercial-rules.mjs";
+import { bootstrapMerchantCommercial } from "../commercial/merchant-commercial-routes.mjs";
 import { bootstrapAgentCommission } from "../commercial/agent-commission-routes.mjs";
-import { parseCommissionPercent } from "../commercial/agent-commission-rules.mjs";
 import {
   defaultAgentSchedulePlan,
   defaultMerchantSchedulePlan,
@@ -216,6 +212,42 @@ export async function handlePatchOrg(req, res, orgId) {
     country = trimmed;
   }
 
+  /** @type {string | null | undefined} */
+  let legalName;
+  if (body?.legalName !== undefined) {
+    if (body.legalName === null || body.legalName === "") {
+      legalName = null;
+    } else if (typeof body.legalName === "string") {
+      const trimmed = body.legalName.trim().replace(/\s+/g, " ");
+      if (trimmed.length > 200) {
+        sendError(res, 400, "invalid_request", "legalName is too long");
+        return;
+      }
+      legalName = trimmed || null;
+    } else {
+      sendError(res, 400, "invalid_request", "legalName must be a string or null");
+      return;
+    }
+  }
+
+  /** @type {string | null | undefined} */
+  let billingEmail;
+  if (body?.billingEmail !== undefined) {
+    if (body.billingEmail === null || body.billingEmail === "") {
+      billingEmail = null;
+    } else if (typeof body.billingEmail === "string") {
+      const trimmed = body.billingEmail.trim().toLowerCase();
+      if (!trimmed.includes("@") || trimmed.length > 254) {
+        sendError(res, 400, "invalid_request", "billingEmail must be a valid email");
+        return;
+      }
+      billingEmail = trimmed;
+    } else {
+      sendError(res, 400, "invalid_request", "billingEmail must be a string or null");
+      return;
+    }
+  }
+
   if (row.parent_id) {
     const clash = await findSiblingByNormalizedNameExcluding(
       row.parent_id,
@@ -233,7 +265,13 @@ export async function handlePatchOrg(req, res, orgId) {
     }
   }
 
-  const updated = await updateOrgProfile(orgId, { name, iconKey, country });
+  const updated = await updateOrgProfile(orgId, {
+    name,
+    iconKey,
+    country,
+    legalName,
+    billingEmail,
+  });
   if (!updated) {
     sendError(res, 404, "not_found", "Org not found");
     return;
@@ -247,6 +285,8 @@ export async function handlePatchOrg(req, res, orgId) {
     metadata: {
       name,
       country: country ?? undefined,
+      legalName: legalName === undefined ? undefined : legalName,
+      billingEmail: billingEmail === undefined ? undefined : billingEmail,
       iconKey: iconKey?.startsWith("data:") ? "custom_image" : iconKey,
     },
   }).catch(() => {});
@@ -530,7 +570,12 @@ export async function handleCreateOrg(req, res) {
       return;
     }
     const parentRole = roleOnOrg(caller.memberships, parent.id);
-    if (!canCreateOrgUnderParent(caller, parentRole)) {
+    const creatingSite = body?.type === "merchant_site";
+    const allowedUnderParent =
+      canCreateOrgUnderParent(caller, parentRole) ||
+      (creatingSite &&
+        (await canOnboardSiteUnderParentAsync(caller, parent, findOrgById)));
+    if (!allowedUnderParent) {
       sendError(res, 403, "forbidden", "Not allowed to create orgs under this parent");
       return;
     }
@@ -569,38 +614,16 @@ export async function handleCreateOrg(req, res) {
     }
   }
 
-  /** @type {{ tier: string, volumeFeePercent: string, rateMode: string, needsApproval?: boolean } | null} */
+  /** @type {{ tier: string, volumeFeePercent: string, rateMode: string } | null} */
   let commercialPlan = null;
   if (result.insert.type === "merchant") {
-    const parsed = parseCommercialOnCreate(body?.commercial);
-    if (!parsed.ok) {
-      sendError(res, parsed.status, parsed.code, parsed.message);
-      return;
-    }
-    if (parsed.omitted) {
-      const schedule = await defaultMerchantSchedulePlan();
-      commercialPlan = {
-        tier: schedule.tier,
-        volumeFeePercent: schedule.volumeFeePercent,
-        rateMode: "automatic",
-        needsApproval: false,
-      };
-    } else {
-      const bandCheck = await validateCommercialOnCreate(
-        parsed.tier,
-        parsed.volumeFeePercent,
-      );
-      if (!bandCheck.ok) {
-        sendError(res, bandCheck.status, bandCheck.code, bandCheck.message);
-        return;
-      }
-      commercialPlan = {
-        tier: parsed.tier,
-        volumeFeePercent: parsed.volumeFeePercent,
-        rateMode: "automatic",
-        needsApproval: bandCheck.needsApproval,
-      };
-    }
+    // Ignore body.commercial — new merchants always start on Mid automatic schedule.
+    const schedule = await defaultMerchantSchedulePlan();
+    commercialPlan = {
+      tier: schedule.tier,
+      volumeFeePercent: schedule.volumeFeePercent,
+      rateMode: "automatic",
+    };
   }
 
   const inserted = await insertOrgAccount(result.insert);
@@ -634,26 +657,17 @@ export async function handleCreateOrg(req, res) {
       volumeFeePercent: commercialPlan.volumeFeePercent,
       rateMode: commercialPlan.rateMode,
       actorUserId: caller.userId,
-      needsApproval: commercialPlan.needsApproval,
     });
   }
 
   if (inserted.row.type === "agent" || inserted.row.type === "agent_sub") {
-    const fromBody = parseCommissionPercent(body?.commissionPercent);
-    if (fromBody) {
-      await bootstrapAgentCommission({
-        orgId: inserted.row.id,
-        commissionPercent: fromBody,
-        rateMode: "fixed",
-      });
-    } else {
-      const schedule = await defaultAgentSchedulePlan();
-      await bootstrapAgentCommission({
-        orgId: inserted.row.id,
-        commissionPercent: schedule.commissionPercent,
-        rateMode: "automatic",
-      });
-    }
+    // Ignore body.commissionPercent — new agents always start on Mid automatic schedule.
+    const schedule = await defaultAgentSchedulePlan();
+    await bootstrapAgentCommission({
+      orgId: inserted.row.id,
+      commissionPercent: schedule.commissionPercent,
+      rateMode: "automatic",
+    });
   }
 
   await insertAuditEvent({

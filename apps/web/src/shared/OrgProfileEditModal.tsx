@@ -10,6 +10,10 @@ type Props = {
   name: string;
   iconKey?: string | null;
   country?: string | null;
+  legalName?: string | null;
+  billingEmail?: string | null;
+  /** When false, country is optional (agent). Default true. */
+  requireCountry?: boolean;
   busy?: boolean;
   error?: string | null;
   onClose: () => void;
@@ -17,6 +21,8 @@ type Props = {
     name: string;
     iconKey: string | null;
     country: string;
+    legalName: string;
+    billingEmail: string;
   }) => void | Promise<void>;
 };
 
@@ -25,6 +31,9 @@ export function OrgProfileEditModal({
   name,
   iconKey = null,
   country = "",
+  legalName = "",
+  billingEmail = "",
+  requireCountry = true,
   busy = false,
   error = null,
   onClose,
@@ -35,6 +44,8 @@ export function OrgProfileEditModal({
   const [draftName, setDraftName] = useState(name);
   const [draftIcon, setDraftIcon] = useState<string | null>(iconKey ?? null);
   const [draftCountry, setDraftCountry] = useState(country?.trim() ?? "");
+  const [draftLegal, setDraftLegal] = useState(legalName?.trim() ?? "");
+  const [draftBilling, setDraftBilling] = useState(billingEmail?.trim() ?? "");
   const [fileError, setFileError] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
 
@@ -54,9 +65,11 @@ export function OrgProfileEditModal({
     setDraftName(name);
     setDraftIcon(iconKey ?? null);
     setDraftCountry(country?.trim() ?? "");
+    setDraftLegal(legalName?.trim() || name);
+    setDraftBilling(billingEmail?.trim() ?? "");
     setFileError(null);
     setReadingFile(false);
-  }, [open, name, iconKey, country]);
+  }, [open, name, iconKey, country, legalName, billingEmail]);
 
   if (!open) return null;
 
@@ -76,7 +89,10 @@ export function OrgProfileEditModal({
   };
 
   const saving = busy || readingFile;
-  const canSave = draftName.trim().length >= 2 && draftCountry.trim().length > 0;
+  const billingOk = draftBilling.trim().includes("@");
+  const countryOk = !requireCountry || draftCountry.trim().length > 0;
+  const canSave =
+    draftName.trim().length >= 2 && countryOk && billingOk;
 
   return createPortal(
     <div
@@ -114,7 +130,7 @@ export function OrgProfileEditModal({
           </div>
 
           <label className="field">
-            <span className="field-label">Name</span>
+            <span className="field-label">Business name</span>
             <input
               className="field-control"
               value={draftName}
@@ -125,9 +141,32 @@ export function OrgProfileEditModal({
             />
           </label>
 
+          <label className="field">
+            <span className="field-label">Legal name (invoices)</span>
+            <input
+              className="field-control"
+              value={draftLegal}
+              maxLength={200}
+              disabled={saving}
+              onChange={(e) => setDraftLegal(e.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span className="field-label">Billing email</span>
+            <input
+              className="field-control"
+              type="email"
+              value={draftBilling}
+              maxLength={254}
+              disabled={saving}
+              onChange={(e) => setDraftBilling(e.target.value)}
+            />
+          </label>
+
           <div className="field">
             <span className="field-label" id={`${titleId}-country`}>
-              Country
+              Country{requireCountry ? "" : " (optional)"}
             </span>
             <SearchableSelect
               id={`${titleId}-country-select`}
@@ -175,7 +214,7 @@ export function OrgProfileEditModal({
                   setFileError(null);
                 }}
               >
-                Use initials
+                Use default
               </button>
             </div>
             {fileError ? <p className="banner banner-warn">{fileError}</p> : null}
@@ -196,6 +235,8 @@ export function OrgProfileEditModal({
                 name: draftName.trim(),
                 iconKey: draftIcon,
                 country: draftCountry.trim(),
+                legalName: draftLegal.trim() || draftName.trim(),
+                billingEmail: draftBilling.trim(),
               })
             }
           >

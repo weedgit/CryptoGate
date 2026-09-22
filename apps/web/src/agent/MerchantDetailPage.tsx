@@ -9,7 +9,6 @@ import {
   ApiError,
   getMerchantCommercial,
   listOrgMemberEmails,
-  updateMerchantCommercial,
   type MerchantCommercialSettings,
   type OrgAccount,
   type PaymentOrder,
@@ -68,10 +67,6 @@ export function MerchantDetailPage() {
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(null);
-  const [editTier, setEditTier] = useState("");
-  const [editVolume, setEditVolume] = useState("");
-  const [editReason, setEditReason] = useState("");
-  const [commercialBusy, setCommercialBusy] = useState(false);
   const [loading, setLoading] = useState(
     () => !(id && peekAgentOrgs()?.some((o) => o.id === id)),
   );
@@ -179,8 +174,6 @@ export function MerchantDetailPage() {
         const row = await getMerchantCommercial(id);
         if (!cancelled) {
           setCommercial(row);
-          setEditTier(row.tier);
-          setEditVolume(row.volumeFeePercent);
         }
       } catch {
         if (!cancelled) setCommercial(null);
@@ -298,6 +291,14 @@ export function MerchantDetailPage() {
             </dd>
             <dt>Fee tier</dt>
             <dd>{commercial ? tierLabel(commercial.tier) : "—"}</dd>
+            <dt>Rate mode</dt>
+            <dd>
+              {commercial
+                ? commercial.rateMode === "fixed"
+                  ? "Fixed"
+                  : "Automatic"
+                : "—"}
+            </dd>
             <dt>Volume fee %</dt>
             <dd>
               {commercial ? (
@@ -432,78 +433,33 @@ export function MerchantDetailPage() {
 
       {tab === "commission" ? (
         commercial ? (
-          <form
-            className="form-stack"
-            style={{ maxWidth: 480 }}
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!id) return;
-              setCommercialBusy(true);
-              setTabError(null);
-              try {
-                const updated = await updateMerchantCommercial(id, {
-                  tier: editTier,
-                  volumeFeePercent: editVolume.trim(),
-                  reason: editReason.trim() || undefined,
-                });
-                setCommercial(updated);
-                setEditReason("");
-              } catch (err) {
-                setTabError(
-                  err instanceof ApiError ? err.message : "Failed to update commercial",
-                );
-              } finally {
-                setCommercialBusy(false);
-              }
-            }}
-          >
-            <p style={{ color: "var(--muted)", marginTop: 0 }}>
-              Adjust tier or volume fee within platform bands. Changes apply
-              immediately. Enterprise outside band queues platform approval.
-            </p>
-            <div className="field">
-              <label htmlFor="c-tier">Tier</label>
-              <select
-                id="c-tier"
-                className="field-control"
-                value={editTier}
-                onChange={(e) => setEditTier(e.target.value)}
-                disabled={commercialBusy}
-              >
-                {(["small", "mid", "enterprise"] as const).map((t) => (
-                  <option key={t} value={t}>
-                    {tierLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="c-volume">Volume fee %</label>
-              <input
-                id="c-volume"
-                className="field-control"
-                value={editVolume}
-                onChange={(e) => setEditVolume(e.target.value)}
-                disabled={commercialBusy}
-              />
-              <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>
-                Band {commercial.bandMinPercent}% – {commercial.bandMaxPercent}%
-              </p>
-            </div>
-            <div className="field">
-              <label htmlFor="c-reason">Note (optional)</label>
-              <input
-                id="c-reason"
-                className="field-control"
-                value={editReason}
-                onChange={(e) => setEditReason(e.target.value)}
-                disabled={commercialBusy}
-              />
-            </div>
-            <button type="submit" className="btn-primary" disabled={commercialBusy}>
-              {commercialBusy ? "Saving…" : "Save changes"}
-            </button>
-          </form>
+          <dl className="detail-grid">
+            <dt>Mode</dt>
+            <dd>
+              {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}
+            </dd>
+            <dt>Tier</dt>
+            <dd>{tierLabel(commercial.tier)}</dd>
+            <dt>Volume fee %</dt>
+            <dd>
+              {commercial.volumeFeePercent}%
+              {commercial.pendingVolumeFeePercent ? (
+                <span style={{ color: "var(--muted)" }}>
+                  {" "}
+                  → {commercial.pendingVolumeFeePercent}% next period
+                </span>
+              ) : null}
+            </dd>
+            <dt>Band</dt>
+            <dd>
+              {commercial.bandMinPercent}% – {commercial.bandMaxPercent}%
+            </dd>
+            <dt>Note</dt>
+            <dd style={{ color: "var(--muted)" }}>
+              Rates follow the platform volume schedule. Fixed specials are set
+              by Platform Owner only.
+            </dd>
+          </dl>
         ) : (
           <p style={{ color: "var(--muted)", margin: 0 }}>
             Commercial settings not configured for this merchant.

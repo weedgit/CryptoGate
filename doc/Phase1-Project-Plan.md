@@ -8,7 +8,7 @@ The money never passes through PaymentGate. The customer scans a QR code or open
 
 What PaymentGate does is software. A cashier or authorized staff member creates the order — from the merchant backend, the API, or the **cashier Android POS app** (Section III). We show the QR code, the payment link, the exact amount, the network and the merchant wallet address. After payment we watch the chain, match it to the order, update the dashboard and send a signed notification. We still never move the money.
 
-Each person gets only the access they need. Cashiers create payment orders. Merchant Owners manage the wallet address. Agent accounts onboard merchants but cannot control payer payments. Cashiers and agent-account users cannot change where money is sent.
+Each person gets only the access they need. Cashiers create payment orders. Merchant Owners manage the wallet address. Agent accounts onboard merchants (when their profile is complete) but cannot control payer payments or merchant platform fees. Cashiers and agent-account users cannot change where merchant money is sent; Platform Owner/Administrator may override agent payout addresses.
 
 Org account types and user roles are defined in [Business-Model.md](Business-Model.md) Terminology.
 

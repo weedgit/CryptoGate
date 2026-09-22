@@ -39,9 +39,7 @@ export function validateFeeTierBand(band) {
   const min = parsePercent(band.volumeFeeMinPercent);
   const max = parsePercent(band.volumeFeeMaxPercent);
   const def = parsePercent(band.defaultSignupPercent);
-  const agentPct = parsePercent(
-    band.agentCommissionPercent ?? band.defaultSignupPercent,
-  );
+  const agentPct = parsePercent(band.agentCommissionPercent ?? "15");
   const volumeMin = parseUsd(band.volumeMinUsd ?? "0");
   const volumeMaxRaw = band.volumeMaxUsd;
   const volumeMax =
@@ -87,9 +85,7 @@ export function validateFeeTierBand(band) {
       volumeMinUsd: String(band.volumeMinUsd ?? "0").trim(),
       volumeMaxUsd:
         volumeMax === null ? null : String(band.volumeMaxUsd).trim(),
-      agentCommissionPercent: String(
-        band.agentCommissionPercent ?? "15",
-      ).trim(),
+      agentCommissionPercent: String(band.agentCommissionPercent ?? "15").trim(),
       tierDescription,
     },
   };

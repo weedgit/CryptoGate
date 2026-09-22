@@ -179,6 +179,10 @@ export function PlatformApp() {
           element={<PlatformAccountsRoutes session={session} />}
         />
         <Route
+          path="sites/new"
+          element={<PlatformAccountsRoutes session={session} />}
+        />
+        <Route
           path="architecture"
           element={<Navigate to={platformRoute("accounts")} replace />}
         />

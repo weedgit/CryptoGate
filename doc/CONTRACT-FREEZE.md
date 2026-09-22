@@ -138,7 +138,7 @@ Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 | Domain | `@paymentgate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put`, `enterprise_rate_decide` |
 | Handoff | `doc/X-01-Fee-Tiers-v033.md` | Andrew implements platform settings + merchant commercial; migration **019** suggested |
 | Platform settings | `GET/PUT /platform/settings/fee-tiers`, `GET/PUT /platform/settings/org-policy` | Owner-only PUT; changes next billing period |
-| Merchant commercial | `GET/PUT /orgs/{orgId}/commercial` | Agent/platform assign within band; Enterprise approval queue |
+| Merchant commercial | `GET/PUT /orgs/{orgId}/commercial` | Platform sets Automatic schedule or Fixed rate; agents **read-only** on merchant fee |
 | Enterprise | `GET /platform/enterprise-rate-approvals`, `PATCH …/{approvalId}` | Platform Owner approve/deny |
 | Create org | `CreateOrgRequest.commercial` | Merchant onboard (C6) |
 

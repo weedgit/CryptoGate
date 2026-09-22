@@ -312,10 +312,12 @@ export function canComplianceOverride(caller) {
  * @param {{ id: string, type: string }} org
  */
 export function canChangeSettlementSettings(caller, org) {
-  if (caller.platformOwner) return true;
   if (!MERCHANT_TYPES.has(org.type)) return false;
+  // Platform Owner or Administrator may support-edit settlement.
+  if (caller.platformOperator === true) return true;
+  // Merchant Owner only (not Administrator) — Business-Model decision 19.
   const role = roleOnOrg(caller.memberships, org.id);
-  return SETTINGS_ROLES.has(role);
+  return role === "owner";
 }
 
 /**
@@ -546,7 +548,10 @@ export function auditListScope(caller) {
  * @param {{ id: string, type: string }} org
  */
 export function canCheckoutServiceBill(caller, org) {
-  return canChangeSettlementSettings(caller, org);
+  if (caller.platformOwner) return true;
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  const role = roleOnOrg(caller.memberships, org.id);
+  return SETTINGS_ROLES.has(role);
 }
 
 /**
@@ -679,17 +684,126 @@ export function canReadMerchantCommercial(caller, org) {
  * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} org
  * @param {string[]} [ancestorIds]
  */
-export function canUpdateMerchantCommercial(caller, org, ancestorIds = []) {
+export function canUpdateMerchantCommercial(caller, org, _ancestorIds = []) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
-  if (caller.platformOperator) return true;
-  const role = roleOnOrg(caller.memberships, org.id);
-  if (role && SETTINGS_ROLES.has(role)) return false;
-  return canManageDirectChildOrg(caller, org, ancestorIds);
+  // Platform only — merchants/agents have no fee settings UI (decision 2).
+  return caller.platformOperator === true;
 }
 
 const AGENT_ORG_TYPES = new Set(["agent", "agent_sub"]);
 
-/** Agent/sub-agent may lifecycle-manage direct children only (not grandchildren). */
+/**
+ * Agent Owner/Admin may create a merchant_site under a merchant in their channel
+ * (parent merchant's parent is an agent they manage), without merchant membership.
+ * @param {{
+ *   platformOperator: boolean,
+ *   memberships: { orgId: string, role: string, orgType: string }[],
+ * }} caller
+ * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} parentOrg
+ */
+export function canOnboardSiteUnderParent(caller, parentOrg) {
+  if (caller.platformOperator === true) return true;
+  if (parentOrg.type !== "merchant" && parentOrg.type !== "merchant_site") {
+    return false;
+  }
+  const parentRole = roleOnOrg(caller.memberships, parentOrg.id);
+  if (SETTINGS_ROLES.has(parentRole)) return true;
+
+  if (parentOrg.type === "merchant") {
+    const agentParentId = parentOrg.parent_id ?? parentOrg.parentId ?? null;
+    if (!agentParentId) return false;
+    const m = caller.memberships.find((x) => x.orgId === agentParentId);
+    return Boolean(
+      m && AGENT_ORG_TYPES.has(m.orgType) && SETTINGS_ROLES.has(m.role),
+    );
+  }
+  return false;
+}
+
+/**
+ * Async: agent may onboard site under nested site if billing merchant is in channel.
+ * @param {typeof canOnboardSiteUnderParent extends Function ? never : any} caller
+ * @param {object} parentOrg
+ * @param {(id: string) => Promise<object | null>} findOrg
+ */
+export async function canOnboardSiteUnderParentAsync(caller, parentOrg, findOrg) {
+  if (canOnboardSiteUnderParent(caller, parentOrg)) return true;
+  if (parentOrg.type !== "merchant_site") return false;
+  let current = parentOrg;
+  const seen = new Set();
+  while (current) {
+    const id = current.id;
+    if (!id || seen.has(id)) break;
+    seen.add(id);
+    if (current.type === "merchant") {
+      return canOnboardSiteUnderParent(caller, current);
+    }
+    const pid = current.parent_id ?? current.parentId ?? null;
+    if (!pid) break;
+    current = await findOrg(pid);
+  }
+  return false;
+}
+
+/**
+ * Whether an existing user may be invited onto a merchant/site team.
+ * Verified Platform/Agent Owner/Administrator: yes. Viewers: no.
+ * @param {{
+ *   emailVerified?: boolean,
+ *   phoneVerified?: boolean,
+ * } | null} user
+ * @param {{ orgType: string, role: string }[]} memberships
+ * @returns {{ ok: true } | { ok: false, code: string, message: string }}
+ */
+export function evaluateCrossOrgMerchantSiteInvite(user, memberships) {
+  const staff = (memberships ?? []).filter(
+    (m) =>
+      (m.orgType === "platform" ||
+        m.orgType === "agent" ||
+        m.orgType === "agent_sub") &&
+      ["owner", "administrator", "viewer"].includes(m.role),
+  );
+  if (staff.length === 0) return { ok: true };
+  const hasOA = staff.some(
+    (m) => m.role === "owner" || m.role === "administrator",
+  );
+  const hasViewer = staff.some((m) => m.role === "viewer");
+  if (hasViewer && !hasOA) {
+    return {
+      ok: false,
+      code: "invite_role_forbidden",
+      message:
+        "Platform or agent Viewer accounts cannot join a merchant or site team",
+    };
+  }
+  if (hasOA) {
+    if (!user?.emailVerified || !user?.phoneVerified) {
+      return {
+        ok: false,
+        code: "invite_unverified",
+        message:
+          "Platform or agent Owner/Administrator must verify email and phone before joining a merchant or site team",
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Block using Platform/Agent O/A as the Owner email when onboarding merchant/site.
+ * @param {{ orgType: string, role: string }[]} memberships
+ */
+export function isPlatformOrAgentOperatorMemberships(memberships) {
+  return (memberships ?? []).some(
+    (m) =>
+      (m.orgType === "platform" ||
+        m.orgType === "agent" ||
+        m.orgType === "agent_sub") &&
+      (m.role === "owner" || m.role === "administrator"),
+  );
+}
+
+/** Agent may lifecycle-manage direct children only (not grandchildren). */
 const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["agent", "agent_sub", "merchant"]);
 
 /**
@@ -764,6 +878,7 @@ export function canReadAgentPayout(caller, org) {
  */
 export function canUpdateAgentPayout(caller, org) {
   if (!AGENT_ORG_TYPES.has(org.type)) return false;
+  if (caller.platformOperator === true) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   return SETTINGS_ROLES.has(role);
 }

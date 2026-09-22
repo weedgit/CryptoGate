@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import { isCustomOrgIcon, orgIconGlyph, orgInitials } from "./orgBrand";
+import { GateLogoMark } from "../auth/GateLogoMark";
+import { isCustomOrgIcon, orgIconGlyph } from "./orgBrand";
 
 type Props = {
   name: string;
@@ -9,7 +10,10 @@ type Props = {
   title?: string;
 };
 
-/** Colored brand mark — custom image, preset glyph, or name initials. */
+/**
+ * Colored brand mark — custom image, preset glyph, or platform logo
+ * when the agent/merchant has no logo of its own.
+ */
 export function OrgBrandMark({
   name,
   iconKey = null,
@@ -19,17 +23,17 @@ export function OrgBrandMark({
 }: Props) {
   const custom = isCustomOrgIcon(iconKey);
   const glyph = custom ? null : orgIconGlyph(iconKey);
-  const label = glyph ?? orgInitials(name);
   const style = {
     width: size,
     height: size,
-    fontSize: Math.max(10, Math.round(size * (glyph ? 0.42 : 0.34))),
+    fontSize: Math.max(10, Math.round(size * 0.42)),
   } as CSSProperties;
+  const markClass = className ? ` ${className}` : "";
 
   if (custom && iconKey) {
     return (
       <span
-        className={`org-brand-mark org-brand-mark--image${className ? ` ${className}` : ""}`}
+        className={`org-brand-mark org-brand-mark--image${markClass}`}
         style={style}
         title={title ?? name}
         aria-hidden
@@ -39,14 +43,27 @@ export function OrgBrandMark({
     );
   }
 
+  if (glyph) {
+    return (
+      <span
+        className={`org-brand-mark org-brand-mark--${iconKey}${markClass}`}
+        style={style}
+        title={title ?? name}
+        aria-hidden
+      >
+        {glyph}
+      </span>
+    );
+  }
+
   return (
     <span
-      className={`org-brand-mark${glyph ? ` org-brand-mark--${iconKey}` : " org-brand-mark--initials"}${className ? ` ${className}` : ""}`}
+      className={`org-brand-mark org-brand-mark--platform${markClass}`}
       style={style}
       title={title ?? name}
       aria-hidden
     >
-      {label}
+      <GateLogoMark size={size} alt="" />
     </span>
   );
 }

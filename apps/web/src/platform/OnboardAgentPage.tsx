@@ -278,14 +278,7 @@ export function OnboardAgentPage({ session }: { session: Session }) {
                   ) : null}
                 </div>
 
-                                <div className="b4-field">
-                  <p className="b4-field__hint">
-                    Commission follows the platform volume schedule automatically.
-                    Platform Owner can lock a fixed rate later from the agent detail page.
-                  </p>
-                </div>
-
-<div className="b4-field">
+                <div className="b4-field">
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Invite first Owner"

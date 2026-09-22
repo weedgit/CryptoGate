@@ -954,7 +954,6 @@ export function MerchantsListPage({ session }: Props) {
               busy={busyId === selected.id}
               initialTab={
                 detailTab === "overview" ||
-                detailTab === "sites" ||
                 detailTab === "settlement" ||
                 detailTab === "service-bills" ||
                 detailTab === "compliance"

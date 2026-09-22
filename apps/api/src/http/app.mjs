@@ -24,6 +24,10 @@ import {
 import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handlePatchOrg, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
+  handlePatchOrgOwnerProfile,
+  handlePutOrgOwnerVerification,
+} from "./support-owner-routes.mjs";
+import {
   handleAdminDeleteMemberPosPin,
   handleAdminPutMemberPosPin,
   handleAssignOrgUserRole,
@@ -828,6 +832,28 @@ export async function handleRequest(req, res) {
   const overviewMatch = path.match(/^\/v1\/orgs\/([^/]+)\/overview$/);
   if (method === "GET" && overviewMatch) {
     await handleGetOrgOverview(req, res, decodeURIComponent(overviewMatch[1]));
+    return;
+  }
+
+  const ownerProfileMatch = path.match(/^\/v1\/orgs\/([^/]+)\/owner-profile$/);
+  if (method === "PATCH" && ownerProfileMatch) {
+    await handlePatchOrgOwnerProfile(
+      req,
+      res,
+      decodeURIComponent(ownerProfileMatch[1]),
+    );
+    return;
+  }
+
+  const ownerVerificationMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/owner-verification$/,
+  );
+  if (method === "PUT" && ownerVerificationMatch) {
+    await handlePutOrgOwnerVerification(
+      req,
+      res,
+      decodeURIComponent(ownerVerificationMatch[1]),
+    );
     return;
   }
 

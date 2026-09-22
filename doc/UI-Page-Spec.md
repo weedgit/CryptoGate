@@ -232,7 +232,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 **Sections**
 
-1. **Profile** — display name, email (read-only or change with verification), language/timezone
+1. **Profile** — **first name**, **last name** (all roles: Platform → Cashier), email (change with verification), phone (with verification), language/timezone. Users edit **self** only. **Administrator cannot** edit the org **Owner’s** person profile. **Platform Owner** may support-edit partner Owner contact / verification (audit). Phase 1 channels: email + phone SMS only.
 2. **Password** — change password (current + new + confirm); policy checklist
 3. **MFA** — link to A5; status badge Enabled/Disabled
 4. **Active sessions** — list devices, IP, last active; **Revoke** per session; **Revoke all other sessions**
@@ -334,7 +334,7 @@ Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Archi
 - Search by name, ID, email
 - Filters: status (active/suspended), parent (top-level / under agent X)
 - Table columns: name, type (Agent / Agent (sub)), parent agent, depth level, merchant count, volume (period), status, created date
-- Row actions (O, A): View (B3), **Pause** / **Run** (resume), **Delete** (empty agents only), Edit fee band assignment
+- Row actions (O, A): View (B3), **Pause** / **Run** (resume), **Delete** (empty agents only), Edit commission (Owner)
 - **+ Onboard agent** (O, A) → B4
 - Status column: Active / Paused (`OrgAccount.status`)
 
@@ -351,15 +351,15 @@ Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Archi
 
 **Tabs**
 
-1. **Overview** — contact, billing email, status, parent agent, depth, assigned tier defaults, commission %
+1. **Overview** — business name, status, country / billing contact (when set), commission mode + % (**view**; Platform Owner edits), payout address (agent or platform O/A may edit), profile completeness / activity gate
 2. **Merchants** — subtree merchant list (read-only links to B6)
 3. **Volume** — charts scoped to agent subtree
 4. **Service bills** — bills issued to merchants under this agent (B9 view)
 5. **Commission statements** — monthly statements paid to agent
-6. **Team** — users on this agent org (read-only for platform; link note “Managed by agent Owner”)
+6. **Team** — users on this agent org (platform may support-edit contact fields; note “Managed by agent Owner” for invites)
 7. **Audit** — filtered audit for this agent
 
-**Actions (O, A):** Suspend agent, Edit commission rate, Add note (internal)
+**Actions (O, A):** Suspend agent, Edit commission (Owner for Fixed/Automatic), Edit org profile / support-edit owner contact, Edit payout address, **Onboard merchant**, **Onboard site** under channel merchants (only if agent profile gate allows — otherwise disabled with reason)
 
 ---
 
@@ -370,17 +370,29 @@ Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Archi
 | **Route** | `/platform/agents/new` |
 | **Access** | O ✓ · A ✓ |
 
-**Steps**
+**Steps (minimal create)**
 
-1. **Type** — Agent (top-level under Platform) or Agent (sub) under parent (dropdown; disabled if max depth reached)
-2. **Details** — legal name, display name, billing email, country
-3. **Commercial** — commission % on platform fee; default merchant tier band
-4. **Owner user** — invite first Owner (email)
-5. **Review** — summary + **Create**
+1. **Business name** — org name under Platform (unique among siblings)
+2. **Owner email** — invite first Owner
+3. **Create** — no country, billing email, commercial, or payout at this step
+
+**After create**
+
+- Success → B3 with “Invitation sent” toast
+- **Legal name** initialized = business name (optional to edit later; invoices only)
+- Agent Owner completes profile (first/last name, billing email, verify email/phone, timezone, payout wallet); until **activity gate** is complete, agent is **watch-only**
+- Commission defaults to **Automatic**; Platform Owner may later set **Fixed** after off-platform request
+- Billing email may be pre-filled from owner email; gate requires it set
+
+**Activity gate (all required)**
+
+First name · Last name · Billing email · Email verified · Phone verified · Timezone · Payout wallet address
+
+Platform O/A may override **email verified** / **phone verified** when SMS or email OTP fails (audit). Phase 1: email + phone SMS only — no WhatsApp/voice.
 
 **Validation**
 
-- Block creation if max agent depth exceeded — inline error + link to B13
+- Business name required; owner email required and unique where product enforces
 - Success → B3 with “Invitation sent” toast
 
 ---
@@ -419,12 +431,11 @@ Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Archi
 5. **Service bills** — history
 6. **Compliance** — override log
 
-**Actions (O only unless noted)**
+**Actions (O, A)**
 
-- **Compliance override** settlement address or matching mode (B7) — O, A (logged)
-- Suspend merchant
-- Approve Enterprise custom rate (O only)
-- Force password reset for merchant Owner (if policy)
+- Edit any merchant org / owner profile fields, verification status, settlement wallet (O/A; MFA + cool-down + audit for wallet)
+- Suspend merchant; fee Automatic/Fixed (Owner for Fixed) — **no fee editor on merchant portal**
+- Agents never edit merchant profile/settlement from agent portal; **verified** Agent O/A may be invited onto merchant/site **team** (Viewers cannot). Platform/Agent O/A must not be the **Owner** email at merchant/site onboard
 
 ---
 
@@ -723,17 +734,23 @@ Like B4 but parent fixed to current agent. Depth check against platform max.
 
 **Steps**
 
-1. Structure: single-location / multi-location
-2. Business details: name, country, billing contact
-3. **Tier** — Small / Mid / Enterprise (Enterprise → “Requires platform approval” flag)
-4. **Volume fee %** — slider or input bounded by platform min/max for tier; show band visually
-5. Invite merchant **Owner** email
-6. Review + **Create**
+1. **Parent** — Platform or agent (**read-only** on the form when already chosen from context)
+2. **Business name**
+3. Invite merchant **Owner** email
+4. **Create**
+
+**Legal name** auto-filled = business name (optional edit later; invoices only). Merchant **platform fee** defaults to **Automatic**; **Fixed** is Platform Owner only. Agents never set fees.
+
+**Activity gate (all required)** — after invite, before write activity:
+
+First name · Last name · Billing email · Email verified · Phone verified · Timezone · **Country** · **Settlement wallet**
+
+**While watch-only:** self-profile only editable; everything else read-only.
 
 **Notifications**
 
-- Enterprise: “Submitted for platform approval” banner
 - Merchant Owner invite email triggered
+- Parent agent must pass its own activity gate before agent users can onboard merchants under themselves
 
 ---
 
@@ -746,25 +763,23 @@ Like B4 but parent fixed to current agent. Depth check against platform max.
 
 **Tabs:** Overview, Sites, Volume, Service bills, Commission attribution
 
-**Read-only:** settlement addresses, API keys, webhooks, credentials — **explicit “Managed by merchant”** labels
+**Read-only:** settlement addresses, API keys, webhooks, credentials, **merchant platform fee** — **explicit “Managed by merchant / Platform”** labels
 
-**Editable (O, A):** volume fee % within band (next period), tier request (non-Enterprise)
+**Editable (O, A):** none of the merchant fee; agent may open merchant detail for ops visibility only. Fee changes are Platform-only.
 
 ---
 
-### C8. Volume fee — edit (modal)
+### C8. Merchant platform fee — view (agent)
 
 | | |
 | --- | --- |
-| **Access** | O ✓ · A ✓ |
+| **Access** | O ✓ · A ✓ · V R |
 
 **Content**
 
-- Current vs new rate
-- Platform band indicator (min–max)
-- Effective date: **next billing period** (auto-display)
-- Reason (optional)
-- Confirm
+- Show effective rate mode (**Automatic** / **Fixed**) and %
+- Automatic follows the monthly volume schedule; Fixed is Platform Owner only
+- **No edit** for agent users — request changes via Platform (off-platform)
 
 ---
 
@@ -816,7 +831,7 @@ Same pattern as B15 for agent org users.
 | **Route** | `/agent/settings` |
 | **Access** | O ✓ · A partial · V R |
 
-**Sections:** Profile (org display name, billing email), notification preferences, API keys (if agent-level integrations), branding placeholder (Phase 1 optional)
+**Sections:** Org profile (**business name**, optional **legal name** for invoices — defaults to business name), optional country, **billing email**, payout wallet, branding (avatar). Person profile (**first name**, **last name**, phone, timezone, email/phone verification). Incomplete **activity gate** → banner: watch-only until complete. Commission mode/% is **view-only** (Platform sets Automatic/Fixed).
 
 ---
 

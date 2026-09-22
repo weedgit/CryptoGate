@@ -48,8 +48,9 @@ export async function defaultAgentSchedulePlan() {
     commissionPercent:
       live?.agentCommissionPercent ??
       band?.agent_commission_percent ??
-      "15",
+      "18",
     rateMode: "automatic",
+    tier: band?.tier ?? MerchantTier.Mid,
   };
 }
 
@@ -104,8 +105,9 @@ export async function resolveMerchantRatesForBilling(orgId, billedVolumeUsd) {
 }
 
 /**
- * For commission generation: fixed uses stored %; automatic uses schedule for
- * the agent's current/default Mid band (or optional volumeTier when provided).
+ * For commission generation: fixed uses stored %; automatic uses schedule.
+ * When volumeUsd is omitted, keep Mid schedule (onboard default) — do not
+ * treat missing volume as Small tier.
  * @param {string} orgId
  * @param {{ volumeUsd?: number }} [opts]
  */
@@ -121,15 +123,21 @@ export async function resolveAgentCommissionForPayout(orgId, opts = {}) {
     };
   }
 
-  const bands = await listFeeTierBands();
-  const volumeUsd =
-    typeof opts.volumeUsd === "number" && Number.isFinite(opts.volumeUsd)
-      ? opts.volumeUsd
-      : 0;
-  const tier = resolveTierForVolume(volumeUsd, bands);
-  const band = bands.find((b) => b.tier === tier) ?? (await findFeeTierBand(tier));
-  const live = band ? toFeeTierBand(band) : null;
-  const commissionPercent = live?.agentCommissionPercent ?? "15";
+  let commissionPercent;
+  let tier;
+
+  if (typeof opts.volumeUsd === "number" && Number.isFinite(opts.volumeUsd)) {
+    const bands = await listFeeTierBands();
+    tier = resolveTierForVolume(opts.volumeUsd, bands);
+    const band =
+      bands.find((b) => b.tier === tier) ?? (await findFeeTierBand(tier));
+    const live = band ? toFeeTierBand(band) : null;
+    commissionPercent = live?.agentCommissionPercent ?? "18";
+  } else {
+    const plan = await defaultAgentSchedulePlan();
+    commissionPercent = plan.commissionPercent;
+    tier = plan.tier;
+  }
 
   if (!row || String(row.commission_percent) !== String(commissionPercent)) {
     await upsertAgentCommission({

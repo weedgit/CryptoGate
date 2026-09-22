@@ -331,7 +331,7 @@ export function orgDetailHref(
   if (type === "merchant") return platformRoute(`accounts/merchants/${id}`);
   if (type === "merchant_site") {
     if (!parentId) return null;
-    return `${platformRoute(`accounts/merchants/${parentId}`)}?tab=sites`;
+    return platformRoute(`accounts/merchants/${parentId}`);
   }
   return null;
 }
@@ -344,15 +344,27 @@ export function orgDetailLabel(type: string): string | null {
   return null;
 }
 
-/** Onboard route for a single child type (platform → agent only). */
+/** Onboard route for a single child type. */
 export function orgAddChildHref(type: string): string | null {
   if (type === "platform") return platformRoute("agents/new");
+  if (type === "agent" || type === "agent_sub") {
+    return platformRoute("merchants/new");
+  }
+  if (type === "merchant" || type === "merchant_site") {
+    return platformRoute("sites/new");
+  }
   return null;
 }
 
 /** Whether Add can create a child under this org from the Architecture panel. */
 export function orgCanAddChild(type: string): boolean {
-  return type === "platform" || type === "agent";
+  return (
+    type === "platform" ||
+    type === "agent" ||
+    type === "agent_sub" ||
+    type === "merchant" ||
+    type === "merchant_site"
+  );
 }
 
 /**

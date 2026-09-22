@@ -130,14 +130,14 @@ describe("M4-10 authz regression — Cashier denials", () => {
 describe("M4-10 authz regression — agent bars", () => {
   const a = caller([agentOwner]);
 
-  it("agent Owner may set payout address; platform operator may not", () => {
+  it("agent Owner or platform operator may set payout address", () => {
     assert.equal(canUpdateAgentPayout(a, agentOrg), true);
     assert.equal(canReadAgentPayout(a, agentOrg), true);
     const p = caller([platformOwner], {
       platformOperator: true,
       platformOwner: true,
     });
-    assert.equal(canUpdateAgentPayout(p, agentOrg), false);
+    assert.equal(canUpdateAgentPayout(p, agentOrg), true);
     assert.equal(canReadAgentPayout(p, agentOrg), true);
   });
 
@@ -208,14 +208,14 @@ describe("M4-10 authz regression — cross-merchant isolation", () => {
 });
 
 describe("M4-10 authz regression — Owner / Admin / Viewer", () => {
-  it("Owner and Admin may change privileged settings; Viewer may not", () => {
+  it("Owner may change settlement; Admin and Viewer may not", () => {
     assert.equal(
       canChangeSettlementSettings(caller([ownerA]), merchantA),
       true,
     );
     assert.equal(
       canChangeSettlementSettings(caller([adminA]), merchantA),
-      true,
+      false,
     );
     assert.equal(
       canChangeSettlementSettings(caller([viewerA]), merchantA),

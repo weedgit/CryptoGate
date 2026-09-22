@@ -6,7 +6,7 @@ import { listAuditLog } from "../audit/audit-list-store.mjs";
 import { toAgentPayoutAddress } from "../commercial/agent-payout-rules.mjs";
 import { findAgentPayoutAddress } from "../commercial/agent-payout-store.mjs";
 import { toAgentCommissionSettings } from "../commercial/agent-commission-rules.mjs";
-import { ensureAgentCommission } from "../commercial/agent-commission-store.mjs";
+import { ensureAgentCommissionFromSchedule } from "../commercial/agent-commission-routes.mjs";
 import { toMerchantCommercialSettings } from "../commercial/merchant-commercial-rules.mjs";
 import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
@@ -16,11 +16,13 @@ import {
 } from "../orders/order-list-scope.mjs";
 import { listPaymentOrders, toPaymentOrder } from "../orders/order-store.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
-import { canListOrgUsers } from "./membership-rules.mjs";
+import { canListOrgUsers, isPlatformStaff } from "./membership-rules.mjs";
 import { listMembershipsForOrg } from "./membership-store.mjs";
 import { listOrgsInSubtree } from "./org-scope.mjs";
+import { findUserById } from "../auth/users.mjs";
 import { findOrgById } from "./org-store.mjs";
 import {
+  canManagePlatform,
   canReadAgentCommission,
   canReadAgentPayout,
   canReadMerchantCommercial,
@@ -50,9 +52,11 @@ export async function handleGetOrgOverview(req, res, orgId) {
   }
 
   const memberRole = roleOnOrg(caller.memberships, orgId);
+  const platformStaff =
+    caller.platformOperator === true || isPlatformStaff(caller.memberships);
   /** @type {Awaited<ReturnType<typeof listMembershipsForOrg>>} */
   let team = [];
-  if (canListOrgUsers(memberRole, caller.platformOperator)) {
+  if (canListOrgUsers(memberRole, caller.platformOperator) || platformStaff) {
     team = await listMembershipsForOrg(orgId);
   }
 
@@ -122,7 +126,7 @@ export async function handleGetOrgOverview(req, res, orgId) {
     }
     if (canReadAgentCommission(caller, org)) {
       try {
-        const commissionRow = await ensureAgentCommission(orgId);
+        const commissionRow = await ensureAgentCommissionFromSchedule(orgId);
         commission = toAgentCommissionSettings(commissionRow);
       } catch {
         commission = null;
@@ -150,6 +154,26 @@ export async function handleGetOrgOverview(req, res, orgId) {
     }
   }
 
+  /** @type {object | null} */
+  let primaryOwnerContact = null;
+  if ((canManagePlatform(caller) || platformStaff) && team.length > 0) {
+    const ownerRow =
+      team.find((m) => m.role === "owner") ?? team[0];
+    const user = await findUserById(ownerRow.userId);
+    if (user) {
+      primaryOwnerContact = {
+        userId: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        timezone: user.timezone,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+      };
+    }
+  }
+
   sendJson(res, 200, {
     team,
     audit: auditRows.map(toAuditLogEntry),
@@ -157,5 +181,6 @@ export async function handleGetOrgOverview(req, res, orgId) {
     commercial,
     payout,
     commission,
+    primaryOwnerContact,
   });
 }

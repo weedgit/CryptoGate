@@ -24,6 +24,14 @@ const OnboardMerchantPage = lazy(() =>
   ),
 );
 
+const OnboardSitePage = lazy(() =>
+  loadLazyChunk(() =>
+    import("./OnboardSitePage").then((m) => ({
+      default: m.OnboardSitePage,
+    })),
+  ),
+);
+
 type Props = {
   session: Session;
 };
@@ -38,6 +46,7 @@ export function PlatformAccountsRoutes({ session }: Props) {
     path: platformRoute("merchants/new"),
     end: true,
   });
+  const siteNew = useMatch({ path: platformRoute("sites/new"), end: true });
 
   useEffect(() => {
     const t1 = window.setTimeout(() => void import("./OnboardAgentPage"), 600);
@@ -45,9 +54,11 @@ export function PlatformAccountsRoutes({ session }: Props) {
       () => void import("./OnboardMerchantPage"),
       700,
     );
+    const t3 = window.setTimeout(() => void import("./OnboardSitePage"), 800);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
+      window.clearTimeout(t3);
     };
   }, []);
 
@@ -82,6 +93,22 @@ export function PlatformAccountsRoutes({ session }: Props) {
           >
             <RequirePlatformOperator session={session}>
               <OnboardMerchantPage session={session} />
+            </RequirePlatformOperator>
+          </Suspense>
+        </RouteErrorBoundary>
+      ) : null}
+      {siteNew ? (
+        <RouteErrorBoundary>
+          <Suspense
+            fallback={
+              <OnboardWizardLoading
+                title="New site"
+                closeTo={platformRoute("accounts")}
+              />
+            }
+          >
+            <RequirePlatformOperator session={session}>
+              <OnboardSitePage session={session} />
             </RequirePlatformOperator>
           </Suspense>
         </RouteErrorBoundary>

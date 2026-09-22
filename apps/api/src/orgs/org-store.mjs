@@ -116,7 +116,7 @@ export async function insertOrgAccount(insert) {
         insert.maxAgentDepth,
         insert.country ?? null,
         null,
-        insert.legalName ?? null,
+        insert.legalName ?? insert.name ?? null,
         isPlatform ? true : null,
         isPlatform ? 30 : null,
       ],
@@ -140,7 +140,7 @@ export async function insertOrgAccount(insert) {
             insert.maxAgentDepth,
             insert.country ?? null,
             null,
-            insert.legalName ?? null,
+            insert.legalName ?? insert.name ?? null,
           ],
         );
         return { ok: true, row: rows[0] };
@@ -178,8 +178,35 @@ export async function updateOrgStatus(orgId, status) {
 }
 
 /**
+ * Prefill billing_email once from owner invite email when empty.
  * @param {string} orgId
- * @param {{ name: string, iconKey: string | null }} profile
+ * @param {string} email
+ */
+export async function updateOrgBillingEmailIfEmpty(orgId, email) {
+  const pool = getPool();
+  const trimmed =
+    typeof email === "string" ? email.trim().toLowerCase().slice(0, 254) : "";
+  if (!trimmed.includes("@")) return null;
+  const { rows } = await pool.query(
+    `UPDATE org_accounts
+     SET billing_email = $2, updated_at = now()
+     WHERE id = $1
+       AND (billing_email IS NULL OR btrim(billing_email) = '')
+     RETURNING ${ORG_COLS}`,
+    [orgId, trimmed],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} orgId
+ * @param {{
+ *   name: string,
+ *   iconKey: string | null,
+ *   country?: string | null,
+ *   legalName?: string | null,
+ *   billingEmail?: string | null,
+ * }} profile
  */
 export async function updateOrgProfile(orgId, profile) {
   const pool = getPool();
@@ -187,15 +214,38 @@ export async function updateOrgProfile(orgId, profile) {
     typeof profile.country === "string" && profile.country.trim()
       ? profile.country.trim()
       : null;
+  const legalName =
+    profile.legalName === undefined
+      ? undefined
+      : typeof profile.legalName === "string" && profile.legalName.trim()
+        ? profile.legalName.trim().slice(0, 200)
+        : null;
+  const billingEmail =
+    profile.billingEmail === undefined
+      ? undefined
+      : typeof profile.billingEmail === "string" && profile.billingEmail.trim()
+        ? profile.billingEmail.trim().toLowerCase().slice(0, 254)
+        : null;
   const { rows } = await pool.query(
     `UPDATE org_accounts
      SET name = $2,
          icon_key = $3,
          country = COALESCE($4, country),
+         legal_name = CASE WHEN $5::boolean THEN $6 ELSE legal_name END,
+         billing_email = CASE WHEN $7::boolean THEN $8 ELSE billing_email END,
          updated_at = now()
      WHERE id = $1
      RETURNING ${ORG_COLS}`,
-    [orgId, profile.name, profile.iconKey, country],
+    [
+      orgId,
+      profile.name,
+      profile.iconKey,
+      country,
+      legalName !== undefined,
+      legalName ?? null,
+      billingEmail !== undefined,
+      billingEmail ?? null,
+    ],
   );
   return rows[0] ?? null;
 }

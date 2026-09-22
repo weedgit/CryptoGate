@@ -43,6 +43,8 @@ export function isSetupAllowedMutation(method, path) {
   if (verb === "PATCH" && /^\/v1\/orgs\/[^/]+$/.test(path)) return true;
   if (verb === "PUT" && /^\/v1\/orgs\/[^/]+\/settlement$/.test(path)) return true;
   if (verb === "PUT" && /^\/v1\/orgs\/[^/]+\/agent-payout$/.test(path)) return true;
+  if (verb === "PATCH" && path === "/v1/auth/profile") return true;
+  if (verb === "POST" && path.startsWith("/v1/auth/contact/")) return true;
   return false;
 }
 
@@ -76,9 +78,16 @@ export async function rejectUnverifiedLiveAction(req, res, method, path) {
     return true;
   }
 
-  const missing = [];
-  if (!setup.profileComplete) missing.push("country and business name");
-  if (!setup.walletSet) missing.push("wallet address");
+  const missing =
+    Array.isArray(setup.missing) && setup.missing.length > 0
+      ? setup.missing.filter(
+          (m) => m !== "email and phone verification",
+        )
+      : [
+          ...(!setup.personComplete ? ["first name, last name, timezone"] : []),
+          ...(!setup.profileComplete ? ["org profile"] : []),
+          ...(!setup.walletSet ? ["wallet address"] : []),
+        ];
   sendError(
     res,
     403,

@@ -12,7 +12,6 @@ import {
   listOrgUsers,
   listOrgMemberEmails,
   listServiceBills,
-  updateMerchantCommercial,
   type AuditLogEntry,
   type MerchantCommercialSettings,
   type OrgAccount,
@@ -199,7 +198,6 @@ function MerchantSitesEmpty() {
 type Props = {
   org: OrgAccount;
   orgs: OrgAccount[];
-  canEditCommercial: boolean;
   canManage?: boolean;
   busy?: boolean;
   initialTab?: string;
@@ -213,7 +211,6 @@ type Props = {
 export function MerchantDetailCard({
   org,
   orgs,
-  canEditCommercial,
   canManage = false,
   busy = false,
   initialTab,
@@ -229,10 +226,6 @@ export function MerchantDetailCard({
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [commercial, setCommercial] =
     useState<MerchantCommercialSettings | null>(null);
-  const [editTier, setEditTier] = useState("");
-  const [editVolume, setEditVolume] = useState("");
-  const [editReason, setEditReason] = useState("");
-  const [commercialBusy, setCommercialBusy] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -333,10 +326,6 @@ export function MerchantDetailCard({
       .then(([comm, ord, aud, teamRows]) => {
         if (cancelled) return;
         setCommercial(comm);
-        if (comm) {
-          setEditTier(comm.tier);
-          setEditVolume(comm.volumeFeePercent);
-        }
         setOrders(ord);
         setAudit(aud);
         setTeam(teamRows);
@@ -555,16 +544,6 @@ export function MerchantDetailCard({
                             <span className="b3-profile__pill b3-profile__pill--tier">
                               {tierLabel(commercial.tier)}
                             </span>
-                            {canEditCommercial ? (
-                              <button
-                                type="button"
-                                className="b3-profile__edit-btn"
-                                disabled={commercialBusy}
-                                onClick={() => setTab("commission")}
-                              >
-                                Edit
-                              </button>
-                            ) : null}
                           </>
                         ) : (
                           <p className="b3-profile__value">—</p>
@@ -573,7 +552,8 @@ export function MerchantDetailCard({
                     </div>
                     {commercial ? (
                       <p className="b3-profile__meta">
-                        {commercial.volumeFeePercent}% volume fee ·{" "}
+                        {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}{" "}
+                        · {commercial.volumeFeePercent}% volume fee ·{" "}
                         <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
                         / mo subscription
                         {commercial.enterpriseApprovalStatus === "pending" ? (
@@ -788,97 +768,17 @@ export function MerchantDetailCard({
 
         {tab === "commission" ? (
           commercial ? (
-            canEditCommercial ? (
-              <form
-                className="form-stack"
-                style={{ maxWidth: 480 }}
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setCommercialBusy(true);
-                  setTabError(null);
-                  try {
-                    const updated = await updateMerchantCommercial(org.id, {
-                      tier: editTier,
-                      volumeFeePercent: editVolume.trim(),
-                      reason: editReason.trim() || undefined,
-                    });
-                    setCommercial(updated);
-                    setEditReason("");
-                  } catch (err) {
-                    setTabError(
-                      err instanceof ApiError
-                        ? err.message
-                        : "Failed to update commercial",
-                    );
-                  } finally {
-                    setCommercialBusy(false);
-                  }
-                }}
-              >
-                <p style={{ color: "var(--muted)", marginTop: 0 }}>
-                  Adjust tier or volume fee within platform bands. Enterprise
-                  outside band queues platform approval.
-                </p>
-                <div className="field">
-                  <label htmlFor="agent-m-tier">Tier</label>
-                  <select
-                    id="agent-m-tier"
-                    className="field-control"
-                    value={editTier}
-                    onChange={(e) => setEditTier(e.target.value)}
-                    disabled={commercialBusy}
-                  >
-                    {(["small", "mid", "enterprise"] as const).map((t) => (
-                      <option key={t} value={t}>
-                        {tierLabel(t)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="agent-m-volume">Volume fee %</label>
-                  <input
-                    id="agent-m-volume"
-                    className="field-control"
-                    value={editVolume}
-                    onChange={(e) => setEditVolume(e.target.value)}
-                    disabled={commercialBusy}
-                  />
-                  <p
-                    style={{
-                      color: "var(--muted)",
-                      fontSize: 12,
-                      marginTop: 8,
-                    }}
-                  >
-                    Band {commercial.bandMinPercent}% –{" "}
-                    {commercial.bandMaxPercent}%
-                  </p>
-                </div>
-                <div className="field">
-                  <label htmlFor="agent-m-reason">Note (optional)</label>
-                  <input
-                    id="agent-m-reason"
-                    className="field-control"
-                    value={editReason}
-                    onChange={(e) => setEditReason(e.target.value)}
-                    disabled={commercialBusy}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={commercialBusy}
-                >
-                  {commercialBusy ? "Saving…" : "Save changes"}
-                </button>
-              </form>
-            ) : (
               <section className="b3-card b3-card--section b3-card--flat">
                 <div className="b3-profile__head">
                   <h3 className="b3-card__heading">Commercial</h3>
                 </div>
                 <div className="b3-profile">
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Mode</p>
+                    <p className="b3-profile__value">
+                      {commercial.rateMode === "fixed" ? "Fixed" : "Automatic"}
+                    </p>
+                  </div>
                   <div className="b3-profile__field">
                     <p className="b3-profile__label">Tier</p>
                     <p className="b3-profile__value">
@@ -899,10 +799,10 @@ export function MerchantDetailCard({
                   </div>
                 </div>
                 <p className="b3-settlement__notice">
-                  Viewer accounts cannot change commercial rates.
+                  Rates follow the platform volume schedule. Fixed specials are
+                  set by Platform Owner only.
                 </p>
               </section>
-            )
           ) : overviewLoading ? (
             <PlatformPending
               compact

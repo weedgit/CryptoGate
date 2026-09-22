@@ -1043,7 +1043,6 @@ export function MerchantsListPage({ session }: Props) {
             <MerchantDetailCard
               org={selected}
               orgs={orgs}
-              canEditCommercial={canManageSelected}
               canManage={canManageSelected}
               busy={busyId === selected.id}
               initialTab={detailTab}

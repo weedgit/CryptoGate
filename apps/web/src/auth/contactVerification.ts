@@ -20,4 +20,4 @@ export function sessionNeedsContactVerification(session: Session): boolean {
 }
 
 export const LIVE_ACTION_LOCKED_HINT =
-  "Finish account setup (email, phone, country, and wallet) before this action";
+  "Finish account setup (email, phone, name, org profile, and wallet) before this action";

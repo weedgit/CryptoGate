@@ -3,6 +3,42 @@ import { hashPassword, verifyPassword } from "./password-hash.mjs";
 import { validatePassword } from "./password-policy.mjs";
 import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
 
+/** @type {boolean | null} */
+let usersHaveFirstLastName = null;
+
+/**
+ * Migration 063 — first_name / last_name. Detect once so API stays up pre-migrate.
+ * @returns {Promise<boolean>}
+ */
+async function hasUserFirstLastNameColumns() {
+  if (usersHaveFirstLastName !== null) return usersHaveFirstLastName;
+  const pool = getPool();
+  try {
+    const { rows } = await pool.query(
+      `SELECT 1
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'users'
+          AND column_name = 'first_name'
+        LIMIT 1`,
+    );
+    usersHaveFirstLastName = rows.length > 0;
+  } catch {
+    usersHaveFirstLastName = false;
+  }
+  return usersHaveFirstLastName;
+}
+
+const USER_ROW_BASE = `id, email, mfa_enrolled_at, mfa_pending_secret, display_name,
+            locale, timezone,
+            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
+            email_verified_at, phone, phone_verified_at`;
+
+const USER_ROW_WITH_NAMES = `id, email, mfa_enrolled_at, mfa_pending_secret, display_name, first_name, last_name,
+            locale, timezone,
+            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
+            email_verified_at, phone, phone_verified_at`;
+
 /**
  * Normalize email for storage and lookup (lower-case trim).
  * @param {string} email
@@ -92,10 +128,10 @@ export async function findUserByEmail(email) {
  */
 export async function findUserById(id) {
   const pool = getPool();
+  const withNames = await hasUserFirstLastNameColumns();
+  const cols = withNames ? USER_ROW_WITH_NAMES : USER_ROW_BASE;
   const { rows } = await pool.query(
-    `SELECT id, email, mfa_enrolled_at, mfa_pending_secret, display_name, locale, timezone,
-            mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
-            email_verified_at, phone, phone_verified_at
+    `SELECT ${cols}
      FROM users
      WHERE id = $1`,
     [id],
@@ -109,13 +145,26 @@ export async function findUserById(id) {
  * @param {Record<string, unknown>} row
  */
 function mapUserRow(row) {
+  const firstName =
+    typeof row.first_name === "string" && row.first_name.trim()
+      ? row.first_name.trim()
+      : null;
+  const lastName =
+    typeof row.last_name === "string" && row.last_name.trim()
+      ? row.last_name.trim()
+      : null;
+  const displayName =
+    row.display_name ??
+    ([firstName, lastName].filter(Boolean).join(" ") || null);
   return {
     id: row.id,
     email: row.email,
     mfaEnrolled: Boolean(row.mfa_enrolled_at),
     mfaEnrollmentPending:
       Boolean(row.mfa_pending_secret) && row.mfa_enrolled_at == null,
-    displayName: row.display_name ?? null,
+    firstName,
+    lastName,
+    displayName,
     avatarUrl:
       typeof row.avatar_url === "string" && row.avatar_url.trim()
         ? row.avatar_url
@@ -153,6 +202,8 @@ export function isUserAvatarValue(value) {
  * Update personal profile + security prefs. Email is not changed here.
  * @param {string} userId
  * @param {{
+ *   firstName?: string | null,
+ *   lastName?: string | null,
  *   displayName?: string | null,
  *   avatarUrl?: string | null,
  *   locale?: string,
@@ -165,11 +216,24 @@ export async function updateUserProfile(userId, input) {
   const current = await findUserById(userId);
   if (!current) return null;
 
+  let firstName = current.firstName;
+  if (input.firstName !== undefined) {
+    const raw =
+      input.firstName === null ? "" : String(input.firstName).trim();
+    firstName = raw ? raw.slice(0, 80) : null;
+  }
+  let lastName = current.lastName;
+  if (input.lastName !== undefined) {
+    const raw = input.lastName === null ? "" : String(input.lastName).trim();
+    lastName = raw ? raw.slice(0, 80) : null;
+  }
   let displayName = current.displayName;
   if (input.displayName !== undefined) {
     const raw =
       input.displayName === null ? "" : String(input.displayName).trim();
     displayName = raw ? raw.slice(0, 120) : null;
+  } else if (input.firstName !== undefined || input.lastName !== undefined) {
+    displayName = [firstName, lastName].filter(Boolean).join(" ") || null;
   }
   let avatarUrl = current.avatarUrl;
   if (input.avatarUrl !== undefined) {
@@ -203,33 +267,91 @@ export async function updateUserProfile(userId, input) {
       : current.sessionTimeoutMinutes;
 
   const pool = getPool();
-  const { rows } = await pool.query(
-    `UPDATE users
-     SET display_name = $2,
-         avatar_url = $3,
-         locale = $4,
-         timezone = $5,
-         mfa_enforcement = $6,
-         session_timeout_minutes = $7,
-         updated_at = now()
-     WHERE id = $1
-     RETURNING id, email, mfa_enrolled_at, display_name, locale, timezone,
-               mfa_enforcement, session_timeout_minutes, avatar_url,
-               must_change_password, mfa_pending_secret,
-               email_verified_at, phone, phone_verified_at`,
-    [
-      userId,
-      displayName,
-      avatarUrl,
-      locale,
-      timezone,
-      mfaEnforcement,
-      sessionTimeoutMinutes,
-    ],
-  );
+  const withNames = await hasUserFirstLastNameColumns();
+  let rows;
+  if (withNames) {
+    ({ rows } = await pool.query(
+      `UPDATE users
+       SET first_name = $2,
+           last_name = $3,
+           display_name = $4,
+           avatar_url = $5,
+           locale = $6,
+           timezone = $7,
+           mfa_enforcement = $8,
+           session_timeout_minutes = $9,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING ${USER_ROW_WITH_NAMES}`,
+      [
+        userId,
+        firstName,
+        lastName,
+        displayName,
+        avatarUrl,
+        locale,
+        timezone,
+        mfaEnforcement,
+        sessionTimeoutMinutes,
+      ],
+    ));
+  } else {
+    ({ rows } = await pool.query(
+      `UPDATE users
+       SET display_name = $2,
+           avatar_url = $3,
+           locale = $4,
+           timezone = $5,
+           mfa_enforcement = $6,
+           session_timeout_minutes = $7,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING ${USER_ROW_BASE}`,
+      [
+        userId,
+        displayName,
+        avatarUrl,
+        locale,
+        timezone,
+        mfaEnforcement,
+        sessionTimeoutMinutes,
+      ],
+    ));
+  }
   const row = rows[0];
   if (!row) return null;
   return mapUserRow(row);
+}
+
+/**
+ * Platform Owner support: set email/phone verification timestamps.
+ * @param {string} userId
+ * @param {{ emailVerified?: boolean, phoneVerified?: boolean }} flags
+ */
+export async function setUserVerificationStatus(userId, flags) {
+  const current = await findUserById(userId);
+  if (!current) return null;
+  const emailVerified =
+    flags.emailVerified === undefined
+      ? current.emailVerified
+      : Boolean(flags.emailVerified);
+  const phoneVerified =
+    flags.phoneVerified === undefined
+      ? current.phoneVerified
+      : Boolean(flags.phoneVerified);
+  const pool = getPool();
+  const withNames = await hasUserFirstLastNameColumns();
+  const returning = withNames ? USER_ROW_WITH_NAMES : USER_ROW_BASE;
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET email_verified_at = CASE WHEN $2 THEN COALESCE(email_verified_at, now()) ELSE NULL END,
+         phone_verified_at = CASE WHEN $3 THEN COALESCE(phone_verified_at, now()) ELSE NULL END,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING ${returning}`,
+    [userId, emailVerified, phoneVerified],
+  );
+  return rows[0] ? mapUserRow(rows[0]) : null;
 }
 
 /**

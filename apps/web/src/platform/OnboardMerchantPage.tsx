@@ -337,14 +337,6 @@ export function OnboardMerchantPage({ session }: Props) {
                 </div>
 
                 <div className="b4-field">
-                  <p className="b4-field__hint">
-                    Pricing follows the platform volume schedule automatically.
-                    Platform Owner can lock a fixed rate later from the merchant
-                    detail page.
-                  </p>
-                </div>
-
-                <div className="b4-field">
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Merchant Owner email"

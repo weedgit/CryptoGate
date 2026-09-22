@@ -255,6 +255,9 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
           name={org?.name ?? ""}
           iconKey={org?.iconKey}
           country={org?.country}
+          legalName={org?.legalName}
+          billingEmail={org?.billingEmail}
+          requireCountry={false}
           busy={profileEditBusy}
           error={profileEditError}
           onClose={() => {

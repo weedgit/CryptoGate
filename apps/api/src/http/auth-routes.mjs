@@ -73,6 +73,8 @@ async function sessionPayload(user, memberships) {
       mfaEnrolled: user.mfaEnrolled === true,
       mfaEnrollmentPending: user.mfaEnrollmentPending === true,
       displayName: user.displayName ?? null,
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
       avatarUrl: user.avatarUrl ?? null,
       locale: user.locale ?? "en",
       timezone: user.timezone ?? "UTC",
@@ -408,6 +410,8 @@ export async function handlePatchProfile(req, res) {
   }
 
   /** @type {{
+   *   firstName?: string | null,
+   *   lastName?: string | null,
    *   displayName?: string | null,
    *   avatarUrl?: string | null,
    *   locale?: string,
@@ -416,6 +420,20 @@ export async function handlePatchProfile(req, res) {
    *   sessionTimeoutMinutes?: number,
    * }} */
   const patch = {};
+  if (body?.firstName !== undefined) {
+    if (body.firstName !== null && typeof body.firstName !== "string") {
+      sendError(res, 400, "invalid_request", "firstName must be a string or null");
+      return;
+    }
+    patch.firstName = body.firstName;
+  }
+  if (body?.lastName !== undefined) {
+    if (body.lastName !== null && typeof body.lastName !== "string") {
+      sendError(res, 400, "invalid_request", "lastName must be a string or null");
+      return;
+    }
+    patch.lastName = body.lastName;
+  }
   if (body?.displayName !== undefined) {
     if (body.displayName !== null && typeof body.displayName !== "string") {
       sendError(res, 400, "invalid_request", "displayName must be a string or null");

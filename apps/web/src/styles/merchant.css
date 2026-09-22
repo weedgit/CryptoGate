@@ -9969,6 +9969,8 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .profile-settings-modal .field-shell {
   min-height: 40px;
   align-items: stretch;
+  background: #0b0f14;
+  border-color: rgba(148, 163, 184, 0.38);
 }
 
 .profile-settings-modal .field-shell > input,
@@ -14587,6 +14589,26 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-height: 56px;
   font-size: 12.5px;
   line-height: 1.4;
+  background: #0b0f14;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 8px;
+  color: #f8fafc;
+}
+
+/* Shared modal edit surface — matches suspend Reason (doc/image/suspend.png) */
+.b3-commission-modal-backdrop .field-shell,
+.b3-commission-modal-backdrop .field-control,
+.b3-commission-modal-backdrop input.field-control,
+.b3-commission-modal-backdrop select.field-control,
+.b3-commission-modal-backdrop textarea.field-control,
+.b3-commission-modal-backdrop .plat-commissions-slip__input,
+.b3-commission-modal-backdrop .plat-settings__input,
+.b3-commission-modal-backdrop .plat-settings__select,
+.b3-commission-modal-backdrop .plat-settings__select--block,
+.b3-commission-modal-backdrop .searchable-select__trigger {
+  background-color: #0b0f14;
+  background-image: none;
+  border-color: rgba(148, 163, 184, 0.38);
 }
 
 .b3-commission-modal-backdrop .plat-commissions-slip__note {
@@ -19835,8 +19857,35 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   user-select: none;
 }
 
-.org-brand-mark--initials {
-  background: linear-gradient(145deg, #fbbf24 0%, #f59e0b 100%);
+.org-brand-mark--initials,
+.org-brand-mark--default {
+  background: #0f172a;
+}
+
+.org-brand-mark--platform {
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.platform-shell .org-brand-mark--platform.platform-detail__mark,
+.platform-shell .org-brand-mark--platform.b3-agent-detail__avatar,
+.platform-shell .platform-detail__mark-wrap .org-brand-mark--platform,
+.platform-shell .b3-agent-detail__avatar-wrap .org-brand-mark--platform {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  filter: none;
+  color: inherit;
+}
+
+.org-brand-mark--platform img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .org-brand-mark--mark {
@@ -22751,6 +22800,21 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   border-radius: 999px;
 }
 
+/* Pay / commission chips — fixed width in the architecture rail (PENDING…OVERDUE) */
+.platform-shell .org-architecture .org-architecture__meta-budget {
+  justify-content: stretch;
+  width: 100%;
+}
+
+.platform-shell .org-architecture .org-architecture__meta-budget .org-architecture__budget,
+.platform-shell .org-architecture .org-architecture__meta-budget .org-agents__payout,
+.platform-shell .org-architecture .org-architecture__meta-budget .org-agents__bill {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0 4px;
+}
+
 /* Account status chips — match mockup (ACTIVE green, PAUSED slate) */
 .platform-shell .org-architecture .org-agents__status.is-active {
   color: #86efac;
@@ -22933,8 +22997,9 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-width: 0;
   min-height: 0;
   flex-shrink: 0;
-  isolation: isolate;
-  overflow: hidden;
+  /* Keep visible so hero-action backdrop-filter can sample the gold aura.
+   * Clip decorative spill on `.platform-detail__hero-aura` instead. */
+  overflow: visible;
   /* Full-bleed within the detail pane — continuous atmosphere, no side gutters */
   margin: 0;
   padding: 6px 14px 10px;
@@ -23006,13 +23071,13 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .platform-shell .platform-detail__hero-aura {
   position: absolute;
   left: 46%;
-  right: -4%;
+  right: 0;
   top: 50%;
   height: 140px;
   transform: translateY(-50%);
   pointer-events: none;
   z-index: 0;
-  overflow: visible;
+  overflow: hidden;
   background-image:
     radial-gradient(
       ellipse 48% 100% at 78% 28%,
@@ -23020,6 +23085,21 @@ html[data-theme="light"] .profile-avatar-editor__preview {
       rgba(240, 180, 41, 0.012) 42%,
       transparent 72%
     );
+  /* Fade arcs under the action cluster so lines don’t read through the chips. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 58%,
+    rgba(0, 0, 0, 0.35) 78%,
+    transparent 96%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 58%,
+    rgba(0, 0, 0, 0.35) 78%,
+    transparent 96%
+  );
 }
 
 .platform-shell .platform-detail__hero-aura-svg {
@@ -23092,6 +23172,53 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   line-height: 1.15;
 }
 
+.platform-shell .platform-detail__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .platform-detail__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.platform-shell .platform-detail__status.is-paused {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.platform-shell .platform-detail__mark-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.platform-shell .platform-detail__mark-wrap .platform-detail__mark,
+.platform-shell .platform-detail__mark-wrap .org-brand-mark,
+.platform-shell .platform-detail__mark-wrap .b3-agent-detail__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+}
+
+.platform-shell .platform-detail__mark-wrap .b3-agent-detail__avatar-edit {
+  bottom: -4px;
+}
+
 .platform-shell .platform-detail__subtitle {
   margin: 0;
   max-width: 42ch;
@@ -23100,12 +23227,82 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   color: #8a9bb0;
 }
 
+/* Agent / merchant detail — same chrome as platform detail in Accounts pane */
+.platform-shell .platform-detail.b3-agent-detail {
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.platform-shell .platform-detail.b3-agent-detail > .b3-agent-detail__invite-creds,
+.platform-shell .platform-detail.b3-agent-detail > .b3-agent-detail__toast {
+  margin: 10px 14px 0;
+}
+
+.platform-shell .platform-detail.b3-agent-detail > .platform-detail__body.b3-agent-detail__shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 12px 14px 14px;
+  width: auto;
+  max-width: calc(100% - 28px);
+}
+
+.platform-shell .org-architecture__detail-scroll:has(> .platform-detail.b3-agent-detail) {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 14px;
+}
+
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__onboard,
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__suspend,
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+  white-space: nowrap;
+  /* Strong frost — brand tint stays on the base rule; blur mutes aura lines. */
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  backdrop-filter: blur(32px) saturate(1.2);
+}
+
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__onboard {
+  text-decoration: none;
+}
+
+/* Soft tint so backdrop-filter has something to sample; keep brand colors */
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__suspend {
+  background: rgba(251, 146, 60, 0.12);
+}
+
+.platform-shell .platform-detail__hero-actions .b3-agent-detail__suspend:hover:not(:disabled) {
+  background: rgba(251, 146, 60, 0.2);
+}
+
 .platform-shell .platform-detail__hero-actions {
   position: absolute;
   top: 8px;
   right: 10px;
   z-index: 2;
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   flex-shrink: 0;
   align-items: center;
   gap: 10px;
@@ -23116,9 +23313,19 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .platform-shell .platform-detail__hero-actions .pg-dash__onboard {
   gap: 8px;
   min-height: 36px;
+  width: 100%;
   padding: 0 14px 0 16px;
   border-radius: 10px;
   font-size: 13px;
+  /* Platform root uses this class — same frost as agent Onboard/Suspend/Delete. */
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  backdrop-filter: blur(32px) saturate(1.2);
+}
+
+.platform-shell .platform-detail__hero-actions .pg-dash__onboard-wrap {
+  display: flex;
+  min-width: 0;
+  width: 100%;
 }
 
 .platform-shell .platform-detail__hero-actions .pg-dash__onboard-icon {
@@ -23132,18 +23339,17 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  align-self: center;
-  width: min(100%, 260px);
-  min-height: 42px;
-  margin: 16px auto 4px;
-  padding: 0 22px;
-  border-radius: 12px;
+  flex-shrink: 0;
+  width: auto;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 10px;
   border: 1px solid rgba(240, 180, 41, 0.48);
-  background: linear-gradient(
-    180deg,
-    rgba(28, 36, 48, 0.95) 0%,
-    rgba(14, 20, 30, 0.98) 100%
-  );
+  /* Translucent dark wash so backdrop-filter can frost the gold aura. */
+  background: rgba(18, 24, 34, 0.42);
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  backdrop-filter: blur(32px) saturate(1.2);
   color: var(--pd-gold, #f0b429);
   font-size: 13px;
   font-weight: 650;
@@ -23160,11 +23366,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .platform-shell .platform-detail__team-link:focus-visible {
   color: #fde68a;
   border-color: rgba(253, 230, 138, 0.65);
-  background: linear-gradient(
-    180deg,
-    rgba(40, 48, 58, 0.98) 0%,
-    rgba(20, 28, 38, 1) 100%
-  );
+  background: rgba(28, 36, 48, 0.55);
   outline: none;
 }
 
@@ -23198,6 +23400,13 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   overflow: hidden;
 }
 
+/* Platform root Accounts/Agents/Merchants tables — size to content; never clip the last row.
+ * Outer `.org-architecture__detail-scroll` handles scrolling. Agent/merchant shells keep flex shrink. */
+.platform-shell .platform-detail:not(.b3-agent-detail) > .platform-detail__body {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
 .platform-shell .platform-detail__section-title {
   margin: 0;
   font-size: 12px;
@@ -23213,7 +23422,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   gap: 0;
   min-width: 0;
   border: 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 0;
   overflow: visible;
   background: transparent;
@@ -23230,7 +23439,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   justify-content: space-between;
   gap: 12px;
   padding: 11px 14px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
   /* Flat navy title bar — no gradient */
   background: rgb(17, 35, 52);
 }
@@ -23312,7 +23521,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .platform-shell .platform-detail__table td {
   padding: 10px 16px;
   vertical-align: middle;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .platform-shell .platform-detail__table tr:last-child th,
@@ -23328,7 +23537,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   color: #94a3b8;
   text-align: left;
   background: transparent;
-  border-right: 1px solid rgba(148, 163, 184, 0.14);
+  border-right: 1px solid rgba(148, 163, 184, 0.26);
   transition: background-color 140ms ease, color 140ms ease;
 }
 
@@ -23435,12 +23644,6 @@ html[data-theme="light"] .profile-avatar-editor__preview {
     align-self: flex-end;
   }
 
-  .platform-shell .platform-detail__team-link {
-    align-self: center;
-    width: calc(100% - 28px);
-    max-width: calc(100% - 28px);
-  }
-
   .platform-shell .platform-detail__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -23481,15 +23684,6 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 
   .platform-shell .platform-detail__hero-actions {
     align-self: flex-end;
-  }
-
-  .platform-shell .platform-detail__team-link {
-    align-self: center;
-    width: calc(100% - 28px);
-    max-width: calc(100% - 28px);
-    margin-left: auto;
-    margin-right: auto;
-    justify-content: center;
   }
 
   .platform-shell .platform-detail__metrics {
@@ -24301,6 +24495,19 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   gap: 18px;
 }
 
+.platform-shell .b3-agent-detail__overview-profile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .platform-shell .b3-agent-detail__overview-profile {
+    grid-template-columns: 1fr;
+  }
+}
+
 .platform-shell .b3-agent-detail__profile {
   min-width: 0;
   padding: 0;
@@ -24697,6 +24904,28 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   cursor: not-allowed;
 }
 
+.platform-shell .b3-profile__verify {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.platform-shell .b3-profile__verify.is-verified {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+
+.platform-shell .b3-profile__verify.is-pending {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
 .platform-shell .b3-commission-modal-backdrop,
 .b3-commission-modal-backdrop {
   position: fixed;
@@ -24799,20 +25028,22 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 .platform-shell .b3-commission-modal__input-wrap,
-.b3-commission-modal__input-wrap {
+.b3-commission-modal__input-wrap,
+.b3-commission-modal-backdrop .b3-commission-modal__input-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: #0b0f14;
 }
 
 .platform-shell .b3-commission-modal__input-wrap:focus-within,
-.b3-commission-modal__input-wrap:focus-within {
-  border-color: rgba(0, 212, 200, 0.55);
-  box-shadow: 0 0 0 1px rgba(0, 212, 200, 0.25);
+.b3-commission-modal__input-wrap:focus-within,
+.b3-commission-modal-backdrop .b3-commission-modal__input-wrap:focus-within {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
 }
 
 .platform-shell .b3-commission-modal__input,
@@ -24846,22 +25077,24 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 .platform-shell .b3-commission-modal__select,
-.b3-commission-modal__select {
+.b3-commission-modal__select,
+.b3-commission-modal-backdrop .b3-commission-modal__select {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: #0b0f14;
   color: #f8fafc;
   font-size: 13px;
 }
 
 .platform-shell .b3-commission-modal__select:focus,
-.b3-commission-modal__select:focus {
+.b3-commission-modal__select:focus,
+.b3-commission-modal-backdrop .b3-commission-modal__select:focus {
   outline: none;
-  border-color: rgba(0, 212, 200, 0.55);
-  box-shadow: 0 0 0 1px rgba(0, 212, 200, 0.25);
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
 }
 
 .platform-shell .b3-commission-modal__select:disabled,
@@ -24936,99 +25169,541 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   cursor: not-allowed;
 }
 
-.platform-shell .b3-suspend-modal__reason,
-.b3-suspend-modal__reason {
-  width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  min-height: 72px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f8fafc;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.45;
+.platform-shell .b3-suspend-modal,
+.b3-suspend-modal,
+.b3-commission-modal-backdrop .b3-suspend-modal {
+  width: min(680px, 100%);
+  max-width: calc(100vw - 32px);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: #121921;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
-.platform-shell .b3-suspend-modal__reason:focus,
-.b3-suspend-modal__reason:focus {
-  outline: none;
-  border-color: rgba(0, 212, 200, 0.55);
-  box-shadow: 0 0 0 1px rgba(0, 212, 200, 0.25);
-}
-
-.platform-shell .b3-suspend-modal__reason:disabled,
-.b3-suspend-modal__reason:disabled {
-  opacity: 0.6;
-}
-
-.platform-shell .b3-suspend-modal__confirm,
-.b3-suspend-modal__confirm {
-  background: #dc2626;
-  color: #fff;
-}
-
-.platform-shell .b3-suspend-modal__confirm:hover:not(:disabled),
-.b3-suspend-modal__confirm:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-
-.org-delete-modal {
-  width: min(480px, 100%);
-  border-top: 3px solid #f87171;
-}
-
-.b3-commission-modal-backdrop .org-delete-modal__head {
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.b3-commission-modal-backdrop .org-delete-modal__title-row {
+.b3-commission-modal-backdrop .b3-suspend-modal__head {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 22px 56px 14px 24px;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: #121921;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__head::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 24% 90% at 82% 45%,
+    rgba(255, 208, 96, 0.06) 0%,
+    rgba(255, 193, 69, 0.025) 45%,
+    transparent 70%
+  );
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__aura {
+  position: absolute;
+  left: 48%;
+  right: -2%;
+  top: 50%;
+  height: 80px;
+  transform: translateY(-48%);
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 0.95;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__aura-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 7px rgba(255, 208, 96, 0.3));
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__head-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  color: #ffd060;
+  background: #0b1018;
+  border: 1.5px solid #ffd060;
+  box-shadow:
+    0 0 0 1px rgba(255, 208, 96, 0.18),
+    inset 0 0 14px rgba(255, 208, 96, 0.1);
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__mark svg {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__titles h3 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__titles p {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
+.b3-commission-modal-backdrop
+  .b3-suspend-modal
+  .b3-commission-modal__close.b3-suspend-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  margin: 0;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0;
+  line-height: 0;
+}
+
+.b3-commission-modal-backdrop
+  .b3-suspend-modal
+  .b3-commission-modal__close.b3-suspend-modal__close
+  svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.b3-commission-modal-backdrop
+  .b3-suspend-modal
+  .b3-commission-modal__close.b3-suspend-modal__close:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__body {
+  gap: 18px;
+  padding: 16px 32px 16px;
+  background: #131a24;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
   min-width: 0;
 }
 
-.b3-commission-modal-backdrop .org-delete-modal__title-row h3 {
+.b3-commission-modal-backdrop .b3-suspend-modal__label {
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a9bb0;
 }
 
-.b3-commission-modal-backdrop .org-delete-modal__icon {
+.b3-commission-modal-backdrop .b3-suspend-modal__lede {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: right;
+  color: #64748b;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__reason-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell .b3-suspend-modal__reason,
+.b3-suspend-modal__reason,
+.b3-commission-modal-backdrop .b3-suspend-modal__reason {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 108px;
+  margin: 0;
+  padding: 12px 14px 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: #10161e;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.platform-shell .b3-suspend-modal__reason:focus,
+.b3-suspend-modal__reason:focus,
+.b3-commission-modal-backdrop .b3-suspend-modal__reason:focus {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
+}
+
+.platform-shell .b3-suspend-modal__reason:disabled,
+.b3-suspend-modal__reason:disabled,
+.b3-commission-modal-backdrop .b3-suspend-modal__reason:disabled {
+  opacity: 0.6;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__reason::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__count {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(30, 58, 110, 0.28);
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__callout-icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid rgba(248, 113, 113, 0.28);
-  background: rgba(248, 113, 113, 0.1);
-  color: #f87171;
   flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 0;
+  color: #60a5fa;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__callout-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__callout-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: #f8fafc;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__callout-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  background: #121921;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__foot-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal .b3-commission-modal__cancel {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #2a3a4a;
+  background: transparent;
+  color: var(--text, #e2e8f0);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.b3-commission-modal-backdrop
+  .b3-suspend-modal
+  .b3-commission-modal__cancel:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.platform-shell .b3-suspend-modal__confirm,
+.b3-suspend-modal__confirm,
+.b3-commission-modal-backdrop .b3-suspend-modal__confirm {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.28);
+  transition: filter 140ms ease, opacity 140ms ease, background 140ms ease;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__confirm svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.platform-shell .b3-suspend-modal__confirm:hover:not(:disabled),
+.b3-suspend-modal__confirm:hover:not(:disabled),
+.b3-commission-modal-backdrop .b3-suspend-modal__confirm:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.platform-shell .b3-suspend-modal__confirm:disabled,
+.b3-suspend-modal__confirm:disabled,
+.b3-commission-modal-backdrop .b3-suspend-modal__confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.b3-commission-modal-backdrop .b3-suspend-modal__name {
+  color: #f8fafc;
+  font-weight: 650;
+}
+
+.org-delete-modal,
+.b3-commission-modal-backdrop .org-delete-modal {
+  width: min(720px, 100%);
+  max-width: calc(100vw - 32px);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-top: 0;
+  background: #121921;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 22px 56px 14px 24px;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: #121921;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__head::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 24% 90% at 82% 45%,
+    rgba(248, 113, 113, 0.08) 0%,
+    rgba(239, 68, 68, 0.03) 45%,
+    transparent 70%
+  );
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__aura {
+  position: absolute;
+  left: 48%;
+  right: -2%;
+  top: 50%;
+  height: 80px;
+  transform: translateY(-48%);
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+  opacity: 0.95;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__aura-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 7px rgba(248, 113, 113, 0.35));
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__head-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  color: #f87171;
+  background: #140c10;
+  border: 1.5px solid #f87171;
+  box-shadow:
+    0 0 0 1px rgba(248, 113, 113, 0.18),
+    inset 0 0 14px rgba(248, 113, 113, 0.12);
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__mark svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__titles h3 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__titles p {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
+.b3-commission-modal-backdrop
+  .org-delete-modal
+  .b3-commission-modal__close.org-delete-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  margin: 0;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0;
+  line-height: 0;
+}
+
+.b3-commission-modal-backdrop
+  .org-delete-modal
+  .b3-commission-modal__close.org-delete-modal__close
+  svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.b3-commission-modal-backdrop
+  .org-delete-modal
+  .b3-commission-modal__close.org-delete-modal__close:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__body {
   gap: 16px;
-}
-
-.b3-commission-modal-backdrop .org-delete-modal__banner {
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.07);
-}
-
-.b3-commission-modal-backdrop .org-delete-modal__banner p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.55;
-  color: #e2e8f0;
-}
-
-.b3-commission-modal-backdrop .org-delete-modal__banner strong {
-  color: #fff;
-  font-weight: 650;
+  padding: 16px 24px 16px;
+  background: #131a24;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__loading {
@@ -25047,14 +25722,39 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__stats > div {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-  padding: 12px 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: #10161e;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__stat-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__stat-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__stat-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__stats dt {
@@ -25063,12 +25763,12 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__stats dd {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.1;
   color: #f8fafc;
@@ -25092,23 +25792,79 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__checks {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 0;
+  min-width: 0;
+  min-height: 100%;
   padding: 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 11, 16, 0.35);
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f87171;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning-icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__warning-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #f87171;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__ack {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
-  margin: 0;
+  margin: auto 0 0;
+  padding-top: 4px;
   font-size: 13px;
-  line-height: 1.5;
-  color: #cbd5e1;
+  line-height: 1.45;
+  color: #e2e8f0;
   cursor: pointer;
 }
 
@@ -25121,44 +25877,126 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__confirm-field {
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #161d27;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__confirm-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a9bb0;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__input-wrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: #0e141c;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__input-wrap:focus-within {
   border-color: rgba(248, 113, 113, 0.55);
-  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.22);
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.16);
 }
 
-.b3-commission-modal-backdrop .org-delete-modal__match-hint {
-  font-size: 12px;
-  line-height: 1.45;
+.b3-commission-modal-backdrop .org-delete-modal__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__input::placeholder {
   color: #64748b;
+  opacity: 1;
 }
 
-.b3-commission-modal-backdrop .org-delete-modal__match-hint strong {
-  color: #e2e8f0;
+.b3-commission-modal-backdrop .org-delete-modal .org-delete-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  background: #121921;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__foot-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal .b3-commission-modal__cancel {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #2a3a4a;
+  background: transparent;
+  color: var(--text, #e2e8f0);
+  font-size: 13px;
   font-weight: 600;
 }
 
-.b3-commission-modal-backdrop .org-delete-modal__foot {
-  gap: 10px;
+.b3-commission-modal-backdrop
+  .org-delete-modal
+  .b3-commission-modal__cancel:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__confirm {
   appearance: none;
   -webkit-appearance: none;
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin: 0;
-  padding: 8px 16px;
+  min-height: 40px;
+  padding: 10px 18px;
   border: 0;
   border-radius: 8px;
   background: #dc2626;
   color: #ffffff;
   font: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.28);
   transition: background 160ms ease, filter 160ms ease;
+}
+
+.b3-commission-modal-backdrop .org-delete-modal__confirm svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .b3-commission-modal-backdrop .org-delete-modal__confirm:hover:not(:disabled) {
@@ -25169,6 +26007,16 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 .b3-commission-modal-backdrop .org-delete-modal__confirm:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .b3-commission-modal-backdrop .org-delete-modal__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .b3-commission-modal-backdrop .org-delete-modal__checks {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -27304,7 +28152,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-height: 40px;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.38);
   background: #0b0f14;
   color: #f8fafc;
   font-size: 14px;
@@ -27520,7 +28368,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-height: 40px;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.38);
   background: #0b0f14;
   color: #f8fafc;
   font-size: 14px;
@@ -28513,8 +29361,8 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-height: 40px;
   padding: 0;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #0b0f14;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: #10161e;
   overflow: hidden;
   color: #f8fafc;
   font-size: 14px;
@@ -28545,9 +29393,8 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   place-items: center;
   color: #8b97a8;
   pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  border-right: 1px solid rgba(148, 163, 184, 0.28);
 }
 
 .field-shell--custom-icon .field-shell__icon {
@@ -29655,11 +30502,12 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 }
 
 :is(.platform-shell, .b4-wizard-portal) .b4-wizard__head--brand .b4-wizard__close {
-  top: 20px;
-  right: 20px;
+  top: 14px;
+  right: 14px;
   transform: none;
   color: #94a3b8;
-  font-size: 22px;
+  font-size: 0;
+  line-height: 0;
   z-index: 2;
 }
 
@@ -29674,22 +30522,38 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 
 :is(.platform-shell, .b4-wizard-portal) .b4-wizard__close {
   position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 14px;
+  top: 14px;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: var(--muted);
-  font-size: 24px;
-  line-height: 1;
-  padding: 0 4px;
+  color: #94a3b8;
+  font-size: 0;
+  line-height: 0;
   text-decoration: none;
   cursor: pointer;
-  transition: color 160ms ease;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+:is(.platform-shell, .b4-wizard-portal) .b4-wizard__close svg {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 
 :is(.platform-shell, .b4-wizard-portal) .b4-wizard__close:hover {
-  color: var(--text);
+  color: #f8fafc;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 :is(.platform-shell, .b4-wizard-portal) .b4-wizard__steps {
@@ -30029,8 +30893,8 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 :is(.platform-shell, .b4-wizard-portal) .b4-field__control {
   width: 100%;
   box-sizing: border-box;
-  background: #0b0f14;
-  border: 1px solid #1e2a36;
+  background: #10161e;
+  border: 1px solid rgba(148, 163, 184, 0.55);
   border-radius: 8px;
   padding: 10px 16px;
   color: var(--text);
@@ -30057,7 +30921,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   margin: 0;
   padding: 12px 14px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.55);
   background: #161d27;
   box-shadow: none;
 }
@@ -30197,7 +31061,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 :is(.platform-shell, .b4-wizard-portal) .b4-field__control:-webkit-autofill:active {
   -webkit-text-fill-color: var(--text);
   caret-color: var(--text);
-  box-shadow: 0 0 0 1000px #0b0f14 inset;
+  box-shadow: 0 0 0 1000px #10161e inset;
   transition: background-color 99999s ease-out 0s;
 }
 
@@ -30403,23 +31267,6 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   .create-order-modal__close.b3-commission-modal__close:hover:not(:disabled) {
   color: #f8fafc;
   background: rgba(255, 255, 255, 0.06);
-}
-
-.b3-commission-modal-backdrop .b3-suspend-modal__name {
-  color: #f8fafc;
-  font-weight: 650;
-}
-
-.b3-commission-modal-backdrop .b3-suspend-modal__reason {
-  display: block;
-  width: 100%;
-  min-height: 84px;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.b3-commission-modal-backdrop .b3-suspend-modal__reason::placeholder {
-  color: #64748b;
 }
 
 .b3-commission-modal-backdrop .b3-commission-modal__select option {
@@ -31085,7 +31932,7 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-height: 40px;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.38);
   background-color: #0b0f14;
   background-image: none;
   color: #f8fafc;

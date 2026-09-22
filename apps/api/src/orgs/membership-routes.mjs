@@ -8,7 +8,6 @@ import {
   userHasPosPin,
 } from "../auth/users.mjs";
 import { validatePosPin } from "../auth/pos-pin-hash.mjs";
-import { findOrgById } from "./org-store.mjs";
 import { collectAncestorOrgIds } from "./org-ancestry.mjs";
 import {
   canAssignOrgRole,
@@ -36,7 +35,16 @@ import {
   updateMembershipRole,
   updateMembershipStatus,
 } from "./membership-store.mjs";
-import { canListOrgMemberEmailsBulk, canManageDirectChildOrg } from "./role-policy.mjs";
+import {
+  findOrgById,
+  updateOrgBillingEmailIfEmpty,
+} from "./org-store.mjs";
+import {
+  canListOrgMemberEmailsBulk,
+  canManageDirectChildOrg,
+  evaluateCrossOrgMerchantSiteInvite,
+  isPlatformOrAgentOperatorMemberships,
+} from "./role-policy.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
@@ -196,16 +204,53 @@ export async function handleInviteOrgUser(req, res, orgId) {
 
   const user = { id: provisioned.id, email: provisioned.email };
   const profile = await findUserById(user.id);
+  const existingMemberships = await listMembershipsForUser(user.id);
+  const isMerchantOrSite =
+    org.type === "merchant" || org.type === "merchant_site";
+
+  // Onboard Owner: Platform/Agent O/A cannot become merchant/site Owner.
+  if (
+    isMerchantOrSite &&
+    role === "owner" &&
+    isPlatformOrAgentOperatorMemberships(existingMemberships)
+  ) {
+    sendError(
+      res,
+      403,
+      "owner_invite_forbidden",
+      "Platform or agent Owner/Administrator cannot be onboarded as merchant or site Owner",
+    );
+    return;
+  }
 
   if (!provisioned.created) {
-    const memberships = await listMembershipsForUser(user.id);
-    if (memberships.some((m) => m.orgId !== orgId)) {
-      sendError(
-        res,
-        409,
-        "email_taken",
-        "This email is already registered on the platform.",
-      );
+    const otherOrgs = existingMemberships.filter((m) => m.orgId !== orgId);
+    if (otherOrgs.length > 0) {
+      if (isMerchantOrSite) {
+        const cross = evaluateCrossOrgMerchantSiteInvite(profile, otherOrgs);
+        if (!cross.ok) {
+          sendError(res, 403, cross.code, cross.message);
+          return;
+        }
+        // Allowed: verified Platform/Agent O/A joining merchant/site team.
+      } else {
+        sendError(
+          res,
+          409,
+          "email_taken",
+          "This email is already registered on the platform.",
+        );
+        return;
+      }
+    }
+  } else if (
+    isMerchantOrSite &&
+    role !== "owner" &&
+    isPlatformOrAgentOperatorMemberships(existingMemberships)
+  ) {
+    const cross = evaluateCrossOrgMerchantSiteInvite(profile, existingMemberships);
+    if (!cross.ok) {
+      sendError(res, 403, cross.code, cross.message);
       return;
     }
   }
@@ -231,6 +276,10 @@ export async function handleInviteOrgUser(req, res, orgId) {
   if (!inserted.ok) {
     sendError(res, 400, "membership_exists", "User is already a member of this org");
     return;
+  }
+
+  if (role === "owner") {
+    await updateOrgBillingEmailIfEmpty(orgId, user.email).catch(() => null);
   }
 
   /** @type {string | null} */

@@ -56,6 +56,7 @@ export type OrgAccount = {
   status?: "active" | "paused";
   country?: string | null;
   legalName?: string | null;
+  billingEmail?: string | null;
   iconKey?: string | null;
   createdAt?: string;
   orderCreateSuspended?: boolean;

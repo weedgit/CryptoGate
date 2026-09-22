@@ -7,7 +7,9 @@ const API_BASE =
 export type Session = {
   userId: string;
   email: string;
-  /** Optional display name (A10). */
+  firstName?: string | null;
+  lastName?: string | null;
+  /** Optional display name (legacy; prefer firstName + lastName). */
   displayName?: string | null;
   /** Optional profile photo data-URL; null/absent uses the default avatar icon. */
   avatarUrl?: string | null;
@@ -23,11 +25,13 @@ export type Session = {
   phoneVerified?: boolean;
   /** emailVerified AND phoneVerified. */
   contactVerified?: boolean;
-  /** Business name + country set on the setup org. */
+  /** Person first+last+timezone complete for activity gate. */
+  personComplete?: boolean;
+  /** Org registration fields complete for activity gate. */
   profileComplete?: boolean;
   /** Settlement (merchant) or payout (agent) address set. */
   walletSet?: boolean;
-  /** contactVerified AND profileComplete AND walletSet. */
+  /** contact + person + profile + wallet. */
   setupReady?: boolean;
   /** Org id whose profile/wallet must be completed. */
   setupOrgId?: string | null;
@@ -1165,6 +1169,7 @@ export type OrgAccount = {
   status?: "active" | "paused";
   country?: string | null;
   legalName?: string | null;
+  billingEmail?: string | null;
   iconKey?: string | null;
   createdAt?: string;
 };
@@ -1261,19 +1266,21 @@ export async function setOrgStatus(
 
 export async function patchOrgProfile(
   orgId: string,
-  body: { name: string; iconKey?: string | null; country?: string },
-): Promise<OrgAccount> {
-  const payload: {
+  body: {
     name: string;
-    iconKey: string | null;
+    iconKey?: string | null;
     country?: string;
-  } = {
+    legalName?: string | null;
+    billingEmail?: string | null;
+  },
+): Promise<OrgAccount> {
+  const payload: Record<string, unknown> = {
     name: body.name.trim(),
     iconKey: body.iconKey ?? null,
   };
-  if (typeof body.country === "string" && body.country.trim()) {
-    payload.country = body.country.trim();
-  }
+  if (body.country !== undefined) payload.country = body.country;
+  if (body.legalName !== undefined) payload.legalName = body.legalName;
+  if (body.billingEmail !== undefined) payload.billingEmail = body.billingEmail;
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
     method: "PATCH",
     credentials: "include",
@@ -1462,6 +1469,8 @@ export async function adminClearMemberPosPin(
 
 /** A10 — update profile / language / MFA preference / session TTL. */
 export async function updateProfile(body: {
+  firstName?: string | null;
+  lastName?: string | null;
   displayName?: string | null;
   avatarUrl?: string | null;
   locale?: string;

@@ -161,7 +161,7 @@ describe("role policy", () => {
     );
     assert.equal(
       canChangeSettlementSettings(
-        { platformOwner: true, memberships: [platformOwner] },
+        { platformOwner: false, platformOperator: true, memberships: [platformOwner] },
         merchant,
       ),
       true,
@@ -563,7 +563,7 @@ describe("role policy", () => {
         type: "merchant",
         parentId: "a1",
       }),
-      true,
+      false,
     );
     assert.equal(
       canUpdateMerchantCommercial(
@@ -575,7 +575,7 @@ describe("role policy", () => {
         },
         ["a1"],
       ),
-      true,
+      false,
     );
     assert.equal(
       canUpdateMerchantCommercial(caller, {
@@ -592,6 +592,13 @@ describe("role policy", () => {
         ["s1", "a1"],
       ),
       false,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        { platformOperator: true, memberships: [] },
+        { id: "m1", type: "merchant", parentId: "a1" },
+      ),
+      true,
     );
   });
 });

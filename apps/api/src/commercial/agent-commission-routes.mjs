@@ -7,7 +7,6 @@ import { findOrgById } from "../orgs/org-store.mjs";
 import {
   canReadAgentCommission,
   canReadCommissionPayouts,
-  canUpdateAgentCommission,
   canUpdatePlatformOwnerSettings,
 } from "../orgs/role-policy.mjs";
 import {
@@ -22,6 +21,21 @@ import {
   upsertAgentCommission,
 } from "./agent-commission-store.mjs";
 import { defaultAgentSchedulePlan } from "../platform-settings/pricing-resolve.mjs";
+
+/**
+ * Ensure a commission row exists, bootstrapping Mid automatic schedule when missing.
+ * @param {string} orgId
+ */
+export async function ensureAgentCommissionFromSchedule(orgId) {
+  const existing = await findAgentCommission(orgId);
+  if (existing) return existing;
+  const plan = await defaultAgentSchedulePlan();
+  return ensureAgentCommission(
+    orgId,
+    plan.commissionPercent,
+    "automatic",
+  );
+}
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -86,17 +100,27 @@ export async function handleGetAgentCommission(req, res, orgId) {
     return;
   }
 
-  const row = await ensureAgentCommission(orgId);
+  const row = await ensureAgentCommissionFromSchedule(orgId);
   sendJson(res, 200, toAgentCommissionSettings(row));
 }
 
 /**
  * PUT /v1/orgs/{orgId}/agent-commission — applies immediately.
- * Fixed overrides and automatic resets require Platform Owner.
+ * Fixed overrides and automatic resets require Platform Owner only.
  */
 export async function handlePutAgentCommission(req, res, orgId) {
   const loaded = await loadVisibleAgentOrg(req, res, orgId);
   if (!loaded) return;
+
+  if (!canUpdatePlatformOwnerSettings(loaded.caller)) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only platform Owner may set or clear fixed agent commission rates",
+    );
+    return;
+  }
 
   let body;
   try {
@@ -109,22 +133,6 @@ export async function handlePutAgentCommission(req, res, orgId) {
   const parsed = validateUpdateAgentCommissionBody(body);
   if (!parsed.ok) {
     sendError(res, parsed.status, parsed.code, parsed.message);
-    return;
-  }
-
-  const needsOwner =
-    parsed.rateMode === "fixed" || parsed.rateMode === "automatic";
-  if (needsOwner && !canUpdatePlatformOwnerSettings(loaded.caller)) {
-    sendError(
-      res,
-      403,
-      "forbidden",
-      "Only platform Owner may set or clear fixed agent commission rates",
-    );
-    return;
-  }
-  if (!needsOwner && !canUpdateAgentCommission(loaded.caller, loaded.org)) {
-    sendError(res, 403, "forbidden", "Not allowed to change agent commission");
     return;
   }
 

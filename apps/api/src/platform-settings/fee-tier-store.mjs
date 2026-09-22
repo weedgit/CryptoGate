@@ -112,14 +112,8 @@ export async function applyDuePendingFeeTiers() {
          default_signup_percent = COALESCE(pending_default_signup_percent, default_signup_percent),
          agent_commission_percent = COALESCE(pending_agent_commission_percent, agent_commission_percent),
          volume_min_usd = COALESCE(pending_volume_min_usd, volume_min_usd),
-         volume_max_usd = CASE
-           WHEN pending_default_signup_percent IS NOT NULL THEN pending_volume_max_usd
-           ELSE volume_max_usd
-         END,
-         tier_description = CASE
-           WHEN pending_default_signup_percent IS NOT NULL THEN pending_tier_description
-           ELSE tier_description
-         END,
+         volume_max_usd = pending_volume_max_usd,
+         tier_description = pending_tier_description,
          pending_subscription_amount_usd = NULL,
          pending_volume_fee_min_percent = NULL,
          pending_volume_fee_max_percent = NULL,

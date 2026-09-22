@@ -51,6 +51,7 @@ export const AUDIT_ACTIONS = {
   contactEmailVerified: "contact_email_verified",
   contactPhoneOtpSend: "contact_phone_otp_send",
   contactPhoneVerified: "contact_phone_verified",
+  contactVerificationOverride: "contact_verification_override",
   posPinSet: "pos_pin_set",
   posPinClear: "pos_pin_clear",
   posPinVerify: "pos_pin_verify",
