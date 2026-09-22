@@ -57,7 +57,7 @@ fun PinUnlockScreen(
         }
     val subtitle =
         when (mode) {
-            PinScreenMode.Unlock -> "Sign in to continue"
+            PinScreenMode.Unlock -> "Site PIN unlocks this terminal"
             PinScreenMode.Set -> "Choose a 6-digit PIN for this terminal"
             PinScreenMode.Confirm -> "Enter the same PIN again"
         }
@@ -197,7 +197,7 @@ fun PinUnlockScreen(
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "PIN is managed on the web dashboard",
+                text = "Restart keeps this PIN screen. Reset PIN on the web dashboard (Security).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

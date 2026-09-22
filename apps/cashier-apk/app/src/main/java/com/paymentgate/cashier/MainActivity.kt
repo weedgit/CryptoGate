@@ -670,11 +670,18 @@ class MainActivity : ComponentActivity() {
                                                         onSignOut = {
                                                             scope.launch {
                                                                 app.api.logout()
+                                                                app.devicePin.clear()
                                                                 session = null
                                                                 payment = null
                                                                 watchingOrderId = null
                                                                 signedIn = false
                                                                 pinUnlocked = false
+                                                                pinMode = PinScreenMode.Set
+                                                                pendingPin = null
+                                                                pinError = null
+                                                                email = ""
+                                                                password = ""
+                                                                error = null
                                                                 screen = PosScreen.Create
                                                             }
                                                         },

@@ -108,7 +108,7 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "PIN unlocks this terminal while your session stays signed in. Set the PIN on the web dashboard (Security).",
+                text = "After register, only the site PIN unlocks this terminal — including after restart. Manage the PIN on the web dashboard (Security).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -260,10 +260,10 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
-                Text("Sign out")
+                Text("Unpair this terminal")
             }
             Text(
-                text = "Sign out clears the session. Next open needs email/password to re-bind, then PIN unlock.",
+                text = "Removes the merchant binding. Owner/admin email + password are required to register again. Restart alone never asks for email.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
             )

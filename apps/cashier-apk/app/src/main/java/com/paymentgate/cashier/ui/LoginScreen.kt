@@ -24,12 +24,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/**
+ * One-time terminal registration — owner/admin email + password binds this
+ * device to the merchant. Daily access is PIN unlock, not this screen.
+ */
 @Composable
 fun LoginScreen(
     email: String,
@@ -47,21 +52,29 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
+                text = "TERMINAL SETUP",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
                 text = "PaymentGate",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = "Cashier POS",
+                text = "Register this terminal",
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                text = "Sign in once to bind this terminal. Daily unlock uses your POS PIN.",
+                text = "Owner or admin credentials only. After setup, cashiers unlock with the site PIN — this screen does not appear on restart.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (appEnv.equals("staging", ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "TEST BUILD — staging API",
                     style = MaterialTheme.typography.labelLarge,
@@ -74,7 +87,7 @@ fun LoginScreen(
                 value = email,
                 onValueChange = onEmailChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Email") },
+                label = { Text("Owner / admin email") },
                 singleLine = true,
                 enabled = !loading,
                 shape = RoundedCornerShape(14.dp),
@@ -120,7 +133,7 @@ fun LoginScreen(
                     transitionSpec = {
                         fadeIn(tween(PosMotion.Fast)) togetherWith fadeOut(tween(PosMotion.Fast))
                     },
-                    label = "sign-in-busy",
+                    label = "register-busy",
                 ) { busy ->
                     if (busy) {
                         CircularProgressIndicator(
@@ -129,13 +142,13 @@ fun LoginScreen(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                     } else {
-                        Text("Sign in", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("Register terminal", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Network required",
+                text = "Network required · PIN unlock comes next",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.paymentgate.cashier.R
 import kotlinx.coroutines.delay
 
-/** V3 Splash — PaymentGate gate mark, then continue to PIN/login. */
+/** V3 Splash — PaymentGate gate mark, then PIN unlock or terminal setup. */
 @Composable
 fun SplashScreen(
     siteName: String = "North Annex",

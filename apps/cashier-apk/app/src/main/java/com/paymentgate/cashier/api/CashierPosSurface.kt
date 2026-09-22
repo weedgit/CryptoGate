@@ -92,10 +92,10 @@ object CashierPosSurface {
     enum class ErrorContext { General, PinUnlock, CreateOrder }
 
     const val INVALID_LOGIN =
-        "Email or password is incorrect."
+        "Owner/admin email or password is incorrect."
 
     const val SESSION_EXPIRED =
-        "Session expired — sign in again."
+        "Terminal binding expired — register again with owner/admin credentials."
 
     const val MFA_REQUIRED_POS =
         "This account requires MFA. Sign in on the web portal — POS cannot complete authenticator step-up."
