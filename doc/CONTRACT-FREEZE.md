@@ -151,8 +151,9 @@ Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Generate | `POST /v1/service-bills/generate` | Platform only; previous UTC month default; idempotent per org+period |
-| Migration | **029** `service_bills_org_period_active_uidx` | One active bill per merchant period |
+| Generate | `POST /v1/service-bills/generate` | Platform only; ops override; idempotent per org+period |
+| Daily job | `startDailyServiceBillInvoiceJob` | 00:00 UTC; payment-date schedule (`next_invoice_on`) |
+| Agent invoices | `startDailyAgentCommissionInvoiceJob` | 00:00 UTC on day C (`agentPayDayStart`); prior month paid sub+volume × rate |
 | Cron | `node apps/api/scripts/generate-service-bills.mjs` | Optional `--period YYYY-MM` |
 
 Volume fee uses **completed** payment-order `payable_amount` in the period × merchant `volume_fee_percent`. Subscription from `platform_fee_tiers`. Does not debit payer on-chain amounts.

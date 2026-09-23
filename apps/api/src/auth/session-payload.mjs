@@ -54,6 +54,14 @@ export function sessionFromUser(user, memberships = []) {
 export async function sessionFromUserWithSetup(user, memberships = []) {
   const base = sessionFromUser(user, memberships);
   const setup = await loadOrgSetupStatus(memberships, user);
+  /** @type {boolean | undefined} */
+  let activationPaid;
+  if (setup.setupOrgType === "merchant" && setup.setupOrgId) {
+    const { merchantHasBillingAnchor } = await import(
+      "../commercial/merchant-commercial-store.mjs"
+    );
+    activationPaid = await merchantHasBillingAnchor(setup.setupOrgId);
+  }
   return {
     ...base,
     contactVerified: setup.contactVerified,
@@ -62,5 +70,6 @@ export async function sessionFromUserWithSetup(user, memberships = []) {
     walletSet: setup.walletSet,
     setupReady: setup.setupReady,
     setupOrgId: setup.setupOrgId,
+    ...(activationPaid !== undefined ? { activationPaid } : {}),
   };
 }

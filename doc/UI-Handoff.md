@@ -83,7 +83,7 @@ Nested on HD / xPub frames (not full-page): `xpub-display-block` `13:6413`, `rot
 
 - Cashier: Dashboard (own orders), Create order, My orders, Sign out — **no** Settings, Team, API, Service bills, Reports, Sites.
 - Cashier **403** on settlement, xPub, matching mode, fees (direct URL too). Frame `d17-*` is the limited shell.
-- Matching labels in UI: **Standard** / **Amount fingerprint** / **Memo tag** / **Smart address** (not Mode A/B/C/D/S alone).
+- Matching labels in UI: **Standard** / **Amount fingerprint** / **Smart address** (not Mode A/B/C/D/S alone). Mode D is not offered in Phase 1.
 - Save matching → confirm: “Applies to **new orders only**.”
 - Status badges: Pending Payment, Verifying, Confirmed, Completed, Expired, Payment Anomaly, Failed — **never Paid**.
 - No “Mark paid” on anomaly.
@@ -118,11 +118,9 @@ Demo (no id):
 
 - States: `?state=verifying|completed|expired|anomaly|failed`
 - Mode C: `?mode=C&amount=245.01`
-- Mode D (hidden on USDT Tron): `?mode=D&memo=CG-0847` — memo UI stays hidden
-- Mode D demo on supported net: `?mode=D&memo=CG-0847&memoSupported=1`
 - Create: `/create-order.html`
 
-Guest page shows amount/asset/network/contract/address/expiry, wrong-network warning, QR (HTTPS pay page), copy amount/address/contract, share link. Mode C uses “Exact payable” + exact-amount warning. Mode D memo only when `memoSupported` (mirrors `packages/domain` for USDT+tron).
+Guest page shows amount/asset/network/contract/address/expiry, wrong-network warning, QR (HTTPS pay page), copy amount/address/contract, share link. Mode C uses “Exact payable” + exact-amount warning. Mode D is not part of Phase 1.
 
 ## Branch (Kevin)
 

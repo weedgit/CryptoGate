@@ -271,7 +271,9 @@ export async function getMerchantPricingSettings(orgId) {
  */
 export function resolveEffectiveMerchantPricing(stored, platform) {
   const modeEnabled =
-    stored.pricingMode === PricingMode.Market
+    stored.pricingMode === PricingMode.Market ||
+    stored.pricingMode === PricingMode.TokenToUsd ||
+    stored.pricingMode === PricingMode.UsdToToken
       ? platform.modeMarketEnabled
       : platform.modePegged1to1Enabled;
   const lockAllowed = platform.allowedQuoteLockSeconds.includes(
@@ -304,13 +306,23 @@ export async function updateMerchantPricingSettings(orgId, patch) {
   const pricingMode = patch.pricingMode ?? cur.pricingMode;
   const quoteLockSeconds = patch.quoteLockSeconds ?? cur.quoteLockSeconds;
 
-  if (pricingMode !== PricingMode.Pegged1to1 && pricingMode !== PricingMode.Market) {
+  if (
+    pricingMode !== PricingMode.Pegged1to1 &&
+    pricingMode !== PricingMode.Market &&
+    pricingMode !== PricingMode.TokenToUsd &&
+    pricingMode !== PricingMode.UsdToToken
+  ) {
     throw Object.assign(new Error("invalid_pricing_mode"), { code: "invalid_request" });
   }
   if (pricingMode === PricingMode.Pegged1to1 && !platform.modePegged1to1Enabled) {
     throw Object.assign(new Error("pricing_mode_disabled"), { code: "pricing_mode_unavailable" });
   }
-  if (pricingMode === PricingMode.Market && !platform.modeMarketEnabled) {
+  if (
+    (pricingMode === PricingMode.Market ||
+      pricingMode === PricingMode.TokenToUsd ||
+      pricingMode === PricingMode.UsdToToken) &&
+    !platform.modeMarketEnabled
+  ) {
     throw Object.assign(new Error("pricing_mode_disabled"), { code: "pricing_mode_unavailable" });
   }
   if (!platform.allowedQuoteLockSeconds.includes(Number(quoteLockSeconds))) {

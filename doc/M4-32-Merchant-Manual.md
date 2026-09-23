@@ -44,10 +44,9 @@ You pick a **default** mode under **Settings → Settlement & matching**. The mo
 | --- | --- | --- | --- |
 | **Standard** (default) | B | Low concurrency, one settlement address | Send correct asset, network, amount, address |
 | **Amount fingerprint** | C | Several open orders with the same nominal amount | Pay the **exact** payable shown (may be 50.01 not 50.00) |
-| **Memo tag** | D | Networks that support memo/tag (not USDT on Tron) | Include the memo exactly |
-| **Smart address** | S | Same-amount collisions; you can provide a watch-only xPub | Pay to the address on that order’s QR |
+| **Smart address** | S | Same-amount collisions; you can provide a watch-only public key | Pay to the address on that order’s QR |
 
-Phase 1 live pair: **USDT on Tron** only. **Memo tag** is unavailable for USDT Tron (hidden / rejected). **Unique address per order (Mode A)** is Phase 2.
+Phase 1 live pair: **USDT on Tron** only. **Memo tag (Mode D)** is not part of Phase 1. **Unique address per order (Mode A)** is Phase 2.
 
 **Do not combine** Smart address with Amount fingerprint — the API rejects that combination.
 
@@ -69,11 +68,7 @@ Each new open order gets a **unique payable amount** (e.g. 245.00 → 245.01, 24
 
 ### Smart address (S)
 
-Quiet traffic still uses your **main settlement address**. When a new order would collide on amount with another open order on main (or another derived address), PaymentGate assigns a **derived HD address** from your watch-only xPub pool. Each order’s address is fixed once the QR is issued — **never rewritten**.
-
-### Memo tag (D)
-
-Where the network supports it, matching also requires the memo. Wrong or missing memo → anomaly / unmatched — not auto-Completed. Not offered for USDT Tron.
+Quiet traffic still uses your **main settlement address**. When a new order would collide on amount with another open order on main (or another derived address), PaymentGate assigns a **derived HD address** from your watch-only public key pool. Each order’s address is fixed once the QR is issued — **never rewritten**.
 
 ---
 

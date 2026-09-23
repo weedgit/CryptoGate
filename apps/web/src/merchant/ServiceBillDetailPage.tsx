@@ -19,6 +19,7 @@ import {
 } from "../shared/serviceBillDetailCache";
 import {
   formatBillId,
+  isActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
@@ -155,6 +156,7 @@ export function ServiceBillDetailPage({ session }: Props) {
   const voided = bill?.status === "voided";
   const payable = bill?.status === "issued" || bill?.status === "overdue";
   const isOverdue = bill?.status === "overdue";
+  const isActivation = bill ? isActivationServiceBill(bill) : false;
   const timelineIndex = bill ? billTimelineIndex(bill.status) : 0;
 
   const topbarChrome =
@@ -167,7 +169,9 @@ export function ServiceBillDetailPage({ session }: Props) {
               </Link>
               <span className="order-detail-topbar__divider" aria-hidden />
               <div className="order-detail-topbar__identity">
-                <span className="order-detail-topbar__kicker">Service bill</span>
+                <span className="order-detail-topbar__kicker">
+                  {isActivation ? "Activation fee" : "Service bill"}
+                </span>
                 <span className="order-detail-topbar__title">
                   {formatBillId(bill.id)}
                 </span>
@@ -412,10 +416,16 @@ export function ServiceBillDetailPage({ session }: Props) {
                       </div>
                       <div className="order-detail-timeline__body">
                         <div className="order-detail-timeline__row">
-                          <strong>Issued</strong>
+                          <strong>
+                            {isActivation ? "Activation issued" : "Issued"}
+                          </strong>
                           <span>{formatShortTime(bill.createdAt)}</span>
                         </div>
-                        <p>Platform SaaS invoice opened for this period</p>
+                        <p>
+                          {isActivation
+                            ? "One-time account activation — pay to unlock live features and start the billing schedule"
+                            : "Platform SaaS invoice opened for this period"}
+                        </p>
                       </div>
                     </li>
                     <li className={timelineStepClass(1, timelineIndex)}>

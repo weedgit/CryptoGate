@@ -35,11 +35,11 @@ export function canManageOrgTree(role) {
 }
 
 /**
- * Pause / resume / remove members: org Owner or platform Owner.
- * @param {{ platformOwner: boolean, roleOnOrg: string | null }} p
+ * Pause / resume / remove members: org Owner, or Platform Owner/Administrator.
+ * @param {{ platformOwner?: boolean, platformOperator?: boolean, roleOnOrg: string | null }} p
  */
 export function canManageMembershipLifecycle(p) {
-  return p.platformOwner || canManageTeam(p.roleOnOrg);
+  return p.platformOperator === true || p.platformOwner === true || canManageTeam(p.roleOnOrg);
 }
 
 /**
@@ -64,23 +64,24 @@ export function isPlatformStaff(memberships) {
 }
 
 /**
- * Owner or Administrator may set/clear another member's Cashier POS PIN.
- * @param {{ platformOwner: boolean, roleOnOrg: string | null }} p
+ * Owner, Administrator, or Platform Owner/Administrator may set/clear a member POS PIN.
+ * @param {{ platformOwner?: boolean, platformOperator?: boolean, roleOnOrg: string | null }} p
  */
 export function canManageMemberPosPin(p) {
   return (
-    p.platformOwner ||
+    p.platformOperator === true ||
+    p.platformOwner === true ||
     p.roleOnOrg === "owner" ||
     p.roleOnOrg === "administrator"
   );
 }
 
 /**
- * Invite: org Owner (or platform Owner) may add any allowed role.
- * Empty child org: platform Owner/Admin or parent Owner/Admin may invite the first Owner only.
+ * Invite: org Owner, or Platform Owner/Administrator, may add any allowed role
+ * including Owner. Empty child org: parent Owner/Admin may invite the first Owner only.
  * @param {{
- *   platformOwner: boolean,
- *   platformOperator: boolean,
+ *   platformOwner?: boolean,
+ *   platformOperator?: boolean,
  *   roleOnOrg: string | null,
  *   roleOnParent: string | null,
  *   memberCount: number,
@@ -88,20 +89,22 @@ export function canManageMemberPosPin(p) {
  * }} p
  */
 export function canInviteToOrg(p) {
-  if (p.platformOwner || canManageTeam(p.roleOnOrg)) return true;
+  if (p.platformOperator === true || p.platformOwner === true || canManageTeam(p.roleOnOrg)) {
+    return true;
+  }
   return (
     p.memberCount === 0 &&
     p.invitedRole === "owner" &&
-    (p.platformOperator || canManageOrgTree(p.roleOnParent))
+    canManageOrgTree(p.roleOnParent)
   );
 }
 
 /**
- * Role changes: org Owner or platform Owner only.
- * @param {{ platformOwner: boolean, roleOnOrg: string | null }} p
+ * Role changes: org Owner, or Platform Owner/Administrator.
+ * @param {{ platformOwner?: boolean, platformOperator?: boolean, roleOnOrg: string | null }} p
  */
 export function canAssignOrgRole(p) {
-  return p.platformOwner || canManageTeam(p.roleOnOrg);
+  return p.platformOperator === true || p.platformOwner === true || canManageTeam(p.roleOnOrg);
 }
 
 /**

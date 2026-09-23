@@ -90,7 +90,9 @@ export async function resolveOrderQuote(args) {
       exactPayAmount: amountCrypto,
       asset: args.asset,
       decimals: args.decimals,
-      merchantMode: /** @type {'pegged_1to1' | 'market'} */ (eff.pricingMode),
+      merchantMode: /** @type {'pegged_1to1' | 'market'} */ (
+        eff.pricingMode === "pegged_1to1" ? "pegged_1to1" : "market"
+      ),
       marketRate: price.rate,
       rateSource: price.source,
       rateFetchedAt: price.fetchedAt,
@@ -154,7 +156,9 @@ export async function resolveOrderQuote(args) {
     invoiceDenomination: "fiat",
     asset: args.asset,
     decimals: args.decimals,
-    merchantMode: /** @type {'pegged_1to1' | 'market'} */ (eff.pricingMode),
+    merchantMode: /** @type {'pegged_1to1' | 'market'} */ (
+      eff.pricingMode === "pegged_1to1" ? "pegged_1to1" : "market"
+    ),
     marketRate: price.rate,
     rateSource: price.source,
     rateFetchedAt: price.fetchedAt,

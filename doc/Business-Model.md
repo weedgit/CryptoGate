@@ -219,6 +219,7 @@ Effective platform fee on the **billing merchant** is only:
 - Agents / merchants / sites **cannot** set or request fee % in-product (agents may still *ask* Platform off-platform to change Fixed).
 - Fee changes apply to the **next billing period**, not retroactively.
 - Merchant (and site) users may **view** the effective rate on the billing merchant; Cashiers cannot change it.
+- **Cadence (payment-date):** after verification, merchant pays an **activation** fee (Owner-set). Paying on day **D** sets the billing anchor; the first subscription + volume invoice is created at **00:00 UTC** on **D + 1 month**, then monthly. Invoices are draft or auto-sent per Owner setting. Unpaid past the pay-within window pauses the merchant; late pay on **E** resets the anchor to **E**. See [Service-Bill-Ops-Playbook.md](Service-Bill-Ops-Playbook.md).
 
 **Default schedule (Phase 1 — Platform Owner may adjust globally):**
 
@@ -365,12 +366,12 @@ Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot 
 **Locked: Platform pays agent (Option A). No sub-agent cascade in Phase 1.**
 
 - Merchant receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
-- **Platform pays agents** whose parent is Platform: commission = agreed **% of platform fee collected** on that agent’s merchants. **Collected** = volume fees on **paid** service bills only.
+- **Platform pays agents** whose parent is Platform: commission = agreed **% of platform fee collected** on that agent’s merchants. **Collected** = **subscription + volume fee line amounts** on **paid** monthly service bills (`paid_at` in the period). Activation fees are **not** commissionable. **Credits / line adjustments do not change the commission base** — ops goodwill is absorbed by the platform; agents are paid on the listed subscription + volume fees.
 - Agent commission rate mode is **Automatic** or **Fixed** only:
   - **Automatic** — follows the platform commission schedule.
   - **Fixed** — locked % set by **Platform Owner** (typically after the agent requests a change via social / off-platform conversation).
 - **Agent users only watch** commission mode and % — they do not edit it in-product.
-- **Monthly cadence:** ops generate invoices; platform remits (**paid**); agent confirms receipt (**settled**).
+- **Monthly cadence:** agent commission invoices are created automatically at **00:00 UTC on day C** (Fees → Billing calendar → agent remittance **From day**). Period = prior UTC month of merchant `paid_at`. Platform remits (**paid**); agent confirms receipt (**settled**). Manual Generate remains an ops override. Merchant service bills use payment-date schedule (see [Service-Bill-Ops-Playbook.md](Service-Bill-Ops-Playbook.md)).
 - Agent never receives a share of payer on-chain payments.
 - Merchants do **not** pay a separate agent fee.
 - **No** agent → sub-agent payout product in Phase 1.
@@ -379,7 +380,7 @@ Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot 
 
 | Step | Merchant service bill | Platform → agent |
 | --- | --- | --- |
-| Statement ready | Bill issued | Monthly invoice **issued** |
+| Statement ready | Bill issued / paid | Auto invoice **issued** on day C 00:00 UTC |
 | Slip | QR + link → platform wallet | QR → **agent payout address** |
 | Who pays | Merchant | Platform treasury / ops → **paid** |
 | Confirm | — | Agent confirms receipt → **settled** |
@@ -391,7 +392,7 @@ Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot 
 
 | # | Topic | Decision |
 | --- | --- | --- |
-| **1** | Agent commission payer | **Platform pays agents** (rebate from platform fee collected). No merchant-paid agent fee. No sub-agent cascade. |
+| **1** | Agent commission payer | **Platform pays agents** (rebate from paid subscription + volume). No merchant-paid agent fee. No sub-agent cascade. Auto invoices on day C 00:00 UTC. |
 | **2** | Merchant platform fee | **No fee settings** on merchant or site UI. Billing merchant only: **Automatic** or **Fixed** (**Platform Owner**). Agents/merchants/sites never set fees. |
 | **3** | Agent commission rate | **Automatic** or **Fixed**; **Platform Owner** applies changes (agent requests off-platform). Agent UI is **view-only**. |
 | **4** | Org tree | Platform → Agent → Merchant → **Site** (under merchant **or** site). Site nesting depth **unlimited**. **No** agent (sub). |

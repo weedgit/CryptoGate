@@ -215,7 +215,7 @@ describe("@paymentgate/domain", () => {
     assert.equal(DEFAULT_ORDER_DELETE_DAYS, 90);
   });
 
-  it("disables Mode D in Phase 1 when no enabled pair supports memo", () => {
+  it("rejects Mode D in Phase 1", () => {
     assert.equal(phase1MemoSupportedAny("mainnet"), false);
     assert.equal(phase1MemoSupportedAny("testnet"), false);
     assert.equal(isMatchingModeSelectable(MatchingMode.B), true);
@@ -223,7 +223,7 @@ describe("@paymentgate/domain", () => {
     assert.equal(isMatchingModeSelectable(MatchingMode.S), true);
     assert.equal(isMatchingModeSelectable(MatchingMode.D), false);
     assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /Phase 1/i);
-    assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /memo/i);
+    assert.match(MODE_D_PHASE1_UNAVAILABLE_REASON, /not part of Phase 1/i);
   });
 
   it("maps Mode S HD derivation families for Phase 1 networks", () => {

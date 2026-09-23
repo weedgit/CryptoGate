@@ -15,6 +15,7 @@ import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
+import { ActivationPaymentBanner } from "./ActivationPaymentBanner";
 import { VerifyContactBanner } from "../auth/VerifyContactBanner";
 import {
   AlertsNavIcon,
@@ -372,6 +373,7 @@ export function MerchantShell({
               portal="merchant"
             />
           ) : null}
+          <ActivationPaymentBanner session={session} />
           {cashier && showCashierBanner ? <CashierRestrictedBanner /> : null}
           {children}
         </div>

@@ -291,6 +291,17 @@ export async function handlePatchOrg(req, res, orgId) {
     },
   }).catch(() => {});
 
+  if (updated.type === "merchant") {
+    try {
+      const { maybeCreateActivationForMerchantOrg } = await import(
+        "../service-bills/activation.mjs"
+      );
+      await maybeCreateActivationForMerchantOrg(orgId);
+    } catch {
+      /* best-effort */
+    }
+  }
+
   sendJson(res, 200, toOrgAccount(updated));
 }
 

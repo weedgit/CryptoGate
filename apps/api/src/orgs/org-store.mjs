@@ -2,15 +2,35 @@ import { getPool } from "../db/pool.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
+  "id, type, name, parent_id, max_agent_depth, status, status_reason, status_reason_bill_id, country, billing_email, legal_name, icon_key, created_at";
+const ORG_COLS_LEGACY =
   "id, type, name, parent_id, max_agent_depth, status, country, billing_email, legal_name, icon_key, created_at";
+
+/**
+ * @param {string} sql
+ * @param {unknown[]} [params]
+ */
+async function queryOrgs(sql, params = []) {
+  try {
+    return await getPool().query(sql, params);
+  } catch (err) {
+    if (err && err.code === "42703" && sql.includes("status_reason")) {
+      const stripped = sql
+        .replace(/,\s*status_reason_bill_id/g, "")
+        .replace(/,\s*status_reason/g, "")
+        .replace(ORG_COLS, ORG_COLS_LEGACY);
+      return getPool().query(stripped, params);
+    }
+    throw err;
+  }
+}
 
 /**
  * @param {string} id
  */
 export async function findOrgById(id) {
-  const pool = getPool();
   try {
-    const { rows } = await pool.query(
+    const { rows } = await queryOrgs(
       `SELECT ${ORG_COLS}, order_create_suspended
        FROM org_accounts
        WHERE id = $1`,
@@ -19,7 +39,7 @@ export async function findOrgById(id) {
     return rows[0] ?? null;
   } catch (err) {
     if (err && err.code === "42703") {
-      const { rows } = await pool.query(
+      const { rows } = await queryOrgs(
         `SELECT ${ORG_COLS}
          FROM org_accounts
          WHERE id = $1`,
@@ -32,8 +52,7 @@ export async function findOrgById(id) {
 }
 
 export async function findPlatformOrg() {
-  const pool = getPool();
-  const { rows } = await pool.query(
+  const { rows } = await queryOrgs(
     `SELECT ${ORG_COLS}
      FROM org_accounts
      WHERE type = 'platform'
@@ -43,8 +62,7 @@ export async function findPlatformOrg() {
 }
 
 export async function listOrgAccounts() {
-  const pool = getPool();
-  const { rows } = await pool.query(
+  const { rows } = await queryOrgs(
     `SELECT ${ORG_COLS}
      FROM org_accounts
      ORDER BY created_at ASC`,
@@ -164,17 +182,34 @@ export async function insertOrgAccount(insert) {
 /**
  * @param {string} orgId
  * @param {"active" | "paused"} status
+ * @param {{ reason?: string | null, reasonBillId?: string | null }} [opts]
  */
-export async function updateOrgStatus(orgId, status) {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `UPDATE org_accounts
-     SET status = $2, updated_at = now()
-     WHERE id = $1
-     RETURNING ${ORG_COLS}`,
-    [orgId, status],
-  );
-  return rows[0] ?? null;
+export async function updateOrgStatus(orgId, status, opts = {}) {
+  const reason = status === "paused" ? (opts.reason ?? null) : null;
+  const reasonBillId = status === "paused" ? (opts.reasonBillId ?? null) : null;
+  try {
+    const { rows } = await getPool().query(
+      `UPDATE org_accounts
+       SET status = $2,
+           status_reason = $3,
+           status_reason_bill_id = $4,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING ${ORG_COLS}`,
+      [orgId, status, reason, reasonBillId],
+    );
+    return rows[0] ?? null;
+  } catch (err) {
+    if (!(err && err.code === "42703")) throw err;
+    const { rows } = await getPool().query(
+      `UPDATE org_accounts
+       SET status = $2, updated_at = now()
+       WHERE id = $1
+       RETURNING ${ORG_COLS_LEGACY}`,
+      [orgId, status],
+    );
+    return rows[0] ?? null;
+  }
 }
 
 /**

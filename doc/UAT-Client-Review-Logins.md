@@ -4,6 +4,8 @@
 
 Use these accounts for user-guide screenshots. Data includes 3 months of payment orders, service bills, commission invoices, platform team, and two agent trees under PaymentGate.
 
+**Billing / commission click-through:** [Billing-Commission-UAT.md](Billing-Commission-UAT.md) (after migrate `064`–`066`).
+
 ---
 
 ## Platform portal

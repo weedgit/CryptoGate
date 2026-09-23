@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { DEFAULT_FEE_TIER_BANDS, PLATFORM_FEE_ASSET } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import type { OnboardInviteCreds } from "../shared/onboardInviteState";
+import { CopyGlyph } from "../shared/CopyGlyph";
 import {
   ApiError,
+  getFeeTierSettings,
   getOrgOverview,
   listServiceBills,
   SERVICE_BILLS_LIST_LIMIT,
   putAgentCommission,
+  putAgentPayout,
+  ownerContactWithMfa,
   patchOrgProfile,
   type OrgPrimaryOwnerContact,
   type AgentCommissionSettings,
   type AgentPayoutAddress,
+  type FeeTierBand,
   type AuditLogEntry,
   type OrgAccount,
   type OrgMember,
@@ -28,7 +34,6 @@ import { AccountsDetailHero } from "./AccountsDetailHero";
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree, subAgentsUnderAgent } from "./agentSubtree";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "./org";
 import { FundAmount } from "./FundAmount";
-import { ChartHelpButton } from "./ui/ChartHelpButton";
 import {
   buildAgentAccountsForest,
   formatOnboardDate,
@@ -40,16 +45,63 @@ import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
   truncateAddress,
 } from "./orgDetailSeeds";
-import { PlatformPending } from "./ui/PlatformPending";
+import { OrgTeamRoster } from "./OrgTeamRoster";
+import { DetailActivityCard } from "./DetailActivityTable";
+import { KpiChartIcon, KpiCoinsIcon, KpiPeopleIcon } from "./detailKpiMarks";
 import { platformRoute } from "../shared/portalRouting";
+import { platformFeeAsset, platformFeeNetwork } from "../shared/platformFeePair";
+import { AssetIcon } from "./cryptoIcons";
+import {
+  HeroPauseIcon,
+  HeroPersonPlusIcon,
+  HeroPlayIcon,
+  HeroTrashIcon,
+} from "./detailHeroIcons";
 
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "activity", label: "Recent activity" },
   { id: "team", label: "Team" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+function automaticCommissionPercent(
+  volumeUsd: number,
+  tiers: Array<Pick<FeeTierBand, "tier" | "volumeMinUsd" | "volumeMaxUsd" | "agentCommissionPercent">>,
+): string {
+  const vol = Number.isFinite(volumeUsd) ? volumeUsd : 0;
+  const rank: Record<string, number> = { enterprise: 3, mid: 2, small: 1 };
+  const match = tiers
+    .map((row) => ({
+      tier: row.tier,
+      pct: row.agentCommissionPercent?.trim() ?? "",
+      min: Number(row.volumeMinUsd ?? 0),
+      max:
+        row.volumeMaxUsd == null || row.volumeMaxUsd === ""
+          ? null
+          : Number(row.volumeMaxUsd),
+    }))
+    .filter((band) => {
+      if (!band.pct || !Number.isFinite(band.min) || vol < band.min) return false;
+      if (band.max != null && Number.isFinite(band.max) && vol >= band.max) return false;
+      return true;
+    })
+    .sort((a, b) => (rank[b.tier] ?? 0) - (rank[a.tier] ?? 0))[0];
+  return match?.pct || "15";
+}
+
+type OrgEditSave = {
+  name: string;
+  iconKey: string | null;
+  country: string;
+  legalName: string;
+  billingEmail: string;
+  commission?: {
+    rateMode: "automatic" | "fixed";
+    commissionPercent: string;
+  };
+  payoutAddress?: string;
+};
 
 const AUDIT_LABEL: Record<string, string> = {
   login: "Sign-in",
@@ -61,60 +113,6 @@ const AUDIT_LABEL: Record<string, string> = {
   service_bill_void: "Bill voided",
   service_bill_adjust: "Bill adjusted",
 };
-
-function relativeTime(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(ms / 60000);
-  if (m < 60) return `${Math.max(1, m)}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 14) return `${d}d ago`;
-  return `${Math.floor(d / 7)}w ago`;
-}
-
-function KpiHelp({ text }: { text: string }) {
-  return (
-    <span className="plat-card-help plat-card-help--corner">
-      <ChartHelpButton text={text} label="About this metric" openOnHover />
-    </span>
-  );
-}
-
-const KPI_HELP = {
-  merchants:
-    "Merchant accounts in this agent’s subtree. Sites are not counted here.",
-  volumeMtd:
-    "Confirmed payment-order volume from the 1st of this month through today, across the agent subtree.",
-  commissionMtd:
-    "Agent commission accrued month-to-date: share of platform fee collected from the subtree. Paid by PaymentGate on the monthly statement — not taken from payer on-chain payments.",
-} as const;
-
-function CopyIcon({ copied }: { copied: boolean }) {
-  return copied ? (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M6.5 11.2 3.3 8l1.1-1.1 2.1 2.1 4.6-4.6L12.2 5.5 6.5 11.2z"
-      />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        d="M5.5 3.5h7v7h-7z"
-      />
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        d="M3.5 5.5h7v7h-7z"
-      />
-    </svg>
-  );
-}
 
 function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
   return (
@@ -186,21 +184,27 @@ function ProfilePayoutField({
         <p className="b3-profile__value muted">…</p>
       ) : payout?.address ? (
         <div className="b3-profile__value-row">
-          <p className="b3-profile__value mono" title={payout.address}>
-            {truncateAddress(payout.address)}
-          </p>
+          <div className="b3-profile__value-with-asset">
+            <AssetIcon asset={platformFeeAsset()} />
+            <p className="b3-profile__value mono" title={payout.address}>
+              {truncateAddress(payout.address)}
+            </p>
+          </div>
           <button
             type="button"
-            className={`b3-profile__copy-icon${copied ? " is-copied" : ""}`}
+            className={`cg-copy-btn b3-profile__copy-icon${copied ? " is-copied" : ""}`}
             onClick={() => void copyAddress()}
             aria-label={copied ? "Payout address copied" : "Copy payout address"}
             title={copied ? "Copied" : "Copy"}
           >
-            <CopyIcon copied={copied} />
+            <CopyGlyph copied={copied} />
           </button>
         </div>
       ) : (
-        <p className="b3-profile__value">—</p>
+        <p className="b3-profile__value b3-profile__value-with-asset">
+          <AssetIcon asset={platformFeeAsset()} />
+          <span>—</span>
+        </p>
       )}
     </div>
   );
@@ -235,6 +239,10 @@ export function AgentDetailCard({
   onOrgPatched,
 }: Props) {
   const canEditCommission = useMemo(
+    () => sessionIsPlatformOwner(session),
+    [session],
+  );
+  const canEditPayout = useMemo(
     () => sessionCanManagePlatform(session),
     [session],
   );
@@ -249,6 +257,9 @@ export function AgentDetailCard({
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [profileEditBusy, setProfileEditBusy] = useState(false);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
+  const [pendingPayoutSave, setPendingPayoutSave] = useState<OrgEditSave | null>(
+    null,
+  );
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [subtreeOrders, setSubtreeOrders] = useState<PaymentOrder[]>([]);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
@@ -262,10 +273,7 @@ export function AgentDetailCard({
   const [commission, setCommission] = useState<AgentCommissionSettings | null>(
     null,
   );
-  const [commissionEditOpen, setCommissionEditOpen] = useState(false);
-  const [commissionDraft, setCommissionDraft] = useState("15");
-  const [commissionBusy, setCommissionBusy] = useState(false);
-  const [commissionError, setCommissionError] = useState<string | null>(null);
+  const [scheduleTiers, setScheduleTiers] = useState<FeeTierBand[] | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
 
   const status = org.status ?? "active";
@@ -334,10 +342,79 @@ export function AgentDetailCard({
   const displayVolumeMtd = liveVolumeMtd;
   const commissionPercent =
     commission?.commissionPercent ?? String(DEFAULT_AGENT_COMMISSION_PERCENT);
+  const automaticRate = useMemo(() => {
+    const tiers =
+      scheduleTiers && scheduleTiers.length > 0
+        ? scheduleTiers
+        : DEFAULT_FEE_TIER_BANDS;
+    return automaticCommissionPercent(displayVolumeMtd, tiers);
+  }, [displayVolumeMtd, scheduleTiers]);
+
+  useEffect(() => {
+    if (!canEditCommission) return;
+    let cancelled = false;
+    void getFeeTierSettings()
+      .then((settings) => {
+        if (!cancelled) setScheduleTiers(settings.tiers);
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleTiers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canEditCommission]);
+
   const displayCommissionMtd =
     livePlatformFeeMtd > 0
       ? agentCommissionMtd(livePlatformFeeMtd, commissionPercent)
       : 0;
+
+  async function saveOrgEdits(next: OrgEditSave, mfaCode?: string) {
+    setProfileEditBusy(true);
+    setProfileEditError(null);
+    try {
+      if (mfaCode && next.payoutAddress?.trim()) {
+        const row = await putAgentPayout(org.id, {
+          asset: PLATFORM_FEE_ASSET,
+          network: platformFeeNetwork(),
+          address: next.payoutAddress.trim(),
+          mfaCode,
+        });
+        setPayout(row);
+      }
+      const updated = await patchOrgProfile(org.id, next);
+      onOrgPatched?.(updated);
+      if (next.commission && canEditCommission) {
+        const currentMode = commission?.rateMode === "fixed" ? "fixed" : "automatic";
+        const modeChanged = next.commission.rateMode !== currentMode;
+        const percentChanged =
+          next.commission.rateMode === "fixed" &&
+          next.commission.commissionPercent !== commissionPercent;
+        if (modeChanged || percentChanged) {
+          const updatedCommission = await putAgentCommission(
+            org.id,
+            next.commission.rateMode === "automatic"
+              ? { rateMode: "automatic" }
+              : {
+                  rateMode: "fixed",
+                  commissionPercent: next.commission.commissionPercent,
+                },
+          );
+          setCommission(updatedCommission);
+        }
+      }
+      setPendingPayoutSave(null);
+      setProfileEditOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to update profile";
+      if (mfaCode) throw new Error(message);
+      setProfileEditError(message);
+    } finally {
+      setProfileEditBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -353,7 +430,7 @@ export function AgentDetailCard({
         setSubtreeOrders(data.orders);
         const contact = data.primaryOwnerContact ?? null;
         if (contact) {
-          setPrimaryOwner(contact);
+          setPrimaryOwner(ownerContactWithMfa(contact, data.team));
         } else {
           const ownerRow =
             data.team.find((m) => m.role === "owner") ?? data.team[0] ?? null;
@@ -368,6 +445,7 @@ export function AgentDetailCard({
                   phoneVerified: false,
                   firstName: null,
                   lastName: null,
+                  mfaEnrolled: ownerRow.mfaEnrolled === true,
                 }
               : null,
           );
@@ -399,59 +477,9 @@ export function AgentDetailCard({
     setTabError(null);
     setTeam([]);
     setCommission(null);
-    setCommissionEditOpen(false);
-    setCommissionError(null);
     setBills([]);
     setPrimaryOwner(null);
   }, [org.id]);
-
-  useEffect(() => {
-    if (!commissionEditOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !commissionBusy) setCommissionEditOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [commissionEditOpen, commissionBusy]);
-
-  async function saveCommission() {
-    if (!canEditCommission || commissionBusy) return;
-    setCommissionBusy(true);
-    setCommissionError(null);
-    try {
-      const updated = await putAgentCommission(org.id, {
-        commissionPercent: commissionDraft.trim(),
-        rateMode: "fixed",
-      });
-      setCommission(updated);
-      setCommissionEditOpen(false);
-    } catch (err) {
-      setCommissionError(
-        err instanceof ApiError ? err.message : "Could not update commission",
-      );
-    } finally {
-      setCommissionBusy(false);
-    }
-  }
-
-  async function resetCommissionToSchedule() {
-    if (!canEditCommission || commissionBusy) return;
-    setCommissionBusy(true);
-    setCommissionError(null);
-    try {
-      const updated = await putAgentCommission(org.id, {
-        rateMode: "automatic",
-      });
-      setCommission(updated);
-      setCommissionEditOpen(false);
-    } catch (err) {
-      setCommissionError(
-        err instanceof ApiError ? err.message : "Could not reset to schedule",
-      );
-    } finally {
-      setCommissionBusy(false);
-    }
-  }
 
   useEffect(() => {
     setToast(invitationSent === true && inviteCreds == null);
@@ -491,12 +519,9 @@ export function AgentDetailCard({
   return (
     <aside className="platform-detail b3-agent-detail" aria-label="Agent detail">
       <AuthToast
-        message={tabError ?? commissionError}
+        message={tabError}
         tone="error"
-        onDismiss={() => {
-          setTabError(null);
-          setCommissionError(null);
-        }}
+        onDismiss={() => setTabError(null)}
       />
       <AccountsDetailHero
         eyebrow={orgTypeLabel(org.type)}
@@ -509,20 +534,6 @@ export function AgentDetailCard({
               size={72}
               className="platform-detail__mark b3-agent-detail__avatar"
             />
-            {canManage ? (
-              <button
-                type="button"
-                className="b3-agent-detail__avatar-edit"
-                disabled={busy || profileEditBusy}
-                onClick={() => {
-                  setProfileEditError(null);
-                  setProfileEditOpen(true);
-                }}
-                title="Edit organization profile"
-              >
-                Edit
-              </button>
-            ) : null}
           </div>
         }
         status={
@@ -541,6 +552,7 @@ export function AgentDetailCard({
                 className="b3-agent-detail__onboard"
                 to={`${platformRoute("merchants/new")}?parentId=${encodeURIComponent(org.id)}`}
               >
+                <HeroPersonPlusIcon />
                 Onboard
               </Link>
               {status === "active" ? (
@@ -550,6 +562,7 @@ export function AgentDetailCard({
                   disabled={busy}
                   onClick={onPause}
                 >
+                  <HeroPauseIcon />
                   Suspend
                 </button>
               ) : (
@@ -559,6 +572,7 @@ export function AgentDetailCard({
                   disabled={busy}
                   onClick={onRun}
                 >
+                  <HeroPlayIcon />
                   Run
                 </button>
               )}
@@ -568,6 +582,7 @@ export function AgentDetailCard({
                 disabled={busy}
                 onClick={onDelete}
               >
+                <HeroTrashIcon />
                 Delete
               </button>
             </>
@@ -583,27 +598,43 @@ export function AgentDetailCard({
         legalName={org.legalName}
         billingEmail={org.billingEmail}
         requireCountry={false}
+        typeLabel={orgTypeLabel(org.type)}
+        payoutAddress={canEditPayout ? (payout?.address ?? "") : undefined}
+        automaticRate={canEditCommission ? automaticRate : null}
+        canLockFixedRates={canEditCommission}
+        commission={
+          canEditCommission
+            ? {
+                rateMode: commission?.rateMode === "fixed" ? "fixed" : "automatic",
+                commissionPercent,
+              }
+            : null
+        }
         busy={profileEditBusy}
         error={profileEditError}
         onClose={() => {
           if (!profileEditBusy) setProfileEditOpen(false);
         }}
         onSave={async (next) => {
-          setProfileEditBusy(true);
-          setProfileEditError(null);
-          try {
-            const updated = await patchOrgProfile(org.id, next);
-            onOrgPatched?.(updated);
-            setProfileEditOpen(false);
-          } catch (err) {
-            setProfileEditError(
-              err instanceof ApiError ? err.message : "Failed to update profile",
-            );
-          } finally {
-            setProfileEditBusy(false);
+          const prev = (payout?.address ?? "").trim();
+          const nextAddr = (next.payoutAddress ?? "").trim();
+          if (next.payoutAddress !== undefined && nextAddr && nextAddr !== prev) {
+            setPendingPayoutSave({ ...next, payoutAddress: nextAddr });
+            return;
           }
+          await saveOrgEdits(next);
         }}
       />
+      {pendingPayoutSave ? (
+        <MfaStepUpGate
+          session={session}
+          actionLabel="change payout address"
+          onClose={() => {
+            if (!profileEditBusy) setPendingPayoutSave(null);
+          }}
+          onVerify={(mfaCode) => saveOrgEdits(pendingPayoutSave, mfaCode)}
+        />
+      ) : null}
 
       {inviteCreds ? (
         <div className="b3-agent-detail__invite-creds">
@@ -627,9 +658,6 @@ export function AgentDetailCard({
       <div className="b3-agent-detail__tabs" role="tablist">
         {TABS.map((t) => {
           let label: string = t.label;
-          if (t.id === "activity") {
-            label = `Recent activity (${recentActivity.length})`;
-          }
           if (t.id === "team") label = `Team (${team.length})`;
           return (
             <button
@@ -650,24 +678,51 @@ export function AgentDetailCard({
         {tab === "overview" ? (
           <>
             <div className="b3-agent-detail__kpis b3-agent-detail__kpis--3">
-              <div className="b3-card glass-tone-blue b3-card--kpi">
-                <KpiHelp text={KPI_HELP.merchants} />
-                <p className="b3-card__label">Merchants</p>
-                <p className="b3-card__value">{liveMerchantCount}</p>
+              <div className="b3-card b3-card--kpi">
+                <span className="b3-kpi__mark tone-blue" aria-hidden>
+                  <KpiPeopleIcon />
+                </span>
+                <div className="b3-kpi__copy">
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Merchants</p>
+                    <Link className="b3-kpi__more" to={platformRoute("accounts/merchants")}>
+                      view more →
+                    </Link>
+                  </div>
+                  <p className="b3-card__value">{liveMerchantCount}</p>
+                </div>
               </div>
-              <div className="b3-card glass-tone-slate b3-card--kpi">
-                <KpiHelp text={KPI_HELP.volumeMtd} />
-                <p className="b3-card__label">Volume (MTD)</p>
-                <p className="b3-card__value">
-                  <FundAmount amount={displayVolumeMtd} />
-                </p>
+              <div className="b3-card b3-card--kpi">
+                <span className="b3-kpi__mark tone-gold" aria-hidden>
+                  <KpiCoinsIcon />
+                </span>
+                <div className="b3-kpi__copy">
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Volume (MTD)</p>
+                    <Link className="b3-kpi__more" to={platformRoute("service-bills")}>
+                      view more →
+                    </Link>
+                  </div>
+                  <p className="b3-card__value b3-card__value--gold">
+                    <FundAmount amount={displayVolumeMtd} />
+                  </p>
+                </div>
               </div>
-              <div className="b3-card glass-tone-emerald b3-card--kpi">
-                <KpiHelp text={KPI_HELP.commissionMtd} />
-                <p className="b3-card__label">Commission (MTD)</p>
-                <p className="b3-card__value b3-card__value--ok">
-                  <FundAmount amount={displayCommissionMtd} />
-                </p>
+              <div className="b3-card b3-card--kpi">
+                <span className="b3-kpi__mark tone-green" aria-hidden>
+                  <KpiChartIcon />
+                </span>
+                <div className="b3-kpi__copy">
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Commission (MTD)</p>
+                    <Link className="b3-kpi__more" to={platformRoute("commissions")}>
+                      view more →
+                    </Link>
+                  </div>
+                  <p className="b3-card__value b3-card__value--ok">
+                    <FundAmount amount={displayCommissionMtd} />
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -687,216 +742,49 @@ export function AgentDetailCard({
                   <>
                     <div className="b3-profile__field">
                       <p className="b3-profile__label">Commission</p>
-                      <div className="b3-profile__value-row">
-                        <p className="b3-profile__value">
-                          {overviewLoading && !commission
-                            ? "…"
-                            : `${commission?.rateMode === "fixed" ? "Fixed" : "Automatic"} · ${commissionPercent}%`}
-                        </p>
-                        {canEditCommission ? (
-                          <button
-                            type="button"
-                            className="b3-profile__edit-btn"
-                            disabled={busy || commissionBusy}
-                            onClick={() => {
-                              setCommissionDraft(commissionPercent);
-                              setCommissionError(null);
-                              setCommissionEditOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                        ) : null}
-                      </div>
+                      <p className="b3-profile__value">
+                        {overviewLoading && !commission
+                          ? "…"
+                          : `${commission?.rateMode === "fixed" ? "Fixed" : "Automatic"} · ${commissionPercent}%`}
+                      </p>
                     </div>
                     <ProfilePayoutField payout={payout} loading={overviewLoading} />
                   </>
+                }
+              />
+              <DetailActivityCard
+                subtitle="Latest events for this agent"
+                rows={recentActivity.slice(0, 4)}
+                loading={overviewLoading && audit.length === 0}
+                empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
+                action={
+                  <Link
+                    className="b3-agent-detail__view-all"
+                    to={platformRoute("audit")}
+                    title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
+                  >
+                    View all activity
+                    <span aria-hidden>→</span>
+                  </Link>
                 }
               />
             </div>
           </>
         ) : null}
 
-        {tab === "activity" ? (
-          <section className="b3-card b3-card--section b3-card--flat b3-agent-detail__activity">
-            <div className="b3-agent-detail__activity-head">
-              <h3 className="b3-card__heading b3-agent-detail__activity-heading">
-                Recent activity
-              </h3>
-              <span className="b3-agent-detail__activity-cap">
-                {recentActivity.length}{" "}
-                {recentActivity.length === 1 ? "event" : "events"}
-              </span>
-            </div>
-            {overviewLoading && audit.length === 0 ? (
-              <ActivitySectionEmpty loading />
-            ) : recentActivity.length === 0 ? (
-              <ActivitySectionEmpty />
-            ) : (
-              <>
-                <ul className="b3-activity">
-                  {recentActivity.map((row) => (
-                    <li key={row.id} className="b3-activity__item">
-                      <div className="b3-activity__main">
-                        <div className="b3-activity__row">
-                          <p className="b3-activity__title">{row.title}</p>
-                          <time
-                            className="b3-activity__time"
-                            dateTime={row.createdAt}
-                          >
-                            {relativeTime(row.createdAt)}
-                          </time>
-                        </div>
-                        <p className="b3-activity__desc">{row.description}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  className="b3-agent-detail__activity-audit"
-                  to={platformRoute("audit")}
-                  title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
-                >
-                  Platform audit log
-                  <span aria-hidden>→</span>
-                </Link>
-              </>
-            )}
-          </section>
-        ) : null}
-
         {tab === "team" ? (
-          teamLoading ? (
-            <PlatformPending
-              compact
-              title="Loading team"
-              copy="Fetching members for this agent org."
-            />
-          ) : (
-            <div className="b3-team">
-              {team.length === 0 ? (
-                <p className="b3-team__empty">No members on this agent org yet.</p>
-              ) : (
-                <div className="b3-agent-detail__table-scroll b3-team__table">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Email</th>
-                        <th>Role</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {team.map((m) => (
-                        <tr key={m.userId}>
-                          <td>{m.email}</td>
-                          <td>
-                            <span className="b3-team__role">
-                              {m.role}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <aside className="b3-team__note" aria-label="Access note">
-                <span className="b3-team__note-label">Read-only</span>
-                <p className="b3-team__note-text">
-                  Platform operators can view this roster but cannot invite or
-                  remove members from the platform portal.
-                </p>
-              </aside>
-            </div>
-          )
+          <OrgTeamRoster
+            org={org}
+            orgs={orgs}
+            members={team}
+            loading={teamLoading}
+            canManage={canManage}
+            onMembersChange={setTeam}
+          />
         ) : null}
       </div>
       </div>
 
-      {commissionEditOpen && canEditCommission
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!commissionBusy) setCommissionEditOpen(false);
-              }}
-            >
-              <div
-                className="b3-commission-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="agent-commission-edit-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-commission-modal__head">
-                  <h3 id="agent-commission-edit-title">Edit commission</h3>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close"
-                    aria-label="Close"
-                    disabled={commissionBusy}
-                    onClick={() => setCommissionEditOpen(false)}
-                  >
-                    ×
-                  </button>
-                </header>
-                <div className="b3-commission-modal__body">
-                  <p className="b3-commission-modal__hint">
-                    Lock a fixed commission % (Platform Owner). Automatic agents
-                    follow the volume schedule. The new fixed rate applies
-                    immediately to commission accruals.
-                  </p>
-                  <label className="b3-commission-modal__field">
-                    <span className="b3-commission-modal__label">
-                      Commission rate
-                    </span>
-                    <div className="b3-commission-modal__input-wrap">
-                      <input
-                        className="b3-commission-modal__input"
-                        type="text"
-                        inputMode="decimal"
-                        value={commissionDraft}
-                        disabled={commissionBusy}
-                        onChange={(e) => setCommissionDraft(e.target.value)}
-                        placeholder="15"
-                        autoFocus
-                      />
-                      <span className="b3-commission-modal__suffix">%</span>
-                    </div>
-                  </label>
-                </div>
-                <footer className="b3-commission-modal__foot">
-                  <button
-                    type="button"
-                    className="b3-commission-modal__cancel"
-                    disabled={commissionBusy}
-                    onClick={() => setCommissionEditOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__cancel"
-                    disabled={commissionBusy}
-                    onClick={() => void resetCommissionToSchedule()}
-                  >
-                    Use schedule
-                  </button>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__save"
-                    disabled={commissionBusy || !commissionDraft.trim()}
-                    onClick={() => void saveCommission()}
-                  >
-                    {commissionBusy ? "Saving…" : "Lock fixed rate"}
-                  </button>
-                </footer>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
     </aside>
   );
 }

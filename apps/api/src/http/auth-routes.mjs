@@ -527,6 +527,14 @@ export async function handlePatchProfile(req, res) {
       sessionTimeoutMinutes: updated.sessionTimeoutMinutes,
     },
   });
+  try {
+    const { maybeCreateActivationAfterUserSetup } = await import(
+      "../service-bills/activation.mjs"
+    );
+    await maybeCreateActivationAfterUserSetup(auth.userId);
+  } catch {
+    /* best-effort */
+  }
   sendJson(res, 200, await sessionPayload(updated));
 }
 

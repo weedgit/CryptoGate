@@ -135,7 +135,7 @@ export function MfaEnrollmentWizard({
               <code>{formatManualSecret(secret)}</code>
               <button
                 type="button"
-                className={`mfa-enroll-copy${copied ? " is-copied" : ""}`}
+                className={`cg-copy-btn mfa-enroll-copy${copied ? " is-copied" : ""}`}
                 onClick={() => void onCopySecret()}
                 aria-label={copied ? "Copied" : "Copy secret key"}
                 title={copied ? "Copied" : "Copy secret key"}

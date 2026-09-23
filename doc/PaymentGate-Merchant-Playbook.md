@@ -71,14 +71,13 @@ Product labels ([M4-32](M4-32-Merchant-Manual.md)):
 | --- | --- | --- |
 | **Standard** | **B** | Mode A |
 | **Amount fingerprint** | **C** | Mode B |
-| **Memo tag** | **D** | Mode C |
 | **Smart address** | **S** | Mode D |
 | Unique address per order | **A** | Phase 2 — omit or mark “Phase 2” |
 
 **Smart address blurb (correct):**  
-Quiet traffic uses the main settlement address. On same-amount conflict, assign a derived HD address from the merchant’s watch-only xPub. Address is fixed once the QR is issued.
+Quiet traffic uses the main settlement address. On same-amount conflict, assign a derived HD address from the merchant’s watch-only public key. Address is fixed once the QR is issued.
 
-**Memo tag:** Unavailable for USDT on Tron in Phase 1.
+**Memo tag (Mode D):** Removed from Phase 1 — do not show in UI.
 
 ### 6. Settlement — who can edit
 

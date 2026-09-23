@@ -5,6 +5,19 @@
 /**
  * @param {string} periodKey YYYY-MM
  */
+export function periodPaidBoundsFromKey(periodKey) {
+  const [yRaw, mRaw] = periodKey.split("-");
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 1));
+  return {
+    startIso: start.toISOString(),
+    endExclusiveIso: end.toISOString(),
+  };
+}
+
+/** @deprecated use periodPaidBoundsFromKey */
 export function periodBoundsFromKey(periodKey) {
   const [yRaw, mRaw] = periodKey.split("-");
   const y = Number(yRaw);
@@ -21,7 +34,7 @@ export function periodBoundsFromKey(periodKey) {
  * @param {string} periodKey
  */
 export async function buildCommissionTreeSnapshot(pool, rootOrgId, periodKey) {
-  const { startIso, endExclusiveIso } = periodBoundsFromKey(periodKey);
+  const { startIso, endExclusiveIso } = periodPaidBoundsFromKey(periodKey);
 
   const { rows: merchants } = await pool.query(
     `WITH RECURSIVE subtree AS (
@@ -40,30 +53,44 @@ export async function buildCommissionTreeSnapshot(pool, rootOrgId, periodKey) {
   );
 
   const merchantIds = merchants.map((m) => m.id);
-  /** @type {Map<string, import("pg").QueryResultRow>} */
-  const billByOrg = new Map();
+  /** @type {Map<string, import("pg").QueryResultRow[]>} */
+  const billsByOrg = new Map();
   if (merchantIds.length > 0) {
     const { rows: bills } = await pool.query(
       `SELECT id, org_id, status, subscription_amount, volume_fee_amount
        FROM service_bills
        WHERE org_id = ANY($1::uuid[])
-         AND period_start >= $2::date
-         AND period_start < $3::date
-       ORDER BY period_start ASC`,
+         AND status = 'paid'
+         AND paid_at >= $2::timestamptz
+         AND paid_at < $3::timestamptz
+         AND COALESCE(bill_kind, 'monthly') = 'monthly'
+       ORDER BY paid_at ASC`,
       [merchantIds, startIso, endExclusiveIso],
     );
     for (const bill of bills) {
-      if (!billByOrg.has(bill.org_id)) billByOrg.set(bill.org_id, bill);
+      const list = billsByOrg.get(bill.org_id) ?? [];
+      list.push(bill);
+      billsByOrg.set(bill.org_id, list);
     }
   }
 
   const lines = merchants.map((m) => {
-    const bill = billByOrg.get(m.id) ?? null;
-    const volumeFee = bill ? Number(bill.volume_fee_amount) : 0;
-    const subscription = bill ? Number(bill.subscription_amount) : 0;
-    const status = bill?.status ?? null;
-    const included =
-      status === "paid" && Number.isFinite(volumeFee) && volumeFee > 0;
+    const bills = billsByOrg.get(m.id) ?? [];
+    let subscription = 0;
+    let volumeFee = 0;
+    /** @type {string | null} */
+    let billId = null;
+    for (const bill of bills) {
+      const sub = Number(bill.subscription_amount);
+      const vol = Number(bill.volume_fee_amount);
+      if (Number.isFinite(sub)) subscription += sub;
+      if (Number.isFinite(vol)) volumeFee += vol;
+      if (!billId) billId = bill.id ?? null;
+    }
+    subscription = Math.round(subscription * 100) / 100;
+    volumeFee = Math.round(volumeFee * 100) / 100;
+    const fee = Math.round((subscription + volumeFee) * 100) / 100;
+    const included = fee > 0;
     return {
       orgId: m.id,
       name: m.name,
@@ -71,11 +98,12 @@ export async function buildCommissionTreeSnapshot(pool, rootOrgId, periodKey) {
       onboardedAt: m.created_at
         ? new Date(m.created_at).toISOString()
         : null,
-      billId: bill?.id ?? null,
-      billStatus: status,
-      subscriptionAmount: Number.isFinite(subscription) ? subscription : 0,
-      volumeFeeAmount: Number.isFinite(volumeFee) ? volumeFee : 0,
+      billId,
+      billStatus: included ? "paid" : null,
+      subscriptionAmount: subscription,
+      volumeFeeAmount: volumeFee,
       includedInCommission: included,
+      paidBillCount: bills.length,
     };
   });
 

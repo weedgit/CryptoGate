@@ -185,7 +185,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
   const modeLabel = matchingModeLabel(matchingMode);
   const modeSummary = matchingModeCreateSummary(matchingMode);
   const modePayerNote =
-    matchingMode === "C" || matchingMode === "D"
+    matchingMode === "C"
       ? matchingModeHint(matchingMode)
       : matchingMode === "B"
         ? matchingModeHint("B")
@@ -501,7 +501,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
                     }
                   >
                     <option value="fiat">Fiat (USD / EUR)</option>
-                    <option value="crypto">Exact crypto amount</option>
+                    <option value="crypto">Convert token amount to USD</option>
                   </select>
                 </label>
                 {denomination === "fiat" ? (
@@ -687,7 +687,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
                   </p>
                   <p className="create-order-preview-card__amount-label">
                     {denomination === "crypto"
-                      ? "Exact crypto invoice"
+                      ? "Token amount converted to USD"
                       : `Pay with ${asset}`}
                   </p>
                 </div>

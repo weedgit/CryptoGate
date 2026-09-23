@@ -35,7 +35,9 @@ describe("service bill overdue job", () => {
 
 describe("service bill overdue status", () => {
   it("uses domain enum values for issued → overdue", () => {
+    assert.equal(ServiceBillStatus.Draft, "draft");
     assert.equal(ServiceBillStatus.Issued, "issued");
     assert.equal(ServiceBillStatus.Overdue, "overdue");
+    assert.equal(ServiceBillStatus.Cancelled, "cancelled");
   });
 });

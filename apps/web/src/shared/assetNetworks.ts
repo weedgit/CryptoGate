@@ -14,11 +14,10 @@ export type PairAvailability = "live" | "catalogued";
 /**
  * Vite injects VITE_* into apps/web source only — not into @paymentgate/domain dist.
  * Always pass this override into domain registry helpers from the web app.
+ * Use a static `import.meta.env.VITE_*` read so Vite inlines the value at build time.
  */
 export function webChainEnvOverride(): string | undefined {
-  const raw = (
-    import.meta as { env?: Record<string, string | undefined> }
-  ).env?.VITE_PAYMENTGATE_CHAIN_ENV;
+  const raw = import.meta.env.VITE_PAYMENTGATE_CHAIN_ENV as string | undefined;
   const trimmed = raw?.trim();
   return trimmed || undefined;
 }

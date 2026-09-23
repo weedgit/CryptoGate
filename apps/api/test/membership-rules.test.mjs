@@ -1,8 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  canAssignOrgRole,
+  canInviteToOrg,
   canListOrgUsers,
   canManageMemberPosPin,
+  canManageMembershipLifecycle,
   roleAllowedOnOrg,
 } from "../src/orgs/membership-rules.mjs";
 
@@ -34,6 +37,37 @@ describe("org membership list rules", () => {
   });
 });
 
+describe("platform operator team management", () => {
+  const admin = {
+    platformOwner: false,
+    platformOperator: true,
+    roleOnOrg: null,
+    roleOnParent: null,
+    memberCount: 3,
+    invitedRole: "owner",
+  };
+
+  it("lets platform administrator invite, assign, and remove including owner", () => {
+    assert.equal(canInviteToOrg(admin), true);
+    assert.equal(canAssignOrgRole(admin), true);
+    assert.equal(canManageMembershipLifecycle(admin), true);
+  });
+
+  it("denies platform viewer", () => {
+    const viewer = {
+      platformOwner: false,
+      platformOperator: false,
+      roleOnOrg: null,
+      roleOnParent: null,
+      memberCount: 3,
+      invitedRole: "administrator",
+    };
+    assert.equal(canInviteToOrg(viewer), false);
+    assert.equal(canAssignOrgRole(viewer), false);
+    assert.equal(canManageMembershipLifecycle(viewer), false);
+  });
+});
+
 describe("canManageMemberPosPin", () => {
   it("allows owner, administrator, and platform owner", () => {
     assert.equal(
@@ -49,6 +83,17 @@ describe("canManageMemberPosPin", () => {
     );
     assert.equal(
       canManageMemberPosPin({ platformOwner: true, roleOnOrg: null }),
+      true,
+    );
+  });
+
+  it("allows platform administrator", () => {
+    assert.equal(
+      canManageMemberPosPin({
+        platformOwner: false,
+        platformOperator: true,
+        roleOnOrg: null,
+      }),
       true,
     );
   });

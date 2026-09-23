@@ -29,6 +29,8 @@ import { formatShortDate } from "../platform/org";
 import { tierLabel } from "../commercialLabels";
 import {
   formatBillId,
+  isActivationServiceBill,
+  isOpenActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
@@ -36,6 +38,10 @@ import {
   primaryMerchantOrgId,
   sessionCanCheckoutServiceBill,
 } from "./org";
+import {
+  ACTIVATION_PAYMENT_LOCKED_HINT,
+  sessionNeedsActivationPayment,
+} from "../auth/contactVerification";
 
 type Filter = "all" | "overdue" | "unpaid" | "paid";
 
@@ -53,7 +59,12 @@ function matchesFilter(bill: ServiceBill, filter: Filter): boolean {
     case "all":
       return true;
     case "unpaid":
-      return bill.status === "issued" || bill.status === "overdue";
+      return (
+        bill.status === "issued" ||
+        bill.status === "overdue" ||
+        bill.status === "draft" ||
+        isOpenActivationServiceBill(bill)
+      );
     case "overdue":
       return bill.status === "overdue";
     case "paid":
@@ -160,17 +171,37 @@ export function ServiceBillsListPage({ session }: Props) {
     };
   }, [orgId]);
 
-  const filtered = useMemo(
-    () =>
-      items.filter(
-        (bill) => matchesFilter(bill, filter) && matchesQuery(bill, query),
-      ),
-    [items, filter, query],
+  const filtered = useMemo(() => {
+    const rows = items.filter(
+      (bill) => matchesFilter(bill, filter) && matchesQuery(bill, query),
+    );
+    // Open activation invoices first so merchants see the paywall bill.
+    return [...rows].sort((a, b) => {
+      const aAct = isOpenActivationServiceBill(a) ? 0 : 1;
+      const bAct = isOpenActivationServiceBill(b) ? 0 : 1;
+      if (aAct !== bAct) return aAct - bAct;
+      return 0;
+    });
+  }, [items, filter, query]);
+
+  const openActivation = useMemo(
+    () => items.find((b) => isOpenActivationServiceBill(b)) ?? null,
+    [items],
+  );
+  const needsActivationPay = useMemo(
+    () => sessionNeedsActivationPayment(session),
+    [session],
   );
 
   const unpaidCount = useMemo(
     () =>
-      items.filter((b) => b.status === "issued" || b.status === "overdue").length,
+      items.filter(
+        (b) =>
+          b.status === "issued" ||
+          b.status === "overdue" ||
+          b.status === "draft" ||
+          isOpenActivationServiceBill(b),
+      ).length,
     [items],
   );
   const overdueCount = useMemo(
@@ -289,7 +320,60 @@ export function ServiceBillsListPage({ session }: Props) {
             Custom Enterprise rate awaits platform Owner review.
           </p>
         ) : null}
+        {commercial?.nextInvoiceOn ? (
+          <p className="plat-bills__plan-hint" style={{ marginTop: "0.75rem" }}>
+            Next subscription invoice on <strong>{commercial.nextInvoiceOn}</strong>
+            {commercial.billingAnchorAt
+              ? ` · billing anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
+              : ""}
+          </p>
+        ) : needsActivationPay ? (
+          <p className="plat-bills__plan-hint" style={{ marginTop: "0.75rem" }}>
+            Billing schedule starts after activation is paid.
+          </p>
+        ) : null}
       </section>
+
+      {needsActivationPay || openActivation ? (
+        <div
+          className="plat-bills__activation-callout"
+          role="status"
+        >
+          <div>
+            <strong>Account activation</strong>
+            <p>
+              {openActivation?.status === "draft"
+                ? "Your activation invoice is a draft. PaymentGate must Confirm & send before you can pay (or enable auto-send)."
+                : ACTIVATION_PAYMENT_LOCKED_HINT}
+            </p>
+          </div>
+          {openActivation ? (
+            <Link
+              className="btn-primary btn-inline"
+              to={merchantRoute(`service-bills/${openActivation.id}`)}
+              state={
+                openActivation.status === "issued" ||
+                openActivation.status === "overdue"
+                  ? { openCheckout: true }
+                  : undefined
+              }
+            >
+              {openActivation.status === "issued" ||
+              openActivation.status === "overdue"
+                ? "Pay activation"
+                : "View activation invoice"}
+            </Link>
+          ) : (
+            <Link
+              className="btn-ghost btn-inline"
+              to={merchantRoute("service-bills")}
+              onClick={() => setFilter("unpaid")}
+            >
+              Show unpaid
+            </Link>
+          )}
+        </div>
+      ) : null}
 
       <div className="plat-bills__table-wrap">
         {loading && !hasLoaded ? (
@@ -322,12 +406,17 @@ export function ServiceBillsListPage({ session }: Props) {
             <tbody>
               {filtered.map((bill, index) => {
                 const overdue = bill.status === "overdue";
-                const payable = bill.status === "issued" || bill.status === "overdue";
+                const activation = isActivationServiceBill(bill);
+                const openActivationRow = isOpenActivationServiceBill(bill);
+                const payable =
+                  bill.status === "issued" || bill.status === "overdue";
                 const href = merchantRoute(`service-bills/${bill.id}`);
                 return (
                   <tr
                     key={bill.id}
-                    className="plat-bills__row"
+                    className={`plat-bills__row${
+                      openActivationRow ? " is-activation-open" : ""
+                    }`}
                     style={{ animationDelay: `${Math.min(index, 24) * 40}ms` }}
                     tabIndex={0}
                     role="link"
@@ -350,14 +439,23 @@ export function ServiceBillsListPage({ session }: Props) {
                       >
                         {formatBillId(bill.id)}
                       </Link>
+                      {activation ? (
+                        <span className="plat-bills__kind-tag">Activation</span>
+                      ) : null}
                     </td>
                     <td className="plat-bills__created">
-                      {bill.periodStart}
-                      <span className="plat-bills__period-sep" aria-hidden>
-                        {" "}
-                        →{" "}
-                      </span>
-                      {bill.periodEnd}
+                      {activation ? (
+                        <span>Activation fee</span>
+                      ) : (
+                        <>
+                          {bill.periodStart}
+                          <span className="plat-bills__period-sep" aria-hidden>
+                            {" "}
+                            →{" "}
+                          </span>
+                          {bill.periodEnd}
+                        </>
+                      )}
                     </td>
                     <td className="plat-bills__amount plat-bills__amount--sub">
                       <FundAmount amount={bill.subscriptionAmount} />
@@ -401,6 +499,7 @@ export function ServiceBillsListPage({ session }: Props) {
                             onClick={(e) => e.stopPropagation()}
                           >
                             Pay
+                            {activation ? " activation" : ""}
                           </Link>
                         ) : (
                           <span className="plat-bills__action-dash muted" aria-hidden>

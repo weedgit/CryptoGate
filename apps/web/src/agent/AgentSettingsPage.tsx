@@ -258,6 +258,7 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
           legalName={org?.legalName}
           billingEmail={org?.billingEmail}
           requireCountry={false}
+          typeLabel={org ? orgTypeLabel(org.type) : "Agent"}
           busy={profileEditBusy}
           error={profileEditError}
           onClose={() => {

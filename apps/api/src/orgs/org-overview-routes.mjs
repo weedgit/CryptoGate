@@ -170,6 +170,8 @@ export async function handleGetOrgOverview(req, res, orgId) {
         timezone: user.timezone,
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,
+        avatarUrl: user.avatarUrl ?? null,
+        mfaEnrolled: user.mfaEnrolled === true,
       };
     }
   }

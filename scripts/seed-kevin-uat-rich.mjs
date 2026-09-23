@@ -153,7 +153,7 @@ const EXTRA_MERCHANTS = [
     settlement: NILE_HD_WALLETS.customer11,
     tier: "small",
     volumeFeePercent: "2.0",
-    matchingMode: "D",
+    matchingMode: "B",
   },
   {
     key: "m7",

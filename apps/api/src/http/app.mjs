@@ -24,6 +24,7 @@ import {
 import { handleCreateOrg, handleDeleteOrg, handleGetOrg, handleGetOrgDeletePreview, handleListOrgs, handlePatchOrg, handleSetOrgStatus } from "../orgs/org-routes.mjs";
 import { handleGetOrgOverview } from "../orgs/org-overview-routes.mjs";
 import {
+  handlePatchOrgMember,
   handlePatchOrgOwnerProfile,
   handlePutOrgOwnerVerification,
 } from "./support-owner-routes.mjs";
@@ -107,10 +108,12 @@ import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs
 import { handleListAuditLog } from "../audit/audit-routes.mjs";
 import {
   handleDecideEnterpriseRateApproval,
+  handleGetBillingCalendarSettings,
   handleGetBillingWalletSettings,
   handleGetFeeTierSettings,
   handleGetPlatformOrgPolicy,
   handleListEnterpriseRateApprovals,
+  handlePutBillingCalendarSettings,
   handlePutBillingWalletSettings,
   handlePutFeeTierSettings,
   handlePutPlatformOrgPolicy,
@@ -725,6 +728,17 @@ export async function handleRequest(req, res) {
     }
   }
 
+  if (path === "/v1/platform/settings/billing-calendar") {
+    if (method === "GET") {
+      await handleGetBillingCalendarSettings(req, res);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutBillingCalendarSettings(req, res);
+      return;
+    }
+  }
+
   if (path === "/v1/platform/settings/pricing") {
     if (method === "GET") {
       await handleGetPlatformPricingSettings(req, res);
@@ -832,6 +846,19 @@ export async function handleRequest(req, res) {
   const overviewMatch = path.match(/^\/v1\/orgs\/([^/]+)\/overview$/);
   if (method === "GET" && overviewMatch) {
     await handleGetOrgOverview(req, res, decodeURIComponent(overviewMatch[1]));
+    return;
+  }
+
+  const memberProfileMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/members\/([^/]+)$/,
+  );
+  if (method === "PATCH" && memberProfileMatch) {
+    await handlePatchOrgMember(
+      req,
+      res,
+      decodeURIComponent(memberProfileMatch[1]),
+      decodeURIComponent(memberProfileMatch[2]),
+    );
     return;
   }
 

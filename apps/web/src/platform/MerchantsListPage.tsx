@@ -34,6 +34,7 @@ import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import {
+  isOpenActivationServiceBill,
   serviceBillStatusLabel,
 } from "./serviceBillStatus";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
@@ -50,7 +51,7 @@ type Props = { session: Session };
 type StatusFilter = "all" | "active" | "paused";
 
 /** Open / latest service-bill status shown on the merchants list. */
-type MerchantBillStatus = "overdue" | "issued" | "paid";
+type MerchantBillStatus = "overdue" | "activation" | "issued" | "paid";
 
 type SortKey = "name" | "parent" | "bill" | "status";
 type SortDir = "asc" | "desc";
@@ -60,28 +61,32 @@ const PAGE_SIZE = 20;
 
 const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
   overdue: 0,
-  issued: 1,
-  paid: 2,
+  activation: 1,
+  issued: 2,
+  paid: 3,
 };
 
 function billSortRank(status: MerchantBillStatus | null): number {
-  if (!status) return 3;
+  if (!status) return 4;
   return BILL_SORT_RANK[status];
 }
 
 /**
- * Prefer collection risk: overdue → issued → latest paid. Voided ignored.
+ * Prefer collection risk: overdue → open activation → issued → paid.
  */
 function resolveMerchantBillStatus(
   bills: ServiceBill[],
 ): MerchantBillStatus | null {
   let hasIssued = false;
   let hasPaid = false;
+  let hasOpenActivation = false;
   for (const bill of bills) {
     if (bill.status === "overdue") return "overdue";
-    if (bill.status === "issued") hasIssued = true;
+    if (isOpenActivationServiceBill(bill)) hasOpenActivation = true;
+    else if (bill.status === "issued" || bill.status === "draft") hasIssued = true;
     else if (bill.status === "paid") hasPaid = true;
   }
+  if (hasOpenActivation) return "activation";
   if (hasIssued) return "issued";
   if (hasPaid) return "paid";
   return null;
@@ -903,11 +908,20 @@ export function MerchantsListPage({ session }: Props) {
                             {billStatus ? (
                               <span
                                 className={`org-agents__bill is-${billStatus}${
-                                  billStatus === "overdue" ? " is-pulse" : ""
+                                  billStatus === "overdue" ||
+                                  billStatus === "activation"
+                                    ? " is-pulse"
+                                    : ""
                                 }`}
-                                title="Open / latest service bill"
+                                title={
+                                  billStatus === "activation"
+                                    ? "Open activation invoice"
+                                    : "Open / latest service bill"
+                                }
                               >
-                                {serviceBillStatusLabel(billStatus)}
+                                {billStatus === "activation"
+                                  ? "Activation"
+                                  : serviceBillStatusLabel(billStatus)}
                               </span>
                             ) : (
                               <span
@@ -954,9 +968,8 @@ export function MerchantsListPage({ session }: Props) {
               busy={busyId === selected.id}
               initialTab={
                 detailTab === "overview" ||
-                detailTab === "settlement" ||
-                detailTab === "service-bills" ||
-                detailTab === "compliance"
+                detailTab === "team" ||
+                detailTab === "cashiers"
                   ? detailTab
                   : undefined
               }

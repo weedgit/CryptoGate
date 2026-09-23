@@ -46,7 +46,7 @@ async function loadVisibleMerchantOrg(req, res, orgId) {
 }
 
 /**
- * GET /v1/orgs/{orgId}/xpub — presence only (no full xPub).
+ * GET /v1/orgs/{orgId}/xpub — presence for merchant staff; full xPub for platform O/A.
  */
 export async function handleGetXpub(req, res, orgId) {
   const loaded = await loadVisibleMerchantOrg(req, res, orgId);
@@ -59,8 +59,9 @@ export async function handleGetXpub(req, res, orgId) {
 
   const lookup = await settingsLookupOrgId(loaded.org, "xpub");
   const rows = await listXpubs(lookup.orgId);
+  const reveal = loaded.caller.platformOperator === true;
   sendJson(res, 200, {
-    items: rows.map(toXpubSettings),
+    items: rows.map((row) => toXpubSettings(row, { reveal })),
     source: lookup.source,
     parentOrgId: lookup.parentOrgId,
     effectiveOrgId: lookup.orgId,

@@ -82,6 +82,12 @@ export function sessionIsOrgOwner(session: Session, orgId: string): boolean {
   return sessionRoleOnOrg(session, orgId) === "owner";
 }
 
+/** Merchant Owner only — settlement wallet / matching / xPub writes. */
+export function sessionCanEditSettlement(session: Session): boolean {
+  const orgId = primaryMerchantOrgId(session);
+  return orgId ? sessionIsOrgOwner(session, orgId) : false;
+}
+
 /** O / A / V may view org settings. */
 export function sessionCanViewOrgSettings(session: Session): boolean {
   return session.memberships.some((m) =>

@@ -61,22 +61,15 @@ Rules:
 3. If no free amount slot remains in the allowed decimal range, create order fails or falls back to Mode B collision behaviour (Anomaly) — do not reuse an open payable amount.  
 4. Payment page must warn: pay the exact amount shown; do not round or edit in the wallet.
 
-### 2.4 Mode D — Memo / destination tag (optional, network-limited)
+### 2.4 Mode D — Memo / destination tag (removed from Phase 1)
 
-When enabled **and** the selected network supports a memo, comment or destination tag that payers can set, the order carries a unique memo/tag (for example derived from the order number). Matching uses B’s fields **plus** the memo/tag when present on-chain.
-
-Rules:
-
-1. Offer D in the Merchant UI only for asset/network pairs that support reliable memo matching.  
-2. For typical USDT on Tron, Ethereum, BNB Smart Chain and similar account token transfers, memo matching is **not** available — hide or disable D with a short explanation.  
-3. If the payer omits or wrongs the memo, do not auto-Complete; classify as anomaly or unmatched.  
-4. Do not market D as the solution for multi-cashier USDT collision on unsupported networks.
+**Mode D is not part of Phase 1.** It is not offered in merchant or platform UI, and settings reject selecting D. Historical orders may still carry `matching_mode = D`. Revisit only in a later phase when a memo-capable asset/network pair is productized.
 
 ### 2.5 Mode S — Smart address (optional, Phase 1)
 
-Mode S keeps **one main settlement address** for quiet traffic and uses **watch-only xPub / HD derivation** only when concurrent open orders would collide on the same amount. PaymentGate stores the merchant xPub (or equivalent public derivation material) per asset/network, derives receive addresses, and watches them. PaymentGate does **not** hold private keys, does **not** sign, and does **not** auto-sweep balances in Phase 1.
+Mode S keeps **one main settlement address** for quiet traffic and uses **watch-only public key / HD derivation** only when concurrent open orders would collide on the same amount. PaymentGate stores the merchant public key (xPub or equivalent public derivation material) per asset/network, derives receive addresses, and watches them. PaymentGate does **not** hold private keys, does **not** sign, and does **not** auto-sweep balances in Phase 1.
 
-**Prerequisite:** merchant Owner configures xPub (MFA, cool-down, audit — same bar as settlement address change). Without a valid xPub for that network, Mode S is unavailable; fall back to Mode B behaviour.
+**Prerequisite:** merchant Owner or Platform Owner/Administrator configures the public key (MFA, cool-down, audit — same bar as settlement address change). Without a valid public key for that network, Mode S is unavailable; fall back to Mode B behaviour.
 
 #### Assignment algorithm
 
@@ -118,14 +111,14 @@ Phase 2 may add **always-on** unique HD address per order (1 payment → 1 addre
 
 ### 2.7 Merchant UI and audit
 
-1. Setting label examples: **Standard**, **Amount fingerprint**, **Memo tag**, **Smart address** (and later **Unique address**).  
+1. Setting label examples: **Standard**, **Amount fingerprint**, **Smart address** (and later **Unique address**). Mode D is not offered in Phase 1.  
 2. Only merchant Owner or Administrator may change matching mode or xPub; Cashiers cannot.  
 3. Each order stores `matching_mode`, `payable_amount`, `receive_address`, `address_source` (main | hd_pool), `hd_index` (if any), and `memo_or_tag` (if any) for reports and dispute handling.  
 4. Dangerous combinations (for example Mode C with a large underpay tolerance, or Mode S + Mode C together) are rejected by validation.
 
 ### 2.8 Milestone coverage
 
-Matching modes are implemented with order creation and the chain watcher (Milestones 2–3). Acceptance tests must include: same-amount collision under B → Anomaly; two concurrent fingerprint amounts under C → correct orders; D only on a supported network; D unavailable on USDT where memo does not apply; Mode S with no conflict uses main address; Mode S with two/three same-amount open orders assigns distinct addresses (pool reuse after cool-down; new derive when pool empty); an issued order’s address is never rewritten.
+Matching modes are implemented with order creation and the chain watcher (Milestones 2–3). Acceptance tests must include: same-amount collision under B → Anomaly; two concurrent fingerprint amounts under C → correct orders; Mode D rejected as settings/create in Phase 1; Mode S with no conflict uses main address; Mode S with two/three same-amount open orders assigns distinct addresses (pool reuse after cool-down; new derive when pool empty); an issued order’s address is never rewritten.
 
 ## III. Cashier Android POS application (APK)
 
@@ -263,9 +256,8 @@ Development (Day 7–11):
 
 5. Merchant payment-address book with MFA, cooling-off, alert and audit log on every change
 
-6. Merchant UI: matching mode setting (Standard / Amount fingerprint / Memo tag where supported / Smart address); mode locked onto each new order; cashiers cannot change the mode
-
-7. Mode S: xPub registration (MFA, cool-down, audit) and HD address pool states (FREE / IN_USE / COOLDOWN)
+6. Merchant UI: matching mode setting (Standard / Amount fingerprint / Smart address); mode locked onto each new order; cashiers cannot change the mode
+7. Mode S: public key registration (MFA, cool-down, audit) and HD address pool states (FREE / IN_USE / COOLDOWN)
 
 8. Cashier Android APK (generic Android): cashier login, create order via API, show QR / amount / network / address / expiry (main screen)
 
@@ -297,7 +289,7 @@ Development (Day 13–17):
 
 3. Underpay, overpay, duplicate, delayed arrival, wrong network
 
-4. Matching implementation per Section II: Mode B collision → Anomaly; Mode C exact fingerprint match; Mode D memo/tag where supported; Mode S conflict → HD pool (reuse FREE after cool-down; derive when empty)
+4. Matching implementation per Section II: Mode B collision → Anomaly; Mode C exact fingerprint match; Mode S conflict → HD pool (reuse FREE after cool-down; derive when empty). Mode D is out of Phase 1.
 
 5. Standardized APIs in Section 4.1, including signed webhooks and the test webhook
 
@@ -315,7 +307,7 @@ Test (Day 18):
 
 3. Two concurrent Mode C fingerprint amounts match the correct orders
 
-4. Mode D matches on a supported network; wrong or missing memo is not auto-Completed
+4. Mode D is not accepted in Phase 1 settings or UI (legacy engine may still exist for historical rows)
 
 5. Mode S: three concurrent same-amount orders get distinct destinations; payments match the correct orders; pool address returns to FREE only after cool-down; issued address is never rewritten
 

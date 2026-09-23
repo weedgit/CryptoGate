@@ -78,10 +78,15 @@ export async function handlePutPlatformPricingSettings(req, res) {
 /**
  * GET /v1/orgs/:orgId/pricing
  */
+function merchantPricingScope(caller, orgId) {
+  if (caller.platformOperator && orgId) return { ok: true, orgId };
+  return resolveOrderOrgId(caller.memberships, orgId);
+}
+
 export async function handleGetMerchantPricingSettings(req, res, orgId) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
-  const scope = resolveOrderOrgId(caller.memberships, orgId);
+  const scope = merchantPricingScope(caller, orgId);
   if (!scope.ok) {
     sendError(res, scope.status, scope.code, scope.message);
     return;
@@ -95,12 +100,14 @@ export async function handleGetMerchantPricingSettings(req, res, orgId) {
 export async function handlePutMerchantPricingSettings(req, res, orgId) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
-  const scope = resolveOrderOrgId(caller.memberships, orgId);
+  const scope = merchantPricingScope(caller, orgId);
   if (!scope.ok) {
     sendError(res, scope.status, scope.code, scope.message);
     return;
   }
-  const canWrite = caller.memberships.some(
+  const canWrite =
+    caller.platformOperator ||
+    caller.memberships.some(
     (m) =>
       m.orgId === scope.orgId &&
       (m.role === "owner" || m.role === "administrator"),

@@ -137,5 +137,17 @@ export async function handlePutSettlement(req, res, orgId) {
     },
   });
   await grantSiteOverrideAfterPlatformWrite(loaded.org, "settlement", loaded.caller);
+
+  if (loaded.org.type === "merchant") {
+    try {
+      const { maybeCreateActivationForMerchantOrg } = await import(
+        "../service-bills/activation.mjs"
+      );
+      await maybeCreateActivationForMerchantOrg(orgId);
+    } catch {
+      /* best-effort — activation also needs contact/profile */
+    }
+  }
+
   sendJson(res, 200, toSettlementAddress(result.row));
 }

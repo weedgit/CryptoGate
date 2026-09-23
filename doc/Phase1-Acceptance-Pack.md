@@ -42,7 +42,7 @@ The payer sends crypto to the **merchant’s own wallet**. CryptoGate **watches,
 - Taking platform fee from the customer’s on-chain payment  
 - Full KYC/KYB / UBO pack (simple invite/register until client makes it a go-live gate)  
 - Email / SMS verification (implement after SMTP / SMS provider confirm)  
-- Memo/Tag matching (**Mode D**) as a live method — no enabled catalog pair has `memoSupported: true`  
+- Memo/Tag matching (**Mode D**) — removed from Phase 1 (not selectable; engine kept for historical rows only)  
 - Unique address per order without xPub (**Mode A**) — Phase 2  
 - Maker-checker on wallet change, multi-RPC failover, scheduled chain↔DB reconciliation job  
 - Open self-registration (onboard is invite / operator-created)  
@@ -62,7 +62,7 @@ The technical catalog already has more pairs (USDT/USDC on several EVM nets, TON
 
 ### 2.1 What matching is
 
-Matching binds an **on-chain transfer** to an **open payment order** using the fields the guest was shown: receive address, asset, network, payable amount, and (Mode D only) memo/tag.
+Matching binds an **on-chain transfer** to an **open payment order** using the fields the guest was shown: receive address, asset, network, and payable amount.
 
 Matching **never** FIFO-completes when two open orders look the same. Collision → **Payment Anomaly** for the involved orders.
 
@@ -74,19 +74,13 @@ The receive address on an issued order is **never rewritten**.
 | --- | --- | --- | --- |
 | **Standard** (default) | **B** | Second create for the same amount on the main address is **blocked** while a live ticket exists. Match-time race → anomaly (all colliding ids). | Correct asset, network, amount, address |
 | **Amount fingerprint** | **C** | Unique payable (e.g. 50.00 → 50.01). Guest must pay the **exact** amount on the page. | Exact fingerprint |
-| **Smart address** | **S** | Main address unless same-amount conflict; then an HD address from watch-only xPub. Without xPub, create falls back to B. | Pay the address on **that** order’s QR |
+| **Smart address** | **S** | Main address unless same-amount conflict; then an HD address from watch-only public key. Without public key, create falls back to B. | Pay the address on **that** order’s QR |
 
 **Do not combine** Mode S and Mode C on the same merchant path (API rejects).
 
-### 2.3 Mode D — Memo / tag (hidden)
+**Mode D (Memo / tag)** is **not part of Phase 1** — removed from UI and settings. Revisit only in a later phase when a memo-capable pair is productized.
 
-Engine exists. **Create is rejected** unless the registry row has `memoSupported: true`.
-
-Today **every enabled pair is `memoSupported: false`** (including USDT on TRON / Ethereum / Solana / TON). TON is listed but memo matching is **not** enabled. **XRP is not in the catalog.**
-
-Phase 1: keep Memo/Tag **unavailable** in settlement UI. Revisit only when a real memo-capable pair is enabled and watcher-tested.
-
-### 2.4 Recommended default for hotels / retail
+### 2.3 Recommended default for hotels / retail
 
 | Desk | Prefer |
 | --- | --- |
@@ -96,7 +90,7 @@ Phase 1: keep Memo/Tag **unavailable** in settlement UI. Revisit only when a rea
 
 Amount-only matching on a shared address is **not** sufficient at scale. That is why B blocks a second same-amount create, and why C/S exist.
 
-### 2.5 Match outcomes (watcher)
+### 2.4 Match outcomes (watcher)
 
 | Result | Order status | Completes? |
 | --- | --- | --- |

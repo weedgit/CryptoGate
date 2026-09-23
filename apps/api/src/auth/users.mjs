@@ -446,6 +446,52 @@ export async function markEmailVerified(userId) {
  * @param {string} userId
  * @param {string} phone
  */
+/**
+ * Platform support: change the sign-in email. Clears email verification when it changes.
+ * @param {string} userId
+ * @param {string} email
+ */
+export async function setUserEmail(userId, email) {
+  const next = normalizeEmail(typeof email === "string" ? email : "");
+  if (!next || !next.includes("@") || next.length > 254) {
+    const err = new Error("Valid email is required");
+    err.code = "email_invalid";
+    throw err;
+  }
+  const pool = getPool();
+  try {
+    await pool.query(
+      `UPDATE users
+       SET email = $2,
+           email_verified_at = CASE WHEN email IS DISTINCT FROM $2 THEN NULL ELSE email_verified_at END,
+           updated_at = now()
+       WHERE id = $1`,
+      [userId, next],
+    );
+  } catch (err) {
+    if (err && err.code === "23505") {
+      const dup = new Error("This email is already registered");
+      dup.code = "email_taken";
+      throw dup;
+    }
+    throw err;
+  }
+  return next;
+}
+
+/**
+ * @param {string} userId
+ */
+export async function clearUserPhone(userId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users
+     SET phone = NULL, phone_verified_at = NULL, updated_at = now()
+     WHERE id = $1`,
+    [userId],
+  );
+}
+
 export async function setUserPhone(userId, phone) {
   const pool = getPool();
   try {

@@ -354,6 +354,7 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
   if (
     !canAssignOrgRole({
       platformOwner: caller.platformOwner,
+      platformOperator: caller.platformOperator,
       roleOnOrg: roleOnOrg(caller.memberships, orgId),
     })
   ) {
@@ -425,6 +426,7 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
   if (
     !canManageMembershipLifecycle({
       platformOwner: caller.platformOwner,
+      platformOperator: caller.platformOperator,
       roleOnOrg: roleOnOrg(caller.memberships, orgId),
     })
   ) {
@@ -521,6 +523,7 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
   if (
     !canManageMembershipLifecycle({
       platformOwner: caller.platformOwner,
+      platformOperator: caller.platformOperator,
       roleOnOrg: roleOnOrg(caller.memberships, orgId),
     })
   ) {
@@ -581,6 +584,7 @@ export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
   if (
     !canManageMemberPosPin({
       platformOwner: caller.platformOwner,
+      platformOperator: caller.platformOperator,
       roleOnOrg: roleOnOrg(caller.memberships, orgId),
     })
   ) {
@@ -646,6 +650,7 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
   if (
     !canManageMemberPosPin({
       platformOwner: caller.platformOwner,
+      platformOperator: caller.platformOperator,
       roleOnOrg: roleOnOrg(caller.memberships, orgId),
     })
   ) {

@@ -63,7 +63,8 @@ describe("@paymentgate/web merchant M2-61/62/63 settlement", () => {
       "utf8",
     );
     assert.match(labels, /MATCHING_MODE_CARDS/);
-    assert.match(labels, /Memo tag/);
+    assert.match(labels, /Smart address/);
+    assert.doesNotMatch(labels, /mode: "D"/);
     assert.match(labels, /matchingModeCardDisabled/);
     assert.match(labels, /MODE_D_PHASE1_UNAVAILABLE_REASON/);
     const settlement = readFileSync(

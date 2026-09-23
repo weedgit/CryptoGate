@@ -61,6 +61,9 @@ export type OrgAccount = {
   name: string;
   parentId: string | null;
   status?: "active" | "paused";
+  /** When paused for unpaid service bill. */
+  statusReason?: string | null;
+  statusReasonBillId?: string | null;
   orderCreateSuspended?: boolean;
   country?: string | null;
   legalName?: string | null;
@@ -80,6 +83,11 @@ export type ServiceBill = {
   currency: string;
   status: string;
   dueAt: string;
+  billKind?: string | null;
+  sentAt?: string | null;
+  cancelledAt?: string | null;
+  opsNote?: string | null;
+  creditAppliedUsd?: string | null;
   tier?: string | null;
   volumeFeePercent?: string | null;
   billedVolumeUsd?: string | null;
@@ -142,7 +150,21 @@ export type OrgPrimaryOwnerContact = {
   timezone: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  avatarUrl?: string | null;
+  mfaEnrolled?: boolean;
 };
+
+/** Team rows already include MFA. Use that until the owner contact payload does too. */
+export function ownerContactWithMfa(
+  contact: OrgPrimaryOwnerContact,
+  team: { userId: string; role: string; mfaEnrolled?: boolean }[],
+): OrgPrimaryOwnerContact {
+  if (typeof contact.mfaEnrolled === "boolean") return contact;
+  const row =
+    team.find((m) => m.userId === contact.userId) ??
+    team.find((m) => m.role === "owner");
+  return { ...contact, mfaEnrolled: row?.mfaEnrolled === true };
+}
 
 export type OrgOverview = {
   team: OrgMember[];
@@ -186,7 +208,13 @@ export {
   peekPlatformServiceBills,
 } from "./platformServiceBillsList";
 
-export type ServiceBillUpdateAction = "mark_paid" | "void" | "adjust";
+export type ServiceBillUpdateAction =
+  | "send"
+  | "cancel"
+  | "mark_paid"
+  | "void"
+  | "adjust"
+  | "grant_credit";
 
 async function parseError(res: Response): Promise<never> {
   const body = await res.text();
@@ -270,6 +298,10 @@ export async function patchOrgOwnerProfile(
     firstName?: string | null;
     lastName?: string | null;
     timezone?: string;
+    email?: string;
+    phone?: string | null;
+    avatarUrl?: string | null;
+    password?: string;
   },
 ): Promise<OrgPrimaryOwnerContact> {
   const res = await apiFetch(
@@ -286,6 +318,39 @@ export async function patchOrgOwnerProfile(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgPrimaryOwnerContact;
+}
+
+/** Platform Owner or Administrator — edit a team member's contact, avatar, and role. */
+export async function patchOrgMember(
+  orgId: string,
+  userId: string,
+  body: {
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string;
+    phone?: string | null;
+    timezone?: string;
+    avatarUrl?: string | null;
+    role?: string;
+    emailVerified?: boolean;
+    phoneVerified?: boolean;
+    password?: string;
+  },
+): Promise<OrgMember> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as OrgMember;
 }
 
 /** Platform Owner only — override Owner email/phone verification. */
@@ -454,6 +519,10 @@ export async function updateServiceBill(
     action: ServiceBillUpdateAction;
     reason?: string;
     adjustmentAmount?: string;
+    subscriptionAmount?: string;
+    volumeFeeAmount?: string;
+    creditAmount?: string;
+    opsNote?: string;
     paymentReference?: string;
     rxAddress?: string;
     txAddress?: string;
@@ -622,6 +691,48 @@ export async function updateBillingWalletSettings(body: {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as PlatformBillingWalletSettings;
+}
+
+export type BillingCalendarSettings = {
+  merchantPayDayStart: number;
+  merchantPayDayEnd: number;
+  agentPayDayStart: number;
+  agentPayDayEnd: number;
+  activationFeeUsd: string;
+  activationPayDays: number;
+  autoSendInvoices: boolean;
+  updatedAt: string;
+};
+
+export async function getBillingCalendarSettings(): Promise<BillingCalendarSettings> {
+  const res = await apiFetch(`${API_BASE}/platform/settings/billing-calendar`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as BillingCalendarSettings;
+}
+
+export async function updateBillingCalendarSettings(body: {
+  merchantPayDayStart: number;
+  merchantPayDayEnd: number;
+  agentPayDayStart: number;
+  agentPayDayEnd: number;
+  activationFeeUsd: string;
+  activationPayDays: number;
+  autoSendInvoices: boolean;
+}): Promise<BillingCalendarSettings> {
+  const res = await apiFetch(`${API_BASE}/platform/settings/billing-calendar`, {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as BillingCalendarSettings;
 }
 
 export type PlatformDashboardSummary = {
@@ -885,6 +996,12 @@ export type MerchantCommercialSettings = {
   bandMaxPercent: string;
   effectiveFrom: string;
   enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
+  feeExemptUntil?: string | null;
+  skipActivation?: boolean;
+  billingOpsNote?: string | null;
+  serviceBillCreditUsd?: string;
+  billingAnchorAt?: string | null;
+  nextInvoiceOn?: string | null;
 };
 
 export async function getMerchantCommercial(
@@ -908,6 +1025,10 @@ export async function updateMerchantCommercial(
     volumeFeePercent?: string;
     rateMode?: "automatic" | "fixed";
     reason?: string;
+    feeExemptUntil?: string | null;
+    skipActivation?: boolean;
+    billingOpsNote?: string | null;
+    serviceBillCreditUsd?: string;
   },
 ): Promise<MerchantCommercialSettings> {
   const res = await apiFetch(
@@ -1088,7 +1209,7 @@ export type ComplianceOverrideRequest = {
   notes: string;
   ticketId?: string;
   mfaCode: string;
-  matchingMode?: "B" | "C" | "D" | "S";
+  matchingMode?: "B" | "C" | "S";
   settlement?: { asset: string; network: string; address: string };
 };
 

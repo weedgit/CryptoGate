@@ -188,7 +188,7 @@ const KEVIN_EXTRA = [
     settlement: NILE_HD_WALLETS.customer24,
     tier: "small",
     volumeFeePercent: "2.0",
-    matchingMode: "D",
+    matchingMode: "B",
     parentKey: "agent",
   },
   {

@@ -300,24 +300,27 @@ export function OnboardMerchantPage({ session }: Props) {
 
             <form className="b4-wizard__form" onSubmit={onSubmit}>
               <div className="b4-wizard__body">
-                <OnboardFixedParent
-                  id="parent-org"
-                  name={parentName}
-                  typeLabel={parentTypeLabel}
-                  mark={
-                    parentIsPlatform ? (
-                      <GateLogoMark size={36} className="b4-parent-card__gate" />
-                    ) : (
-                      <OrgBrandMark
-                        name={parentName}
-                        iconKey={selectedParentOrg?.iconKey}
-                        size={36}
-                      />
-                    )
-                  }
-                />
+                <div className="b4-aside-row">
+                  <span className="b4-aside-row__label">Parent organization</span>
+                  <OnboardFixedParent
+                    id="parent-org"
+                    name={parentName}
+                    typeLabel={parentTypeLabel}
+                    mark={
+                      parentIsPlatform ? (
+                        <GateLogoMark size={36} className="b4-parent-card__gate" />
+                      ) : (
+                        <OrgBrandMark
+                          name={parentName}
+                          iconKey={selectedParentOrg?.iconKey}
+                          size={36}
+                        />
+                      )
+                    }
+                  />
+                </div>
 
-                <div className="b4-field">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="merchant-name"
                     label="Business name"
@@ -336,7 +339,7 @@ export function OnboardMerchantPage({ session }: Props) {
                   </FieldControl>
                 </div>
 
-                <div className="b4-field">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Merchant Owner email"

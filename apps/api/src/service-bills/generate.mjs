@@ -1,28 +1,31 @@
-import { ServiceBillStatus } from "@paymentgate/domain";
+import { ServiceBillKind, ServiceBillStatus } from "@paymentgate/domain";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
+import {
+  findMerchantCommercial,
+  consumeMerchantServiceBillCredit,
+} from "../commercial/merchant-commercial-store.mjs";
 import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
+import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
+import { merchantPayDueAtForPeriod } from "../platform-settings/billing-calendar-rules.mjs";
 import { addUsdAmounts } from "./service-bill-rules.mjs";
 import {
-  defaultDueAt,
   merchantOnboardedInPeriod,
   previousCalendarMonthUtc,
   roundUsd,
   volumeFeeUsd,
 } from "./generate-rules.mjs";
 import {
+  adjustServiceBillLines,
   findActiveServiceBillForPeriod,
   insertServiceBill,
+  sendServiceBill,
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 
 /**
- * Issue one service bill per active merchant for the period from confirmed volume.
- * Does not debit payer on-chain amounts — USD subscription + volume fee only.
- *
- * Automatic merchants: tier + fee follow the volume schedule for billed volume.
- * Fixed merchants: keep the Owner-locked rate.
+ * Draft (or auto-send) one service bill per active merchant for the period.
  *
  * @param {{
  *   periodStart?: string,
@@ -38,7 +41,11 @@ export async function generateServiceBillsForPeriod(input = {}) {
   const periodEnd = input.periodEnd ?? prev.periodEnd;
   const inclusiveStartIso = input.inclusiveStartIso ?? prev.inclusiveStartIso;
   const exclusiveEndIso = input.exclusiveEndIso ?? prev.exclusiveEndIso;
-  const dueAt = defaultDueAt(periodEnd);
+  const calendar = await getBillingCalendarSettings();
+  const dueAt = merchantPayDueAtForPeriod(
+    periodEnd,
+    calendar.merchantPayDayEnd,
+  );
 
   const orgs = await listOrgAccounts();
   const merchants = orgs.filter(
@@ -60,6 +67,18 @@ export async function generateServiceBillsForPeriod(input = {}) {
     if (!merchantOnboardedInPeriod(merchant.created_at, periodEnd)) {
       skipped.push({ orgId: merchant.id, reason: "not_onboarded_in_period" });
       continue;
+    }
+
+    const commercialRow = await findMerchantCommercial(merchant.id);
+    if (commercialRow?.fee_exempt_until) {
+      const until =
+        commercialRow.fee_exempt_until instanceof Date
+          ? commercialRow.fee_exempt_until.toISOString().slice(0, 10)
+          : String(commercialRow.fee_exempt_until).slice(0, 10);
+      if (until >= periodEnd) {
+        skipped.push({ orgId: merchant.id, reason: "fee_exempt" });
+        continue;
+      }
     }
 
     const subtree = await listOrgsInSubtree([merchant.id]);
@@ -87,9 +106,18 @@ export async function generateServiceBillsForPeriod(input = {}) {
       resolved.volumeFeePercent,
     );
     const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
-    const totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
+    let totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
 
-    const row = await insertServiceBill({
+    const credit = await consumeMerchantServiceBillCredit(merchant.id, totalAmount);
+    totalAmount = credit.newTotal;
+    const creditAppliedUsd =
+      credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+
+    const initialStatus = calendar.autoSendInvoices
+      ? ServiceBillStatus.Issued
+      : ServiceBillStatus.Draft;
+
+    let row = await insertServiceBill({
       orgId: merchant.id,
       periodStart,
       periodEnd,
@@ -97,14 +125,35 @@ export async function generateServiceBillsForPeriod(input = {}) {
       volumeFeeAmount,
       totalAmount,
       dueAt,
-      status: ServiceBillStatus.Issued,
+      status: initialStatus,
       tier: resolved.tier,
       volumeFeePercent: String(resolved.volumeFeePercent),
       billedVolumeUsd,
+      billKind: ServiceBillKind.Monthly,
+      sentAt: calendar.autoSendInvoices ? new Date().toISOString() : null,
     });
+
+    if (creditAppliedUsd) {
+      row =
+        (await adjustServiceBillLines(row.id, {
+          subscriptionAmount,
+          volumeFeeAmount,
+          totalAmount,
+          reason: "Applied merchant service-bill credit",
+          adjustmentAmount: `-${creditAppliedUsd}`,
+          creditAppliedUsd,
+        })) ?? row;
+    }
+
+    if (calendar.autoSendInvoices && row.status === ServiceBillStatus.Draft) {
+      row = (await sendServiceBill(row.id, dueAt)) ?? row;
+    }
+
     issued.push(row);
     emitDashboardLive({
-      type: "service_bill.issued",
+      type: calendar.autoSendInvoices
+        ? "service_bill.issued"
+        : "service_bill.draft",
       slices: ["serviceBills"],
       orgId: merchant.id,
     });

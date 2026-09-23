@@ -595,8 +595,35 @@ describe("role policy", () => {
     );
     assert.equal(
       canUpdateMerchantCommercial(
-        { platformOperator: true, memberships: [] },
+        { platformOperator: true, platformOwner: true, memberships: [] },
         { id: "m1", type: "merchant", parentId: "a1" },
+      ),
+      true,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        { platformOperator: true, platformOwner: false, memberships: [] },
+        { id: "m1", type: "merchant", parentId: "a1" },
+        [],
+        { rateMode: "fixed" },
+      ),
+      false,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        { platformOperator: true, platformOwner: true, memberships: [] },
+        { id: "m1", type: "merchant", parentId: "a1" },
+        [],
+        { rateMode: "fixed" },
+      ),
+      true,
+    );
+    assert.equal(
+      canUpdateMerchantCommercial(
+        { platformOperator: true, platformOwner: false, memberships: [] },
+        { id: "m1", type: "merchant", parentId: "a1" },
+        [],
+        { rateMode: "automatic" },
       ),
       true,
     );

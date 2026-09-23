@@ -3,6 +3,8 @@ import { closePool } from "./db/pool.mjs";
 import { handleRequest } from "./http/app.mjs";
 import { startOrderExpiryJob } from "./orders/order-expiry-job.mjs";
 import { startServiceBillOverdueJob } from "./service-bills/service-bill-overdue-job.mjs";
+import { startDailyServiceBillInvoiceJob } from "./service-bills/daily-invoice-job.mjs";
+import { startDailyAgentCommissionInvoiceJob } from "./commercial/daily-commission-invoice-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
 import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
 import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mjs";
@@ -10,7 +12,8 @@ import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mj
 assertWatchOnlyEnv();
 
 /**
- * HTTP entry. Background: order expiry (M2-14), service bill overdue, webhook fan-out + delivery (M3-14).
+ * HTTP entry. Background: order expiry (M2-14), service bill overdue + daily
+ * invoices, agent commission day-C invoices, webhook fan-out + delivery (M3-14).
  */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
@@ -35,6 +38,10 @@ let expiryJob = null;
 let webhookJob = null;
 /** @type {{ stop: () => void } | null} */
 let serviceBillOverdueJob = null;
+/** @type {{ stop: () => void } | null} */
+let dailyServiceBillInvoiceJob = null;
+/** @type {{ stop: () => void } | null} */
+let dailyAgentCommissionInvoiceJob = null;
 
 server.listen(port, host, () => {
   console.log(`paymentgate-api listening on http://${host}:${port}`);
@@ -43,6 +50,8 @@ server.listen(port, host, () => {
   });
   expiryJob = startOrderExpiryJob();
   serviceBillOverdueJob = startServiceBillOverdueJob();
+  dailyServiceBillInvoiceJob = startDailyServiceBillInvoiceJob();
+  dailyAgentCommissionInvoiceJob = startDailyAgentCommissionInvoiceJob();
   webhookJob = startWebhookDeliveryJob();
 });
 
@@ -51,6 +60,10 @@ function shutdown() {
   expiryJob = null;
   serviceBillOverdueJob?.stop();
   serviceBillOverdueJob = null;
+  dailyServiceBillInvoiceJob?.stop();
+  dailyServiceBillInvoiceJob = null;
+  dailyAgentCommissionInvoiceJob?.stop();
+  dailyAgentCommissionInvoiceJob = null;
   webhookJob?.stop();
   webhookJob = null;
   server.close(async () => {

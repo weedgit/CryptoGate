@@ -14,6 +14,8 @@ import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import {
   formatBillId,
+  isActivationServiceBill,
+  isOpenActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
@@ -26,12 +28,13 @@ import { formatShortDate } from "./org";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import { getAgentServiceBills, peekAgentServiceBills } from "./agentServiceBillsList";
 
-type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
+type StatusFilter = "all" | "activation" | "unpaid" | "overdue" | "paid" | "voided";
 
 const PAGE_SIZE = 15;
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "activation", label: "Activation" },
   { id: "unpaid", label: "Unpaid" },
   { id: "overdue", label: "Overdue" },
   { id: "paid", label: "Paid" },
@@ -46,6 +49,8 @@ function matchesStatus(bill: ServiceBill, filter: StatusFilter): boolean {
   switch (filter) {
     case "all":
       return true;
+    case "activation":
+      return isActivationServiceBill(bill);
     case "unpaid":
       return bill.status === "issued" || bill.status === "overdue";
     case "overdue":
@@ -61,6 +66,7 @@ function matchesStatus(bill: ServiceBill, filter: StatusFilter): boolean {
 
 function parseStatusParam(raw: string | null): StatusFilter {
   if (
+    raw === "activation" ||
     raw === "unpaid" ||
     raw === "overdue" ||
     raw === "paid" ||
@@ -152,7 +158,7 @@ export function ServiceBillsListPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((bill) => {
+    const rows = items.filter((bill) => {
       if (!matchesStatus(bill, statusFilter)) return false;
       if (periodFilter !== "all" && bill.periodStart !== periodFilter) {
         return false;
@@ -163,8 +169,14 @@ export function ServiceBillsListPage() {
       return (
         billId.includes(q) ||
         bill.id.toLowerCase().includes(q) ||
-        merchant.includes(q)
+        merchant.includes(q) ||
+        (isActivationServiceBill(bill) && "activation".includes(q))
       );
+    });
+    return [...rows].sort((a, b) => {
+      const aAct = isOpenActivationServiceBill(a) ? 0 : 1;
+      const bAct = isOpenActivationServiceBill(b) ? 0 : 1;
+      return aAct - bAct;
     });
   }, [items, orgNames, query, statusFilter, periodFilter]);
 
@@ -191,6 +203,10 @@ export function ServiceBillsListPage() {
   );
   const overdueCount = useMemo(
     () => items.filter((b) => b.status === "overdue").length,
+    [items],
+  );
+  const openActivationCount = useMemo(
+    () => items.filter((b) => isOpenActivationServiceBill(b)).length,
     [items],
   );
 
@@ -239,6 +255,9 @@ export function ServiceBillsListPage() {
         >
           {STATUS_PILLS.map((pill) => {
             let label = pill.label;
+            if (pill.id === "activation" && openActivationCount > 0) {
+              label = `Activation (${openActivationCount})`;
+            }
             if (pill.id === "unpaid" && unpaidCount > 0) {
               label = `Unpaid (${unpaidCount})`;
             }
@@ -278,6 +297,26 @@ export function ServiceBillsListPage() {
         </label>
       </div>
 
+      {openActivationCount > 0 ? (
+        <div className="plat-bills__activation-callout" role="status">
+          <div>
+            <strong>Merchant activation</strong>
+            <p>
+              {openActivationCount === 1
+                ? "1 merchant in your channel has an unpaid activation invoice. Live features stay locked until they pay."
+                : `${openActivationCount} merchants in your channel have unpaid activation invoices. Live features stay locked until they pay.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary btn-inline"
+            onClick={() => setStatus("activation")}
+          >
+            Show activation
+          </button>
+        </div>
+      ) : null}
+
       <div className="plat-bills__table-wrap">
         {loading && !hasLoaded ? (
           <PagePending />
@@ -304,11 +343,15 @@ export function ServiceBillsListPage() {
             <tbody>
               {paged.map((bill, index) => {
                 const overdue = bill.status === "overdue";
+                const activation = isActivationServiceBill(bill);
+                const openActivation = isOpenActivationServiceBill(bill);
                 const href = agentRoute(`service-bills/${bill.id}`);
                 return (
                   <tr
                     key={bill.id}
-                    className="plat-bills__row"
+                    className={`plat-bills__row${
+                      openActivation ? " is-activation-open" : ""
+                    }`}
                     style={{
                       animationDelay: `${Math.min(index, 24) * 40}ms`,
                     }}
@@ -331,6 +374,9 @@ export function ServiceBillsListPage() {
                       >
                         {formatBillId(bill.id)}
                       </Link>
+                      {activation ? (
+                        <span className="plat-bills__kind-tag">Activation</span>
+                      ) : null}
                     </td>
                     <td className="plat-bills__merchant">
                       {orgNames.get(bill.orgId) ?? bill.orgId}
@@ -356,7 +402,9 @@ export function ServiceBillsListPage() {
                         {serviceBillStatusLabel(bill.status)}
                       </span>
                     </td>
-                    <td className="plat-bills__created">{bill.periodStart}</td>
+                    <td className="plat-bills__created">
+                      {activation ? "Activation fee" : bill.periodStart}
+                    </td>
                   </tr>
                 );
               })}

@@ -61,10 +61,6 @@ const ServiceBillsListPage = lazyNamed(
   () => import("./ServiceBillsListPage"),
   "ServiceBillsListPage",
 );
-const SystemHealthPage = lazyNamed(
-  () => import("./SystemHealthPage"),
-  "SystemHealthPage",
-);
 const PlatformCommissionsPage = lazyNamed(
   () => import("./PlatformCommissionsPage"),
   "PlatformCommissionsPage",
@@ -253,7 +249,10 @@ export function PlatformApp() {
           element={<NetworkCatalogPage session={session} />}
         />
         <Route path="settings/team" element={<PlatformTeamPage session={session} />} />
-        <Route path="ops/health" element={<SystemHealthPage />} />
+        <Route
+          path="ops/health"
+          element={<Navigate to={platformRoute("settings/networks")} replace />}
+        />
         <Route path="*" element={<Navigate to={platformRoute()} replace />} />
       </Route>
     </Routes>

@@ -20,7 +20,7 @@ import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import { handleOrgTableKeyDown } from "../platform/orgTableKeyboard";
-import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
+import { serviceBillStatusLabel, isOpenActivationServiceBill } from "../platform/serviceBillStatus";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import { merchantsInAgentSubtree } from "./agentSubtree";
@@ -62,7 +62,7 @@ type Props = { session: Session };
 
 type StatusFilter = "all" | "active" | "paused";
 
-type MerchantBillStatus = "overdue" | "issued" | "paid";
+type MerchantBillStatus = "overdue" | "activation" | "issued" | "paid";
 
 type SortKey =
   | "name"
@@ -78,12 +78,13 @@ const PAGE_SIZE = 15;
 
 const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
   overdue: 0,
-  issued: 1,
-  paid: 2,
+  activation: 1,
+  issued: 2,
+  paid: 3,
 };
 
 function billSortRank(status: MerchantBillStatus | null): number {
-  if (!status) return 3;
+  if (!status) return 4;
   return BILL_SORT_RANK[status];
 }
 
@@ -92,11 +93,14 @@ function resolveMerchantBillStatus(
 ): MerchantBillStatus | null {
   let hasIssued = false;
   let hasPaid = false;
+  let hasOpenActivation = false;
   for (const bill of bills) {
     if (bill.status === "overdue") return "overdue";
-    if (bill.status === "issued") hasIssued = true;
+    if (isOpenActivationServiceBill(bill)) hasOpenActivation = true;
+    else if (bill.status === "issued" || bill.status === "draft") hasIssued = true;
     else if (bill.status === "paid") hasPaid = true;
   }
+  if (hasOpenActivation) return "activation";
   if (hasIssued) return "issued";
   if (hasPaid) return "paid";
   return null;
@@ -997,11 +1001,20 @@ export function MerchantsListPage({ session }: Props) {
                             {billStatus ? (
                               <span
                                 className={`org-agents__bill is-${billStatus}${
-                                  billStatus === "overdue" ? " is-pulse" : ""
+                                  billStatus === "overdue" ||
+                                  billStatus === "activation"
+                                    ? " is-pulse"
+                                    : ""
                                 }`}
-                                title="Open / latest service bill"
+                                title={
+                                  billStatus === "activation"
+                                    ? "Open activation invoice"
+                                    : "Open / latest service bill"
+                                }
                               >
-                                {serviceBillStatusLabel(billStatus)}
+                                {billStatus === "activation"
+                                  ? "Activation"
+                                  : serviceBillStatusLabel(billStatus)}
                               </span>
                             ) : (
                               <span

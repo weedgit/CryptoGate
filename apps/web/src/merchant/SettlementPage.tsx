@@ -42,6 +42,7 @@ import {
 import {
   formatCountdown,
   primaryMerchantOrgId,
+  sessionCanEditSettlement,
   truncateAddress,
 } from "./org";
 import {
@@ -144,6 +145,11 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
   );
   const settlementPairLive = isLivePair(addrAsset, addrNetwork);
   const readOnly = modeSource === "inherit";
+  const canEditSettlement = useMemo(
+    () => sessionCanEditSettlement(session),
+    [session],
+  );
+  const writeLocked = readOnly || !canEditSettlement;
   const fulfillmentReadOnly = fulfillmentSource === "inherit";
   const xPubNetworkOptions = useMemo(
     () => pairsForAsset(xPubAsset),
@@ -282,7 +288,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
 
   function onSaveAddress(e: FormEvent) {
     e.preventDefault();
-    if (!orgId || readOnly) return;
+    if (!orgId || writeLocked) return;
     const address = addrValue.trim();
     if (!address) return;
     setError(null);
@@ -297,7 +303,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
 
   function onSaveXpub(e: FormEvent) {
     e.preventDefault();
-    if (!orgId || readOnly) return;
+    if (!orgId || writeLocked) return;
     const xPub = xPubValue.trim();
     if (!xPub) return;
     setError(null);
@@ -453,6 +459,13 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
         </p>
       ) : null}
 
+      {!readOnly && !canEditSettlement ? (
+        <p className="plat-settings__notice" role="status">
+          Settlement wallet, matching mode, and xPub can only be changed by the
+          merchant Owner. Administrators have view access.
+        </p>
+      ) : null}
+
       <div className="plat-settlement__layout">
         <section className="plat-settings__card plat-settlement__card plat-settlement__card--addresses">
           <div className="plat-settings__card-head">
@@ -486,7 +499,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         if (live) setAddrNetwork(live.network);
                       }}
                       allowEmpty={false}
-                      disabled={savingAddr || readOnly}
+                      disabled={savingAddr || writeLocked}
                       ariaLabel="Asset"
                       hideTriggerIcon
                     />
@@ -510,7 +523,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         setAddrNetwork(next);
                       }}
                       allowEmpty={false}
-                      disabled={savingAddr || readOnly}
+                      disabled={savingAddr || writeLocked}
                       ariaLabel="Network"
                       hideTriggerIcon
                     />
@@ -524,7 +537,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                   value={addrValue}
                   onChange={(e) => setAddrValue(e.target.value)}
                   required
-                  disabled={savingAddr || readOnly}
+                  disabled={savingAddr || writeLocked}
                   spellCheck={false}
                   placeholder={`${addrAsset} address on selected network`}
                 />
@@ -533,7 +546,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                 <button
                   type="submit"
                   className="btn-primary plat-settings__submit"
-                  disabled={savingAddr || readOnly || !settlementPairLive}
+                  disabled={savingAddr || writeLocked || !settlementPairLive}
                 >
                   Save settlement address
                 </button>
@@ -661,7 +674,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                     aria-selected={selected}
                     aria-disabled={unavailable || undefined}
                     aria-describedby={`matching-mode-tip-${card.mode}`}
-                    disabled={readOnly || unavailable}
+                    disabled={writeLocked || unavailable}
                     className={`plat-settlement__stat plat-settlement__stat-pick${
                       selected ? " is-selected" : ""
                     }${unavailable ? " is-unavailable" : ""}`}
@@ -735,7 +748,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         onChange={(e) => setUnderpayTolerance(e.target.value)}
                         placeholder="0"
                         inputMode="decimal"
-                        disabled={readOnly}
+                        disabled={writeLocked}
                       />
                     </label>
                   </div>
@@ -844,7 +857,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         <SearchableSelect
                           value={xPubAsset}
                           options={assetSelectOptions}
-                          disabled={savingXpub || readOnly}
+                          disabled={savingXpub || writeLocked}
                           onChange={(next) => {
                             setXPubAsset(next);
                             const rows = pairsForAsset(next);
@@ -861,7 +874,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         <SearchableSelect
                           value={xPubNetwork}
                           options={xPubNetworkSelectOptions}
-                          disabled={savingXpub || readOnly}
+                          disabled={savingXpub || writeLocked}
                           onChange={setXPubNetwork}
                           ariaLabel="xPub network"
                         />
@@ -891,7 +904,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                         value={xPubValue}
                         onChange={(e) => setXPubValue(e.target.value)}
                         required
-                        disabled={savingXpub || readOnly || !xPubPairLive}
+                        disabled={savingXpub || writeLocked || !xPubPairLive}
                         spellCheck={false}
                         autoComplete="off"
                         placeholder={
@@ -904,7 +917,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                     <button
                       type="submit"
                       className="btn-primary plat-settings__submit"
-                      disabled={savingXpub || readOnly || !xPubPairLive}
+                      disabled={savingXpub || writeLocked || !xPubPairLive}
                     >
                       Save xPub
                     </button>

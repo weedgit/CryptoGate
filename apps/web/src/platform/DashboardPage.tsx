@@ -2510,7 +2510,7 @@ export function DashboardPage({ session }: Props) {
               ? "Checking backup…"
               : backupStatus.detail
           }
-          href={platformRoute("ops/health")}
+          href={platformRoute("settings/networks")}
           linkLabel="View health"
         />
       </div>

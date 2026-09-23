@@ -469,6 +469,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         legalName={org?.legalName}
         billingEmail={org?.billingEmail}
         requireCountry={true}
+        typeLabel={org ? orgTypeLabel(org.type) : undefined}
         busy={profileEditBusy}
         error={profileEditError}
         onClose={() => {

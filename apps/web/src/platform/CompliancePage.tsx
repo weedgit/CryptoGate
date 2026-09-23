@@ -147,7 +147,7 @@ function classifyAnomalyKind(order: PaymentOrder): AnomalyKind {
     if ((order.matchingMode || "B") === "B") return "collision";
   }
   if ((order.matchingMode || "B") === "D" && (received == null || !Number.isFinite(received))) {
-    return "wrong_network";
+    return "other";
   }
   return "other";
 }

@@ -66,33 +66,69 @@ export async function rejectUnverifiedLiveAction(req, res, method, path) {
 
   const user = await findUserById(caller.userId);
   const setup = await loadOrgSetupStatus(caller.memberships ?? [], user);
-  if (setup.setupReady) return false;
+  if (!setup.setupReady) {
+    if (!setup.contactVerified) {
+      sendError(
+        res,
+        403,
+        "contact_unverified",
+        "Verify email and phone before this action",
+      );
+      return true;
+    }
 
-  if (!setup.contactVerified) {
+    const missing =
+      Array.isArray(setup.missing) && setup.missing.length > 0
+        ? setup.missing.filter(
+            (m) => m !== "email and phone verification",
+          )
+        : [
+            ...(!setup.personComplete ? ["first name, last name, timezone"] : []),
+            ...(!setup.profileComplete ? ["org profile"] : []),
+            ...(!setup.walletSet ? ["wallet address"] : []),
+          ];
     sendError(
       res,
       403,
-      "contact_unverified",
-      "Verify email and phone before this action",
+      "org_setup_incomplete",
+      `Finish account setup before this action (${missing.join("; ")})`,
     );
     return true;
   }
 
-  const missing =
-    Array.isArray(setup.missing) && setup.missing.length > 0
-      ? setup.missing.filter(
-          (m) => m !== "email and phone verification",
-        )
-      : [
-          ...(!setup.personComplete ? ["first name, last name, timezone"] : []),
-          ...(!setup.profileComplete ? ["org profile"] : []),
-          ...(!setup.walletSet ? ["wallet address"] : []),
-        ];
-  sendError(
-    res,
-    403,
-    "org_setup_incomplete",
-    `Finish account setup before this action (${missing.join("; ")})`,
-  );
-  return true;
+  // Merchants must pay activation before live actions (except viewing / setup).
+  if (
+    setup.setupOrgType === "merchant" &&
+    setup.setupOrgId &&
+    !isActivationPayAllowedPath(method, path)
+  ) {
+    const { merchantHasBillingAnchor } = await import(
+      "../commercial/merchant-commercial-store.mjs"
+    );
+    const paid = await merchantHasBillingAnchor(setup.setupOrgId);
+    if (!paid) {
+      sendError(
+        res,
+        403,
+        "activation_payment_required",
+        "Pay the account activation fee before using merchant features",
+      );
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Allow service-bill checkout and related reads while waiting for activation pay.
+ * @param {string} method
+ * @param {string} path
+ */
+function isActivationPayAllowedPath(method, path) {
+  const verb = (method || "GET").toUpperCase();
+  if (verb === "GET" || verb === "HEAD" || verb === "OPTIONS") return true;
+  // Platform marks paid; merchants mainly need GET checkout. Keep PATCH profile/setup already allowed above.
+  if (path.startsWith("/v1/service-bills")) return true;
+  return false;
 }

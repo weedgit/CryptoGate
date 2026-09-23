@@ -20,6 +20,7 @@ import { ServiceBillActionsPanel } from "./ServiceBillActionsPanel";
 import { formatShortDate } from "./org";
 import {
   formatBillId,
+  isActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
@@ -48,11 +49,14 @@ function isPastDue(iso: string): boolean {
 }
 
 function buildTimeline(bill: ServiceBill): TimelineStep[] {
+  const activation = isActivationServiceBill(bill);
   const steps: TimelineStep[] = [
     {
       id: "period",
-      label: "Billing period",
-      detail: `${formatShortDate(bill.periodStart)} → ${formatShortDate(bill.periodEnd)}`,
+      label: activation ? "Activation fee" : "Billing period",
+      detail: activation
+        ? "One-time account activation (excluded from agent commission)"
+        : `${formatShortDate(bill.periodStart)} → ${formatShortDate(bill.periodEnd)}`,
       tone: "done",
     },
     {

@@ -1,8 +1,40 @@
 import type { ReactNode } from "react";
 import type { OrgAccount, OrgPrimaryOwnerContact } from "../platform/api";
-import { orgTypeLabel } from "../platform/org";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { OrgOwnerSupportFields } from "./OrgOwnerSupportFields";
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M3 12.5h2.8L12.8 5.5 10.5 3.2 3 10.7v1.8Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.8 4l2.8 2.8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function OrgHeadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M2.5 13.5V6.2L8 2.8l5.5 3.4v7.3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M6.2 13.5V9.2h3.6v4.3" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
 
 function dash(value: string | null | undefined): string {
   const t = value?.trim();
@@ -36,8 +68,6 @@ export function AccountOverviewProfile({
   onOwnerUpdated,
   extras,
 }: Props) {
-  const status = org.status ?? "active";
-
   return (
     <div className="b3-agent-detail__overview-profile">
       <section
@@ -45,13 +75,20 @@ export function AccountOverviewProfile({
         aria-label="Organization"
       >
         <div className="b3-profile__head">
-          <h3 className="b3-card__heading">Organization</h3>
+          <span className="b3-profile__head-icon" aria-hidden>
+            <OrgHeadIcon />
+          </span>
+          <div className="b3-profile__head-copy">
+            <h3 className="b3-card__heading">Organization</h3>
+            <p className="b3-profile__sub">Business and configuration details</p>
+          </div>
           {canEditOrg ? (
             <button
               type="button"
               className="b3-profile__edit-btn"
               onClick={onEditOrg}
             >
+              <PencilIcon />
               Edit
             </button>
           ) : null}
@@ -74,16 +111,6 @@ export function AccountOverviewProfile({
           <div className="b3-profile__field">
             <p className="b3-profile__label">Country</p>
             <p className="b3-profile__value">{dash(org.country)}</p>
-          </div>
-          <div className="b3-profile__field">
-            <p className="b3-profile__label">Type</p>
-            <p className="b3-profile__value">{orgTypeLabel(org.type)}</p>
-          </div>
-          <div className="b3-profile__field">
-            <p className="b3-profile__label">Status</p>
-            <p className="b3-profile__value">
-              {status === "paused" ? "Paused" : "Active"}
-            </p>
           </div>
           <div className="b3-profile__field">
             <p className="b3-profile__label">Onboarded</p>

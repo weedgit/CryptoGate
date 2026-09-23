@@ -35,6 +35,8 @@ type Props = {
   hideTriggerIcon?: boolean;
   /** Floor for portal menu width (avoids clipping long option labels). */
   menuMinWidth?: number;
+  /** Extra class on the portaled menu. */
+  menuClassName?: string;
 };
 
 type MenuPos = { top: number; left: number; width: number; maxHeight: number };
@@ -55,6 +57,7 @@ export function SearchableSelect({
   ariaLabel,
   hideTriggerIcon = false,
   menuMinWidth = 0,
+  menuClassName,
 }: Props) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -194,7 +197,7 @@ export function SearchableSelect({
         ? createPortal(
             <div
               id={listId}
-              className="searchable-select__menu"
+              className={`searchable-select__menu${menuClassName ? ` ${menuClassName}` : ""}`}
               role="listbox"
               style={menuStyle}
               onPointerDown={(e) => e.stopPropagation()}

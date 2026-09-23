@@ -559,7 +559,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 **Content**
 
 - Tabs: **Invoices** (platform → agent monthly invoices: issued / paid awaiting agent) · **Payout history** (settled after agent confirm) · **Sub-agent** (read-only cascade)
-- Month-end: **Generate invoices** for `YYYY-MM` from paid subtree volume fees; invoice shows tree fee status + onboard dates
+- Auto at **00:00 UTC on day C** (billing calendar): invoices for prior month from paid subtree **subscription + volume**; manual **Generate** remains an ops override; invoice shows tree fee status + onboard dates
 - Owner/Admin: **Confirm & pay** (USDT·TRON) → status **Paid**; agent Owner/Admin **Confirm receipt** → **Settled** → history
 - Click invoice row (Invoices or Payout history) → open invoice modal to review tree + remittance; Address / Tx open Tronscan (copy available)
 - URL: `?tab=invoices` (default) · `?tab=history` · `?tab=sub-agent`
@@ -922,7 +922,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 **Actions**
 
 - **Print invoice** (document panel only)
-- **Cancel order** (pending only) — O, A any on org; C own only — frees Mode B amount / Mode D memo create locks
+- **Cancel order** (pending only) — O, A any on org; C own only — frees Mode B amount create locks
 - **Copy** payment details
 - **Resend webhook** (O, A)
 - Anomaly: **no “Mark paid”** button — plain-language reason + expected/received + **Resolve anomaly** (required note) → cancelled; invoice keeps reason + staff note
@@ -933,7 +933,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - Expected vs received amounts when known
 - Suggested merchant actions (manual reconciliation)
 - **Resolve** with required note (O/A any on org; C own) — closes ticket; leaves anomaly list and urgent alerts
-- Anomalies do **not** block creating a new order for the same amount (Mode B) or memo (Mode D)
+- Anomalies do **not** block creating a new order for the same amount (Mode B)
 
 **Never** show service-bill remittance or platform billing wallet on this page.
 
@@ -958,7 +958,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 **Read-only info shown before submit**
 
-- Matching mode in effect (merchant default): Standard / Amount fingerprint / Memo tag / Smart address
+- Matching mode in effect (merchant default): Standard / Amount fingerprint / Smart address
 - Mode C note: “Payable amount may differ (fingerprint)”
 - Settlement preview: address type main vs derived (after create)
 
@@ -968,7 +968,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 
 - Asset/network disabled (maintenance)
 - Mode C: no free fingerprint slot
-- Mode S: xPub not configured → block with link to D11
+- Mode S: public key not configured → block with link to D11
 
 ---
 
@@ -1091,16 +1091,15 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - Radio cards:
   - **Standard** (default) — short explanation
   - **Amount fingerprint** — collision avoidance via unique amounts; exact-pay warning
-  - **Memo tag** — disabled with tooltip on unsupported networks (USDT Tron/ETH/BSC/etc.)
-  - **Smart address** — main + HD on conflict; link to xPub section
+  - **Smart address** — main + HD on conflict; link to public key section
 - Dangerous combo validation messages (Mode S + C)
 - Save → confirm dialog: “Applies to **new orders only**.”
 - Cashier: hidden
 
-#### D11c. xPub (Smart address / Mode S)
+#### D11c. Public key (Smart address / Mode S)
 
-- Per asset/network: xPub field (masked partial), validation status, derived address count
-- **Register / Replace xPub** (O, A): MFA, cool-down, audit — same bar as address
+- Per asset/network: public key field (Platform O/A may view full string; merchant staff presence + edit), validation status, derived address count
+- **Register / Replace public key** (O, A; Platform O/A): MFA, cool-down, audit — same bar as address
 - HD pool summary: FREE / IN_USE / COOLDOWN counts (read-only list expandable)
 - Warning copy: consolidation is merchant responsibility; PaymentGate does not sweep
 - Cashier: hidden
@@ -1257,7 +1256,6 @@ When logged into a **merchant (site) account**, same pages as D1–D16 with thes
 **Warnings**
 
 - Mode C: “Pay **exactly {amount}**. Do not round.”
-- Mode D: “Include memo: **{memo}**” when supported
 - Network is shown on the network pill / QR mark (no separate wrong-network banner)
 
 **States**

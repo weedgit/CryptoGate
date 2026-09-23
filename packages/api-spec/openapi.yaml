@@ -4754,6 +4754,11 @@ components:
             contactVerified AND profileComplete AND walletSet.
             Agent/merchant live actions stay locked until true.
             Platform operators and API keys are exempt.
+        activationPaid:
+          type: boolean
+          description: >
+            Merchant only. True after activation fee is paid (or skip_activation).
+            Live merchant mutations stay locked until true once setupReady.
         setupOrgId:
           type: string
           format: uuid

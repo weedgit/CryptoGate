@@ -2,10 +2,11 @@ import { getPool } from "../db/pool.mjs";
 
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
-  total_amount, currency, status, due_at, paid_at, voided_at,
+  total_amount, currency, status, due_at, paid_at, voided_at, cancelled_at, sent_at,
   last_adjustment_reason, last_adjustment_amount, payment_reference,
   rx_address, tx_address, created_at, updated_at,
-  tier, volume_fee_percent, billed_volume_usd
+  tier, volume_fee_percent, billed_volume_usd, bill_kind,
+  ops_note, credit_applied_usd
 `;
 
 const BILL_SELECT_LEGACY = `
@@ -23,6 +24,30 @@ async function queryBills(sql, params = []) {
     return await getPool().query(sql, params);
   } catch (err) {
     if (err && err.code === "42703") {
+      if (
+        sql.includes("bill_kind") ||
+        sql.includes("sent_at") ||
+        sql.includes("cancelled_at") ||
+        sql.includes("ops_note") ||
+        sql.includes("credit_applied_usd")
+      ) {
+        const stripped = sql
+          .replace(/,\s*bill_kind/g, "")
+          .replace(/,\s*sent_at/g, "")
+          .replace(/,\s*cancelled_at/g, "")
+          .replace(/,\s*ops_note/g, "")
+          .replace(/,\s*credit_applied_usd/g, "")
+          .replace(/bill_kind\s*=\s*\$\d+,?\s*/g, "")
+          .replace(/sent_at\s*=\s*\$\d+,?\s*/g, "")
+          .replace(/cancelled_at\s*=\s*\$\d+,?\s*/g, "")
+          .replace(/ops_note\s*=\s*\$\d+,?\s*/g, "")
+          .replace(/credit_applied_usd\s*=\s*\$\d+,?\s*/g, "");
+        try {
+          return await getPool().query(stripped, params);
+        } catch (inner) {
+          if (!(inner && inner.code === "42703")) throw inner;
+        }
+      }
       if (sql.includes("rx_address") || sql.includes("tx_address")) {
         const stripped = sql
           .replace(/,\s*rx_address/g, "")
@@ -118,9 +143,13 @@ export async function listServiceBills(query) {
  *   tier?: string | null,
  *   volumeFeePercent?: string | null,
  *   billedVolumeUsd?: string | null,
+ *   billKind?: string | null,
+ *   sentAt?: string | null,
  * }} input
  */
 export async function insertServiceBill(input) {
+  const billKind = input.billKind ?? "monthly";
+  const sentAt = input.sentAt ?? null;
   const values = [
     input.orgId,
     input.periodStart,
@@ -133,14 +162,16 @@ export async function insertServiceBill(input) {
     input.tier ?? null,
     input.volumeFeePercent ?? null,
     input.billedVolumeUsd ?? null,
+    billKind,
+    sentAt,
   ];
   try {
     const { rows } = await getPool().query(
       `INSERT INTO service_bills (
          org_id, period_start, period_end, subscription_amount, volume_fee_amount,
          total_amount, currency, status, due_at,
-         tier, volume_fee_percent, billed_volume_usd
-       ) VALUES ($1, $2::date, $3::date, $4, $5, $6, 'USD', $7, $8::timestamptz, $9, $10, $11)
+         tier, volume_fee_percent, billed_volume_usd, bill_kind, sent_at
+       ) VALUES ($1, $2::date, $3::date, $4, $5, $6, 'USD', $7, $8::timestamptz, $9, $10, $11, $12, $13::timestamptz)
        RETURNING ${BILL_SELECT}`,
       values,
     );
@@ -159,6 +190,41 @@ export async function insertServiceBill(input) {
     }
     throw err;
   }
+}
+
+/**
+ * @param {string} id
+ * @param {string} dueAt
+ */
+export async function sendServiceBill(id, dueAt) {
+  const { rows } = await queryBills(
+    `UPDATE service_bills
+     SET status = 'issued',
+         sent_at = now(),
+         due_at = $2::timestamptz,
+         updated_at = now()
+     WHERE id = $1 AND status = 'draft'
+     RETURNING ${BILL_SELECT}`,
+    [id, dueAt],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} id
+ * @param {string} [_reason]
+ */
+export async function cancelServiceBill(id, _reason) {
+  const { rows } = await queryBills(
+    `UPDATE service_bills
+     SET status = 'cancelled',
+         cancelled_at = now(),
+         updated_at = now()
+     WHERE id = $1 AND status IN ('draft', 'issued', 'overdue')
+     RETURNING ${BILL_SELECT}`,
+    [id],
+  );
+  return rows[0] ?? null;
 }
 
 /**
@@ -208,7 +274,7 @@ export async function voidServiceBill(id, _reason) {
   const { rows } = await queryBills(
     `UPDATE service_bills
      SET status = 'voided', voided_at = now(), updated_at = now()
-     WHERE id = $1 AND status = 'issued'
+     WHERE id = $1 AND status IN ('issued', 'draft')
      RETURNING ${BILL_SELECT}`,
     [id],
   );
@@ -228,9 +294,64 @@ export async function adjustServiceBill(id, totalAmount, reason, adjustmentAmoun
          last_adjustment_reason = $3,
          last_adjustment_amount = $4,
          updated_at = now()
-     WHERE id = $1 AND status IN ('issued', 'overdue')
+     WHERE id = $1 AND status IN ('issued', 'overdue', 'draft')
      RETURNING ${BILL_SELECT}`,
     [id, totalAmount, reason, adjustmentAmount],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Set subscription / volume lines and recompute total (optional credit applied).
+ * @param {string} id
+ * @param {{
+ *   subscriptionAmount: string,
+ *   volumeFeeAmount: string,
+ *   totalAmount: string,
+ *   reason: string,
+ *   adjustmentAmount: string,
+ *   opsNote?: string | null,
+ *   creditAppliedUsd?: string | null,
+ * }} input
+ */
+export async function adjustServiceBillLines(id, input) {
+  const { rows } = await queryBills(
+    `UPDATE service_bills
+     SET subscription_amount = $2,
+         volume_fee_amount = $3,
+         total_amount = $4,
+         last_adjustment_reason = $5,
+         last_adjustment_amount = $6,
+         ops_note = COALESCE($7, ops_note),
+         credit_applied_usd = COALESCE($8, credit_applied_usd),
+         updated_at = now()
+     WHERE id = $1 AND status IN ('issued', 'overdue', 'draft')
+     RETURNING ${BILL_SELECT}`,
+    [
+      id,
+      input.subscriptionAmount,
+      input.volumeFeeAmount,
+      input.totalAmount,
+      input.reason,
+      input.adjustmentAmount,
+      input.opsNote ?? null,
+      input.creditAppliedUsd ?? null,
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} id
+ * @param {string | null} opsNote
+ */
+export async function setServiceBillOpsNote(id, opsNote) {
+  const { rows } = await queryBills(
+    `UPDATE service_bills
+     SET ops_note = $2, updated_at = now()
+     WHERE id = $1
+     RETURNING ${BILL_SELECT}`,
+    [id, opsNote],
   );
   return rows[0] ?? null;
 }
@@ -243,9 +364,27 @@ export async function findActiveServiceBillForPeriod(orgId, periodStart) {
   const { rows } = await queryBills(
     `SELECT ${BILL_SELECT}
      FROM service_bills
-     WHERE org_id = $1 AND period_start = $2::date AND status <> 'voided'
+     WHERE org_id = $1 AND period_start = $2::date
+       AND status NOT IN ('voided', 'cancelled')
+       AND COALESCE(bill_kind, 'monthly') = 'monthly'
      LIMIT 1`,
     [orgId, periodStart],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * @param {string} orgId
+ */
+export async function findActiveActivationBill(orgId) {
+  const { rows } = await queryBills(
+    `SELECT ${BILL_SELECT}
+     FROM service_bills
+     WHERE org_id = $1
+       AND bill_kind = 'activation'
+       AND status NOT IN ('voided', 'cancelled')
+     LIMIT 1`,
+    [orgId],
   );
   return rows[0] ?? null;
 }

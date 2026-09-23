@@ -278,7 +278,7 @@ Screens:
 D1 Dashboard — site selector (multi-location), KPIs, alerts (cool-down, anomaly, overdue bill, network maintenance)
 D2 Orders list — filters, status badges, export
 D3 Order detail — summary, payment fields, QR, on-chain confirmations progress, timeline, anomaly panel (NO Mark paid)
-D4 Create payment order — amount, asset, network, validity; show matching mode in effect (Standard / Amount fingerprint / Memo tag / Smart address)
+D4 Create payment order — amount, asset, network, validity; show matching mode in effect (Standard / Amount fingerprint / Smart address)
 D5–D6 Service bills list + detail + Pay CTA (visually SEPARATE from payment orders)
 D7–D9 Sites (multi-location), create site, site detail + override approval queue
 D10 Reports
@@ -325,7 +325,7 @@ E1 Payment Anomaly (payer-safe message)
 E1 Failed
 E2 Invalid link / network maintenance
 
-Also design Mode C exact-amount warning strip and Mode D memo strip.
+Also design Mode C exact-amount warning strip.
 
 Motion (describe + prototype-ready):
 - QR soft scale-in + shimmer scan line loop (subtle)

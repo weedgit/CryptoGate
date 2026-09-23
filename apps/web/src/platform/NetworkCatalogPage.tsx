@@ -12,6 +12,7 @@ import {
 } from "./api";
 import { NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
+import { SystemHealthPage } from "./SystemHealthPage";
 import {
   sessionCanManagePlatform,
   sessionIsPlatformViewerOnly,
@@ -449,6 +450,8 @@ export function NetworkCatalogPage({ session }: Props) {
           })}
         </div>
       )}
+
+      <SystemHealthPage />
     </div>
   );
 }

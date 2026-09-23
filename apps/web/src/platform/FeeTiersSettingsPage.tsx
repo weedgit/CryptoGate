@@ -19,6 +19,7 @@ import {
   type Session,
 } from "./api";
 import { BillingWalletPanel } from "./BillingWalletPanel";
+import { BillingCalendarPanel } from "./BillingCalendarPanel";
 import {
   formatTierPercent,
   formatTierSubscription,
@@ -41,10 +42,17 @@ const TIER_LABEL: Record<string, string> = {
 
 const OVERRIDES_PAGE_SIZE = 18;
 
-type TabId = "pricing" | "bands" | "overrides" | "remittance";
+type TabId = "pricing" | "bands" | "overrides" | "remittance" | "calendar";
 
 function parseTab(raw: string | null): TabId {
-  if (raw === "overrides" || raw === "bands" || raw === "remittance") return raw;
+  if (
+    raw === "overrides" ||
+    raw === "bands" ||
+    raw === "remittance" ||
+    raw === "calendar"
+  ) {
+    return raw;
+  }
   /* Legacy Fees → Billing deep link */
   if (raw === "billing") return "remittance";
   return "pricing";
@@ -80,6 +88,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [billingDirty, setBillingDirty] = useState(false);
+  const [calendarDirty, setCalendarDirty] = useState(false);
   const [effectiveTiming, setEffectiveTiming] =
     useState<FeeTierEffectiveTiming>("next_billing_cycle");
   const [pendingEffectiveFrom, setPendingEffectiveFrom] = useState<string | null>(
@@ -175,6 +184,12 @@ export function FeeTiersSettingsPage({ session }: Props) {
     if (billingDirty && tab === "remittance" && next !== "remittance") {
       const leave = window.confirm(
         "Fee wallet has unsaved changes. Leave without saving?",
+      );
+      if (!leave) return;
+    }
+    if (calendarDirty && tab === "calendar" && next !== "calendar") {
+      const leave = window.confirm(
+        "Billing calendar has unsaved changes. Leave without saving?",
       );
       if (!leave) return;
     }
@@ -281,10 +296,21 @@ export function FeeTiersSettingsPage({ session }: Props) {
         >
           Fee wallet
         </button>
+        <button
+          type="button"
+          role="tab"
+          className={`b3-agent-detail__tab${tab === "calendar" ? " is-active" : ""}`}
+          aria-selected={tab === "calendar"}
+          onClick={() => switchTab("calendar")}
+        >
+          Billing calendar
+        </button>
       </div>
 
       {tab === "remittance" ? (
         <BillingWalletPanel session={session} onDirtyChange={setBillingDirty} />
+      ) : tab === "calendar" ? (
+        <BillingCalendarPanel session={session} onDirtyChange={setCalendarDirty} />
       ) : loading ? (
         <PagePending />
       ) : tab === "pricing" ? (

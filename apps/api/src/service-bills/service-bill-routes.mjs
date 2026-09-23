@@ -1,7 +1,11 @@
-import { ServiceBillStatus, ServiceBillUpdateAction } from "@paymentgate/domain";
+import {
+  ServiceBillKind,
+  ServiceBillStatus,
+  ServiceBillUpdateAction,
+} from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { findOrgById } from "../orgs/org-store.mjs";
+import { findOrgById, updateOrgStatus } from "../orgs/org-store.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
 import {
@@ -27,6 +31,7 @@ import {
   validateIssueServiceBillBody,
   validateUpdateServiceBillBody,
   applyUsdAdjustment,
+  addUsdAmounts,
 } from "./service-bill-rules.mjs";
 import { roundUsd } from "./generate-rules.mjs";
 import {
@@ -35,9 +40,23 @@ import {
   listServiceBills,
   markServiceBillPaid,
   voidServiceBill,
+  cancelServiceBill,
+  sendServiceBill,
   adjustServiceBill,
+  adjustServiceBillLines,
+  setServiceBillOpsNote,
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
+import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
+import {
+  defaultActivationDueAt,
+  merchantPayDueAtForPeriod,
+} from "../platform-settings/billing-calendar-rules.mjs";
+import {
+  setBillingAnchorFromActivationPaid,
+  resetBillingAnchorAfterLatePay,
+  addMerchantServiceBillCredit,
+} from "../commercial/merchant-commercial-store.mjs";
 
 const SERVICE_BILL_LIST_MAX = 5000;
 
@@ -171,6 +190,14 @@ export async function handleIssueServiceBill(req, res) {
     }
   }
 
+  const calendar = await getBillingCalendarSettings();
+  const dueAt =
+    validated.dueAt ||
+    merchantPayDueAtForPeriod(validated.periodEnd, calendar.merchantPayDayEnd);
+  const initialStatus = calendar.autoSendInvoices
+    ? ServiceBillStatus.Issued
+    : ServiceBillStatus.Draft;
+
   const row = await insertServiceBill({
     orgId: validated.orgId,
     periodStart: validated.periodStart,
@@ -178,11 +205,13 @@ export async function handleIssueServiceBill(req, res) {
     subscriptionAmount: validated.subscriptionAmount,
     volumeFeeAmount: validated.volumeFeeAmount,
     totalAmount: validated.totalAmount,
-    dueAt: validated.dueAt,
-    status: ServiceBillStatus.Issued,
+    dueAt,
+    status: initialStatus,
     tier,
     volumeFeePercent,
     billedVolumeUsd,
+    billKind: ServiceBillKind.Monthly,
+    sentAt: calendar.autoSendInvoices ? new Date().toISOString() : null,
   });
 
   await insertAuditEvent({
@@ -195,11 +224,15 @@ export async function handleIssueServiceBill(req, res) {
       tier: tier ?? null,
       volumeFeePercent: volumeFeePercent ?? null,
       billedVolumeUsd: billedVolumeUsd ?? null,
+      status: row.status,
     },
   });
 
   emitDashboardLive({
-    type: "service_bill.issued",
+    type:
+      row.status === ServiceBillStatus.Draft
+        ? "service_bill.draft"
+        : "service_bill.issued",
     slices: ["serviceBills"],
     orgId: validated.orgId,
   });
@@ -332,7 +365,96 @@ export async function handleUpdateServiceBill(req, res, billId) {
   /** @type {object | null} */
   let updated = null;
 
-  if (validated.action === ServiceBillUpdateAction.MarkPaid) {
+  if (validated.action === ServiceBillUpdateAction.Send) {
+    const calendar = await getBillingCalendarSettings();
+    const billKind = row.bill_kind ?? ServiceBillKind.Monthly;
+    const dueAt =
+      billKind === ServiceBillKind.Activation
+        ? defaultActivationDueAt(calendar.activationPayDays)
+        : merchantPayDueAtForPeriod(
+            row.period_end instanceof Date
+              ? row.period_end.toISOString().slice(0, 10)
+              : String(row.period_end).slice(0, 10),
+            calendar.merchantPayDayEnd,
+          );
+    updated = await sendServiceBill(billId, dueAt);
+    if (updated && validated.opsNote !== undefined) {
+      updated = (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;
+    }
+    if (updated) {
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillSend,
+        metadata: { billId, dueAt, opsNote: validated.opsNote ?? null },
+      });
+      emitDashboardLive({
+        type: "service_bill.issued",
+        slices: ["serviceBills"],
+        orgId: row.org_id,
+      });
+    }
+  } else if (validated.action === ServiceBillUpdateAction.Cancel) {
+    updated = await cancelServiceBill(billId, validated.reason);
+    if (updated && validated.opsNote !== undefined) {
+      updated = (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;
+    }
+    if (updated) {
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillCancel,
+        metadata: {
+          billId,
+          reason: validated.reason,
+          opsNote: validated.opsNote ?? null,
+        },
+      });
+      const org = await findOrgById(row.org_id);
+      if (
+        org?.status === "paused" &&
+        String(org.status_reason_bill_id ?? "") === billId
+      ) {
+        await updateOrgStatus(row.org_id, "active");
+      }
+      emitDashboardLive({
+        type: "service_bill.cancelled",
+        slices: ["serviceBills"],
+        orgId: row.org_id,
+      });
+    }
+  } else if (validated.action === ServiceBillUpdateAction.GrantCredit) {
+    const credited = await addMerchantServiceBillCredit(
+      row.org_id,
+      validated.creditAmount,
+    );
+    if (!credited) {
+      sendError(
+        res,
+        422,
+        "commercial_missing",
+        "Merchant commercial settings required to grant credit",
+      );
+      return;
+    }
+    if (validated.opsNote !== undefined) {
+      updated = await setServiceBillOpsNote(billId, validated.opsNote);
+    } else {
+      updated = row;
+    }
+    await insertAuditEvent({
+      actorUserId: caller.userId,
+      orgId: row.org_id,
+      action: AUDIT_ACTIONS.serviceBillGrantCredit,
+      metadata: {
+        billId,
+        creditAmount: validated.creditAmount,
+        reason: validated.reason,
+        serviceBillCreditUsd: credited.service_bill_credit_usd,
+      },
+    });
+    updated = updated ?? row;
+  } else if (validated.action === ServiceBillUpdateAction.MarkPaid) {
     let rxAddress = validated.rxAddress;
     if (!rxAddress) {
       rxAddress = (await resolvePlatformBillingPayTo()) || null;
@@ -354,6 +476,25 @@ export async function handleUpdateServiceBill(req, res, billId) {
           txAddress: validated.txAddress,
         },
       });
+      const org = await findOrgById(row.org_id);
+      const billKind = row.bill_kind ?? ServiceBillKind.Monthly;
+      const paidAt = new Date();
+      if (billKind === ServiceBillKind.Activation) {
+        await setBillingAnchorFromActivationPaid(row.org_id, paidAt);
+      } else if (
+        org?.status === "paused" &&
+        (String(org.status_reason_bill_id ?? "") === billId ||
+          org.status_reason === "Unpaid service bill")
+      ) {
+        await resetBillingAnchorAfterLatePay(row.org_id, paidAt);
+      }
+      if (
+        org?.status === "paused" &&
+        (String(org.status_reason_bill_id ?? "") === billId ||
+          org.status_reason === "Unpaid service bill")
+      ) {
+        await updateOrgStatus(row.org_id, "active");
+      }
       emitDashboardLive({
         type: "service_bill.paid",
         slices: ["serviceBills"],
@@ -371,30 +512,73 @@ export async function handleUpdateServiceBill(req, res, billId) {
       });
     }
   } else if (validated.action === ServiceBillUpdateAction.Adjust) {
-    let nextTotal;
-    try {
-      nextTotal = applyUsdAdjustment(row.total_amount, validated.adjustmentAmount);
-    } catch {
-      sendError(res, 400, "invalid_request", "Invalid adjustmentAmount");
-      return;
-    }
-    updated = await adjustServiceBill(
-      billId,
-      nextTotal,
-      validated.reason,
-      validated.adjustmentAmount,
-    );
-    if (updated) {
-      await insertAuditEvent({
-        actorUserId: caller.userId,
-        orgId: row.org_id,
-        action: AUDIT_ACTIONS.serviceBillAdjust,
-        metadata: {
-          billId,
-          adjustmentAmount: validated.adjustmentAmount,
-          totalAmount: nextTotal,
-        },
+    if (validated.mode === "lines") {
+      const subscriptionAmount =
+        validated.subscriptionAmount ?? String(row.subscription_amount);
+      const volumeFeeAmount =
+        validated.volumeFeeAmount ?? String(row.volume_fee_amount);
+      let nextTotal;
+      try {
+        nextTotal = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
+      } catch {
+        sendError(res, 400, "invalid_request", "Invalid line amounts");
+        return;
+      }
+      updated = await adjustServiceBillLines(billId, {
+        subscriptionAmount,
+        volumeFeeAmount,
+        totalAmount: nextTotal,
+        reason: validated.reason,
+        adjustmentAmount: "0.00",
+        opsNote: validated.opsNote,
       });
+      if (updated) {
+        await insertAuditEvent({
+          actorUserId: caller.userId,
+          orgId: row.org_id,
+          action: AUDIT_ACTIONS.serviceBillAdjust,
+          metadata: {
+            billId,
+            mode: "lines",
+            subscriptionAmount,
+            volumeFeeAmount,
+            totalAmount: nextTotal,
+            opsNote: validated.opsNote ?? null,
+          },
+        });
+      }
+    } else {
+      let nextTotal;
+      try {
+        nextTotal = applyUsdAdjustment(row.total_amount, validated.adjustmentAmount);
+      } catch {
+        sendError(res, 400, "invalid_request", "Invalid adjustmentAmount");
+        return;
+      }
+      updated = await adjustServiceBill(
+        billId,
+        nextTotal,
+        validated.reason,
+        validated.adjustmentAmount,
+      );
+      if (updated && validated.opsNote !== undefined) {
+        updated =
+          (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;
+      }
+      if (updated) {
+        await insertAuditEvent({
+          actorUserId: caller.userId,
+          orgId: row.org_id,
+          action: AUDIT_ACTIONS.serviceBillAdjust,
+          metadata: {
+            billId,
+            mode: "total",
+            adjustmentAmount: validated.adjustmentAmount,
+            totalAmount: nextTotal,
+            opsNote: validated.opsNote ?? null,
+          },
+        });
+      }
     }
   }
 

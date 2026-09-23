@@ -234,7 +234,7 @@ export function SuspendOrgModal({
               onClick={() => onConfirm(reason.trim())}
             >
               <SuspendConfirmIcon />
-              {busy ? "Suspending…" : "Suspend account"}
+              {busy ? "Suspending…" : "Suspend"}
             </button>
           </footer>
         </div>

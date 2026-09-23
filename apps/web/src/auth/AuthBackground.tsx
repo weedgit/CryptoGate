@@ -693,7 +693,7 @@ export function AuthBackground() {
         {/* Text overlays — drawn after vignette so labels stay readable. */}
         <g className="auth-bg-labels">
           <image
-            href="/brand/paymentgate-icon.png"
+            href="/brand/paymentgate-icon.webp"
             x={WORDMARK_ICON_X}
             y={WORDMARK_ICON_Y}
             width={WORDMARK_ICON}

@@ -85,6 +85,7 @@ export type ServiceBill = {
   remittancePayTo?: string | null;
   invoiceSeller?: { name: string; email: string | null };
   txAddress?: string | null;
+  billKind?: string | null;
   createdAt?: string | null;
 };
 
@@ -325,6 +326,12 @@ export type MerchantCommercialSettings = {
   bandMaxPercent: string;
   effectiveFrom: string;
   enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
+  feeExemptUntil?: string | null;
+  skipActivation?: boolean;
+  billingOpsNote?: string | null;
+  serviceBillCreditUsd?: string;
+  billingAnchorAt?: string | null;
+  nextInvoiceOn?: string | null;
 };
 
 export type FeeTierBand = {

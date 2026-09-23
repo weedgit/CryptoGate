@@ -88,7 +88,16 @@ export async function handleVerifyEmailOtp(req, res) {
       action: AUDIT_ACTIONS.contactEmailVerified,
     });
     const user = await findUserById(caller.userId);
-    sendJson(res, 200, await sessionJson(user));
+    const session = await sessionJson(user);
+    try {
+      const { maybeCreateActivationAfterUserSetup } = await import(
+        "../service-bills/activation.mjs"
+      );
+      await maybeCreateActivationAfterUserSetup(caller.userId);
+    } catch {
+      /* activation is best-effort */
+    }
+    sendJson(res, 200, session);
     return;
   }
   if (result === "locked") {
@@ -196,7 +205,16 @@ export async function handleVerifyPhoneOtp(req, res) {
       action: AUDIT_ACTIONS.contactPhoneVerified,
     });
     const user = await findUserById(caller.userId);
-    sendJson(res, 200, await sessionJson(user));
+    const session = await sessionJson(user);
+    try {
+      const { maybeCreateActivationAfterUserSetup } = await import(
+        "../service-bills/activation.mjs"
+      );
+      await maybeCreateActivationAfterUserSetup(caller.userId);
+    } catch {
+      /* activation is best-effort */
+    }
+    sendJson(res, 200, session);
     return;
   }
   if (result === "locked") {

@@ -37,6 +37,11 @@ import {
   getPlatformBillingSettings,
   updatePlatformBillingSettings,
 } from "./billing-wallet-store.mjs";
+import { validateUpdateBillingCalendarBody } from "./billing-calendar-rules.mjs";
+import {
+  getBillingCalendarSettings,
+  updateBillingCalendarSettings,
+} from "./billing-calendar-store.mjs";
 
 /**
  * GET /v1/platform/settings/fee-tiers
@@ -303,6 +308,60 @@ export async function handlePutBillingWalletSettings(req, res) {
     metadata: {
       sellerName: settings.sellerName,
       hasPayTo: Boolean(settings.payTo),
+    },
+  });
+  sendJson(res, 200, settings);
+}
+
+/**
+ * GET /v1/platform/settings/billing-calendar
+ */
+export async function handleGetBillingCalendarSettings(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canReadPlatformOrgPolicy(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to read billing calendar settings");
+    return;
+  }
+  const settings = await getBillingCalendarSettings();
+  sendJson(res, 200, settings);
+}
+
+/**
+ * PUT /v1/platform/settings/billing-calendar
+ */
+export async function handlePutBillingCalendarSettings(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canUpdatePlatformOwnerSettings(caller)) {
+    sendError(res, 403, "forbidden", "Only platform Owner may update billing calendar");
+    return;
+  }
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+  const validated = validateUpdateBillingCalendarBody(body);
+  if (!validated.ok) {
+    sendError(res, validated.status, validated.code, validated.message);
+    return;
+  }
+  const settings = await updateBillingCalendarSettings(validated);
+  await insertAuditEvent({
+    actorUserId: caller.userId,
+    orgId: null,
+    action: AUDIT_ACTIONS.billingCalendarPut,
+    metadata: {
+      merchantPayDayStart: settings.merchantPayDayStart,
+      merchantPayDayEnd: settings.merchantPayDayEnd,
+      agentPayDayStart: settings.agentPayDayStart,
+      agentPayDayEnd: settings.agentPayDayEnd,
+      activationFeeUsd: settings.activationFeeUsd,
+      activationPayDays: settings.activationPayDays,
+      autoSendInvoices: settings.autoSendInvoices,
     },
   });
   sendJson(res, 200, settings);

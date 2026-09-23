@@ -33,6 +33,11 @@ export type Session = {
   walletSet?: boolean;
   /** contact + person + profile + wallet. */
   setupReady?: boolean;
+  /**
+   * Merchant only: activation fee paid (or skip_activation).
+   * When false, live mutations stay locked after setupReady.
+   */
+  activationPaid?: boolean;
   /** Org id whose profile/wallet must be completed. */
   setupOrgId?: string | null;
   /** True when TOTP enrollment completed; Owner/Admin must enroll when false. */
@@ -614,6 +619,8 @@ export type XpubSettings = {
   asset: string;
   network: string;
   xPubConfigured: boolean;
+  /** Full watch-only public key — platform Owner/Admin only. */
+  xPub?: string | null;
   pendingXPub: boolean;
   pendingActivatesAt?: string | null;
   status: "active" | "pending_cool_down";
@@ -847,6 +854,7 @@ export type ServiceBill = {
   remittancePayTo?: string | null;
   invoiceSeller?: { name: string; email: string | null };
   txAddress?: string | null;
+  billKind?: string | null;
   createdAt?: string | null;
 };
 
@@ -1184,6 +1192,13 @@ export type OrgMembership = {
 
 export type OrgMember = OrgMembership & {
   email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  avatarUrl?: string | null;
+  timezone?: string | null;
   /** Present on org user list (B15 / C11 / D16). */
   mfaEnrolled?: boolean;
   lastLoginAt?: string | null;
@@ -1555,6 +1570,8 @@ export type MerchantCommercialSettings = {
   bandMaxPercent: string;
   effectiveFrom: string;
   enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
+  billingAnchorAt?: string | null;
+  nextInvoiceOn?: string | null;
 };
 
 export async function getMerchantCommercial(

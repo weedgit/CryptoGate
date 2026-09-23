@@ -105,20 +105,6 @@ export function OnboardSitePage({ session }: Props) {
   const parentValid =
     parentOrg?.type === "merchant" || parentOrg?.type === "merchant_site";
 
-  /** Billing merchant for navigation after create. */
-  const billingMerchantId = useMemo(() => {
-    if (!parentOrg) return null;
-    if (parentOrg.type === "merchant") return parentOrg.id;
-    let cur: OrgAccount | undefined = parentOrg;
-    const byId = new Map(orgs.map((o) => [o.id, o]));
-    for (let i = 0; i < 32 && cur; i += 1) {
-      if (cur.type === "merchant") return cur.id;
-      if (!cur.parentId) break;
-      cur = byId.get(cur.parentId);
-    }
-    return parentOrg.parentId;
-  }, [orgs, parentOrg]);
-
   function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (error) setError(null);
@@ -173,9 +159,8 @@ export function OnboardSitePage({ session }: Props) {
         inviteCreds = onboardInviteCreds(invitedEmail, invite);
       }
       await refreshPlatformOrgList();
-      const merchantId = billingMerchantId ?? form.parentId;
       navigate(
-        platformRoute(`accounts/merchants/${merchantId}`),
+        platformRoute(`accounts/merchants/${created.id}`),
         {
           state: {
             invitationSent: Boolean(invitedEmail),
@@ -292,20 +277,24 @@ export function OnboardSitePage({ session }: Props) {
 
             <form className="b4-wizard__form" onSubmit={onSubmit}>
               <div className="b4-wizard__body">
-                <OnboardFixedParent
-                  id="parent-org"
-                  name={parentName}
-                  typeLabel={parentType}
-                  mark={
-                    <OrgBrandMark
-                      name={parentName}
-                      iconKey={parentOrg?.iconKey}
-                      size={36}
-                    />
-                  }
-                />
+                <div className="b4-aside-row">
+                  <span className="b4-aside-row__label">Parent organization</span>
+                  <OnboardFixedParent
+                    id="parent-org"
+                    name={parentName}
+                    typeLabel={parentType}
+                    hint="Site is created under this parent."
+                    mark={
+                      <OrgBrandMark
+                        name={parentName}
+                        iconKey={parentOrg?.iconKey}
+                        size={36}
+                      />
+                    }
+                  />
+                </div>
 
-                <div className="b4-field">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="site-name"
                     label="Site name"
@@ -324,7 +313,7 @@ export function OnboardSitePage({ session }: Props) {
                   </FieldControl>
                 </div>
 
-                <div className="b4-field">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Site Owner email"

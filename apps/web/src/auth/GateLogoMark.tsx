@@ -4,7 +4,7 @@ type Props = {
   alt?: string;
 };
 
-const SRC = "/brand/paymentgate-icon.png";
+const SRC = "/brand/paymentgate-icon.webp";
 
 /** Official PaymentGate gate + check mark (3D brand icon). */
 export function GateLogoMark({ size = 36, className = "", alt = "" }: Props) {
@@ -16,6 +16,7 @@ export function GateLogoMark({ size = 36, className = "", alt = "" }: Props) {
       height={size}
       alt={alt}
       decoding="async"
+      fetchPriority="high"
       draggable={false}
     />
   );

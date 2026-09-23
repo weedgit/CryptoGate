@@ -11,7 +11,7 @@ export type PlatformHealthSnapshot = {
   webhook: boolean;
 };
 
-const HEALTH_HREF = platformRoute("ops/health");
+const HEALTH_HREF = platformRoute("settings/networks");
 
 /**
  * Upsert / clear system alerts from a health probe.
@@ -28,7 +28,7 @@ export function syncPlatformHealthAlerts(
       body: "Could not reach the platform health endpoint. Check API process and network connectivity.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
-      hrefLabel: "System health",
+      hrefLabel: "Network",
       unread: true,
       tone: "anomaly",
       urgent: true,
@@ -42,7 +42,7 @@ export function syncPlatformHealthAlerts(
       body: "Health probe failed before DB status could be confirmed.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
-      hrefLabel: "System health",
+      hrefLabel: "Network",
       unread: true,
       tone: "warn",
       urgent: true,
@@ -68,7 +68,7 @@ export function syncPlatformHealthAlerts(
       body: "Platform API health check failed. Session calls may also fail until the API recovers.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
-      hrefLabel: "System health",
+      hrefLabel: "Network",
       unread: true,
       tone: "anomaly",
       urgent: true,
@@ -87,7 +87,7 @@ export function syncPlatformHealthAlerts(
       body: "Postgres health check failed. Reads and writes may be interrupted.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
-      hrefLabel: "System health",
+      hrefLabel: "Network",
       unread: true,
       tone: "anomaly",
       urgent: true,
@@ -103,10 +103,10 @@ export function syncPlatformHealthAlerts(
       id: "sys-webhook",
       category: "system",
       title: "Webhook delivery degraded",
-      body: "Webhook worker is off, stale, or backlog is overdue. Merchant signed deliveries may lag — check System health.",
+      body: "Webhook worker is off, stale, or backlog is overdue. Merchant signed deliveries may lag — check Network.",
       at: relativeAlertTime(),
       href: HEALTH_HREF,
-      hrefLabel: "System health",
+      hrefLabel: "Network",
       unread: true,
       tone: "warn",
       urgent: true,

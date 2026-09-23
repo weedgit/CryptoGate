@@ -750,7 +750,9 @@ export function MerchantDetailCard({
                   {bills.map((bill) => (
                     <tr key={bill.id}>
                       <td>
-                        {bill.periodStart} → {bill.periodEnd}
+                        {bill.billKind === "activation"
+                          ? "Activation fee"
+                          : `${bill.periodStart} → ${bill.periodEnd}`}
                       </td>
                       <td>{formatUsd(bill.totalAmount)}</td>
                       <td>{STATUS_LABEL[bill.status] ?? bill.status}</td>
@@ -797,10 +799,30 @@ export function MerchantDetailCard({
                       {commercial.bandMinPercent}% – {commercial.bandMaxPercent}%
                     </p>
                   </div>
+                  <div className="b3-profile__field">
+                    <p className="b3-profile__label">Billing schedule</p>
+                    <p className="b3-profile__value">
+                      {[
+                        commercial.skipActivation ? "Skip activation" : null,
+                        commercial.feeExemptUntil
+                          ? `Exempt until ${commercial.feeExemptUntil}`
+                          : null,
+                        commercial.billingAnchorAt
+                          ? `Anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
+                          : "Awaiting activation pay",
+                        commercial.nextInvoiceOn
+                          ? `Next invoice ${commercial.nextInvoiceOn}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
                 </div>
                 <p className="b3-settlement__notice">
                   Rates follow the platform volume schedule. Fixed specials are
-                  set by Platform Owner only.
+                  set by Platform Owner only. Commission uses paid subscription +
+                  volume only (activation excluded).
                 </p>
               </section>
           ) : overviewLoading ? (

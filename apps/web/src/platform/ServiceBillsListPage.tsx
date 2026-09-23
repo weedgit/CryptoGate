@@ -27,6 +27,8 @@ import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
 import { IssueServiceBillModal } from "./IssueServiceBillModal";
 import {
   formatBillId,
+  isActivationServiceBill,
+  isOpenActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "./serviceBillStatus";
@@ -44,7 +46,15 @@ import {
 
 type Props = { session: Session };
 
-type StatusFilter = "all" | "unpaid" | "overdue" | "paid" | "voided";
+type StatusFilter =
+  | "all"
+  | "draft"
+  | "unpaid"
+  | "overdue"
+  | "paid"
+  | "voided"
+  | "cancelled"
+  | "activation";
 
 type SortKey =
   | "billId"
@@ -64,10 +74,13 @@ const PAGE_SIZE = 20;
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "activation", label: "Activation" },
+  { id: "draft", label: "Draft" },
   { id: "unpaid", label: "Unpaid" },
   { id: "overdue", label: "Overdue" },
   { id: "paid", label: "Paid" },
   { id: "voided", label: "Voided" },
+  { id: "cancelled", label: "Cancelled" },
 ];
 
 function orgNameMap(orgs: { id: string; name: string }[]): Map<string, string> {
@@ -78,6 +91,10 @@ function matchesStatus(bill: ServiceBill, filter: StatusFilter): boolean {
   switch (filter) {
     case "all":
       return true;
+    case "activation":
+      return isActivationServiceBill(bill);
+    case "draft":
+      return bill.status === "draft";
     case "unpaid":
       return bill.status === "issued" || bill.status === "overdue";
     case "overdue":
@@ -86,6 +103,8 @@ function matchesStatus(bill: ServiceBill, filter: StatusFilter): boolean {
       return bill.status === "paid";
     case "voided":
       return bill.status === "voided";
+    case "cancelled":
+      return bill.status === "cancelled";
     default:
       return true;
   }
@@ -130,9 +149,6 @@ export function ServiceBillsListPage({ session }: Props) {
     null,
   );
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
-    null,
-  );
 
   const dismissToast = useCallback(() => setError(null), []);
 
@@ -154,7 +170,6 @@ export function ServiceBillsListPage({ session }: Props) {
   useLayoutEffect(() => {
     setTopbarLeadingSlot(document.getElementById("platform-topbar-leading"));
     setTopbarSlot(document.getElementById("platform-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const load = useCallback(async () => {
@@ -319,10 +334,102 @@ export function ServiceBillsListPage({ session }: Props) {
     () => items.filter((b) => b.status === "overdue").length,
     [items],
   );
+  const draftCount = useMemo(
+    () => items.filter((b) => b.status === "draft").length,
+    [items],
+  );
+  const openActivationCount = useMemo(
+    () => items.filter((b) => isOpenActivationServiceBill(b)).length,
+    [items],
+  );
+  const openArUsd = useMemo(() => {
+    return items
+      .filter((b) => b.status === "issued" || b.status === "overdue")
+      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  }, [items]);
+  const overdueArUsd = useMemo(() => {
+    return items
+      .filter((b) => b.status === "overdue")
+      .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+  }, [items]);
 
   return (
     <div className="plat-bills">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+
+      <div className="plat-bills__kpi" role="group" aria-label="Service bills AR">
+        <div className="plat-bills__kpi-card">
+          <p className="plat-bills__kpi-label">Open AR</p>
+          <p className="plat-bills__kpi-value">
+            <FundAmount amount={openArUsd.toFixed(2)} />
+          </p>
+          <p className="plat-bills__kpi-meta">{unpaidCount} unpaid</p>
+        </div>
+        <div className="plat-bills__kpi-card">
+          <p className="plat-bills__kpi-label">Overdue</p>
+          <p className="plat-bills__kpi-value">
+            <FundAmount amount={overdueArUsd.toFixed(2)} />
+          </p>
+          <p className="plat-bills__kpi-meta">{overdueCount} bills</p>
+        </div>
+        <div className="plat-bills__kpi-card">
+          <p className="plat-bills__kpi-label">Drafts awaiting send</p>
+          <p className="plat-bills__kpi-value">{draftCount}</p>
+          <p className="plat-bills__kpi-meta">Confirm before merchant sees</p>
+        </div>
+        <div
+          className={`plat-bills__kpi-card${
+            openActivationCount > 0 ? " is-clickable" : ""
+          }`}
+          role={openActivationCount > 0 ? "button" : undefined}
+          tabIndex={openActivationCount > 0 ? 0 : undefined}
+          onClick={
+            openActivationCount > 0
+              ? () => setStatusFilter("activation")
+              : undefined
+          }
+          onKeyDown={
+            openActivationCount > 0
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setStatusFilter("activation");
+                  }
+                }
+              : undefined
+          }
+          title={
+            openActivationCount > 0
+              ? "Filter to open activation invoices"
+              : undefined
+          }
+        >
+          <p className="plat-bills__kpi-label">Open activation</p>
+          <p className="plat-bills__kpi-value">{openActivationCount}</p>
+          <p className="plat-bills__kpi-meta">Gate until mark paid</p>
+        </div>
+      </div>
+
+      {openActivationCount > 0 ? (
+        <div className="plat-bills__activation-callout" role="status">
+          <div>
+            <strong>Activation queue</strong>
+            <p>
+              {openActivationCount === 1
+                ? "1 merchant is gated on an unpaid activation invoice."
+                : `${openActivationCount} merchants are gated on unpaid activation invoices.`}{" "}
+              Mark paid to unlock live features and set the billing anchor.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary btn-inline"
+            onClick={() => setStatusFilter("activation")}
+          >
+            Show activation
+          </button>
+        </div>
+      ) : null}
 
       {topbarLeadingSlot
         ? createPortal(
@@ -335,60 +442,34 @@ export function ServiceBillsListPage({ session }: Props) {
 
       {topbarSlot
         ? createPortal(
-            <label className="org-agents__search-wrap plat-bills__search-wrap">
-              <span className="org-agents__search-icon" aria-hidden>
-                <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
-                  <circle
-                    cx="8.5"
-                    cy="8.5"
-                    r="5.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M12.75 12.75 16.5 16.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
+            <label className="topbar-search">
+              <svg
+                className="topbar-search__icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
               <input
-                className="field-control org-agents__search"
+                className="topbar-search__input"
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search bill ID, merchant, Tx hash, or Rx address"
                 aria-label="Search service bills by bill ID, merchant, Tx hash, or Rx address"
+                autoComplete="off"
+                spellCheck={false}
               />
             </label>,
             topbarSlot,
-          )
-        : null}
-
-      {topbarActionsSlot
-        ? createPortal(
-            <div className="org-agents__actions" aria-label="Service bill actions">
-              {canIssue ? (
-                <>
-                  <button
-                    type="button"
-                    className="btn-secondary org-agents__cta"
-                    onClick={() => setGenerateOpen(true)}
-                  >
-                    Generate period
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary org-agents__cta"
-                    onClick={() => setIssueOpen(true)}
-                  >
-                    + Create Bill
-                  </button>
-                </>
-              ) : null}
-            </div>,
-            topbarActionsSlot,
           )
         : null}
 
@@ -400,6 +481,9 @@ export function ServiceBillsListPage({ session }: Props) {
         >
           {STATUS_PILLS.map((pill) => {
             let label = pill.label;
+            if (pill.id === "activation" && openActivationCount > 0) {
+              label = `Activation (${openActivationCount})`;
+            }
             if (pill.id === "unpaid" && unpaidCount > 0) {
               label = `Unpaid (${unpaidCount})`;
             }
@@ -422,33 +506,56 @@ export function ServiceBillsListPage({ session }: Props) {
             );
           })}
         </div>
-        <label className="plat-bills__period-filter">
-          <span className="sr-only">Billing period</span>
-          <select
-            className="field-control"
-            value={periodFilter}
-            onChange={(e) => setPeriodFilter(e.target.value)}
-            aria-label="Filter by billing period"
-          >
-            <option value="all">All periods</option>
-            {periodOptions.map((start) => (
-              <option key={start} value={start}>
-                {start}
-              </option>
-            ))}
-          </select>
-          <span className="plat-bills__period-filter-icon" aria-hidden>
-            <svg viewBox="0 0 10 6" width="10" height="6" fill="none">
-              <path
-                d="M1 1l4 4 4-4"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </label>
+        <div className="plat-bills__toolbar-end">
+          <label className="plat-bills__period-filter">
+            <span className="sr-only">Billing period</span>
+            <select
+              className="field-control"
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              aria-label="Filter by billing period"
+            >
+              <option value="all">All periods</option>
+              {periodOptions.map((start) => (
+                <option key={start} value={start}>
+                  {start}
+                </option>
+              ))}
+            </select>
+            <span className="plat-bills__period-filter-icon" aria-hidden>
+              <svg viewBox="0 0 10 6" width="10" height="6" fill="none">
+                <path
+                  d="M1 1l4 4 4-4"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </label>
+          {canIssue ? (
+            <div
+              className="plat-bills__actions"
+              aria-label="Service bill actions"
+            >
+              <button
+                type="button"
+                className="btn-secondary plat-bills__action-btn"
+                onClick={() => setGenerateOpen(true)}
+              >
+                Generate period
+              </button>
+              <button
+                type="button"
+                className="btn-primary plat-bills__action-btn"
+                onClick={() => setIssueOpen(true)}
+              >
+                + Create Bill
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <p className="plat-bills__legend">
@@ -575,6 +682,8 @@ export function ServiceBillsListPage({ session }: Props) {
             <tbody>
               {paged.map((bill, index) => {
                 const overdue = bill.status === "overdue";
+                const activation = isActivationServiceBill(bill);
+                const openActivation = isOpenActivationServiceBill(bill);
                 const href = platformRoute(`service-bills/${bill.id}`);
                 const txHash = bill.paymentReference?.trim() || "";
                 const rowRx = bill.rxAddress?.trim() || rxAddress || "";
@@ -582,7 +691,9 @@ export function ServiceBillsListPage({ session }: Props) {
                 return (
                   <tr
                     key={bill.id}
-                    className="plat-bills__row"
+                    className={`plat-bills__row${
+                      openActivation ? " is-activation-open" : ""
+                    }`}
                     style={{ animationDelay: `${Math.min(index, 24) * 40}ms` }}
                     tabIndex={0}
                     role="link"
@@ -603,6 +714,9 @@ export function ServiceBillsListPage({ session }: Props) {
                       >
                         {formatBillId(bill.id)}
                       </Link>
+                      {activation ? (
+                        <span className="plat-bills__kind-tag">Activation</span>
+                      ) : null}
                     </td>
                     <td className="plat-bills__merchant">
                       {orgNames.get(bill.orgId) ?? bill.orgId}
@@ -636,8 +750,14 @@ export function ServiceBillsListPage({ session }: Props) {
                       </span>
                     </td>
                     <td className="plat-bills__created">
-                      {formatShortDate(bill.periodStart)} →{" "}
-                      {formatShortDate(bill.periodEnd)}
+                      {activation ? (
+                        <span>Activation fee</span>
+                      ) : (
+                        <>
+                          {formatShortDate(bill.periodStart)} →{" "}
+                          {formatShortDate(bill.periodEnd)}
+                        </>
+                      )}
                     </td>
                     <td className="plat-bills__tx" title={txHash || undefined}>
                       {txHash ? <code>{truncateAddress(txHash, 8, 6)}</code> : "—"}

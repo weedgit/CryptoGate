@@ -297,3 +297,182 @@
     opacity: 0.35;
   }
 }
+
+/* Route chunk failure dialog — loaded with the shell so it survives a failed lazy CSS chunk. */
+.route-load-error {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.route-load-error__card,
+.platform-shell .route-load-error .route-load-error__card {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 28px 22px 20px;
+  border: 1px solid rgba(110, 186, 214, 0.28);
+  border-radius: 20px;
+  background: #0d1b2e;
+  box-shadow:
+    0 0 0 1px rgba(8, 28, 48, 0.55),
+    0 18px 48px rgba(0, 0, 0, 0.32);
+  text-align: center;
+}
+
+.route-load-error__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 18, 32, 0.55);
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+.route-load-error__close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.route-load-error__close:hover {
+  background: rgba(20, 36, 56, 0.9);
+  color: #fff;
+}
+
+.route-load-error__badge {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin: 6px auto 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.16) 0%, transparent 68%);
+  box-shadow:
+    0 0 0 1px rgba(244, 63, 94, 0.55),
+    0 0 22px rgba(244, 63, 94, 0.32);
+}
+
+.route-load-error__badge svg {
+  width: 46px;
+  height: 46px;
+}
+
+.route-load-error__card h1 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.route-load-error__card p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #8ea0b3;
+}
+
+.route-load-error__tips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.route-load-error .route-load-error__tips li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 0;
+  margin: 0;
+  padding: 16px 10px 14px;
+  border: 1px solid rgba(150, 178, 198, 0.22);
+  border-radius: 14px;
+  background: #122033;
+  color: #8fa3b8;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.route-load-error .route-load-error__tips svg {
+  width: 28px;
+  height: 28px;
+  color: #d7e0ea;
+}
+
+.route-load-error__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: #00dfdc;
+  color: #042f2e;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 223, 220, 0.22);
+}
+
+.route-load-error__btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.route-load-error__btn:hover {
+  background: #2ef0ec;
+}
+
+.route-load-error__btn:active {
+  background: #00c8c4;
+}
+
+.route-load-error__back {
+  display: inline-block;
+  margin-top: 14px;
+  color: #2ee6e6;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.route-load-error__back:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .route-load-error__tips {
+    grid-template-columns: 1fr;
+  }
+
+  .route-load-error__tips li {
+    min-height: 0;
+  }
+}

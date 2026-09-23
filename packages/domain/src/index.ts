@@ -69,26 +69,23 @@ export const MatchingMode = {
 export type MatchingMode = (typeof MatchingMode)[keyof typeof MatchingMode];
 
 /**
- * Phase 1 — no enabled catalog pair supports memo/tag (Phase1-Project-Plan §2.4).
- * Shown in merchant/platform tooltips when Mode D is disabled.
+ * Mode D (memo/tag) is out of Phase 1 — not offered in product UI or settings.
+ * Historical orders may still carry matching_mode D; new creates/settings reject it.
  */
 export const MODE_D_PHASE1_UNAVAILABLE_REASON =
-  "Unavailable in Phase 1: none of the enabled asset/network pairs support on-chain memo or destination tag (e.g. USDT on TRON TRC-20, ERC-20, and BEP-20). Memo tag unlocks when a catalog pair has memo support.";
+  "Mode D (Memo tag) is not part of Phase 1. Use Standard, Amount fingerprint, or Smart address.";
 
-/** True when any enabled registry row for the active env supports Mode D memo/tag. */
-export function phase1MemoSupportedAny(env?: string | null): boolean {
-  return listAssetNetworkRegistry(env).some(
-    (row) => row.enabled && row.memoSupported,
-  );
+/** @deprecated Mode D is removed from Phase 1; always false. */
+export function phase1MemoSupportedAny(_env?: string | null): boolean {
+  return false;
 }
 
-/** Merchant-selectable matching modes for the active chain environment. */
+/** Merchant-selectable matching modes — Phase 1: B, C, S only (never D). */
 export function isMatchingModeSelectable(
   mode: MatchingMode,
-  env?: string | null,
+  _env?: string | null,
 ): boolean {
-  if (mode !== MatchingMode.D) return true;
-  return phase1MemoSupportedAny(env);
+  return mode !== MatchingMode.D;
 }
 
 /**
@@ -775,6 +772,10 @@ export type PaymentOrderAssignFields = {
 export const PricingMode = {
   Pegged1to1: "pegged_1to1",
   Market: "market",
+  /** Token amount entered by the merchant, converted to USD at the live rate. */
+  TokenToUsd: "token_to_usd",
+  /** USD amount converted to the token amount at the cached fund rate. */
+  UsdToToken: "usd_to_token",
 } as const;
 
 export type PricingMode = (typeof PricingMode)[keyof typeof PricingMode];
@@ -914,11 +915,22 @@ export type WebhookDeliveryStatus =
  * payment-order states for platform billing.
  */
 export const ServiceBillStatus = {
+  Draft: "draft",
   Issued: "issued",
   Paid: "paid",
   Overdue: "overdue",
   Voided: "voided",
+  Cancelled: "cancelled",
 } as const;
+
+/** Activation (first fee after verify) vs monthly (subscription + volume) service bill. */
+export const ServiceBillKind = {
+  Activation: "activation",
+  Monthly: "monthly",
+} as const;
+
+export type ServiceBillKind =
+  (typeof ServiceBillKind)[keyof typeof ServiceBillKind];
 
 export type ServiceBillStatus =
   (typeof ServiceBillStatus)[keyof typeof ServiceBillStatus];
@@ -971,6 +983,16 @@ export type ServiceBill = {
   currency: BillingCurrency;
   status: ServiceBillStatus;
   dueAt: string;
+  /** activation = first fee after verify; monthly = calendar period bill. */
+  billKind?: ServiceBillKind | null;
+  /** When draft was sent to the merchant. */
+  sentAt?: string | null;
+  /** When cancelled (unpaid). */
+  cancelledAt?: string | null;
+  /** Ops note (waiver / special-case reason). */
+  opsNote?: string | null;
+  /** Credit from merchant balance applied on this bill. */
+  creditAppliedUsd?: string | null;
   /** Fee tier at issue (`small` / `mid` / `enterprise`). */
   tier?: string | null;
   /** Effective volume fee % at issue. */
@@ -997,9 +1019,12 @@ export type ServiceBill = {
 
 /** Platform-only service bill lifecycle updates (v0.3.2). */
 export const ServiceBillUpdateAction = {
+  Send: "send",
+  Cancel: "cancel",
   MarkPaid: "mark_paid",
   Void: "void",
   Adjust: "adjust",
+  GrantCredit: "grant_credit",
 } as const;
 
 export type ServiceBillUpdateAction =
@@ -1031,9 +1056,14 @@ export const AuditAction = {
   WebhookDelete: "webhook_delete",
   WebhookRotateSecret: "webhook_rotate_secret",
   ServiceBillIssue: "service_bill_issue",
+  ServiceBillSend: "service_bill_send",
+  ServiceBillCancel: "service_bill_cancel",
   ServiceBillMarkPaid: "service_bill_mark_paid",
   ServiceBillVoid: "service_bill_void",
   ServiceBillAdjust: "service_bill_adjust",
+  ServiceBillGrantCredit: "service_bill_grant_credit",
+  ServiceBillDailyAuto: "service_bill_daily_auto",
+  BillingCalendarPut: "billing_calendar_put",
   ApiKeyCreate: "api_key_create",
   ApiKeyRevoke: "api_key_revoke",
   ApiKeyRotate: "api_key_rotate",
@@ -1047,6 +1077,9 @@ export const AuditAction = {
   SiteOverrideRequest: "site_override_request",
   SiteOverrideDecide: "site_override_decide",
   ProfileUpdate: "profile_update",
+  ContactVerificationOverride: "contact_verification_override",
+  CommissionPayoutGenerate: "commission_payout_generate",
+  CommissionPayoutAuto: "commission_payout_auto",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];

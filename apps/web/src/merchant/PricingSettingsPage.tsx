@@ -26,6 +26,18 @@ const MODE_OPTIONS = [
     label: "Always market",
     blurb: "Every asset uses the live USD rate from the rate feed at quote time.",
   },
+  {
+    id: "usd_to_token",
+    label: "USD to token",
+    blurb:
+      "Enter the USD amount. PaymentGate converts it to the token amount at the cached fund rate.",
+  },
+  {
+    id: "token_to_usd",
+    label: "Token amount to USD",
+    blurb:
+      "Enter the token amount. PaymentGate converts it to USD at the live rate.",
+  },
 ] as const;
 
 function lockLabel(seconds: number): string {
@@ -98,7 +110,12 @@ export function PricingSettingsPage({ session }: Props) {
   function selectMode(next: string) {
     if (!canEdit) return;
     if (next === "pegged_1to1" && !peggedEnabled) return;
-    if (next === "market" && !marketEnabled) return;
+    if (
+      (next === "market" || next === "token_to_usd" || next === "usd_to_token") &&
+      !marketEnabled
+    ) {
+      return;
+    }
     setPricingMode(next);
     setDirty(next !== savedMode || quoteLockSeconds !== savedLock);
     setOkMsg(null);
@@ -210,7 +227,9 @@ export function PricingSettingsPage({ session }: Props) {
                   const disabled =
                     !canEdit ||
                     (opt.id === "pegged_1to1" && !peggedEnabled) ||
-                    (opt.id === "market" && !marketEnabled);
+                    (opt.id === "market" && !marketEnabled) ||
+                    ((opt.id === "token_to_usd" || opt.id === "usd_to_token") &&
+                      !marketEnabled);
                   const selected = pricingMode === opt.id;
                   return (
                     <button
@@ -233,7 +252,11 @@ export function PricingSettingsPage({ session }: Props) {
                         ) : null}
                       </span>
                       <strong className="plat-settlement__stat-value">
-                        {opt.id === "pegged_1to1" ? "1:1" : "FX"}
+                        {opt.id === "pegged_1to1"
+                          ? "1:1"
+                          : opt.id === "token_to_usd" || opt.id === "usd_to_token"
+                            ? "USD"
+                            : "FX"}
                       </strong>
                       <span className="plat-settlement__stat-hint">
                         {opt.blurb}
@@ -241,6 +264,10 @@ export function PricingSettingsPage({ session }: Props) {
                           ? " (disabled by platform)"
                           : ""}
                         {opt.id === "market" && !marketEnabled
+                          ? " (disabled by platform)"
+                          : ""}
+                        {(opt.id === "token_to_usd" || opt.id === "usd_to_token") &&
+                        !marketEnabled
                           ? " (disabled by platform)"
                           : ""}
                       </span>

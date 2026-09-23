@@ -13,6 +13,7 @@ import {
 } from "./api";
 import { AgentDetailCard } from "./AgentDetailCard";
 import { MerchantDetailCard } from "./MerchantDetailCard";
+import { SiteDetailCard } from "./SiteDetailCard";
 import { merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import { withReturnTo } from "./platformNav";
@@ -60,6 +61,7 @@ import {
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { useOrgTreeOpsExtras } from "./useOrgTreeOpsExtras";
 import { platformRoute } from "../shared/portalRouting";
+import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { GateLogoMark } from "../auth/GateLogoMark";
 import { AccountsDetailHero } from "./AccountsDetailHero";
 import {
@@ -1617,6 +1619,10 @@ export function AccountsPage({ session }: { session: Session }) {
   const [searchParams] = useSearchParams();
   const merchantTab = searchParams.get("tab");
 
+  const onboardState = (location.state ?? {}) as OnboardNavigateState;
+  const inviteCredsFor = (orgId: string) =>
+    onboardState.onboardedOrgId === orgId ? (onboardState.inviteCreds ?? null) : null;
+
   const accountsView = useMemo((): "tree" | "agents" | "merchants" => {
     const base = platformRoute("accounts").replace(/\/$/, "");
     const path = location.pathname.replace(/\/$/, "");
@@ -2065,9 +2071,10 @@ export function AccountsPage({ session }: { session: Session }) {
     if (accountsView === "tree") return;
     if (filteredRoots.length === 0) return;
     const ids = collectTreeNodeIds(filteredRoots);
+    if (selectedRouteId && ids.includes(selectedRouteId)) return;
     if (selectedId != null && ids.includes(selectedId)) return;
     onSelect(filteredRoots[0]!.id);
-  }, [accountsView, filteredRoots, selectedId, onSelect]);
+  }, [accountsView, filteredRoots, selectedId, selectedRouteId, onSelect]);
 
   const onToggle = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -2438,6 +2445,8 @@ export function AccountsPage({ session }: { session: Session }) {
                   session={session}
                   canManage={canManage}
                   busy={busy}
+                  invitationSent={onboardState.invitationSent === true}
+                  inviteCreds={inviteCredsFor(selectedNode.id)}
                   onPause={() => setSuspendTarget(selectedNode)}
                   onRun={() => void onSetStatus(selectedNode, "active")}
                   onDelete={() => openDelete(selectedNode)}
@@ -2460,11 +2469,41 @@ export function AccountsPage({ session }: { session: Session }) {
                   session={session}
                   canManage={canManage}
                   busy={busy}
+                  inviteCreds={inviteCredsFor(selectedNode.id)}
                   initialTab={
                     merchantTab === "overview" ||
-                    merchantTab === "settlement" ||
-                    merchantTab === "service-bills" ||
-                    merchantTab === "compliance"
+                    merchantTab === "team" ||
+                    merchantTab === "cashiers"
+                      ? merchantTab
+                      : undefined
+                  }
+                  onPause={() => setSuspendTarget(selectedNode)}
+                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onDelete={() => openDelete(selectedNode)}
+                  onOrgPatched={(next) => {
+                    setOrgs((prev) => {
+                      const updated = prev.map((o) =>
+                        o.id === next.id ? { ...o, ...next } : o,
+                      );
+                      setForest(buildPlatformOrgForest(updated));
+                      return updated;
+                    });
+                  }}
+                />
+              ) : selectedNode &&
+                selectedNode.type === "merchant_site" &&
+                orgs.some((o) => o.id === selectedNode.id) ? (
+                <SiteDetailCard
+                  org={orgs.find((o) => o.id === selectedNode.id)!}
+                  orgs={orgs}
+                  session={session}
+                  canManage={canManage}
+                  busy={busy}
+                  inviteCreds={inviteCredsFor(selectedNode.id)}
+                  initialTab={
+                    merchantTab === "overview" ||
+                    merchantTab === "team" ||
+                    merchantTab === "cashiers"
                       ? merchantTab
                       : undefined
                   }

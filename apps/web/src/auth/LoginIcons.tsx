@@ -1,3 +1,5 @@
+import { CopyGlyph } from "../shared/CopyGlyph";
+
 type IconProps = {
   className?: string;
 };
@@ -155,29 +157,7 @@ export function ShieldIcon({ className }: IconProps) {
 }
 
 export function CopyIcon({ className, copied }: IconProps & { copied?: boolean }) {
-  if (copied) {
-    return (
-      <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <path
-          d="M3.5 8.5 6.5 11.5 12.5 4.5"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M2.66624 10.6669C1.93285 10.6669 1.3328 10.0668 1.3328 9.33344V2.66624C1.3328 1.93285 1.93285 1.3328 2.66624 1.3328H9.33344C10.0668 1.3328 10.6669 1.93285 10.6669 2.66624M6.66656 5.33312H13.3338C14.0702 5.33312 14.6672 5.93012 14.6672 6.66656V13.3338C14.6672 14.0702 14.0702 14.6672 13.3338 14.6672H6.66656C5.93012 14.6672 5.33312 14.0702 5.33312 13.3338V6.66656C5.33312 5.93012 5.93012 5.33312 6.66656 5.33312Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <CopyGlyph className={className} copied={copied} />;
 }
 
 export function PolicyCheckIcon({ className, active }: IconProps & { active?: boolean }) {

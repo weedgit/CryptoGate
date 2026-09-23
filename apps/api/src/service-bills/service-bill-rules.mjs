@@ -232,6 +232,25 @@ export function toServiceBill(row) {
   if (row.billed_volume_usd != null && row.billed_volume_usd !== "") {
     bill.billedVolumeUsd = String(row.billed_volume_usd);
   }
+  if (row.bill_kind) {
+    bill.billKind = row.bill_kind;
+  }
+  if (row.sent_at) {
+    bill.sentAt =
+      row.sent_at instanceof Date ? row.sent_at.toISOString() : String(row.sent_at);
+  }
+  if (row.cancelled_at) {
+    bill.cancelledAt =
+      row.cancelled_at instanceof Date
+        ? row.cancelled_at.toISOString()
+        : String(row.cancelled_at);
+  }
+  if (row.ops_note) {
+    bill.opsNote = String(row.ops_note);
+  }
+  if (row.credit_applied_usd != null && row.credit_applied_usd !== "") {
+    bill.creditAppliedUsd = String(row.credit_applied_usd);
+  }
   return bill;
 }
 
@@ -246,6 +265,65 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
   const action = typeof body.action === "string" ? body.action : "";
   if (!Object.values(ServiceBillUpdateAction).includes(action)) {
     return { ok: false, status: 400, code: "invalid_request", message: "Invalid action" };
+  }
+
+  if (action === ServiceBillUpdateAction.Send) {
+    if (currentStatus !== ServiceBillStatus.Draft) {
+      return invalidTransition();
+    }
+    const opsNote = parseOpsNote(body.opsNote);
+    if (opsNote.ok === false) return opsNote;
+    return { ok: true, action, opsNote: opsNote.value };
+  }
+
+  if (action === ServiceBillUpdateAction.Cancel) {
+    if (
+      currentStatus !== ServiceBillStatus.Draft &&
+      currentStatus !== ServiceBillStatus.Issued &&
+      currentStatus !== ServiceBillStatus.Overdue
+    ) {
+      return invalidTransition();
+    }
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    if (reason.length > 500) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "reason max 500 chars",
+      };
+    }
+    const opsNote = parseOpsNote(body.opsNote);
+    if (opsNote.ok === false) return opsNote;
+    return { ok: true, action, reason: reason || null, opsNote: opsNote.value };
+  }
+
+  if (action === ServiceBillUpdateAction.GrantCredit) {
+    if (currentStatus !== ServiceBillStatus.Paid) {
+      return invalidTransition();
+    }
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    const creditAmount =
+      typeof body.creditAmount === "string" ? body.creditAmount.trim() : "";
+    if (!reason || reason.length > 500) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "reason is required (max 500 chars)",
+      };
+    }
+    if (!isUsdAmount(creditAmount) || creditAmount === "0" || creditAmount === "0.00") {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "creditAmount must be a positive USD decimal string",
+      };
+    }
+    const opsNote = parseOpsNote(body.opsNote);
+    if (opsNote.ok === false) return opsNote;
+    return { ok: true, action, reason, creditAmount, opsNote: opsNote.value };
   }
 
   if (action === ServiceBillUpdateAction.MarkPaid) {
@@ -295,7 +373,10 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
   }
 
   if (action === ServiceBillUpdateAction.Void) {
-    if (currentStatus !== ServiceBillStatus.Issued) {
+    if (
+      currentStatus !== ServiceBillStatus.Issued &&
+      currentStatus !== ServiceBillStatus.Draft
+    ) {
       return invalidTransition();
     }
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
@@ -313,13 +394,12 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
   if (action === ServiceBillUpdateAction.Adjust) {
     if (
       currentStatus !== ServiceBillStatus.Issued &&
-      currentStatus !== ServiceBillStatus.Overdue
+      currentStatus !== ServiceBillStatus.Overdue &&
+      currentStatus !== ServiceBillStatus.Draft
     ) {
       return invalidTransition();
     }
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-    const adjustmentAmount =
-      typeof body.adjustmentAmount === "string" ? body.adjustmentAmount.trim() : "";
     if (!reason || reason.length > 500) {
       return {
         ok: false,
@@ -328,18 +408,93 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
         message: "reason is required (max 500 chars)",
       };
     }
-    if (!SIGNED_AMOUNT_RE.test(adjustmentAmount) || adjustmentAmount === "-0" || adjustmentAmount === "-0.00") {
+    const opsNote = parseOpsNote(body.opsNote);
+    if (opsNote.ok === false) return opsNote;
+
+    const subscriptionAmount =
+      typeof body.subscriptionAmount === "string"
+        ? body.subscriptionAmount.trim()
+        : "";
+    const volumeFeeAmount =
+      typeof body.volumeFeeAmount === "string"
+        ? body.volumeFeeAmount.trim()
+        : "";
+    const hasLines = Boolean(subscriptionAmount || volumeFeeAmount);
+    if (hasLines) {
+      if (
+        (subscriptionAmount && !isUsdAmount(subscriptionAmount)) ||
+        (volumeFeeAmount && !isUsdAmount(volumeFeeAmount))
+      ) {
+        return {
+          ok: false,
+          status: 400,
+          code: "invalid_request",
+          message: "subscriptionAmount/volumeFeeAmount must be USD decimals",
+        };
+      }
+      return {
+        ok: true,
+        action,
+        reason,
+        mode: "lines",
+        subscriptionAmount: subscriptionAmount || null,
+        volumeFeeAmount: volumeFeeAmount || null,
+        opsNote: opsNote.value,
+      };
+    }
+
+    const adjustmentAmount =
+      typeof body.adjustmentAmount === "string" ? body.adjustmentAmount.trim() : "";
+    if (
+      !SIGNED_AMOUNT_RE.test(adjustmentAmount) ||
+      adjustmentAmount === "-0" ||
+      adjustmentAmount === "-0.00"
+    ) {
       return {
         ok: false,
         status: 400,
         code: "invalid_request",
-        message: "adjustmentAmount must be a signed USD decimal string",
+        message:
+          "Provide adjustmentAmount (signed USD) or subscriptionAmount/volumeFeeAmount",
       };
     }
-    return { ok: true, action, reason, adjustmentAmount };
+    return {
+      ok: true,
+      action,
+      reason,
+      mode: "total",
+      adjustmentAmount,
+      opsNote: opsNote.value,
+    };
   }
 
   return { ok: false, status: 400, code: "invalid_request", message: "Invalid action" };
+}
+
+/**
+ * @param {unknown} raw
+ */
+function parseOpsNote(raw) {
+  if (raw === undefined) return { ok: true, value: undefined };
+  if (raw === null) return { ok: true, value: null };
+  if (typeof raw !== "string") {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "opsNote must be a string",
+    };
+  }
+  const n = raw.trim();
+  if (n.length > 1000) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "opsNote max 1000 chars",
+    };
+  }
+  return { ok: true, value: n || null };
 }
 
 function invalidTransition() {

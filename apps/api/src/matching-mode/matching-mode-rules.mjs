@@ -42,7 +42,7 @@ export function validateMatchingModeBody(body) {
       ok: false,
       status: 400,
       code: "invalid_matching_mode",
-      message: "matchingMode must be one of B, C, D, S",
+      message: "matchingMode must be one of B, C, S",
     };
   }
   if (!underpayTolerance && underpayTolerance !== "0") {

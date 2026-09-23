@@ -115,7 +115,7 @@ export function validateXpubBody(body) {
 }
 
 /**
- * Public shape — presence only, never the full xPub string.
+ * Public shape — presence by default; full xPub only when reveal=true (platform O/A).
  * @param {{
  *   org_id: string,
  *   asset: string,
@@ -124,10 +124,12 @@ export function validateXpubBody(body) {
  *   pending_xpub?: string | null,
  *   pending_activates_at?: Date | string | null,
  * }} row
+ * @param {{ reveal?: boolean }} [opts]
  */
-export function toXpubSettings(row) {
+export function toXpubSettings(row, opts = {}) {
   const pending = Boolean(row.pending_xpub);
-  return {
+  /** @type {Record<string, unknown>} */
+  const out = {
     orgId: row.org_id,
     asset: row.asset,
     network: row.network,
@@ -138,4 +140,8 @@ export function toXpubSettings(row) {
       : null,
     status: pending ? "pending_cool_down" : "active",
   };
+  if (opts.reveal) {
+    out.xPub = row.xpub || null;
+  }
+  return out;
 }

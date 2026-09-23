@@ -73,5 +73,11 @@ export function toOrgAccount(row) {
         ? row.created_at.toISOString()
         : new Date(row.created_at).toISOString();
   }
+  if (row.status === "paused" && row.status_reason) {
+    account.statusReason = String(row.status_reason);
+  }
+  if (row.status === "paused" && row.status_reason_bill_id) {
+    account.statusReasonBillId = String(row.status_reason_bill_id);
+  }
   return account;
 }

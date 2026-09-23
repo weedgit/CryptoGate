@@ -25,7 +25,9 @@ import {
 } from "../commercial/CommissionInvoiceModal";
 import {
   ApiError,
+  getBillingCalendarSettings,
   listAgentPayoutAddresses,
+  type BillingCalendarSettings,
   type OrgAccount,
   type Session,
 } from "./api";
@@ -158,6 +160,8 @@ export function PlatformCommissionsPage({ session }: Props) {
     defaultCommissionPeriodKey(),
   );
   const [busy, setBusy] = useState(false);
+  const [billingCalendar, setBillingCalendar] =
+    useState<BillingCalendarSettings | null>(null);
   const [invoicesPage, setInvoicesPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [cascadePage, setCascadePage] = useState(1);
@@ -176,6 +180,20 @@ export function PlatformCommissionsPage({ session }: Props) {
   const [query, setQuery] = useState("");
 
   const dismissToast = useCallback(() => setError(null), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getBillingCalendarSettings()
+      .then((settings) => {
+        if (!cancelled) setBillingCalendar(settings);
+      })
+      .catch(() => {
+        /* optional */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const writeSearchParams = useCallback(
     (next: {
@@ -681,6 +699,16 @@ export function PlatformCommissionsPage({ session }: Props) {
         </p>
       ) : null}
 
+      {billingCalendar ? (
+        <p className="muted plat-commissions__calendar-hint" role="note">
+          Agent invoices auto-create at <strong>00:00 UTC</strong> on day{" "}
+          <strong>{billingCalendar.agentPayDayStart}</strong> (prior month paid
+          subscription + volume × rate). Remittance window days{" "}
+          {billingCalendar.agentPayDayStart}–{billingCalendar.agentPayDayEnd}.
+          Change in Fees → Billing calendar. Generate below is an ops override.
+        </p>
+      ) : null}
+
       <div className="plat-commissions__toolbar">
         <div
           className="b3-agent-detail__tabs plat-commissions__tabs"
@@ -743,7 +771,7 @@ export function PlatformCommissionsPage({ session }: Props) {
               disabled={busy}
               onClick={() => void onGenerateInvoices()}
             >
-              {busy ? "Generating…" : "Generate invoices"}
+              {busy ? "Generating…" : "Generate (ops override)"}
             </button>
           </div>
         ) : null}
@@ -758,8 +786,8 @@ export function PlatformCommissionsPage({ session }: Props) {
 
             {!loading && invoices.length === 0 ? (
               <p className="plat-bills__empty">
-                No commission invoices yet. Generate invoices for a billing
-                period.
+                No commission invoices yet. They auto-create at 00:00 UTC on day
+                C, or use Generate for an ops override.
               </p>
             ) : null}
 

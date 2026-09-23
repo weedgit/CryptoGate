@@ -85,7 +85,8 @@ export async function listMembershipsForOrg(orgId) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT m.org_id, m.user_id, m.role, m.status AS membership_status, o.type AS org_type,
-            u.email, u.mfa_enrolled_at,
+            u.email, u.mfa_enrolled_at, u.first_name, u.last_name, u.phone,
+            u.email_verified_at, u.phone_verified_at, u.avatar_url, u.timezone,
             login.last_login_at
      FROM org_memberships m
      JOIN org_accounts o ON o.id = m.org_id
@@ -108,6 +109,22 @@ export async function listMembershipsForOrg(orgId) {
       status: row.membership_status,
     }),
     email: row.email,
+    firstName:
+      typeof row.first_name === "string" && row.first_name.trim()
+        ? row.first_name.trim()
+        : null,
+    lastName:
+      typeof row.last_name === "string" && row.last_name.trim()
+        ? row.last_name.trim()
+        : null,
+    phone: typeof row.phone === "string" && row.phone.trim() ? row.phone.trim() : null,
+    emailVerified: Boolean(row.email_verified_at),
+    phoneVerified: Boolean(row.phone_verified_at),
+    avatarUrl:
+      typeof row.avatar_url === "string" && row.avatar_url.trim()
+        ? row.avatar_url
+        : null,
+    timezone: typeof row.timezone === "string" && row.timezone.trim() ? row.timezone : "UTC",
     mfaEnrolled: row.mfa_enrolled_at != null,
     lastLoginAt:
       row.last_login_at instanceof Date

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
 import {
-  LIVE_ACTION_LOCKED_HINT,
+  liveActionLockedHint,
   sessionLiveActionsUnlocked,
 } from "../auth/contactVerification";
 import { AuthToast } from "../auth/AuthToast";
@@ -367,18 +367,20 @@ function periodFilterLabel(filter: PeriodFilter): string {
 function CreateOrderCta({
   cashierOnly,
   unlocked,
+  lockHint,
   className = "btn-primary btn-inline",
   prefix = "",
 }: {
   cashierOnly: boolean;
   unlocked: boolean;
+  lockHint: string;
   className?: string;
   prefix?: string;
 }) {
   const label = `${prefix}${cashierOnly ? "Create order" : "Create payment order"}`;
   if (!unlocked) {
     return (
-      <button type="button" className={className} disabled title={LIVE_ACTION_LOCKED_HINT}>
+      <button type="button" className={className} disabled title={lockHint}>
         {label}
       </button>
     );
@@ -397,6 +399,7 @@ function OrdersListEmptyPanel({
   periodFilter,
   cashierOnly,
   canCreate,
+  createLockHint,
   onClearSearch,
   onClearFilters,
 }: {
@@ -406,6 +409,7 @@ function OrdersListEmptyPanel({
   periodFilter: PeriodFilter;
   cashierOnly: boolean;
   canCreate: boolean;
+  createLockHint: string;
   onClearSearch?: () => void;
   onClearFilters?: () => void;
 }) {
@@ -517,7 +521,11 @@ function OrdersListEmptyPanel({
           </button>
         ) : null}
         {variant === "no-orders" ? (
-          <CreateOrderCta cashierOnly={cashierOnly} unlocked={canCreate} />
+          <CreateOrderCta
+            cashierOnly={cashierOnly}
+            unlocked={canCreate}
+            lockHint={createLockHint}
+          />
         ) : null}
       </div>
     </div>
@@ -529,6 +537,7 @@ export function OrdersListPage({ session }: Props) {
   const canExport = useMemo(() => sessionCanExportOrders(session), [session]);
   const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
   const canCreate = useMemo(() => sessionLiveActionsUnlocked(session), [session]);
+  const createLockHint = useMemo(() => liveActionLockedHint(session), [session]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
   const [query, setQuery] = useState("");
@@ -701,6 +710,7 @@ export function OrdersListPage({ session }: Props) {
               <CreateOrderCta
                 cashierOnly={cashierOnly}
                 unlocked={canCreate}
+                lockHint={createLockHint}
                 className="btn-primary btn-inline"
                 prefix="+ "
               />
@@ -728,6 +738,7 @@ export function OrdersListPage({ session }: Props) {
             periodFilter={periodFilter}
             cashierOnly={cashierOnly}
             canCreate={canCreate}
+            createLockHint={createLockHint}
             onClearSearch={() => setQuery("")}
             onClearFilters={() => {
               setStatusFilter("all");

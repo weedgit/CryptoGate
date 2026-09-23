@@ -744,6 +744,13 @@ export function CommissionsPage({ session }: Props) {
         </div>
       </div>
 
+      <p className="muted plat-commissions__calendar-hint" role="note">
+        Platform creates your commission invoice at <strong>00:00 UTC</strong> on
+        the agent pay day (default day <strong>10</strong>), for the prior month of
+        paid merchant subscription + volume × your rate. Activation fees are
+        excluded. Remittance window is typically days 10–15.
+      </p>
+
       <div
         className="b3-agent-detail__tabs plat-commissions__tabs"
         role="tablist"

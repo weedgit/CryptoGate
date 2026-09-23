@@ -28,10 +28,10 @@ export function prefetchPlatformRoute(path: string) {
   else if (path === "audit") warm(() => import("./AuditLogPage"));
   else if (path === "compliance") warm(() => import("./CompliancePage"));
   else if (path === "commissions") warm(() => import("./PlatformCommissionsPage"));
-  else if (path === "settings/networks") warm(() => import("./NetworkCatalogPage"));
+  else if (path === "settings/networks" || path === "ops/health")
+    warm(() => import("./NetworkCatalogPage"));
   else if (path === "settings/team") warm(() => import("./PlatformTeamPage"));
   else if (path === "settings/fee-tiers") warm(() => import("./FeeTiersSettingsPage"));
   else if (path === "settings/rates")
     warm(() => import("./RatesPricingSettingsPage"));
-  else if (path === "ops/health") warm(() => import("./SystemHealthPage"));
 }

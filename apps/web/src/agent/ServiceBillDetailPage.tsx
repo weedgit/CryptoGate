@@ -10,6 +10,7 @@ import {
 import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
 import {
   formatBillId,
+  isActivationServiceBill,
   serviceBillStatusLabel,
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
@@ -42,11 +43,14 @@ function isPastDue(iso: string): boolean {
 }
 
 function buildTimeline(bill: ServiceBill): TimelineStep[] {
+  const activation = isActivationServiceBill(bill);
   const steps: TimelineStep[] = [
     {
       id: "period",
-      label: "Billing period",
-      detail: `${formatShortDate(bill.periodStart)} → ${formatShortDate(bill.periodEnd)}`,
+      label: activation ? "Activation fee" : "Billing period",
+      detail: activation
+        ? "One-time account activation (not commissionable)"
+        : `${formatShortDate(bill.periodStart)} → ${formatShortDate(bill.periodEnd)}`,
       tone: "done",
     },
     {

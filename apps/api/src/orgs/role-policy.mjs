@@ -676,16 +676,22 @@ export function canReadMerchantCommercial(caller, org) {
 }
 
 /**
- * Agent O·A on the direct parent channel org, or Platform O·A. Merchant roles 403.
+ * Platform may update merchant commercial settings.
+ * Fixed specials require Platform Owner; Automatic / billing flags allow Owner or Admin.
  * @param {{
  *   platformOperator: boolean,
+ *   platformOwner?: boolean,
  *   memberships: { orgId: string, role: string, orgType: string }[],
  * }} caller
  * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} org
- * @param {string[]} [ancestorIds]
+ * @param {string[]} [_ancestorIds]
+ * @param {{ rateMode?: "automatic" | "fixed" }} [opts]
  */
-export function canUpdateMerchantCommercial(caller, org, _ancestorIds = []) {
+export function canUpdateMerchantCommercial(caller, org, _ancestorIds = [], opts = {}) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (opts.rateMode === "fixed") {
+    return caller.platformOwner === true;
+  }
   // Platform only — merchants/agents have no fee settings UI (decision 2).
   return caller.platformOperator === true;
 }

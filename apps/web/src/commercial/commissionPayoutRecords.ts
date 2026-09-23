@@ -297,9 +297,10 @@ export async function findPayout(
   );
 }
 
-/** Current UTC calendar month YYYY-MM. */
+/** Prior UTC calendar month YYYY-MM (matches day-C auto commission invoices). */
 export function defaultCommissionPeriodKey(now = new Date()): string {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
   return `${y}-${String(m).padStart(2, "0")}`;
 }
