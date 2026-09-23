@@ -1,5 +1,8 @@
 import pg from "pg";
 
+// Keep Postgres DATE as YYYY-MM-DD strings (avoid local-midnight Date shift).
+pg.types.setTypeParser(1082, (value) => value);
+
 /** @type {pg.Pool | null} */
 let pool = null;
 

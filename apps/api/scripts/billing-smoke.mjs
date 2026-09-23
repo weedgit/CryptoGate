@@ -106,18 +106,28 @@ if (!platform) {
   process.exit(1);
 }
 
-const agent = await insertOrgAccount({
+const agentIns = await insertOrgAccount({
   type: "agent",
   name: `Smoke Agent ${suffix}`,
   parentId: platform.id,
 });
-const merchant = await insertOrgAccount({
+if (!agentIns.ok) {
+  console.error("agent insert failed", agentIns);
+  process.exit(1);
+}
+const agent = agentIns.row;
+const merchantIns = await insertOrgAccount({
   type: "merchant",
   name: `Smoke Merchant ${suffix}`,
   parentId: agent.id,
   country: "SG",
   billingEmail: `smoke-m-${suffix}@example.com`,
 });
+if (!merchantIns.ok) {
+  console.error("merchant insert failed", merchantIns);
+  process.exit(1);
+}
+const merchant = merchantIns.row;
 
 await insertMerchantCommercial({
   orgId: merchant.id,
@@ -151,6 +161,18 @@ assert.ok(createdForMerchant.length >= 1, "expected recurring bill from daily jo
 const monthly = createdForMerchant[0];
 assert.equal(monthly.bill_kind ?? ServiceBillKind.Monthly, ServiceBillKind.Monthly);
 ok(`daily job created monthly bill ${monthly.id}`);
+
+// Ensure commissionable fee base (default Mid schedule may be $0 in empty UAT),
+// and issue the draft so markServiceBillPaid can transition to paid.
+await getPool().query(
+  `UPDATE service_bills
+   SET subscription_amount = 49.00,
+       volume_fee_amount = 10.00,
+       total_amount = 59.00,
+       status = 'issued'
+   WHERE id = $1`,
+  [monthly.id],
+);
 
 await markServiceBillPaid(monthly.id, {
   paymentReference: `smoke-${suffix}`,

@@ -113,11 +113,15 @@ export async function findSiblingByNormalizedName(parentId, name) {
 }
 
 /**
- * @param {{ type: string, name: string, parentId: string | null, maxAgentDepth: number | null, country?: string | null, legalName?: string | null }} insert
+ * @param {{ type: string, name: string, parentId: string | null, maxAgentDepth?: number | null, country?: string | null, legalName?: string | null, billingEmail?: string | null }} insert
  */
 export async function insertOrgAccount(insert) {
   const pool = getPool();
   const isPlatform = insert.type === "platform";
+  const billingEmail =
+    typeof insert.billingEmail === "string" && insert.billingEmail.trim()
+      ? insert.billingEmail.trim()
+      : null;
   try {
     const { rows } = await pool.query(
       `INSERT INTO org_accounts (
@@ -131,9 +135,9 @@ export async function insertOrgAccount(insert) {
         insert.type,
         insert.name,
         insert.parentId,
-        insert.maxAgentDepth,
+        insert.maxAgentDepth ?? null,
         insert.country ?? null,
-        null,
+        billingEmail,
         insert.legalName ?? insert.name ?? null,
         isPlatform ? true : null,
         isPlatform ? 30 : null,
@@ -155,9 +159,9 @@ export async function insertOrgAccount(insert) {
             insert.type,
             insert.name,
             insert.parentId,
-            insert.maxAgentDepth,
+            insert.maxAgentDepth ?? null,
             insert.country ?? null,
-            null,
+            billingEmail,
             insert.legalName ?? insert.name ?? null,
           ],
         );
