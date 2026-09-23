@@ -53,8 +53,32 @@ describe("@paymentgate/web agent C6 onboard merchant", () => {
     assert.doesNotMatch(wizard, /New merchant/);
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
-    assert.match(wizard, /commercial/);
+    assert.match(wizard, /ownerOnboardEmailConflict/);
+    assert.match(wizard, /inviteOrgUser/);
     assert.doesNotMatch(wizard, /createOrder/);
+  });
+
+  it("wires agent sites/new onboard under merchant", () => {
+    const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
+    assert.match(app, /sites\/new/);
+    const routes = readFileSync(
+      join(root, "src/agent/AgentMerchantsRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(routes, /OnboardSitePage/);
+    assert.match(routes, /sites\/new/);
+    const page = readFileSync(
+      join(root, "src/agent/OnboardSitePage.tsx"),
+      "utf8",
+    );
+    assert.match(page, /parentId/);
+    assert.match(page, /ownerOnboardEmailConflict|createOrg/);
+    const detail = readFileSync(
+      join(root, "src/agent/MerchantDetailCard.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /sites\/new/);
+    assert.match(detail, /parentId=/);
   });
 });
 
@@ -105,5 +129,53 @@ describe("@paymentgate/web agent C7 merchant detail", () => {
 
     const api = readFileSync(join(root, "src/agent/api.ts"), "utf8");
     assert.match(api, /orgId/);
+  });
+
+  it("wires Overview Profile activity gate + read-only owner (Phase G)", () => {
+    const card = readFileSync(
+      join(root, "src/agent/MerchantDetailCard.tsx"),
+      "utf8",
+    );
+    assert.match(card, /AccountOverviewProfile/);
+    assert.match(card, /setupKind=["']merchant["']/);
+    assert.match(card, /canEditOrg=\{false\}/);
+    assert.match(card, /canEditOwner=\{false\}/);
+    assert.match(card, /listSettlement/);
+    assert.match(card, /walletSet/);
+    assert.doesNotMatch(card, /canSupportEdit=\{true\}/);
+  });
+});
+
+describe("@paymentgate/web agent C3 sub-agent detail", () => {
+  it("enriches Profile like merchant detail with activity gate (Phase G)", () => {
+    const card = readFileSync(
+      join(root, "src/agent/SubAgentDetailCard.tsx"),
+      "utf8",
+    );
+    assert.match(card, /AccountOverviewProfile/);
+    assert.match(card, /setupKind=["']agent["']/);
+    assert.match(card, /canEditOrg=\{false\}/);
+    assert.match(card, /canEditOwner=\{false\}/);
+    assert.match(card, /getAgentPayout/);
+    assert.match(card, /getAgentCommission/);
+    assert.match(card, /walletSet/);
+  });
+});
+
+describe("@paymentgate/web agent nested create removed", () => {
+  it("redirects agents/* away from onboard and blocks agent_sub add-child", () => {
+    const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
+    assert.match(app, /path="agents\/new"/);
+    assert.match(app, /Navigate to=\{agentRoute\("merchants"\)\}/);
+    const tree = readFileSync(
+      join(root, "src/platform/platformOrgTree.ts"),
+      "utf8",
+    );
+    assert.match(tree, /orgCanAddChild/);
+    assert.match(tree, /org_type_disabled|Nested agent_sub create is disabled/);
+    assert.doesNotMatch(
+      tree,
+      /type === "agent_sub" \|\|/,
+    );
   });
 });

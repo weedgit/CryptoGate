@@ -66,12 +66,12 @@ export async function resolveSetupOrg(memberships) {
 
 /**
  * Org registration fields for the gate.
- * Agent: billing email required (may equal owner email later).
- * Merchant: country + billing email.
+ * Agent: business name + billing email (country optional).
+ * Merchant: name + country + billing email.
  * @param {object} org
  * @param {"agent" | "merchant"} kind
  */
-function isOrgProfileComplete(org, kind) {
+export function isOrgProfileComplete(org, kind) {
   const nameOk =
     typeof org?.name === "string" &&
     org.name.trim().replace(/\s+/g, " ").length >= 2;
@@ -83,8 +83,31 @@ function isOrgProfileComplete(org, kind) {
       typeof org?.country === "string" && org.country.trim().length > 0;
     return nameOk && countryOk && billingOk;
   }
-  // Agent: country optional; billing email required for gate.
   return nameOk && billingOk;
+}
+
+/**
+ * Human labels for incomplete org profile fields (activity gate missing[]).
+ * @param {object} org
+ * @param {"agent" | "merchant"} kind
+ * @returns {string[]}
+ */
+export function orgProfileMissingLabels(org, kind) {
+  const missing = [];
+  const nameOk =
+    typeof org?.name === "string" &&
+    org.name.trim().replace(/\s+/g, " ").length >= 2;
+  if (!nameOk) missing.push("business name");
+  const billingOk =
+    typeof org?.billing_email === "string" &&
+    org.billing_email.trim().includes("@");
+  if (!billingOk) missing.push("billing email");
+  if (kind === "merchant") {
+    const countryOk =
+      typeof org?.country === "string" && org.country.trim().length > 0;
+    if (!countryOk) missing.push("country");
+  }
+  return missing;
 }
 
 /**
@@ -126,24 +149,43 @@ export async function loadOrgSetupStatus(memberships, user) {
       setupOrgId: null,
       setupOrgType: null,
       missing: [
-        ...(!contactVerified ? ["email and phone verification"] : []),
-        ...(!personComplete ? ["first name, last name, timezone"] : []),
-      ],
+        ...(!user?.emailVerified ? ["email verification"] : []),
+        ...(!user?.phoneVerified ? ["phone verification"] : []),
+        ...(!hasNamePart(user?.firstName) ? ["first name"] : []),
+        ...(!hasNamePart(user?.lastName) ? ["last name"] : []),
+        ...(!(typeof user?.timezone === "string" && user.timezone.trim())
+          ? ["timezone"]
+          : []),
+      ].filter((item, i, arr) => {
+        if (contactVerified && item.endsWith("verification")) return false;
+        if (personComplete && ["first name", "last name", "timezone"].includes(item)) {
+          return false;
+        }
+        return arr.indexOf(item) === i;
+      }),
     };
   }
 
   const profileComplete = isOrgProfileComplete(resolved.org, resolved.kind);
   const walletSet = await isWalletSet(resolved.kind, resolved.org.id);
-  /** @type {string[]} */
   const missing = [];
-  if (!contactVerified) missing.push("email and phone verification");
-  if (!personComplete) missing.push("first name, last name, timezone");
-  if (!profileComplete) {
-    if (resolved.kind === "merchant") {
-      missing.push("country and billing email");
-    } else {
-      missing.push("billing email");
+  if (!contactVerified) {
+    if (!user?.emailVerified) missing.push("email verification");
+    if (!user?.phoneVerified) missing.push("phone verification");
+  }
+  if (!personComplete) {
+    if (!hasNamePart(user?.firstName) && !hasNamePart(user?.displayName)) {
+      missing.push("first name");
     }
+    if (!hasNamePart(user?.lastName) && !String(user?.displayName ?? "").trim().includes(" ")) {
+      missing.push("last name");
+    }
+    if (!(typeof user?.timezone === "string" && user.timezone.trim().length > 0)) {
+      missing.push("timezone");
+    }
+  }
+  if (!profileComplete) {
+    missing.push(...orgProfileMissingLabels(resolved.org, resolved.kind));
   }
   if (!walletSet) {
     missing.push(

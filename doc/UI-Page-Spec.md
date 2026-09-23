@@ -679,7 +679,7 @@ Agent users: **O**, **A**, **V**. Agents do **not** create payment orders.
 
 - KPIs: merchant count, subtree volume, open service bills, commission (MTD)
 - Chart: volume by merchant (top N)
-- **Quick actions** (O, A): Onboard merchant (C5), Onboard agent sub (C4) if depth allows
+- **Quick actions** (O, A): Onboard merchant (C5). Nested sub-agent create is **disabled** in Phase 1 (legacy `agent_sub` rows remain view-only).
 - Alerts: merchants with overdue service bills, Enterprise rate pending platform approval
 
 ---
@@ -688,26 +688,25 @@ Agent users: **O**, **A**, **V**. Agents do **not** create payment orders.
 
 | | |
 | --- | --- |
-| **Route** | `/agent/agents` |
+| **Route** | `/agent/agents` (redirects to merchants — nested create removed) |
 | **Access** | O ✓ · A ✓ · V R |
 
 **Content**
 
-- Child agent accounts only
-- Same table pattern as B2 (scoped)
-- **+ Onboard agent (sub)** disabled with tooltip if max depth reached
+- Legacy child agent accounts may still appear in Architecture / commissions as read-only
+- **+ Onboard agent (sub)** — **removed** (API `org_type_disabled`)
 
 ---
 
 ### C3. Agent (sub) — detail
 
-Same structure as B3, scoped to subtree. No platform-only compliance override.
+Same structure as B3, scoped to subtree. No platform-only compliance override. Read-only Profile / Activity gate for legacy rows.
 
 ---
 
-### C4. Onboard agent (sub) wizard
+### C4. Onboard agent (sub) wizard — **removed**
 
-Like B4 but parent fixed to current agent. Depth check against platform max.
+Nested agent create is disabled. Create top-level agents from Platform only (B4). Legacy `agent_sub` orgs remain readable.
 
 ---
 

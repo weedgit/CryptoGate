@@ -129,6 +129,32 @@ describe("payout and settlement authz updates", () => {
       true,
     );
   });
+
+  it("agent O/A may onboard under nested merchant_site via billing merchant", async () => {
+    const { canOnboardSiteUnderParentAsync } = await import(
+      "../src/orgs/role-policy.mjs"
+    );
+    const site = {
+      id: "s1",
+      type: "merchant_site",
+      parent_id: "m1",
+    };
+    const orgs = {
+      s1: site,
+      m1: merchant,
+      a1: agentOrg,
+    };
+    const findOrg = async (id) => orgs[id] ?? null;
+    const caller = {
+      platformOperator: false,
+      memberships: [{ orgId: "a1", role: "administrator", orgType: "agent" }],
+    };
+    assert.equal(canOnboardSiteUnderParent(caller, site), false);
+    assert.equal(
+      await canOnboardSiteUnderParentAsync(caller, site, findOrg),
+      true,
+    );
+  });
 });
 
 describe("platform owner support settings", () => {

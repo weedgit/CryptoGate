@@ -5,7 +5,7 @@
 
 Phase 1 Postgres schema for PaymentGate. Watcher reads/writes **payment order** chain columns; it does **not** run migrations.
 
-**Latest migration:** `052_audit_log_org_id_no_fk.sql` (run `pnpm --filter @paymentgate/api migrate` before deploy). Invoice / billing / commissions / alerts / performance batch also includes **037–051**.
+**Latest migration:** `066_billing_anchor_next_invoice.sql` (run `pnpm --filter @paymentgate/api migrate` before deploy). Invoice / billing / commissions / alerts / performance batch also includes **037–065** (user first/last name `063`, billing calendar drafts `064`, merchant billing flags `065`, payment-date anchors `066`).
 
 **018 before 017 on fresh env:** migrations apply in filename order; **017** then **018** on existing DBs that already ran through 017.
 

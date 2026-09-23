@@ -830,6 +830,10 @@ export function MerchantDetailCard({
                 ownerLoading={overviewLoading && !primaryOwner}
                 canEditOrg={canManage}
                 canEditOwner={canSupportOwner}
+                setupKind="merchant"
+                walletSet={settlement.some(
+                  (r) => typeof r.address === "string" && r.address.trim().length > 0,
+                )}
                 onEditOrg={() => {
                   setProfileEditError(null);
                   setProfileEditOpen(true);

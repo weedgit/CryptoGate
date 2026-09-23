@@ -261,6 +261,7 @@ export function OrgTeamRoster({
       const index = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
       const validationErr = validatePlatformInviteEmail(invitedEmail, index, {
         targetOrgId: org.id,
+        targetOrgType: org.type,
         members,
       });
       if (validationErr) {

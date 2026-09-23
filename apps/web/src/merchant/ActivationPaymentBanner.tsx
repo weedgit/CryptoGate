@@ -64,8 +64,8 @@ export function ActivationPaymentBanner({ session }: Props) {
         $
       </span>
       <p>
-        {ACTIVATION_PAYMENT_LOCKED_HINT}. Live actions stay locked until platform
-        fee activation is paid.
+        <strong>Watch-only</strong> — {ACTIVATION_PAYMENT_LOCKED_HINT}. Pay
+        platform fee activation to unlock live actions.
       </p>
       <Link className="btn-primary btn-inline" to={href}>
         {billId ? "Open activation invoice" : "View service bills"}

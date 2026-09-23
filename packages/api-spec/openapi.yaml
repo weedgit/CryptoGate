@@ -4701,6 +4701,7 @@ components:
         - emailVerified
         - phoneVerified
         - contactVerified
+        - personComplete
         - profileComplete
         - walletSet
         - setupReady
@@ -4741,9 +4742,15 @@ components:
           type: boolean
           description: >
             emailVerified AND phoneVerified.
+        personComplete:
+          type: boolean
+          description: >
+            First name, last name, and timezone are set on the signed-in user.
         profileComplete:
           type: boolean
-          description: Setup org has business name and country.
+          description: >
+            Setup org has business name and billing email; merchants also require country.
+            Agents do not require country.
         walletSet:
           type: boolean
           description: >
@@ -4751,7 +4758,7 @@ components:
         setupReady:
           type: boolean
           description: >
-            contactVerified AND profileComplete AND walletSet.
+            contactVerified AND personComplete AND profileComplete AND walletSet.
             Agent/merchant live actions stay locked until true.
             Platform operators and API keys are exempt.
         activationPaid:

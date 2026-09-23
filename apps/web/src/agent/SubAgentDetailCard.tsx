@@ -6,6 +6,8 @@ import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
+  getAgentCommission,
+  getAgentPayout,
   listOrgUsers,
   listServiceBills,
   type OrgAccount,
@@ -14,8 +16,9 @@ import {
 } from "./api";
 import { merchantsInAgentSubtree } from "./agentSubtree";
 import { formatShortDate, formatUsd, orgTypeLabel } from "./org";
-import { formatOnboardDate } from "../platform/orgDetailSeeds";
+import type { OrgPrimaryOwnerContact } from "../platform/api";
 import { PlatformPending } from "../platform/ui/PlatformPending";
+import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -50,12 +53,23 @@ function preferredOrgEmail(members: OrgMember[]): string | null {
   return email || null;
 }
 
-function fieldText(raw: string | null | undefined): {
-  text: string;
-  empty: boolean;
-} {
-  const text = raw?.trim() ?? "";
-  return text ? { text, empty: false } : { text: "—", empty: true };
+function primaryOwnerFromTeam(
+  team: OrgMember[],
+): OrgPrimaryOwnerContact | null {
+  const ownerRow =
+    team.find((m) => /owner/i.test(m.role)) ?? team[0] ?? null;
+  if (!ownerRow) return null;
+  return {
+    userId: ownerRow.userId,
+    email: ownerRow.email,
+    phone: ownerRow.phone ?? null,
+    timezone: ownerRow.timezone?.trim() || "",
+    emailVerified: ownerRow.emailVerified === true,
+    phoneVerified: ownerRow.phoneVerified === true,
+    firstName: ownerRow.firstName ?? null,
+    lastName: ownerRow.lastName ?? null,
+    mfaEnrolled: ownerRow.mfaEnrolled === true,
+  };
 }
 
 type Props = {
@@ -85,6 +99,13 @@ export function SubAgentDetailCard({
   const [tab, setTab] = useState<TabId>("overview");
   const [bills, setBills] = useState<ServiceBill[]>([]);
   const [team, setTeam] = useState<OrgMember[]>([]);
+  const [primaryOwner, setPrimaryOwner] =
+    useState<OrgPrimaryOwnerContact | null>(null);
+  const [walletSet, setWalletSet] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState<string | null>(
+    null,
+  );
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [teamLoading, setTeamLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -110,6 +131,9 @@ export function SubAgentDetailCard({
   useEffect(() => {
     setTab("overview");
     setTabError(null);
+    setPrimaryOwner(null);
+    setWalletSet(false);
+    setCommissionPercent(null);
   }, [org.id]);
 
   useEffect(() => {
@@ -143,13 +167,25 @@ export function SubAgentDetailCard({
   useEffect(() => {
     let cancelled = false;
     setTeamLoading(true);
-    void listOrgUsers(org.id)
-      .then((rows) => {
-        if (!cancelled) setTeam(rows);
+    setOverviewLoading(true);
+    void Promise.all([
+      listOrgUsers(org.id),
+      getAgentPayout(org.id).catch(() => null),
+      getAgentCommission(org.id).catch(() => null),
+    ])
+      .then(([rows, payout, commission]) => {
+        if (cancelled) return;
+        setTeam(rows);
+        setPrimaryOwner(primaryOwnerFromTeam(rows));
+        setWalletSet(Boolean(payout?.address?.trim()));
+        setCommissionPercent(commission?.commissionPercent ?? null);
       })
       .catch((err) => {
         if (!cancelled) {
           setTeam([]);
+          setPrimaryOwner(null);
+          setWalletSet(false);
+          setCommissionPercent(null);
           if (!ownerEmail && !inviteCreds?.invitedEmail) {
             setTabError(
               err instanceof ApiError ? err.message : "Failed to load team",
@@ -158,7 +194,10 @@ export function SubAgentDetailCard({
         }
       })
       .finally(() => {
-        if (!cancelled) setTeamLoading(false);
+        if (!cancelled) {
+          setTeamLoading(false);
+          setOverviewLoading(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -174,7 +213,6 @@ export function SubAgentDetailCard({
     if (fromTeam) return fromTeam;
     return "—";
   }, [inviteCreds?.invitedEmail, ownerEmail, team]);
-  const country = fieldText(org.country);
 
   return (
     <div className="b3-agent-detail">
@@ -293,84 +331,55 @@ export function SubAgentDetailCard({
             </div>
 
             <div className="b3-agent-detail__overview-stack">
-              <section className="b3-card b3-card--section b3-card--flat">
-                <div className="b3-profile__head">
-                  <h3 className="b3-card__heading">Profile</h3>
-                </div>
-                <div className="b3-profile">
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Parent</p>
-                    <p
-                      className={`b3-profile__value${
-                        parent?.name || org.parentId ? "" : " is-empty"
-                      }`}
-                    >
-                      {parent?.name ?? org.parentId ?? "—"}
-                    </p>
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Type</p>
-                    <span className="b3-profile__pill b3-profile__pill--tier">
-                      {orgTypeLabel(org.type)}
-                    </span>
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Status</p>
-                    <span
-                      className={`b3-profile__pill${
-                        status === "paused"
-                          ? " b3-profile__pill--paused"
-                          : " b3-profile__pill--ok"
-                      }`}
-                    >
-                      {status === "paused" ? "Paused" : "Active"}
-                    </span>
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Onboarded</p>
-                    <p
-                      className={`b3-profile__value${
-                        org.createdAt ? "" : " is-empty"
-                      }`}
-                    >
-                      {formatOnboardDate(org.createdAt)}
-                    </p>
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Owner email</p>
-                    {profileEmail !== "—" ? (
-                      <a
-                        className={`b3-profile__value b3-profile__value--link${
-                          teamLoading && !ownerEmail && !inviteCreds?.invitedEmail
-                            ? " is-empty"
-                            : ""
-                        }`}
-                        href={`mailto:${profileEmail}`}
-                      >
-                        {profileEmail}
-                      </a>
-                    ) : (
-                      <p
-                        className={`b3-profile__value${
-                          teamLoading ? "" : " is-empty"
-                        }`}
-                      >
-                        {teamLoading ? "…" : "—"}
+              <AccountOverviewProfile
+                org={org}
+                owner={primaryOwner}
+                ownerLoading={overviewLoading && !primaryOwner}
+                canEditOrg={false}
+                canEditOwner={false}
+                setupKind="agent"
+                walletSet={walletSet}
+                onEditOrg={() => {}}
+                onOwnerUpdated={setPrimaryOwner}
+                extras={
+                  <>
+                    <div className="b3-profile__field">
+                      <p className="b3-profile__label">Parent</p>
+                      <p className="b3-profile__value">
+                        {parent?.name ?? org.parentId ?? "—"}
                       </p>
-                    )}
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Country</p>
-                    <p
-                      className={`b3-profile__value${
-                        country.empty ? " is-empty" : ""
-                      }`}
-                    >
-                      {country.text}
-                    </p>
-                  </div>
-                </div>
-              </section>
+                    </div>
+                    <div className="b3-profile__field">
+                      <p className="b3-profile__label">Type</p>
+                      <span className="b3-profile__pill b3-profile__pill--tier">
+                        {orgTypeLabel(org.type)}
+                      </span>
+                    </div>
+                    <div className="b3-profile__field">
+                      <p className="b3-profile__label">Status</p>
+                      <span
+                        className={`b3-profile__pill${
+                          status === "paused"
+                            ? " b3-profile__pill--paused"
+                            : " b3-profile__pill--ok"
+                        }`}
+                      >
+                        {status === "paused" ? "Paused" : "Active"}
+                      </span>
+                    </div>
+                    <div className="b3-profile__field">
+                      <p className="b3-profile__label">Commission</p>
+                      <p className="b3-profile__value">
+                        {overviewLoading && commissionPercent == null
+                          ? "…"
+                          : commissionPercent != null
+                            ? `${commissionPercent}%`
+                            : "—"}
+                      </p>
+                    </div>
+                  </>
+                }
+              />
             </div>
 
             {!canManage ? (

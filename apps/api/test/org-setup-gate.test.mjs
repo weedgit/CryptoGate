@@ -7,6 +7,8 @@ import {
 } from "../src/auth/contact-verification.mjs";
 import {
   isPersonProfileComplete,
+  isOrgProfileComplete,
+  orgProfileMissingLabels,
   loadOrgSetupStatus,
 } from "../src/auth/org-setup.mjs";
 
@@ -64,6 +66,58 @@ describe("person profile gate fields", () => {
         timezone: "UTC",
       }),
       false,
+    );
+  });
+});
+
+describe("org profile gate fields", () => {
+  it("agent needs name + billing email; country optional", () => {
+    assert.equal(
+      isOrgProfileComplete(
+        { name: "Acme", billing_email: "b@acme.example" },
+        "agent",
+      ),
+      true,
+    );
+    assert.equal(
+      isOrgProfileComplete({ name: "Acme", billing_email: "" }, "agent"),
+      false,
+    );
+    assert.deepEqual(
+      orgProfileMissingLabels({ name: "Acme", billing_email: "" }, "agent"),
+      ["billing email"],
+    );
+  });
+
+  it("merchant needs name + country + billing; missing is selective", () => {
+    assert.equal(
+      isOrgProfileComplete(
+        {
+          name: "Shop",
+          country: "AU",
+          billing_email: "b@shop.example",
+        },
+        "merchant",
+      ),
+      true,
+    );
+    assert.deepEqual(
+      orgProfileMissingLabels(
+        {
+          name: "Shop",
+          country: "",
+          billing_email: "b@shop.example",
+        },
+        "merchant",
+      ),
+      ["country"],
+    );
+    assert.deepEqual(
+      orgProfileMissingLabels(
+        { name: "S", country: "AU", billing_email: "x" },
+        "merchant",
+      ),
+      ["business name", "billing email"],
     );
   });
 });

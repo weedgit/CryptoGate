@@ -893,7 +893,8 @@ function OrgTreeItem({
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const isPaused = node.status === "paused";
-  const isAgent = node.type === "agent" || node.type === "agent_sub";
+  // Merchants attach under top-level agent only (not legacy agent_sub).
+  const isAgent = node.type === "agent";
   const isMerchant = node.type === "merchant";
   const canOnboard = canManage && orgCanAddChild(node.type);
   const canLifecycle = canManage && node.type !== "platform" && node.type !== "merchant_site";
@@ -1336,7 +1337,8 @@ function OrgTreeDetail({
   const isPaused = node.status === "paused";
   const canDelete = node.type !== "platform";
   const showActions = canManage && (canAdd || canDelete);
-  const isAgentParent = node.type === "agent" || node.type === "agent_sub";
+  // Merchants attach under top-level agent only (not legacy agent_sub).
+  const isAgentParent = node.type === "agent";
   const isAgent = isAgentParent;
   const isMerchant = node.type === "merchant";
   const isPlatform = node.type === "platform";

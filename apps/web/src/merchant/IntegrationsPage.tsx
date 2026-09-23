@@ -26,6 +26,11 @@ import {
   type WebhookEndpoint,
 } from "./api";
 import { AuthToast } from "../auth/AuthToast";
+import {
+  liveActionLockedHint,
+  sessionLiveActionsUnlocked,
+} from "../auth/contactVerification";
+import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 import { formatShortTime } from "./orderStatus";
 import {
   primaryMerchantOrgId,
@@ -175,6 +180,12 @@ export function IntegrationsPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canView = useMemo(() => sessionCanViewIntegrations(session), [session]);
   const canManage = useMemo(() => sessionCanManageIntegrations(session), [session]);
+  const liveUnlocked = useMemo(
+    () => sessionLiveActionsUnlocked(session),
+    [session],
+  );
+  const canWrite = canManage && liveUnlocked;
+  const setupLockHint = liveActionLockedHint(session);
 
   const [keys, setKeys] = useState<ApiKey[]>(
     () => (orgId ? peekMerchantIntegrations(orgId)?.keys : null) ?? [],
@@ -260,7 +271,11 @@ export function IntegrationsPage({ session }: Props) {
 
   async function onCreateKey(e: FormEvent) {
     e.preventDefault();
-    if (!orgId || !keyLabel.trim() || keyScopes.length === 0) return;
+    if (!orgId || !canWrite) {
+      if (canManage && !liveUnlocked) setError(setupLockHint);
+      return;
+    }
+    if (!keyLabel.trim() || keyScopes.length === 0) return;
     if (keys.length >= MAX_API_KEYS) {
       setError(`API key limit reached (${MAX_API_KEYS}). Revoke an unused key before creating another.`);
       return;
@@ -294,7 +309,11 @@ export function IntegrationsPage({ session }: Props) {
 
   async function onRegisterHook(e: FormEvent) {
     e.preventDefault();
-    if (!orgId || !hookUrl.trim() || hookEvents.length === 0) return;
+    if (!orgId || !canWrite) {
+      if (canManage && !liveUnlocked) setError(setupLockHint);
+      return;
+    }
+    if (!hookUrl.trim() || hookEvents.length === 0) return;
     if (hooks.length >= MAX_WEBHOOKS) {
       setError(
         `Webhook limit reached (${MAX_WEBHOOKS}). Delete an unused endpoint before adding another.`,
@@ -347,9 +366,15 @@ export function IntegrationsPage({ session }: Props) {
     <div className="plat-settings plat-settings--merchant plat-int">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
+      <SetupChecklistCard session={session} portal="merchant" />
+
       {!canManage ? (
         <p className="plat-int__chip plat-int__chip--muted" style={{ marginBottom: 12 }}>
           Viewer · read-only
+        </p>
+      ) : !liveUnlocked ? (
+        <p className="plat-settings__notice" role="status">
+          {setupLockHint}
         </p>
       ) : null}
 
@@ -396,7 +421,7 @@ export function IntegrationsPage({ session }: Props) {
             </div>
           </div>
           <div className="plat-settings__card-body">
-            {canManage ? (
+            {canWrite ? (
               keysAtLimit ? (
                 <p className="plat-settings__card-note">
                   Limit reached ({MAX_API_KEYS} active). Revoke an unused key to
@@ -529,7 +554,7 @@ export function IntegrationsPage({ session }: Props) {
                       <div className="plat-int__item-head">
                         <strong>{k.label}</strong>
                         <code className="mono plat-int__item-key">{k.keyId}</code>
-                        {canManage ? (
+                        {canWrite ? (
                           <div className="plat-int__actions">
                             <button
                               type="button"
@@ -671,7 +696,7 @@ export function IntegrationsPage({ session }: Props) {
             </div>
           </div>
           <div className="plat-settings__card-body">
-            {canManage ? (
+            {canWrite ? (
               hooksAtLimit ? (
                 <p className="plat-settings__card-note">
                   Limit reached ({MAX_WEBHOOKS} endpoints). Delete an unused
@@ -757,7 +782,7 @@ export function IntegrationsPage({ session }: Props) {
                           >
                             Delivery history
                           </button>
-                          {canManage ? (
+                          {canWrite ? (
                             <>
                               <button
                                 type="button"
@@ -913,7 +938,7 @@ export function IntegrationsPage({ session }: Props) {
                       <th>HTTP</th>
                       <th>Attempt</th>
                       <th>Time</th>
-                      {canManage ? <th aria-label="Actions" /> : null}
+                      {canWrite ? <th aria-label="Actions" /> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -932,7 +957,7 @@ export function IntegrationsPage({ session }: Props) {
                         <td className="muted">
                           {formatShortTime(d.deliveredAt ?? d.createdAt)}
                         </td>
-                        {canManage ? (
+                        {canWrite ? (
                           <td className="plat-int__td-action">
                             <button
                               type="button"

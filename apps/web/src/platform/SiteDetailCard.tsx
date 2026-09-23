@@ -447,20 +447,30 @@ export function SiteDetailCard({
                   ownerLoading={overviewLoading && !primaryOwner}
                   canEditOrg={canManage}
                   canEditOwner={canSupportOwner}
+                  setupKind="merchant"
+                  walletSet={true}
                   onEditOrg={() => {
                     setProfileEditError(null);
                     setProfileEditOpen(true);
                   }}
                   onOwnerUpdated={setPrimaryOwner}
                   extras={
-                    <div className="b3-profile__field">
-                      <p className="b3-profile__label">Parent</p>
-                      <p className="b3-profile__value">
-                        {parent
-                          ? `${parent.name} · ${orgTypeLabel(parent.type)}`
-                          : "—"}
-                      </p>
-                    </div>
+                    <>
+                      <div className="b3-profile__field">
+                        <p className="b3-profile__label">Parent</p>
+                        <p className="b3-profile__value">
+                          {parent
+                            ? `${parent.name} · ${orgTypeLabel(parent.type)}`
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="b3-profile__field">
+                        <p className="b3-profile__label">Settlement</p>
+                        <p className="b3-profile__value">
+                          Inherits billing merchant wallet
+                        </p>
+                      </div>
+                    </>
                   }
                 />
                 <DetailActivityCard

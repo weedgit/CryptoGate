@@ -179,6 +179,7 @@ export function PlatformTeamPage({ session }: Props) {
       const freshIndex = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
       const validationErr = validatePlatformInviteEmail(invitedEmail, freshIndex, {
         targetOrgId: orgId,
+        targetOrgType: "platform",
         members,
       });
       if (validationErr) {

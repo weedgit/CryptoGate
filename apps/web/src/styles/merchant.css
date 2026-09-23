@@ -7256,6 +7256,78 @@ select {
   line-height: 1.45;
 }
 
+.setup-checklist {
+  margin: 0 0 1.25rem;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border, #d8dde6) 85%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 94%, #eef1f5);
+}
+
+.setup-checklist__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.setup-checklist__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.setup-checklist__progress {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted, #6b7280);
+}
+
+.setup-checklist__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.setup-checklist__item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  font-size: 0.88rem;
+}
+
+.setup-checklist__mark {
+  width: 1.1rem;
+  text-align: center;
+  color: var(--muted, #6b7280);
+  line-height: 1.35;
+}
+
+.setup-checklist__item.is-done .setup-checklist__mark {
+  color: #34d399;
+}
+
+.setup-checklist__item.is-done .setup-checklist__label {
+  color: var(--muted, #6b7280);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.setup-checklist__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+}
+
+.setup-checklist__link {
+  font-size: 0.82rem;
+}
+
 .verify-contact-modal {
   position: fixed;
   inset: 0;
@@ -26650,6 +26722,12 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   color: #6ee7b7;
   background: rgba(52, 211, 153, 0.1);
   border: 1px solid rgba(52, 211, 153, 0.28);
+}
+
+.platform-shell .b3-profile__pill--warn {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.28);
 }
 
 .platform-shell .b3-profile__wallet-chip {

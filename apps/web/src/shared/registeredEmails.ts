@@ -1,19 +1,18 @@
 import type { OrgMember } from "../merchant/api";
 import { ApiError } from "../merchant/api";
 
-export type OrgRef = {
-  id: string;
-  type: string;
-  name: string;
-};
+export type { OrgRef, RegisteredEmailRef } from "./registeredEmailInvite";
+export {
+  normalizeEmail,
+  ownerOnboardEmailConflict,
+  REGISTERED_EMAIL_API_MESSAGE,
+  orgMemberEmailExists,
+  validatePlatformInviteEmail,
+  inviteEmailErrorMessage,
+} from "./registeredEmailInvite";
 
-export type RegisteredEmailRef = OrgRef & {
-  role: string;
-};
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+import type { OrgRef, RegisteredEmailRef } from "./registeredEmailInvite";
+import { normalizeEmail } from "./registeredEmailInvite";
 
 /** True when the user is likely searching by contact email. */
 export function looksLikeEmailQuery(query: string): boolean {
@@ -49,18 +48,6 @@ export type OrgEmailsLoadCallbacks = {
   onOrgLoaded?: (orgId: string, emails: string[]) => void;
   onOrgFailed?: (orgId: string) => void;
 };
-
-function orgTypeLabel(type: string): string {
-  if (type === "platform") return "Platform";
-  if (type === "agent" || type === "agent_sub") return "Agent account";
-  if (type === "merchant") return "Merchant account";
-  if (type === "merchant_site") return "Merchant site";
-  return type.replace(/_/g, " ");
-}
-
-function formatOrgRef(ref: RegisteredEmailRef): string {
-  return `${orgTypeLabel(ref.type)} "${ref.name}"`;
-}
 
 type ListOrgUsersFn = (orgId: string) => Promise<OrgMember[]>;
 
@@ -214,46 +201,15 @@ export function registeredEmailConflict(
   const hit = index.get(key);
   if (!hit) return null;
   if (opts?.exceptOrgId && hit.id === opts.exceptOrgId) return null;
-  return `This email is already registered on the platform (${formatOrgRef(hit)}).`;
-}
-
-export const REGISTERED_EMAIL_API_MESSAGE =
-  "This email is already registered on the platform.";
-
-export function orgMemberEmailExists(
-  members: OrgMember[],
-  email: string,
-): boolean {
-  const key = normalizeEmail(email);
-  if (!key) return false;
-  return members.some((m) => normalizeEmail(m.email ?? "") === key);
-}
-
-/**
- * Client-side invite validation. API still enforces platform-wide uniqueness.
- */
-export function validatePlatformInviteEmail(
-  email: string,
-  index: ReadonlyMap<string, RegisteredEmailRef>,
-  opts: { targetOrgId: string; members?: OrgMember[] },
-): string | null {
-  const trimmed = email.trim();
-  if (!trimmed) return "Email is required.";
-  const conflict = registeredEmailConflict(trimmed, index, {
-    exceptOrgId: opts.targetOrgId,
-  });
-  if (conflict) return conflict;
-  if (opts.members && orgMemberEmailExists(opts.members, trimmed)) {
-    return "User is already a member of this org.";
-  }
-  return null;
-}
-
-export function inviteEmailErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "code" in err) {
-    const code = (err as { code?: string }).code;
-    if (code === "email_taken") return REGISTERED_EMAIL_API_MESSAGE;
-  }
-  if (err instanceof Error) return err.message;
-  return "Invite failed";
+  const typeLabel =
+    hit.type === "platform"
+      ? "Platform"
+      : hit.type === "agent" || hit.type === "agent_sub"
+        ? "Agent account"
+        : hit.type === "merchant"
+          ? "Merchant account"
+          : hit.type === "merchant_site"
+            ? "Merchant site"
+            : hit.type.replace(/_/g, " ");
+  return `This email is already registered on the platform (${typeLabel} "${hit.name}").`;
 }

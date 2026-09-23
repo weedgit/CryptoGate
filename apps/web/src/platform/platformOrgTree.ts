@@ -358,10 +358,10 @@ export function orgAddChildHref(type: string): string | null {
 
 /** Whether Add can create a child under this org from the Architecture panel. */
 export function orgCanAddChild(type: string): boolean {
+  // Nested agent_sub create is disabled (API org_type_disabled); legacy rows stay view-only.
   return (
     type === "platform" ||
     type === "agent" ||
-    type === "agent_sub" ||
     type === "merchant" ||
     type === "merchant_site"
   );

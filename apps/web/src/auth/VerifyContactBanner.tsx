@@ -6,6 +6,7 @@ import { MfaCodeInput } from "./MfaCodeInput";
 import {
   sessionNeedsOrgSetup,
   sessionLiveActionsUnlocked,
+  missingSetupPartsLabel,
 } from "./contactVerification";
 import {
   ApiError,
@@ -23,31 +24,6 @@ type Props = {
   onSession: (session: Session) => void;
   portal: "agent" | "merchant";
 };
-
-function missingSetupParts(session: Session): string {
-  const parts: string[] = [];
-  if (session.emailVerified !== true || session.phoneVerified !== true) {
-    parts.push(
-      session.emailVerified === true
-        ? "phone"
-        : session.phoneVerified === true
-          ? "email"
-          : "email and phone",
-    );
-  }
-  const hasNames =
-    Boolean(session.firstName?.trim()) && Boolean(session.lastName?.trim());
-  if (!hasNames) parts.push("name");
-  if (!session.timezone?.trim()) parts.push("timezone");
-  if (session.profileComplete === false) {
-    parts.push(
-      session.setupOrgId ? "org profile (billing / country)" : "org profile",
-    );
-  }
-  if (session.walletSet === false) parts.push("wallet");
-  if (parts.length === 0) return "account setup";
-  return parts.join(", ");
-}
 
 export function VerifyContactBanner({ session, onSession, portal }: Props) {
   const [open, setOpen] = useState(false);
@@ -71,9 +47,9 @@ export function VerifyContactBanner({ session, onSession, portal }: Props) {
           ✉
         </span>
         <p>
-          You can look around.{" "}
-          <strong>Live actions stay locked</strong> until you finish{" "}
-          {missingSetupParts(session)}.
+          <strong>Watch-only</strong> until setup is complete. You can look
+          around; finish {missingSetupPartsLabel(session, portal)} to unlock
+          live actions.
         </p>
         <button type="button" className="btn-primary btn-inline" onClick={() => setOpen(true)}>
           Finish setup
@@ -150,8 +126,9 @@ function OrgSetupModal({
           <h2 id="verify-contact-title">Finish account setup</h2>
           <p>
             Verify contacts, add your name, complete org profile, and add a{" "}
-            {portal === "agent" ? "payout" : "settlement"} wallet before creating
-            orders, merchants, or invites.
+            {portal === "agent" ? "payout" : "settlement"} wallet. Until then
+            this portal is <strong>watch-only</strong> for live actions
+            (orders, invites, and onboarding).
           </p>
         </div>
 

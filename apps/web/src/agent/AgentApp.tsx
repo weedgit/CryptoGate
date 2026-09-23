@@ -134,6 +134,10 @@ export function AgentApp() {
           element={<AgentMerchantsRoutes session={session} />}
         />
         <Route
+          path="sites/new"
+          element={<AgentMerchantsRoutes session={session} />}
+        />
+        <Route
           path="architecture"
           element={<ArchitecturePage session={session} />}
         />

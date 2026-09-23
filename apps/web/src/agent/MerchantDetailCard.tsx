@@ -19,8 +19,10 @@ import {
   type PaymentOrder,
   type ServiceBill,
 } from "./api";
+import { listSettlement } from "../merchant/api";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
+import type { OrgPrimaryOwnerContact } from "../platform/api";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import {
   formatOnboardDate,
@@ -29,6 +31,7 @@ import {
   RECENT_ACTIVITY_LIMIT,
   type SeedAuditEntry,
 } from "../platform/orgDetailSeeds";
+import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
 import { merchantSites } from "./merchantSubtree";
 import { formatShortDate, formatUsd } from "./org";
 
@@ -80,6 +83,25 @@ function preferredOrgEmail(members: OrgMember[]): string | null {
     members[0];
   const email = preferred?.email?.trim();
   return email || null;
+}
+
+function primaryOwnerFromTeam(
+  team: OrgMember[],
+): OrgPrimaryOwnerContact | null {
+  const ownerRow =
+    team.find((m) => /owner/i.test(m.role)) ?? team[0] ?? null;
+  if (!ownerRow) return null;
+  return {
+    userId: ownerRow.userId,
+    email: ownerRow.email,
+    phone: ownerRow.phone ?? null,
+    timezone: ownerRow.timezone?.trim() || "",
+    emailVerified: ownerRow.emailVerified === true,
+    phoneVerified: ownerRow.phoneVerified === true,
+    firstName: ownerRow.firstName ?? null,
+    lastName: ownerRow.lastName ?? null,
+    mfaEnrolled: ownerRow.mfaEnrolled === true,
+  };
 }
 
 type SiteEmailIndex = Map<
@@ -154,7 +176,13 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
   );
 }
 
-function MerchantSitesEmpty() {
+function MerchantSitesEmpty({
+  canManage,
+  onboardHref,
+}: {
+  canManage: boolean;
+  onboardHref: string;
+}) {
   return (
     <div className="b3-agent-detail__empty" role="status">
       <div className="b3-agent-detail__empty-mark" aria-hidden>
@@ -182,9 +210,14 @@ function MerchantSitesEmpty() {
       </div>
       <p className="b3-agent-detail__empty-title">No merchant sites yet</p>
       <p className="b3-agent-detail__empty-copy">
-        No site orgs are linked yet. Sites appear here once created under this
-        account.
+        No site orgs are linked yet. Onboard a site under this merchant to get
+        started.
       </p>
+      {canManage ? (
+        <Link className="btn-primary btn-inline" to={onboardHref}>
+          Onboard site
+        </Link>
+      ) : null}
       <ul className="b3-agent-detail__empty-hints">
         <li>Each outlet is a site under this merchant (sites may nest)</li>
         <li>
@@ -226,6 +259,9 @@ export function MerchantDetailCard({
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [commercial, setCommercial] =
     useState<MerchantCommercialSettings | null>(null);
+  const [primaryOwner, setPrimaryOwner] =
+    useState<OrgPrimaryOwnerContact | null>(null);
+  const [walletSet, setWalletSet] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
@@ -308,6 +344,8 @@ export function MerchantDetailCard({
     setOrders([]);
     setAudit([]);
     setTeam([]);
+    setPrimaryOwner(null);
+    setWalletSet(false);
   }, [org.id, initialTab]);
 
   useEffect(() => {
@@ -322,13 +360,20 @@ export function MerchantDetailCard({
         () => [] as AuditLogEntry[],
       ),
       listOrgUsers(org.id).catch(() => [] as OrgMember[]),
+      listSettlement(org.id).catch(() => [] as { address?: string }[]),
     ])
-      .then(([comm, ord, aud, teamRows]) => {
+      .then(([comm, ord, aud, teamRows, settlement]) => {
         if (cancelled) return;
         setCommercial(comm);
         setOrders(ord);
         setAudit(aud);
         setTeam(teamRows);
+        setPrimaryOwner(primaryOwnerFromTeam(teamRows));
+        setWalletSet(
+          settlement.some(
+            (r) => typeof r.address === "string" && r.address.trim().length > 0,
+          ),
+        );
       })
       .finally(() => {
         if (!cancelled) setOverviewLoading(false);
@@ -516,21 +561,22 @@ export function MerchantDetailCard({
             </div>
 
             <div className="b3-agent-detail__overview-stack">
-              <section className="b3-card b3-card--section b3-card--flat">
-                <div className="b3-profile__head">
-                  <h3 className="b3-card__heading">Profile</h3>
-                </div>
-                <div className="b3-profile">
+              <AccountOverviewProfile
+                org={org}
+                owner={primaryOwner}
+                ownerLoading={overviewLoading && !primaryOwner}
+                canEditOrg={false}
+                canEditOwner={false}
+                setupKind="merchant"
+                walletSet={walletSet}
+                onEditOrg={() => {}}
+                onOwnerUpdated={setPrimaryOwner}
+                extras={
+                  <>
                   <div className="b3-profile__field">
                     <p className="b3-profile__label">Parent agent</p>
                     <p className="b3-profile__value">
                       {parent?.name ?? org.parentId ?? "—"}
-                    </p>
-                  </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Onboarded</p>
-                    <p className="b3-profile__value">
-                      {formatOnboardDate(org.createdAt)}
                     </p>
                   </div>
                   <div className="b3-profile__field">
@@ -556,33 +602,31 @@ export function MerchantDetailCard({
                         · {commercial.volumeFeePercent}% volume fee ·{" "}
                         <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
                         / mo subscription
+                        {commercial.billingAnchorAt
+                          ? ` · Anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
+                          : " · Awaiting activation pay"}
+                        {commercial.nextInvoiceOn
+                          ? ` · Next invoice ${commercial.nextInvoiceOn}`
+                          : null}
                         {commercial.enterpriseApprovalStatus === "pending" ? (
                           <> · Enterprise rate pending approval</>
-                        ) : null}
-                        {commercial.pendingVolumeFeePercent &&
-                        commercial.pendingVolumeFeePercent !==
-                          commercial.volumeFeePercent ? (
-                          <>
-                            {" "}
-                            · {commercial.pendingVolumeFeePercent}% scheduled
-                            from {formatOnboardDate(commercial.effectiveFrom)}
-                          </>
                         ) : null}
                       </p>
                     ) : null}
                   </div>
                   <div className="b3-profile__field">
+                    <p className="b3-profile__label">Settlement</p>
+                    <p className="b3-profile__value">
+                      Managed by merchant (agent view is read-only)
+                    </p>
+                  </div>
+                  <div className="b3-profile__field">
                     <p className="b3-profile__label">Sites</p>
                     <p className="b3-profile__value">{sites.length}</p>
                   </div>
-                  <div className="b3-profile__field">
-                    <p className="b3-profile__label">Country</p>
-                    <p className="b3-profile__value">
-                      {org.country?.trim() || "—"}
-                    </p>
-                  </div>
-                </div>
-              </section>
+                  </>
+                }
+              />
 
               <section className="b3-card b3-card--section b3-card--flat b3-agent-detail__activity">
                 <div className="b3-agent-detail__activity-head">
@@ -630,14 +674,27 @@ export function MerchantDetailCard({
 
         {tab === "sites" ? (
           sites.length === 0 ? (
-            <MerchantSitesEmpty />
+            <MerchantSitesEmpty
+              canManage={canManage}
+              onboardHref={`${agentRoute("sites/new")}?parentId=${encodeURIComponent(org.id)}&returnTo=${encodeURIComponent(agentRoute(`merchants/${org.id}`))}`}
+            />
           ) : (
             <section className="b3-card b3-card--section b3-card--flat b3-merchant-sites">
               <div className="b3-profile__head">
                 <h3 className="b3-card__heading">Merchant sites</h3>
-                <span className="b3-agent-detail__activity-cap">
-                  {sites.length} {sites.length === 1 ? "site" : "sites"}
-                </span>
+                <div className="b3-profile__head-actions">
+                  <span className="b3-agent-detail__activity-cap">
+                    {sites.length} {sites.length === 1 ? "site" : "sites"}
+                  </span>
+                  {canManage ? (
+                    <Link
+                      className="btn-ghost btn-inline"
+                      to={`${agentRoute("sites/new")}?parentId=${encodeURIComponent(org.id)}&returnTo=${encodeURIComponent(agentRoute(`merchants/${org.id}`))}`}
+                    >
+                      Onboard site
+                    </Link>
+                  ) : null}
+                </div>
               </div>
               <table className="data-table b3-merchant-sites__table">
                 <thead>

@@ -13,6 +13,8 @@ export function prefetchAgentRoute(path: string) {
   if (path === "architecture") warm(() => import("./ArchitecturePage"));
   else if (path === "merchants/new" || path.startsWith("merchants/new"))
     prefetchAgentOnboardMerchant();
+  else if (path === "sites/new" || path.startsWith("sites/new"))
+    warm(() => import("./OnboardSitePage"));
   else if (path === "merchants" || path.startsWith("merchants/"))
     warm(() => import("./AgentMerchantsRoutes"));
   else if (path === "agents/new" || path.startsWith("agents/new"))

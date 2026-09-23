@@ -16,7 +16,8 @@ import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import { primaryAgentOrgId } from "./org";
 import {
   fetchRegisteredEmailIndex,
-  registeredEmailConflict,
+  ownerOnboardEmailConflict,
+  inviteEmailErrorMessage,
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
@@ -108,7 +109,7 @@ export function OnboardMerchantPage({ session }: Props) {
     const ownerEmail = form.ownerEmail.trim();
     if (!ownerEmail) return "Owner email is required.";
     if (!EMAIL_PATTERN.test(ownerEmail)) return "Enter a valid email address.";
-    return registeredEmailConflict(ownerEmail, index);
+    return ownerOnboardEmailConflict(ownerEmail, index);
   }
 
   function validate(): string | null {
@@ -156,11 +157,7 @@ export function OnboardMerchantPage({ session }: Props) {
         },
       });
     } catch (err) {
-      if (err instanceof ApiError && err.code === "email_taken") {
-        setError(REGISTERED_EMAIL_API_MESSAGE);
-      } else {
-        setError(err instanceof ApiError ? err.message : "Failed to create merchant");
-      }
+      setError(inviteEmailErrorMessage(err));
     } finally {
       setBusy(false);
     }

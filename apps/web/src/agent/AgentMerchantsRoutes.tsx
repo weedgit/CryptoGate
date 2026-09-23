@@ -12,26 +12,42 @@ const OnboardMerchantPage = lazy(() =>
   })),
 );
 
+const OnboardSitePage = lazy(() =>
+  import("./OnboardSitePage").then((m) => ({
+    default: m.OnboardSitePage,
+  })),
+);
+
 type Props = {
   session: Session;
 };
 
 /**
- * Merchants area — keep the list mounted when opening the onboard wizard so the
- * background does not flash a full-page loading state (`/agent/merchants/new`).
+ * Merchants area — keep the list mounted when opening onboard wizards so the
+ * background does not flash a full-page loading state.
  */
 export function AgentMerchantsRoutes({ session }: Props) {
-  const createMatch = useMatch({ path: agentRoute("merchants/new"), end: true });
+  const createMerchantMatch = useMatch({
+    path: agentRoute("merchants/new"),
+    end: true,
+  });
+  const createSiteMatch = useMatch({
+    path: agentRoute("sites/new"),
+    end: true,
+  });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void import("./OnboardMerchantPage"), 600);
+    const timer = window.setTimeout(() => {
+      void import("./OnboardMerchantPage");
+      void import("./OnboardSitePage");
+    }, 600);
     return () => window.clearTimeout(timer);
   }, []);
 
   return (
     <>
       <MerchantsListPage session={session} />
-      {createMatch ? (
+      {createMerchantMatch ? (
         <Suspense
           fallback={
             <OnboardWizardLoading
@@ -42,6 +58,20 @@ export function AgentMerchantsRoutes({ session }: Props) {
         >
           <RequireAgentOperator session={session}>
             <OnboardMerchantPage session={session} />
+          </RequireAgentOperator>
+        </Suspense>
+      ) : null}
+      {createSiteMatch ? (
+        <Suspense
+          fallback={
+            <OnboardWizardLoading
+              title="New site"
+              closeTo={agentRoute("merchants")}
+            />
+          }
+        >
+          <RequireAgentOperator session={session}>
+            <OnboardSitePage session={session} />
           </RequireAgentOperator>
         </Suspense>
       ) : null}

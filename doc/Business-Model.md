@@ -359,7 +359,7 @@ Until every item below is satisfied for the merchant Owner (org + person), the m
 
 Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot change the settlement wallet. Changes use MFA + cool-down + audit (same safety bar as today).
 
-**Verification:** email + phone SMS only; Platform O/A may override verification status (audit logged) — same as agent.
+**Verification:** email + phone SMS only; **Platform Owner** may override verification status (audit logged) — same as agent. Administrator cannot.
 
 ## Agent commission (Decision 1)
 

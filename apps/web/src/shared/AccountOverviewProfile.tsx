@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 import type { OrgAccount, OrgPrimaryOwnerContact } from "../platform/api";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import { OrgOwnerSupportFields } from "./OrgOwnerSupportFields";
+import {
+  subjectOrgSetupStatus,
+  type SubjectSetupKind,
+} from "./subjectOrgSetup";
 
 function PencilIcon() {
   return (
@@ -51,6 +55,10 @@ type Props = {
   canEditOwner: boolean;
   onEditOrg: () => void;
   onOwnerUpdated: (next: OrgPrimaryOwnerContact) => void;
+  /** Agent vs merchant checklist rules. */
+  setupKind?: SubjectSetupKind;
+  /** Settlement or payout wallet present. */
+  walletSet?: boolean;
   /** Commission / commercial / payout / sites rows after core org fields. */
   extras?: ReactNode;
 };
@@ -66,8 +74,19 @@ export function AccountOverviewProfile({
   canEditOwner,
   onEditOrg,
   onOwnerUpdated,
+  setupKind = "merchant",
+  walletSet = false,
   extras,
 }: Props) {
+  const setup = subjectOrgSetupStatus({
+    kind: setupKind,
+    name: org.name,
+    billingEmail: org.billingEmail,
+    country: org.country,
+    owner,
+    walletSet,
+  });
+
   return (
     <div className="b3-agent-detail__overview-profile">
       <section
@@ -94,6 +113,30 @@ export function AccountOverviewProfile({
           ) : null}
         </div>
         <div className="b3-profile">
+          <div className="b3-profile__field">
+            <p className="b3-profile__label">Activity gate</p>
+            <p className="b3-profile__value">
+              {ownerLoading && !owner ? (
+                "…"
+              ) : setup.ready ? (
+                <span className="b3-profile__pill b3-profile__pill--ok">
+                  Ready · {setup.done}/{setup.total}
+                </span>
+              ) : (
+                <span
+                  className="b3-profile__pill b3-profile__pill--warn"
+                  title={setup.missing.join(", ")}
+                >
+                  Incomplete · {setup.done}/{setup.total}
+                </span>
+              )}
+            </p>
+            {!setup.ready && setup.missing.length > 0 && !ownerLoading ? (
+              <p className="b3-profile__meta">
+                Missing: {setup.missing.join(", ")}
+              </p>
+            ) : null}
+          </div>
           <div className="b3-profile__field">
             <p className="b3-profile__label">Business name</p>
             <p className="b3-profile__value">{dash(org.name)}</p>

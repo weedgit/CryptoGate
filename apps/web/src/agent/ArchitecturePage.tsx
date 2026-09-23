@@ -410,7 +410,7 @@ function OrgTreeDetail({
   const breadcrumb = orgBreadcrumbPath(node.id, byId);
   const ownerEmail = ownerEmailByOrgId.get(node.id) ?? null;
   const isPaused = node.status === "paused";
-  const isAgentParent = node.type === "agent" || node.type === "agent_sub";
+  const isAgentParent = node.type === "agent";
   const showOnboard = canOnboard && canAdd && isAgentParent && canManageAsParent;
   const showLifecycle =
     canManageLifecycle &&

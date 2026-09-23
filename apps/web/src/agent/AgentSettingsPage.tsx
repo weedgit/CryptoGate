@@ -40,6 +40,7 @@ import {
   sessionCanOnboardMerchant,
   sessionIsAgentViewerOnly,
 } from "./org";
+import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 
 type Props = {
   session: Session;
@@ -204,6 +205,8 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
         tone={error ? "error" : "ok"}
         onDismiss={dismissToast}
       />
+
+      <SetupChecklistCard session={session} portal="agent" />
 
       <div className="plat-settings__grid agent-settings__grid">
         <section className="plat-settings__card">

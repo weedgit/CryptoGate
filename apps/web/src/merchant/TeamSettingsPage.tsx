@@ -40,6 +40,11 @@ import {
   sessionCanManageTeam,
   sessionRoleOnOrg,
 } from "./org";
+import { SetupChecklistCard } from "../auth/SetupChecklistCard";
+import {
+  liveActionLockedHint,
+  sessionLiveActionsUnlocked,
+} from "../auth/contactVerification";
 import {
   fetchRegisteredEmailIndex,
   validatePlatformInviteEmail,
@@ -219,6 +224,10 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   }, [members]);
 
   function openInvite() {
+    if (!sessionLiveActionsUnlocked(session)) {
+      showErr(liveActionLockedHint(session));
+      return;
+    }
     setInviteCreds(null);
     setInviteEmail("");
     setInviteRole(
@@ -253,6 +262,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         freshIndex,
         {
           targetOrgId: orgId,
+          targetOrgType: org?.type,
           members,
         },
       );
@@ -390,6 +400,8 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   }
 
   const showActions = canManage || canManagePosPin;
+  const liveUnlocked = sessionLiveActionsUnlocked(session);
+  const setupLockHint = liveActionLockedHint(session);
 
   return (
     <div className="plat-team">
@@ -402,13 +414,16 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         }}
       />
 
+      <SetupChecklistCard session={session} portal="merchant" />
+
       {canManage && topbarActionsSlot
         ? createPortal(
             <button
               type="button"
               className="btn-primary plat-team__invite-cta"
               onClick={openInvite}
-              disabled={busy}
+              disabled={busy || !liveUnlocked}
+              title={!liveUnlocked ? setupLockHint : undefined}
             >
               <span className="plat-team__invite-cta-plus" aria-hidden>
                 +

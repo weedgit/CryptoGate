@@ -27,7 +27,7 @@ import {
 } from "./org";
 import {
   fetchRegisteredEmailIndex,
-  registeredEmailConflict,
+  ownerOnboardEmailConflict,
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { OrgRef, RegisteredEmailRef } from "../shared/registeredEmails";
@@ -132,7 +132,7 @@ export function CreateSiteModal({ session, onClose }: Props) {
     const email = ownerEmail.trim();
     if (!email) return null;
     if (!EMAIL_PATTERN.test(email)) return "Enter a valid email address.";
-    return registeredEmailConflict(email, index);
+    return ownerOnboardEmailConflict(email, index);
   }
 
   async function onSubmit(e: FormEvent) {

@@ -733,6 +733,8 @@ export function AgentDetailCard({
                 ownerLoading={overviewLoading && !primaryOwner}
                 canEditOrg={canManage}
                 canEditOwner={canSupportOwner}
+                setupKind="agent"
+                walletSet={Boolean(payout?.address?.trim())}
                 onEditOrg={() => {
                   setProfileEditError(null);
                   setProfileEditOpen(true);

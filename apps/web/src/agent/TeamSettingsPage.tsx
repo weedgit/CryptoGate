@@ -22,6 +22,11 @@ import {
 } from "./api";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
+import {
+  liveActionLockedHint,
+  sessionLiveActionsUnlocked,
+} from "../auth/contactVerification";
+import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { primaryAgentOrgId, sessionCanManageTeam } from "./org";
@@ -157,6 +162,10 @@ export function TeamSettingsPage({ session }: Props) {
   }, [members]);
 
   function openInvite() {
+    if (!sessionLiveActionsUnlocked(session)) {
+      showErr(liveActionLockedHint(session));
+      return;
+    }
     setInviteCreds(null);
     setInviteEmail("");
     setInviteRole("administrator");
@@ -179,6 +188,7 @@ export function TeamSettingsPage({ session }: Props) {
         freshIndex,
         {
           targetOrgId: orgId,
+          targetOrgType: org?.type,
           members,
         },
       );
@@ -279,13 +289,20 @@ export function TeamSettingsPage({ session }: Props) {
         }}
       />
 
+      <SetupChecklistCard session={session} portal="agent" />
+
       {canManage && topbarActionsSlot
         ? createPortal(
             <button
               type="button"
               className="btn-primary plat-team__invite-cta"
               onClick={openInvite}
-              disabled={busy}
+              disabled={busy || !sessionLiveActionsUnlocked(session)}
+              title={
+                !sessionLiveActionsUnlocked(session)
+                  ? liveActionLockedHint(session)
+                  : undefined
+              }
             >
               <span className="plat-team__invite-cta-plus" aria-hidden>
                 +
