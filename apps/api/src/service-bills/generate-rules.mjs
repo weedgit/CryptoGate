@@ -19,15 +19,6 @@ export function previousCalendarMonthUtc(now = new Date()) {
 }
 
 /**
- * @param {string} periodEnd YYYY-MM-DD
- */
-export function defaultDueAt(periodEnd) {
-  const d = new Date(`${periodEnd}T12:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + 14);
-  return d.toISOString();
-}
-
-/**
  * Round a non-negative decimal string to 2 USD places (half up).
  * @param {string} raw
  */

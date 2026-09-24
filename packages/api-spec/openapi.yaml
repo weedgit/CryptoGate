@@ -5634,7 +5634,9 @@ components:
           description: Optional snapshot; computed from completed volume when omitted
     GenerateServiceBillsRequest:
       type: object
-      description: Omit both dates to generate the previous UTC calendar month.
+      description: >
+        Month backfill body. Omit both dates to backfill the previous UTC calendar
+        month. Platform Owner only.
       properties:
         periodStart:
           type: string

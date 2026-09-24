@@ -30,7 +30,7 @@ const ACTION_HELP = {
   adjustTotal:
     "Change total by a signed USD delta (e.g. -10.00) without editing lines.",
   grantCredit:
-    "After a paid bill, grant USD credit applied on the next generated service bill.",
+    "After a paid bill, grant USD credit applied on the next recurring service bill.",
   opsNote: "Optional ops note stored on the bill for special-case audit.",
 } as const;
 

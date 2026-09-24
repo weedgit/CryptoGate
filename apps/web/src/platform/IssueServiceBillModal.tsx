@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
+  getBillingCalendarSettings,
   getPlatformOrgs,
   invalidatePlatformServiceBillsList,
   issueServiceBill,
@@ -33,6 +34,7 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
   const [periodEnd, setPeriodEnd] = useState(bounds.end);
   const [subscriptionAmount, setSubscriptionAmount] = useState("99.00");
   const [volumeFeeAmount, setVolumeFeeAmount] = useState("0.00");
+  const [payWithinDays, setPayWithinDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,17 +46,24 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
     setPeriodEnd(bounds.end);
     setSubscriptionAmount("99.00");
     setVolumeFeeAmount("0.00");
+    setPayWithinDays(null);
     setError(null);
     setLoading(false);
     setBooting(true);
-    getPlatformOrgs()
-      .then((orgs) =>
+    Promise.all([
+      getPlatformOrgs(),
+      getBillingCalendarSettings().catch(() => null),
+    ])
+      .then(([orgs, calendar]) => {
         setMerchants(
           orgs
             .filter((o) => o.type === "merchant")
             .map((o) => ({ id: o.id, name: o.name })),
-        ),
-      )
+        );
+        if (calendar?.activationPayDays) {
+          setPayWithinDays(calendar.activationPayDays);
+        }
+      })
       .catch(() => setMerchants([]))
       .finally(() => setBooting(false));
   }, [open, bounds.start, bounds.end]);
@@ -194,8 +203,13 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
                   className="muted"
                   style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}
                 >
-                  Due date is set from Fees → Billing calendar →{" "}
-                  <strong>Pay within (days)</strong> at issue time.
+                  Due = issue time +{" "}
+                  <strong>
+                    {payWithinDays != null
+                      ? `${payWithinDays} day${payWithinDays === 1 ? "" : "s"}`
+                      : "Pay within (days)"}
+                  </strong>{" "}
+                  (Fees → Billing calendar).
                 </p>
               </section>
 

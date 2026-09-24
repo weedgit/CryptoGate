@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   addOneMonthUtc,
   addOneMonthUtcDateString,
-  dueAtFromSendPlusDays,
   msUntilNextUtcMidnight,
   utcToday,
 } from "../src/service-bills/billing-anchor-rules.mjs";
@@ -22,11 +21,6 @@ describe("billing-anchor-rules", () => {
 
   it("utcToday is YYYY-MM-DD", () => {
     assert.equal(utcToday(new Date("2026-09-24T23:59:59.000Z")), "2026-09-24");
-  });
-
-  it("dueAtFromSendPlusDays ends at 23:59:59.999Z", () => {
-    const due = dueAtFromSendPlusDays("2026-03-12", 7);
-    assert.match(due, /^2026-03-19T23:59:59\.999Z$/);
   });
 
   it("msUntilNextUtcMidnight is positive before midnight", () => {

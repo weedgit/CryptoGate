@@ -77,21 +77,6 @@ export function recurringVolumeWindow(periodStartYmd, invoiceOnYmd) {
 }
 
 /**
- * End of UTC day for due_at.
- * @param {string} ymd
- * @param {number} payDays
- */
-export function dueAtFromSendPlusDays(ymd, payDays, from = new Date()) {
-  const base =
-    ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd)
-      ? new Date(`${ymd}T00:00:00.000Z`)
-      : new Date(from.getTime());
-  base.setUTCDate(base.getUTCDate() + Math.max(1, Number(payDays) || 7));
-  base.setUTCHours(23, 59, 59, 999);
-  return base.toISOString();
-}
-
-/**
  * Ms until next 00:00:00.000 UTC (or 0 if already within first minute of the day — caller may still run).
  * @param {Date} [now]
  */
