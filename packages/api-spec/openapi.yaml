@@ -2694,8 +2694,10 @@ paths:
       summary: Generate month-end platform → agent commission invoices
       description: >
         Creates or refreshes issued invoices for all top-level agents for the
-        period (default current UTC month). Fee base = paid volume fees in the
-        agent subtree. Skips agents already paid or settled for that period.
+        period (default prior UTC month on day C; ops override any time). Fee
+        base = paid subscription + volume fee line amounts on monthly service
+        bills in the agent subtree (credits that only lower total_amount do not
+        reduce the base). Skips agents already paid or settled for that period.
       security:
         - sessionCookie: []
       requestBody:

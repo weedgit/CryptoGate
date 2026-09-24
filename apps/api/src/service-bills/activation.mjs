@@ -7,7 +7,7 @@ import {
 } from "../orgs/membership-store.mjs";
 import { findUserById } from "../auth/users.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
-import { defaultActivationDueAt } from "../platform-settings/billing-calendar-rules.mjs";
+import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { roundUsd } from "./generate-rules.mjs";
 import {
@@ -83,7 +83,7 @@ export async function ensureActivationServiceBill(merchantOrgId) {
   const calendar = await getBillingCalendarSettings();
   const fee = roundUsd(calendar.activationFeeUsd);
   const today = new Date().toISOString().slice(0, 10);
-  const dueAt = defaultActivationDueAt(calendar.activationPayDays);
+  const dueAt = merchantInvoiceDueAt(calendar.activationPayDays);
 
   const initialStatus = calendar.autoSendInvoices
     ? ServiceBillStatus.Issued

@@ -48,10 +48,7 @@ import {
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
-import {
-  defaultActivationDueAt,
-  merchantPayDueAtForPeriod,
-} from "../platform-settings/billing-calendar-rules.mjs";
+import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
 import {
   setBillingAnchorFromActivationPaid,
   resetBillingAnchorAfterLatePay,
@@ -192,8 +189,7 @@ export async function handleIssueServiceBill(req, res) {
 
   const calendar = await getBillingCalendarSettings();
   const dueAt =
-    validated.dueAt ||
-    merchantPayDueAtForPeriod(validated.periodEnd, calendar.merchantPayDayEnd);
+    validated.dueAt || merchantInvoiceDueAt(calendar.activationPayDays);
   const initialStatus = calendar.autoSendInvoices
     ? ServiceBillStatus.Issued
     : ServiceBillStatus.Draft;
@@ -367,16 +363,7 @@ export async function handleUpdateServiceBill(req, res, billId) {
 
   if (validated.action === ServiceBillUpdateAction.Send) {
     const calendar = await getBillingCalendarSettings();
-    const billKind = row.bill_kind ?? ServiceBillKind.Monthly;
-    const dueAt =
-      billKind === ServiceBillKind.Activation
-        ? defaultActivationDueAt(calendar.activationPayDays)
-        : merchantPayDueAtForPeriod(
-            row.period_end instanceof Date
-              ? row.period_end.toISOString().slice(0, 10)
-              : String(row.period_end).slice(0, 10),
-            calendar.merchantPayDayEnd,
-          );
+    const dueAt = merchantInvoiceDueAt(calendar.activationPayDays);
     updated = await sendServiceBill(billId, dueAt);
     if (updated && validated.opsNote !== undefined) {
       updated = (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;

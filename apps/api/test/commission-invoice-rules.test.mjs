@@ -35,10 +35,15 @@ describe("agent commission invoice rules", () => {
     assert.equal(isAgentCommissionCatchUpDay(after, 10, 15), false);
   });
 
-  it("paidPlatformFeeUsd is subscription + volume", () => {
+  it("paidPlatformFeeUsd is subscription + volume (credits / total do not matter)", () => {
     assert.equal(paidPlatformFeeUsd("49.00", "12.50"), 61.5);
     assert.equal(paidPlatformFeeUsd("49.00", "0.00"), 49);
     assert.equal(paidPlatformFeeUsd("0", "0"), 0);
+    // Credit lowers total_amount only — commission still uses line amounts.
+    const lines = paidPlatformFeeUsd("49.00", "12.50");
+    const totalAfterCredit = 50; // e.g. $11.50 credit applied
+    assert.equal(lines, 61.5);
+    assert.notEqual(lines, totalAfterCredit);
   });
 
   it("computeCommissionAmount applies rate", () => {

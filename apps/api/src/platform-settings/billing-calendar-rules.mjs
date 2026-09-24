@@ -49,6 +49,17 @@ function daysInUtcMonth(year, monthIndex0) {
 }
 
 /**
+ * Merchant invoice due_at (activation + monthly): send/create time + pay-within days.
+ * Same clock for daily job, Confirm & send, Create Bill, and month backfill.
+ * Legacy merchantPayDayStart/End are display-only and must not drive due_at.
+ * @param {number} payDays
+ * @param {Date} [from]
+ */
+export function merchantInvoiceDueAt(payDays, from = new Date()) {
+  return defaultActivationDueAt(payDays, from);
+}
+
+/**
  * @param {number} payDays
  * @param {Date} [from]
  */

@@ -68,5 +68,7 @@ describe("contact / org setup UI", () => {
       "utf8",
     );
     assert.match(activation, /Watch-only/);
+    assert.match(activation, /Pay activation/);
+    assert.match(activation, /openCheckout/);
   });
 });

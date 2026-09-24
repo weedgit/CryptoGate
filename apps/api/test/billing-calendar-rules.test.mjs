@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   defaultActivationDueAt,
+  merchantInvoiceDueAt,
   merchantPayDueAtForPeriod,
   validateUpdateBillingCalendarBody,
 } from "../src/platform-settings/billing-calendar-rules.mjs";
@@ -38,9 +39,20 @@ describe("billing calendar rules", () => {
     assert.equal(badWindow.ok, false);
   });
 
-  it("computes merchant pay-by for period end → next month window", () => {
+  it("computes merchant pay-by for period end → next month window (legacy)", () => {
     const due = merchantPayDueAtForPeriod("2026-02-28", 10);
     assert.match(due, /^2026-03-10T/);
+  });
+
+  it("merchantInvoiceDueAt matches activation clock and ignores legacy window", () => {
+    const from = new Date("2026-03-12T08:00:00.000Z");
+    const due = merchantInvoiceDueAt(7, from);
+    assert.equal(due, defaultActivationDueAt(7, from));
+    assert.match(due, /^2026-03-19T23:59:59/);
+    // Legacy calendar day for period would be 2026-04-10 — must not match.
+    const legacy = merchantPayDueAtForPeriod("2026-03-31", 10, from);
+    assert.match(legacy, /^2026-04-10T/);
+    assert.notEqual(due.slice(0, 10), legacy.slice(0, 10));
   });
 
   it("computes activation due from pay days", () => {

@@ -366,7 +366,7 @@ Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot 
 **Locked: Platform pays agent (Option A). No sub-agent cascade in Phase 1.**
 
 - Merchant receives **one service bill**: subscription + volume fee (QR + payment link to **platform billing wallet**).
-- **Platform pays agents** whose parent is Platform: commission = agreed **% of platform fee collected** on that agent’s merchants. **Collected** = **subscription + volume fee line amounts** on **paid** monthly service bills (`paid_at` in the period). Activation fees are **not** commissionable. **Credits / line adjustments do not change the commission base** — ops goodwill is absorbed by the platform; agents are paid on the listed subscription + volume fees.
+- **Platform pays agents** whose parent is Platform: commission = agreed **% of platform fee collected** on that agent’s merchants. **Collected** = **subscription + volume fee line amounts** on **paid** monthly service bills (`paid_at` in the period). Activation fees are **not** commissionable. **Credits do not change the commission base** (they lower `total_amount` only; agents are paid on the listed subscription + volume lines). Ops **line edits** that change those amounts do change the base.
 - Agent commission rate mode is **Automatic** or **Fixed** only:
   - **Automatic** — follows the platform commission schedule.
   - **Fixed** — locked % set by **Platform Owner** (typically after the agent requests a change via social / off-platform conversation).

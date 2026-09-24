@@ -8,7 +8,7 @@ import {
 } from "../commercial/merchant-commercial-store.mjs";
 import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
-import { defaultActivationDueAt } from "../platform-settings/billing-calendar-rules.mjs";
+import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { addUsdAmounts } from "./service-bill-rules.mjs";
 import { roundUsd, volumeFeeUsd } from "./generate-rules.mjs";
@@ -99,7 +99,7 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
   const calendar = await getBillingCalendarSettings();
   const autoSend = opts.autoSend ?? calendar.autoSendInvoices;
   const payDays = opts.payDays ?? calendar.activationPayDays;
-  const dueAt = defaultActivationDueAt(payDays);
+  const dueAt = merchantInvoiceDueAt(payDays);
 
   const initialStatus = autoSend
     ? ServiceBillStatus.Issued

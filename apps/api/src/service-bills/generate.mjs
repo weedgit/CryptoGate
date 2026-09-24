@@ -7,7 +7,7 @@ import {
 } from "../commercial/merchant-commercial-store.mjs";
 import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
-import { merchantPayDueAtForPeriod } from "../platform-settings/billing-calendar-rules.mjs";
+import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
 import { addUsdAmounts } from "./service-bill-rules.mjs";
 import {
   merchantOnboardedInPeriod,
@@ -42,10 +42,7 @@ export async function generateServiceBillsForPeriod(input = {}) {
   const inclusiveStartIso = input.inclusiveStartIso ?? prev.inclusiveStartIso;
   const exclusiveEndIso = input.exclusiveEndIso ?? prev.exclusiveEndIso;
   const calendar = await getBillingCalendarSettings();
-  const dueAt = merchantPayDueAtForPeriod(
-    periodEnd,
-    calendar.merchantPayDayEnd,
-  );
+  const dueAt = merchantInvoiceDueAt(calendar.activationPayDays);
 
   const orgs = await listOrgAccounts();
   const merchants = orgs.filter(

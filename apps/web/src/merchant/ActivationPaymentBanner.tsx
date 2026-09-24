@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   listServiceBills,
+  type ServiceBill,
   type Session,
 } from "./api";
 import { merchantRoute } from "../shared/portalRouting";
@@ -16,15 +17,15 @@ type Props = {
 
 /**
  * Shown when setup is complete but activation fee is unpaid.
- * Links to the open activation service bill when found.
+ * Matches Service Bills list callout: draft vs payable CTA + checkout.
  */
 export function ActivationPaymentBanner({ session }: Props) {
   const needsPay = sessionNeedsActivationPayment(session);
-  const [billId, setBillId] = useState<string | null>(null);
+  const [activation, setActivation] = useState<ServiceBill | null>(null);
 
   useEffect(() => {
     if (!needsPay) {
-      setBillId(null);
+      setActivation(null);
       return;
     }
     let cancelled = false;
@@ -42,10 +43,10 @@ export function ActivationPaymentBanner({ session }: Props) {
             b.periodStart === b.periodEnd &&
             Number(b.volumeFeeAmount) === 0,
         );
-        setBillId((byKind ?? fallback)?.id ?? null);
+        setActivation(byKind ?? fallback ?? null);
       })
       .catch(() => {
-        if (!cancelled) setBillId(null);
+        if (!cancelled) setActivation(null);
       });
     return () => {
       cancelled = true;
@@ -54,8 +55,10 @@ export function ActivationPaymentBanner({ session }: Props) {
 
   if (!needsPay) return null;
 
-  const href = billId
-    ? merchantRoute(`service-bills/${billId}`)
+  const payable =
+    activation?.status === "issued" || activation?.status === "overdue";
+  const href = activation
+    ? merchantRoute(`service-bills/${activation.id}`)
     : merchantRoute("service-bills");
 
   return (
@@ -64,12 +67,24 @@ export function ActivationPaymentBanner({ session }: Props) {
         $
       </span>
       <p>
-        <strong>Watch-only</strong> — {ACTIVATION_PAYMENT_LOCKED_HINT}. Pay
-        platform fee activation to unlock live actions.
+        <strong>Watch-only</strong> —{" "}
+        {activation?.status === "draft"
+          ? "Your activation invoice is a draft. PaymentGate must Confirm & send before you can pay (or enable auto-send)."
+          : `${ACTIVATION_PAYMENT_LOCKED_HINT} Pay platform fee activation to unlock live actions.`}
       </p>
-      <Link className="btn-primary btn-inline" to={href}>
-        {billId ? "Open activation invoice" : "View service bills"}
-      </Link>
+      {activation ? (
+        <Link
+          className="btn-primary btn-inline"
+          to={href}
+          state={payable ? { openCheckout: true } : undefined}
+        >
+          {payable ? "Pay activation" : "View activation invoice"}
+        </Link>
+      ) : (
+        <Link className="btn-primary btn-inline" to={href}>
+          View service bills
+        </Link>
+      )}
     </div>
   );
 }

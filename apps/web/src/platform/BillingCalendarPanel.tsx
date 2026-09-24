@@ -44,8 +44,6 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
   const [message, setMessage] = useState<string | null>(null);
 
   const dirty =
-    form.merchantPayDayStart !== saved.merchantPayDayStart ||
-    form.merchantPayDayEnd !== saved.merchantPayDayEnd ||
     form.agentPayDayStart !== saved.agentPayDayStart ||
     form.agentPayDayEnd !== saved.agentPayDayEnd ||
     form.activationFeeUsd !== saved.activationFeeUsd ||
@@ -127,12 +125,14 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
       <form className="plat-billing-calendar__form" onSubmit={onSubmit}>
         <details className="plat-billing-calendar__fieldset plat-billing-calendar__legacy">
           <summary className="plat-billing-calendar__legend">
-            Merchant pay window (legacy ops hint — not used for invoices)
+            Merchant pay window (legacy — display only)
           </summary>
           <p className="muted" style={{ margin: "0.5rem 0 0.75rem", fontSize: "0.85rem" }}>
-            Kept for display only. Merchant invoices use the activation payment date.
+            Not used for due dates. Merchant invoices use{" "}
+            <strong>Pay within (days)</strong> from send/create time (activation
+            and monthly).
           </p>
-          <fieldset disabled={!canEdit || busy} style={{ border: 0, margin: 0, padding: 0 }}>
+          <fieldset disabled style={{ border: 0, margin: 0, padding: 0 }}>
             <div className="plat-billing-calendar__row">
               <FieldControl label="From day" htmlFor="merchant-pay-start">
                 <input
@@ -142,12 +142,8 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
                   min={1}
                   max={28}
                   value={form.merchantPayDayStart}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      merchantPayDayStart: Number(e.target.value),
-                    }))
-                  }
+                  readOnly
+                  aria-readonly="true"
                 />
               </FieldControl>
               <FieldControl label="To day" htmlFor="merchant-pay-end">
@@ -158,12 +154,8 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
                   min={1}
                   max={28}
                   value={form.merchantPayDayEnd}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      merchantPayDayEnd: Number(e.target.value),
-                    }))
-                  }
+                  readOnly
+                  aria-readonly="true"
                 />
               </FieldControl>
             </div>
@@ -244,6 +236,10 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
               />
             </FieldControl>
           </div>
+          <p className="muted" style={{ margin: "0.5rem 0 0.75rem", fontSize: "0.85rem" }}>
+            Pay within applies to activation and monthly invoices (due = send/create +
+            these days).
+          </p>
           <label className="plat-billing-calendar__check">
             <input
               type="checkbox"

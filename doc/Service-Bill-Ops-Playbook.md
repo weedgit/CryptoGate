@@ -67,11 +67,11 @@ Merchants under one agent may have different onboard / activation dates; day **C
 | Setting | Meaning |
 |---------|---------|
 | Activation fee USD | First invoice after verify |
-| Pay within (days) | Due date after send / auto-send |
+| Pay within (days) | Due for **all** merchant invoices (activation + monthly) = send/create + these days |
 | Auto-send without confirm | If on, merchant drafts become issued immediately |
 | Agent remittance From day (C) | **00:00 UTC** auto-create agent commission invoices |
 | Agent remittance To day | Ops remittance window / catch-up |
-| Merchant pay window (5–10) | Legacy display / ops hint only — **merchant fees use payment date** |
+| Merchant pay window (5–10) | Legacy display only — **not** used for `due_at` |
 
 ## Special cases
 
