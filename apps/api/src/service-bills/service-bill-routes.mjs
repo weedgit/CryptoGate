@@ -188,8 +188,8 @@ export async function handleIssueServiceBill(req, res) {
   }
 
   const calendar = await getBillingCalendarSettings();
-  const dueAt =
-    validated.dueAt || merchantInvoiceDueAt(calendar.activationPayDays);
+  // Always pay-within from issue time — ignore client dueAt (legacy field).
+  const dueAt = merchantInvoiceDueAt(calendar.activationPayDays);
   const initialStatus = calendar.autoSendInvoices
     ? ServiceBillStatus.Issued
     : ServiceBillStatus.Draft;

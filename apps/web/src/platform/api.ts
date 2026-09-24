@@ -446,7 +446,8 @@ export async function issueServiceBill(input: {
   periodEnd: string;
   subscriptionAmount: string;
   volumeFeeAmount: string;
-  dueAt: string;
+  /** @deprecated Ignored — server sets due from pay-within days. */
+  dueAt?: string;
 }): Promise<ServiceBill> {
   const res = await apiFetch(`${API_BASE}/service-bills`, {
     method: "POST",

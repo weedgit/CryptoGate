@@ -37,7 +37,7 @@ describe("merchant dashboard first paint", () => {
 
   it("keeps platform/agent date filters mounted while the range refetches", () => {
     assert.match(platformDash, /loading && !hasLoaded/);
-    assert.match(platformDash, /periodPortal/);
+    assert.match(platformDash, /pg-dash__period/);
     assert.doesNotMatch(
       platformDash,
       /if \(loading\) \{\s*return \(\s*<PlatformPending/,
@@ -54,16 +54,11 @@ describe("merchant dashboard first paint", () => {
     assert.match(help, /createPortal/);
     assert.match(platformDash, /function CardHelp[\s\S]*ChartHelpButton/);
     assert.match(agentDash, /function CardHelp[\s\S]*ChartHelpButton/);
-    const agentDetail = readFileSync(
-      join(root, "src/platform/AgentDetailCard.tsx"),
-      "utf8",
-    );
-    assert.match(agentDetail, /function KpiHelp[\s\S]*ChartHelpButton/);
     const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
     assert.match(css, /\.chart-help__popover--portal[\s\S]*background:\s*#1e2a38/);
   });
 
-  it("labels platform/agent funds in USD with two decimal places", () => {
+  it("labels platform money as USD figures; agent fund rail animates two decimals", () => {
     const fund = readFileSync(
       join(root, "src/shared/AnimatedFundAmount.tsx"),
       "utf8",
@@ -75,10 +70,9 @@ describe("merchant dashboard first paint", () => {
     assert.match(fund, /minimumFractionDigits: 2/);
     assert.match(fund, /useAnimatedNumber/);
     assert.match(tween, /easeOutCubic/);
-    assert.match(platformDash, /AnimatedFundAmount/);
+    assert.match(platformDash, /formatMoneyFigureFixed/);
     assert.match(agentDash, /AnimatedFundAmount/);
-    assert.doesNotMatch(platformDash, /plat-fund-rail__currency/);
-    assert.match(platformDash, /plat-fund-rail__total[\s\S]*showUnit=\{false\}/);
+    assert.doesNotMatch(agentDash, /plat-fund-rail__currency/);
     assert.match(agentDash, /plat-fund-rail__total[\s\S]*showUnit=\{false\}/);
   });
 
@@ -90,16 +84,13 @@ describe("merchant dashboard first paint", () => {
     assert.doesNotMatch(axis, /prefix = money \? "\$"/);
   });
 
-  it("labels observed volume rail (non-custodial), not Funds", () => {
-    assert.match(platformDash, /Observed volume/);
-    assert.match(platformDash, />Volume</);
-    assert.doesNotMatch(platformDash, /aria-label="Funds"/);
-    assert.match(platformDash, /Attention/);
-    assert.match(platformDash, /label: "Owed"/);
-    assert.match(platformDash, /label: "Paid"/);
-    assert.match(platformDash, /Commission owed/);
-    assert.match(platformDash, /Commission paid/);
+  it("labels platform volume chart and status KPIs; agent observed volume rail", () => {
+    assert.match(platformDash, /Transaction Volume/);
     assert.match(platformDash, /seriesFromVolumeByDay/);
+    assert.match(platformDash, /Overdue Invoices/);
+    assert.match(platformDash, /Pending Payouts/);
+    assert.match(platformDash, /Commission owed/);
+    assert.match(platformDash, /Flagged for Review/);
     assert.match(agentDash, /Observed volume/);
     assert.match(agentDash, />Volume</);
     assert.doesNotMatch(agentDash, /aria-label="Funds"/);

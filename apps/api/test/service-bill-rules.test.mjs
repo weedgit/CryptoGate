@@ -30,10 +30,21 @@ describe("service-bill rules (M3-16)", () => {
       periodEnd: "2026-08-31",
       subscriptionAmount: "49.00",
       volumeFeeAmount: "12.50",
-      dueAt: "2026-09-15T00:00:00.000Z",
     });
     assert.equal(ok.ok, true);
     assert.equal(ok.totalAmount, "61.50");
+    assert.equal(ok.dueAt, null);
+
+    const withDue = validateIssueServiceBillBody({
+      orgId: "11111111-1111-1111-1111-111111111111",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      subscriptionAmount: "49.00",
+      volumeFeeAmount: "12.50",
+      dueAt: "2026-09-15T00:00:00.000Z",
+    });
+    assert.equal(withDue.ok, true);
+    assert.equal(withDue.dueAt, "2026-09-15T00:00:00.000Z");
 
     const bad = validateIssueServiceBillBody({
       orgId: "m1",
@@ -41,7 +52,6 @@ describe("service-bill rules (M3-16)", () => {
       periodEnd: "2026-08-01",
       subscriptionAmount: "49.00",
       volumeFeeAmount: "12.50",
-      dueAt: "2026-09-15T00:00:00.000Z",
     });
     assert.equal(bad.ok, false);
   });

@@ -10,13 +10,6 @@ import {
 } from "./api";
 import { platformRoute } from "../shared/portalRouting";
 
-function defaultDueAt(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  d.setHours(23, 59, 0, 0);
-  return d.toISOString().slice(0, 16);
-}
-
 function monthBounds(): { start: string; end: string } {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -40,7 +33,6 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
   const [periodEnd, setPeriodEnd] = useState(bounds.end);
   const [subscriptionAmount, setSubscriptionAmount] = useState("99.00");
   const [volumeFeeAmount, setVolumeFeeAmount] = useState("0.00");
-  const [dueAt, setDueAt] = useState(defaultDueAt());
   const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +44,6 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
     setPeriodEnd(bounds.end);
     setSubscriptionAmount("99.00");
     setVolumeFeeAmount("0.00");
-    setDueAt(defaultDueAt());
     setError(null);
     setLoading(false);
     setBooting(true);
@@ -88,7 +79,6 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
         periodEnd,
         subscriptionAmount,
         volumeFeeAmount,
-        dueAt: new Date(dueAt).toISOString(),
       });
       invalidatePlatformServiceBillsList();
       onIssued?.();
@@ -107,167 +97,171 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
     <>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div
-      className="b3-commission-modal-backdrop plat-issue-bill-modal-backdrop"
-      role="presentation"
-      onClick={() => {
-        if (!loading) onClose();
-      }}
-    >
-      <div
-        className="b3-commission-modal plat-issue-bill-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="issue-bill-title"
-        onClick={(e) => e.stopPropagation()}
+        className="b3-commission-modal-backdrop plat-issue-bill-modal-backdrop"
+        role="presentation"
+        onClick={() => {
+          if (!loading) onClose();
+        }}
       >
-        <header className="b3-commission-modal__head plat-issue-bill-modal__head">
-          <div className="plat-issue-bill-modal__titles">
-            <p className="plat-issue-bill-modal__eyebrow">Platform billing</p>
-            <h3 id="issue-bill-title">Service bill</h3>
-          </div>
-          <button
-            type="button"
-            className="b3-commission-modal__close"
-            aria-label="Close"
-            disabled={loading}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
-
-        {booting ? (
-          <div className="plat-issue-bill-modal__pending" aria-busy="true">
-            <span className="cg-spinner cg-spinner--sm plat-issue-bill-modal__spinner" aria-hidden />
-            <p className="muted">Loading merchants…</p>
-          </div>
-        ) : (
-          <form className="plat-issue-bill__form plat-issue-bill__form--modal" onSubmit={onSubmit}>
-            <section className="plat-issue-bill__section">
-              <h2 className="plat-issue-bill__section-title">Merchant</h2>
-              <div className="field">
-                <label htmlFor="bill-org">Merchant organization</label>
-                <select
-                  id="bill-org"
-                  className="field-control"
-                  required
-                  autoFocus
-                  value={orgId}
-                  disabled={loading}
-                  onChange={(e) => setOrgId(e.target.value)}
-                >
-                  <option value="">Select merchant…</option>
-                  {merchants.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </section>
-
-            <section className="plat-issue-bill__section">
-              <h2 className="plat-issue-bill__section-title">Billing period</h2>
-              <div className="plat-issue-bill__grid">
-                <div className="field">
-                  <label htmlFor="period-start">Period start</label>
-                  <input
-                    id="period-start"
-                    className="field-control"
-                    type="date"
-                    required
-                    disabled={loading}
-                    value={periodStart}
-                    onChange={(e) => setPeriodStart(e.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="period-end">Period end</label>
-                  <input
-                    id="period-end"
-                    className="field-control"
-                    type="date"
-                    required
-                    disabled={loading}
-                    value={periodEnd}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="due-at">Due at</label>
-                <input
-                  id="due-at"
-                  className="field-control"
-                  type="datetime-local"
-                  required
-                  disabled={loading}
-                  value={dueAt}
-                  onChange={(e) => setDueAt(e.target.value)}
-                />
-              </div>
-            </section>
-
-            <section className="plat-issue-bill__section">
-              <h2 className="plat-issue-bill__section-title">Amounts (USD)</h2>
-              <div className="plat-issue-bill__grid">
-                <div className="field">
-                  <label htmlFor="sub-amt">Subscription</label>
-                  <div className="plat-issue-bill__money">
-                    <span className="plat-issue-bill__affix" aria-hidden>
-                      $
-                    </span>
-                    <input
-                      id="sub-amt"
-                      className="field-control"
-                      inputMode="decimal"
-                      required
-                      disabled={loading}
-                      value={subscriptionAmount}
-                      onChange={(e) => setSubscriptionAmount(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label htmlFor="vol-amt">Volume fee</label>
-                  <div className="plat-issue-bill__money">
-                    <span className="plat-issue-bill__affix" aria-hidden>
-                      $
-                    </span>
-                    <input
-                      id="vol-amt"
-                      className="field-control"
-                      inputMode="decimal"
-                      required
-                      disabled={loading}
-                      value={volumeFeeAmount}
-                      onChange={(e) => setVolumeFeeAmount(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <div className="plat-issue-bill__actions">
-              <button
-                className="btn-primary"
-                type="submit"
-                disabled={loading || !orgId}
-              >
-                {loading ? (
-                  <>
-                    <span className="cg-spinner cg-spinner--xs plat-issue-bill-modal__btn-spin" aria-hidden />
-                    Issuing…
-                  </>
-                ) : (
-                  "Issue bill"
-                )}
-              </button>
+        <div
+          className="b3-commission-modal plat-issue-bill-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="issue-bill-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="b3-commission-modal__head plat-issue-bill-modal__head">
+            <div className="plat-issue-bill-modal__titles">
+              <p className="plat-issue-bill-modal__eyebrow">Platform billing</p>
+              <h3 id="issue-bill-title">One-off service bill</h3>
             </div>
-          </form>
-        )}
+            <button
+              type="button"
+              className="b3-commission-modal__close"
+              aria-label="Close"
+              disabled={loading}
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </header>
+
+          {booting ? (
+            <div className="plat-issue-bill-modal__pending" aria-busy="true">
+              <span
+                className="cg-spinner cg-spinner--sm plat-issue-bill-modal__spinner"
+                aria-hidden
+              />
+              <p className="muted">Loading merchants…</p>
+            </div>
+          ) : (
+            <form
+              className="plat-issue-bill__form plat-issue-bill__form--modal"
+              onSubmit={onSubmit}
+            >
+              <section className="plat-issue-bill__section">
+                <h2 className="plat-issue-bill__section-title">Merchant</h2>
+                <div className="field">
+                  <label htmlFor="bill-org">Merchant organization</label>
+                  <select
+                    id="bill-org"
+                    className="field-control"
+                    required
+                    autoFocus
+                    value={orgId}
+                    disabled={loading}
+                    onChange={(e) => setOrgId(e.target.value)}
+                  >
+                    <option value="">Select merchant…</option>
+                    {merchants.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </section>
+
+              <section className="plat-issue-bill__section">
+                <h2 className="plat-issue-bill__section-title">Billing period</h2>
+                <div className="plat-issue-bill__grid">
+                  <div className="field">
+                    <label htmlFor="period-start">Period start</label>
+                    <input
+                      id="period-start"
+                      className="field-control"
+                      type="date"
+                      required
+                      disabled={loading}
+                      value={periodStart}
+                      onChange={(e) => setPeriodStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="period-end">Period end</label>
+                    <input
+                      id="period-end"
+                      className="field-control"
+                      type="date"
+                      required
+                      disabled={loading}
+                      value={periodEnd}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p
+                  className="muted"
+                  style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}
+                >
+                  Due date is set from Fees → Billing calendar →{" "}
+                  <strong>Pay within (days)</strong> at issue time.
+                </p>
+              </section>
+
+              <section className="plat-issue-bill__section">
+                <h2 className="plat-issue-bill__section-title">Amounts (USD)</h2>
+                <div className="plat-issue-bill__grid">
+                  <div className="field">
+                    <label htmlFor="sub-amt">Subscription</label>
+                    <div className="plat-issue-bill__money">
+                      <span className="plat-issue-bill__affix" aria-hidden>
+                        $
+                      </span>
+                      <input
+                        id="sub-amt"
+                        className="field-control"
+                        inputMode="decimal"
+                        required
+                        disabled={loading}
+                        value={subscriptionAmount}
+                        onChange={(e) => setSubscriptionAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="vol-amt">Volume fee</label>
+                    <div className="plat-issue-bill__money">
+                      <span className="plat-issue-bill__affix" aria-hidden>
+                        $
+                      </span>
+                      <input
+                        id="vol-amt"
+                        className="field-control"
+                        inputMode="decimal"
+                        required
+                        disabled={loading}
+                        value={volumeFeeAmount}
+                        onChange={(e) => setVolumeFeeAmount(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <div className="plat-issue-bill__actions">
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  disabled={loading || !orgId}
+                >
+                  {loading ? (
+                    <>
+                      <span
+                        className="cg-spinner cg-spinner--xs plat-issue-bill-modal__btn-spin"
+                        aria-hidden
+                      />
+                      Issuing…
+                    </>
+                  ) : (
+                    "Issue bill"
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
     </>,
     document.body,
   );

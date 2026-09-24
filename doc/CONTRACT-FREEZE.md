@@ -151,7 +151,7 @@ Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Generate | `POST /v1/service-bills/generate` | Platform only; ops override; idempotent per org+period |
+| Backfill month | `POST /v1/service-bills/generate` | Platform **Owner** only; ops override; idempotent per org+period |
 | Daily job | `startDailyServiceBillInvoiceJob` | 00:00 UTC; payment-date schedule (`next_invoice_on`) |
 | Agent invoices | `startDailyAgentCommissionInvoiceJob` | 00:00 UTC on day C (`agentPayDayStart`); prior month paid sub+volume × rate |
 | Cron | `node apps/api/scripts/generate-service-bills.mjs` | Optional `--period YYYY-MM` |

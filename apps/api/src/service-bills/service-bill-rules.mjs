@@ -70,7 +70,21 @@ export function validateIssueServiceBillBody(body) {
     typeof body.subscriptionAmount === "string" ? body.subscriptionAmount.trim() : "";
   const volumeFeeAmount =
     typeof body.volumeFeeAmount === "string" ? body.volumeFeeAmount.trim() : "";
-  const dueAt = typeof body.dueAt === "string" ? body.dueAt.trim() : "";
+  const dueAtRaw = typeof body.dueAt === "string" ? body.dueAt.trim() : "";
+  /** Optional; ignored at issue — server sets due from pay-within days. */
+  let dueAt = null;
+  if (dueAtRaw) {
+    const due = Date.parse(dueAtRaw);
+    if (!Number.isFinite(due)) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "dueAt must be an ISO date-time",
+      };
+    }
+    dueAt = new Date(due).toISOString();
+  }
 
   if (!orgId) {
     return { ok: false, status: 400, code: "invalid_request", message: "orgId is required" };
@@ -97,15 +111,6 @@ export function validateIssueServiceBillBody(body) {
       status: 400,
       code: "invalid_request",
       message: "Amounts must be USD decimal strings (max 2 fractional digits)",
-    };
-  }
-  const due = Date.parse(dueAt);
-  if (!Number.isFinite(due)) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "dueAt must be an ISO date-time",
     };
   }
 
@@ -149,7 +154,7 @@ export function validateIssueServiceBillBody(body) {
     subscriptionAmount,
     volumeFeeAmount,
     totalAmount: addUsdAmounts(subscriptionAmount, volumeFeeAmount),
-    dueAt: new Date(due).toISOString(),
+    dueAt,
     tier,
     volumeFeePercent: volumeFeePercent || null,
     billedVolumeUsd: billedVolumeUsd || null,

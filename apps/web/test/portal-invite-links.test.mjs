@@ -25,9 +25,12 @@ describe("invite link normalization (web)", () => {
 
   it("invite URL field does not break mid-word in CSS", () => {
     const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
-    const block = css.match(/\.invite-creds__value\s*\{[^}]+\}/)?.[0] ?? "";
-    assert.match(block, /white-space:\s*nowrap/);
-    assert.doesNotMatch(block, /word-break:\s*break-all/);
+    // Prefer the base rule (not platform-shell colour overrides).
+    const blocks = [...css.matchAll(/\.invite-creds__value\s*\{([^}]+)\}/g)].map(
+      (m) => m[1],
+    );
+    assert.ok(blocks.some((b) => /white-space:\s*nowrap/.test(b)));
+    assert.ok(blocks.every((b) => !/word-break:\s*break-all/.test(b)));
   });
 });
 

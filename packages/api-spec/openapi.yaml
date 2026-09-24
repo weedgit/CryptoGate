@@ -5601,7 +5601,7 @@ components:
             $ref: "#/components/schemas/ServiceBill"
     IssueServiceBillRequest:
       type: object
-      required: [orgId, periodStart, periodEnd, subscriptionAmount, volumeFeeAmount, dueAt]
+      required: [orgId, periodStart, periodEnd, subscriptionAmount, volumeFeeAmount]
       properties:
         orgId:
           type: string
@@ -5619,6 +5619,9 @@ components:
         dueAt:
           type: string
           format: date-time
+          description: >
+            Optional legacy field. Ignored — due_at is always issue time +
+            billing calendar activationPayDays (Pay within).
         tier:
           type: string
           enum: [small, mid, enterprise]

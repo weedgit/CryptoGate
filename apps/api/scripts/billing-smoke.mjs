@@ -46,6 +46,20 @@ section("Offline — merchant fee calendar math");
   ok("anchor +1 month + volume window");
 }
 
+section("Offline — pay-within due_at (not legacy calendar day)");
+{
+  const { merchantInvoiceDueAt, merchantPayDueAtForPeriod } = await import(
+    "../src/platform-settings/billing-calendar-rules.mjs"
+  );
+  const from = new Date("2026-03-12T08:00:00.000Z");
+  const due = merchantInvoiceDueAt(7, from);
+  assert.match(due, /^2026-03-19T23:59:59/);
+  const legacy = merchantPayDueAtForPeriod("2026-02-28", 10, from);
+  assert.match(legacy, /^2026-03-10T/);
+  assert.notEqual(due.slice(0, 10), legacy.slice(0, 10));
+  ok("merchantInvoiceDueAt ≠ legacy merchantPayDueAtForPeriod");
+}
+
 section("Offline — agent commission formula + day C");
 {
   const now = new Date("2026-04-10T00:00:00.000Z");
@@ -160,6 +174,22 @@ const createdForMerchant = daily.created.filter((b) => b.org_id === merchant.id)
 assert.ok(createdForMerchant.length >= 1, "expected recurring bill from daily job");
 const monthly = createdForMerchant[0];
 assert.equal(monthly.bill_kind ?? ServiceBillKind.Monthly, ServiceBillKind.Monthly);
+{
+  const { getBillingCalendarSettings } = await import(
+    "../src/platform-settings/billing-calendar-store.mjs"
+  );
+  const { merchantInvoiceDueAt } = await import(
+    "../src/platform-settings/billing-calendar-rules.mjs"
+  );
+  const calendar = await getBillingCalendarSettings();
+  const expectedDue = merchantInvoiceDueAt(calendar.activationPayDays, dueDay);
+  const actualDue =
+    monthly.due_at instanceof Date
+      ? monthly.due_at.toISOString()
+      : String(monthly.due_at);
+  assert.equal(actualDue, expectedDue);
+  ok(`monthly due_at matches pay-within (${calendar.activationPayDays}d)`);
+}
 ok(`daily job created monthly bill ${monthly.id}`);
 
 // Ensure commissionable fee base (default Mid schedule may be $0 in empty UAT),
