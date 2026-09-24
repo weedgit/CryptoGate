@@ -513,6 +513,14 @@ export function canIssueServiceBill(caller) {
 }
 
 /**
+ * Month backfill / generate batch — Platform Owner only (ops override).
+ * @param {{ platformOwner?: boolean }} caller
+ */
+export function canGenerateServiceBills(caller) {
+  return caller.platformOwner === true;
+}
+
+/**
  * Platform Owner/Admin may PATCH service bills (mark paid / void / adjust).
  * @param {{ platformOperator: boolean }} caller
  */

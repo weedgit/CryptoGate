@@ -12,6 +12,7 @@ import {
 import { ServiceBillStatus } from "@paymentgate/domain";
 import {
   canCheckoutServiceBill,
+  canGenerateServiceBills,
   canIssueServiceBill,
   serviceBillListScope,
 } from "../src/orgs/role-policy.mjs";
@@ -112,9 +113,14 @@ describe("service-bill rules (M3-16)", () => {
 });
 
 describe("service-bill role scope", () => {
-  it("lets only platform operators issue", () => {
+  it("lets only platform operators issue; only Owner backfill", () => {
     assert.equal(canIssueServiceBill({ platformOperator: true }), true);
     assert.equal(canIssueServiceBill({ platformOperator: false }), false);
+    assert.equal(canGenerateServiceBills({ platformOwner: true }), true);
+    assert.equal(
+      canGenerateServiceBills({ platformOwner: false, platformOperator: true }),
+      false,
+    );
   });
 
   it("denies cashiers on list scope", () => {

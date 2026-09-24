@@ -83,12 +83,12 @@ Merchants under one agent may have different onboard / activation dates; day **C
 | Skip activation | Flag → anchor set without activation invoice |
 | Credit after paid | Grant next-period credit |
 | One-off merchant bill | Create Bill |
-| Missed day-C job | Catch-up while still in remittance window; or manual Generate |
+| Missed day-C job | Catch-up while still in remittance window; or Owner **Backfill month** |
 
 ## Roles
 
-- **Owner**: billing calendar, commercial flags, all bill / commission actions  
-- **Administrator**: send / cancel / adjust / mark paid / grant credit; commission remittance  
+- **Owner**: billing calendar, commercial flags, all bill / commission actions; **Backfill month** (ops override)  
+- **Administrator**: send / cancel / adjust / mark paid / grant credit; commission remittance; one-off Create Bill  
 - **Viewer**: read-only  
 
 ## Jobs

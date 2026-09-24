@@ -914,20 +914,20 @@ export function ServiceBillsListPage({ session }: Props) {
       </div>
 
       {canIssue ? (
-        <>
-          <IssueServiceBillModal
-            open={issueOpen}
-            onClose={closeIssueModal}
-            onIssued={() => void load()}
-          />
-          <GenerateServiceBillsModal
-            open={generateOpen}
-            orgNames={orgNames}
-            merchants={billMerchants}
-            onClose={() => setGenerateOpen(false)}
-            onGenerated={() => void load()}
-          />
-        </>
+        <IssueServiceBillModal
+          open={issueOpen}
+          onClose={closeIssueModal}
+          onIssued={() => void load()}
+        />
+      ) : null}
+      {isPlatformOwner ? (
+        <GenerateServiceBillsModal
+          open={generateOpen}
+          orgNames={orgNames}
+          merchants={billMerchants}
+          onClose={() => setGenerateOpen(false)}
+          onGenerated={() => void load()}
+        />
       ) : null}
     </div>
   );

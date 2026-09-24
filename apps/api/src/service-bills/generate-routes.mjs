@@ -1,6 +1,6 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
-import { canIssueServiceBill } from "../orgs/role-policy.mjs";
+import { canGenerateServiceBills } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { toServiceBill } from "./service-bill-rules.mjs";
@@ -16,12 +16,12 @@ export async function handleGenerateServiceBills(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
 
-  if (!canIssueServiceBill(caller)) {
+  if (!canGenerateServiceBills(caller)) {
     sendError(
       res,
       403,
       "forbidden",
-      "Only platform operators may generate service bills",
+      "Only the platform Owner may backfill monthly service bills",
     );
     return;
   }

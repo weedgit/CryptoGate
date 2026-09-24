@@ -3015,12 +3015,14 @@ paths:
     post:
       tags: [service-bills]
       operationId: generateServiceBills
-      summary: Generate monthly service bills from confirmed volume
+      summary: Backfill monthly service bills (ops override)
       description: >
-        Platform Owner/Administrator only. Issues one USD service bill per
-        active merchant for the period (subscription + volume fee on completed
-        payment-order volume). Does not debit payer on-chain amounts. Idempotent
-        per org + period (existing non-voided bills are skipped).
+        Platform Owner only. Ops override when the daily payment-date job missed
+        merchants. Issues one USD service bill per active merchant for the calendar
+        period (subscription + volume fee on completed payment-order volume). Does
+        not debit payer on-chain amounts. Idempotent per org + period (existing
+        non-voided bills are skipped). Recurring invoices normally create themselves
+        each day from each merchant’s next_invoice_on schedule.
       security:
         - sessionCookie: []
       requestBody:
@@ -3037,7 +3039,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GenerateServiceBillsResult"
         "403":
-          description: Not a platform operator
+          description: Not the platform Owner
           content:
             application/json:
               schema:

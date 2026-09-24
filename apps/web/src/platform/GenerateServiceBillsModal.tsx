@@ -309,7 +309,7 @@ export function GenerateServiceBillsModal({
                   className="btn-primary"
                   disabled={busy || !bounds || preSkipOnboard.length === merchants.length}
                 >
-                  {busy ? "Generating…" : "Generate bills"}
+                  {busy ? "Backfilling…" : "Backfill bills"}
                 </button>
               </>
             )}
