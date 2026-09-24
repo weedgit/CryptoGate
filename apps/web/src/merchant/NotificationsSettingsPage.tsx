@@ -40,10 +40,6 @@ const NOTIFICATION_META: Record<
     label: "Service bill issued / overdue",
     blurb: "Platform SaaS invoices that need remittance.",
   },
-  site_overrides: {
-    label: "Site override requests",
-    blurb: "Parent Owner approval for site setting changes.",
-  },
 };
 
 const DEFAULT_NOTIFICATION_ITEMS: NotificationPreference[] = Object.keys(
@@ -94,9 +90,8 @@ export function NotificationsSettingsPage({ session }: Props) {
     try {
       const loaded = await getNotificationPreferences(orgId);
       setEmailAvailable(loaded.emailAvailable);
-      setItems(
-        loaded.items.length > 0 ? loaded.items : DEFAULT_NOTIFICATION_ITEMS,
-      );
+      const known = loaded.items.filter((row) => row.eventType in NOTIFICATION_META);
+      setItems(known.length > 0 ? known : DEFAULT_NOTIFICATION_ITEMS);
       setDirty(false);
     } catch (err) {
       setLoadError(formatLoadError(err));

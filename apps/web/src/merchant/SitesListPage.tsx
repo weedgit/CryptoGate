@@ -410,8 +410,7 @@ export function SitesListPage({ session }: Props) {
                 </div>
                 <p className="b3-empty__title">Site detail</p>
                 <p className="b3-empty__copy">
-                  Select a site to review overrides, settlement inheritance, and
-                  actions.
+                  Select a site to review settlement inheritance and actions.
                 </p>
                 <ul className="b3-empty__hints">
                   <li>Click a row to open site overview</li>

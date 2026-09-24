@@ -165,7 +165,7 @@ Volume fee uses **completed** payment-order `payable_amount` in the period × me
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Overrides | `GET/POST /v1/orgs/{orgId}/setting-overrides` | Site O/A request; parent merchant Owner `PATCH .../{id}` decide |
+| Overrides | `GET/POST /v1/orgs/{orgId}/setting-overrides` | Sites **inherit only**; POST/PATCH return `site_inherit_only` |
 | Retention | `GET/PUT /v1/orgs/{orgId}/retention` | Default 90 days; site PUT → `override_required` until approved |
 | GET settings | matching / settlement / xPub / HD pool | Additive `source`: merchant / inherit / override |
 | Domain | `SiteOverrideKind`, `SettingsSource`, `AuditAction.SiteOverride*` | Migration **030** |

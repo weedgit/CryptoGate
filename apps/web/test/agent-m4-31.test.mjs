@@ -95,9 +95,10 @@ describe("@paymentgate/web agent C10 commissions", () => {
     assert.match(page, /From parent agent/);
     assert.match(page, /payeeOrgId: agentId/);
     assert.match(page, /CommissionInvoiceModal/);
-    assert.match(page, /generateSubAgentCommissionInvoices/);
     assert.match(page, /Open invoice/);
-    assert.match(page, /Issue invoices/);
+    assert.doesNotMatch(page, /generateSubAgentCommissionInvoices/);
+    assert.doesNotMatch(page, /To sub-agents/);
+    assert.doesNotMatch(page, /Issue invoices/);
     assert.doesNotMatch(page, /issueServiceBill/);
     assert.doesNotMatch(page, /createOrder/);
   });

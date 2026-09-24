@@ -31,12 +31,28 @@ echo "==> billing smoke --live"
 
 if [[ "${1:-}" == "--restart-api" ]]; then
   echo "==> restart API"
-  pkill -f 'apps/api/src/server.mjs' 2>/dev/null || true
-  sleep 1
-  NODE_ENV=production nohup node apps/api/src/server.mjs >/tmp/cryptogate-api.log 2>&1 &
-  echo "API pid $!"
-  sleep 1
-  tail -n 8 /tmp/cryptogate-api.log || true
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files cryptogate-api.service >/dev/null 2>&1; then
+    # Prefer systemd so we do not fight the unit with orphan nohup processes.
+    if systemctl is-system-running >/dev/null 2>&1 || systemctl status cryptogate-api >/dev/null 2>&1; then
+      systemctl restart cryptogate-api
+      systemctl --no-pager -l status cryptogate-api | head -n 20 || true
+    else
+      echo "systemctl unavailable in this namespace — falling back to process restart" >&2
+      pkill -f 'apps/api/src/server.mjs' 2>/dev/null || true
+      sleep 1
+      NODE_ENV=production nohup node apps/api/src/server.mjs >/tmp/cryptogate-api.log 2>&1 &
+      echo "API pid $!"
+      sleep 1
+      tail -n 8 /tmp/cryptogate-api.log || true
+    fi
+  else
+    pkill -f 'apps/api/src/server.mjs' 2>/dev/null || true
+    sleep 1
+    NODE_ENV=production nohup node apps/api/src/server.mjs >/tmp/cryptogate-api.log 2>&1 &
+    echo "API pid $!"
+    sleep 1
+    tail -n 8 /tmp/cryptogate-api.log || true
+  fi
 fi
 
 echo "OK — hard-refresh portal; see doc/Billing-Commission-UAT.md"

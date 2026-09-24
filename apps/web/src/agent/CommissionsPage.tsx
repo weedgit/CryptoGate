@@ -23,11 +23,9 @@ import {
   listCommissionPayouts,
   markCommissionPayoutPaid,
   agentConfirmCommissionPayout,
-  generateSubAgentCommissionInvoices,
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
 import { FundAmount } from "../platform/FundAmount";
-import { OrgListPagination } from "../platform/OrgListPagination";
 import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
   truncateAddress,
@@ -43,7 +41,6 @@ import {
 } from "./api";
 import {
   merchantsInAgentSubtree,
-  subAgentsInAgentSubtree,
 } from "./agentSubtree";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import { getAgentServiceBills } from "./agentServiceBillsList";
@@ -51,8 +48,6 @@ import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 
 type Props = { session: Session };
-
-const PAGE_SIZE = 15;
 
 type CommissionsTab = "current" | "history";
 
@@ -107,9 +102,6 @@ export function CommissionsPage({ session }: Props) {
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
-  const [agentPayouts, setAgentPayouts] = useState<CommissionPayoutRecord[]>(
-    [],
-  );
   const [platformInvoices, setPlatformInvoices] = useState<
     CommissionPayoutRecord[]
   >([]);
@@ -119,9 +111,6 @@ export function CommissionsPage({ session }: Props) {
   const [slip, setSlip] = useState<CommissionPayoutRecord | null>(null);
   const [paidNote, setPaidNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [issuePeriod, setIssuePeriod] = useState("");
-  const [subPayoutsPage, setSubPayoutsPage] = useState(1);
-  const [historyPage, setHistoryPage] = useState(1);
 
   const tab = parseCommissionsTab(searchParams.get("tab"));
 
@@ -149,16 +138,11 @@ export function CommissionsPage({ session }: Props) {
 
   const refreshPayouts = useCallback(async () => {
     if (!agentId) {
-      setAgentPayouts([]);
       setPlatformInvoices([]);
       setParentInvoices([]);
       return;
     }
-    const [subRows, platformRows, parentRows] = await Promise.all([
-      listCommissionPayouts({
-        payer: "agent",
-        payerOrgId: agentId,
-      }),
+    const [platformRows, parentRows] = await Promise.all([
       listCommissionPayouts({
         payer: "platform",
         payeeOrgId: agentId,
@@ -168,7 +152,6 @@ export function CommissionsPage({ session }: Props) {
         payeeOrgId: agentId,
       }),
     ]);
-    setAgentPayouts(subRows);
     setPlatformInvoices(platformRows);
     setParentInvoices(parentRows);
   }, [agentId]);
@@ -187,7 +170,6 @@ export function CommissionsPage({ session }: Props) {
         bills,
         commissions,
         payoutAddrRows,
-        agentPayoutRows,
         platformRows,
         parentRows,
       ] = await Promise.all([
@@ -195,10 +177,6 @@ export function CommissionsPage({ session }: Props) {
         getAgentServiceBills(),
         listAgentCommissions(),
         listAgentPayoutAddresses(),
-        listCommissionPayouts({
-          payer: "agent",
-          payerOrgId: agentId,
-        }),
         listCommissionPayouts({
           payer: "platform",
           payeeOrgId: agentId,
@@ -231,7 +209,6 @@ export function CommissionsPage({ session }: Props) {
         });
       }
       setPayoutAddrs(addrMap);
-      setAgentPayouts(agentPayoutRows);
       setPlatformInvoices(platformRows);
       setParentInvoices(parentRows);
     } catch (err) {
@@ -263,13 +240,6 @@ export function CommissionsPage({ session }: Props) {
     return parent?.type === "platform" || parent == null;
   }, [selfOrg, byId]);
 
-  const subs = useMemo(() => {
-    if (!agentId) return [];
-    return subAgentsInAgentSubtree(agentId, orgs).filter(
-      (s) => s.parentId === agentId,
-    );
-  }, [agentId, orgs]);
-
   const mtd = useMemo(() => {
     const key = new Date().toISOString().slice(0, 7);
     return (
@@ -280,30 +250,6 @@ export function CommissionsPage({ session }: Props) {
       null
     );
   }, [rows, platformInvoices]);
-
-  const receivedInvoices = useMemo(() => {
-    const source = isTopLevel ? platformInvoices : parentInvoices;
-    return source.filter(
-      (p) => p.payoutStatus === "paid" || p.payoutStatus === "settled",
-    );
-  }, [isTopLevel, platformInvoices, parentInvoices]);
-
-  const receivedPeriods = useMemo(() => {
-    const keys = [...new Set(receivedInvoices.map((p) => p.periodKey))];
-    return keys.sort((a, b) => b.localeCompare(a));
-  }, [receivedInvoices]);
-
-  useEffect(() => {
-    if (!issuePeriod && receivedPeriods[0]) {
-      setIssuePeriod(receivedPeriods[0]);
-    } else if (
-      issuePeriod &&
-      receivedPeriods.length > 0 &&
-      !receivedPeriods.includes(issuePeriod)
-    ) {
-      setIssuePeriod(receivedPeriods[0]);
-    }
-  }, [issuePeriod, receivedPeriods]);
 
   const openPlatformInvoices = useMemo(
     () => platformInvoices.filter((p) => isOpenInvoice(p.payoutStatus)),
@@ -321,50 +267,6 @@ export function CommissionsPage({ session }: Props) {
     () => parentInvoices.filter((p) => p.payoutStatus === "settled"),
     [parentInvoices],
   );
-  const openSubInvoices = useMemo(
-    () => agentPayouts.filter((p) => isOpenInvoice(p.payoutStatus)),
-    [agentPayouts],
-  );
-  const settledSubInvoices = useMemo(
-    () => agentPayouts.filter((p) => p.payoutStatus === "settled"),
-    [agentPayouts],
-  );
-
-  const subPayoutsPageCount = Math.max(
-    1,
-    Math.ceil(openSubInvoices.length / PAGE_SIZE),
-  );
-  const pagedSubPayouts = useMemo(() => {
-    const start = (subPayoutsPage - 1) * PAGE_SIZE;
-    return openSubInvoices.slice(start, start + PAGE_SIZE);
-  }, [openSubInvoices, subPayoutsPage]);
-
-  const historyPageCount = Math.max(
-    1,
-    Math.ceil(settledSubInvoices.length / PAGE_SIZE),
-  );
-  const pagedHistory = useMemo(() => {
-    const start = (historyPage - 1) * PAGE_SIZE;
-    return settledSubInvoices.slice(start, start + PAGE_SIZE);
-  }, [settledSubInvoices, historyPage]);
-
-  useEffect(() => {
-    setSubPayoutsPage(1);
-  }, [openSubInvoices.length]);
-
-  useEffect(() => {
-    setHistoryPage(1);
-  }, [settledSubInvoices.length]);
-
-  useEffect(() => {
-    if (subPayoutsPage > subPayoutsPageCount) {
-      setSubPayoutsPage(subPayoutsPageCount);
-    }
-  }, [subPayoutsPage, subPayoutsPageCount]);
-
-  useEffect(() => {
-    if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
-  }, [historyPage, historyPageCount]);
 
   function writeInvoiceParams(record: CommissionPayoutRecord | null) {
     const params = new URLSearchParams();
@@ -404,9 +306,6 @@ export function CommissionsPage({ session }: Props) {
     }
     if (payee) {
       const match =
-        agentPayouts.find(
-          (p) => p.payeeOrgId === payee && p.periodKey === period,
-        ) ??
         parentInvoices.find(
           (p) => p.payeeOrgId === payee && p.periodKey === period,
         ) ??
@@ -418,33 +317,7 @@ export function CommissionsPage({ session }: Props) {
         setSlip(match);
       }
     }
-  }, [searchParams, agentPayouts, platformInvoices, parentInvoices]);
-
-  async function onIssueSubInvoices() {
-    if (!canManage || !agentId || !issuePeriod) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await generateSubAgentCommissionInvoices({
-        periodKey: issuePeriod,
-        payerOrgId: agentId,
-      });
-      await refreshPayouts();
-      if (result.created.length === 0 && result.skipped.length === 0) {
-        setError("No direct sub-agents to invoice for this period.");
-      } else if (result.created.length === 0 && result.skipped.length > 0) {
-        setError(
-          `No invoices created for ${formatCommissionPeriodLabel(issuePeriod)} — already issued or paid.`,
-        );
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to issue sub-agent invoices",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [searchParams, platformInvoices, parentInvoices]);
 
   async function onConfirmPay() {
     if (!slip || !canManage) return;
@@ -494,9 +367,7 @@ export function CommissionsPage({ session }: Props) {
   const slipKicker =
     slip?.payer === "platform"
       ? "Platform → agent"
-      : slip?.payeeOrgId === agentId
-        ? "Parent agent → you"
-        : "Agent → sub-agent";
+      : "Parent agent → you";
   const canPaySlip = Boolean(
     slip &&
       canManage &&
@@ -816,87 +687,6 @@ export function CommissionsPage({ session }: Props) {
             </>
           ) : null}
 
-          {!loading && subs.length > 0 ? (
-            <>
-              <div className="plat-commissions__section-head">
-                <h2 className="plat-commissions__history-title">
-                  To sub-agents
-                </h2>
-                {canManage && receivedPeriods.length > 0 && subs.length > 0 ? (
-                  <div className="plat-commissions__generate">
-                    <label className="plat-commissions__period-input">
-                      <span className="sr-only">Sub-agent invoice period</span>
-                      <select
-                        className="field-control plat-commissions__period-control"
-                        value={issuePeriod}
-                        onChange={(e) => setIssuePeriod(e.target.value)}
-                        aria-label="Sub-agent invoice period"
-                      >
-                        {receivedPeriods.map((key) => (
-                          <option key={key} value={key}>
-                            {formatCommissionPeriodLabel(key)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className="btn-primary org-agents__cta"
-                      disabled={busy || !issuePeriod}
-                      onClick={() => void onIssueSubInvoices()}
-                    >
-                      {busy ? "Issuing…" : "Issue invoices"}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              {subs.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No nested agent accounts under this agent.
-                </p>
-              ) : receivedPeriods.length === 0 && openSubInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  After you receive a platform commission, issue invoices here
-                  and pay your sub-agents.
-                </p>
-              ) : openSubInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No open sub-agent invoices. Issue invoices for a received
-                  period, then open the invoice to pay.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Sub-agent</th>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">Fee base</th>
-                        <th className="plat-commissions__th-num">Rate</th>
-                        <th className="plat-commissions__th-num">Amount</th>
-                        <th>Status</th>
-                        <th>Tx / ref</th>
-                        <th className="plat-commissions__th-actions">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagedSubPayouts.map((inv) =>
-                        invoiceRow(inv, { showPayee: true, actions: "payer" }),
-                      )}
-                    </tbody>
-                  </table>
-                  <OrgListPagination
-                    page={subPayoutsPage}
-                    pageCount={subPayoutsPageCount}
-                    total={openSubInvoices.length}
-                    pageSize={PAGE_SIZE}
-                    onPageChange={setSubPayoutsPage}
-                  />
-                </div>
-              )}
-            </>
-          ) : null}
-
           {!loading && !isTopLevel ? (
             <>
               <h2 className="plat-commissions__history-title">
@@ -959,45 +749,6 @@ export function CommissionsPage({ session }: Props) {
                       )}
                     </tbody>
                   </table>
-                </div>
-              )}
-            </>
-          ) : null}
-
-          {isTopLevel || subs.length > 0 ? (
-            <>
-              <h2 className="plat-commissions__history-title">To sub-agents</h2>
-              {settledSubInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No settled sub-agent invoices yet. Pay the invoice, then the
-                  sub-agent confirms receipt.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Settled at</th>
-                        <th>Sub-agent</th>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">Amount</th>
-                        <th>Tx / ref</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagedHistory.map((h) =>
-                        historyRow(h, { showPayee: true }),
-                      )}
-                    </tbody>
-                  </table>
-                  <OrgListPagination
-                    page={historyPage}
-                    pageCount={historyPageCount}
-                    total={settledSubInvoices.length}
-                    pageSize={PAGE_SIZE}
-                    onPageChange={setHistoryPage}
-                  />
                 </div>
               )}
             </>
