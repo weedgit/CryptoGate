@@ -388,20 +388,30 @@ export function ServiceBillsListPage({ session }: Props) {
     <div className="plat-bills">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
 
-      <div className="plat-bills__kpi" role="group" aria-label="Service bills AR">
+      <div
+        className="plat-bills__kpi"
+        role="group"
+        aria-label="Service bills summary"
+      >
         <div className="plat-bills__kpi-card">
-          <p className="plat-bills__kpi-label">Open AR</p>
+          <p className="plat-bills__kpi-label">Unpaid (owed to you)</p>
           <p className="plat-bills__kpi-value">
             <FundAmount amount={openArUsd.toFixed(2)} />
           </p>
-          <p className="plat-bills__kpi-meta">{unpaidCount} unpaid</p>
+          <p className="plat-bills__kpi-meta">
+            {unpaidCount === 1 ? "1 open bill" : `${unpaidCount} open bills`}
+          </p>
         </div>
         <div className="plat-bills__kpi-card">
-          <p className="plat-bills__kpi-label">Overdue</p>
+          <p className="plat-bills__kpi-label">Past due</p>
           <p className="plat-bills__kpi-value">
             <FundAmount amount={overdueArUsd.toFixed(2)} />
           </p>
-          <p className="plat-bills__kpi-meta">{overdueCount} bills</p>
+          <p className="plat-bills__kpi-meta">
+            {overdueCount === 1
+              ? "1 bill past due date"
+              : `${overdueCount} bills past due date`}
+          </p>
         </div>
         <div
           className={`plat-bills__kpi-card${draftCount > 0 ? " is-clickable" : ""}`}
@@ -420,12 +430,14 @@ export function ServiceBillsListPage({ session }: Props) {
                 }
               : undefined
           }
-          title={draftCount > 0 ? "Filter to draft invoices" : undefined}
+          title={draftCount > 0 ? "Show draft bills" : undefined}
         >
-          <p className="plat-bills__kpi-label">Drafts awaiting send</p>
+          <p className="plat-bills__kpi-label">Ready to send</p>
           <p className="plat-bills__kpi-value">{draftCount}</p>
           <p className="plat-bills__kpi-meta">
-            {draftCount > 0 ? "Click to review · confirm before merchant sees" : "Confirm before merchant sees"}
+            {draftCount > 0
+              ? "Drafts — Confirm & send so merchants can pay"
+              : "No drafts waiting"}
           </p>
         </div>
         <div
@@ -451,13 +463,15 @@ export function ServiceBillsListPage({ session }: Props) {
           }
           title={
             openActivationCount > 0
-              ? "Filter to open activation invoices"
+              ? "Show activation bills"
               : undefined
           }
         >
-          <p className="plat-bills__kpi-label">Open activation</p>
+          <p className="plat-bills__kpi-label">New merchants to unlock</p>
           <p className="plat-bills__kpi-value">{openActivationCount}</p>
-          <p className="plat-bills__kpi-meta">Gate until mark paid</p>
+          <p className="plat-bills__kpi-meta">
+            First fee unpaid — account stays watch-only
+          </p>
         </div>
       </div>
 
