@@ -163,7 +163,7 @@ export function GenerateServiceBillsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="b3-commission-modal__head">
-          <h3 id="generate-bills-title">Generate period bills</h3>
+          <h3 id="generate-bills-title">Backfill month (ops)</h3>
           <button
             type="button"
             className="b3-commission-modal__close"
@@ -177,9 +177,11 @@ export function GenerateServiceBillsModal({
 
         <form className="plat-generate-bills-modal__body" onSubmit={onSubmit}>
           <p className="plat-generate-bills-modal__lede">
-            Issues one service bill per active merchant from fee-tier subscription
-            plus volume fee on <strong>completed</strong> payment orders. Idempotent —
-            merchants that already have a bill for the period are skipped.
+            Recurring invoices normally create themselves each day from each
+            merchant’s payment-date schedule. Use this only to{" "}
+            <strong>backfill a calendar month</strong> if the daily job missed
+            merchants. Idempotent — merchants that already have a bill for the
+            period are skipped.
           </p>
 
           <label className="plat-generate-bills-modal__field">

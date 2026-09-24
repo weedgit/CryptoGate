@@ -9,6 +9,10 @@ import {
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
+import {
+  formatServiceBillPeriodRange,
+  serviceBillPeriodOptions,
+} from "../shared/serviceBillPeriod";
 import { AuthToast } from "../auth/AuthToast";
 import { FundAmount } from "../platform/FundAmount";
 import { OrgListPagination } from "../platform/OrgListPagination";
@@ -148,13 +152,10 @@ export function ServiceBillsListPage() {
     }
   };
 
-  const periodOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const bill of items) {
-      if (bill.periodStart) set.add(bill.periodStart);
-    }
-    return [...set].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-  }, [items]);
+  const periodOptions = useMemo(
+    () => serviceBillPeriodOptions(items),
+    [items],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -279,7 +280,7 @@ export function ServiceBillsListPage() {
             );
           })}
         </div>
-        <label className="plat-bills__period-filter">
+        <label className="plat-bills__period-filter plat-bills__period-filter--wide">
           <span className="sr-only">Billing period</span>
           <select
             className="field-control"
@@ -288,9 +289,9 @@ export function ServiceBillsListPage() {
             aria-label="Filter by billing period"
           >
             <option value="all">All periods</option>
-            {periodOptions.map((start) => (
-              <option key={start} value={start}>
-                {start}
+            {periodOptions.map((opt) => (
+              <option key={opt.start} value={opt.start}>
+                {opt.label}
               </option>
             ))}
           </select>
@@ -403,7 +404,12 @@ export function ServiceBillsListPage() {
                       </span>
                     </td>
                     <td className="plat-bills__created">
-                      {activation ? "Activation fee" : bill.periodStart}
+                      {activation
+                        ? "Activation fee"
+                        : formatServiceBillPeriodRange(
+                            bill.periodStart,
+                            bill.periodEnd,
+                          )}
                     </td>
                   </tr>
                 );

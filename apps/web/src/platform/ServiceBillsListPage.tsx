@@ -36,6 +36,11 @@ import { PagePending } from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import {
+  formatServiceBillPeriodRange,
+  serviceBillManageHint,
+  serviceBillPeriodOptions,
+} from "../shared/serviceBillPeriod";
+import {
   SortHeader,
   compareDate,
   compareNumber,
@@ -207,13 +212,10 @@ export function ServiceBillsListPage({ session }: Props) {
     void load();
   }, [load]);
 
-  const periodOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const bill of items) {
-      if (bill.periodStart) set.add(bill.periodStart);
-    }
-    return [...set].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-  }, [items]);
+  const periodOptions = useMemo(
+    () => serviceBillPeriodOptions(items),
+    [items],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -507,7 +509,7 @@ export function ServiceBillsListPage({ session }: Props) {
           })}
         </div>
         <div className="plat-bills__toolbar-end">
-          <label className="plat-bills__period-filter">
+          <label className="plat-bills__period-filter plat-bills__period-filter--wide">
             <span className="sr-only">Billing period</span>
             <select
               className="field-control"
@@ -516,9 +518,9 @@ export function ServiceBillsListPage({ session }: Props) {
               aria-label="Filter by billing period"
             >
               <option value="all">All periods</option>
-              {periodOptions.map((start) => (
-                <option key={start} value={start}>
-                  {start}
+              {periodOptions.map((opt) => (
+                <option key={opt.start} value={opt.start}>
+                  {opt.label}
                 </option>
               ))}
             </select>
@@ -535,33 +537,56 @@ export function ServiceBillsListPage({ session }: Props) {
             </span>
           </label>
           {canIssue ? (
-            <div
-              className="plat-bills__actions"
-              aria-label="Service bill actions"
-            >
-              <button
-                type="button"
-                className="btn-secondary plat-bills__action-btn"
-                onClick={() => setGenerateOpen(true)}
-              >
-                Generate period
-              </button>
-              <button
-                type="button"
-                className="btn-primary plat-bills__action-btn"
-                onClick={() => setIssueOpen(true)}
-              >
-                + Create Bill
-              </button>
-            </div>
+            <details className="plat-bills__more">
+              <summary className="btn-secondary plat-bills__action-btn plat-bills__more-summary">
+                More
+              </summary>
+              <div className="plat-bills__more-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="plat-bills__more-item"
+                  onClick={(e) => {
+                    const root = (e.currentTarget as HTMLElement).closest(
+                      "details",
+                    );
+                    if (root instanceof HTMLDetailsElement) root.open = false;
+                    setGenerateOpen(true);
+                  }}
+                >
+                  Backfill month…
+                  <span className="plat-bills__more-hint">
+                    Ops override if the daily job missed merchants
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="plat-bills__more-item"
+                  onClick={(e) => {
+                    const root = (e.currentTarget as HTMLElement).closest(
+                      "details",
+                    );
+                    if (root instanceof HTMLDetailsElement) root.open = false;
+                    setIssueOpen(true);
+                  }}
+                >
+                  One-off bill…
+                  <span className="plat-bills__more-hint">
+                    Rare special charge — not the monthly cycle
+                  </span>
+                </button>
+              </div>
+            </details>
           ) : null}
         </div>
       </div>
 
       <p className="plat-bills__legend">
-        Amounts are platform SaaS invoices: monthly subscription plus volume fee on
-        completed payment orders in the period (<strong>Billed vol.</strong>). Not
-        guest payment totals.
+        Recurring invoices are created automatically each day (draft, or sent if
+        auto-send is on). Open a bill to send, adjust, cancel, or mark paid.
+        Amounts are platform SaaS fees: subscription plus volume on completed
+        payment orders (<strong>Billed vol.</strong>) — not guest payment totals.
       </p>
 
       <div className="plat-bills__table-wrap">
@@ -574,7 +599,7 @@ export function ServiceBillsListPage({ session }: Props) {
               ? "No service bills match that bill ID, merchant, Tx hash, or Rx address."
               : statusFilter !== "all" || periodFilter !== "all"
                 ? "No service bills for the selected status or period."
-                : "No service bills issued yet. Generate a period to create the monthly batch."}
+                : "No service bills yet. Recurring invoices appear automatically after merchants activate and each billing cycle runs."}
           </p>
         ) : null}
         {!loading && filtered.length > 0 ? (
@@ -717,6 +742,12 @@ export function ServiceBillsListPage({ session }: Props) {
                       {activation ? (
                         <span className="plat-bills__kind-tag">Activation</span>
                       ) : null}
+                      {(() => {
+                        const hint = serviceBillManageHint(bill.status);
+                        return hint ? (
+                          <span className="plat-bills__manage-hint">{hint}</span>
+                        ) : null;
+                      })()}
                     </td>
                     <td className="plat-bills__merchant">
                       {orgNames.get(bill.orgId) ?? bill.orgId}
@@ -753,10 +784,10 @@ export function ServiceBillsListPage({ session }: Props) {
                       {activation ? (
                         <span>Activation fee</span>
                       ) : (
-                        <>
-                          {formatShortDate(bill.periodStart)} →{" "}
-                          {formatShortDate(bill.periodEnd)}
-                        </>
+                        formatServiceBillPeriodRange(
+                          bill.periodStart,
+                          bill.periodEnd,
+                        )
                       )}
                     </td>
                     <td className="plat-bills__tx" title={txHash || undefined}>

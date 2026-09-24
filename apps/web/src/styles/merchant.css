@@ -29448,6 +29448,10 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   min-width: 160px;
 }
 
+.platform-shell .plat-bills__period-filter--wide {
+  min-width: min(280px, 42vw);
+}
+
 .platform-shell .plat-bills__period-filter select.field-control {
   appearance: none;
   -webkit-appearance: none;
@@ -29467,9 +29471,74 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  display: inline-flex;
-  color: #94a3b8;
   pointer-events: none;
+  opacity: 0.65;
+}
+
+.platform-shell .plat-bills__more {
+  position: relative;
+}
+
+.platform-shell .plat-bills__more-summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.platform-shell .plat-bills__more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.platform-shell .plat-bills__more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 260px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #121820;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.platform-shell .plat-bills__more-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.platform-shell .plat-bills__more-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.platform-shell .plat-bills__more-hint {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.platform-shell .plat-bills__manage-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(94, 196, 180, 0.9);
 }
 
 .platform-shell .plat-bills__table-wrap {
