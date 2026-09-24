@@ -167,6 +167,23 @@ describe("@paymentgate/web agent nested create removed", () => {
     const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
     assert.match(app, /path="agents\/new"/);
     assert.match(app, /Navigate to=\{agentRoute\("merchants"\)\}/);
+    assert.doesNotMatch(app, /AgentSubAgentsRoutes|OnboardSubAgentPage/);
+
+    const list = readFileSync(
+      join(root, "src/agent/SubAgentsListPage.tsx"),
+      "utf8",
+    );
+    assert.match(list, /canCreateSubAgent = false/);
+    assert.doesNotMatch(list, /agentRoute\("agents\/new"\)/);
+
+    const prefetch = readFileSync(
+      join(root, "src/agent/prefetchRoutes.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(prefetch, /OnboardSubAgentPage|AgentSubAgentsRoutes/);
+    assert.match(prefetch, /path === "agents"/);
+    assert.match(prefetch, /AgentMerchantsRoutes/);
+
     const tree = readFileSync(
       join(root, "src/platform/platformOrgTree.ts"),
       "utf8",

@@ -22,11 +22,7 @@ describe("@paymentgate/web platform M4-30", () => {
     );
     assert.match(platform, /service-bills\/new/);
     assert.match(platform, /issue=1/);
-    const merchantsRoutes = readFileSync(
-      join(root, "src/platform/PlatformMerchantsRoutes.tsx"),
-      "utf8",
-    );
-    assert.match(merchantsRoutes, /RequirePlatformOperator/);
+    assert.match(platform, /PlatformAccountsRoutes/);
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /issueServiceBill/);
     assert.match(api, /listServiceBills/);
@@ -44,10 +40,10 @@ describe("@paymentgate/web platform M4-30", () => {
 });
 
 describe("@paymentgate/web platform B4 onboard agent", () => {
-  it("wires wizard route and posts commercial commission", () => {
+  it("wires wizard route and posts org + owner invite", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /agents\/new/);
-    assert.match(app, /PlatformAgentsRoutes/);
+    assert.match(app, /PlatformAccountsRoutes/);
     const wizard = readFileSync(
       join(root, "src/platform/OnboardAgentPage.tsx"),
       "utf8",
@@ -57,7 +53,6 @@ describe("@paymentgate/web platform B4 onboard agent", () => {
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
     assert.match(wizard, /inviteOrgUser/);
-    assert.match(wizard, /commissionPercent/);
   });
 
   it("depth helper matches API default max agent depth", () => {
@@ -105,7 +100,8 @@ describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
     assert.match(list, /Backfill month/);
     assert.match(list, /One-off bill/);
     assert.match(list, /Recurring invoices are created automatically/);
-    assert.match(list, /serviceBillManageHint/);
+    assert.match(list, /runBillAction/);
+    assert.match(list, /Mark paid/);
     assert.doesNotMatch(list, />Generate period</);
     assert.doesNotMatch(list, /\+ Create Bill/);
 
@@ -144,10 +140,10 @@ describe("@paymentgate/web platform B3 agent detail", () => {
 });
 
 describe("@paymentgate/web platform B6 merchant detail", () => {
-  it("wires merchant detail route and tabbed read-only views", () => {
+  it("wires merchant detail route and settlement views", () => {
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /merchants\/:id/);
-    assert.match(app, /PlatformMerchantsRoutes/);
+    assert.match(app, /PlatformAccountsRoutes/);
 
     const detail = readFileSync(
       join(root, "src/platform/MerchantDetailCard.tsx"),
@@ -155,7 +151,7 @@ describe("@paymentgate/web platform B6 merchant detail", () => {
     );
     assert.match(detail, /listSettlement/);
     assert.match(detail, /getMatchingMode/);
-    assert.match(detail, /Read-only on platform/);
+    assert.match(detail, /AccountOverviewProfile/);
 
     const list = readFileSync(
       join(root, "src/platform/MerchantsListPage.tsx"),

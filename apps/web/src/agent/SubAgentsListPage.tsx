@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
 import {
@@ -56,12 +56,7 @@ import {
   orgTypeLabel,
   primaryAgentOrgId,
   sessionCanManageDirectChild,
-  sessionCanOnboardMerchant,
 } from "./org";
-import {
-  canCreateAgentUnderParent,
-  DEFAULT_MAX_AGENT_DEPTH,
-} from "../platform/onboardAgent";
 import { SubAgentDetailCard } from "./SubAgentDetailCard";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
@@ -203,7 +198,6 @@ function SubAgentsListEmptyPanel({
   variant,
   query,
   statusFilter,
-  canOnboard,
   canCreateSubAgent,
   onClearSearch,
   onClearFilter,
@@ -212,7 +206,6 @@ function SubAgentsListEmptyPanel({
   variant: ListEmptyVariant;
   query?: string;
   statusFilter?: StatusFilter;
-  canOnboard?: boolean;
   canCreateSubAgent?: boolean;
   onClearSearch?: () => void;
   onClearFilter?: () => void;
@@ -239,7 +232,7 @@ function SubAgentsListEmptyPanel({
         : variant === "no-agents"
           ? canCreateSubAgent
             ? "Add a sub-agent to expand your channel under this account."
-            : `Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) reached — onboard merchants instead.`
+            : "Nested sub-agent create is disabled. Create a top-level agent from Platform instead."
           : variant === "no-results"
             ? query
               ? `Nothing matched “${query}”. Try a different name, email, or org ID.`
@@ -290,16 +283,6 @@ function SubAgentsListEmptyPanel({
             Show all sub-agents
           </button>
         ) : null}
-        {variant === "no-agents" && canOnboard && canCreateSubAgent ? (
-          <Link className="btn-primary btn-inline" to={agentRoute("agents/new")}>
-            Onboard sub-agent
-          </Link>
-        ) : null}
-        {variant === "no-agents" && canOnboard && !canCreateSubAgent ? (
-          <Link className="btn-primary btn-inline" to={agentRoute("merchants/new")}>
-            Onboard merchant
-          </Link>
-        ) : null}
         {variant === "error" && onRetry ? (
           <button
             type="button"
@@ -321,24 +304,13 @@ export function SubAgentsListPage({ session }: Props) {
   const location = useLocation();
   const onboardState = (location.state ?? {}) as OnboardNavigateState;
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
-  const canOnboard = useMemo(
-    () => sessionCanOnboardMerchant(session),
-    [session],
-  );
+  // Nested agent_sub create is disabled (API org_type_disabled); Platform creates top-level agents.
+  const canCreateSubAgent = false;
 
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekAgentOrgs() ?? []);
   const [bills, setBills] = useState<ServiceBill[]>(
     () => peekAgentServiceBills() ?? [],
   );
-  const canCreateSubAgent = useMemo(() => {
-    if (!agentId || orgs.length === 0) return false;
-    return canCreateAgentUnderParent(
-      agentId,
-      "agent_sub",
-      orgs,
-      DEFAULT_MAX_AGENT_DEPTH,
-    );
-  }, [agentId, orgs]);
   const [orgEmailsByOrgId, setOrgEmailsByOrgId] = useState<
     Map<string, string[]>
   >(() => new Map());
@@ -806,23 +778,6 @@ export function SubAgentsListPage({ session }: Props) {
                   </button>
                 ))}
               </div>
-              {canOnboard && canCreateSubAgent ? (
-                <Link
-                  className="btn-primary org-agents__cta"
-                  to={agentRoute("agents/new")}
-                >
-                  Onboard sub-agent
-                </Link>
-              ) : canOnboard ? (
-                <button
-                  type="button"
-                  className="btn-primary org-agents__cta"
-                  disabled
-                  title={`Max agent depth (${DEFAULT_MAX_AGENT_DEPTH}) reached`}
-                >
-                  Onboard sub-agent
-                </button>
-              ) : null}
             </div>,
             topbarActionsSlot,
           )
@@ -835,7 +790,6 @@ export function SubAgentsListPage({ session }: Props) {
               variant={listEmptyVariant}
               query={query.trim()}
               statusFilter={statusFilter}
-              canOnboard={canOnboard}
               canCreateSubAgent={canCreateSubAgent}
               onClearSearch={() => setQuery("")}
               onClearFilter={() => setStatusFilter("all")}

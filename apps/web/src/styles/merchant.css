@@ -29541,6 +29541,37 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   color: rgba(94, 196, 180, 0.9);
 }
 
+.platform-shell .plat-bills__th-actions,
+.platform-shell .plat-bills__row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.platform-shell .plat-bills__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.platform-shell .plat-bills__row-btn {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.platform-shell .plat-bills__row-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(94, 196, 180, 0.95);
+  text-decoration: none;
+}
+
+.platform-shell .plat-bills__row-link:hover {
+  text-decoration: underline;
+}
+
 .platform-shell .plat-bills__table-wrap {
   border-radius: 0;
   background: #0e1218;

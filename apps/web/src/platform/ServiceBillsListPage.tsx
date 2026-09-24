@@ -14,12 +14,18 @@ import {
   getBillingWalletSettings,
   getPlatformOrgs,
   getPlatformServiceBills,
+  invalidatePlatformServiceBillsList,
   peekPlatformOrgs,
   peekPlatformServiceBills,
+  updateServiceBill,
   type ServiceBill,
 } from "./api";
 import { AssetIcon } from "./cryptoIcons";
-import { formatShortDate, sessionCanIssueServiceBill } from "./org";
+import {
+  formatShortDate,
+  sessionCanIssueServiceBill,
+  sessionIsPlatformOwner,
+} from "./org";
 import { truncateAddress } from "./orgDetailSeeds";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
@@ -37,7 +43,6 @@ import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import {
   formatServiceBillPeriodRange,
-  serviceBillManageHint,
   serviceBillPeriodOptions,
 } from "../shared/serviceBillPeriod";
 import {
@@ -119,10 +124,15 @@ export function ServiceBillsListPage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const canIssue = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const isPlatformOwner = useMemo(
+    () => sessionIsPlatformOwner(session),
+    [session],
+  );
   const [issueOpen, setIssueOpen] = useState(
     () => canIssue && searchParams.get("issue") === "1",
   );
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [items, setItems] = useState<ServiceBill[]>(
@@ -207,6 +217,25 @@ export function ServiceBillsListPage({ session }: Props) {
       setLoading(false);
     }
   }, []);
+
+  const runBillAction = useCallback(
+    async (billId: string, action: "send" | "mark_paid") => {
+      setRowBusyId(billId);
+      setError(null);
+      try {
+        await updateServiceBill(billId, { action });
+        invalidatePlatformServiceBillsList();
+        await load();
+      } catch (err) {
+        setError(
+          err instanceof ApiError ? err.message : "Could not update service bill",
+        );
+      } finally {
+        setRowBusyId(null);
+      }
+    },
+    [load],
+  );
 
   useEffect(() => {
     void load();
@@ -374,10 +403,30 @@ export function ServiceBillsListPage({ session }: Props) {
           </p>
           <p className="plat-bills__kpi-meta">{overdueCount} bills</p>
         </div>
-        <div className="plat-bills__kpi-card">
+        <div
+          className={`plat-bills__kpi-card${draftCount > 0 ? " is-clickable" : ""}`}
+          role={draftCount > 0 ? "button" : undefined}
+          tabIndex={draftCount > 0 ? 0 : undefined}
+          onClick={
+            draftCount > 0 ? () => setStatusFilter("draft") : undefined
+          }
+          onKeyDown={
+            draftCount > 0
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setStatusFilter("draft");
+                  }
+                }
+              : undefined
+          }
+          title={draftCount > 0 ? "Filter to draft invoices" : undefined}
+        >
           <p className="plat-bills__kpi-label">Drafts awaiting send</p>
           <p className="plat-bills__kpi-value">{draftCount}</p>
-          <p className="plat-bills__kpi-meta">Confirm before merchant sees</p>
+          <p className="plat-bills__kpi-meta">
+            {draftCount > 0 ? "Click to review · confirm before merchant sees" : "Confirm before merchant sees"}
+          </p>
         </div>
         <div
           className={`plat-bills__kpi-card${
@@ -542,23 +591,25 @@ export function ServiceBillsListPage({ session }: Props) {
                 More
               </summary>
               <div className="plat-bills__more-menu" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="plat-bills__more-item"
-                  onClick={(e) => {
-                    const root = (e.currentTarget as HTMLElement).closest(
-                      "details",
-                    );
-                    if (root instanceof HTMLDetailsElement) root.open = false;
-                    setGenerateOpen(true);
-                  }}
-                >
-                  Backfill month…
-                  <span className="plat-bills__more-hint">
-                    Ops override if the daily job missed merchants
-                  </span>
-                </button>
+                {isPlatformOwner ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="plat-bills__more-item"
+                    onClick={(e) => {
+                      const root = (e.currentTarget as HTMLElement).closest(
+                        "details",
+                      );
+                      if (root instanceof HTMLDetailsElement) root.open = false;
+                      setGenerateOpen(true);
+                    }}
+                  >
+                    Backfill month…
+                    <span className="plat-bills__more-hint">
+                      Owner only — ops override if the daily job missed merchants
+                    </span>
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -584,9 +635,10 @@ export function ServiceBillsListPage({ session }: Props) {
 
       <p className="plat-bills__legend">
         Recurring invoices are created automatically each day (draft, or sent if
-        auto-send is on). Open a bill to send, adjust, cancel, or mark paid.
-        Amounts are platform SaaS fees: subscription plus volume on completed
-        payment orders (<strong>Billed vol.</strong>) — not guest payment totals.
+        auto-send is on). Use row actions to send or mark paid; open a bill for
+        adjust, cancel, or credit. Amounts are platform SaaS fees: subscription
+        plus volume on completed payment orders (<strong>Billed vol.</strong>) —
+        not guest payment totals.
       </p>
 
       <div className="plat-bills__table-wrap">
@@ -678,6 +730,7 @@ export function ServiceBillsListPage({ session }: Props) {
                     onSort={onSort}
                   />
                 </th>
+                {canIssue ? <th className="plat-bills__th-actions">Actions</th> : null}
                 <th>
                   <SortHeader
                     label="Tx hash"
@@ -742,12 +795,6 @@ export function ServiceBillsListPage({ session }: Props) {
                       {activation ? (
                         <span className="plat-bills__kind-tag">Activation</span>
                       ) : null}
-                      {(() => {
-                        const hint = serviceBillManageHint(bill.status);
-                        return hint ? (
-                          <span className="plat-bills__manage-hint">{hint}</span>
-                        ) : null;
-                      })()}
                     </td>
                     <td className="plat-bills__merchant">
                       {orgNames.get(bill.orgId) ?? bill.orgId}
@@ -790,6 +837,56 @@ export function ServiceBillsListPage({ session }: Props) {
                         )
                       )}
                     </td>
+                    {canIssue ? (
+                      <td
+                        className="plat-bills__row-actions"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        {bill.status === "draft" ? (
+                          <button
+                            type="button"
+                            className="btn-primary btn-inline plat-bills__row-btn"
+                            disabled={rowBusyId === bill.id}
+                            onClick={() => void runBillAction(bill.id, "send")}
+                          >
+                            {rowBusyId === bill.id ? "Sending…" : "Send"}
+                          </button>
+                        ) : null}
+                        {bill.status === "issued" ||
+                        bill.status === "overdue" ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-inline plat-bills__row-btn"
+                            disabled={rowBusyId === bill.id}
+                            onClick={() =>
+                              void runBillAction(bill.id, "mark_paid")
+                            }
+                          >
+                            {rowBusyId === bill.id ? "Saving…" : "Mark paid"}
+                          </button>
+                        ) : null}
+                        {bill.status !== "draft" &&
+                        bill.status !== "issued" &&
+                        bill.status !== "overdue" ? (
+                          <Link
+                            className="plat-bills__row-link"
+                            to={href}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View
+                          </Link>
+                        ) : (
+                          <Link
+                            className="plat-bills__row-link"
+                            to={href}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Details
+                          </Link>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="plat-bills__tx" title={txHash || undefined}>
                       {txHash ? <code>{truncateAddress(txHash, 8, 6)}</code> : "—"}
                     </td>
