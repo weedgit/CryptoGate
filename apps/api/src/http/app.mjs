@@ -155,7 +155,6 @@ import {
   handleAgentConfirmCommissionPayout,
   handleConfirmCommissionPayoutSent,
   handleGenerateCommissionInvoices,
-  handleGenerateSubAgentCommissionInvoices,
   handleListCommissionPayouts,
   handleMarkCommissionPayoutPaid,
   handleUpsertCommissionPayout,
@@ -569,11 +568,6 @@ export async function handleRequest(req, res) {
 
   if (method === "POST" && path === "/v1/commission-payouts/generate") {
     await handleGenerateCommissionInvoices(req, res);
-    return;
-  }
-
-  if (method === "POST" && path === "/v1/commission-payouts/generate-sub") {
-    await handleGenerateSubAgentCommissionInvoices(req, res);
     return;
   }
 

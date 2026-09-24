@@ -390,19 +390,6 @@ export async function handleGenerateCommissionInvoices(req, res) {
 }
 
 /**
- * POST /v1/commission-payouts/generate-sub
- * Nested agents removed — endpoint kept only to return a clear error.
- */
-export async function handleGenerateSubAgentCommissionInvoices(req, res) {
-  sendError(
-    res,
-    403,
-    "org_type_disabled",
-    "Sub-agent commission invoices are no longer available",
-  );
-}
-
-/**
  * POST /v1/commission-payouts/{id}/agent-confirm
  * Agent acknowledges remittance → settled (Payout history).
  */

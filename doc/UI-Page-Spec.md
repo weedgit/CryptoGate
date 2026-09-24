@@ -558,11 +558,11 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 
 **Content**
 
-- Tabs: **Invoices** (platform → agent monthly invoices: issued / paid awaiting agent) · **Payout history** (settled after agent confirm) · **Sub-agent** (read-only cascade)
+- Tabs: **Invoices** (platform → agent monthly invoices: issued / paid awaiting agent) · **Payout history** (settled after agent confirm)
 - Auto at **00:00 UTC on day C** (billing calendar): invoices for prior month from paid subtree **subscription + volume**; manual **Generate** remains an ops override; invoice shows tree fee status + onboard dates
 - Owner/Admin: **Confirm & pay** (USDT·TRON) → status **Paid**; agent Owner/Admin **Confirm receipt** → **Settled** → history
 - Click invoice row (Invoices or Payout history) → open invoice modal to review tree + remittance; Address / Tx open Tronscan (copy available)
-- URL: `?tab=invoices` (default) · `?tab=history` · `?tab=sub-agent`
+- URL: `?tab=invoices` (default) · `?tab=history`
 
 ---
 
@@ -1118,7 +1118,7 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
   - **Counter** (`on_verifying`) — staff may release when status is **Verifying** (tx detected); order still shows verifying on guest page until completed.
 - Risk acknowledgment modal for counter mode; MFA on save
 - Copy: “Does not change blockchain confirmation rules or platform minimums.”
-- Site inheritance panel (like matching mode); Owner approval for site override
+- Site inheritance panel (like matching mode); inherit-only (no site override)
 - Cashier/APK: read-only **Chain status** + optional **OK to release** hint when policy allows — never editable
 - Spec: [Merchant-Fulfillment-Policy.md](Merchant-Fulfillment-Policy.md)
 

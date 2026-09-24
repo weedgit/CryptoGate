@@ -33,7 +33,7 @@ import {
 } from "./api";
 import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { orgDetailHref } from "./platformOrgTree";
-import { agentRoute, platformRoute } from "../shared/portalRouting";
+import { platformRoute } from "../shared/portalRouting";
 import { FundAmount } from "./FundAmount";
 import { OrgListPagination } from "./OrgListPagination";
 import { sessionCanIssueServiceBill, sessionIsPlatformViewerOnly } from "./org";
@@ -48,7 +48,7 @@ import {
   type SortState,
 } from "./ui/TableArrange";
 
-type CommissionsTab = "invoices" | "history" | "sub-agent";
+type CommissionsTab = "invoices" | "history";
 
 type InvoiceSortKey =
   | "period"
@@ -69,29 +69,17 @@ type HistorySortKey =
   | "tx"
   | "status";
 
-type CascadeSortKey =
-  | "paidAt"
-  | "period"
-  | "subAgent"
-  | "payer"
-  | "amount"
-  | "address"
-  | "tx"
-  | "status";
-
 type Props = { session: Session };
 
 const TABS: { id: CommissionsTab; label: string }[] = [
   { id: "invoices", label: "Invoices" },
   { id: "history", label: "Payout history" },
-  { id: "sub-agent", label: "Sub-agent" },
 ];
 
 const PAGE_SIZE = 20;
 const PERIOD_KEY_RE = /^\d{4}-\d{2}$/;
 
 function parseCommissionsTab(raw: string | null): CommissionsTab {
-  if (raw === "sub-agent") return "sub-agent";
   if (raw === "history") return "history";
   return "invoices";
 }
@@ -106,22 +94,6 @@ function platformPayoutTone(status: string): string {
 function platformPayoutStatusLabel(status: string): string {
   if (status === "issued") return "Issued";
   if (status === "paid") return "Paid (awaiting agent)";
-  if (status === "settled") return "Settled";
-  return status;
-}
-
-function cascadePayoutTone(status: string): string {
-  if (status === "paid") return "paid";
-  if (status === "verifying") return "verifying";
-  if (status === "ready") return "ready";
-  if (status === "settled") return "settled";
-  return "scheduled";
-}
-
-function cascadePayoutStatusLabel(status: string): string {
-  if (status === "verifying") return "Verifying";
-  if (status === "ready") return "Ready";
-  if (status === "paid") return "Paid";
   if (status === "settled") return "Settled";
   return status;
 }
@@ -145,9 +117,6 @@ export function PlatformCommissionsPage({ session }: Props) {
   const [platformPayouts, setPlatformPayouts] = useState<
     CommissionPayoutRecord[]
   >([]);
-  const [cascadePayouts, setCascadePayouts] = useState<
-    CommissionPayoutRecord[]
-  >([]);
   const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekPlatformOrgs() != null);
   const hasLoadedRef = useRef(hasLoaded);
@@ -164,16 +133,11 @@ export function PlatformCommissionsPage({ session }: Props) {
     useState<BillingCalendarSettings | null>(null);
   const [invoicesPage, setInvoicesPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
-  const [cascadePage, setCascadePage] = useState(1);
   const [invoiceSort, setInvoiceSort] = useState<SortState<InvoiceSortKey>>({
     key: "period",
     dir: "desc",
   });
   const [historySort, setHistorySort] = useState<SortState<HistorySortKey>>({
-    key: "paidAt",
-    dir: "desc",
-  });
-  const [cascadeSort, setCascadeSort] = useState<SortState<CascadeSortKey>>({
     key: "paidAt",
     dir: "desc",
   });
@@ -215,19 +179,9 @@ export function PlatformCommissionsPage({ session }: Props) {
     setTab(next);
     writeSearchParams({
       tab: next,
-      payee:
-        next === "invoices" || next === "history"
-          ? searchParams.get("payee")
-          : null,
-      period:
-        next === "invoices" || next === "history"
-          ? searchParams.get("period")
-          : null,
+      payee: searchParams.get("payee"),
+      period: searchParams.get("period"),
     });
-    if (next === "sub-agent") {
-      setSlip(null);
-      setPaidNote("");
-    }
   }
 
   useLayoutEffect(() => {
@@ -237,7 +191,6 @@ export function PlatformCommissionsPage({ session }: Props) {
   const refreshPayouts = useCallback(async () => {
     const all = await listCommissionPayouts();
     setPlatformPayouts(all.filter((p) => p.payer === "platform"));
-    setCascadePayouts(all.filter((p) => p.payer === "agent"));
   }, []);
 
   const load = useCallback(async () => {
@@ -265,7 +218,6 @@ export function PlatformCommissionsPage({ session }: Props) {
       }
       setPayoutAddressByAgent(addrMap);
       setPlatformPayouts(payoutRows.filter((p) => p.payer === "platform"));
-      setCascadePayouts(payoutRows.filter((p) => p.payer === "agent"));
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -301,7 +253,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     [platformPayouts],
   );
 
-  const cascadeHistory = cascadePayouts;
   const queryNorm = query.trim().toLowerCase();
 
   const filteredInvoices = useMemo(() => {
@@ -416,69 +367,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     });
   }, [history, queryNorm, historySort]);
 
-  const filteredCascade = useMemo(() => {
-    const list = !queryNorm
-      ? [...cascadeHistory]
-      : cascadeHistory.filter((h) => {
-          const payerName = h.payerOrgId
-            ? (byId.get(h.payerOrgId)?.name ?? h.payerOrgId)
-            : "";
-          const hay = [
-            h.payeeName,
-            h.payeeOrgId,
-            payerName,
-            h.payerOrgId,
-            h.periodLabel,
-            h.periodKey,
-            h.payoutStatus,
-            h.payoutAddress,
-            h.txRef,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(queryNorm);
-        });
-    const dir = cascadeSort.dir === "asc" ? 1 : -1;
-    const payerNameOf = (h: CommissionPayoutRecord) =>
-      h.payerOrgId ? (byId.get(h.payerOrgId)?.name ?? h.payerOrgId) : "";
-    return list.sort((a, b) => {
-      let cmp = 0;
-      switch (cascadeSort.key) {
-        case "period":
-          cmp = compareText(a.periodKey, b.periodKey);
-          break;
-        case "subAgent":
-          cmp = compareText(a.payeeName, b.payeeName);
-          break;
-        case "payer":
-          cmp = compareText(payerNameOf(a), payerNameOf(b));
-          break;
-        case "amount":
-          cmp = compareNumber(
-            Number(a.commissionAmount),
-            Number(b.commissionAmount),
-          );
-          break;
-        case "address":
-          cmp = compareText(a.payoutAddress ?? "", b.payoutAddress ?? "");
-          break;
-        case "tx":
-          cmp = compareText(a.txRef ?? "", b.txRef ?? "");
-          break;
-        case "status":
-          cmp = compareText(a.payoutStatus, b.payoutStatus);
-          break;
-        case "paidAt":
-        default:
-          cmp = compareDate(a.paidAt, b.paidAt);
-          break;
-      }
-      if (cmp !== 0) return dir * cmp;
-      return dir * compareDate(a.paidAt, b.paidAt);
-    });
-  }, [cascadeHistory, queryNorm, byId, cascadeSort]);
-
   const invoicesPageCount = Math.max(
     1,
     Math.ceil(filteredInvoices.length / PAGE_SIZE),
@@ -497,20 +385,10 @@ export function PlatformCommissionsPage({ session }: Props) {
     return filteredHistory.slice(start, start + PAGE_SIZE);
   }, [filteredHistory, historyPage]);
 
-  const cascadePageCount = Math.max(
-    1,
-    Math.ceil(filteredCascade.length / PAGE_SIZE),
-  );
-  const pagedCascade = useMemo(() => {
-    const start = (cascadePage - 1) * PAGE_SIZE;
-    return filteredCascade.slice(start, start + PAGE_SIZE);
-  }, [filteredCascade, cascadePage]);
-
   useEffect(() => {
     setInvoicesPage(1);
     setHistoryPage(1);
-    setCascadePage(1);
-  }, [queryNorm, invoiceSort, historySort, cascadeSort]);
+  }, [queryNorm, invoiceSort, historySort]);
 
   const onInvoiceSort = useCallback((key: InvoiceSortKey) => {
     setInvoiceSort((prev) =>
@@ -538,16 +416,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     );
   }, []);
 
-  const onCascadeSort = useCallback((key: CascadeSortKey) => {
-    setCascadeSort((prev) =>
-      toggleSortState(
-        prev,
-        key,
-        key === "paidAt" || key === "amount" || key === "period" ? "desc" : "asc",
-      ),
-    );
-  }, []);
-
   useEffect(() => {
     if (invoicesPage > invoicesPageCount) setInvoicesPage(invoicesPageCount);
   }, [invoicesPage, invoicesPageCount]);
@@ -555,10 +423,6 @@ export function PlatformCommissionsPage({ session }: Props) {
   useEffect(() => {
     if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
   }, [historyPage, historyPageCount]);
-
-  useEffect(() => {
-    if (cascadePage > cascadePageCount) setCascadePage(cascadePageCount);
-  }, [cascadePage, cascadePageCount]);
 
   useEffect(() => {
     const payee = searchParams.get("payee");
@@ -1177,171 +1041,7 @@ export function PlatformCommissionsPage({ session }: Props) {
             </div>
           )}
         </>
-      ) : (
-        <>
-          {cascadeHistory.length === 0 ? (
-            <p className="plat-bills__empty">
-              No agent → sub payouts recorded yet.
-            </p>
-          ) : filteredCascade.length === 0 ? (
-            <p className="plat-bills__empty">
-              No cascade payouts match “{query.trim()}”.
-            </p>
-          ) : (
-            <div className="plat-bills__table-wrap">
-              <table className="plat-bills__table plat-commissions__table">
-                <thead>
-                  <tr>
-                    <th>
-                      <SortHeader
-                        label="Paid at"
-                        sortKey="paidAt"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Period"
-                        sortKey="period"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Sub-agent"
-                        sortKey="subAgent"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Payer agent"
-                        sortKey="payer"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th className="plat-commissions__th-num">
-                      <SortHeader
-                        label="Amount"
-                        sortKey="amount"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                        align="end"
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Address"
-                        sortKey="address"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Tx / ref"
-                        sortKey="tx"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                    <th>
-                      <SortHeader
-                        label="Status"
-                        sortKey="status"
-                        sort={cascadeSort}
-                        onSort={onCascadeSort}
-                      />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedCascade.map((h) => (
-                    <tr key={h.id} className="plat-bills__row">
-                      <td className="plat-commissions__paid-at">
-                        {h.paidAt
-                          ? new Date(h.paidAt).toLocaleString()
-                          : "—"}
-                      </td>
-                      <td className="plat-commissions__period">
-                        {formatCommissionPeriodLabel(h.periodKey)}
-                      </td>
-                      <td>
-                        <Link
-                          className="plat-commissions__agent-link"
-                          to={platformRoute(`accounts/agents/${h.payeeOrgId}`)}
-                        >
-                          {h.payeeName}
-                        </Link>
-                      </td>
-                      <td>
-                        {h.payerOrgId ? (
-                          <Link
-                            className="plat-commissions__agent-link"
-                            to={platformRoute(`accounts/agents/${h.payerOrgId}`)}
-                          >
-                            {byId.get(h.payerOrgId)?.name ?? h.payerOrgId}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="plat-commissions__num plat-commissions__num--emph">
-                        <FundAmount amount={h.commissionAmount} />
-                      </td>
-                      <td
-                        className="plat-commissions__addr"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <CopyableChainValue
-                          value={h.payoutAddress}
-                          network={remittanceNetwork(h)}
-                          kind="address"
-                          display={
-                            h.payoutAddress
-                              ? truncateAddress(h.payoutAddress, 5, 5)
-                              : undefined
-                          }
-                        />
-                      </td>
-                      <td className="plat-commissions__tx">
-                        <CopyableChainValue
-                          value={h.txRef}
-                          network={remittanceNetwork(h)}
-                          kind="tx"
-                          display={
-                            h.txRef
-                              ? truncateAddress(h.txRef, 8, 6)
-                              : undefined
-                          }
-                        />
-                      </td>
-                      <td>
-                        <span
-                          className={`plat-commissions__status is-${cascadePayoutTone(h.payoutStatus)}`}
-                        >
-                          {cascadePayoutStatusLabel(h.payoutStatus)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <OrgListPagination
-                page={cascadePage}
-                pageCount={cascadePageCount}
-                total={filteredCascade.length}
-                pageSize={PAGE_SIZE}
-                onPageChange={setCascadePage}
-              />
-            </div>
-          )}
-        </>
-      )}
+      ) : null}
 
       {slip
         ? createPortal(

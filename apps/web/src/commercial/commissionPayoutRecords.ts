@@ -109,36 +109,6 @@ export async function generateCommissionInvoices(periodKey?: string): Promise<{
   };
 }
 
-export async function generateSubAgentCommissionInvoices(opts: {
-  periodKey?: string;
-  payerOrgId?: string;
-}): Promise<{
-  periodKey: string;
-  periodLabel: string;
-  created: CommissionPayoutRecord[];
-  skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
-}> {
-  const res = await fetch(`${API_BASE}/commission-payouts/generate-sub`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      periodKey: opts.periodKey,
-      payerOrgId: opts.payerOrgId,
-    }),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    periodKey: string;
-    periodLabel: string;
-    created: CommissionPayoutRecord[];
-    skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
-  };
-}
-
 export async function upsertCommissionPayout(
   input: Omit<CommissionPayoutRecord, "id" | "updatedAt" | "treeSnapshot" | "settledAt" | "agentConfirmedBy"> & {
     id?: string;

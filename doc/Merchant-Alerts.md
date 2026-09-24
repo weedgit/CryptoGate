@@ -21,16 +21,15 @@ In-app alert taxonomy for the merchant portal bell drawer. Aligns with `UI-Page-
 - Payment anomaly
 - Settlement / xPub cool-down active
 - Service bill **issued** or **overdue** (unpaid platform billing)
-- Site override approval (parent Owner)
 - Webhook delivery failed ≥ 5 attempts on latest delivery
 
 ### Tier B — drawer (+ banner if still open)
 
-- Site override pending (site account — waiting on parent Owner)
+_(none currently — sites inherit parent settings; no override queue)_
 
 ### Informational (drawer only — `unresolved: false`)
 
-- Site override approved/denied (site account, last 7 days)
+_(reserved)_
 
 ### Excluded
 
@@ -38,6 +37,7 @@ In-app alert taxonomy for the merchant portal bell drawer. Aligns with `UI-Page-
 - Completed payments
 - “No anomalies” placeholders
 - Product feedback
+- Site override requests (sites inherit only)
 - Webhook failures for Viewer (cannot manage integrations — would stick forever)
 
 ## Lifecycle
@@ -47,7 +47,7 @@ In-app alert taxonomy for the merchant portal bell drawer. Aligns with `UI-Page-
 3. **Read** — user opens drawer item or marks all read (badge only)
 4. **Resolved** — item removed when underlying condition clears (e.g. bill paid, anomaly cleared, cool-down ends)
 
-Stable alert ids: `anomaly:{orderId}`, `bill:{billId}`, `settlement:cooldown:…`, `webhook:fail:{webhookId}`, `site-override:pending:{id}`.
+Stable alert ids: `anomaly:{orderId}`, `bill:{billId}`, `settlement:cooldown:…`, `webhook:fail:{webhookId}`.
 
 ## Role scope (who can clear)
 
@@ -56,8 +56,6 @@ Stable alert ids: `anomaly:{orderId}`, `bill:{billId}`, `settlement:cooldown:…
 | Payment anomaly | Resolve any on org | Resolve any on org | View only (`actionable: false`) | Resolve **own** orders only |
 | Service bill issued/overdue | Pay | Pay | View only | Not shown |
 | Settlement / xPub cool-down | Wait (auto-clears) | Wait | Wait | Not shown |
-| Site override pending (parent) | Approve/deny | — (Owner only) | — | — |
-| Site override pending (site) | Wait for parent Owner | Wait | Wait | Not shown |
 | Webhook ≥5 fails | Fix integrations | Fix integrations | Not shown | Not shown |
 
 Banner copy uses `actionable: false` when the signed-in role cannot clear the condition (escalate to Owner/Admin, or wait for cool-down / parent).

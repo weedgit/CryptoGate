@@ -10,8 +10,7 @@ import {
   DEFAULT_AGENT_COMMISSION_PERCENT,
 } from "./agent-commission-rules.mjs";
 import { listAgentPayoutAddressesByOrgIds } from "./agent-payout-store.mjs";
-import { upsertIssuedCommissionInvoiceRow, findReceivedCommissionForPayee } from "./commission-payout-store.mjs";
-import { parentPayoutAllowsSubInvoices } from "./commission-payout-rules.mjs";
+import { upsertIssuedCommissionInvoiceRow } from "./commission-payout-store.mjs";
 import { resolveAgentCommissionForPayout } from "../platform-settings/pricing-resolve.mjs";
 
 const MONTH_LABELS = [
@@ -324,93 +323,4 @@ export async function generateMonthlyCommissionInvoices(periodKey) {
     created.push(row);
   }
   return { created, skipped, periodKey, periodLabel: formatCommissionPeriodLabel(periodKey) };
-}
-
-/**
- * Direct child agents (not nested descendants).
- * @param {import("pg").QueryResultRow[]} orgs
- * @param {string} parentAgentId
- */
-export function directChildAgents(orgs, parentAgentId) {
-  return orgs.filter(
-    (o) =>
-      o.parent_id === parentAgentId &&
-      (o.type === "agent" || o.type === "agent_sub"),
-  );
-}
-
-/**
- * After the parent received this period's commission, issue invoices to
- * each direct sub-agent from that sub's merchant-tree fees.
- *
- * @param {string} parentAgentId
- * @param {string} periodKey
- * @returns {Promise<
- *   | { ok: true, created: object[], skipped: object[], periodKey: string, periodLabel: string }
- *   | { ok: false, status: number, code: string, message: string }
- * >}
- */
-export async function generateSubAgentCommissionInvoices(
-  parentAgentId,
-  periodKey,
-) {
-  const received = await findReceivedCommissionForPayee(
-    parentAgentId,
-    periodKey,
-  );
-  if (!received || !parentPayoutAllowsSubInvoices(received.payout_status)) {
-    return {
-      ok: false,
-      status: 409,
-      code: "parent_not_received",
-      message:
-        "Issue sub-agent invoices after you have received this period's commission.",
-    };
-  }
-
-  const orgs = await listOrgAccounts();
-  const subs = directChildAgents(orgs, parentAgentId);
-  const subIds = subs.map((s) => s.id);
-  const payouts = await listAgentPayoutAddressesByOrgIds(subIds);
-  const payoutBy = new Map(
-    payouts.map((p) => [
-      p.org_id,
-      { address: p.address, asset: p.asset, network: p.network },
-    ]),
-  );
-
-  const created = [];
-  const skipped = [];
-  for (const sub of subs) {
-    const resolved = await resolveAgentCommissionForPayout(sub.id);
-    const input = await buildInvoiceForAgent(
-      sub.id,
-      sub.name,
-      periodKey,
-      resolved.commissionPercent ?? DEFAULT_AGENT_COMMISSION_PERCENT,
-      payoutBy.get(sub.id) ?? null,
-      {
-        payer: "agent",
-        payerOrgId: parentAgentId,
-        paymentLink: `/agent/commissions?payee=${encodeURIComponent(sub.id)}&period=${encodeURIComponent(periodKey)}`,
-      },
-    );
-    const row = await upsertIssuedCommissionInvoiceRow(input);
-    if (!row) {
-      skipped.push({
-        payeeOrgId: sub.id,
-        payeeName: sub.name,
-        reason: "already_paid_or_settled",
-      });
-      continue;
-    }
-    created.push(row);
-  }
-  return {
-    ok: true,
-    created,
-    skipped,
-    periodKey,
-    periodLabel: formatCommissionPeriodLabel(periodKey),
-  };
 }

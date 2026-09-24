@@ -1482,7 +1482,7 @@ paths:
       operationId: requestSiteSettingOverride
       summary: Request a site-level override (disabled — sites inherit)
       description: >
-        Sites always inherit parent settings. This path returns 403 site_inherit_only
+        Sites always inherit parent settings. Always returns 403 site_inherit_only
         (legacy override_required is no longer issued). Direct PUT on site settlement
         / xPub / matching mode / retention is also 403.
       security:
@@ -1490,24 +1490,13 @@ paths:
       parameters:
         - $ref: "#/components/parameters/orgId"
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestSiteSettingOverride"
+              type: object
+              additionalProperties: true
       responses:
-        "201":
-          description: Pending override created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SiteSettingOverride"
-        "400":
-          description: Invalid settingKind or payload
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
         "401":
           description: Not authenticated
           content:
@@ -1515,13 +1504,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "409":
-          description: Pending or already-approved override for this kind
+          description: site_inherit_only — sites inherit parent settings
           content:
             application/json:
               schema:
@@ -1532,7 +1515,7 @@ paths:
       operationId: decideSiteSettingOverride
       summary: Approve or deny a site override (disabled — sites inherit)
       description: >
-        Sites always inherit parent settings. This path returns 403 site_inherit_only.
+        Sites always inherit parent settings. Always returns 403 site_inherit_only.
       security:
         - sessionCookie: []
       parameters:
@@ -1544,38 +1527,21 @@ paths:
             type: string
             format: uuid
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DecideSiteSettingOverride"
+              type: object
+              additionalProperties: true
       responses:
-        "200":
-          description: Decision recorded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SiteSettingOverride"
-        "400":
-          description: Invalid decision or missing MFA
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
         "401":
-          description: Not authenticated or invalid MFA
+          description: Not authenticated
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not the parent merchant Owner
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Pending override not found
+          description: site_inherit_only — sites inherit parent settings
           content:
             application/json:
               schema:
@@ -4176,30 +4142,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SiteSettingOverride"
-    RequestSiteSettingOverride:
-      type: object
-      required: [settingKind, payload]
-      properties:
-        settingKind:
-          $ref: "#/components/schemas/SiteOverrideKind"
-        payload:
-          type: object
-          additionalProperties: true
-    DecideSiteSettingOverride:
-      type: object
-      required: [decision]
-      properties:
-        decision:
-          type: string
-          enum: [approve, deny]
-        reason:
-          type: string
-          description: Required when denying
-        mfaCode:
-          type: string
-          minLength: 6
-          maxLength: 8
-          description: Required when approving settlement or xPub
     OrgRetentionSettings:
       type: object
       required: [orgId, orderDeleteDays]
@@ -5193,7 +5135,6 @@ components:
         - xpub_change
         - webhook_failures
         - service_bills
-        - site_overrides
     NotificationPreference:
       type: object
       required: [eventType, email, inApp]

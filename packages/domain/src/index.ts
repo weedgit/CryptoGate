@@ -887,7 +887,6 @@ export const NotificationEventType = {
   XpubChange: "xpub_change",
   WebhookFailures: "webhook_failures",
   ServiceBills: "service_bills",
-  SiteOverrides: "site_overrides",
 } as const;
 
 export type NotificationEventType =

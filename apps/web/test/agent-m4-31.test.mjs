@@ -99,6 +99,12 @@ describe("@paymentgate/web agent C10 commissions", () => {
     assert.doesNotMatch(page, /generateSubAgentCommissionInvoices/);
     assert.doesNotMatch(page, /To sub-agents/);
     assert.doesNotMatch(page, /Issue invoices/);
+    const payouts = readFileSync(
+      join(root, "src/commercial/commissionPayoutRecords.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(payouts, /generateSubAgentCommissionInvoices/);
+    assert.doesNotMatch(payouts, /generate-sub/);
     assert.doesNotMatch(page, /issueServiceBill/);
     assert.doesNotMatch(page, /createOrder/);
   });

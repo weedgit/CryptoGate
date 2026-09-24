@@ -145,15 +145,6 @@ export function validateConfirmSentBody(body) {
 }
 
 /**
- * Agent may issue sub-agent invoices only after receiving this period
- * (platform or parent marked paid / settled).
- * @param {string | null | undefined} payoutStatus
- */
-export function parentPayoutAllowsSubInvoices(payoutStatus) {
-  return payoutStatus === "paid" || payoutStatus === "settled";
-}
-
-/**
  * @param {object} row
  */
 export function toCommissionPayout(row) {

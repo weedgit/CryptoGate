@@ -324,14 +324,6 @@ async function loadBillingAlerts(
   }
 }
 
-async function loadSiteOverrideAlerts(
-  _session: Session,
-  _orgId: string,
-  _next: AlertItem[],
-): Promise<void> {
-  /* Sites inherit parent settings; override requests are not used. */
-}
-
 async function loadWebhookFailureAlerts(orgId: string, next: AlertItem[]): Promise<void> {
   try {
     const hooks = await listWebhooks(orgId);
@@ -390,7 +382,6 @@ export async function refreshMerchantAlerts(
       loadSettlementAlerts(orgId, next),
       loadXpubAlerts(orgId, next),
       loadBillingAlerts(next, canPay),
-      loadSiteOverrideAlerts(session, orgId, next),
       canManageHooks ? loadWebhookFailureAlerts(orgId, next) : Promise.resolve(),
     ]);
   }
@@ -440,9 +431,6 @@ function alertEventType(alert: AlertItem): string | null {
   if (alert.id.startsWith("webhook:")) return "webhook_failures";
   if (alert.id.startsWith("bill:") || alert.category === "billing") {
     return "service_bills";
-  }
-  if (alert.id.startsWith("site-override:") || alert.id.includes("override")) {
-    return "site_overrides";
   }
   if (alert.id.startsWith("anomaly:")) {
     return "payment_anomaly";
