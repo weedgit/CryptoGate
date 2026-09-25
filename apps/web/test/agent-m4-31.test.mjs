@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -92,12 +92,17 @@ describe("@paymentgate/web agent C10 commissions", () => {
     assert.match(page, /listAgentCommissions/);
     assert.match(page, /getAgentServiceBills/);
     assert.match(page, /parseCommissionsTab/);
-    assert.match(page, /From parent agent/);
+    assert.match(page, /From platform/);
     assert.match(page, /payeeOrgId: agentId/);
-    assert.match(page, /CommissionInvoiceModal/);
+    assert.doesNotMatch(page, /CommissionInvoiceModal/);
+    assert.match(page, /openInvoice/);
+    assert.match(app, /CommissionInvoiceDetailPage/);
+    assert.match(app, /commissions\/:id/);
     assert.match(page, /Open invoice/);
     assert.doesNotMatch(page, /generateSubAgentCommissionInvoices/);
     assert.doesNotMatch(page, /To sub-agents/);
+    assert.doesNotMatch(page, /From parent agent/);
+    assert.doesNotMatch(page, /payer:\s*["']agent["']/);
     assert.doesNotMatch(page, /Issue invoices/);
     const payouts = readFileSync(
       join(root, "src/commercial/commissionPayoutRecords.ts"),
@@ -105,6 +110,8 @@ describe("@paymentgate/web agent C10 commissions", () => {
     );
     assert.doesNotMatch(payouts, /generateSubAgentCommissionInvoices/);
     assert.doesNotMatch(payouts, /generate-sub/);
+    assert.doesNotMatch(payouts, /paymentLinkForAgentSubPayout/);
+    assert.doesNotMatch(payouts, /"ready"|"verifying"/);
     assert.doesNotMatch(page, /issueServiceBill/);
     assert.doesNotMatch(page, /createOrder/);
   });
@@ -154,52 +161,42 @@ describe("@paymentgate/web agent C7 merchant detail", () => {
 });
 
 describe("@paymentgate/web agent C3 sub-agent detail", () => {
-  it("enriches Profile like merchant detail with activity gate (Phase G)", () => {
-    const card = readFileSync(
-      join(root, "src/agent/SubAgentDetailCard.tsx"),
-      "utf8",
+  it("removes SubAgent detail card (Phase-1 purge)", () => {
+    assert.equal(
+      existsSync(join(root, "src/agent/SubAgentDetailCard.tsx")),
+      false,
     );
-    assert.match(card, /AccountOverviewProfile/);
-    assert.match(card, /setupKind=["']agent["']/);
-    assert.match(card, /canEditOrg=\{false\}/);
-    assert.match(card, /canEditOwner=\{false\}/);
-    assert.match(card, /getAgentPayout/);
-    assert.match(card, /getAgentCommission/);
-    assert.match(card, /walletSet/);
+    assert.equal(
+      existsSync(join(root, "src/agent/SubAgentsListPage.tsx")),
+      false,
+    );
   });
 });
 
 describe("@paymentgate/web agent nested create removed", () => {
-  it("redirects agents/* away from onboard and blocks agent_sub add-child", () => {
+  it("redirects agents/* away and keeps agent_sub create gone", () => {
     const app = readFileSync(join(root, "src/agent/AgentApp.tsx"), "utf8");
-    assert.match(app, /path="agents\/new"/);
+    assert.match(app, /path="agents\/\*"/);
     assert.match(app, /Navigate to=\{agentRoute\("merchants"\)\}/);
-    assert.doesNotMatch(app, /AgentSubAgentsRoutes|OnboardSubAgentPage/);
+    assert.doesNotMatch(app, /AgentSubAgentsRoutes|OnboardSubAgentPage|SubAgentsListPage/);
 
-    const list = readFileSync(
-      join(root, "src/agent/SubAgentsListPage.tsx"),
-      "utf8",
+    assert.equal(
+      existsSync(join(root, "src/agent/SubAgentsListPage.tsx")),
+      false,
     );
-    assert.match(list, /canCreateSubAgent = false/);
-    assert.doesNotMatch(list, /agentRoute\("agents\/new"\)/);
 
     const prefetch = readFileSync(
       join(root, "src/agent/prefetchRoutes.ts"),
       "utf8",
     );
-    assert.doesNotMatch(prefetch, /OnboardSubAgentPage|AgentSubAgentsRoutes/);
-    assert.match(prefetch, /path === "agents"/);
-    assert.match(prefetch, /AgentMerchantsRoutes/);
+    assert.doesNotMatch(prefetch, /OnboardSubAgentPage|AgentSubAgentsRoutes|agents\//);
 
     const tree = readFileSync(
       join(root, "src/platform/platformOrgTree.ts"),
       "utf8",
     );
     assert.match(tree, /orgCanAddChild/);
-    assert.match(tree, /org_type_disabled|Nested agent_sub create is disabled/);
-    assert.doesNotMatch(
-      tree,
-      /type === "agent_sub" \|\|/,
-    );
+    assert.doesNotMatch(tree, /agent_sub/);
+    assert.doesNotMatch(tree, /canAddSubAgentUnderNode/);
   });
 });

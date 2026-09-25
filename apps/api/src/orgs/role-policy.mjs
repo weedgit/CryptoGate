@@ -260,10 +260,7 @@ export function paymentOrderListScope(caller) {
       continue;
     }
     // Agent O/A/V: read payment orders for merchants in their subtree (watch-only).
-    if (
-      (m.orgType === "agent" || m.orgType === "agent_sub") &&
-      ORDER_READ_ROLES.has(m.role)
-    ) {
+    if (m.orgType === "agent" && ORDER_READ_ROLES.has(m.role)) {
       treeRoots.push(m.orgId);
     }
   }
@@ -290,9 +287,7 @@ export function canExportPaymentOrders(caller) {
   return caller.memberships.some(
     (m) =>
       ORDER_READ_ROLES.has(m.role) &&
-      (MERCHANT_TYPES.has(m.orgType) ||
-        m.orgType === "agent" ||
-        m.orgType === "agent_sub"),
+      (MERCHANT_TYPES.has(m.orgType) || m.orgType === "agent"),
   );
 }
 
@@ -476,9 +471,7 @@ function resolveMerchantSettingsOrgId(
   }
   if (eligible.length === 1) return { ok: true, orgId: eligible[0].orgId };
   if (eligible.length === 0) {
-    const agentOnly = memberships.some(
-      (m) => m.orgType === "agent" || m.orgType === "agent_sub",
-    );
+    const agentOnly = memberships.some((m) => m.orgType === "agent");
     return {
       ok: false,
       status: 403,
@@ -581,10 +574,7 @@ export function serviceBillListScope(caller) {
       rootIds.push(m.orgId);
       continue;
     }
-    if (
-      (m.orgType === "agent" || m.orgType === "agent_sub") &&
-      ORDER_READ_ROLES.has(m.role)
-    ) {
+    if (m.orgType === "agent" && ORDER_READ_ROLES.has(m.role)) {
       rootIds.push(m.orgId);
     }
   }
@@ -629,9 +619,7 @@ export function canReadFeeTierBands(caller) {
     (m) =>
       m.role !== "cashier" &&
       ORDER_READ_ROLES.has(m.role) &&
-      (MERCHANT_TYPES.has(m.orgType) ||
-        m.orgType === "agent" ||
-        m.orgType === "agent_sub"),
+      (MERCHANT_TYPES.has(m.orgType) || m.orgType === "agent"),
   );
 }
 
@@ -677,9 +665,7 @@ export function canReadMerchantCommercial(caller, org) {
   if (role === "cashier") return false;
   if (role && ORDER_READ_ROLES.has(role)) return true;
   return caller.memberships.some(
-    (m) =>
-      (m.orgType === "agent" || m.orgType === "agent_sub") &&
-      ORDER_READ_ROLES.has(m.role),
+    (m) => m.orgType === "agent" && ORDER_READ_ROLES.has(m.role),
   );
 }
 
@@ -704,7 +690,7 @@ export function canUpdateMerchantCommercial(caller, org, _ancestorIds = [], opts
   return caller.platformOperator === true;
 }
 
-const AGENT_ORG_TYPES = new Set(["agent", "agent_sub"]);
+const AGENT_ORG_TYPES = new Set(["agent"]);
 
 /**
  * Agent Owner/Admin may create a merchant_site under a merchant in their channel
@@ -772,9 +758,7 @@ export async function canOnboardSiteUnderParentAsync(caller, parentOrg, findOrg)
 export function evaluateCrossOrgMerchantSiteInvite(user, memberships) {
   const staff = (memberships ?? []).filter(
     (m) =>
-      (m.orgType === "platform" ||
-        m.orgType === "agent" ||
-        m.orgType === "agent_sub") &&
+      (m.orgType === "platform" || m.orgType === "agent") &&
       ["owner", "administrator", "viewer"].includes(m.role),
   );
   if (staff.length === 0) return { ok: true };
@@ -810,20 +794,18 @@ export function evaluateCrossOrgMerchantSiteInvite(user, memberships) {
 export function isPlatformOrAgentOperatorMemberships(memberships) {
   return (memberships ?? []).some(
     (m) =>
-      (m.orgType === "platform" ||
-        m.orgType === "agent" ||
-        m.orgType === "agent_sub") &&
+      (m.orgType === "platform" || m.orgType === "agent") &&
       (m.role === "owner" || m.role === "administrator"),
   );
 }
 
 /** Agent may lifecycle-manage direct children only (not grandchildren). */
-const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["agent", "agent_sub", "merchant"]);
+const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["merchant"]);
 
 /**
- * Agent or sub-agent Owner/Admin may onboard, suspend, delete, and set commercial
- * terms for orgs whose parent is an agent channel org they manage — never
- * grandchildren relative to a top-level agent org (even with dual membership).
+ * Agent Owner/Admin may onboard, suspend, delete, and set commercial
+ * terms for merchants whose parent is an agent channel org they manage —
+ * never grandchildren relative to a top-level agent org (even with dual membership).
  * Platform operators bypass this check.
  * @param {{
  *   platformOperator: boolean,
@@ -874,12 +856,7 @@ export function canReadAgentPayout(caller, org) {
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
   if (role && ORDER_READ_ROLES.has(role)) return true;
-  // Parent agent O/A/V may read a visible descendant’s payout (for cascade slips).
-  // Route already gates org visibility via listVisibleOrgs.
-  return caller.memberships.some(
-    (m) =>
-      AGENT_ORG_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
-  );
+  return false;
 }
 
 /**
@@ -911,11 +888,7 @@ export function canReadAgentCommission(caller, org) {
   const role = roleOnOrg(caller.memberships, org.id);
   if (role === "cashier") return false;
   if (role && ORDER_READ_ROLES.has(role)) return true;
-  // Parent agent O/A/V may read a visible descendant’s commission rate.
-  return caller.memberships.some(
-    (m) =>
-      AGENT_ORG_TYPES.has(m.orgType) && ORDER_READ_ROLES.has(m.role),
-  );
+  return false;
 }
 
 /**
@@ -947,7 +920,7 @@ export function canReadCommissionPayouts(caller) {
 }
 
 /**
- * Platform-wide commission payout history (including cascade).
+ * Platform-wide commission payout history.
  * @param {{
  *   platformOperator: boolean,
  *   memberships: { orgType: string, role: string }[],
@@ -955,15 +928,4 @@ export function canReadCommissionPayouts(caller) {
  */
 export function canReadAllCommissionPayouts(caller) {
   return platformHasGlobalRead(caller);
-}
-
-/**
- * Parent agent Owner/Admin may prepare / mark agent→sub payouts.
- * @param {{ memberships: { orgId: string, role: string }[] }} caller
- * @param {string} payerOrgId
- */
-export function canManageAgentCommissionPayout(caller, payerOrgId) {
-  if (!payerOrgId) return false;
-  const role = roleOnOrg(caller.memberships, payerOrgId);
-  return SETTINGS_ROLES.has(role);
 }

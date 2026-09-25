@@ -60,7 +60,7 @@ describe("@paymentgate/web platform B4 onboard agent", () => {
       join(root, "src/platform/onboardAgent.ts"),
       "utf8",
     );
-    assert.match(rules, /DEFAULT_MAX_AGENT_DEPTH = 2/);
+    assert.match(rules, /DEFAULT_MAX_AGENT_DEPTH = 1/);
   });
 });
 
@@ -96,12 +96,12 @@ describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
     );
     assert.match(list, /serviceBillStatusTone/);
     assert.match(list, /plat-bills__badge/);
-    assert.match(list, /serviceBillPeriodOptions/);
-    assert.match(list, /Backfill month/);
-    assert.match(list, /One-off bill/);
-    assert.match(list, /Recurring invoices are created automatically/);
-    assert.match(list, /runBillAction/);
-    assert.match(list, /Mark paid/);
+    assert.match(list, /GenerateServiceBillsModal/);
+    assert.match(list, /IssueServiceBillModal/);
+    assert.match(list, /Backfill/);
+    assert.match(list, /Recurring invoices appear automatically/);
+    assert.match(list, /service-bills\/\$\{/);
+    assert.doesNotMatch(list, /serviceBillPeriodOptions/);
     assert.doesNotMatch(list, />Generate period</);
     assert.doesNotMatch(list, /\+ Create Bill/);
 

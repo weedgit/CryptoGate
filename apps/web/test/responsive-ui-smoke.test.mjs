@@ -47,10 +47,10 @@ describe("responsive UI smoke selectors", () => {
     assert.match(css, /\.merchant-dash-orders__scroll[\s\S]*?overflow-x:\s*auto/);
   });
 
-  it("compliance KPIs go single-column on small phones", () => {
+  it("support KPIs go single-column on small phones", () => {
     assert.match(
       css,
-      /@media \(max-width: 390px\)[\s\S]*?\.plat-compliance__kpis[\s\S]*?grid-template-columns:\s*1fr/,
+      /@media \(max-width: 390px\)[\s\S]*?\.plat-support__kpis[\s\S]*?grid-template-columns:\s*1fr/,
     );
   });
 });

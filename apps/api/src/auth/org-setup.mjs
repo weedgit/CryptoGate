@@ -3,7 +3,7 @@ import { findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
 import { listSettlementAddresses } from "../settlement/settlement-store.mjs";
 import { findAgentPayoutAddress } from "../commercial/agent-payout-store.mjs";
 
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
+const AGENT_TYPES = new Set(["agent"]);
 
 function isContactVerified(user) {
   return Boolean(user?.emailVerified && user?.phoneVerified);

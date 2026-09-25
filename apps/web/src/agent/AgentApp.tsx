@@ -28,6 +28,10 @@ const CommissionsPage = lazyNamed(
   () => import("./CommissionsPage"),
   "CommissionsPage",
 );
+const CommissionInvoiceDetailPage = lazyNamed(
+  () => import("./CommissionInvoiceDetailPage"),
+  "CommissionInvoiceDetailPage",
+);
 const AgentMerchantsRoutes = lazyNamed(
   () => import("./AgentMerchantsRoutes"),
   "AgentMerchantsRoutes",
@@ -142,15 +146,7 @@ export function AgentApp() {
           element={<ArchitecturePage session={session} />}
         />
         <Route
-          path="agents"
-          element={<Navigate to={agentRoute("merchants")} replace />}
-        />
-        <Route
-          path="agents/new"
-          element={<Navigate to={agentRoute("merchants")} replace />}
-        />
-        <Route
-          path="agents/:id"
+          path="agents/*"
           element={<Navigate to={agentRoute("merchants")} replace />}
         />
         <Route
@@ -168,6 +164,10 @@ export function AgentApp() {
           element={<Navigate to={agentRoute("settings")} replace />}
         />
         <Route path="commissions" element={<CommissionsPage session={session} />} />
+        <Route
+          path="commissions/:id"
+          element={<CommissionInvoiceDetailPage session={session} />}
+        />
         <Route path="service-bills" element={<ServiceBillsListPage />} />
         <Route path="service-bills/:id" element={<ServiceBillDetailPage />} />
         <Route path="*" element={<Navigate to={agentRoute()} replace />} />

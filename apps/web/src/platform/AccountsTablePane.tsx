@@ -35,7 +35,7 @@ export function AccountsTablePane({
   const rows = useMemo(() => {
     const typeOk =
       mode === "agents"
-        ? (t: string) => t === "agent" || t === "agent_sub"
+        ? (t: string) => t === "agent"
         : (t: string) => t === "merchant";
     const q = query.trim().toLowerCase();
     const parentName = (id: string | null) =>

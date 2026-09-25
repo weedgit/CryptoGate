@@ -96,7 +96,9 @@ export async function findServiceBillById(id) {
  *   orgId?: string | null,
  *   status?: string | null,
  *   limit?: number,
+ *   offset?: number,
  * }} query
+ * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
  */
 export async function listServiceBills(query) {
   const params = [];
@@ -104,7 +106,11 @@ export async function listServiceBills(query) {
   const where = [];
 
   if (query.kind === "filter") {
-    if (!query.orgIds || query.orgIds.length === 0) return [];
+    if (!query.orgIds || query.orgIds.length === 0) {
+      const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 5000);
+      const offset = Math.max(Number(query.offset) || 0, 0);
+      return { rows: [], total: 0, limit, offset };
+    }
     params.push(query.orgIds);
     where.push(`org_id = ANY($${params.length}::uuid[])`);
   }
@@ -117,17 +123,26 @@ export async function listServiceBills(query) {
     where.push(`status = $${params.length}`);
   }
 
-  const limit = query.limit ?? 100;
-  params.push(limit);
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 5000);
+  const offset = Math.max(Number(query.offset) || 0, 0);
+
+  const countRes = await queryBills(
+    `SELECT count(*)::int AS n FROM service_bills ${whereSql}`,
+    params,
+  );
+  const total = countRes.rows[0]?.n ?? 0;
+
+  const listParams = [...params, limit, offset];
   const { rows } = await queryBills(
     `SELECT ${BILL_SELECT}
      FROM service_bills
-     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ${whereSql}
      ORDER BY due_at DESC, created_at DESC
-     LIMIT $${params.length}`,
-    params,
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    listParams,
   );
-  return rows;
+  return { rows, total, limit, offset };
 }
 
 /**

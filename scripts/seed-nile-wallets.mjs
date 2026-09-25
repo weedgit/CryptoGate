@@ -1,6 +1,7 @@
 /**
- * TRON Nile (testnet) HD wallet labels from Kevin UAT — real addresses, not placeholders.
- * Used by seed-kevin-uat.mjs and local payment testing.
+ * TRON Nile (testnet) HD wallet labels from Kevin/Atlas UAT — real addresses,
+ * not placeholders. Used by seed-kevin-uat*.mjs and local payment testing.
+ * Phase 1: no sub-agent wallet slot (agent_sub removed).
  */
 export const NILE_HD_WALLETS = {
   /** Platform service-bill remittance (Rx on invoices). */
@@ -12,7 +13,6 @@ export const NILE_HD_WALLETS = {
   customer2: "TPQJjsofWLs38vU3n7T5jvGYHVirKGybuu",
   kevinMerchant2: "TRBapU5LUjFTT4fb25ZfiVKosMqNHsjGsK",
   kevinAgent: "TSrEUD6Mex9TzeRoBtvC3nfbALKrYWhxdV",
-  kevinSubAgent: "TY8XcwMQfCeVB8b9rQXcaRrdwotwemWGft",
   kevinSingleMerchant: "TYd6TjtHUWebLkaHQaS9neSjLdFh1i7UKB",
   /** Kevin UAT expansion — customer HD slots #8–#14 (Nile). */
   customer8: "TY8r8dGG8uh1DJW6Jip524wFaqZKHF5mXu",

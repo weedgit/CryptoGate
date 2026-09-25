@@ -109,17 +109,19 @@ export async function handleGetOrgOverview(req, res, orgId) {
     if (orderScope.kind !== "none") {
       const filter = await expandPaymentOrderReadFilter(orderScope);
       if (orgIdInPaymentOrderFilter(filter, orgId)) {
-        orderRows = await listPaymentOrders({
-          kind: filter.kind === "all" ? "all" : "filter",
-          treeOrgIds: filter.kind === "filter" ? filter.treeOrgIds : [],
-          cashierOrgIds: filter.kind === "filter" ? filter.cashierOrgIds : [],
-          createdBy: filter.kind === "filter" ? filter.createdBy : null,
-          orgId,
-          limit: OVERVIEW_ORDERS_LIMIT,
-        });
+        orderRows = (
+          await listPaymentOrders({
+            kind: filter.kind === "all" ? "all" : "filter",
+            treeOrgIds: filter.kind === "filter" ? filter.treeOrgIds : [],
+            cashierOrgIds: filter.kind === "filter" ? filter.cashierOrgIds : [],
+            createdBy: filter.kind === "filter" ? filter.createdBy : null,
+            orgId,
+            limit: OVERVIEW_ORDERS_LIMIT,
+          })
+        ).rows;
       }
     }
-  } else if (org.type === "agent" || org.type === "agent_sub") {
+  } else if (org.type === "agent") {
     if (canReadAgentPayout(caller, org)) {
       const payoutRow = await findAgentPayoutAddress(orgId);
       payout = payoutRow ? toAgentPayoutAddress(payoutRow) : null;
@@ -144,11 +146,13 @@ export async function handleGetOrgOverview(req, res, orgId) {
             ? merchantOrgIds
             : merchantOrgIds.filter((id) => orgIdInPaymentOrderFilter(filter, id));
         if (allowedIds.length > 0) {
-          orderRows = await listPaymentOrders({
-            kind: "filter",
-            treeOrgIds: allowedIds,
-            limit: OVERVIEW_ORDERS_LIMIT,
-          });
+          orderRows = (
+            await listPaymentOrders({
+              kind: "filter",
+              treeOrgIds: allowedIds,
+              limit: OVERVIEW_ORDERS_LIMIT,
+            })
+          ).rows;
         }
       }
     }

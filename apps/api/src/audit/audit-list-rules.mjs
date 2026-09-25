@@ -66,6 +66,7 @@ export function toAuditLogEntry(row) {
    *   createdAt: string,
    *   actorEmail?: string,
    *   actorDisplayName?: string,
+   *   actorAvatarUrl?: string,
    * }} */
   const entry = {
     id: row.id,
@@ -86,6 +87,12 @@ export function toAuditLogEntry(row) {
     row.actor_display_name.trim()
   ) {
     entry.actorDisplayName = row.actor_display_name.trim();
+  }
+  if (
+    typeof row.actor_avatar_url === "string" &&
+    row.actor_avatar_url.trim()
+  ) {
+    entry.actorAvatarUrl = row.actor_avatar_url.trim();
   }
   return entry;
 }

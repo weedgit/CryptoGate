@@ -36,7 +36,6 @@ export function useOrgTreeOpsExtras(
     }
     const needsFetch =
       node.type === "agent" ||
-      node.type === "agent_sub" ||
       node.type === "merchant";
     if (!needsFetch) {
       setState(EMPTY);

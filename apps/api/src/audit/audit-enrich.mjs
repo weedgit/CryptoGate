@@ -44,12 +44,12 @@ export async function enrichAuditLogRows(rows) {
   if (ids.size === 0) return rows;
 
   const { rows: users } = await getPool().query(
-    `SELECT id, email, display_name
+    `SELECT id, email, display_name, avatar_url
      FROM users
      WHERE id = ANY($1::uuid[])`,
     [[...ids]],
   );
-  /** @type {Map<string, { email: string, display_name: string | null }>} */
+  /** @type {Map<string, { email: string, display_name: string | null, avatar_url: string | null }>} */
   const usersById = new Map(
     users.map((u) => [
       String(u.id),
@@ -57,6 +57,10 @@ export async function enrichAuditLogRows(rows) {
         email: typeof u.email === "string" ? u.email : "",
         display_name:
           typeof u.display_name === "string" ? u.display_name : null,
+        avatar_url:
+          typeof u.avatar_url === "string" && u.avatar_url.trim()
+            ? u.avatar_url.trim()
+            : null,
       },
     ]),
   );
@@ -70,6 +74,7 @@ export async function enrichAuditLogRows(rows) {
       metadata: enrichMetadata(row.metadata, usersById),
       actor_email: actor?.email?.trim() || null,
       actor_display_name: actor?.display_name?.trim() || null,
+      actor_avatar_url: actor?.avatar_url || null,
     };
   });
 }

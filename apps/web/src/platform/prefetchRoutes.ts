@@ -24,10 +24,14 @@ export function prefetchPlatformRoute(path: string) {
     else if (path === "merchants/new" || path.startsWith("merchants/new"))
       prefetchPlatformOnboardMerchant();
     warm(() => import("./PlatformAccountsRoutes"));
-  } else if (path === "service-bills") warm(() => import("./ServiceBillsListPage"));
+  }   else if (path === "service-bills") warm(() => import("./ServiceBillsListPage"));
   else if (path === "audit") warm(() => import("./AuditLogPage"));
-  else if (path === "compliance") warm(() => import("./CompliancePage"));
-  else if (path === "commissions") warm(() => import("./PlatformCommissionsPage"));
+  else if (path === "support" || path === "compliance")
+    warm(() => import("./SupportPage"));
+  else if (path === "commissions" || path.startsWith("commissions/")) {
+    if (path.includes("/")) warm(() => import("./CommissionInvoiceDetailPage"));
+    else warm(() => import("./PlatformCommissionsPage"));
+  }
   else if (path === "settings/networks" || path === "ops/health")
     warm(() => import("./NetworkCatalogPage"));
   else if (path === "settings/team") warm(() => import("./PlatformTeamPage"));

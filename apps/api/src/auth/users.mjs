@@ -188,12 +188,16 @@ export const USER_AVATAR_DATA_URL_MAX_LEN = 180_000;
 const USER_AVATAR_DATA_URL_RE =
   /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
 
+/** Seeded demo avatars served from apps/web/public/avatars. */
+const USER_AVATAR_PUBLIC_PATH_RE = /^\/avatars\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|gif)$/i;
+
 /**
  * @param {unknown} value
  * @returns {value is string}
  */
 export function isUserAvatarValue(value) {
   if (typeof value !== "string" || value.length === 0) return false;
+  if (USER_AVATAR_PUBLIC_PATH_RE.test(value)) return true;
   if (value.length > USER_AVATAR_DATA_URL_MAX_LEN) return false;
   return USER_AVATAR_DATA_URL_RE.test(value);
 }

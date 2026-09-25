@@ -142,11 +142,13 @@ describe("M4-10 authz regression — agent bars", () => {
     assert.equal(canReadAgentPayout(p, agentOrg), true);
   });
 
-  it("parent agent may read sub-agent payout and commission (cascade slips)", () => {
-    const subOrg = { id: "a1-sub", type: "agent_sub" };
-    assert.equal(canReadAgentPayout(a, subOrg), true);
-    assert.equal(canReadAgentCommission(a, subOrg), true);
-    assert.equal(canUpdateAgentPayout(a, subOrg), false);
+  it("agent may only read own payout and commission (no cascade)", () => {
+    const otherAgent = { id: "a1-other", type: "agent" };
+    assert.equal(canReadAgentPayout(a, agentOrg), true);
+    assert.equal(canReadAgentCommission(a, agentOrg), true);
+    assert.equal(canReadAgentPayout(a, otherAgent), false);
+    assert.equal(canReadAgentCommission(a, otherAgent), false);
+    assert.equal(canUpdateAgentPayout(a, otherAgent), false);
   });
 
   it("cannot create payment orders; may list/export subtree (watch-only)", () => {

@@ -26,6 +26,7 @@ import {
   replaceFeeTierSettings,
   toFeeTierBand,
 } from "./fee-tier-store.mjs";
+import { DEFAULT_MAX_AGENT_DEPTH } from "../orgs/org-accounts.mjs";
 import {
   getPlatformOrgPolicy,
   maxAgentDepthInTree,
@@ -128,8 +129,18 @@ export async function handlePutPlatformOrgPolicy(req, res) {
   }
   const raw = body?.maxAgentDepth;
   const maxAgentDepth = Number(raw);
-  if (!Number.isInteger(maxAgentDepth) || maxAgentDepth < 0 || maxAgentDepth > 5) {
-    sendError(res, 400, "invalid_request", "maxAgentDepth must be an integer 0–5");
+  // Phase 1: agents under Platform only (DEFAULT_MAX_AGENT_DEPTH = 1).
+  if (
+    !Number.isInteger(maxAgentDepth) ||
+    maxAgentDepth < 0 ||
+    maxAgentDepth > DEFAULT_MAX_AGENT_DEPTH
+  ) {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      `maxAgentDepth must be an integer 0–${DEFAULT_MAX_AGENT_DEPTH}`,
+    );
     return;
   }
   if (typeof body?.mfaEnforcement !== "boolean") {
@@ -300,6 +311,9 @@ export async function handlePutBillingWalletSettings(req, res) {
   const settings = await updatePlatformBillingSettings({
     sellerName: validated.sellerName,
     payTo: validated.payTo,
+    ...(validated.sellerEmail !== undefined
+      ? { sellerEmail: validated.sellerEmail }
+      : {}),
   });
   await insertAuditEvent({
     actorUserId: caller.userId,
@@ -308,6 +322,7 @@ export async function handlePutBillingWalletSettings(req, res) {
     metadata: {
       sellerName: settings.sellerName,
       hasPayTo: Boolean(settings.payTo),
+      hasSellerEmail: Boolean(settings.sellerEmail),
     },
   });
   sendJson(res, 200, settings);

@@ -83,7 +83,7 @@ async function loadVisibleOrg(req, res, orgId) {
 }
 
 /**
- * GET /v1/org-member-emails?types=agent,agent_sub
+ * GET /v1/org-member-emails?types=agent,merchant
  * GET /v1/platform/org-member-emails (alias)
  * GET /v1/platform/org-emails (alias)
  * Bulk member emails for orgs visible to the caller.
@@ -320,9 +320,7 @@ export async function handleInviteOrgUser(req, res, orgId) {
       orgType: org.type,
       ...(provisioned.created &&
       temporaryPassword &&
-      (org.type === "agent" ||
-        org.type === "agent_sub" ||
-        org.type === "merchant")
+      (org.type === "agent" || org.type === "merchant")
         ? { initialSignIn: temporaryPassword }
         : {}),
     },

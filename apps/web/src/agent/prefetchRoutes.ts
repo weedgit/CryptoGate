@@ -16,12 +16,12 @@ export function prefetchAgentRoute(path: string) {
     warm(() => import("./OnboardSitePage"));
   else if (path === "merchants" || path.startsWith("merchants/"))
     warm(() => import("./AgentMerchantsRoutes"));
-  // AgentApp redirects agents/* → merchants; warm the destination chunk.
-  else if (path === "agents" || path.startsWith("agents/"))
-    warm(() => import("./AgentMerchantsRoutes"));
   else if (path === "service-bills" || path.startsWith("service-bills/"))
     warm(() => import("./ServiceBillsListPage"));
-  else if (path === "commissions") warm(() => import("./CommissionsPage"));
+  else if (path === "commissions" || path.startsWith("commissions/")) {
+    if (path.includes("/")) warm(() => import("./CommissionInvoiceDetailPage"));
+    else warm(() => import("./CommissionsPage"));
+  }
   else if (path === "settings/team") warm(() => import("./TeamSettingsPage"));
   else if (path === "settings") warm(() => import("./AgentSettingsPage"));
 }

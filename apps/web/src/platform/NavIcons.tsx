@@ -69,13 +69,16 @@ export function ArchitectureNavIcon({ className }: IconProps) {
   );
 }
 
-export function ComplianceNavIcon({ className }: IconProps) {
+export function SupportNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </IconShell>
   );
 }
+
+/** @deprecated Use SupportNavIcon */
+export const ComplianceNavIcon = SupportNavIcon;
 
 export function FeesNavIcon({ className }: IconProps) {
   return (

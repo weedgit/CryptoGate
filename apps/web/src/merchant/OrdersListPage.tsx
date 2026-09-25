@@ -12,11 +12,12 @@ import { OrgListPagination } from "../platform/OrgListPagination";
 import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
+  listOrdersPage,
   ordersCsvUrl,
   type PaymentOrder,
   type Session,
 } from "./api";
-import { getMerchantOrders, invalidateMerchantOrdersList, peekMerchantOrders } from "./merchantOrdersList";
+import { peekMerchantOrders } from "./merchantOrdersList";
 import { getMerchantOrder } from "./merchantOrderDetail";
 import { getMerchantOrderPayment } from "./merchantOrderPaymentDetails";
 import { matchingModeLabel } from "./matchingLabels";
@@ -55,6 +56,17 @@ type SortDir = "asc" | "desc";
 type Props = { session: Session };
 
 const PAGE_SIZE = 20;
+/** API JSON max is 200 — page with offset to load beyond the silent cap. */
+const FETCH_PAGE = 200;
+
+function mergeOrders(
+  prev: PaymentOrder[],
+  next: PaymentOrder[],
+): PaymentOrder[] {
+  const map = new Map(prev.map((o) => [o.id, o]));
+  for (const o of next) map.set(o.id, o);
+  return [...map.values()];
+}
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -547,6 +559,8 @@ export function OrdersListPage({ session }: Props) {
   const [items, setItems] = useState<PaymentOrder[]>(
     () => peekMerchantOrders() ?? [],
   );
+  const [listTotal, setListTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
   const [hasLoaded, setHasLoaded] = useState(
     () => peekMerchantOrders() != null,
@@ -568,16 +582,43 @@ export function OrdersListPage({ session }: Props) {
     if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
-      const rows = await getMerchantOrders();
-      setItems(rows);
+      const pageResult = await listOrdersPage({
+        limit: FETCH_PAGE,
+        offset: 0,
+      });
+      setItems(pageResult.items);
+      setListTotal(pageResult.total);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load orders");
       setItems([]);
+      setListTotal(0);
     } finally {
       setLoading(false);
       setHasLoaded(true);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || items.length >= listTotal) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const pageResult = await listOrdersPage({
+        limit: FETCH_PAGE,
+        offset: items.length,
+      });
+      setItems((prev) => mergeOrders(prev, pageResult.items));
+      setListTotal(pageResult.total);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load more orders",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, items.length, listTotal]);
+
+  const hasMoreServer = items.length < listTotal;
 
   useEffect(() => {
     void load();
@@ -914,6 +955,30 @@ export function OrdersListPage({ session }: Props) {
               pageSize={PAGE_SIZE}
               onPageChange={setPage}
             />
+            {hasMoreServer ? (
+              <div
+                className="plat-orders__load-more"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginTop: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <p className="muted" style={{ margin: 0 }}>
+                  Loaded {items.length} of {listTotal}
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={loadingMore}
+                  onClick={() => void loadMore()}
+                >
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

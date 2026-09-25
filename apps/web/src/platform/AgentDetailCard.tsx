@@ -30,8 +30,9 @@ import {
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
+import { MiddleEllipsisText } from "../shared/MiddleEllipsisText";
 import { AccountsDetailHero } from "./AccountsDetailHero";
-import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree, subAgentsUnderAgent } from "./agentSubtree";
+import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "./org";
 import { FundAmount } from "./FundAmount";
 import {
@@ -43,7 +44,6 @@ import {
   agentSubtreePlatformFeeMtd,
   agentSubtreeVolumeMtd,
   DEFAULT_AGENT_COMMISSION_PERCENT,
-  truncateAddress,
 } from "./orgDetailSeeds";
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
@@ -60,6 +60,7 @@ import {
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "activity", label: "Recent activity" },
   { id: "team", label: "Team" },
 ] as const;
 
@@ -67,7 +68,9 @@ type TabId = (typeof TABS)[number]["id"];
 
 function automaticCommissionPercent(
   volumeUsd: number,
-  tiers: Array<Pick<FeeTierBand, "tier" | "volumeMinUsd" | "volumeMaxUsd" | "agentCommissionPercent">>,
+  tiers: ReadonlyArray<
+    Pick<FeeTierBand, "tier" | "volumeMinUsd" | "volumeMaxUsd" | "agentCommissionPercent">
+  >,
 ): string {
   const vol = Number.isFinite(volumeUsd) ? volumeUsd : 0;
   const rank: Record<string, number> = { enterprise: 3, mid: 2, small: 1 };
@@ -186,9 +189,11 @@ function ProfilePayoutField({
         <div className="b3-profile__value-row">
           <div className="b3-profile__value-with-asset">
             <AssetIcon asset={platformFeeAsset()} />
-            <p className="b3-profile__value mono" title={payout.address}>
-              {truncateAddress(payout.address)}
-            </p>
+            <MiddleEllipsisText
+              text={payout.address}
+              className="b3-profile__value mono"
+              title={payout.address}
+            />
           </div>
           <button
             type="button"
@@ -281,10 +286,6 @@ export function AgentDetailCard({
     () => merchantsInAgentSubtree(org.id, orgs),
     [org.id, orgs],
   );
-  const subAgents = useMemo(
-    () => subAgentsUnderAgent(org.id, orgs),
-    [org.id, orgs],
-  );
   const orgNameById = useMemo(
     () => new Map(orgs.map((o) => [o.id, o.name])),
     [orgs],
@@ -294,11 +295,10 @@ export function AgentDetailCard({
       buildAgentAccountsForest({
         agentId: org.id,
         agentName: org.name,
-        liveSubAgents: subAgents,
         liveMerchants: merchants,
         parentNameById: orgNameById,
       }),
-    [org.id, org.name, subAgents, merchants, orgNameById],
+    [org.id, org.name, merchants, orgNameById],
   );
   /** Matches Agents list MERCHANTS — live merchant accounts only (sites excluded). */
   const liveMerchantCount = accountsForest.liveMerchantCount;
@@ -526,6 +526,7 @@ export function AgentDetailCard({
       <AccountsDetailHero
         eyebrow={orgTypeLabel(org.type)}
         title={org.name}
+        subtitle="Trusted partner in global payments"
         mark={
           <div className="platform-detail__mark-wrap b3-agent-detail__avatar-wrap">
             <OrgBrandMark
@@ -659,6 +660,9 @@ export function AgentDetailCard({
         {TABS.map((t) => {
           let label: string = t.label;
           if (t.id === "team") label = `Team (${team.length})`;
+          if (t.id === "activity") {
+            label = `Recent activity (${recentActivity.length})`;
+          }
           return (
             <button
               key={t.id}
@@ -683,12 +687,7 @@ export function AgentDetailCard({
                   <KpiPeopleIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <div className="b3-kpi__label-row">
-                    <p className="b3-card__label">Merchants</p>
-                    <Link className="b3-kpi__more" to={platformRoute("accounts/merchants")}>
-                      view more →
-                    </Link>
-                  </div>
+                  <p className="b3-card__label">Merchants</p>
                   <p className="b3-card__value">{liveMerchantCount}</p>
                 </div>
               </div>
@@ -697,30 +696,20 @@ export function AgentDetailCard({
                   <KpiCoinsIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <div className="b3-kpi__label-row">
-                    <p className="b3-card__label">Volume (MTD)</p>
-                    <Link className="b3-kpi__more" to={platformRoute("service-bills")}>
-                      view more →
-                    </Link>
-                  </div>
+                  <p className="b3-card__label">Volume (MTD)</p>
                   <p className="b3-card__value b3-card__value--gold">
-                    <FundAmount amount={displayVolumeMtd} />
+                    <FundAmount amount={displayVolumeMtd} unit="code" />
                   </p>
                 </div>
               </div>
               <div className="b3-card b3-card--kpi">
-                <span className="b3-kpi__mark tone-green" aria-hidden>
+                <span className="b3-kpi__mark tone-teal" aria-hidden>
                   <KpiChartIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <div className="b3-kpi__label-row">
-                    <p className="b3-card__label">Commission (MTD)</p>
-                    <Link className="b3-kpi__more" to={platformRoute("commissions")}>
-                      view more →
-                    </Link>
-                  </div>
-                  <p className="b3-card__value b3-card__value--ok">
-                    <FundAmount amount={displayCommissionMtd} />
+                  <p className="b3-card__label">Commission (MTD)</p>
+                  <p className="b3-card__value b3-card__value--teal">
+                    <FundAmount amount={displayCommissionMtd} unit="code" />
                   </p>
                 </div>
               </div>
@@ -734,6 +723,7 @@ export function AgentDetailCard({
                 canEditOrg={canManage}
                 canEditOwner={canSupportOwner}
                 setupKind="agent"
+                orgFieldMode="account"
                 walletSet={Boolean(payout?.address?.trim())}
                 onEditOrg={() => {
                   setProfileEditError(null);
@@ -747,7 +737,7 @@ export function AgentDetailCard({
                       <p className="b3-profile__value">
                         {overviewLoading && !commission
                           ? "…"
-                          : `${commission?.rateMode === "fixed" ? "Fixed" : "Automatic"} · ${commissionPercent}%`}
+                          : `${commission?.rateMode === "fixed" ? "Fixed" : "Automatic"} - ${commissionPercent}%`}
                       </p>
                     </div>
                     <ProfilePayoutField payout={payout} loading={overviewLoading} />
@@ -774,6 +764,25 @@ export function AgentDetailCard({
           </>
         ) : null}
 
+        {tab === "activity" ? (
+          <DetailActivityCard
+            subtitle="All recent events for this agent"
+            rows={recentActivity}
+            loading={overviewLoading && audit.length === 0}
+            empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
+            action={
+              <Link
+                className="b3-agent-detail__view-all"
+                to={platformRoute("audit")}
+                title="Open platform audit log"
+              >
+                View all activity
+                <span aria-hidden>→</span>
+              </Link>
+            }
+          />
+        ) : null}
+
         {tab === "team" ? (
           <OrgTeamRoster
             org={org}
@@ -782,6 +791,7 @@ export function AgentDetailCard({
             loading={teamLoading}
             canManage={canManage}
             onMembersChange={setTeam}
+            variant="team"
           />
         ) : null}
       </div>

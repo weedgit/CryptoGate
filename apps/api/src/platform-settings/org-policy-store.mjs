@@ -118,7 +118,7 @@ export async function updatePlatformMaxAgentDepth(maxAgentDepth) {
  */
 export async function maxAgentDepthInTree() {
   const { rows } = await getPool().query(
-    `SELECT id, type, parent_id FROM org_accounts WHERE type IN ('agent', 'agent_sub')`,
+    `SELECT id, type, parent_id FROM org_accounts WHERE type = 'agent'`,
   );
   if (rows.length === 0) return 0;
   const byId = new Map(rows.map((r) => [r.id, r]));

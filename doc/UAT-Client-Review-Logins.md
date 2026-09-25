@@ -4,7 +4,7 @@
 
 Use these accounts for user-guide screenshots. Data includes 3 months of payment orders, service bills, commission invoices, platform team, and two agent trees under PaymentGate.
 
-**Billing / commission click-through:** [Billing-Commission-UAT.md](Billing-Commission-UAT.md) (after migrate `064`–`066`).
+**Billing / commission click-through:** [Billing-Commission-UAT.md](Billing-Commission-UAT.md) (after migrate through **067**). Demo owners are contact-verified in seed so agent **Confirm receipt** is not blocked.
 
 ---
 
@@ -22,11 +22,11 @@ Use these accounts for user-guide screenshots. Data includes 3 months of payment
 
 ```
 PaymentGate (platform)
-├── Kevin Agent → Kevin Sub-Agent → 10+ merchants
-└── Atlas Agent → Atlas Sub-Agent → 4 merchants (+ multi-location sites)
+├── Kevin Agent → merchants (+ optional merchant_site children)
+└── Atlas Agent → merchants (+ multi-location sites)
 ```
 
-Merchants may sit under an **agent** / **agent (sub)**, or **directly under Platform** (no agent required). Demo seed uses agent trees above; direct-under-Platform merchants are also allowed (see [Business-Model.md](Business-Model.md)).
+Merchants may sit under an **agent**, or **directly under Platform** (no agent required). Phase 1 has **no sub-agents**. Demo seed uses agent trees above; direct-under-Platform merchants are also allowed (see [Business-Model.md](Business-Model.md)).
 
 ---
 
@@ -37,7 +37,6 @@ Merchants may sit under an **agent** / **agent (sub)**, or **directly under Plat
 | **Kevin Agent Owner** | `own.agent@paymentgate.io` | Kevin Agent (15% commission) |
 | Kevin Agent Admin | `admin.agent@paymentgate.io` | Kevin Agent |
 | **Atlas Agent Owner** | `own.atlas@paymentgate.io` | Atlas Agent (18% commission) |
-| Atlas Sub-Agent Owner | `own.atlas-sub@paymentgate.io` | Atlas Sub-Agent |
 
 **URL:** Agent portal on same host (`/agent`).
 
@@ -74,7 +73,7 @@ Each merchant has cashiers **a–e** (`cashier.{merchant-key}.{a|b|c|d|e}@paymen
 | **Invoices — Overdue** | Any period | 2+ overdue bills |
 | **Grow** | **1m** | New merchants / agents / cashiers from audit log |
 | **Funds — Total / Fees** | **1m** | Non-zero settled volume + volume fees |
-| **Commissions** | Platform → Commissions | Kevin Agent + Atlas Agent rows; Sep 2026 issued |
+| **Commissions** | Platform → Commissions | Kevin Agent + Atlas Agent rows; open detail for Issued → Paid → Settled |
 
 ---
 

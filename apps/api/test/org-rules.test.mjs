@@ -7,19 +7,13 @@ const platform = {
   id: "p1",
   type: "platform",
   parent_id: null,
-  max_agent_depth: 2,
+  max_agent_depth: 1,
 };
 
 const agent = {
   id: "a1",
   type: "agent",
   parent_id: "p1",
-};
-
-const agentSub = {
-  id: "a2",
-  type: "agent_sub",
-  parent_id: "a1",
 };
 
 const merchant = {
@@ -31,37 +25,37 @@ const merchant = {
 const byId = {
   p1: platform,
   a1: agent,
-  a2: agentSub,
 };
 
 describe("org create rules", () => {
   it("creates platform with default max agent depth", () => {
     const r = validateCreateOrg(
       { type: "platform", name: "PaymentGate", parentId: "" },
-      { parent: null, maxAgentDepth: 2, agentDepthOfParent: 0 },
+      { parent: null, maxAgentDepth: 1, agentDepthOfParent: 0 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.maxAgentDepth, DEFAULT_MAX_AGENT_DEPTH);
     assert.equal(r.insert.parentId, null);
   });
 
-  it("rejects agent under another agent (use agent_sub)", () => {
+  it("rejects agent under another agent", () => {
     const r = validateCreateOrg(
       { type: "agent", name: "Nested", parentId: "a1" },
-      { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: agent, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, false);
     assert.equal(r.status, 403);
     assert.equal(r.code, "invalid_parent");
   });
 
-  it("rejects agent_sub create", () => {
+  it("rejects agent_sub as unknown org type", () => {
     const r = validateCreateOrg(
       { type: "agent_sub", name: "ISO child", parentId: "a1" },
-      { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: agent, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, false);
-    assert.equal(r.code, "org_type_disabled");
+    assert.equal(r.status, 400);
+    assert.equal(r.code, "invalid_org_type");
   });
 
   it("allows merchant under agent", () => {
@@ -71,7 +65,7 @@ describe("org create rules", () => {
         name: "Hotel Group",
         parentId: "a1",
       },
-      { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: agent, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.type, "merchant");
@@ -81,7 +75,7 @@ describe("org create rules", () => {
   it("allows merchant_site under any merchant", () => {
     const r = validateCreateOrg(
       { type: "merchant_site", name: "Downtown", parentId: "m1" },
-      { parent: merchant, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: merchant, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.type, "merchant_site");
@@ -98,7 +92,7 @@ describe("org create rules", () => {
       { type: "merchant_site", name: "Floor 2", parentId: "s1" },
       {
         parent: site,
-        maxAgentDepth: 2,
+        maxAgentDepth: 1,
         agentDepthOfParent: 1,
       },
     );
@@ -107,14 +101,19 @@ describe("org create rules", () => {
     assert.equal(r.insert.parentId, "s1");
   });
 
-  it("rejects merchant under agent_sub in Phase 1", () => {
+  it("rejects merchant under unknown parent type", () => {
+    const legacySub = {
+      id: "a2",
+      type: "agent_sub",
+      parent_id: "a1",
+    };
     const r = validateCreateOrg(
       {
         type: "merchant",
         name: "Under Sub",
         parentId: "a2",
       },
-      { parent: agentSub, maxAgentDepth: 2, agentDepthOfParent: 2 },
+      { parent: legacySub, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, false);
     assert.equal(r.code, "invalid_parent");
@@ -127,7 +126,7 @@ describe("org create rules", () => {
         name: "Direct Hotel",
         parentId: "p1",
       },
-      { parent: platform, maxAgentDepth: 2, agentDepthOfParent: 0 },
+      { parent: platform, maxAgentDepth: 1, agentDepthOfParent: 0 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.parentId, "p1");
@@ -141,7 +140,7 @@ describe("org create rules", () => {
         parentId: "a1",
         structure: "single_location",
       },
-      { parent: agent, maxAgentDepth: 2, agentDepthOfParent: 1 },
+      { parent: agent, maxAgentDepth: 1, agentDepthOfParent: 1 },
     );
     assert.equal(r.ok, true);
     assert.equal(r.insert.structure, undefined);
@@ -149,7 +148,6 @@ describe("org create rules", () => {
 
   it("counts agent depth on a parent chain", () => {
     assert.equal(agentDepthOf(agent, (id) => byId[id] ?? null), 1);
-    assert.equal(agentDepthOf(agentSub, (id) => byId[id] ?? null), 2);
     assert.equal(agentDepthOf(platform, (id) => byId[id] ?? null), 0);
   });
 });

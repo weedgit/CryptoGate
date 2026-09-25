@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   feeAccruedFromBills,
+  feeCollectedFromBills,
   invoiceStatsFromBills,
   serviceBillInPeriod,
 } from "../src/platform/dashboardBillPeriod.ts";
@@ -26,6 +27,25 @@ describe("dashboardBillPeriod", () => {
     };
     assert.equal(serviceBillInPeriod(bill, from, to), true);
     assert.equal(feeAccruedFromBills([bill], from, to), 5.32);
+  });
+
+  it("accrues and collects subscription + volume as platform fees", () => {
+    const bill = {
+      id: "b-sub",
+      orgId: "o1",
+      periodStart: "2026-08-01",
+      periodEnd: "2026-08-31",
+      subscriptionAmount: "199.00",
+      volumeFeeAmount: "12.50",
+      totalAmount: "211.50",
+      currency: "USD",
+      status: "paid",
+      dueAt: "2026-09-14T12:00:00.000Z",
+      createdAt: "2026-09-01T04:08:38.173Z",
+      paidAt: "2026-08-28T12:00:00.000Z",
+    };
+    assert.equal(feeAccruedFromBills([bill], from, to), 211.5);
+    assert.equal(feeCollectedFromBills([bill], from, to), 211.5);
   });
 
   it("excludes monthly bills outside issue/due/period overlap", () => {

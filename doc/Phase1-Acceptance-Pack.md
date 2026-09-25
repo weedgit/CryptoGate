@@ -54,7 +54,7 @@ The payer sends crypto to the **merchant’s own wallet**. CryptoGate **watches,
 
 The technical catalog already has more pairs (USDT/USDC on several EVM nets, TON, BTC, native TRX/ETH). Extra pairs are **enablement**, not a promise that every pair is UAT-complete. Default create-order pair: **USDT on TRON**.
 
-**Org tree (locked):** **Platform → Agent → Merchant → Cashier**, with optional **Merchant (site)** under multi-location merchants. **No** agent (sub). New `agent_sub` creates are rejected (`phase1_org_type_disabled`).
+**Org tree (locked):** **Platform → Agent → Merchant → Cashier**, with optional **Merchant (site)** under merchants. **No** agent (sub) — type purged from product/API/DB.
 
 ---
 

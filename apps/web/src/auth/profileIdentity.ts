@@ -30,5 +30,9 @@ export function sessionHasAvatar(
   session: Pick<Session, "avatarUrl">,
 ): boolean {
   const url = (session.avatarUrl ?? "").trim();
-  return url.startsWith("data:image/");
+  if (!url) return false;
+  if (url.startsWith("data:image/")) return true;
+  // Seeded demo avatars (public static files).
+  if (url.startsWith("/avatars/")) return true;
+  return false;
 }

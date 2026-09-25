@@ -55,7 +55,7 @@ export function webBaseUrl() {
 /** @param {string} orgType */
 export function portalSlugForOrgType(orgType) {
   if (orgType === "platform") return "platform";
-  if (orgType === "agent" || orgType === "agent_sub") return "agent";
+  if (orgType === "agent") return "agent";
   return "merchant";
 }
 

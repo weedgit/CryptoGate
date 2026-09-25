@@ -1,33 +1,28 @@
 import type { Session } from "./api";
 
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
-
 export function sessionIsAgentStaff(session: Session): boolean {
   return session.memberships.some(
     (m) =>
-      AGENT_TYPES.has(m.orgType ?? "") &&
+      m.orgType === "agent" &&
       ["owner", "administrator", "viewer"].includes(m.role),
   );
 }
 
 export function sessionIsAgentViewerOnly(session: Session): boolean {
-  const agent = session.memberships.filter((m) => AGENT_TYPES.has(m.orgType ?? ""));
+  const agent = session.memberships.filter((m) => m.orgType === "agent");
   if (agent.length === 0) return false;
   return agent.every((m) => m.role === "viewer");
 }
 
-/** Root agent org for this session (prefer top-level agent membership). */
+/** Root agent org for this session. */
 export function primaryAgentOrgId(session: Session): string | null {
-  const top = session.memberships.find((m) => m.orgType === "agent");
-  if (top) return top.orgId;
-  const sub = session.memberships.find((m) => m.orgType === "agent_sub");
-  return sub?.orgId ?? null;
+  return session.memberships.find((m) => m.orgType === "agent")?.orgId ?? null;
 }
 
 /** Agent Owner may invite and manage team members (C11). Admin/Viewer read-only. */
 export function sessionCanManageTeam(session: Session): boolean {
   return session.memberships.some(
-    (m) => AGENT_TYPES.has(m.orgType ?? "") && m.role === "owner",
+    (m) => m.orgType === "agent" && m.role === "owner",
   );
 }
 
@@ -35,7 +30,7 @@ export function sessionCanManageTeam(session: Session): boolean {
 export function sessionCanOnboardMerchant(session: Session): boolean {
   return session.memberships.some(
     (m) =>
-      AGENT_TYPES.has(m.orgType ?? "") &&
+      m.orgType === "agent" &&
       (m.role === "owner" || m.role === "administrator"),
   );
 }
@@ -60,7 +55,7 @@ function collectAncestorOrgIds(
 
 /**
  * Suspend, delete, and commercial edits — direct children only.
- * Top-level agent memberships cannot manage grandchildren (e.g. merchants under a sub-agent).
+ * Agent memberships cannot manage grandchildren.
  */
 export function sessionCanManageDirectChild(
   session: Session,
@@ -71,7 +66,7 @@ export function sessionCanManageDirectChild(
   const parentMembership = session.memberships.find(
     (m) =>
       m.orgId === org.parentId &&
-      AGENT_TYPES.has(m.orgType ?? "") &&
+      m.orgType === "agent" &&
       MANAGE_ROLES.has(m.role),
   );
   if (!parentMembership) return false;
@@ -88,7 +83,7 @@ export function sessionCanManageDirectChild(
   return true;
 }
 
-/** Onboard children under this agent / sub-agent org (Owner/Admin on that org). */
+/** Onboard children under this agent org (Owner/Admin on that org). */
 export function sessionCanManageOrgAsParent(
   session: Session,
   orgId: string,
@@ -96,14 +91,13 @@ export function sessionCanManageOrgAsParent(
   return session.memberships.some(
     (m) =>
       m.orgId === orgId &&
-      AGENT_TYPES.has(m.orgType ?? "") &&
+      m.orgType === "agent" &&
       MANAGE_ROLES.has(m.role),
   );
 }
 
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
-  if (type === "agent_sub") return "Agent";
   if (type === "merchant") return "Merchant";
   if (type === "merchant_site") return "Site";
   return type;

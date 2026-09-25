@@ -34,9 +34,13 @@ import {
 } from "./api";
 import {
   feeAccruedFromBills,
+  feeCollectedFromBills,
   invoiceStatsFromBills,
 } from "./dashboardBillPeriod";
-import { listCommissionPayouts } from "../commercial/commissionPayoutRecords";
+import {
+  fetchPlatformCommissionDashboardKpis,
+} from "../commercial/commissionPayoutRecords";
+import { commissionMonthKeys } from "../commercial/commissionDashboardKpis";
 import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
@@ -87,9 +91,9 @@ type OverviewStats = {
   invoicesPaid: number;
   invoicesOverdue: number;
   volume: number;
-  /** Volume fees billed in period (issued / overdue / paid). */
+  /** Platform fees billed in period (subscription + volume). */
   fees: number;
-  /** Volume fees paid in period. */
+  /** Platform fees paid in period (subscription + volume). */
   collected: number;
   /** Open payment anomalies (not period-scoped — ops queue). */
   anomalies: number;
@@ -380,7 +384,7 @@ function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] }
     from.setDate(from.getDate() - 6);
   } else if (id === "1m") {
     from = startOfDay(now);
-    from.setDate(from.getDate() - 29);
+    from.setMonth(from.getMonth() - 1);
   }
 
   return { from, to, dayKeys: buildChartKeys(from, to) };
@@ -414,7 +418,7 @@ function isMerchantType(type: string): boolean {
 }
 
 function isAgentType(type: string): boolean {
-  return type === "agent" || type === "agent_sub";
+  return type === "agent";
 }
 
 function buildChildrenMap(orgs: OrgAccount[]): Map<string, string[]> {
@@ -610,15 +614,7 @@ function orgFeeTotal(
   to: Date,
   orgScope: Set<string>,
 ): number {
-  let total = 0;
-  for (const b of bills) {
-    if (b.status !== "paid") continue;
-    if (!orgScope.has(b.orgId)) continue;
-    if (!inWindow(b.paidAt ?? b.dueAt, from, to)) continue;
-    const n = Number(b.volumeFeeAmount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
+  return feeCollectedFromBills(bills, from, to, orgScope);
 }
 
 function orgVolumeTotal(
@@ -677,8 +673,8 @@ function buildOrgOverviewCard(args: {
     title: org.name,
     help:
       kind === "merchant"
-        ? "Settled merchant volume and paid volume fees for this merchant (and sites)."
-        : "Settled merchant volume and paid volume fees for this agent subtree.",
+        ? "Settled merchant volume and paid platform fees (subscription + volume) for this merchant (and sites)."
+        : "Settled merchant volume and paid platform fees (subscription + volume) for this agent subtree.",
     value: volFeeValue(volume, fees),
     compareLabel: kind === "merchant" ? "Merchant" : "Agent",
     trendPercent: trendFromSeries(buckets),
@@ -855,6 +851,7 @@ function DashKpiCard({
   spark,
   href,
   linkLabel,
+  linkWithTitle = false,
 }: {
   accent: KpiAccent;
   label: string;
@@ -864,6 +861,8 @@ function DashKpiCard({
   spark?: number[];
   href?: string;
   linkLabel?: string;
+  /** Put the action link on the title row (status cards). */
+  linkWithTitle?: boolean;
 }) {
   const meta =
     trend != null ? (
@@ -877,14 +876,24 @@ function DashKpiCard({
       <span className="pg-kpi__hint">{hint}</span>
     ) : null;
   const hasSpark = Boolean(spark && spark.length > 1);
+  const link =
+    href && linkLabel ? (
+      <Link to={href} className="pg-kpi__link">
+        <span className="pg-kpi__link-text">{linkLabel}</span>
+        <span className="pg-kpi__link-arrow" aria-hidden>
+          →
+        </span>
+      </Link>
+    ) : null;
 
   return (
-    <div className={`pg-kpi is-${accent}`}>
+    <div className={`pg-kpi is-${accent}${linkWithTitle ? " pg-kpi--title-link" : ""}`}>
       <div className="pg-kpi__top">
         <span className="pg-kpi__icon" aria-hidden>
           <DashKpiIcon accent={accent} />
         </span>
         <span className="pg-kpi__label">{label}</span>
+        {linkWithTitle ? link : null}
       </div>
       <div className="pg-kpi__metrics">
         <span className="pg-kpi__value">{value}</span>
@@ -896,14 +905,7 @@ function DashKpiCard({
           <MiniSpark values={spark!} />
         </div>
       ) : null}
-      {href && linkLabel ? (
-        <Link to={href} className="pg-kpi__link">
-          <span className="pg-kpi__link-text">{linkLabel}</span>
-          <span className="pg-kpi__link-arrow" aria-hidden>
-            →
-          </span>
-        </Link>
-      ) : null}
+      {!linkWithTitle ? link : null}
     </div>
   );
 }
@@ -979,9 +981,22 @@ function DashKpiIcon({ accent }: { accent: KpiAccent }) {
     );
   }
   if (accent === "danger") {
+    /* Overdue — outline warning triangle (no filled plate) */
     return (
-      <svg {...p}>
-        <path d="M12 2.6 22.2 20.4H1.8L12 2.6Zm-.95 6.3v5.2h1.9V8.9h-1.9Zm.95 8.55a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z" />
+      <svg
+        width={36}
+        height={36}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <path d="M12 9v4" />
+        <path d="M12 17h.01" />
       </svg>
     );
   }
@@ -997,19 +1012,6 @@ function DashKpiIcon({ accent }: { accent: KpiAccent }) {
       <path d="M12 2.8 20.2 7.4v9.2L12 21.2 3.8 16.6V7.4L12 2.8Zm0 2.2L5.7 8.55 12 12.1l6.3-3.55L12 5ZM5.7 10.65v5.2L11.05 19V13.8L5.7 10.65Zm7.35 3.15V19l5.35-3.15v-5.2L13.05 13.8Z" />
     </svg>
   );
-}
-
-function commissionMonthKeys(from: Date, to: Date): Set<string> {
-  const keys = new Set<string>();
-  const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-  const end = new Date(to.getFullYear(), to.getMonth(), 1);
-  while (cursor.getTime() <= end.getTime()) {
-    const y = cursor.getFullYear();
-    const m = String(cursor.getMonth() + 1).padStart(2, "0");
-    keys.add(`${y}-${m}`);
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-  return keys;
 }
 
 function seriesFromVolumeByDay(
@@ -1059,16 +1061,9 @@ function sameChartWindow(
   );
 }
 
-/** Volume fees paid in period — collected platform fees. */
+/** Platform fees paid in period (subscription + volume). */
 function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
-  let total = 0;
-  for (const b of bills) {
-    if (b.status !== "paid") continue;
-    if (!inWindow(b.paidAt ?? b.dueAt, from, to)) continue;
-    const n = Number(b.volumeFeeAmount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
+  return feeCollectedFromBills(bills, from, to);
 }
 
 function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
@@ -1355,12 +1350,12 @@ export function DashboardPage({ session }: Props) {
         }
         return null;
       });
-    const commissionsPromise = listCommissionPayouts({ payer: "platform" }).catch(
-      () => [],
-    );
+    const commissionsPromise = fetchPlatformCommissionDashboardKpis(
+      commissionMonthKeys(from, to),
+    ).catch(() => ({ commissionOwed: 0, commissionPaid: 0 }));
 
     try {
-      const [nextOrgs, nextOrders, nextBills, summary, commissionRows] =
+      const [nextOrgs, nextOrders, nextBills, summary, commissionKpis] =
         await Promise.all([
           orgsPromise,
           ordersPromise,
@@ -1374,27 +1369,8 @@ export function DashboardPage({ session }: Props) {
       setOrdersReady(true);
       setLoading(false);
 
-      const monthKeys = commissionMonthKeys(from, to);
-      let commissionOwed = 0;
-      let commissionPaid = 0;
-      for (const row of commissionRows) {
-        if (!monthKeys.has(row.periodKey)) continue;
-        const amt = Number(row.commissionAmount) || 0;
-        if (
-          row.payoutStatus === "issued" ||
-          row.payoutStatus === "ready" ||
-          row.payoutStatus === "verifying"
-        ) {
-          commissionOwed += amt;
-        } else if (
-          row.payoutStatus === "paid" ||
-          row.payoutStatus === "settled"
-        ) {
-          commissionPaid += amt;
-        }
-      }
-      commissionOwed = Math.round(commissionOwed * 100) / 100;
-      commissionPaid = Math.round(commissionPaid * 100) / 100;
+      const commissionOwed = commissionKpis.commissionOwed;
+      const commissionPaid = commissionKpis.commissionPaid;
 
       if (summary) {
         setStats((prev) => ({
@@ -1534,32 +1510,13 @@ export function DashboardPage({ session }: Props) {
         }
 
         if (needCommissions) {
-          const commissionRows = await listCommissionPayouts({
-            payer: "platform",
-          }).catch(() => []);
-          const monthKeys = commissionMonthKeys(from, to);
-          let commissionOwed = 0;
-          let commissionPaid = 0;
-          for (const row of commissionRows) {
-            if (!monthKeys.has(row.periodKey)) continue;
-            const amt = Number(row.commissionAmount) || 0;
-            if (
-              row.payoutStatus === "issued" ||
-              row.payoutStatus === "ready" ||
-              row.payoutStatus === "verifying"
-            ) {
-              commissionOwed += amt;
-            } else if (
-              row.payoutStatus === "paid" ||
-              row.payoutStatus === "settled"
-            ) {
-              commissionPaid += amt;
-            }
-          }
+          const commissionKpis = await fetchPlatformCommissionDashboardKpis(
+            commissionMonthKeys(from, to),
+          ).catch(() => ({ commissionOwed: 0, commissionPaid: 0 }));
           setStats((prev) => ({
             ...prev,
-            commissionOwed: Math.round(commissionOwed * 100) / 100,
-            commissionPaid: Math.round(commissionPaid * 100) / 100,
+            commissionOwed: commissionKpis.commissionOwed,
+            commissionPaid: commissionKpis.commissionPaid,
           }));
         }
 
@@ -1902,7 +1859,7 @@ export function DashboardPage({ session }: Props) {
   const agentPickOptions = useMemo(
     () =>
       orgs
-        .filter((o) => o.type === "agent" || o.type === "agent_sub")
+        .filter((o) => o.type === "agent")
         .map((o) => ({ id: o.id, name: o.name, kind: "agent" as const }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [orgs],
@@ -2236,7 +2193,7 @@ export function DashboardPage({ session }: Props) {
           value={orderCounts.settled.toLocaleString()}
           trend={kpiSparks.txTrend}
           spark={kpiSparks.transactions}
-          href={platformRoute("compliance")}
+          href={platformRoute("support")}
           linkLabel="View Transactions"
         />
         <DashKpiCard
@@ -2461,7 +2418,8 @@ export function DashboardPage({ session }: Props) {
             stats.invoicesOverdue > 0 ? "Needs attention" : "All clear"
           }
           href={platformRoute("service-bills")}
-          linkLabel="Review bills"
+          linkLabel="Review"
+          linkWithTitle
         />
         <DashKpiCard
           accent="violet"
@@ -2469,7 +2427,8 @@ export function DashboardPage({ session }: Props) {
           value={stats.commissionOwed > 0 ? formatMoneyFigure(stats.commissionOwed) : "0"}
           hint={stats.commissionOwed > 0 ? "Commission owed" : "Scheduled"}
           href={platformRoute("commissions")}
-          linkLabel="View payouts"
+          linkLabel="View"
+          linkWithTitle
         />
         <DashKpiCard
           accent="slate"
@@ -2478,8 +2437,9 @@ export function DashboardPage({ session }: Props) {
           hint={
             stats.anomalies > 0 ? "Open anomalies" : "No action required"
           }
-          href={platformRoute("compliance")}
-          linkLabel="Open queue"
+          href={platformRoute("support")}
+          linkLabel="Open"
+          linkWithTitle
         />
         <DashKpiCard
           accent={
@@ -2511,7 +2471,8 @@ export function DashboardPage({ session }: Props) {
               : backupStatus.detail
           }
           href={platformRoute("settings/networks")}
-          linkLabel="View health"
+          linkLabel="View"
+          linkWithTitle
         />
       </div>
 

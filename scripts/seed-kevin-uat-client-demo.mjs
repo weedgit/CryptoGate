@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
- * Client-demo polish — second agent tree, more Nile merchants, platform team,
- * audit “grow” events, dashboard-friendly bills & commissions.
+ * Client-demo polish — second agent tree (Atlas), more Nile merchants, platform
+ * team, audit “grow” events, dashboard-friendly bills & commissions.
+ *
+ * Hierarchy (Phase 1):
+ *   Platform → Kevin Agent → merchants (+ optional sites)
+ *   Platform → Atlas Agent → merchants (+ optional sites)
+ *   No agent_sub / no payer=agent cascade slips.
  *
  * Prerequisites: seed-local → seed-kevin-uat → seed-kevin-uat-rich
  * Usage: node scripts/seed-kevin-uat-client-demo.mjs
@@ -28,8 +33,10 @@ import {
 import { addUsdAmounts } from "../apps/api/src/service-bills/service-bill-rules.mjs";
 import { findFeeTierBand } from "../apps/api/src/platform-settings/fee-tier-store.mjs";
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import { patchCommissionTreeSnapshots } from "./seed-commission-helpers.mjs";
 import { NILE_HD_WALLETS, UAT_SETTLEMENT } from "./seed-nile-wallets.mjs";
+import { seedDemoAvatars } from "./seed-avatars.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ONBOARD_AT = "2026-06-01T00:00:00.000Z";
@@ -256,6 +263,10 @@ async function ensureUser(email, displayName) {
     `UPDATE users SET password_hash = $2, display_name = $3 WHERE id = $1`,
     [user.id, passwordHash, displayName],
   );
+  const parts = String(displayName || "Demo User").trim().split(/\s+/);
+  const firstName = parts[0] || "Demo";
+  const lastName = parts.slice(1).join(" ") || "User";
+  await markUatDemoUserReady(getPool(), user.id, { firstName, lastName });
   return user;
 }
 
@@ -570,10 +581,18 @@ async function syncSeptemberCommissions(pool) {
         agent.address,
         UAT_SETTLEMENT.asset,
         UAT_SETTLEMENT.network,
-        `/platform/commissions?payee=${agent.id}&period=${monthKey}`,
+        "",
       ],
     );
-    if (result.rowCount) upserted += 1;
+    if (result.rowCount) {
+      await pool.query(
+        `UPDATE commission_payouts
+         SET payment_link = '/platform/commissions/' || id::text
+         WHERE payee_org_id = $1 AND period_key = $2 AND payer = 'platform'`,
+        [agent.id, monthKey],
+      );
+      upserted += 1;
+    }
   }
 
   // Atlas Agent — September row for commissions board
@@ -599,10 +618,18 @@ async function syncSeptemberCommissions(pool) {
         atlas.address,
         UAT_SETTLEMENT.asset,
         UAT_SETTLEMENT.network,
-        `/platform/commissions?payee=${atlas.id}&period=${monthKey}`,
+        "",
       ],
     );
-    if (ins.rowCount) upserted += 1;
+    if (ins.rowCount) {
+      await pool.query(
+        `UPDATE commission_payouts
+         SET payment_link = '/platform/commissions/' || id::text
+         WHERE payee_org_id = $1 AND period_key = $2 AND payer = 'platform'`,
+        [atlas.id, monthKey],
+      );
+      upserted += 1;
+    }
   }
 
   return upserted;
@@ -901,6 +928,9 @@ async function main() {
     platformOwnerId: platformOwner.id,
   });
 
+  console.log("Avatars — demo profile photos…");
+  const avatars = await seedDemoAvatars(pool);
+
   console.log("\nClient demo seed complete.");
   console.log(`  Platform team members: ${PLATFORM_TEAM.length}`);
   console.log(`  Atlas merchants: ${ATLAS_TREE.merchants.length}`);
@@ -912,6 +942,10 @@ async function main() {
     `  Commission tree snapshots: ${treePatch.updated}/${treePatch.scanned}`,
   );
   console.log(`  Enterprise rate overrides: ${overrideRows}`);
+  console.log(
+    `  Avatars updated: ${avatars.updated}` +
+      (avatars.filledBlank ? ` (+${avatars.filledBlank} blank)` : ""),
+  );
   console.log("\n  See doc/UAT-Client-Review-Logins.md for screenshot logins.\n");
 }
 

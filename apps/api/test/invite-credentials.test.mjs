@@ -38,7 +38,7 @@ describe("portal invite links", () => {
 
   it("maps org types to portal slugs", () => {
     assert.equal(portalSlugForOrgType("platform"), "platform");
-    assert.equal(portalSlugForOrgType("agent_sub"), "agent");
+    assert.equal(portalSlugForOrgType("agent"), "agent");
     assert.equal(portalSlugForOrgType("merchant_site"), "merchant");
   });
 

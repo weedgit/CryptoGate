@@ -98,7 +98,7 @@ export type ServiceBill = {
   paymentReference?: string | null;
   rxAddress?: string | null;
   remittancePayTo?: string | null;
-  invoiceSeller?: { name: string; email: string | null };
+  invoiceSeller?: { name: string; email: string | null; phone?: string | null };
   txAddress?: string | null;
   createdAt?: string | null;
 };
@@ -108,6 +108,7 @@ export type AuditLogEntry = {
   actorUserId: string | null;
   actorEmail?: string | null;
   actorDisplayName?: string | null;
+  actorAvatarUrl?: string | null;
   orgId: string | null;
   action: string;
   metadata: Record<string, string | number | boolean | null>;
@@ -412,23 +413,53 @@ export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePrevi
 /** Platform agent detail needs the full load-test bill set (not the API default 100). */
 export const SERVICE_BILLS_LIST_LIMIT = 5000;
 
-export async function listServiceBills(opts?: {
+export type ServiceBillListPage = {
+  items: ServiceBill[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listServiceBillsPage(opts?: {
   status?: string;
   orgId?: string;
   limit?: number;
-}): Promise<ServiceBill[]> {
+  offset?: number;
+}): Promise<ServiceBillListPage> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   if (opts?.orgId) q.set("orgId", opts.orgId);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
+  if (opts?.offset != null) q.set("offset", String(opts.offset));
   const suffix = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: ServiceBill[] };
-  return data.items ?? [];
+  const data = (await res.json()) as {
+    items: ServiceBill[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+  };
+  const items = data.items ?? [];
+  return {
+    items,
+    total: data.total ?? items.length,
+    limit: data.limit ?? opts?.limit ?? 100,
+    offset: data.offset ?? opts?.offset ?? 0,
+  };
+}
+
+export async function listServiceBills(opts?: {
+  status?: string;
+  orgId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ServiceBill[]> {
+  const page = await listServiceBillsPage(opts);
+  return page.items;
 }
 
 export async function getServiceBill(billId: string): Promise<ServiceBill> {
@@ -662,7 +693,7 @@ export async function updatePlatformOrgPolicy(body: {
 
 export type PlatformBillingWalletSettings = {
   sellerName: string;
-  /** Read-only — derived from platform Owner account. */
+  /** Invoice contact email (billing settings), with Owner email fallback. */
   sellerEmail: string | null;
   payTo: string | null;
   updatedAt: string;
@@ -679,6 +710,7 @@ export async function getBillingWalletSettings(): Promise<PlatformBillingWalletS
 
 export async function updateBillingWalletSettings(body: {
   sellerName: string;
+  sellerEmail?: string | null;
   payTo?: string | null;
 }): Promise<PlatformBillingWalletSettings> {
   const res = await apiFetch(`${API_BASE}/platform/settings/billing-wallet`, {

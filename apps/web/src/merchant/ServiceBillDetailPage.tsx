@@ -30,7 +30,7 @@ import {
   resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
-import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
+import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import { StatusBadge } from "../shared/StatusBadge";
 
 type Props = { session: Session };
@@ -69,9 +69,9 @@ export function ServiceBillDetailPage({ session }: Props) {
   );
   const [buyerOrg, setBuyerOrg] = useState<OrgAccount | null>(null);
   const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
+  const [buyerPhone, setBuyerPhone] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<ServiceBillCheckout | null>(null);
   const [loading, setLoading] = useState(() => !(id && peekServiceBill(id)));
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
@@ -98,10 +98,14 @@ export function ServiceBillDetailPage({ session }: Props) {
           members.find((m) => /owner/i.test(m.role)) ??
           members.find((m) => /admin/i.test(m.role)) ??
           members[0];
-        setBuyerContactEmail(preferred?.email?.trim() || null);
+        setBuyerContactEmail(
+          org.billingEmail?.trim() || preferred?.email?.trim() || null,
+        );
+        setBuyerPhone(preferred?.phone?.trim() || null);
       } catch {
         setBuyerOrg(null);
         setBuyerContactEmail(null);
+        setBuyerPhone(null);
       }
     } catch (err) {
       setError(
@@ -125,7 +129,6 @@ export function ServiceBillDetailPage({ session }: Props) {
 
   const loadCheckout = useCallback(async () => {
     if (!id || !canPay) return;
-    setCheckoutLoading(true);
     setCheckoutError(null);
     try {
       const payload = await getServiceBillCheckout(id);
@@ -135,8 +138,6 @@ export function ServiceBillDetailPage({ session }: Props) {
         err instanceof ApiError ? err.message : "Failed to load checkout",
       );
       setCheckout(null);
-    } finally {
-      setCheckoutLoading(false);
     }
   }, [canPay, id]);
 
@@ -153,7 +154,6 @@ export function ServiceBillDetailPage({ session }: Props) {
     platformBillingPayToFallback() ||
     null;
   const paid = bill?.status === "paid";
-  const voided = bill?.status === "voided";
   const payable = bill?.status === "issued" || bill?.status === "overdue";
   const isOverdue = bill?.status === "overdue";
   const isActivation = bill ? isActivationServiceBill(bill) : false;
@@ -263,13 +263,26 @@ export function ServiceBillDetailPage({ session }: Props) {
           <p className="anomaly-title">Overdue service bill</p>
           <p>
             This bill is past due. Account features may be restricted until
-            platform billing is settled. Pay to the platform billing destination
-            on the right.
+            platform billing is settled. Remittance details are on the invoice.
           </p>
         </div>
       ) : null}
 
-      <div className="order-detail-page__invoice-row bills-detail-page__row">
+      <div className="plat-bill-detail__head bills-detail-page__head no-print">
+        <div className="plat-bill-detail__identity">
+          <h1 className="plat-bill-detail__id">{formatBillId(bill.id)}</h1>
+          <span
+            className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}${
+              isOverdue ? " is-pulse" : ""
+            }`}
+          >
+            {serviceBillStatusLabel(bill.status)}
+          </span>
+        </div>
+        <InvoicePrintButton />
+      </div>
+
+      <div className="order-detail-page__invoice-row bills-detail-page__row bills-detail-page__row--invoice">
         <div className="order-detail-page__invoice">
           <ServiceBillInvoiceFace
             bill={bill}
@@ -277,129 +290,22 @@ export function ServiceBillDetailPage({ session }: Props) {
               name: buyerOrg?.name ?? bill.orgId,
               legalName: buyerOrg?.legalName,
               contactEmail: buyerContactEmail,
+              phone: buyerPhone,
               country: buyerOrg?.country,
-              orgId: bill.orgId,
             }}
             seller={resolveServiceBillInvoiceSeller({ bill })}
             remittance={{
               payTo,
               instructions: checkout?.instructions ?? null,
             }}
-            statusBadge={
-              <span
-                className={`plat-bills__badge tone-${serviceBillStatusTone(
-                  bill.status,
-                )}`}
-              >
-                {serviceBillStatusLabel(bill.status)}
-              </span>
-            }
-            toolbar={
-              <button
-                type="button"
-                className="sb-invoice__print-btn"
-                onClick={() => window.print()}
-              >
-                Print invoice
-              </button>
-            }
+            qrPayload={checkout?.qrPayload}
             invoiceRef={invoiceRef}
           />
         </div>
 
         <div className="order-detail-page__rail no-print">
           <div className="order-detail-page__rail-body">
-            <ServiceBillPayQrCard
-              totalAmount={bill.totalAmount}
-              payTo={payTo}
-              qrPayload={checkout?.qrPayload}
-              status={bill.status}
-              dueAt={bill.dueAt}
-              loading={checkoutLoading}
-              timerLabel={
-                paid
-                  ? "Payment completed — QR no longer needed"
-                  : voided
-                    ? "Bill voided"
-                    : isOverdue
-                      ? "Overdue — settle remittance promptly"
-                      : payable
-                        ? `Due ${formatShortTime(bill.dueAt)}`
-                        : serviceBillStatusLabel(bill.status)
-              }
-            />
-
             <aside className="order-detail-page__aside">
-              <section className="plat-settings__card order-detail-aside-card order-detail-chain">
-                <div className="plat-settings__card-head order-detail-chain__head">
-                  <h2 className="plat-settings__card-title">Payment status</h2>
-                  <div className="order-detail-chain__head-meta">
-                    <span
-                      className={`plat-bills__badge tone-${serviceBillStatusTone(
-                        bill.status,
-                      )}${isOverdue ? " is-pulse" : ""}`}
-                    >
-                      {serviceBillStatusLabel(bill.status)}
-                    </span>
-                  </div>
-                </div>
-                <div className="plat-settings__card-body">
-                  <p className="order-detail-chain__status">
-                    <span className="order-detail-chain__status-count">
-                      {formatBillId(bill.id)}
-                    </span>
-                    <span className="order-detail-chain__status-note">
-                      {paid
-                        ? "Platform marked this service bill paid."
-                        : voided
-                          ? "This bill was voided — no remittance due."
-                          : isOverdue
-                            ? "Past due — send USDT remittance to the address on the left."
-                            : "Send USDT remittance to the platform billing address."}
-                    </span>
-                  </p>
-                  {bill.paymentReference ? (
-                    <label className="order-detail-chain__tx plat-settings__field">
-                      <span>Tx hash</span>
-                      <div className="field-shell">
-                        <input
-                          className="plat-settings__input mono"
-                          readOnly
-                          value={bill.paymentReference}
-                          aria-label="Tx hash"
-                        />
-                      </div>
-                    </label>
-                  ) : null}
-                  {bill.rxAddress ? (
-                    <label className="order-detail-chain__tx plat-settings__field">
-                      <span>Rx address</span>
-                      <div className="field-shell">
-                        <input
-                          className="plat-settings__input mono"
-                          readOnly
-                          value={bill.rxAddress}
-                          aria-label="Rx address"
-                        />
-                      </div>
-                    </label>
-                  ) : null}
-                  {bill.txAddress ? (
-                    <label className="order-detail-chain__tx plat-settings__field">
-                      <span>Tx address</span>
-                      <div className="field-shell">
-                        <input
-                          className="plat-settings__input mono"
-                          readOnly
-                          value={bill.txAddress}
-                          aria-label="Tx address"
-                        />
-                      </div>
-                    </label>
-                  ) : null}
-                </div>
-              </section>
-
               <section className="plat-settings__card order-detail-aside-card order-detail-timeline-card">
                 <div className="plat-settings__card-head">
                   <h2 className="plat-settings__card-title">Bill timeline</h2>

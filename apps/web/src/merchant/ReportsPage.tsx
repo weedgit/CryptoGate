@@ -10,14 +10,14 @@ import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   ApiError,
-  listOrders,
+  listAllOrders,
   ordersCsvUrl,
   type OrgAccount,
   type PaymentOrder,
   type Session,
 } from "./api";
 import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
-import { getMerchantOrders, peekMerchantOrders } from "./merchantOrdersList";
+import { peekMerchantOrders } from "./merchantOrdersList";
 import { matchingModeLabel } from "./matchingLabels";
 import { orderStatusLabel, orderStatusTone } from "./orderStatus";
 import { sessionCanExportOrders, truncateAddress } from "./org";
@@ -182,14 +182,14 @@ export function ReportsPage({ session }: Props) {
     try {
       if (siteOrgId) {
         const [rows, orgRows] = await Promise.all([
-          listOrders({ limit: 200, orgId: siteOrgId }),
+          listAllOrders({ orgId: siteOrgId }),
           getMerchantOrgs().catch(() => [] as OrgAccount[]),
         ]);
         setItems(rows);
         setOrgs(orgRows);
       } else {
         const [rows, orgRows] = await Promise.all([
-          getMerchantOrders(),
+          listAllOrders(),
           getMerchantOrgs(),
         ]);
         setItems(rows);

@@ -33,10 +33,7 @@ const PlatformAccountsRoutes = lazyNamed(
   "PlatformAccountsRoutes",
 );
 const AuditLogPage = lazyNamed(() => import("./AuditLogPage"), "AuditLogPage");
-const CompliancePage = lazyNamed(
-  () => import("./CompliancePage"),
-  "CompliancePage",
-);
+const SupportPage = lazyNamed(() => import("./SupportPage"), "SupportPage");
 const FeeTiersSettingsPage = lazyNamed(
   () => import("./FeeTiersSettingsPage"),
   "FeeTiersSettingsPage",
@@ -64,6 +61,10 @@ const ServiceBillsListPage = lazyNamed(
 const PlatformCommissionsPage = lazyNamed(
   () => import("./PlatformCommissionsPage"),
   "PlatformCommissionsPage",
+);
+const CommissionInvoiceDetailPage = lazyNamed(
+  () => import("./CommissionInvoiceDetailPage"),
+  "CommissionInvoiceDetailPage",
 );
 const OrderDetailPage = lazyNamed(
   () => import("../merchant/OrderDetailPage"),
@@ -216,12 +217,20 @@ export function PlatformApp() {
           path="commissions"
           element={<PlatformCommissionsPage session={session} />}
         />
+        <Route
+          path="commissions/:id"
+          element={<CommissionInvoiceDetailPage session={session} />}
+        />
         <Route path="audit" element={<AuditLogPage />} />
         <Route
           path="orders/:id"
           element={<OrderDetailPage session={session} variant="platform" />}
         />
-        <Route path="compliance" element={<CompliancePage />} />
+        <Route path="support" element={<SupportPage />} />
+        <Route
+          path="compliance"
+          element={<Navigate to={platformRoute("support")} replace />}
+        />
         <Route path="settings" element={<Navigate to={platformRoute()} replace />} />
         <Route
           path="settings/security"

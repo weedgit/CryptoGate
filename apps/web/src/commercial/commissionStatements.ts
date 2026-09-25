@@ -38,14 +38,31 @@ export function formatCommissionPeriodLabel(periodKey: string): string {
 }
 
 /**
+ * Paid platform fee on one bill: subscription + volume (matches API
+ * `paidPlatformFeeUsd`). Activation-only bills should be filtered by the caller.
+ */
+export function paidPlatformFeeFromBill(bill: {
+  subscriptionAmount?: string | null;
+  volumeFeeAmount?: string | null;
+}): number {
+  const sub = Number(bill.subscriptionAmount ?? 0);
+  const vol = Number(bill.volumeFeeAmount ?? 0);
+  const s = Number.isFinite(sub) ? sub : 0;
+  const v = Number.isFinite(vol) ? vol : 0;
+  const total = Math.round((s + v) * 100) / 100;
+  return total > 0 ? total : 0;
+}
+
+/**
  * Build commission statements from live service bills in the agent subtree.
- * Fee base = **paid** volume fees only (“platform fee collected”).
+ * Fee base = **paid** subscription + volume (“platform fee collected”).
  * Statement payout status never means commission paid — that comes from payout slips.
  */
 export function commissionHistoryFromBills(
   bills: ReadonlyArray<{
     orgId: string;
     periodStart: string;
+    subscriptionAmount?: string | null;
     volumeFeeAmount: string;
     status: string;
   }>,
@@ -61,8 +78,7 @@ export function commissionHistoryFromBills(
   >();
   for (const b of scoped) {
     const key = b.periodStart.slice(0, 7);
-    const fee = Number(b.volumeFeeAmount);
-    if (!Number.isFinite(fee)) continue;
+    const fee = paidPlatformFeeFromBill(b);
     const cur = byPeriod.get(key) ?? {
       feeCollected: 0,
       hasPaid: false,

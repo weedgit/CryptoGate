@@ -11,7 +11,7 @@ import { AuthToast } from "../auth/AuthToast";
 import {
   SERVICE_BILL_ASSET,
   SERVICE_BILL_NETWORK,
-} from "../billing/ServiceBillPayQrCard";
+} from "../billing/serviceBillRemittance";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { FieldControl } from "../ui/FieldControl";
 import {
@@ -38,8 +38,10 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
     [],
   );
   const [sellerName, setSellerName] = useState("PaymentGate");
+  const [sellerEmail, setSellerEmail] = useState("");
   const [payTo, setPayTo] = useState("");
   const [savedSellerName, setSavedSellerName] = useState("PaymentGate");
+  const [savedSellerEmail, setSavedSellerEmail] = useState("");
   const [savedPayTo, setSavedPayTo] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,10 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const dirty = sellerName !== savedSellerName || payTo !== savedPayTo;
+  const dirty =
+    sellerName !== savedSellerName ||
+    sellerEmail !== savedSellerEmail ||
+    payTo !== savedPayTo;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -60,6 +65,8 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
       const settings = await getBillingWalletSettings();
       setSellerName(settings.sellerName);
       setSavedSellerName(settings.sellerName);
+      setSellerEmail(settings.sellerEmail ?? "");
+      setSavedSellerEmail(settings.sellerEmail ?? "");
       setPayTo(settings.payTo ?? "");
       setSavedPayTo(settings.payTo ?? "");
       setUpdatedAt(settings.updatedAt);
@@ -94,16 +101,24 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
       setError("Seller name is required");
       return;
     }
+    const email = sellerEmail.trim();
+    if (email && !email.includes("@")) {
+      setError("Invoice email must be a valid email");
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
       const settings = await updateBillingWalletSettings({
         sellerName: name,
+        sellerEmail: email || null,
         payTo: payTo.trim() || null,
       });
       setSellerName(settings.sellerName);
       setSavedSellerName(settings.sellerName);
+      setSellerEmail(settings.sellerEmail ?? "");
+      setSavedSellerEmail(settings.sellerEmail ?? "");
       setPayTo(settings.payTo ?? "");
       setSavedPayTo(settings.payTo ?? "");
       setUpdatedAt(settings.updatedAt);
@@ -152,7 +167,10 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
             <header className="plat-fee-billing__card-head">
               <div>
                 <h3>Invoice seller</h3>
-                <p>Your platform business name as it appears on fee invoices.</p>
+                <p>
+                  Business name and invoice email as they appear on platform fee
+                  invoices.
+                </p>
               </div>
             </header>
             <div className="plat-fee-billing__fields">
@@ -171,6 +189,28 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                     autoComplete="organization"
                   />
                 </FieldControl>
+              </div>
+              <div className="b4-field">
+                <label className="b4-field__label" htmlFor="billing-seller-email">
+                  Invoice email
+                </label>
+                <FieldControl icon="mail">
+                  <input
+                    id="billing-seller-email"
+                    className="b4-field__control"
+                    type="email"
+                    value={sellerEmail}
+                    disabled={!canEdit || busy}
+                    onChange={(e) => setSellerEmail(e.target.value)}
+                    maxLength={254}
+                    autoComplete="email"
+                    placeholder="billing@paymentgate.example"
+                  />
+                </FieldControl>
+                <p className="b4-field__hint">
+                  Shown on service-bill invoices. Falls back to the platform
+                  Owner email when empty.
+                </p>
               </div>
             </div>
           </section>

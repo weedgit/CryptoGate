@@ -92,7 +92,7 @@ export function toAgentCommissionSettings(row) {
 }
 
 export function agentCommissionAllowedOnOrgType(type) {
-  return type === "agent" || type === "agent_sub";
+  return type === "agent";
 }
 
 /** Month boundary for audit/display when rate changes immediately. */

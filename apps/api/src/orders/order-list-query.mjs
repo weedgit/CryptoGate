@@ -24,7 +24,7 @@ function parseLimit(raw, fallback, max) {
 }
 
 /**
- * Additive query: format, status, orgId, limit. OpenAPI list has no params yet.
+ * Additive query: format, status, orgId, limit, offset.
  * @param {URLSearchParams} searchParams
  * @param {string | string[] | undefined} acceptHeader
  * @returns {{
@@ -34,6 +34,7 @@ function parseLimit(raw, fallback, max) {
  *   orgId: string | null,
  *   agentOrgId: string | null,
  *   limit: number,
+ *   offset: number,
  * } | { ok: false, status: number, code: string, message: string }}
  */
 export function parseListOrdersQuery(searchParams, acceptHeader) {
@@ -102,5 +103,19 @@ export function parseListOrdersQuery(searchParams, acceptHeader) {
     };
   }
 
-  return { ok: true, csv, status, orgId, agentOrgId, limit };
+  const offsetRaw = searchParams.get("offset");
+  let offset = 0;
+  if (offsetRaw != null && offsetRaw !== "") {
+    if (!/^\d+$/.test(offsetRaw)) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "offset must be an integer ≥ 0",
+      };
+    }
+    offset = Number(offsetRaw);
+  }
+
+  return { ok: true, csv, status, orgId, agentOrgId, limit, offset };
 }

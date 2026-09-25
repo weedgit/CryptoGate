@@ -45,6 +45,7 @@ export const AUDIT_ACTIONS = {
   commissionPayoutAuto: "commission_payout_auto",
   commissionPayoutConfirmSent: "commission_payout_confirm_sent",
   commissionPayoutMarkPaid: "commission_payout_mark_paid",
+  commissionPayoutMarkPaidBatch: "commission_payout_mark_paid_batch",
   commissionPayoutAgentConfirm: "commission_payout_agent_confirm",
   agentCommissionPut: "agent_commission_put",
   enterpriseRateDecide: "enterprise_rate_decide",

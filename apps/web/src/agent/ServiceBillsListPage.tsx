@@ -26,15 +26,26 @@ import {
 import { PagePending } from "../platform/ui/PlatformPending";
 import {
   ApiError,
+  listServiceBillsPage,
   type ServiceBill,
 } from "./api";
 import { formatShortDate } from "./org";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
-import { getAgentServiceBills, peekAgentServiceBills } from "./agentServiceBillsList";
+import { peekAgentServiceBills } from "./agentServiceBillsList";
 
 type StatusFilter = "all" | "activation" | "unpaid" | "overdue" | "paid" | "voided";
 
 const PAGE_SIZE = 15;
+const FETCH_PAGE = 500;
+
+function mergeServiceBills(
+  prev: ServiceBill[],
+  next: ServiceBill[],
+): ServiceBill[] {
+  const map = new Map(prev.map((b) => [b.id, b]));
+  for (const b of next) map.set(b.id, b);
+  return [...map.values()];
+}
 
 const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -93,6 +104,8 @@ export function ServiceBillsListPage() {
   const [items, setItems] = useState<ServiceBill[]>(
     () => peekAgentServiceBills() ?? [],
   );
+  const [listTotal, setListTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [orgNames, setOrgNames] = useState<Map<string, string>>(() => {
     const orgs = peekAgentOrgs();
     return orgs ? orgNameMap(orgs) : new Map();
@@ -123,11 +136,12 @@ export function ServiceBillsListPage() {
     if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
-      const [bills, orgs] = await Promise.all([
-        getAgentServiceBills(),
+      const [pageResult, orgs] = await Promise.all([
+        listServiceBillsPage({ limit: FETCH_PAGE, offset: 0 }),
         getAgentOrgs(),
       ]);
-      setItems(bills);
+      setItems(pageResult.items);
+      setListTotal(pageResult.total);
       setOrgNames(orgNameMap(orgs));
     } catch (err) {
       setError(
@@ -138,6 +152,28 @@ export function ServiceBillsListPage() {
       setHasLoaded(true);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || items.length >= listTotal) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const pageResult = await listServiceBillsPage({
+        limit: FETCH_PAGE,
+        offset: items.length,
+      });
+      setItems((prev) => mergeServiceBills(prev, pageResult.items));
+      setListTotal(pageResult.total);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load more service bills",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, items.length, listTotal]);
+
+  const hasMoreServer = items.length < listTotal;
 
   useEffect(() => {
     void load();
@@ -425,6 +461,30 @@ export function ServiceBillsListPage() {
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
+        ) : null}
+        {hasMoreServer ? (
+          <div
+            className="plat-bills__load-more"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <p className="muted" style={{ margin: 0 }}>
+              Loaded {items.length} of {listTotal}
+            </p>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          </div>
         ) : null}
       </div>
     </div>

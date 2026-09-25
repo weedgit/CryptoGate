@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../../auth/AuthToast";
 import type { OrgDeletePreview } from "../api";
@@ -175,17 +175,6 @@ export function OrgDeleteConfirmModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
-  const childOrgs =
-    preview?.orgs.filter((o) => o.id !== orgId && o.depth > 0) ?? [];
-
-  const nestedSummary = useMemo(() => {
-    if (childOrgs.length === 0) return null;
-    const shown = childOrgs.slice(0, 4);
-    const names = shown.map((o) => o.name).join(", ");
-    const extra = childOrgs.length - shown.length;
-    return extra > 0 ? `${names}, and ${extra} more` : names;
-  }, [childOrgs]);
-
   return createPortal(
     <>
       <AuthToast
@@ -296,11 +285,6 @@ export function OrgDeleteConfirmModal({
                     <dt>Orgs</dt>
                     <dd>
                       {preview.orgCount}
-                      {preview.childOrgCount > 0 ? (
-                        <span className="org-delete-modal__stat-note">
-                          {preview.childOrgCount} nested
-                        </span>
-                      ) : null}
                     </dd>
                   </div>
                 </div>
@@ -334,11 +318,32 @@ export function OrgDeleteConfirmModal({
               </dl>
             ) : null}
 
-            {nestedSummary ? (
-              <p className="org-delete-modal__nested">Includes {nestedSummary}.</p>
-            ) : null}
-
             <div className="org-delete-modal__checks">
+              <div className="org-delete-modal__warning">
+                <div className="org-delete-modal__warning-head">
+                  <span className="org-delete-modal__warning-icon" aria-hidden>
+                    <DeleteAlertIcon />
+                  </span>
+                  <div className="org-delete-modal__warning-copy">
+                    <p className="org-delete-modal__warning-title">
+                      Permanent action
+                    </p>
+                    <p className="org-delete-modal__warning-text">
+                      Cannot be undone.
+                    </p>
+                  </div>
+                </div>
+                <label className="org-delete-modal__ack">
+                  <input
+                    type="checkbox"
+                    checked={ack}
+                    disabled={busy}
+                    onChange={(e) => setAck(e.target.checked)}
+                  />
+                  <span>I understand this is permanent.</span>
+                </label>
+              </div>
+
               <div className="org-delete-modal__confirm-field">
                 <label
                   className="org-delete-modal__confirm-label"
@@ -359,26 +364,9 @@ export function OrgDeleteConfirmModal({
                     onChange={(e) => setConfirmName(e.target.value)}
                   />
                 </div>
-              </div>
-
-              <div className="org-delete-modal__warning">
-                <div className="org-delete-modal__warning-head">
-                  <span className="org-delete-modal__warning-icon" aria-hidden>
-                    <DeleteAlertIcon />
-                  </span>
-                  <div className="org-delete-modal__warning-copy">
-                    <p className="org-delete-modal__warning-title">Cannot be undone.</p>
-                  </div>
-                </div>
-                <label className="org-delete-modal__ack">
-                  <input
-                    type="checkbox"
-                    checked={ack}
-                    disabled={busy}
-                    onChange={(e) => setAck(e.target.checked)}
-                  />
-                  <span>I understand this is permanent.</span>
-                </label>
+                <p className="org-delete-modal__confirm-hint">
+                  Type <strong>{orgName}</strong> to confirm.
+                </p>
               </div>
             </div>
           </div>

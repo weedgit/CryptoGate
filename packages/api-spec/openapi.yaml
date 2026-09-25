@@ -646,7 +646,7 @@ paths:
       operationId: deleteOrg
       summary: Delete an empty agent, merchant, or merchant (site) account
       description: >
-        Platform Owner or Administrator may delete an agent / agent_sub / merchant
+        Platform Owner or Administrator may delete an agent / merchant
         org that has no child orgs and no blocking FK dependencies. Parent merchant
         Owner or Administrator may delete an empty merchant (site) under that parent.
         Pass query `cascade=1` to delete the full subtree including members, orders,
@@ -695,7 +695,7 @@ paths:
       summary: Pause or resume an agent or merchant account
       description: >
         Platform Owner or Administrator may pause (revoke portal access)
-        or resume an agent / agent_sub / merchant org. Child orgs are not
+        or resume an agent / merchant org. Child orgs are not
         auto-paused.
       security:
         - sessionCookie: []
@@ -1766,7 +1766,7 @@ paths:
       operationId: listPaymentOrders
       summary: List or export orders in the caller’s merchant scope
       description: >
-        JSON default `{ items }`. `format=csv` (or Accept: text/csv) returns a
+        JSON default `{ items, total, limit, offset }`. `format=csv` (or Accept: text/csv) returns a
         spreadsheet-safe CSV. Cashier JSON is own orders only; Cashier CSV is 403.
         Merchant Owner/Admin/Viewer may list descendant merchant_site orders.
         Query orgId must be inside that tree. Platform operator lists all.
@@ -1779,7 +1779,7 @@ paths:
           schema:
             type: string
             enum: [json, csv]
-          description: Default json. csv max 5000 rows; json max 200 (default 100).
+          description: Default json. csv max 5000 rows; json max 200 (default 100). Use offset to page.
         - name: status
           in: query
           schema:
@@ -1801,6 +1801,13 @@ paths:
           schema:
             type: integer
             minimum: 1
+        - name: offset
+          in: query
+          description: Row offset (default 0; JSON only)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
         - $ref: "#/components/parameters/apiTimestamp"
         - $ref: "#/components/parameters/apiNonce"
         - $ref: "#/components/parameters/apiSignature"
@@ -1818,7 +1825,7 @@ paths:
                 Headers include matching_mode, payable_amount, receive_address,
                 address_source, hd_index, memo_or_tag. Cells neutralize leading =+-@.
         "400":
-          description: Invalid format, status, orgId, or limit
+          description: Invalid format, status, orgId, limit, or offset
           content:
             application/json:
               schema:
@@ -2590,7 +2597,7 @@ paths:
       tags: [orgs]
       operationId: listCommissionPayouts
       summary: List commission payout slips
-      description: Platform → agent and agent → sub payout history (Decision 1b).
+      description: Platform → agent commission invoice history (Decision 1b).
       security:
         - sessionCookie: []
       parameters:
@@ -2598,7 +2605,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [platform, agent]
+            enum: [platform]
         - name: payeeOrgId
           in: query
           schema:
@@ -2609,6 +2616,28 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: status
+          in: query
+          description: >
+            Filter by payout_status. Comma-separated list of issued, paid, settled.
+          schema:
+            type: string
+            example: issued,paid
+        - name: limit
+          in: query
+          description: Page size (1–500, default 200)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+        - name: offset
+          in: query
+          description: Row offset (default 0)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
           description: Payout list
@@ -2616,37 +2645,28 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [items, total, limit, offset]
                 properties:
                   items:
                     type: array
                     items:
                       $ref: "#/components/schemas/CommissionPayout"
-        "403":
-          description: Forbidden
+                  total:
+                    type: integer
+                    minimum: 0
+                  limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+                  offset:
+                    type: integer
+                    minimum: 0
+        "400":
+          description: Invalid status, limit, or offset
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-    post:
-      tags: [orgs]
-      operationId: upsertCommissionPayout
-      summary: Prepare / upsert a commission payout slip
-      security:
-        - sessionCookie: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpsertCommissionPayoutRequest"
-      responses:
-        "200":
-          description: Upserted slip
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CommissionPayout"
         "403":
           description: Forbidden
           content:
@@ -2711,7 +2731,7 @@ paths:
       operationId: listAgentCommissions
       summary: List agent commission percents (batch)
       description: >
-        Returns commission settings for all agent/agent_sub orgs visible to the
+        Returns commission settings for all agent orgs visible to the
         caller. Used by platform and agent commission boards to avoid N+1
         per-org GETs. Orgs without a stored row are omitted — clients apply the
         default percent (15).
@@ -2742,7 +2762,7 @@ paths:
       operationId: listAgentPayoutAddresses
       summary: List agent commission payout addresses (batch)
       description: >
-        Returns configured payout addresses for visible agent/agent_sub orgs.
+        Returns configured payout addresses for visible agent orgs.
         Orgs without an address are omitted (same as per-org 404).
       security:
         - sessionCookie: []
@@ -2765,11 +2785,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  /commission-payouts/{payoutId}/confirm-sent:
-    post:
+  /commission-payouts/{payoutId}:
+    get:
       tags: [orgs]
-      operationId: confirmCommissionPayoutSent
-      summary: Confirm USDT-TRON remittance sent (ready → verifying)
+      operationId: getCommissionPayout
+      summary: Get a commission payout invoice by id
+      description: >
+        Platform staff may read any platform → agent invoice. Agent
+        Owner/Administrator/Viewer may read invoices where they are the payee.
       security:
         - sessionCookie: []
       parameters:
@@ -2778,20 +2801,9 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                note:
-                  type: string
-                  nullable: true
-                  maxLength: 2000
       responses:
         "200":
-          description: Slip in verification
+          description: Commission invoice
           content:
             application/json:
               schema:
@@ -2808,20 +2820,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "409":
-          description: Invalid state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /commission-payouts/{payoutId}/mark-paid:
     post:
       tags: [orgs]
       operationId: markCommissionPayoutPaid
-      summary: Mark remittance paid (platform invoice or agent→sub slip)
+      summary: Mark remittance paid (platform → agent invoice)
       description: >
-        Platform → agent issued → paid (awaiting agent confirm).
-        Agent → sub ready/verifying → paid. Note required without txRef from issued/ready.
+        Platform Owner/Administrator only. issued → paid (awaiting agent confirm).
+        Note required without txRef.
       security:
         - sessionCookie: []
       parameters:
@@ -2846,7 +2852,7 @@ paths:
                   type: string
                   nullable: true
                   maxLength: 2000
-                  description: Required when completing from issued/ready without a tx.
+                  description: Required when completing from issued without a tx.
       responses:
         "200":
           description: Updated slip
@@ -2938,6 +2944,21 @@ paths:
           in: query
           schema:
             $ref: "#/components/schemas/ServiceBillStatus"
+        - name: limit
+          in: query
+          description: Page size (1–5000, default 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5000
+            default: 100
+        - name: offset
+          in: query
+          description: Row offset (default 0)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
           description: Service bill list
@@ -2945,6 +2966,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServiceBillList"
+        "400":
+          description: Invalid status, limit, or offset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: Forbidden (e.g. Cashier)
           content:
@@ -3402,7 +3429,7 @@ paths:
       operationId: getAgentPayoutAddress
       summary: Agent commission payout address
       description: >
-        Agent and agent_sub orgs only. Platform staff and agent org
+        Agent orgs only. Platform staff and agent org
         Owner/Administrator/Viewer may read. Returns 404 when not configured.
       security:
         - sessionCookie: []
@@ -3469,7 +3496,7 @@ paths:
       operationId: getAgentCommission
       summary: Agent commission percent of platform fee
       description: >
-        Agent and agent_sub orgs only. Platform staff and agent org
+        Agent orgs only. Platform staff and agent org
         Owner/Administrator/Viewer may read. Defaults to 15% when unset.
       security:
         - sessionCookie: []
@@ -3599,7 +3626,7 @@ paths:
       parameters:
         - name: types
           in: query
-          description: Comma-separated org_accounts.type values to include (e.g. agent,agent_sub)
+          description: Comma-separated org_accounts.type values to include (e.g. agent,merchant)
           schema:
             type: string
       responses:
@@ -4005,7 +4032,7 @@ components:
   schemas:
     OrgType:
       type: string
-      enum: [platform, agent, agent_sub, merchant, merchant_site]
+      enum: [platform, agent, merchant, merchant_site]
     UserRole:
       type: string
       enum: [owner, administrator, viewer, cashier]
@@ -4318,7 +4345,7 @@ components:
           type: string
         payer:
           type: string
-          enum: [platform, agent]
+          enum: [platform]
         payerOrgId:
           type: string
           format: uuid
@@ -4335,10 +4362,9 @@ components:
           type: number
         payoutStatus:
           type: string
-          enum: [issued, ready, verifying, paid, settled]
+          enum: [issued, paid, settled]
           description: >
             Platform → agent: issued → paid (ops remitted) → settled (agent confirm).
-            Agent → sub: ready → verifying → paid.
         payoutAddress:
           type: string
           nullable: true
@@ -4380,52 +4406,6 @@ components:
         createdAt:
           type: string
           format: date-time
-    UpsertCommissionPayoutRequest:
-      type: object
-      required:
-        - payeeOrgId
-        - payeeName
-        - payer
-        - periodKey
-        - periodLabel
-        - platformFeeCollected
-        - commissionPercent
-        - commissionAmount
-        - paymentLink
-      properties:
-        payeeOrgId:
-          type: string
-          format: uuid
-        payeeName:
-          type: string
-        payer:
-          type: string
-          enum: [platform, agent]
-        payerOrgId:
-          type: string
-          format: uuid
-          nullable: true
-        periodKey:
-          type: string
-        periodLabel:
-          type: string
-        platformFeeCollected:
-          type: number
-        commissionPercent:
-          type: string
-        commissionAmount:
-          type: number
-        payoutAddress:
-          type: string
-          nullable: true
-        asset:
-          type: string
-          nullable: true
-        network:
-          type: string
-          nullable: true
-        paymentLink:
-          type: string
     UpsertSettlementAddressRequest:
       type: object
       required: [asset, network, address, mfaCode]
@@ -4785,7 +4765,7 @@ components:
         commissionPercent:
           type: string
           description: >
-            Optional when type is agent or agent_sub. Percent of platform fee
+            Optional when type is agent. Percent of platform fee
             paid to the agent (default 15). Applies immediately.
         country:
           type: string
@@ -4996,12 +4976,21 @@ components:
           description: When staff resolved the anomaly (order then cancelled).
     PaymentOrderList:
       type: object
-      required: [items]
+      required: [items, total, limit, offset]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/PaymentOrder"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+        offset:
+          type: integer
+          minimum: 0
     PaymentDetails:
       type: object
       description: Guest pay / POS QR payload. Never includes keys, xPub, or fees.
@@ -5534,12 +5523,22 @@ components:
           description: Issue timestamp
     ServiceBillList:
       type: object
-      required: [items]
+      required: [items, total, limit, offset]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/ServiceBill"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        offset:
+          type: integer
+          minimum: 0
     IssueServiceBillRequest:
       type: object
       required: [orgId, periodStart, periodEnd, subscriptionAmount, volumeFeeAmount]

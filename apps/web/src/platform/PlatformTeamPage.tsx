@@ -15,9 +15,24 @@ import {
 import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
+import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { sessionIsPlatformOwner } from "./org";
 import { PlatformPending } from "./ui/PlatformPending";
+import { TeamMemberEditModal } from "./TeamMemberEditModal";
+import { formatPhoneDisplay } from "../shared/phoneFormat";
+import {
+  CloseIcon,
+  InviteMarkIcon,
+  isLoadSeedTeamEmail,
+  MailIcon,
+  memberDisplayName,
+  PauseIcon,
+  PencilIcon,
+  PersonIcon,
+  PlayIcon,
+  TrashIcon,
+} from "../shared/teamRosterChrome";
 import {
   fetchRegisteredEmailIndex,
   validatePlatformInviteEmail,
@@ -43,14 +58,6 @@ const ROLE_OPTIONS = INVITE_ROLES.map((r) => ({
 
 function roleBadgeText(role: string): string {
   return roleLabel(role);
-}
-
-function displayNameFromEmail(email: string): string {
-  const local = email.split("@")[0]?.trim() ?? "";
-  if (!local) return email;
-  return local
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatRelativeLogin(iso: string | null | undefined): string {
@@ -103,6 +110,7 @@ export function PlatformTeamPage({ session }: Props) {
   const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(null);
   const [orgs, setOrgs] = useState<OrgRef[]>(() => peekPlatformOrgs() ?? []);
   const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<OrgMember | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
@@ -152,14 +160,21 @@ export function PlatformTeamPage({ session }: Props) {
 
   const orgId = resolvedOrgId ?? platformOrgId;
 
+  const ownerCount = useMemo(
+    () => members.filter((m) => m.role === "owner").length,
+    [members],
+  );
+
   const sortedMembers = useMemo(() => {
     const rank = (role: string) =>
       role === "owner" ? 0 : role === "administrator" ? 1 : 2;
-    return [...members].sort((a, b) => {
-      const byRole = rank(a.role) - rank(b.role);
-      if (byRole !== 0) return byRole;
-      return a.email.localeCompare(b.email);
-    });
+    return members
+      .filter((m) => !isLoadSeedTeamEmail(m.email))
+      .sort((a, b) => {
+        const byRole = rank(a.role) - rank(b.role);
+        if (byRole !== 0) return byRole;
+        return a.email.localeCompare(b.email);
+      });
   }, [members]);
 
   function openInvite() {
@@ -283,7 +298,7 @@ export function PlatformTeamPage({ session }: Props) {
         ? createPortal(
             <button
               type="button"
-              className="btn-primary plat-team__invite-cta"
+              className="plat-team__invite-cta"
               onClick={openInvite}
               disabled={busy}
             >
@@ -314,12 +329,6 @@ export function PlatformTeamPage({ session }: Props) {
               Platform Owner, Administrator, and Viewer memberships.
             </p>
           </div>
-          {!loading ? (
-            <span className="plat-team__count">
-              {sortedMembers.length}{" "}
-              {sortedMembers.length === 1 ? "member" : "members"}
-            </span>
-          ) : null}
         </header>
 
         {loading ? (
@@ -331,12 +340,14 @@ export function PlatformTeamPage({ session }: Props) {
         ) : sortedMembers.length === 0 ? (
           <p className="plat-team__empty">No members returned for platform org.</p>
         ) : (
+          <>
           <div className="plat-team__table-wrap">
             <table className="plat-team__table plat-team__table--dense">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
+                  <th>Phone</th>
                   <th>Role</th>
                   <th>MFA</th>
                   <th className="plat-team__th-login">Last login</th>
@@ -350,12 +361,7 @@ export function PlatformTeamPage({ session }: Props) {
                   const isSelf = m.userId === session.userId;
                   const status = m.status ?? "active";
                   const paused = status === "paused";
-                  const roleTone =
-                    m.role === "owner"
-                      ? "owner"
-                      : m.role === "administrator"
-                        ? "admin"
-                        : "viewer";
+                  const canEditRow = canManage && m.role !== "owner";
                   return (
                     <tr
                       key={`${m.userId}-${m.orgId}`}
@@ -366,10 +372,14 @@ export function PlatformTeamPage({ session }: Props) {
                       <td>
                         <div className="plat-team__member">
                           <span className="plat-team__avatar" aria-hidden>
-                            {(m.email[0] ?? "?").toUpperCase()}
+                            {m.avatarUrl ? (
+                              <img src={m.avatarUrl} alt="" />
+                            ) : (
+                              <DefaultUserAvatar className="plat-team__avatar-default" />
+                            )}
                           </span>
                           <span className="plat-team__name">
-                            {displayNameFromEmail(m.email)}
+                            {memberDisplayName(m)}
                             {isSelf ? (
                               <span className="plat-team__you">You</span>
                             ) : null}
@@ -380,6 +390,9 @@ export function PlatformTeamPage({ session }: Props) {
                         </div>
                       </td>
                       <td className="plat-team__email">{m.email}</td>
+                      <td className="plat-team__phone">
+                        {m.phone?.trim() ? formatPhoneDisplay(m.phone) : "—"}
+                      </td>
                       <td>
                         {canManage && m.role !== "owner" && status === "active" ? (
                           <div className="plat-team__role-picker">
@@ -393,10 +406,12 @@ export function PlatformTeamPage({ session }: Props) {
                               allowEmpty={false}
                               placeholder="Role"
                               ariaLabel={`Role for ${m.email}`}
+                              menuClassName="b3-team-role-menu"
+                              menuMinWidth={96}
                             />
                           </div>
                         ) : (
-                          <span className={`plat-team__role tone-${roleTone}`}>
+                          <span className="plat-team__role">
                             {roleBadgeText(m.role)}
                           </span>
                         )}
@@ -421,44 +436,65 @@ export function PlatformTeamPage({ session }: Props) {
                       </td>
                       {canManage ? (
                         <td className="plat-team__td-actions">
-                          {!isSelf ? (
+                          {!isSelf || canEditRow ? (
                             <div className="plat-team__actions">
-                              {paused ? (
+                              {canEditRow ? (
                                 <button
                                   type="button"
-                                  className="btn-secondary plat-team__action"
+                                  className="plat-team__action plat-team__action--icon"
+                                  aria-label={`Edit ${m.email}`}
                                   disabled={busy}
-                                  onClick={() =>
-                                    void onSetStatus(m.userId, "active")
-                                  }
+                                  onClick={() => setEditTarget(m)}
                                 >
-                                  Resume
+                                  <PencilIcon />
                                 </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn-secondary plat-team__action"
-                                  disabled={busy}
-                                  onClick={() =>
-                                    void onSetStatus(m.userId, "paused")
-                                  }
-                                >
-                                  Pause
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="btn-ghost plat-team__action is-danger"
-                                disabled={busy}
-                                onClick={() =>
-                                  setRemoveTarget({
-                                    userId: m.userId,
-                                    email: m.email,
-                                  })
-                                }
-                              >
-                                Remove
-                              </button>
+                              ) : null}
+                              {!isSelf ? (
+                                <>
+                                  {paused ? (
+                                    <button
+                                      type="button"
+                                      className="plat-team__action plat-team__action--icon"
+                                      aria-label={`Resume ${m.email}`}
+                                      title="Resume"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        void onSetStatus(m.userId, "active")
+                                      }
+                                    >
+                                      <PlayIcon />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="plat-team__action plat-team__action--icon"
+                                      aria-label={`Pause ${m.email}`}
+                                      title="Pause"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        void onSetStatus(m.userId, "paused")
+                                      }
+                                    >
+                                      <PauseIcon />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="plat-team__action plat-team__action--icon is-danger"
+                                    aria-label={`Remove ${m.email}`}
+                                    title="Remove"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      setRemoveTarget({
+                                        userId: m.userId,
+                                        email: m.email,
+                                      })
+                                    }
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           ) : (
                             <span className="plat-team__actions-empty">—</span>
@@ -471,8 +507,31 @@ export function PlatformTeamPage({ session }: Props) {
               </tbody>
             </table>
           </div>
+          <p className="plat-team__count">
+            Showing {sortedMembers.length}{" "}
+            {sortedMembers.length === 1 ? "member" : "members"}
+          </p>
+          </>
         )}
       </section>
+
+      {editTarget && orgId ? (
+        <TeamMemberEditModal
+          orgId={orgId}
+          member={editTarget}
+          roleOptions={ROLE_OPTIONS}
+          roleLocked={editTarget.role === "owner" && ownerCount <= 1}
+          onClose={() => setEditTarget(null)}
+          onSaved={(next) => {
+            setMembers((prev) =>
+              prev.map((m) =>
+                m.userId === next.userId ? { ...m, ...next } : m,
+              ),
+            );
+            setEditTarget(null);
+          }}
+        />
+      ) : null}
 
       {inviteOpen
         ? createPortal(
@@ -484,56 +543,59 @@ export function PlatformTeamPage({ session }: Props) {
               }}
             >
               <div
-                className="b3-commission-modal plat-team__invite-modal"
+                className="b3-commission-modal b3-invite-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="plat-team-invite-title"
                 onClick={(e) => e.stopPropagation()}
               >
-                <header className="b3-commission-modal__head">
-                  <div className="plat-team__invite-head-text">
-                    <h3 id="plat-team-invite-title">
-                      {inviteCreds ? "Member invited" : "Invite member"}
-                    </h3>
-                    <p className="plat-team__invite-lede">
-                      {inviteCreds
-                        ? "Share sign-in details securely, then select Done."
-                        : "Send a portal invite for Administrator or Viewer on the platform org."}
-                    </p>
-                  </div>
+                <header className="b3-invite-modal__head">
+                  <span className="b3-invite-modal__mark" aria-hidden>
+                    <InviteMarkIcon />
+                  </span>
+                  <h3 id="plat-team-invite-title">
+                    {inviteCreds ? "Member invited" : "Invite member"}
+                  </h3>
                   <button
                     type="button"
-                    className="b3-commission-modal__close"
+                    className="b3-invite-modal__close"
                     aria-label="Close"
                     disabled={busy}
                     onClick={() => setInviteOpen(false)}
                   >
-                    ×
+                    <CloseIcon />
                   </button>
                 </header>
                 <form
-                  className="b3-commission-modal__body plat-team__invite-form"
+                  className="b3-invite-modal__body"
                   onSubmit={onInvite}
                   noValidate
                 >
-                  <label className="plat-team__field" htmlFor="plat-team-invite-email">
-                    <span>Email</span>
-                    <input
-                      id="plat-team-invite-email"
-                      className="plat-team__input"
-                      type="email"
-                      required
-                      autoComplete="off"
-                      autoFocus
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      disabled={busy || Boolean(inviteCreds)}
-                      placeholder="name@company.com"
-                    />
+                  <label className="b3-invite-modal__field">
+                    <span className="b3-invite-modal__label">Email</span>
+                    <span className="b3-invite-modal__control">
+                      <span className="b3-invite-modal__glyph">
+                        <MailIcon />
+                      </span>
+                      <input
+                        className="b3-invite-modal__input"
+                        type="email"
+                        required
+                        autoComplete="off"
+                        autoFocus
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        disabled={busy || Boolean(inviteCreds)}
+                        placeholder="name@company.com"
+                      />
+                    </span>
                   </label>
-                  <div className="plat-team__field">
-                    <span id="plat-team-invite-role-label">Role</span>
-                    <div className="plat-team__invite-role">
+                  <label className="b3-invite-modal__field">
+                    <span className="b3-invite-modal__label">Role</span>
+                    <span className="b3-invite-modal__control b3-invite-modal__role">
+                      <span className="b3-invite-modal__glyph">
+                        <PersonIcon />
+                      </span>
                       <SearchableSelect
                         id="plat-team-invite-role"
                         value={inviteRole}
@@ -543,25 +605,25 @@ export function PlatformTeamPage({ session }: Props) {
                         allowEmpty={false}
                         placeholder="Select role"
                         ariaLabel="Invite role"
+                        menuClassName="b3-team-role-menu"
+                        menuMinWidth={96}
                       />
-                    </div>
-                  </div>
+                    </span>
+                  </label>
                   {inviteCreds ? (
-                    <div className="plat-team__creds">
-                      <InviteCredentialsPanel
-                        email={inviteCreds.invitedEmail}
-                        temporaryPassword={inviteCreds.temporaryPassword}
-                        inviteUrl={inviteCreds.inviteUrl}
-                        invitePath={inviteCreds.invitePath}
-                        emailDeliveryStatus={inviteCreds.emailDelivery?.status}
-                      />
-                    </div>
+                    <InviteCredentialsPanel
+                      email={inviteCreds.invitedEmail}
+                      temporaryPassword={inviteCreds.temporaryPassword}
+                      inviteUrl={inviteCreds.inviteUrl}
+                      invitePath={inviteCreds.invitePath}
+                      emailDeliveryStatus={inviteCreds.emailDelivery?.status}
+                    />
                   ) : null}
-                  <footer className="b3-commission-modal__foot plat-team__invite-foot">
+                  <footer className="b3-invite-modal__foot">
                     {inviteCreds ? (
                       <button
                         type="button"
-                        className="plat-team__invite-confirm"
+                        className="b3-invite-modal__submit"
                         disabled={busy}
                         onClick={() => setInviteOpen(false)}
                       >
@@ -571,7 +633,7 @@ export function PlatformTeamPage({ session }: Props) {
                       <>
                         <button
                           type="button"
-                          className="plat-team__invite-cancel"
+                          className="b3-invite-modal__cancel"
                           disabled={busy}
                           onClick={() => setInviteOpen(false)}
                         >
@@ -579,10 +641,10 @@ export function PlatformTeamPage({ session }: Props) {
                         </button>
                         <button
                           type="submit"
-                          className="plat-team__invite-confirm"
+                          className="b3-invite-modal__submit"
                           disabled={busy || !inviteEmail.trim()}
                         >
-                          {busy ? "Working…" : "Add member"}
+                          {busy ? "Inviting…" : "Invite"}
                         </button>
                       </>
                     )}

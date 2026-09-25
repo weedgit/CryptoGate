@@ -62,16 +62,28 @@ export async function findPlatformOrg() {
 }
 
 export async function listOrgAccounts() {
-  const { rows } = await queryOrgs(
-    `SELECT ${ORG_COLS}
-     FROM org_accounts
-     ORDER BY created_at ASC`,
-  );
-  return rows;
+  try {
+    const { rows } = await queryOrgs(
+      `SELECT ${ORG_COLS}, order_create_suspended
+       FROM org_accounts
+       ORDER BY created_at ASC`,
+    );
+    return rows;
+  } catch (err) {
+    if (err && err.code === "42703") {
+      const { rows } = await queryOrgs(
+        `SELECT ${ORG_COLS}
+         FROM org_accounts
+         ORDER BY created_at ASC`,
+      );
+      return rows;
+    }
+    throw err;
+  }
 }
 
 /**
- * Agent/agent_sub count on the parent chain ( inclusive of parent ).
+ * Agent count on the parent chain (inclusive of parent).
  * @param {object | null} parent
  */
 export async function agentDepthOfParent(parent) {

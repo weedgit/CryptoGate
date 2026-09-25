@@ -23,7 +23,7 @@ import { listPaymentOrders, toPaymentOrder } from "./order-store.mjs";
  */
 async function merchantOrgIdsInAgentSubtree(agentOrgId, visible) {
   const org = await findOrgById(agentOrgId);
-  if (!org || (org.type !== "agent" && org.type !== "agent_sub")) {
+  if (!org || org.type !== "agent") {
     return { ok: false, status: 400, code: "invalid_request", message: "agentOrgId must be an agent org" };
   }
   if (!isVisibleOrg(visible, agentOrgId)) {
@@ -82,21 +82,27 @@ export async function handleListPaymentOrders(req, res) {
         : resolved.merchantOrgIds.filter((id) =>
             orgIdInPaymentOrderFilter(filter, id),
           );
-    const rows =
+    const result =
       allowedIds.length === 0
-        ? []
+        ? { rows: [], total: 0, limit: parsed.limit, offset: parsed.offset }
         : await listPaymentOrders({
             kind: "filter",
             treeOrgIds: allowedIds,
             orgId: parsed.orgId,
             status: parsed.status,
             limit: parsed.limit,
+            offset: parsed.offset,
           });
     if (parsed.csv) {
-      sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(rows));
+      sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
       return;
     }
-    sendJson(res, 200, { items: rows.map(toPaymentOrder) });
+    sendJson(res, 200, {
+      items: result.rows.map(toPaymentOrder),
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    });
     return;
   }
 
@@ -106,7 +112,7 @@ export async function handleListPaymentOrders(req, res) {
     return;
   }
 
-  const rows = await listPaymentOrders({
+  const result = await listPaymentOrders({
     kind: filter.kind === "all" ? "all" : "filter",
     treeOrgIds: filter.kind === "filter" ? filter.treeOrgIds : [],
     cashierOrgIds: filter.kind === "filter" ? filter.cashierOrgIds : [],
@@ -114,14 +120,20 @@ export async function handleListPaymentOrders(req, res) {
     orgId: parsed.orgId,
     status: parsed.status,
     limit: parsed.limit,
+    offset: parsed.offset,
   });
 
   if (parsed.csv) {
-    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(rows));
+    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
     return;
   }
 
-  sendJson(res, 200, { items: rows.map(toPaymentOrder) });
+  sendJson(res, 200, {
+    items: result.rows.map(toPaymentOrder),
+    total: result.total,
+    limit: result.limit,
+    offset: result.offset,
+  });
 }
 
 /**

@@ -52,6 +52,20 @@ function SuspendConfirmIcon() {
   );
 }
 
+function SuspendInfoIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M10 9v4.25M10 6.5h.01"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function SuspendOrgModal({
   orgName,
   busy = false,
@@ -168,8 +182,8 @@ export function SuspendOrgModal({
               <div className="b3-suspend-modal__titles">
                 <h3 id="suspend-org-title">Suspend account</h3>
                 <p id="suspend-org-subtitle">
-                  Temporarily disable this account from processing new
-                  transactions.
+                  Temporarily disable this account and prevent it from
+                  processing new transactions.
                 </p>
               </div>
             </div>
@@ -186,17 +200,12 @@ export function SuspendOrgModal({
 
           <div className="b3-commission-modal__body b3-suspend-modal__body">
             <div className="b3-suspend-modal__field">
-              <div className="b3-suspend-modal__field-head">
-                <label
-                  className="b3-suspend-modal__label"
-                  htmlFor="suspend-org-reason"
-                >
-                  Reason (optional)
-                </label>
-                <p className="b3-suspend-modal__lede">
-                  Shown in audit history for this account.
-                </p>
-              </div>
+              <label
+                className="b3-suspend-modal__label"
+                htmlFor="suspend-org-reason"
+              >
+                Reason (optional)
+              </label>
               <div className="b3-suspend-modal__reason-wrap">
                 <textarea
                   id="suspend-org-reason"
@@ -212,6 +221,21 @@ export function SuspendOrgModal({
                 <span className="b3-suspend-modal__count" aria-live="polite">
                   {reason.length}/{REASON_MAX}
                 </span>
+              </div>
+            </div>
+
+            <div className="b3-suspend-modal__callout" role="note">
+              <span className="b3-suspend-modal__callout-icon" aria-hidden>
+                <SuspendInfoIcon />
+              </span>
+              <div className="b3-suspend-modal__callout-copy">
+                <p className="b3-suspend-modal__callout-title">
+                  The account will be suspended immediately.
+                </p>
+                <p className="b3-suspend-modal__callout-text">
+                  The merchant will not be able to process new transactions
+                  until it is reactivated.
+                </p>
               </div>
             </div>
           </div>
@@ -234,7 +258,7 @@ export function SuspendOrgModal({
               onClick={() => onConfirm(reason.trim())}
             >
               <SuspendConfirmIcon />
-              {busy ? "Suspending…" : "Suspend"}
+              {busy ? "Suspending…" : "Suspend account"}
             </button>
           </footer>
         </div>

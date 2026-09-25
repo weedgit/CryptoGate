@@ -36,7 +36,7 @@ One person can be Owner on a merchant and Viewer on an agent. That is intentiona
 
 ## Agent nesting depth — current status
 
-Platform Owner already has a global **max agent depth**. Phase 1 default is **2**: Platform → Agent → Agent (sub) → Merchant. Agents cannot add another agent layer once that limit is reached.
+Platform Owner already has a global **max agent depth**. Phase 1 default is **1**: Platform → Agent → Merchant (no nested agents). Agents cannot add another agent layer.
 
 ## Recommendation: keep max depth at 2
 

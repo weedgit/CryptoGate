@@ -7,93 +7,114 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
-  CommissionInvoiceModal,
-  destForInvoice,
   invoiceStatusLabel,
   invoiceStatusTone,
-} from "../commercial/CommissionInvoiceModal";
-import {
-  commissionHistoryFromBills,
-  formatCommissionPeriodLabel,
-} from "../commercial/commissionStatements";
+} from "../commercial/commissionInvoiceShared";
+import { formatCommissionPeriodLabel } from "../commercial/commissionStatements";
 import {
   listCommissionPayouts,
-  markCommissionPayoutPaid,
-  agentConfirmCommissionPayout,
+  findPayout,
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
 import { FundAmount } from "../platform/FundAmount";
-import {
-  DEFAULT_AGENT_COMMISSION_PERCENT,
-  truncateAddress,
-} from "../platform/orgDetailSeeds";
+import { truncateAddress } from "../platform/orgDetailSeeds";
 import { PagePending } from "../platform/ui/PlatformPending";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
-import {
-  ApiError,
-  listAgentCommissions,
-  listAgentPayoutAddresses,
-  type OrgAccount,
-  type Session,
-} from "./api";
-import {
-  merchantsInAgentSubtree,
-} from "./agentSubtree";
+import { displayServiceBillTxHash } from "../shared/serviceBillPeriod";
+import { ApiError, type Session } from "./api";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
-import { getAgentServiceBills } from "./agentServiceBillsList";
-import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
+import { sessionCanOnboardMerchant, primaryAgentOrgId } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 
 type Props = { session: Session };
 
-type CommissionsTab = "current" | "history";
+type StatusFilter = "current" | "history";
 
-function parseCommissionsTab(raw: string | null): CommissionsTab {
-  return raw === "history" ? "history" : "current";
+const FETCH_PAGE = 200;
+const PERIOD_KEY_RE = /^\d{4}-\d{2}$/;
+
+const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
+  { id: "current", label: "Current" },
+  { id: "history", label: "History" },
+];
+
+function parseStatusFilter(raw: string | null): StatusFilter {
+  if (raw === "history" || raw === "settled") return "history";
+  return "current";
 }
 
 function isOpenInvoice(status: string): boolean {
+  return status === "issued" || status === "paid";
+}
+
+function listStatusForFilter(filter: StatusFilter): string | string[] {
+  return filter === "history" ? "settled" : ["issued", "paid"];
+}
+
+function mergePayoutRows(
+  prev: CommissionPayoutRecord[],
+  next: CommissionPayoutRecord[],
+): CommissionPayoutRecord[] {
+  const map = new Map(prev.map((r) => [r.id, r]));
+  for (const r of next) map.set(r.id, r);
+  return [...map.values()];
+}
+
+function invoiceMatchesQuery(
+  inv: CommissionPayoutRecord,
+  queryNorm: string,
+): boolean {
+  if (!queryNorm) return true;
+  const hay = [
+    inv.payeeName,
+    inv.payeeOrgId,
+    inv.periodLabel,
+    inv.periodKey,
+    inv.payoutStatus,
+    inv.payoutAddress,
+    inv.txRef,
+    displayServiceBillTxHash(inv.txRef),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(queryNorm);
+}
+
+function commissionBadgeTone(status: string): string {
+  const tone = invoiceStatusTone(status);
+  if (tone === "issued") return "warn";
+  if (tone === "paid") return "teal";
+  if (tone === "settled") return "ok";
+  return "muted";
+}
+
+function commissionBadgeLabel(status: string): string {
+  if (status === "paid") return "Awaiting confirm";
+  return invoiceStatusLabel(status);
+}
+
+function RowMoreIcon() {
   return (
-    status === "issued" ||
-    status === "ready" ||
-    status === "verifying" ||
-    status === "paid"
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden>
+      <circle cx="8" cy="3.5" r="1.35" />
+      <circle cx="8" cy="8" r="1.35" />
+      <circle cx="8" cy="12.5" r="1.35" />
+    </svg>
   );
 }
 
-function agentInvoiceOrgHref(
-  type: string,
-  id: string,
-  parentId: string | null,
-): string | null {
-  if (type === "merchant") return agentRoute(`merchants/${id}`);
-  if (type === "merchant_site") {
-    return parentId
-      ? `${agentRoute(`merchants/${parentId}`)}?tab=sites`
-      : agentRoute(`merchants/${id}`);
-  }
-  if (type === "agent_sub") return agentRoute(`agents/${id}`);
-  return null;
-}
-
 export function CommissionsPage({ session }: Props) {
+  const navigate = useNavigate();
   const agentId = primaryAgentOrgId(session);
   const canManage = useMemo(
     () => sessionCanOnboardMerchant(session),
     [session],
   );
   const [searchParams, setSearchParams] = useSearchParams();
-  const [rows, setRows] = useState<
-    ReturnType<typeof commissionHistoryFromBills>
-  >([]);
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
-  const [percent, setPercent] = useState(DEFAULT_AGENT_COMMISSION_PERCENT);
-  const [payoutAddrs, setPayoutAddrs] = useState<
-    Map<string, { address: string; asset: string; network: string }>
-  >(() => new Map());
   const [loading, setLoading] = useState(() => peekAgentOrgs() == null);
   const [hasLoaded, setHasLoaded] = useState(() => peekAgentOrgs() != null);
   const hasLoadedRef = useRef(hasLoaded);
@@ -105,26 +126,55 @@ export function CommissionsPage({ session }: Props) {
   const [platformInvoices, setPlatformInvoices] = useState<
     CommissionPayoutRecord[]
   >([]);
-  const [parentInvoices, setParentInvoices] = useState<
-    CommissionPayoutRecord[]
-  >([]);
-  const [slip, setSlip] = useState<CommissionPayoutRecord | null>(null);
-  const [paidNote, setPaidNote] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [listTotal, setListTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [query, setQuery] = useState("");
+  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
 
-  const tab = parseCommissionsTab(searchParams.get("tab"));
+  const statusFilter = parseStatusFilter(
+    searchParams.get("status") ?? searchParams.get("tab"),
+  );
 
-  const selectTab = useCallback(
-    (next: CommissionsTab) => {
+  const deepLinkPayee = searchParams.get("payee");
+  const deepLinkPeriod = searchParams.get("period");
+
+  useEffect(() => {
+    if (!deepLinkPeriod || !PERIOD_KEY_RE.test(deepLinkPeriod)) {
+      setDeepLinkId(null);
+      return;
+    }
+    const payee = deepLinkPayee || agentId;
+    if (!payee) {
+      setDeepLinkId(null);
+      return;
+    }
+    let cancelled = false;
+    void findPayout(payee, deepLinkPeriod)
+      .then((p) => {
+        if (!cancelled) setDeepLinkId(p?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setDeepLinkId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkPayee, deepLinkPeriod, agentId]);
+
+  const setStatus = useCallback(
+    (next: StatusFilter) => {
       const params = new URLSearchParams(searchParams);
-      if (next === "current") params.delete("tab");
-      else params.set("tab", next);
+      if (next === "current") {
+        params.delete("status");
+        params.delete("tab");
+      } else {
+        params.set("status", next);
+        params.delete("tab");
+      }
       params.delete("payee");
       params.delete("period");
       params.delete("from");
       setSearchParams(params, { replace: true });
-      setSlip(null);
-      setPaidNote("");
     },
     [searchParams, setSearchParams],
   );
@@ -136,27 +186,7 @@ export function CommissionsPage({ session }: Props) {
     setTopbarActionsSlot(document.getElementById("agent-topbar-actions"));
   }, []);
 
-  const refreshPayouts = useCallback(async () => {
-    if (!agentId) {
-      setPlatformInvoices([]);
-      setParentInvoices([]);
-      return;
-    }
-    const [platformRows, parentRows] = await Promise.all([
-      listCommissionPayouts({
-        payer: "platform",
-        payeeOrgId: agentId,
-      }),
-      listCommissionPayouts({
-        payer: "agent",
-        payeeOrgId: agentId,
-      }),
-    ]);
-    setPlatformInvoices(platformRows);
-    setParentInvoices(parentRows);
-  }, [agentId]);
-
-  const load = useCallback(async () => {
+  const loadInvoices = useCallback(async () => {
     if (!agentId) {
       setLoading(false);
       setError("No agent membership on this session");
@@ -165,52 +195,16 @@ export function CommissionsPage({ session }: Props) {
     if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
-      const [
-        orgRows,
-        bills,
-        commissions,
-        payoutAddrRows,
-        platformRows,
-        parentRows,
-      ] = await Promise.all([
-        getAgentOrgs(),
-        getAgentServiceBills(),
-        listAgentCommissions(),
-        listAgentPayoutAddresses(),
-        listCommissionPayouts({
-          payer: "platform",
-          payeeOrgId: agentId,
-        }),
-        listCommissionPayouts({
-          payer: "agent",
-          payeeOrgId: agentId,
-        }),
-      ]);
-      setOrgs(orgRows);
-      const own =
-        commissions.find((c) => c.orgId === agentId)?.commissionPercent?.trim() ||
-        DEFAULT_AGENT_COMMISSION_PERCENT;
-      setPercent(own);
-      const merchantIds = new Set(
-        merchantsInAgentSubtree(agentId, orgRows).map((m) => m.id),
-      );
-      setRows(commissionHistoryFromBills(bills, merchantIds, own));
-
-      const addrMap = new Map<
-        string,
-        { address: string; asset: string; network: string }
-      >();
-      for (const payout of payoutAddrRows) {
-        if (!payout.address) continue;
-        addrMap.set(payout.orgId, {
-          address: payout.address,
-          asset: payout.asset,
-          network: payout.network,
-        });
-      }
-      setPayoutAddrs(addrMap);
-      setPlatformInvoices(platformRows);
-      setParentInvoices(parentRows);
+      await getAgentOrgs();
+      const page = await listCommissionPayouts({
+        payer: "platform",
+        payeeOrgId: agentId,
+        status: listStatusForFilter(statusFilter),
+        limit: FETCH_PAGE,
+        offset: 0,
+      });
+      setPlatformInvoices(page.items);
+      setListTotal(page.total);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -225,335 +219,62 @@ export function CommissionsPage({ session }: Props) {
       setLoading(false);
       setHasLoaded(true);
     }
-  }, [agentId]);
+  }, [agentId, statusFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const byId = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs]);
-  const selfOrg = agentId ? byId.get(agentId) : null;
-  const isTopLevel = useMemo(() => {
-    if (!selfOrg) return true;
-    if (!selfOrg.parentId) return true;
-    const parent = byId.get(selfOrg.parentId);
-    return parent?.type === "platform" || parent == null;
-  }, [selfOrg, byId]);
-
-  const mtd = useMemo(() => {
-    const key = new Date().toISOString().slice(0, 7);
-    return (
-      platformInvoices.find((r) => r.periodKey === key) ??
-      rows.find((r) => r.periodKey === key) ??
-      platformInvoices[0] ??
-      rows[0] ??
-      null
-    );
-  }, [rows, platformInvoices]);
-
-  const openPlatformInvoices = useMemo(
-    () => platformInvoices.filter((p) => isOpenInvoice(p.payoutStatus)),
-    [platformInvoices],
-  );
-  const settledPlatformInvoices = useMemo(
-    () => platformInvoices.filter((p) => p.payoutStatus === "settled"),
-    [platformInvoices],
-  );
-  const openParentInvoices = useMemo(
-    () => parentInvoices.filter((p) => isOpenInvoice(p.payoutStatus)),
-    [parentInvoices],
-  );
-  const settledParentInvoices = useMemo(
-    () => parentInvoices.filter((p) => p.payoutStatus === "settled"),
-    [parentInvoices],
-  );
-
-  function writeInvoiceParams(record: CommissionPayoutRecord | null) {
-    const params = new URLSearchParams();
-    if (tab === "history") params.set("tab", "history");
-    if (record) {
-      params.set("period", record.periodKey);
-      if (record.payer === "platform") params.set("from", "platform");
-      else params.set("payee", record.payeeOrgId);
-    }
-    setSearchParams(params, { replace: true });
-  }
-
-  function openInvoice(record: CommissionPayoutRecord) {
-    setPaidNote(record.note?.trim() ?? "");
-    setSlip(record);
-    writeInvoiceParams(record);
-  }
-
-  function closeSlip() {
-    setSlip(null);
-    setPaidNote("");
-    writeInvoiceParams(null);
-  }
-
-  useEffect(() => {
-    const payee = searchParams.get("payee");
-    const period = searchParams.get("period");
-    const from = searchParams.get("from");
-    if (!period) return;
-    if (from === "platform") {
-      const match = platformInvoices.find((p) => p.periodKey === period);
-      if (match) {
-        setPaidNote(match.note?.trim() ?? "");
-        setSlip(match);
-      }
-      return;
-    }
-    if (payee) {
-      const match =
-        parentInvoices.find(
-          (p) => p.payeeOrgId === payee && p.periodKey === period,
-        ) ??
-        platformInvoices.find(
-          (p) => p.payeeOrgId === payee && p.periodKey === period,
-        );
-      if (match) {
-        setPaidNote(match.note?.trim() ?? "");
-        setSlip(match);
-      }
-    }
-  }, [searchParams, platformInvoices, parentInvoices]);
-
-  async function onConfirmPay() {
-    if (!slip || !canManage) return;
-    if (slip.payer !== "agent" || slip.payerOrgId !== agentId) return;
-    const note = paidNote.trim();
-    if (!note) {
-      setError("Add a note to confirm payment.");
-      return;
-    }
-    setBusy(true);
+  const loadMoreInvoices = useCallback(async () => {
+    if (!agentId || loadingMore || platformInvoices.length >= listTotal) return;
+    setLoadingMore(true);
     setError(null);
     try {
-      const updated = await markCommissionPayoutPaid(slip.id, { note });
-      await refreshPayouts();
-      if (updated) {
-        setSlip(updated);
-        setPaidNote(updated.note?.trim() ?? "");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm payment");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onConfirmReceipt() {
-    if (!slip || !canManage || slip.payeeOrgId !== agentId) return;
-    if (slip.payoutStatus !== "paid") return;
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await agentConfirmCommissionPayout(slip.id);
-      await refreshPayouts();
-      if (updated) setSlip(updated);
+      const page = await listCommissionPayouts({
+        payer: "platform",
+        payeeOrgId: agentId,
+        status: listStatusForFilter(statusFilter),
+        limit: FETCH_PAGE,
+        offset: platformInvoices.length,
+      });
+      setPlatformInvoices((prev) => mergePayoutRows(prev, page.items));
+      setListTotal(page.total);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to confirm commission",
+        err instanceof Error ? err.message : "Failed to load more invoices",
       );
     } finally {
-      setBusy(false);
+      setLoadingMore(false);
     }
+  }, [agentId, loadingMore, platformInvoices.length, listTotal, statusFilter]);
+
+  useEffect(() => {
+    void loadInvoices();
+  }, [loadInvoices]);
+
+  const hasMoreServer = platformInvoices.length < listTotal;
+  const queryNorm = query.trim().toLowerCase();
+
+  const openPlatformInvoices = useMemo(
+    () =>
+      platformInvoices
+        .filter((p) => isOpenInvoice(p.payoutStatus))
+        .filter((p) => invoiceMatchesQuery(p, queryNorm)),
+    [platformInvoices, queryNorm],
+  );
+  const settledPlatformInvoices = useMemo(
+    () =>
+      platformInvoices
+        .filter((p) => p.payoutStatus === "settled")
+        .filter((p) => invoiceMatchesQuery(p, queryNorm)),
+    [platformInvoices, queryNorm],
+  );
+
+  function openInvoice(record: CommissionPayoutRecord) {
+    navigate(agentRoute(`commissions/${record.id}`));
   }
 
-  const slipDest = slip
-    ? destForInvoice(slip, payoutAddrs.get(slip.payeeOrgId) ?? null)
-    : null;
-  const slipKicker =
-    slip?.payer === "platform"
-      ? "Platform → agent"
-      : "Parent agent → you";
-  const canPaySlip = Boolean(
-    slip &&
-      canManage &&
-      slip.payer === "agent" &&
-      slip.payerOrgId === agentId,
-  );
-  const canConfirmSlip = Boolean(
-    slip && canManage && slip.payeeOrgId === agentId,
-  );
-
-  function invoiceRow(
-    inv: CommissionPayoutRecord,
-    opts: { showPayee?: boolean; actions?: "payer" | "payee" },
-  ) {
+  if (deepLinkId) {
     return (
-      <tr
-        key={inv.id}
-        className="plat-bills__row plat-commissions__row--review"
-        onClick={(e) => {
-          if (
-            (e.target as HTMLElement).closest("a, button, .chain-value")
-          ) {
-            return;
-          }
-          openInvoice(inv);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openInvoice(inv);
-          }
-        }}
-        tabIndex={0}
-        aria-label={`Open ${formatCommissionPeriodLabel(inv.periodKey)} invoice`}
-      >
-        {opts.showPayee ? (
-          <td onClick={(e) => e.stopPropagation()}>
-            <Link
-              className="plat-commissions__agent-link"
-              to={agentRoute(`agents/${inv.payeeOrgId}`)}
-            >
-              {inv.payeeName}
-            </Link>
-          </td>
-        ) : null}
-        <td className="plat-commissions__period">
-          <button
-            type="button"
-            className="plat-commissions__period-btn"
-            onClick={() => openInvoice(inv)}
-          >
-            {formatCommissionPeriodLabel(inv.periodKey)}
-          </button>
-        </td>
-        <td className="plat-commissions__num">
-          <FundAmount amount={inv.platformFeeCollected} />
-        </td>
-        <td className="plat-commissions__rate-cell">
-          {inv.commissionPercent}%
-        </td>
-        <td className="plat-commissions__num plat-commissions__num--emph">
-          <FundAmount amount={inv.commissionAmount} />
-        </td>
-        <td>
-          <span
-            className={`plat-commissions__status is-${invoiceStatusTone(inv.payoutStatus)}`}
-          >
-            {invoiceStatusLabel(inv.payoutStatus)}
-          </span>
-        </td>
-        <td
-          className="plat-commissions__tx"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CopyableChainValue
-            value={inv.txRef}
-            network={inv.network?.trim() || "tron"}
-            kind="tx"
-            display={inv.txRef ? truncateAddress(inv.txRef, 8, 6) : undefined}
-          />
-        </td>
-        <td
-          className="plat-commissions__actions-cell"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="plat-commissions__row-actions">
-            <button
-              type="button"
-              className="plat-commissions__action"
-              onClick={() => openInvoice(inv)}
-            >
-              Open invoice
-            </button>
-            {opts.actions === "payee" &&
-            canManage &&
-            inv.payoutStatus === "paid" ? (
-              <button
-                type="button"
-                className="plat-commissions__action plat-commissions__action--primary"
-                disabled={busy}
-                onClick={() => {
-                  openInvoice(inv);
-                }}
-              >
-                Confirm receipt
-              </button>
-            ) : null}
-          </div>
-        </td>
-      </tr>
+      <Navigate to={agentRoute(`commissions/${deepLinkId}`)} replace />
     );
   }
-
-  function historyRow(
-    inv: CommissionPayoutRecord,
-    opts: { showPayee?: boolean },
-  ) {
-    return (
-      <tr
-        key={inv.id}
-        className="plat-bills__row plat-commissions__row--review"
-        onClick={(e) => {
-          if (
-            (e.target as HTMLElement).closest("a, button, .chain-value")
-          ) {
-            return;
-          }
-          openInvoice(inv);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openInvoice(inv);
-          }
-        }}
-        tabIndex={0}
-        aria-label={`Open ${formatCommissionPeriodLabel(inv.periodKey)} invoice`}
-      >
-        <td className="plat-commissions__paid-at">
-          {inv.settledAt
-            ? new Date(inv.settledAt).toLocaleString()
-            : inv.paidAt
-              ? new Date(inv.paidAt).toLocaleString()
-              : "—"}
-        </td>
-        {opts.showPayee ? <td>{inv.payeeName}</td> : null}
-        <td className="plat-commissions__period">
-          <button
-            type="button"
-            className="plat-commissions__period-btn"
-            onClick={() => openInvoice(inv)}
-          >
-            {formatCommissionPeriodLabel(inv.periodKey)}
-          </button>
-        </td>
-        <td className="plat-commissions__num plat-commissions__num--emph">
-          <FundAmount amount={inv.commissionAmount} />
-        </td>
-        <td
-          className="plat-commissions__tx"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CopyableChainValue
-            value={inv.txRef}
-            network={inv.network?.trim() || "tron"}
-            kind="tx"
-            display={inv.txRef ? truncateAddress(inv.txRef, 8, 6) : undefined}
-          />
-        </td>
-        <td>
-          <span className="plat-commissions__status is-settled">Settled</span>
-        </td>
-      </tr>
-    );
-  }
-
-  const mtdStatus =
-    mtd && "payoutStatus" in mtd ? String(mtd.payoutStatus) : "";
-  const mtdCommission =
-    mtd && "commissionAmount" in mtd ? Number(mtd.commissionAmount) : 0;
-  const mtdFee =
-    mtd && "platformFeeCollected" in mtd
-      ? Number(mtd.platformFeeCollected)
-      : 0;
-  const mtdPeriod =
-    mtd && "periodKey" in mtd ? String(mtd.periodKey) : "";
 
   return (
     <div className="plat-bills plat-commissions">
@@ -561,9 +282,33 @@ export function CommissionsPage({ session }: Props) {
 
       {topbarSlot
         ? createPortal(
-            <p className="plat-commissions__topbar-title">
-              Commission statements
-            </p>,
+            <label className="org-agents__search-wrap plat-bills__search-wrap">
+              <span className="org-agents__search-icon" aria-hidden>
+                <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
+                  <circle
+                    cx="8.5"
+                    cy="8.5"
+                    r="5.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M12.75 12.75 16.5 16.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <input
+                className="field-control org-agents__search"
+                type="search"
+                placeholder="Search period, status, or ref…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search commissions"
+              />
+            </label>,
             topbarSlot,
           )
         : null}
@@ -581,37 +326,25 @@ export function CommissionsPage({ session }: Props) {
           )
         : null}
 
-      <div className="plat-commissions__summary">
-        <div className="plat-commissions__kpis">
-          <article className="plat-commissions__kpi">
-            <p className="plat-commissions__eyebrow">Rebate rate</p>
-            <p className="plat-commissions__rate">
-              {percent}
-              <span>%</span>
-            </p>
-          </article>
-          {mtd ? (
-            <article className="plat-commissions__kpi plat-commissions__kpi--statement">
-              <p className="plat-commissions__eyebrow">
-                {formatCommissionPeriodLabel(mtdPeriod)}
-              </p>
-              <p className="plat-commissions__mtd-value">
-                <FundAmount amount={mtdCommission} />
-              </p>
-              <div className="plat-commissions__kpi-meta">
-                <span>
-                  Fee base <FundAmount amount={mtdFee} />
-                </span>
-                {mtdStatus ? (
-                  <span
-                    className={`plat-commissions__status is-${invoiceStatusTone(mtdStatus)}`}
-                  >
-                    {invoiceStatusLabel(mtdStatus)}
-                  </span>
-                ) : null}
-              </div>
-            </article>
-          ) : null}
+      <div className="plat-bills__toolbar">
+        <div
+          className="org-agents__pills"
+          role="group"
+          aria-label="Commission view"
+        >
+          {STATUS_PILLS.map((pill) => (
+            <button
+              key={pill.id}
+              type="button"
+              className={`org-agents__pill${
+                statusFilter === pill.id ? " is-active" : ""
+              }`}
+              aria-pressed={statusFilter === pill.id}
+              onClick={() => setStatus(pill.id)}
+            >
+              {pill.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -622,191 +355,293 @@ export function CommissionsPage({ session }: Props) {
         excluded. Remittance window is typically days 10–15.
       </p>
 
-      <div
-        className="b3-agent-detail__tabs plat-commissions__tabs"
-        role="tablist"
-        aria-label="Commission view"
-      >
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "current" ? " is-active" : ""}`}
-          aria-selected={tab === "current"}
-          onClick={() => selectTab("current")}
-        >
-          Current
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "history" ? " is-active" : ""}`}
-          aria-selected={tab === "history"}
-          onClick={() => selectTab("history")}
-        >
-          History
-        </button>
+      <div className="plat-bills__table-wrap">
+        {statusFilter === "current" ? (
+          <>
+            {loading && !hasLoaded ? <PagePending /> : null}
+            {!loading && openPlatformInvoices.length === 0 ? (
+              <p className="plat-bills__empty">
+                {queryNorm
+                  ? `No invoices match “${query.trim()}”.`
+                  : "No pending or unconfirmed invoices from the platform."}
+              </p>
+            ) : null}
+            {!loading && openPlatformInvoices.length > 0 ? (
+              <>
+                <table className="plat-bills__table plat-commissions__table">
+                  <thead>
+                    <tr>
+                      <th>Period</th>
+                      <th className="plat-commissions__th-num">Fee collected</th>
+                      <th className="plat-commissions__th-num">Rate</th>
+                      <th className="plat-commissions__th-num">Commission</th>
+                      <th>Status</th>
+                      <th>Tx / ref</th>
+                      <th className="plat-bills__th-actions">
+                        <span className="sr-only">Open</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openPlatformInvoices.map((inv) => {
+                      const href = agentRoute(`commissions/${inv.id}`);
+                      return (
+                        <tr
+                          key={inv.id}
+                          className="plat-bills__row plat-commissions__row--review"
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest(
+                                "a, button, .chain-value",
+                              )
+                            ) {
+                              return;
+                            }
+                            openInvoice(inv);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openInvoice(inv);
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={`Open ${formatCommissionPeriodLabel(inv.periodKey)} invoice`}
+                        >
+                          <td className="plat-commissions__period">
+                            {formatCommissionPeriodLabel(inv.periodKey)}
+                          </td>
+                          <td className="plat-commissions__num">
+                            <FundAmount amount={inv.platformFeeCollected} />
+                          </td>
+                          <td className="plat-commissions__rate-cell">
+                            {inv.commissionPercent}%
+                          </td>
+                          <td className="plat-commissions__num plat-commissions__num--emph">
+                            <FundAmount amount={inv.commissionAmount} />
+                          </td>
+                          <td className="plat-bills__status-cell">
+                            <span className="plat-bills__status-row">
+                              <span
+                                className={`plat-bills__badge tone-${commissionBadgeTone(inv.payoutStatus)}`}
+                              >
+                                {commissionBadgeLabel(inv.payoutStatus)}
+                              </span>
+                              {canManage && inv.payoutStatus === "paid" ? (
+                                <button
+                                  type="button"
+                                  className="plat-bills__kind-chip is-action"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openInvoice(inv);
+                                  }}
+                                >
+                                  Confirm receipt
+                                </button>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td
+                            className="plat-commissions__tx"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <CopyableChainValue
+                              value={
+                                displayServiceBillTxHash(inv.txRef) || null
+                              }
+                              network={inv.network?.trim() || "tron"}
+                              kind="tx"
+                              display={
+                                inv.txRef
+                                  ? truncateAddress(
+                                      displayServiceBillTxHash(inv.txRef),
+                                      8,
+                                      6,
+                                    )
+                                  : undefined
+                              }
+                            />
+                          </td>
+                          <td className="plat-bills__td-actions">
+                            <Link
+                              className="plat-bills__row-more"
+                              to={href}
+                              aria-label={`Open invoice ${formatCommissionPeriodLabel(inv.periodKey)}`}
+                              title="Open invoice"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <RowMoreIcon />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {hasMoreServer ? (
+                  <div
+                    className="plat-bills__load-more"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginTop: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <p className="muted" style={{ margin: 0 }}>
+                      Loaded {platformInvoices.length} of {listTotal}
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={loadingMore}
+                      onClick={() => void loadMoreInvoices()}
+                    >
+                      {loadingMore ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {loading && !hasLoaded ? <PagePending /> : null}
+            {!loading && settledPlatformInvoices.length === 0 ? (
+              <p className="plat-bills__empty">
+                {queryNorm
+                  ? `No invoices match “${query.trim()}”.`
+                  : "No confirmed platform invoices yet. Confirm receipt on Current after remittance."}
+              </p>
+            ) : null}
+            {!loading && settledPlatformInvoices.length > 0 ? (
+              <>
+                <table className="plat-bills__table plat-commissions__table">
+                  <thead>
+                    <tr>
+                      <th>Settled at</th>
+                      <th>Period</th>
+                      <th className="plat-commissions__th-num">Amount</th>
+                      <th>Tx / ref</th>
+                      <th>Status</th>
+                      <th className="plat-bills__th-actions">
+                        <span className="sr-only">Open</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {settledPlatformInvoices.map((inv) => {
+                      const href = agentRoute(`commissions/${inv.id}`);
+                      return (
+                        <tr
+                          key={inv.id}
+                          className="plat-bills__row plat-commissions__row--review"
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest(
+                                "a, button, .chain-value",
+                              )
+                            ) {
+                              return;
+                            }
+                            openInvoice(inv);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openInvoice(inv);
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={`Open ${formatCommissionPeriodLabel(inv.periodKey)} invoice`}
+                        >
+                          <td className="plat-commissions__paid-at">
+                            {inv.settledAt
+                              ? new Date(inv.settledAt).toLocaleString()
+                              : inv.paidAt
+                                ? new Date(inv.paidAt).toLocaleString()
+                                : "—"}
+                          </td>
+                          <td className="plat-commissions__period">
+                            {formatCommissionPeriodLabel(inv.periodKey)}
+                          </td>
+                          <td className="plat-commissions__num plat-commissions__num--emph">
+                            <FundAmount amount={inv.commissionAmount} />
+                          </td>
+                          <td
+                            className="plat-commissions__tx"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <CopyableChainValue
+                              value={
+                                displayServiceBillTxHash(inv.txRef) || null
+                              }
+                              network={inv.network?.trim() || "tron"}
+                              kind="tx"
+                              display={
+                                inv.txRef
+                                  ? truncateAddress(
+                                      displayServiceBillTxHash(inv.txRef),
+                                      8,
+                                      6,
+                                    )
+                                  : undefined
+                              }
+                            />
+                          </td>
+                          <td className="plat-bills__status-cell">
+                            <span
+                              className={`plat-bills__badge tone-${commissionBadgeTone(inv.payoutStatus)}`}
+                            >
+                              {commissionBadgeLabel(inv.payoutStatus)}
+                            </span>
+                          </td>
+                          <td className="plat-bills__td-actions">
+                            <Link
+                              className="plat-bills__row-more"
+                              to={href}
+                              aria-label={`Open invoice ${formatCommissionPeriodLabel(inv.periodKey)}`}
+                              title="Open invoice"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <RowMoreIcon />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {hasMoreServer ? (
+                  <div
+                    className="plat-bills__load-more"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginTop: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <p className="muted" style={{ margin: 0 }}>
+                      Loaded {platformInvoices.length} of {listTotal}
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={loadingMore}
+                      onClick={() => void loadMoreInvoices()}
+                    >
+                      {loadingMore ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        )}
       </div>
-
-      {tab === "current" ? (
-        <>
-          {loading && !hasLoaded ? (
-            <PagePending />
-          ) : null}
-
-          {!loading && isTopLevel ? (
-            <>
-              <h2 className="plat-commissions__history-title">From platform</h2>
-              {openPlatformInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No pending or unconfirmed invoices from the platform.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">
-                          Fee collected
-                        </th>
-                        <th className="plat-commissions__th-num">Rate</th>
-                        <th className="plat-commissions__th-num">Commission</th>
-                        <th>Status</th>
-                        <th>Tx / ref</th>
-                        <th className="plat-commissions__th-actions">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {openPlatformInvoices.map((inv) =>
-                        invoiceRow(inv, { actions: "payee" }),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          ) : null}
-
-          {!loading && !isTopLevel ? (
-            <>
-              <h2 className="plat-commissions__history-title">
-                From parent agent
-              </h2>
-              {openParentInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No open payouts from your parent agent.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">Fee base</th>
-                        <th className="plat-commissions__th-num">Rate</th>
-                        <th className="plat-commissions__th-num">Commission</th>
-                        <th>Status</th>
-                        <th>Tx / ref</th>
-                        <th className="plat-commissions__th-actions">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {openParentInvoices.map((inv) =>
-                        invoiceRow(inv, { actions: "payee" }),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          ) : null}
-        </>
-      ) : (
-        <>
-          {isTopLevel ? (
-            <>
-              <h2 className="plat-commissions__history-title">From platform</h2>
-              {settledPlatformInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No confirmed platform invoices yet. Confirm receipt on Current
-                  after remittance.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Settled at</th>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">Amount</th>
-                        <th>Tx / ref</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {settledPlatformInvoices.map((inv) =>
-                        historyRow(inv, {}),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          ) : null}
-
-          {!isTopLevel ? (
-            <>
-              <h2 className="plat-commissions__history-title">
-                From parent agent
-              </h2>
-              {settledParentInvoices.length === 0 ? (
-                <p className="plat-bills__empty">
-                  No confirmed payouts from your parent agent yet.
-                </p>
-              ) : (
-                <div className="plat-bills__table-wrap">
-                  <table className="plat-bills__table plat-commissions__table">
-                    <thead>
-                      <tr>
-                        <th>Settled at</th>
-                        <th>Period</th>
-                        <th className="plat-commissions__th-num">Amount</th>
-                        <th>Tx / ref</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {settledParentInvoices.map((h) => historyRow(h, {}))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          ) : null}
-        </>
-      )}
-
-      {slip
-        ? createPortal(
-            <CommissionInvoiceModal
-              slip={slip}
-              dest={slipDest}
-              kicker={slipKicker}
-              byId={byId}
-              orgHref={agentInvoiceOrgHref}
-              canPay={canPaySlip}
-              canConfirmReceipt={canConfirmSlip}
-              paidNote={paidNote}
-              onPaidNoteChange={setPaidNote}
-              onConfirmPay={() => void onConfirmPay()}
-              onConfirmReceipt={() => void onConfirmReceipt()}
-              busy={busy}
-              onClose={closeSlip}
-              missingAddressHint="No payout address on this agent yet. They must set it under Settings, then reopen this invoice."
-            />,
-            document.body,
-          )
-        : null}
     </div>
   );
 }

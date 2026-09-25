@@ -16,14 +16,12 @@ import {
   ApiError,
   getMerchantCommercial,
   getOrg,
+  listServiceBillsPage,
   type MerchantCommercialSettings,
   type ServiceBill,
   type Session,
 } from "./api";
-import {
-  getMerchantServiceBills,
-  peekMerchantServiceBills,
-} from "./merchantServiceBillsList";
+import { peekMerchantServiceBills } from "./merchantServiceBillsList";
 import { getCachedServiceBill } from "../shared/serviceBillDetailCache";
 import { formatShortDate } from "../platform/org";
 import { tierLabel } from "../commercialLabels";
@@ -45,6 +43,8 @@ import {
 
 type Filter = "all" | "overdue" | "unpaid" | "paid";
 
+const FETCH_PAGE = 500;
+
 const STATUS_PILLS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "unpaid", label: "Unpaid" },
@@ -53,6 +53,15 @@ const STATUS_PILLS: { id: Filter; label: string }[] = [
 ];
 
 type Props = { session: Session };
+
+function mergeServiceBills(
+  prev: ServiceBill[],
+  next: ServiceBill[],
+): ServiceBill[] {
+  const map = new Map(prev.map((b) => [b.id, b]));
+  for (const b of next) map.set(b.id, b);
+  return [...map.values()];
+}
 
 function matchesFilter(bill: ServiceBill, filter: Filter): boolean {
   switch (filter) {
@@ -99,6 +108,8 @@ export function ServiceBillsListPage({ session }: Props) {
   const [items, setItems] = useState<ServiceBill[]>(
     () => peekMerchantServiceBills() ?? [],
   );
+  const [listTotal, setListTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
   );
@@ -124,16 +135,43 @@ export function ServiceBillsListPage({ session }: Props) {
     if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
-      const rows = await getMerchantServiceBills();
-      setItems(rows);
+      const page = await listServiceBillsPage({
+        limit: FETCH_PAGE,
+        offset: 0,
+      });
+      setItems(page.items);
+      setListTotal(page.total);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load service bills");
       setItems([]);
+      setListTotal(0);
     } finally {
       setLoading(false);
       setHasLoaded(true);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || items.length >= listTotal) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await listServiceBillsPage({
+        limit: FETCH_PAGE,
+        offset: items.length,
+      });
+      setItems((prev) => mergeServiceBills(prev, page.items));
+      setListTotal(page.total);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load more service bills",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, items.length, listTotal]);
+
+  const hasMoreServer = items.length < listTotal;
 
   useEffect(() => {
     void load();
@@ -513,6 +551,30 @@ export function ServiceBillsListPage({ session }: Props) {
               })}
             </tbody>
           </table>
+        ) : null}
+        {hasMoreServer ? (
+          <div
+            className="plat-bills__load-more"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <p className="muted" style={{ margin: 0 }}>
+              Loaded {items.length} of {listTotal}
+            </p>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          </div>
         ) : null}
       </div>
     </div>

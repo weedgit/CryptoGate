@@ -9,7 +9,7 @@ import {
 describe("agent-payout rules", () => {
   it("allows agent org types only", () => {
     assert.equal(agentPayoutAllowedOnOrgType("agent"), true);
-    assert.equal(agentPayoutAllowedOnOrgType("agent_sub"), true);
+    assert.equal(agentPayoutAllowedOnOrgType("agent_sub"), false);
     assert.equal(agentPayoutAllowedOnOrgType("merchant"), false);
   });
 

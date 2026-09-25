@@ -65,7 +65,7 @@ async function loadVisibleAgentOrg(req, res, orgId) {
 }
 
 /**
- * GET /v1/agent-commissions — all visible agent/agent_sub commission rows.
+ * GET /v1/agent-commissions — all visible agent commission rows.
  * Missing orgs are omitted; clients apply the default percent.
  */
 export async function handleListAgentCommissions(req, res) {

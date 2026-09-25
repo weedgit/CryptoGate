@@ -10,7 +10,7 @@ import {
   deleteOrg,
   getOrg,
   getOrgDeletePreview,
-  listOrders,
+  listAllOrders,
   listOrgUsers,
   setOrgStatus,
   type OrgAccount,
@@ -138,7 +138,7 @@ export function SiteDetailCard({
     if (tab !== "orders") return;
     let cancelled = false;
     setOrdersLoading(true);
-    void listOrders({ orgId: site.id, limit: 200 })
+    void listAllOrders({ orgId: site.id })
       .then((rows) => {
         if (!cancelled) setOrders(rows);
       })

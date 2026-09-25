@@ -1,3 +1,8 @@
+import {
+  formatUtcDateOnly,
+  formatViewerDate,
+} from "./dateTime";
+
 /** Merchant must exist on or before billing period end (UTC) to be billable. */
 export function merchantOnboardedInPeriod(
   createdAt: string | undefined,
@@ -18,19 +23,14 @@ export function merchantsSkippedForPeriod(
   return merchants.filter((m) => !merchantOnboardedInPeriod(m.createdAt, periodEnd));
 }
 
-function formatPeriodDay(iso: string): string {
-  // Date-only YYYY-MM-DD → parse as UTC noon to avoid TZ day shift.
-  const raw = iso.trim().slice(0, 10);
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(raw)
-    ? Date.parse(`${raw}T12:00:00.000Z`)
-    : Date.parse(iso);
-  if (!Number.isFinite(d)) return iso;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(d);
+/** MM/DD/YYYY — datetimes in viewer TZ; date-only strings as UTC calendar days. */
+export function formatSlashDate(iso: string | null | undefined): string {
+  if (!iso?.trim()) return "—";
+  const raw = iso.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw.slice(0, 10)) && raw.length <= 10) {
+    return formatUtcDateOnly(raw);
+  }
+  return formatViewerDate(raw);
 }
 
 /** Human label for a bill fee window (matches list Period column). */
@@ -41,8 +41,8 @@ export function formatServiceBillPeriodRange(
   const start = periodStart?.trim() ?? "";
   if (!start) return "—";
   const end = periodEnd?.trim() ?? "";
-  if (!end || end === start) return formatPeriodDay(start);
-  return `${formatPeriodDay(start)} → ${formatPeriodDay(end)}`;
+  if (!end || end === start) return formatUtcDateOnly(start);
+  return `${formatUtcDateOnly(start)} ~ ${formatUtcDateOnly(end)}`;
 }
 
 export type ServiceBillPeriodOption = {
@@ -70,6 +70,27 @@ export function serviceBillPeriodOptions(
       end,
       label: formatServiceBillPeriodRange(start, end),
     }));
+}
+
+/** Expand a remittance reference into an EVM-looking 0x + 64 hex tx hash for display.
+ * Real chain hashes (already 0x…64) pass through; legacy seed labels are remapped.
+ * Used for service-bill payment refs and commission payout tx refs. */
+export function displayServiceBillTxHash(
+  ref: string | null | undefined,
+): string {
+  const t = ref?.trim() || "";
+  if (!t) return "";
+  if (/^0x[0-9a-fA-F]{64}$/.test(t)) return t.toLowerCase();
+  // Deterministic FNV-1a expansion (demo / legacy seed labels only).
+  let hex = "";
+  let h = 2166136261 >>> 0;
+  const seed = `pg-service-bill:${t}`;
+  for (let i = 0; hex.length < 64; i += 1) {
+    h ^= seed.charCodeAt(i % seed.length);
+    h = Math.imul(h, 16777619) >>> 0;
+    hex += h.toString(16).padStart(8, "0");
+  }
+  return `0x${hex.slice(0, 64)}`;
 }
 
 /** Short CTA shown on list rows that still need ops work. */

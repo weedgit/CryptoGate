@@ -52,7 +52,7 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
         type: "platform",
         name: `Contact Test Platform ${stamp}`,
         parentId: null,
-        maxAgentDepth: 2,
+        maxAgentDepth: 1,
       });
       platform = created.row;
     }

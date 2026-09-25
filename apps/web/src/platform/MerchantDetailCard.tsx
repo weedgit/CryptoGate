@@ -8,14 +8,17 @@ import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
+  getBillingCalendarSettings,
   getFeeTierSettings,
   getMatchingMode,
   getOrgOverview,
   ownerContactWithMfa,
+  listComplianceOverrides,
   listSettlement,
   listXpub,
   updateMerchantCommercial,
   patchOrgProfile,
+  type ComplianceOverride,
   type FeeTierBand,
   type AuditLogEntry,
   type MerchantCommercialSettings,
@@ -51,6 +54,8 @@ import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
 import { MerchantSettlementPanel } from "./MerchantSettlementPanel";
+import { ComplianceOverrideModal } from "./ComplianceOverrideModal";
+import { formatViewerDateTime } from "../shared/dateTime";
 import { KpiChartIcon, KpiCoinsIcon, KpiPeopleIcon } from "./detailKpiMarks";
 import {
   HeroPauseIcon,
@@ -63,6 +68,7 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "team", label: "Team" },
   { id: "cashiers", label: "Cashiers" },
+  { id: "compliance", label: "Compliance" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -121,6 +127,7 @@ const AUDIT_LABEL: Record<string, string> = {
   service_bill_mark_paid: "Bill marked paid",
   service_bill_void: "Bill voided",
   service_bill_adjust: "Bill adjusted",
+  compliance_override: "Compliance override",
 };
 
 function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
@@ -195,6 +202,11 @@ type MerchantEditSave = {
     matchingMode: string;
     pricingMode: string;
     publicKey?: string;
+    billingSchedule?: {
+      skipActivation: boolean;
+      feeExemptUntil: string;
+      billingOpsNote: string;
+    };
   };
 };
 
@@ -256,8 +268,18 @@ export function MerchantDetailCard({
   const [editVolume, setEditVolume] = useState("");
   const [editReason, setEditReason] = useState("");
   const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
+  const [activationFeeUsd, setActivationFeeUsd] = useState("49.00");
+  const [overrides, setOverrides] = useState<ComplianceOverride[]>([]);
+  const [overridesLoading, setOverridesLoading] = useState(false);
+  const [overridesError, setOverridesError] = useState<string | null>(null);
+  const [localOrg, setLocalOrg] = useState<OrgAccount>(org);
 
-  const status = org.status ?? "active";
+  useEffect(() => {
+    setLocalOrg(org);
+  }, [org]);
+
+  const status = localOrg.status ?? "active";
+  const orderCreateSuspended = localOrg.orderCreateSuspended === true;
   const periodStart = useMemo(
     () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
     [org.createdAt],
@@ -334,7 +356,35 @@ export function MerchantDetailCard({
     setCommercialEditOpen(false);
     setCommercialError(null);
     setPrimaryOwner(null);
+    setOverrides([]);
+    setOverridesError(null);
   }, [org.id, initialTab]);
+
+  useEffect(() => {
+    if (tab !== "compliance") return;
+    let cancelled = false;
+    setOverridesLoading(true);
+    setOverridesError(null);
+    void listComplianceOverrides(org.id)
+      .then((data) => {
+        if (cancelled) return;
+        setOverrides(data.items ?? []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setOverridesError(
+          err instanceof ApiError
+            ? err.message
+            : "Failed to load compliance overrides",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setOverridesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, org.id]);
 
   const selectedBand = useMemo(
     () => feeTiers.find((t) => t.tier === editTier) ?? null,
@@ -349,6 +399,15 @@ export function MerchantDetailCard({
       })
       .catch(() => {
         if (!cancelled) setFeeTiers([]);
+      });
+    void getBillingCalendarSettings()
+      .then((cal) => {
+        if (!cancelled && cal.activationFeeUsd?.trim()) {
+          setActivationFeeUsd(cal.activationFeeUsd.trim());
+        }
+      })
+      .catch(() => {
+        /* keep default activation fee */
       });
     return () => {
       cancelled = true;
@@ -546,17 +605,31 @@ export function MerchantDetailCard({
           (next.merchant.rateMode === "fixed" &&
             (next.merchant.tier !== commercial.tier ||
               next.merchant.volumeFeePercent !== commercial.volumeFeePercent));
-        if (commercialChanged) {
-          const saved = await updateMerchantCommercial(
-            org.id,
-            next.merchant.rateMode === "automatic"
-              ? { rateMode: "automatic" }
-              : {
-                  tier: next.merchant.tier,
-                  volumeFeePercent: next.merchant.volumeFeePercent,
-                  rateMode: "fixed",
-                },
-          );
+        const schedule = next.merchant.billingSchedule;
+        const scheduleChanged =
+          schedule != null &&
+          (Boolean(schedule.skipActivation) !== Boolean(commercial.skipActivation) ||
+            (schedule.feeExemptUntil || "") !== (commercial.feeExemptUntil ?? "") ||
+            (schedule.billingOpsNote || "") !== (commercial.billingOpsNote ?? ""));
+        if (commercialChanged || scheduleChanged) {
+          const saved = await updateMerchantCommercial(org.id, {
+            ...(commercialChanged
+              ? next.merchant.rateMode === "automatic"
+                ? { rateMode: "automatic" as const }
+                : {
+                    tier: next.merchant.tier,
+                    volumeFeePercent: next.merchant.volumeFeePercent,
+                    rateMode: "fixed" as const,
+                  }
+              : {}),
+            ...(scheduleChanged && schedule
+              ? {
+                  skipActivation: schedule.skipActivation,
+                  feeExemptUntil: schedule.feeExemptUntil.trim() || null,
+                  billingOpsNote: schedule.billingOpsNote.trim() || null,
+                }
+              : {}),
+          });
           setCommercial(saved);
         }
         if (next.merchant.matchingMode !== matchingMode) {
@@ -658,15 +731,15 @@ export function MerchantDetailCard({
           ) : null
         }
       />
-      {status === "paused" && org.statusReason ? (
+      {status === "paused" && localOrg.statusReason ? (
         <p className="platform-detail__pause-reason muted" role="status">
-          {org.statusReason}
-          {org.statusReasonBillId ? (
+          {localOrg.statusReason}
+          {localOrg.statusReasonBillId ? (
             <>
               {" — "}
               <Link
                 to={platformRoute(
-                  `service-bills/${encodeURIComponent(org.statusReasonBillId)}`,
+                  `service-bills/${encodeURIComponent(localOrg.statusReasonBillId)}`,
                 )}
               >
                 Open invoice
@@ -714,6 +787,16 @@ export function MerchantDetailCard({
                 matchingMode,
                 pricingMode,
                 publicKey: savedPublicKey,
+                billingSchedule: canEditCommercial
+                  ? {
+                      statusLabel: commercial.billingAnchorAt
+                        ? `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`
+                        : `Not activated · $${activationFeeUsd}`,
+                      skipActivation: Boolean(commercial.skipActivation),
+                      feeExemptUntil: commercial.feeExemptUntil ?? "",
+                      billingOpsNote: commercial.billingOpsNote ?? "",
+                    }
+                  : undefined,
               }
             : null
         }
@@ -858,68 +941,29 @@ export function MerchantDetailCard({
                       </p>
                     </div>
                     <div className="b3-profile__field">
-                      <p className="b3-profile__label">Billing flags</p>
+                      <p className="b3-profile__label">Billing schedule</p>
                       <p className="b3-profile__value">
-                        {!commercial
-                          ? "…"
-                          : [
-                              commercial.skipActivation ? "Skip activation" : null,
-                              commercial.feeExemptUntil
-                                ? `Exempt until ${commercial.feeExemptUntil}`
-                                : null,
-                              commercial.serviceBillCreditUsd &&
-                              commercial.serviceBillCreditUsd !== "0.00"
-                                ? `Credit $${commercial.serviceBillCreditUsd}`
-                                : null,
-                              commercial.billingAnchorAt
-                                ? `Anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
-                                : "Awaiting activation pay",
-                              commercial.nextInvoiceOn
-                                ? `Next invoice ${commercial.nextInvoiceOn}`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ") || "None"}
+                        {!commercial ? (
+                          "…"
+                        ) : commercial.billingAnchorAt ? (
+                          [
+                            `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`,
+                            commercial.nextInvoiceOn
+                              ? `Next invoice ${commercial.nextInvoiceOn}`
+                              : null,
+                            commercial.feeExemptUntil
+                              ? `Exempt until ${commercial.feeExemptUntil}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                        ) : (
+                          <>
+                            Not activated ·{" "}
+                            <FundAmount amount={activationFeeUsd} />
+                          </>
+                        )}
                       </p>
-                      {canEditCommercial && commercial ? (
-                        <button
-                          type="button"
-                          className="linkish"
-                          style={{ marginTop: "0.35rem", fontSize: "0.85rem" }}
-                          onClick={() => {
-                            const until = window.prompt(
-                              "Fee exempt until (YYYY-MM-DD), empty to clear",
-                              commercial.feeExemptUntil ?? "",
-                            );
-                            if (until === null) return;
-                            const skipRaw = window.prompt(
-                              "Skip activation invoice? yes / no",
-                              commercial.skipActivation ? "yes" : "no",
-                            );
-                            if (skipRaw === null) return;
-                            const noteRaw = window.prompt(
-                              "Billing ops note (optional)",
-                              commercial.billingOpsNote ?? "",
-                            );
-                            if (noteRaw === null) return;
-                            void updateMerchantCommercial(org.id, {
-                              feeExemptUntil: until.trim() || null,
-                              skipActivation: /^y(es)?$/i.test(skipRaw.trim()),
-                              billingOpsNote: noteRaw.trim() || null,
-                            })
-                              .then((updated) => setCommercial(updated))
-                              .catch((err) =>
-                                setCommercialError(
-                                  err instanceof ApiError
-                                    ? err.message
-                                    : "Could not update billing flags",
-                                ),
-                              );
-                          }}
-                        >
-                          Edit flags
-                        </button>
-                      ) : null}
                     </div>
                     <div className="b3-profile__field">
                       <p className="b3-profile__label">Mode</p>
@@ -986,6 +1030,108 @@ export function MerchantDetailCard({
             onMembersChange={setTeam}
             variant="cashiers"
           />
+        ) : null}
+
+        {tab === "compliance" ? (
+          <div className="b6-compliance">
+            <AuthToast
+              message={overridesError}
+              tone="error"
+              onDismiss={() => setOverridesError(null)}
+            />
+            <div className="b6-compliance__status" role="status">
+              <span
+                className={`b6-compliance__badge${
+                  status === "paused" ? " is-paused" : " is-active"
+                }`}
+              >
+                {status === "paused" ? "Paused" : "Active"}
+              </span>
+              {orderCreateSuspended ? (
+                <span className="b6-compliance__badge is-suspended">
+                  Order create suspended
+                </span>
+              ) : (
+                <span className="b6-compliance__badge is-ok">
+                  Order create allowed
+                </span>
+              )}
+              {localOrg.statusReason ? (
+                <p className="b6-compliance__reason">
+                  {localOrg.statusReason}
+                  {localOrg.statusReasonBillId ? (
+                    <>
+                      {" "}
+                      <Link
+                        to={platformRoute(
+                          `service-bills/${encodeURIComponent(localOrg.statusReasonBillId)}`,
+                        )}
+                      >
+                        Open service bill
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+            </div>
+
+            <section className="b6-compliance__log" aria-labelledby="b6-override-log-title">
+              <header className="b6-compliance__log-head">
+                <h3 id="b6-override-log-title">Override log</h3>
+                <p>MFA-gated compliance actions applied to this merchant.</p>
+              </header>
+              {overridesLoading && overrides.length === 0 ? (
+                <p className="b6-compliance__empty">Loading overrides…</p>
+              ) : null}
+              {!overridesLoading && overrides.length === 0 ? (
+                <p className="b6-compliance__empty">
+                  No compliance overrides recorded for this merchant yet.
+                </p>
+              ) : null}
+              {overrides.length > 0 ? (
+                <div className="b6-compliance__table-wrap">
+                  <table className="b6-compliance__table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Type</th>
+                        <th>Reason</th>
+                        <th>Notes</th>
+                        <th>Ticket</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overrides.map((row) => (
+                        <tr key={row.id}>
+                          <td>{formatViewerDateTime(row.createdAt)}</td>
+                          <td>{row.overrideType.replace(/_/g, " ")}</td>
+                          <td>{row.reasonCode.replace(/_/g, " ")}</td>
+                          <td title={row.notes}>{row.notes || "—"}</td>
+                          <td>{row.ticketId?.trim() || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </section>
+
+            <ComplianceOverrideModal
+              org={localOrg}
+              session={session}
+              canApply={canEditCommercial}
+              variant="inline"
+              onApplied={(result) => {
+                if (result.org) {
+                  setLocalOrg(result.org);
+                  onOrgPatched?.(result.org);
+                }
+                void listComplianceOverrides(org.id)
+                  .then((data) => setOverrides(data.items ?? []))
+                  .catch(() => undefined);
+              }}
+            />
+          </div>
         ) : null}
       </div>
       </div>

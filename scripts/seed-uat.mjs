@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Minimal UAT stack: platform owner + Kevin Nile wallet org tree.
+ * Minimal UAT stack: platform owner + Kevin/Atlas Nile wallet org trees.
+ * Phase 1: Platform → Agent → Merchant (+ optional Site). No agent_sub.
  *
  * Usage: node scripts/seed-uat.mjs
  */

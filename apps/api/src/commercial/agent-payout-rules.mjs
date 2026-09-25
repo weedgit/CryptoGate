@@ -6,7 +6,7 @@ import {
   resolvePlatformFeeNetwork,
 } from "@paymentgate/domain";
 
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
+const AGENT_TYPES = new Set(["agent"]);
 
 /** Default 24h — same bar as settlement; override with AGENT_PAYOUT_COOLDOWN_MS. */
 export const DEFAULT_AGENT_PAYOUT_COOLDOWN_MS = 24 * 60 * 60 * 1000;

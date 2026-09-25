@@ -112,11 +112,9 @@ export function prefetchPlatformNavData(path: string) {
   ) {
     void getPlatformServiceBills();
   }
-  if (path === "compliance") {
+  if (path === "support" || path === "compliance") {
     void getPlatformOrders();
-    void listOrders({ status: "payment_anomaly", limit: 200 }).catch(
-      () => undefined,
-    );
+    void listOrders({ limit: 200 }).catch(() => undefined);
   }
   prefetchServiceBillDetail(path);
   prefetchOrderDetail(path);

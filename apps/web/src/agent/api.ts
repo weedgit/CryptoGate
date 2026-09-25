@@ -5,6 +5,7 @@ import {
   login,
   logout,
   listOrders,
+  listAllOrders,
   listOrgUsers,
   listOrgMemberEmails,
   setOrgUserStatus,
@@ -28,6 +29,7 @@ export {
   login,
   logout,
   listOrders,
+  listAllOrders,
   listOrgUsers,
   listOrgMemberEmails,
   setOrgUserStatus,
@@ -83,7 +85,7 @@ export type ServiceBill = {
   paymentReference?: string | null;
   rxAddress?: string | null;
   remittancePayTo?: string | null;
-  invoiceSeller?: { name: string; email: string | null };
+  invoiceSeller?: { name: string; email: string | null; phone?: string | null };
   txAddress?: string | null;
   billKind?: string | null;
   createdAt?: string | null;
@@ -181,21 +183,56 @@ export async function deleteOrg(
   if (!res.ok) await parseError(res);
 }
 
-export async function listServiceBills(opts?: {
+/** Match platform — API default 100 truncates agent subtree bill KPIs. */
+export const SERVICE_BILLS_LIST_LIMIT = 5000;
+
+export type ServiceBillListPage = {
+  items: ServiceBill[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listServiceBillsPage(opts?: {
   status?: string;
   orgId?: string;
-}): Promise<ServiceBill[]> {
+  limit?: number;
+  offset?: number;
+}): Promise<ServiceBillListPage> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  if (opts?.offset != null) q.set("offset", String(opts.offset));
   const suffix = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: ServiceBill[] };
-  return data.items ?? [];
+  const data = (await res.json()) as {
+    items: ServiceBill[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+  };
+  const items = data.items ?? [];
+  return {
+    items,
+    total: data.total ?? items.length,
+    limit: data.limit ?? opts?.limit ?? 100,
+    offset: data.offset ?? opts?.offset ?? 0,
+  };
+}
+
+export async function listServiceBills(opts?: {
+  status?: string;
+  orgId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ServiceBill[]> {
+  const page = await listServiceBillsPage(opts);
+  return page.items;
 }
 
 export async function getAgentCommission(

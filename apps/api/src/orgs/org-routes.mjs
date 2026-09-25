@@ -41,7 +41,7 @@ import {
   defaultMerchantSchedulePlan,
 } from "../platform-settings/pricing-resolve.mjs";
 
-const MANAGEABLE_ORG_TYPES = new Set(["agent", "agent_sub", "merchant"]);
+const MANAGEABLE_ORG_TYPES = new Set(["agent", "merchant"]);
 
 function wantsCascadeDelete(req) {
   try {
@@ -671,7 +671,7 @@ export async function handleCreateOrg(req, res) {
     });
   }
 
-  if (inserted.row.type === "agent" || inserted.row.type === "agent_sub") {
+  if (inserted.row.type === "agent") {
     // Ignore body.commissionPercent — new agents always start on Mid automatic schedule.
     const schedule = await defaultAgentSchedulePlan();
     await bootstrapAgentCommission({

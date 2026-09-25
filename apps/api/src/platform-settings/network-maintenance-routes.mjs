@@ -4,7 +4,7 @@ import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { canManagePlatform, canReadPlatformOrgPolicy } from "../orgs/role-policy.mjs";
-import { buildNetworkCatalog } from "./network-catalog.mjs";
+import { buildNetworkCatalog, invalidateNetworkCatalogCache } from "./network-catalog.mjs";
 import {
   isKnownNetworkId,
   validatePutNetworkMaintenanceBody,
@@ -78,6 +78,7 @@ export async function handlePutNetworkMaintenance(req, res, networkRaw) {
       endsAt: validated.endsAt,
       updatedByUserId: caller.userId,
     });
+    invalidateNetworkCatalogCache();
     await insertAuditEvent({
       actorUserId: caller.userId,
       orgId: null,
@@ -145,7 +146,7 @@ export async function handleGetNetworksStatus(req, res) {
           displayNetwork: p.displayNetwork,
         })),
       })),
-    }, { maxAgeSec: 15 });
+    }, { maxAgeSec: 0 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[networks-status]", message);

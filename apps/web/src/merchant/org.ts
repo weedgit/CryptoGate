@@ -155,7 +155,6 @@ export function orgTypeLabel(type: string): string {
   if (type === "merchant") return "Merchant";
   if (type === "merchant_site") return "Site";
   if (type === "agent") return "Agent";
-  if (type === "agent_sub") return "Agent";
   if (type === "platform") return "Platform";
   return type;
 }

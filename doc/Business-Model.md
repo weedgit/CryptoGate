@@ -4,7 +4,7 @@ Phase 1 is a merchant collection product. PaymentGate (the **platform**) sells s
 
 Business model, fund flow, roles, permissions, and revenue rules in this document are **locked for Phase 1** unless both parties agree a written change.
 
-**Phase 1 org lock (client confirmed):** **Platform → Agent → Merchant → Site* → Cashier**. Any merchant may add optional **Site** accounts (sites may nest under sites; unlimited depth; same org type — no “sub-site”). There is **one merchant kind** only (no single vs multi-location). **Agent (sub)** is **out of product**. Existing `agent_sub` DB rows may remain for ops/read until cleaned up; **new agent_sub creates are forbidden**.
+**Phase 1 org lock (client confirmed):** **Platform → Agent → Merchant → Site* → Cashier**. Any merchant may add optional **Site** accounts (sites may nest under sites; unlimited depth; same org type — no “sub-site”). There is **one merchant kind** only (no single vs multi-location). **Agent (sub)** is **out of product** — type removed from domain/API/DB; no cascade commission.
 
 \* Site = `merchant_site`. Invoices + cashiers only; **no wallets**. Settlement always climbs to the billing **merchant**.
 

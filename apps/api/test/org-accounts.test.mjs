@@ -11,11 +11,10 @@ describe("org-accounts mapper", () => {
     assert.deepEqual(ORG_TYPES, [
       "platform",
       "agent",
-      "agent_sub",
       "merchant",
       "merchant_site",
     ]);
-    assert.equal(DEFAULT_MAX_AGENT_DEPTH, 2);
+    assert.equal(DEFAULT_MAX_AGENT_DEPTH, 1);
   });
 
   it("maps platform row with null parentId", () => {
@@ -72,5 +71,33 @@ describe("org-accounts mapper", () => {
     assert.equal(account.country, "Singapore");
     assert.equal(account.legalName, "Demo Agent Pte Ltd");
     assert.equal(account.billingEmail, "billing@demo.example");
+  });
+
+  it("maps order_create_suspended when present", () => {
+    const suspended = toOrgAccount({
+      id: "m1",
+      type: "merchant",
+      name: "Hotel",
+      parent_id: "a1",
+      order_create_suspended: true,
+    });
+    assert.equal(suspended.orderCreateSuspended, true);
+
+    const allowed = toOrgAccount({
+      id: "m2",
+      type: "merchant",
+      name: "Cafe",
+      parent_id: "a1",
+      order_create_suspended: false,
+    });
+    assert.equal(allowed.orderCreateSuspended, false);
+
+    const omitted = toOrgAccount({
+      id: "m3",
+      type: "merchant",
+      name: "Shop",
+      parent_id: "a1",
+    });
+    assert.equal(omitted.orderCreateSuspended, undefined);
   });
 });

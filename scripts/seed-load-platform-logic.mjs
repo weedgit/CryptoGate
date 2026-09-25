@@ -9,7 +9,7 @@
  *   - service_bills — calendar-month rows per merchant (paid fees → commission base)
  *   - agent_commission — varied % for top-level agents only (Phase 1)
  *   - agent_payout_addresses — USDT/tron payout per agent org
- *   - commission_payouts — amounts derived from paid bill volume fees (matches UI logic)
+ *   - commission_payouts — platform→agent slips only (no payer=agent cascade)
  *   - enterprise_rate_approvals — pending outside-band rates (sample + named fixtures)
  *   - payment_anomaly orders — Compliance tab fixtures (Shop *-R1, Demo, samples)
  *   - audit org_status reason — for paused orgs
@@ -163,7 +163,7 @@ function utcMonthEnd(monthStart) {
   return d;
 }
 
-/** Status mix mirrors invoice UI + commissionHistoryFromBills (paid fees only). */
+/** Status mix mirrors invoice UI + commissionHistoryFromBills (paid subscription + volume). */
 function logicBillStatus(monthsBack, n) {
   if (monthsBack === 0) {
     if (n % 11 === 0) return "overdue";
@@ -253,8 +253,8 @@ function periodLabelFromKey(key) {
 }
 
 /**
- * Mirrors `commissionHistoryFromBills` in apps/web — fee base = paid volume fees only.
- * @param {ReadonlyArray<{ orgId: string, periodStart: string, volumeFeeAmount: string, status: string }>} bills
+ * Mirrors `commissionHistoryFromBills` in apps/web — fee base = paid subscription + volume.
+ * @param {ReadonlyArray<{ orgId: string, periodStart: string, subscriptionAmount?: string, volumeFeeAmount: string, status: string }>} bills
  * @param {Set<string>} merchantIds
  * @param {string} commissionPercent
  */
@@ -265,15 +265,18 @@ function commissionStatementsFromBills(bills, merchantIds, commissionPercent) {
   const byPeriod = new Map();
   for (const b of scoped) {
     const key = b.periodStart.slice(0, 7);
-    const fee = Number(b.volumeFeeAmount);
-    if (!Number.isFinite(fee)) continue;
+    const sub = Number(b.subscriptionAmount ?? 0);
+    const vol = Number(b.volumeFeeAmount);
+    const s = Number.isFinite(sub) ? sub : 0;
+    const v = Number.isFinite(vol) ? vol : 0;
+    const fee = Math.round((s + v) * 100) / 100;
     const cur = byPeriod.get(key) ?? {
       feeCollected: 0,
       hasPaid: false,
       hasOpen: false,
     };
     if (b.status === "paid") {
-      cur.feeCollected += fee;
+      cur.feeCollected += fee > 0 ? fee : 0;
       cur.hasPaid = true;
     }
     if (b.status === "issued" || b.status === "overdue") cur.hasOpen = true;
@@ -324,7 +327,7 @@ async function merchantIdsInSubtree(pool, rootOrgId) {
 async function loadBillsForMerchants(pool, merchantIds) {
   if (merchantIds.size === 0) return [];
   const { rows } = await pool.query(
-    `SELECT org_id, period_start, volume_fee_amount, status
+    `SELECT org_id, period_start, subscription_amount, volume_fee_amount, status
      FROM service_bills
      WHERE org_id = ANY($1::uuid[])`,
     [[...merchantIds]],
@@ -335,33 +338,27 @@ async function loadBillsForMerchants(pool, merchantIds) {
       r.period_start instanceof Date
         ? r.period_start.toISOString().slice(0, 10)
         : String(r.period_start).slice(0, 10),
+    subscriptionAmount: String(r.subscription_amount ?? "0"),
     volumeFeeAmount: String(r.volume_fee_amount),
     status: r.status,
   }));
 }
 
 /**
+ * Platform → agent slips only (Phase 1 — no payer=agent cascade).
  * @param {import("pg").Pool} pool
  * @param {object} row
  */
 async function upsertCommissionPayoutSeed(pool, row) {
-  const findSql =
-    row.payer === "platform"
-      ? `SELECT id, payout_status, tx_ref FROM commission_payouts
-         WHERE payer = 'platform' AND payee_org_id = $1 AND period_key = $2
-         LIMIT 1`
-      : `SELECT id, payout_status, tx_ref FROM commission_payouts
-         WHERE payer = 'agent'
-           AND payer_org_id = $1
-           AND payee_org_id = $2
-           AND period_key = $3
-         LIMIT 1`;
-  const findParams =
-    row.payer === "platform"
-      ? [row.payeeOrgId, row.periodKey]
-      : [row.payerOrgId, row.payeeOrgId, row.periodKey];
-  const { rows: existing } = await pool.query(findSql, findParams);
-  const seededRef = String(existing[0]?.tx_ref ?? "").startsWith("seed-");
+  const { rows: existing } = await pool.query(
+    `SELECT id, payout_status, tx_ref FROM commission_payouts
+     WHERE payer = 'platform' AND payee_org_id = $1 AND period_key = $2
+     LIMIT 1`,
+    [row.payeeOrgId, row.periodKey],
+  );
+  const seededRef =
+    String(existing[0]?.tx_ref ?? "").startsWith("seed-") ||
+    /^0x[0-9a-f]{64}$/i.test(String(existing[0]?.tx_ref ?? ""));
   const locked =
     existing[0] &&
     (existing[0].payout_status === "paid" ||
@@ -398,7 +395,7 @@ async function upsertCommissionPayoutSeed(pool, row) {
         row.payoutAddress,
         row.asset,
         row.network,
-        row.paymentLink,
+        `/platform/commissions/${existing[0].id}`,
         row.txRef,
         row.paidAt,
         row.settledAt ?? null,
@@ -414,16 +411,14 @@ async function upsertCommissionPayoutSeed(pool, row) {
        commission_amount, payout_status, payout_address, asset, network,
        payment_link, tx_ref, paid_at, settled_at
      ) VALUES (
-       $1, $2, $3, $4,
-       $5, $6, $7, $8,
-       $9, $10, $11, $12, $13,
-       $14, $15, $16, $17
+       $1, $2, 'platform', NULL,
+       $3, $4, $5, $6,
+       $7, $8, $9, $10, $11,
+       $12, $13, $14, $15
      )`,
     [
       row.payeeOrgId,
       row.payeeName,
-      row.payer,
-      row.payerOrgId,
       row.periodKey,
       row.periodLabel,
       row.platformFeeCollected,
@@ -433,11 +428,18 @@ async function upsertCommissionPayoutSeed(pool, row) {
       row.payoutAddress,
       row.asset,
       row.network,
-      row.paymentLink,
+      row.paymentLink || "",
       row.txRef,
       row.paidAt,
       row.settledAt ?? null,
     ],
+  );
+  await pool.query(
+    `UPDATE commission_payouts
+     SET payment_link = '/platform/commissions/' || id::text
+     WHERE payee_org_id = $1 AND period_key = $2 AND payer = 'platform'
+       AND (payment_link IS NULL OR payment_link = '' OR payment_link LIKE '%?%')`,
+    [row.payeeOrgId, row.periodKey],
   );
   return "insert";
 }
@@ -736,8 +738,6 @@ async function main() {
       const result = await upsertCommissionPayoutSeed(pool, {
         payeeOrgId: agent.id,
         payeeName: agent.name,
-        payer: "platform",
-        payerOrgId: null,
         periodKey: stmt.periodKey,
         periodLabel: stmt.periodLabel,
         platformFeeCollected: stmt.platformFeeCollected,
@@ -747,9 +747,13 @@ async function main() {
         payoutAddress: dest?.address ?? null,
         asset: dest?.asset ?? "USDT",
         network: dest?.network ?? "tron",
-        paymentLink: `/platform/commissions?payee=${encodeURIComponent(agent.id)}&period=${encodeURIComponent(stmt.periodKey)}`,
+        paymentLink: "",
         txRef: settled
-          ? `seed-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`
+          ? `0x${createHash("sha256")
+              .update(
+                `seed-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`,
+              )
+              .digest("hex")}`
           : null,
         paidAt,
         settledAt: settled ? paidAt : null,

@@ -48,6 +48,7 @@ import { PaymentQrCanvas } from "../shared/PaymentQrCanvas";
 import { GatewayQrTerminal } from "../shared/GatewayQrTerminal";
 import { AuthToast } from "../auth/AuthToast";
 import { PaymentOrderInvoiceFace } from "../billing/PaymentOrderInvoiceFace";
+import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import { AssetIcon, NetworkIcon, QrCenterNetworkMark } from "../platform/cryptoIcons";
 import { merchantRoute, platformRoute } from "../shared/portalRouting";
 
@@ -135,8 +136,8 @@ export function OrderDetailPage({
   const invoiceRef = useRef<HTMLElement | null>(null);
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
   const isPlatform = variant === "platform";
-  const backTo = isPlatform ? platformRoute("compliance") : merchantRoute("orders");
-  const backLabel = isPlatform ? "← Back to compliance" : "← Back to orders";
+  const backTo = isPlatform ? platformRoute("support") : merchantRoute("orders");
+  const backLabel = isPlatform ? "← Back to support" : "← Back to orders";
   const topbarCenterId = isPlatform
     ? "platform-topbar-center"
     : "merchant-topbar-center";
@@ -549,7 +550,7 @@ export function OrderDetailPage({
           <div className="order-detail-topbar no-print" aria-label="Order context">
             <div className="order-detail-topbar__lead">
               <Link className="order-detail-topbar__back" to={backTo}>
-                {isPlatform ? "← Compliance" : "← Orders"}
+                {isPlatform ? "← Support" : "← Orders"}
               </Link>
               <span className="order-detail-topbar__divider" aria-hidden />
               <div className="order-detail-topbar__identity">
@@ -688,13 +689,7 @@ export function OrderDetailPage({
               </StatusBadge>
             }
             toolbar={
-              <button
-                type="button"
-                className="sb-invoice__print-btn"
-                onClick={() => window.print()}
-              >
-                Print invoice
-              </button>
+              <InvoicePrintButton label="Print invoice" />
             }
             invoiceRef={invoiceRef}
               />
@@ -1137,13 +1132,13 @@ export function OrderDetailPage({
               ) : order?.orgId ? (
                 <Link
                   className="order-detail-page__cta"
-                  to={`${platformRoute(`merchants/${order.orgId}`)}?tab=compliance`}
+                  to={`${platformRoute(`accounts/merchants/${order.orgId}`)}?tab=compliance`}
                 >
                   Open merchant
                 </Link>
               ) : (
-                <Link className="order-detail-page__cta" to={platformRoute("compliance")}>
-                  Back to compliance
+                <Link className="order-detail-page__cta" to={platformRoute("support")}>
+                  Back to support
                 </Link>
               )}
             </div>

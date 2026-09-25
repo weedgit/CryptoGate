@@ -16,7 +16,7 @@ Automated selector smoke: `node --test apps/web/test/responsive-ui-smoke.test.mj
 
 - [x] Merchants / Agents (platform + agent): stack at ≤1100; selecting a row scrolls to detail
 - [x] Architecture: map stacks; detail usable; metrics 1-col at ≤390
-- [x] Compliance: kind KPI cards wrap (2-col ≤640, 1-col ≤390); order link opens `/platform/orders/:id`
+- [x] Support: status KPI cards wrap (2-col ≤640, 1-col ≤390); order link opens `/platform/orders/:id`
 - [x] Wide tables scroll inside wrappers only
 
 ## Detail / forms

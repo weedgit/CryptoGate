@@ -65,6 +65,24 @@ function parseServiceBillListLimit(raw) {
 }
 
 /**
+ * @param {string | null} raw
+ * @returns {{ ok: true, offset: number } | { ok: false, status: number, code: string, message: string }}
+ */
+function parseServiceBillListOffset(raw) {
+  if (raw == null || raw === "") return { ok: true, offset: 0 };
+  const n = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n < 0) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "offset must be an integer ≥ 0",
+    };
+  }
+  return { ok: true, offset: n };
+}
+
+/**
  * Expand list scope to merchant org ids the caller may see.
  * @param {{ kind: "all" } | { kind: "none" } | { kind: "scoped", rootIds: string[] }} scope
  */
@@ -111,14 +129,27 @@ export async function handleListServiceBills(req, res, url) {
     }
   }
 
-  const rows = await listServiceBills({
+  const offsetParsed = parseServiceBillListOffset(url.searchParams.get("offset"));
+  if (!offsetParsed.ok) {
+    sendError(res, offsetParsed.status, offsetParsed.code, offsetParsed.message);
+    return;
+  }
+
+  const limit = parseServiceBillListLimit(url.searchParams.get("limit"));
+  const result = await listServiceBills({
     kind: expanded.kind === "all" ? "all" : "filter",
     orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
     orgId,
     status: statusFilter.status,
-    limit: parseServiceBillListLimit(url.searchParams.get("limit")),
+    limit,
+    offset: offsetParsed.offset,
   });
-  sendJson(res, 200, { items: rows.map(toServiceBill) });
+  sendJson(res, 200, {
+    items: result.rows.map(toServiceBill),
+    total: result.total,
+    limit: result.limit,
+    offset: result.offset,
+  });
 }
 
 /**

@@ -2,7 +2,10 @@
 /**
  * Kevin UAT rich history — extra merchants, cashiers, 3-month orders,
  * dense last-30-day volume (dashboard chart/KPI graphics), service bills
- * (volume-aligned), and commission payouts.
+ * (volume-aligned), and platform→agent commission payouts.
+ *
+ * Hierarchy (Phase 1): Platform → Kevin Agent → merchants (+ optional sites).
+ * No agent_sub / no payer=agent cascade slips.
  *
  * Prerequisites: seed-local + seed-kevin-uat.
  * Idempotent: ON CONFLICT / skip when month bill exists.
@@ -26,6 +29,7 @@ import {
 } from "../apps/api/src/service-bills/generate-rules.mjs";
 import { addUsdAmounts } from "../apps/api/src/service-bills/service-bill-rules.mjs";
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import {
   NILE_HD_WALLETS,
   NILE_PAYER_WALLETS,
@@ -39,6 +43,12 @@ const ONBOARD_AT = "2026-06-01T00:00:00.000Z";
 const HISTORY_MONTHS = 3;
 const MIN_CASHIERS = 4;
 const BILL_REF_PREFIX = "kevin-uat-bill-";
+
+/** Deterministic EVM-style tx hash for seeded remittance refs (not a real chain tx). */
+function fakeEvmTxHash(seed) {
+  const hex = createHash("sha256").update(`pg-service-bill:${seed}`).digest("hex");
+  return `0x${hex}`;
+}
 
 /**
  * Dashboard Networks & Assets preview pairs (platform dash filters).
@@ -262,6 +272,10 @@ async function ensureUser(email, displayName) {
     `UPDATE users SET password_hash = $2, display_name = $3 WHERE id = $1`,
     [user.id, passwordHash, displayName],
   );
+  const parts = String(displayName || "Demo User").trim().split(/\s+/);
+  const firstName = parts[0] || "Demo";
+  const lastName = parts.slice(1).join(" ") || "User";
+  await markUatDemoUserReady(getPool(), user.id, { firstName, lastName });
   return user;
 }
 
@@ -460,7 +474,7 @@ async function insertKevinBill(pool, bill) {
 }
 
 /**
- * @param {ReadonlyArray<{ orgId: string, periodStart: string, volumeFeeAmount: string, status: string }>} bills
+ * @param {ReadonlyArray<{ orgId: string, periodStart: string, subscriptionAmount?: string, volumeFeeAmount: string, status: string }>} bills
  * @param {Set<string>} merchantIds
  * @param {string} commissionPercent
  */
@@ -471,15 +485,18 @@ function commissionStatementsFromBills(bills, merchantIds, commissionPercent) {
   const byPeriod = new Map();
   for (const b of scoped) {
     const key = b.periodStart.slice(0, 7);
-    const fee = Number(b.volumeFeeAmount);
-    if (!Number.isFinite(fee)) continue;
+    const sub = Number(b.subscriptionAmount ?? 0);
+    const vol = Number(b.volumeFeeAmount);
+    const s = Number.isFinite(sub) ? sub : 0;
+    const v = Number.isFinite(vol) ? vol : 0;
+    const fee = Math.round((s + v) * 100) / 100;
     const cur = byPeriod.get(key) ?? {
       feeCollected: 0,
       hasPaid: false,
       hasOpen: false,
     };
     if (b.status === "paid") {
-      cur.feeCollected += fee;
+      cur.feeCollected += fee > 0 ? fee : 0;
       cur.hasPaid = true;
     }
     if (b.status === "issued" || b.status === "overdue") cur.hasOpen = true;
@@ -505,24 +522,17 @@ function commissionStatementsFromBills(bills, merchantIds, commissionPercent) {
     });
 }
 
+/** Platform → agent slips only (Phase 1 — no payer=agent cascade). */
 async function upsertCommissionPayout(pool, row) {
-  const findSql =
-    row.payer === "platform"
-      ? `SELECT id, payout_status, tx_ref FROM commission_payouts
-         WHERE payer = 'platform' AND payee_org_id = $1 AND period_key = $2
-         LIMIT 1`
-      : `SELECT id, payout_status, tx_ref FROM commission_payouts
-         WHERE payer = 'agent'
-           AND payer_org_id = $1
-           AND payee_org_id = $2
-           AND period_key = $3
-         LIMIT 1`;
-  const findParams =
-    row.payer === "platform"
-      ? [row.payeeOrgId, row.periodKey]
-      : [row.payerOrgId, row.payeeOrgId, row.periodKey];
-  const { rows: existing } = await pool.query(findSql, findParams);
-  const seededRef = String(existing[0]?.tx_ref ?? "").startsWith("seed-kevin-");
+  const { rows: existing } = await pool.query(
+    `SELECT id, payout_status, tx_ref FROM commission_payouts
+     WHERE payer = 'platform' AND payee_org_id = $1 AND period_key = $2
+     LIMIT 1`,
+    [row.payeeOrgId, row.periodKey],
+  );
+  const seededRef =
+    String(existing[0]?.tx_ref ?? "").startsWith("seed-kevin-") ||
+    /^0x[0-9a-f]{64}$/i.test(String(existing[0]?.tx_ref ?? ""));
   const locked =
     existing[0] &&
     (existing[0].payout_status === "paid" ||
@@ -542,6 +552,7 @@ async function upsertCommissionPayout(pool, row) {
            commission_amount = $6, payout_status = $7,
            payout_address = COALESCE($8, payout_address),
            asset = COALESCE($9, asset), network = COALESCE($10, network),
+           payment_link = '/platform/commissions/' || id::text,
            tx_ref = COALESCE($11, tx_ref),
            paid_at = COALESCE($12, paid_at),
            settled_at = COALESCE($13, settled_at),
@@ -575,16 +586,14 @@ async function upsertCommissionPayout(pool, row) {
        commission_amount, payout_status, payout_address, asset, network,
        payment_link, tx_ref, paid_at, settled_at, tree_snapshot
      ) VALUES (
-       $1, $2, $3, $4,
-       $5, $6, $7, $8,
-       $9, $10, $11, $12, $13,
-       $14, $15, $16, $17, $18::jsonb
+       $1, $2, 'platform', NULL,
+       $3, $4, $5, $6,
+       $7, $8, $9, $10, $11,
+       $12, $13, $14, $15, $16::jsonb
      )`,
     [
       row.payeeOrgId,
       row.payeeName,
-      row.payer,
-      row.payerOrgId,
       row.periodKey,
       row.periodLabel,
       row.platformFeeCollected,
@@ -594,12 +603,19 @@ async function upsertCommissionPayout(pool, row) {
       row.payoutAddress,
       row.asset,
       row.network,
-      row.paymentLink,
+      row.paymentLink || "",
       row.txRef,
       row.paidAt,
       row.settledAt ?? null,
       treeJson,
     ],
+  );
+  await pool.query(
+    `UPDATE commission_payouts
+     SET payment_link = '/platform/commissions/' || id::text
+     WHERE payee_org_id = $1 AND period_key = $2 AND payer = 'platform'
+       AND (payment_link IS NULL OR payment_link = '' OR payment_link LIKE '%?%')`,
+    [row.payeeOrgId, row.periodKey],
   );
   return "insert";
 }
@@ -1045,7 +1061,7 @@ async function main() {
 
   console.log("Issuing service bills from completed volume (3 months)…");
   let billsAdded = 0;
-  /** @type {Array<{ orgId: string, periodStart: string, volumeFeeAmount: string, status: string }>} */
+  /** @type {Array<{ orgId: string, periodStart: string, subscriptionAmount: string, volumeFeeAmount: string, status: string }>} */
   const billRows = [];
 
   for (const entry of merchantCatalog.values()) {
@@ -1058,7 +1074,7 @@ async function main() {
       if (await merchantHasBillInMonth(pool, entry.id, monthKey)) {
         const { rows: existing } = await pool.query(
           `SELECT org_id, to_char(period_start, 'YYYY-MM-DD') AS period_start,
-                  volume_fee_amount, status
+                  subscription_amount, volume_fee_amount, status
            FROM service_bills
            WHERE org_id = $1 AND to_char(period_start, 'YYYY-MM') = $2
            LIMIT 1`,
@@ -1068,6 +1084,7 @@ async function main() {
           billRows.push({
             orgId: existing[0].org_id,
             periodStart: existing[0].period_start,
+            subscriptionAmount: String(existing[0].subscription_amount ?? "0"),
             volumeFeeAmount: String(existing[0].volume_fee_amount),
             status: existing[0].status,
           });
@@ -1107,7 +1124,10 @@ async function main() {
         status,
         dueAt,
         paidAt,
-        paymentReference: `${BILL_REF_PREFIX}${entry.key}-${monthKey}`,
+        paymentReference:
+          status === "paid"
+            ? fakeEvmTxHash(`${BILL_REF_PREFIX}${entry.key}-${monthKey}`)
+            : null,
         tier: entry.tier,
         volumeFeePercent: entry.volumeFeePercent,
         billedVolumeUsd,
@@ -1117,6 +1137,7 @@ async function main() {
       billRows.push({
         orgId: entry.id,
         periodStart: monthStart.toISOString().slice(0, 10),
+        subscriptionAmount: subscription,
         volumeFeeAmount,
         status,
       });
@@ -1124,11 +1145,19 @@ async function main() {
   }
 
   // Align paid_at into the recent window so Platform Fees "collected" shows on 7d/30d.
-  console.log("Aligning paid bill timestamps for dashboard fee cards…");
+  // Also rewrite legacy kevin-uat-bill-* refs into 0x… tx-hash style.
+  console.log("Aligning paid bill timestamps / remittance tx hashes…");
   const { rows: paidBills } = await pool.query(
-    `SELECT id FROM service_bills
-     WHERE status = 'paid' AND payment_reference LIKE $1
-     ORDER BY period_start DESC`,
+    `SELECT sb.id, sb.payment_reference
+     FROM service_bills sb
+     JOIN org_accounts o ON o.id = sb.org_id
+     WHERE sb.status = 'paid'
+       AND (
+         sb.payment_reference LIKE $1
+         OR sb.payment_reference ~ '^0x[0-9a-f]{64}$'
+         OR o.name LIKE 'Kevin %'
+       )
+     ORDER BY sb.period_start DESC`,
     [`${BILL_REF_PREFIX}%`],
   );
   for (let i = 0; i < paidBills.length; i += 1) {
@@ -1136,15 +1165,22 @@ async function main() {
     const paidAt = new Date();
     paidAt.setUTCDate(paidAt.getUTCDate() - daysAgo);
     paidAt.setUTCHours(15, 30, 0, 0);
+    const ref = paidBills[i].payment_reference?.trim() || "";
+    const nextRef =
+      /^0x[0-9a-f]{64}$/i.test(ref)
+        ? ref
+        : fakeEvmTxHash(ref || `${BILL_REF_PREFIX}${paidBills[i].id}`);
     await pool.query(
       `UPDATE service_bills
-       SET paid_at = $2::timestamptz, updated_at = now()
+       SET paid_at = $2::timestamptz,
+           payment_reference = $3,
+           updated_at = now()
        WHERE id = $1`,
-      [paidBills[i].id, paidAt.toISOString()],
+      [paidBills[i].id, paidAt.toISOString(), nextRef],
     );
   }
 
-  console.log("Syncing commission payouts from paid volume fees…");
+  console.log("Syncing commission payouts from paid platform fees (subscription + volume)…");
   let commissionRows = 0;
   const { rows: orgGraph } = await pool.query(
     `SELECT id, name, type, parent_id FROM org_accounts
@@ -1204,8 +1240,6 @@ async function main() {
       const result = await upsertCommissionPayout(pool, {
         payeeOrgId: agent.id,
         payeeName: agent.name,
-        payer: "platform",
-        payerOrgId: null,
         periodKey: stmt.periodKey,
         periodLabel: stmt.periodLabel,
         platformFeeCollected: stmt.platformFeeCollected,
@@ -1215,9 +1249,11 @@ async function main() {
         payoutAddress: dest?.address ?? null,
         asset: dest?.asset ?? UAT_SETTLEMENT.asset,
         network: dest?.network ?? UAT_SETTLEMENT.network,
-        paymentLink: `/platform/commissions?payee=${encodeURIComponent(agent.id)}&period=${encodeURIComponent(stmt.periodKey)}`,
+        paymentLink: "",
         txRef: settled
-          ? `seed-kevin-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`
+          ? fakeEvmTxHash(
+              `seed-kevin-platform-${agent.id.slice(0, 8)}-${stmt.periodKey}`,
+            )
           : null,
         paidAt: paidAtIso,
         settledAt: settled ? paidAtIso : null,

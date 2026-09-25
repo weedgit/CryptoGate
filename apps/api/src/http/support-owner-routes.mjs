@@ -19,6 +19,7 @@ import {
 import {
   isLastOwnerDemotion,
   roleAllowedOnOrg,
+  canManageTeam,
   USER_ROLES,
 } from "../orgs/membership-rules.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
@@ -35,6 +36,15 @@ async function findOrgOwnerUser(orgId) {
   const owner = team.find((m) => m.role === "owner") ?? null;
   if (!owner) return null;
   return findUserById(owner.userId);
+}
+
+/**
+ * @param {{ orgId: string, role: string }[]} memberships
+ * @param {string} orgId
+ */
+function roleOnOrg(memberships, orgId) {
+  const hit = memberships.find((m) => m.orgId === orgId);
+  return hit?.role ?? null;
 }
 
 /**
@@ -285,18 +295,22 @@ function memberProfilePayload(user, membership) {
 
 /**
  * PATCH /v1/orgs/{orgId}/members/{userId}
- * Platform Owner/Administrator edits a team member's contact, avatar, and role.
+ * Platform Owner/Administrator, or the org Owner, edits a team member's
+ * contact, avatar, and role.
  */
 export async function handlePatchOrgMember(req, res, orgId, userId) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
 
-  if (!caller.platformOperator) {
+  const orgRole = roleOnOrg(caller.memberships, orgId);
+  const canEdit =
+    caller.platformOperator === true || canManageTeam(orgRole);
+  if (!canEdit) {
     sendError(
       res,
       403,
       "forbidden",
-      "Only Platform Owner or Administrator may edit team member profiles",
+      "Only the org Owner or a Platform Owner/Administrator may edit team member profiles",
     );
     return;
   }

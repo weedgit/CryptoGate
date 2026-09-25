@@ -9,7 +9,6 @@ import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { PagePending } from "../platform/ui/PlatformPending";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
 import {
-  agentDepthOfNode,
   buildPlatformOrgForest,
   childTypeCounts,
   collectTreeNodeIds,
@@ -217,13 +216,13 @@ function MetaRow({
 }
 
 function treeBadgeClass(type: string): string {
-  if (type === "agent" || type === "agent_sub") return "agent";
+  if (type === "agent") return "agent";
   if (type === "merchant_site") return "site";
   return "merchant";
 }
 
 function treeBadgeIcon(type: string): string {
-  if (type === "agent" || type === "agent_sub") return "A";
+  if (type === "agent") return "A";
   if (type === "merchant_site") return "S";
   return "M";
 }
@@ -232,15 +231,11 @@ function agentDetailHref(type: string, id: string): string | null {
   if (type === "merchant" || type === "merchant_site") {
     return agentRoute(`merchants/${id}`);
   }
-  if (type === "agent_sub") return agentRoute(`agents/${id}`);
-  if (type === "agent") return agentRoute("agents");
   return null;
 }
 
 function agentDetailLabel(type: string): string | null {
   if (type === "merchant" || type === "merchant_site") return "Open merchant";
-  if (type === "agent_sub") return "Open agent";
-  if (type === "agent") return "Open sub-agents";
   return null;
 }
 
@@ -263,7 +258,7 @@ function OrgTreeItem({
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const isPaused = node.status === "paused";
-  const isAgent = node.type === "agent" || node.type === "agent_sub";
+  const isAgent = node.type === "agent";
   const isMerchant = node.type === "merchant";
 
   const select = () => onSelect(node.id);
@@ -413,13 +408,11 @@ function OrgTreeDetail({
   const isAgentParent = node.type === "agent";
   const showOnboard = canOnboard && canAdd && isAgentParent && canManageAsParent;
   const showLifecycle =
-    canManageLifecycle &&
-    (node.type === "merchant" || node.type === "agent_sub");
+    canManageLifecycle && node.type === "merchant";
   const showActions = showOnboard || showLifecycle;
   const isAgent = isAgentParent;
   const isMerchant = node.type === "merchant";
   const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
-  const depth = isAgent ? agentDepthOfNode(node, byId) : null;
   const ops = useOrgTreeOpsExtras(node);
 
   const contactRows = [
@@ -574,19 +567,16 @@ function OrgTreeDetail({
             }
           />
           {isAgent ? (
-            <>
-              <MetaRow label="Depth" value={depth != null ? String(depth) : "-"} />
-              <MetaRow
-                label="Commission %"
-                value={
-                  ops.loading
-                    ? "…"
-                    : ops.commissionPercent
-                      ? `${ops.commissionPercent}%`
-                      : "-"
-                }
-              />
-            </>
+            <MetaRow
+              label="Commission %"
+              value={
+                ops.loading
+                  ? "…"
+                  : ops.commissionPercent
+                    ? `${ops.commissionPercent}%`
+                    : "-"
+              }
+            />
           ) : null}
           {isMerchant ? (
             <>

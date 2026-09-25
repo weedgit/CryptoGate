@@ -3,7 +3,7 @@ import {
   ORG_TYPES,
 } from "./org-accounts.mjs";
 
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
+const AGENT_TYPES = new Set(["agent"]);
 
 /**
  * Trim + lowercase for sibling name comparison.
@@ -28,7 +28,7 @@ export function orgNamesEqual(a, b) {
 }
 
 /**
- * Count agent / agent_sub nodes from this org up to (but not including) platform.
+ * Count agent nodes from this org up to (but not including) platform.
  * @param {{ type: string, parent_id: string | null } | null} org
  * @param {(id: string) => { type: string, parent_id: string | null } | null} getById
  */
@@ -85,15 +85,6 @@ export function validateCreateOrg(input, ctx) {
   }
   if (!name) {
     return fail(400, "invalid_request", "Name is required");
-  }
-
-  // Nested agents removed — legacy agent_sub rows may remain read-only.
-  if (type === "agent_sub") {
-    return fail(
-      403,
-      "org_type_disabled",
-      "Sub-agent accounts are no longer available — create a top-level agent under Platform",
-    );
   }
 
   if (type === "platform") {

@@ -131,7 +131,7 @@ export async function handleGetPlatformDashboardSummary(req, res, url) {
   for (const e of createEvents) {
     const type = String(e.metadata?.type ?? "");
     if (type === "merchant" || type === "merchant_site") newMerchants += 1;
-    else if (type === "agent" || type === "agent_sub") newAgents += 1;
+    else if (type === "agent") newAgents += 1;
   }
   for (const e of inviteEvents) {
     if (String(e.metadata?.role ?? "") === "cashier") newCashiers += 1;

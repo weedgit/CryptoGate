@@ -1,7 +1,6 @@
 import type { OrgAccount } from "../platform/api";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 
 function childrenByParentId(
   orgs: ReadonlyArray<OrgAccount>,
@@ -33,7 +32,7 @@ export function agentSubtreeIds(
   for (let i = 0; i < queue.length; i++) {
     const id = queue[i]!;
     for (const child of byParent.get(id) ?? []) {
-      if (!AGENT_TYPES.has(child.type) || ids.has(child.id)) continue;
+      if (child.type !== "agent" || ids.has(child.id)) continue;
       ids.add(child.id);
       queue.push(child.id);
     }
@@ -75,29 +74,9 @@ export function merchantsInAgentSubtree(
       if (MERCHANT_TYPES.has(child.type)) {
         out.push(child);
         if (child.type === "merchant") queue.push(child.id);
-      } else if (AGENT_TYPES.has(child.type)) {
+      } else if (child.type === "agent") {
         queue.push(child.id);
       }
-    }
-  }
-  return out;
-}
-
-export function subAgentsInAgentSubtree(
-  agentId: string,
-  orgs: ReadonlyArray<OrgAccount>,
-): OrgAccount[] {
-  const byParent = childrenByParentId(orgs);
-  const out: OrgAccount[] = [];
-  const queue = [agentId];
-  const seen = new Set<string>([agentId]);
-  for (let i = 0; i < queue.length; i++) {
-    const id = queue[i]!;
-    for (const child of byParent.get(id) ?? []) {
-      if (!AGENT_TYPES.has(child.type) || seen.has(child.id)) continue;
-      seen.add(child.id);
-      if (child.type === "agent_sub") out.push(child);
-      queue.push(child.id);
     }
   }
   return out;

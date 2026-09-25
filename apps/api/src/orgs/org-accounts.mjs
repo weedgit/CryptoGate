@@ -2,7 +2,6 @@
 export const ORG_TYPES = [
   "platform",
   "agent",
-  "agent_sub",
   "merchant",
   "merchant_site",
 ];
@@ -39,8 +38,8 @@ export function isOrgIconValue(value) {
   return ORG_ICON_DATA_URL_RE.test(value);
 }
 
-/** Phase 1 default (Business-Model Decision 4). */
-export const DEFAULT_MAX_AGENT_DEPTH = 2;
+/** Phase 1: agents under platform only (depth 1). */
+export const DEFAULT_MAX_AGENT_DEPTH = 1;
 
 /**
  * Map a DB row to OpenAPI OrgAccount.
@@ -78,6 +77,9 @@ export function toOrgAccount(row) {
   }
   if (row.status === "paused" && row.status_reason_bill_id) {
     account.statusReasonBillId = String(row.status_reason_bill_id);
+  }
+  if (row.order_create_suspended === true || row.order_create_suspended === false) {
+    account.orderCreateSuspended = Boolean(row.order_create_suspended);
   }
   return account;
 }

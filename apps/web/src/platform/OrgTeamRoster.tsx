@@ -64,14 +64,8 @@ function memberName(member: OrgMember, orgName: string): string {
     (first === seededLabel ||
       first.startsWith(`${seededLabel} `) ||
       (org.length > 0 && (first === org || first.startsWith(`${org} `))));
-  if (seeded && last) return last;
-  if (seeded) {
-    let rest = first;
-    if (org && (rest === org || rest.startsWith(`${org} `))) {
-      rest = rest.slice(org.length).trim();
-    }
-    return rest || last || "—";
-  }
+  // Design refs show seeded roster as "{Org} {Role}" (e.g. Kevin Agent Owner).
+  if (seeded) return seededLabel;
   const name = [first, last].filter(Boolean).join(" ").trim();
   return name || "—";
 }
@@ -380,7 +374,7 @@ export function OrgTeamRoster({
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Role</th>
-                {canManage ? <th>Actions</th> : null}
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -418,34 +412,34 @@ export function OrgTeamRoster({
                         <span className="b3-team__role">{roleLabel(m.role)}</span>
                       )}
                     </td>
-                    {canManage ? (
-                      <td>
-                        {readOnly ? (
-                          <span className="b3-team__readonly">Read only</span>
-                        ) : (
-                          <span className="b3-team__actions">
-                            <button
-                              type="button"
-                              className="b3-team__action"
-                              aria-label="Edit"
-                              disabled={busy}
-                              onClick={() => setEditTarget(m)}
-                            >
-                              <PencilIcon />
-                            </button>
-                            <button
-                              type="button"
-                              className="b3-team__action b3-team__action--remove"
-                              aria-label="Remove"
-                              disabled={busy}
-                              onClick={() => setRemoveTarget(m)}
-                            >
-                              <TrashIcon />
-                            </button>
-                          </span>
-                        )}
-                      </td>
-                    ) : null}
+                    <td>
+                      {readOnly || !canManage ? (
+                        <span className="b3-team__readonly">
+                          {readOnly ? "Read only" : "—"}
+                        </span>
+                      ) : (
+                        <span className="b3-team__actions">
+                          <button
+                            type="button"
+                            className="b3-team__action"
+                            disabled={busy}
+                            onClick={() => setEditTarget(m)}
+                          >
+                            <PencilIcon />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="b3-team__action"
+                            disabled={busy}
+                            onClick={() => setRemoveTarget(m)}
+                          >
+                            <TrashIcon />
+                            Remove
+                          </button>
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -553,26 +547,38 @@ export function OrgTeamRoster({
                     />
                   ) : null}
                   <footer className="b3-invite-modal__foot">
-                    <button
-                      type="button"
-                      className="b3-invite-modal__cancel"
-                      disabled={busy}
-                      onClick={() => setInviteOpen(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="b3-invite-modal__submit"
-                      disabled={busy || !inviteEmail.trim()}
-                    >
-                      <InviteMarkIcon />
-                      {busy
-                        ? "Inviting…"
-                        : isCashiers
-                          ? "Invite cashier"
-                          : "Invite"}
-                    </button>
+                    {inviteCreds ? (
+                      <button
+                        type="button"
+                        className="b3-invite-modal__submit"
+                        disabled={busy}
+                        onClick={() => setInviteOpen(false)}
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="b3-invite-modal__cancel"
+                          disabled={busy}
+                          onClick={() => setInviteOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="b3-invite-modal__submit"
+                          disabled={busy || !inviteEmail.trim()}
+                        >
+                          {busy
+                            ? "Inviting…"
+                            : isCashiers
+                              ? "Invite cashier"
+                              : "Invite"}
+                        </button>
+                      </>
+                    )}
                   </footer>
                 </form>
               </div>

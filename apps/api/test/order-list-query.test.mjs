@@ -16,6 +16,7 @@ describe("parseListOrdersQuery", () => {
     assert.equal(r.status, null);
     assert.equal(r.orgId, null);
     assert.equal(r.limit, JSON_DEFAULT_LIMIT);
+    assert.equal(r.offset, 0);
   });
 
   it("selects csv via format or Accept", () => {
@@ -82,5 +83,20 @@ describe("parseListOrdersQuery", () => {
     assert.equal(capped.ok, true);
     if (!capped.ok) return;
     assert.equal(capped.limit, JSON_MAX_LIMIT);
+
+    const badOffset = parseListOrdersQuery(
+      new URLSearchParams("offset=-1"),
+      undefined,
+    );
+    assert.equal(badOffset.ok, false);
+
+    const withOffset = parseListOrdersQuery(
+      new URLSearchParams("limit=50&offset=100"),
+      undefined,
+    );
+    assert.equal(withOffset.ok, true);
+    if (!withOffset.ok) return;
+    assert.equal(withOffset.limit, 50);
+    assert.equal(withOffset.offset, 100);
   });
 });

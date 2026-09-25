@@ -1,10 +1,10 @@
 import type { ServiceBill } from "./api";
-import { listServiceBills } from "./api";
+import { listServiceBills, SERVICE_BILLS_LIST_LIMIT } from "./api";
 import { createListCache } from "../shared/listCache";
 
 const billsListCache = createListCache<ServiceBill[]>({
   storageKey: "paymentgate.agent.service-bills",
-  fetch: () => listServiceBills(),
+  fetch: () => listServiceBills({ limit: SERVICE_BILLS_LIST_LIMIT }),
 });
 
 export function invalidateAgentServiceBillsList(): void {

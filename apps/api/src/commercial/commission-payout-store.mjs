@@ -13,8 +13,11 @@ const SELECT = `
  *   payer?: string,
  *   payeeOrgId?: string,
  *   payerOrgId?: string,
+ *   status?: string | string[],
  *   limit?: number,
- * }} filter
+ *   offset?: number,
+ * }} [filter]
+ * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
  */
 export async function listCommissionPayoutRows(filter = {}) {
   const clauses = [];
@@ -32,18 +35,48 @@ export async function listCommissionPayoutRows(filter = {}) {
     clauses.push(`payer_org_id = $${i++}`);
     params.push(filter.payerOrgId);
   }
+  const statuses = normalizeStatusFilter(filter.status);
+  if (statuses) {
+    clauses.push(`payout_status = ANY($${i++}::text[])`);
+    params.push(statuses);
+  }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const limit = Math.min(Math.max(Number(filter.limit) || 200, 1), 500);
-  params.push(limit);
+  const offset = Math.max(Number(filter.offset) || 0, 0);
+
+  const countRes = await getPool().query(
+    `SELECT count(*)::int AS n FROM commission_payouts ${where}`,
+    params,
+  );
+  const total = countRes.rows[0]?.n ?? 0;
+
+  const listParams = [...params, limit, offset];
   const { rows } = await getPool().query(
     `SELECT ${SELECT}
      FROM commission_payouts
      ${where}
      ORDER BY period_key DESC, updated_at DESC
-     LIMIT $${i}`,
-    params,
+     LIMIT $${i++} OFFSET $${i}`,
+    listParams,
   );
-  return rows;
+  return { rows, total, limit, offset };
+}
+
+/**
+ * @param {string | string[] | undefined | null} raw
+ * @returns {string[] | null}
+ */
+function normalizeStatusFilter(raw) {
+  if (raw == null) return null;
+  const list = Array.isArray(raw)
+    ? raw
+    : String(raw)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const allowed = new Set(["issued", "paid", "settled"]);
+  const statuses = [...new Set(list.filter((s) => allowed.has(s)))];
+  return statuses.length ? statuses : null;
 }
 
 /**
@@ -59,54 +92,38 @@ export async function findCommissionPayoutById(id) {
 
 /**
  * @param {{
- *   payer: string,
  *   payeeOrgId: string,
  *   periodKey: string,
- *   payerOrgId: string | null,
  * }} q
  */
 export async function findCommissionPayoutByKey(q) {
   const { rows } = await getPool().query(
     `SELECT ${SELECT} FROM commission_payouts
-     WHERE payer = $1
-       AND payee_org_id = $2
-       AND period_key = $3
-       AND (
-         ($4::uuid IS NULL AND payer_org_id IS NULL)
-         OR payer_org_id = $4
-       )`,
-    [q.payer, q.payeeOrgId, q.periodKey, q.payerOrgId],
+     WHERE payer = 'platform'
+       AND payee_org_id = $1
+       AND period_key = $2
+       AND payer_org_id IS NULL`,
+    [q.payeeOrgId, q.periodKey],
   );
   return rows[0] ?? null;
 }
 
 /**
- * Create or refresh an issued monthly invoice (platform → agent or agent → sub).
- * No-op (null) if paid/settled/verifying.
+ * Create or refresh an issued monthly invoice (platform → agent).
+ * No-op (null) if paid/settled.
  * @param {object} input
  */
 export async function upsertIssuedCommissionInvoiceRow(input) {
-  const payer = input.payer === "agent" ? "agent" : "platform";
-  const payerOrgId = payer === "agent" ? input.payerOrgId ?? null : null;
-  if (payer === "agent" && !payerOrgId) {
-    throw new Error("payerOrgId is required for agent invoices");
-  }
-
   const cur = await findCommissionPayoutByKey({
-    payer,
     payeeOrgId: input.payeeOrgId,
     periodKey: input.periodKey,
-    payerOrgId,
   });
 
   if (cur) {
-    if (
-      cur.payout_status === "paid" ||
-      cur.payout_status === "settled" ||
-      cur.payout_status === "verifying"
-    ) {
+    if (cur.payout_status === "paid" || cur.payout_status === "settled") {
       return null;
     }
+    const paymentLink = `/platform/commissions/${cur.id}`;
     const { rows } = await getPool().query(
       `UPDATE commission_payouts
        SET payee_name = $2,
@@ -133,7 +150,7 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
         input.payoutAddress,
         input.asset,
         input.network,
-        input.paymentLink,
+        paymentLink,
         JSON.stringify(input.treeSnapshot ?? null),
       ],
     );
@@ -147,14 +164,12 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
        commission_amount, payout_status, payout_address, asset, network,
        payment_link, tree_snapshot
      ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7, $8, $9, 'issued', $10, $11, $12, $13, $14::jsonb
+       $1, $2, 'platform', NULL, $3, $4, $5, $6, $7, 'issued', $8, $9, $10, $11, $12::jsonb
      )
      RETURNING ${SELECT}`,
     [
       input.payeeOrgId,
       input.payeeName,
-      payer,
-      payerOrgId,
       input.periodKey,
       input.periodLabel,
       input.platformFeeCollected,
@@ -163,16 +178,26 @@ export async function upsertIssuedCommissionInvoiceRow(input) {
       input.payoutAddress,
       input.asset,
       input.network,
-      input.paymentLink,
+      input.paymentLink ?? "",
       JSON.stringify(input.treeSnapshot ?? null),
     ],
   );
-  return rows[0];
+  const inserted = rows[0];
+  if (!inserted) return null;
+  const paymentLink = `/platform/commissions/${inserted.id}`;
+  if (inserted.payment_link === paymentLink) return inserted;
+  const { rows: fixed } = await getPool().query(
+    `UPDATE commission_payouts
+     SET payment_link = $2, updated_at = now()
+     WHERE id = $1
+     RETURNING ${SELECT}`,
+    [inserted.id, paymentLink],
+  );
+  return fixed[0] ?? inserted;
 }
 
 /**
- * Latest received (paid/settled) commission for a payee in a period —
- * platform → agent, or parent agent → this org.
+ * Latest received (paid/settled) platform → agent commission for a payee in a period.
  * @param {string} payeeOrgId
  * @param {string} periodKey
  */
@@ -182,8 +207,9 @@ export async function findReceivedCommissionForPayee(payeeOrgId, periodKey) {
      FROM commission_payouts
      WHERE payee_org_id = $1
        AND period_key = $2
+       AND payer = 'platform'
        AND payout_status IN ('paid', 'settled')
-     ORDER BY CASE payer WHEN 'platform' THEN 0 ELSE 1 END, updated_at DESC
+     ORDER BY updated_at DESC
      LIMIT 1`,
     [payeeOrgId, periodKey],
   );
@@ -191,125 +217,7 @@ export async function findReceivedCommissionForPayee(payeeOrgId, periodKey) {
 }
 
 /**
- * Agent → sub slip prepare (ready).
- * @param {object} input
- */
-export async function upsertCommissionPayoutRow(input) {
-  const cur = await findCommissionPayoutByKey({
-    payer: input.payer,
-    payeeOrgId: input.payeeOrgId,
-    periodKey: input.periodKey,
-    payerOrgId: input.payerOrgId,
-  });
-
-  if (cur) {
-    if (
-      cur.payout_status === "paid" ||
-      cur.payout_status === "verifying" ||
-      cur.payout_status === "settled"
-    ) {
-      const { rows } = await getPool().query(
-        `UPDATE commission_payouts
-         SET payee_name = $2,
-             payout_address = COALESCE($3, payout_address),
-             asset = COALESCE($4, asset),
-             network = COALESCE($5, network),
-             payment_link = $6,
-             updated_at = now()
-         WHERE id = $1
-         RETURNING ${SELECT}`,
-        [
-          cur.id,
-          input.payeeName,
-          input.payoutAddress,
-          input.asset,
-          input.network,
-          input.paymentLink,
-        ],
-      );
-      return rows[0];
-    }
-    const { rows } = await getPool().query(
-      `UPDATE commission_payouts
-       SET payee_name = $2,
-           period_label = $3,
-           platform_fee_collected = $4,
-           commission_percent = $5,
-           commission_amount = $6,
-           payout_status = 'ready',
-           payout_address = $7,
-           asset = $8,
-           network = $9,
-           payment_link = $10,
-           updated_at = now()
-       WHERE id = $1
-       RETURNING ${SELECT}`,
-      [
-        cur.id,
-        input.payeeName,
-        input.periodLabel,
-        input.platformFeeCollected,
-        input.commissionPercent,
-        input.commissionAmount,
-        input.payoutAddress,
-        input.asset,
-        input.network,
-        input.paymentLink,
-      ],
-    );
-    return rows[0];
-  }
-
-  const { rows } = await getPool().query(
-    `INSERT INTO commission_payouts (
-       payee_org_id, payee_name, payer, payer_org_id,
-       period_key, period_label, platform_fee_collected, commission_percent,
-       commission_amount, payout_status, payout_address, asset, network,
-       payment_link
-     ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7, $8, $9, 'ready', $10, $11, $12, $13
-     )
-     RETURNING ${SELECT}`,
-    [
-      input.payeeOrgId,
-      input.payeeName,
-      input.payer,
-      input.payerOrgId,
-      input.periodKey,
-      input.periodLabel,
-      input.platformFeeCollected,
-      input.commissionPercent,
-      input.commissionAmount,
-      input.payoutAddress,
-      input.asset,
-      input.network,
-      input.paymentLink,
-    ],
-  );
-  return rows[0];
-}
-
-/**
- * Confirm remittance sent → Verification (agent → sub).
- * @param {{ id: string, note: string | null }} input
- */
-export async function markCommissionPayoutVerifyingRow(input) {
-  const { rows } = await getPool().query(
-    `UPDATE commission_payouts
-     SET payout_status = 'verifying',
-         note = COALESCE($2, note),
-         updated_at = now()
-     WHERE id = $1
-       AND payout_status IN ('ready', 'verifying')
-     RETURNING ${SELECT}`,
-    [input.id, input.note],
-  );
-  return rows[0] ?? null;
-}
-
-/**
  * Platform invoice: issued → paid (awaiting agent confirm).
- * Agent→sub: ready|verifying → paid (terminal for cascade).
  * @param {{ id: string, txRef: string | null, note: string | null }} input
  */
 export async function markCommissionPayoutPaidRow(input) {
@@ -321,7 +229,7 @@ export async function markCommissionPayoutPaidRow(input) {
          paid_at = COALESCE(paid_at, now()),
          updated_at = now()
      WHERE id = $1
-       AND payout_status IN ('issued', 'ready', 'verifying')
+       AND payout_status = 'issued'
      RETURNING ${SELECT}`,
     [input.id, input.txRef, input.note],
   );

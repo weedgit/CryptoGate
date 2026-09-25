@@ -6,6 +6,7 @@ import {
   isAgentCommissionInvoiceDay,
   paidPlatformFeeUsd,
   previousCommissionPeriodKey,
+  shouldCreateCommissionInvoice,
 } from "../src/commercial/commission-invoice-generate.mjs";
 
 describe("agent commission invoice rules", () => {
@@ -51,5 +52,12 @@ describe("agent commission invoice rules", () => {
     assert.equal(computeCommissionAmount(100, "15"), 15);
     // 61.50 * 10% = 6.15
     assert.equal(computeCommissionAmount(61.5, "10"), 6.15);
+  });
+
+  it("shouldCreateCommissionInvoice skips zero amounts", () => {
+    assert.equal(shouldCreateCommissionInvoice(0), false);
+    assert.equal(shouldCreateCommissionInvoice("0.00"), false);
+    assert.equal(shouldCreateCommissionInvoice(0.01), true);
+    assert.equal(shouldCreateCommissionInvoice(15), true);
   });
 });

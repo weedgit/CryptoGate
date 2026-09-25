@@ -1,5 +1,4 @@
 import type { OrgAccount } from "./api";
-import { DEFAULT_MAX_AGENT_DEPTH } from "./onboardAgent";
 
 export type PlatformOrgTreeNode = {
   id: string;
@@ -46,7 +45,7 @@ export type OrgTreeFilter = {
     | "scheduled";
 };
 
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
+const AGENT_TYPES = new Set(["agent"]);
 
 function compareByName(a: { name: string }, b: { name: string }): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -205,7 +204,7 @@ export function agentsForestRoots(
   const agents: PlatformOrgTreeNode[] = [];
   const walk = (nodes: ReadonlyArray<PlatformOrgTreeNode>) => {
     for (const n of nodes) {
-      if (n.type === "agent" || n.type === "agent_sub") {
+      if (n.type === "agent") {
         agents.push({ ...n, children: n.children.slice() });
       } else {
         walk(n.children);
@@ -326,7 +325,7 @@ export function orgDetailHref(
   parentId?: string | null,
 ): string | null {
   if (type === "platform") return platformRoute("settings/team");
-  if (type === "agent" || type === "agent_sub")
+  if (type === "agent")
     return platformRoute(`accounts/agents/${id}`);
   if (type === "merchant") return platformRoute(`accounts/merchants/${id}`);
   if (type === "merchant_site") {
@@ -338,7 +337,7 @@ export function orgDetailHref(
 
 export function orgDetailLabel(type: string): string | null {
   if (type === "platform") return "Platform team";
-  if (type === "agent" || type === "agent_sub") return null;
+  if (type === "agent") return null;
   if (type === "merchant") return null;
   if (type === "merchant_site") return null;
   return null;
@@ -347,7 +346,7 @@ export function orgDetailLabel(type: string): string | null {
 /** Onboard route for a single child type. */
 export function orgAddChildHref(type: string): string | null {
   if (type === "platform") return platformRoute("agents/new");
-  if (type === "agent" || type === "agent_sub") {
+  if (type === "agent") {
     return platformRoute("merchants/new");
   }
   if (type === "merchant" || type === "merchant_site") {
@@ -358,7 +357,6 @@ export function orgAddChildHref(type: string): string | null {
 
 /** Whether Add can create a child under this org from the Architecture panel. */
 export function orgCanAddChild(type: string): boolean {
-  // Nested agent_sub create is disabled (API org_type_disabled); legacy rows stay view-only.
   return (
     type === "platform" ||
     type === "agent" ||
@@ -368,8 +366,7 @@ export function orgCanAddChild(type: string): boolean {
 }
 
 /**
- * Agent depth of `node` (agent / agent_sub count up to platform).
- * Used to decide if a further agent_sub is allowed under this parent.
+ * Agent depth of `node` (agent count up to platform).
  */
 export function agentDepthOfNode(
   node: PlatformOrgTreeNode,
@@ -381,19 +378,11 @@ export function agentDepthOfNode(
   while (current && current.type !== "platform") {
     if (seen.has(current.id)) break;
     seen.add(current.id);
-    if (current.type === "agent" || current.type === "agent_sub") depth += 1;
+    if (current.type === "agent") depth += 1;
     if (!current.parentId) break;
     current = byId.get(current.parentId);
   }
   return depth;
-}
-
-export function canAddSubAgentUnderNode(
-  _node: PlatformOrgTreeNode,
-  _byId: ReadonlyMap<string, PlatformOrgTreeNode>,
-  _maxDepth = DEFAULT_MAX_AGENT_DEPTH,
-): boolean {
-  return false;
 }
 
 export function orgBreadcrumbPath(

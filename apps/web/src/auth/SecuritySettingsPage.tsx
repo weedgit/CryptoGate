@@ -307,8 +307,9 @@ function ProfileForm({
               </select>
             </FieldControl>
             <p className="plat-settings__row-hint profile-settings-card__timezone-hint">
-              Order times, bills, and activity in this portal display in this
-              timezone.
+              Order times, bill due times, activity, and audit timestamps in this
+              portal display in this timezone. Platform billing schedules (invoice
+              jobs, remittance day C) stay on UTC.
             </p>
           </label>
         </div>

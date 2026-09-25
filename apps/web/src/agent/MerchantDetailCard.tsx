@@ -8,10 +8,11 @@ import {
   ApiError,
   getMerchantCommercial,
   listAuditLog,
-  listOrders,
+  listAllOrders,
   listOrgUsers,
   listOrgMemberEmails,
   listServiceBills,
+  SERVICE_BILLS_LIST_LIMIT,
   type AuditLogEntry,
   type MerchantCommercialSettings,
   type OrgAccount,
@@ -353,7 +354,7 @@ export function MerchantDetailCard({
     setOverviewLoading(true);
     void Promise.all([
       getMerchantCommercial(org.id).catch(() => null),
-      listOrders({ orgId: org.id, limit: 200 }).catch(
+      listAllOrders({ orgId: org.id }).catch(
         () => [] as PaymentOrder[],
       ),
       listAuditLog({ orgId: org.id, limit: 20 }).catch(
@@ -418,10 +419,13 @@ export function MerchantDetailCard({
     void (async () => {
       try {
         if (tab === "service-bills") {
-          const rows = await listServiceBills({ orgId: org.id });
+          const rows = await listServiceBills({
+            orgId: org.id,
+            limit: SERVICE_BILLS_LIST_LIMIT,
+          });
           if (!cancelled) setBills(rows);
         } else {
-          const rows = await listOrders({ orgId: org.id, limit: 200 });
+          const rows = await listAllOrders({ orgId: org.id });
           if (!cancelled) setOrders(rows);
         }
       } catch (err) {
@@ -603,8 +607,8 @@ export function MerchantDetailCard({
                         <FundAmount amount={commercial.subscriptionAmountUsd} />{" "}
                         / mo subscription
                         {commercial.billingAnchorAt
-                          ? ` · Anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
-                          : " · Awaiting activation pay"}
+                          ? ` · Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`
+                          : " · Not activated"}
                         {commercial.nextInvoiceOn
                           ? ` · Next invoice ${commercial.nextInvoiceOn}`
                           : null}
@@ -865,8 +869,8 @@ export function MerchantDetailCard({
                           ? `Exempt until ${commercial.feeExemptUntil}`
                           : null,
                         commercial.billingAnchorAt
-                          ? `Anchor ${String(commercial.billingAnchorAt).slice(0, 10)}`
-                          : "Awaiting activation pay",
+                          ? `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`
+                          : "Not activated",
                         commercial.nextInvoiceOn
                           ? `Next invoice ${commercial.nextInvoiceOn}`
                           : null,

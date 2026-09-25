@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
@@ -7,7 +7,7 @@ import {
   resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
-import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
+import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import {
   formatBillId,
   isActivationServiceBill,
@@ -15,7 +15,6 @@ import {
   serviceBillStatusTone,
 } from "../platform/serviceBillStatus";
 import { PagePending } from "../platform/ui/PlatformPending";
-import { formatShortTime } from "../merchant/orderStatus";
 import {
   getCachedServiceBill,
   peekServiceBill,
@@ -42,6 +41,22 @@ function isPastDue(iso: string): boolean {
   return Number.isFinite(t) && t < Date.now();
 }
 
+/** Match commission slip lifecycle arrows: done / flowing / idle. */
+function timelineArrowTone(
+  step: TimelineStep,
+  next: TimelineStep | undefined,
+): "is-done" | "is-flowing" | "is-idle" {
+  if (!next) return "is-idle";
+  if (step.tone === "done" && next.tone === "done") return "is-done";
+  if (
+    (step.tone === "done" && next.tone === "current") ||
+    (step.tone === "current" && next.tone === "muted")
+  ) {
+    return "is-flowing";
+  }
+  return "is-idle";
+}
+
 function buildTimeline(bill: ServiceBill): TimelineStep[] {
   const activation = isActivationServiceBill(bill);
   const steps: TimelineStep[] = [
@@ -63,6 +78,15 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
           : "done",
     },
   ];
+
+  if (bill.status === "issued") {
+    steps.push({
+      id: "due",
+      label: "Due",
+      detail: formatShortDate(bill.dueAt),
+      tone: "muted",
+    });
+  }
 
   if (bill.status === "overdue") {
     steps.push({
@@ -87,7 +111,7 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     }
   }
 
-  if (bill.voidedAt) {
+  if (bill.voidedAt || bill.status === "voided") {
     steps.push({
       id: "voided",
       label: "Voided",
@@ -99,12 +123,29 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     }
   }
 
+  if (bill.status === "cancelled") {
+    steps.push({
+      id: "cancelled",
+      label: "Cancelled",
+      detail: "Closed",
+      tone: "current",
+    });
+    for (const s of steps) {
+      if (s.id !== "cancelled") s.tone = "done";
+    }
+  }
+
   if (bill.lastAdjustmentReason) {
     steps.push({
       id: "adjust",
       label: "Adjusted",
       detail: bill.lastAdjustmentReason,
-      tone: bill.status === "paid" || bill.status === "voided" ? "done" : "muted",
+      tone:
+        bill.status === "paid" ||
+        bill.status === "voided" ||
+        bill.status === "cancelled"
+          ? "done"
+          : "muted",
     });
   }
 
@@ -120,6 +161,7 @@ export function ServiceBillDetailPage() {
   );
   const [merchant, setMerchant] = useState<OrgAccount | null>(null);
   const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
+  const [buyerPhone, setBuyerPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !(id && peekServiceBill(id)));
   const [error, setError] = useState<string | null>(null);
 
@@ -135,12 +177,16 @@ export function ServiceBillDetailPage() {
       const members = await listOrgUsers(row.orgId).catch(() => []);
       primeServiceBill(id, row);
       setBill(row);
-      setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
+      const org = orgs.find((o) => o.id === row.orgId) ?? null;
+      setMerchant(org);
       const preferred =
         members.find((m) => /owner/i.test(m.role)) ??
         members.find((m) => /admin/i.test(m.role)) ??
         members[0];
-      setBuyerContactEmail(preferred?.email?.trim() || null);
+      setBuyerContactEmail(
+        org?.billingEmail?.trim() || preferred?.email?.trim() || null,
+      );
+      setBuyerPhone(preferred?.phone?.trim() || null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load bill");
     } finally {
@@ -169,7 +215,8 @@ export function ServiceBillDetailPage() {
   const duePast = bill
     ? isPastDue(bill.dueAt) &&
       bill.status !== "paid" &&
-      bill.status !== "voided"
+      bill.status !== "voided" &&
+      bill.status !== "cancelled"
     : false;
 
   if (loading) {
@@ -186,7 +233,7 @@ export function ServiceBillDetailPage() {
         />
         <p className="muted">Could not load this service bill.</p>
         <Link className="plat-bill-detail__back" to={agentRoute("service-bills")}>
-          ← Back to bills
+          ← Back
         </Link>
       </div>
     );
@@ -198,10 +245,43 @@ export function ServiceBillDetailPage() {
     bill.remittancePayTo?.trim() ||
     platformBillingPayToFallback() ||
     null;
+  const invoiceProps = {
+    bill,
+    buyer: {
+      name: merchant?.name ?? bill.orgId,
+      legalName: merchant?.legalName,
+      contactEmail: buyerContactEmail,
+      phone: buyerPhone,
+      country: merchant?.country,
+    },
+    seller,
+    remittance: payTo
+      ? {
+          payTo,
+          instructions:
+            "Merchants settle via service-bill checkout. Agent accounts are read-only on this rail.",
+        }
+      : {
+          instructions:
+            "Pay-to appears on merchant checkout. Agent accounts cannot issue or mark bills paid.",
+        },
+  } as const;
 
   return (
     <div className="plat-bill-detail">
-      <header className="plat-bill-detail__head">
+      <AuthToast
+        message={error}
+        tone="error"
+        onDismiss={() => setError(null)}
+      />
+
+      <header className="plat-bill-detail__head no-print">
+        <Link
+          className="plat-bill-detail__back-link"
+          to={agentRoute("service-bills")}
+        >
+          ← Back
+        </Link>
         <div className="plat-bill-detail__identity">
           <h1 className="plat-bill-detail__id">{title}</h1>
           <span
@@ -215,113 +295,83 @@ export function ServiceBillDetailPage() {
             Merchant: {merchant?.name ?? bill.orgId}
           </span>
         </div>
-        <Link className="plat-bill-detail__back-btn" to={agentRoute("service-bills")}>
-          ← Back to bills
-        </Link>
+        <InvoicePrintButton />
       </header>
 
-      <div className="plat-bill-detail__split">
+      <div className="plat-bill-detail__split plat-bill-detail__split--invoice">
         <div className="plat-bill-detail__main">
           <ServiceBillInvoiceFace
-            bill={bill}
-            buyer={{
-              name: merchant?.name ?? bill.orgId,
-              legalName: merchant?.legalName,
-              contactEmail: buyerContactEmail,
-              country: merchant?.country,
-              orgId: bill.orgId,
-            }}
-            seller={seller}
-            remittance={
-              payTo
-                ? {
-                    payTo,
-                    instructions:
-                      "Merchants settle via service-bill checkout. Agent accounts are read-only on this rail.",
-                  }
-                : {
-                    instructions:
-                      "Pay-to appears on merchant checkout. Agent accounts cannot issue or mark bills paid.",
-                  }
-            }
-            statusBadge={
-              <span
-                className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}`}
-              >
-                {serviceBillStatusLabel(bill.status)}
-              </span>
-            }
-            toolbar={
-              <button
-                type="button"
-                className="sb-invoice__print-btn"
-                onClick={() => window.print()}
-              >
-                Print invoice
-              </button>
-            }
+            {...invoiceProps}
             invoiceRef={invoiceRef}
           />
-          <p className="plat-bill-detail__footnote">
+          <p className="plat-bill-detail__footnote no-print">
             Merchants pay via service-bill checkout — not the guest payment page.
             Agent accounts cannot issue, adjust, or mark bills paid.
           </p>
         </div>
 
-        <aside className="plat-bill-detail__side">
-          <div className="plat-bill-detail__pay-card no-print">
-            <ServiceBillPayQrCard
-              totalAmount={bill.totalAmount}
-              payTo={payTo}
-              status={bill.status}
-              dueAt={bill.dueAt}
-              timerLabel={
-                bill.status === "paid"
-                  ? "Payment completed — QR no longer needed"
-                  : bill.status === "voided"
-                    ? "Bill voided"
-                    : bill.status === "overdue"
-                      ? "Overdue — settle remittance promptly"
-                      : bill.status === "issued"
-                        ? `Due ${formatShortTime(bill.dueAt)}`
-                        : serviceBillStatusLabel(bill.status)
-              }
-              hint="Same remittance QR merchants see on service-bill checkout. Agent is read-only."
-            />
-          </div>
-
+        <aside className="plat-bill-detail__side no-print">
           <section className="plat-bill-detail__card plat-bill-detail__timeline-card">
-            <h2 className="plat-bill-detail__section-title">Bill state timeline</h2>
+            <h2 className="plat-bill-detail__section-title">
+              <span className="plat-bill-detail__section-title-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path
+                    fill="currentColor"
+                    d="M11 6.5h2v11h-2zM12 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 7.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 7.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4"
+                  />
+                </svg>
+              </span>
+              Bill state timeline
+            </h2>
             <ol className="plat-bill-detail__timeline">
-              {timeline.map((step, i) => (
-                <li
-                  key={step.id}
-                  className={`plat-bill-detail__step is-${step.tone}`}
-                  style={{ animationDelay: `${i * 60}ms` }}
-                >
-                  <span className="plat-bill-detail__step-dot" aria-hidden />
-                  <div className="plat-bill-detail__step-body">
-                    <p className="plat-bill-detail__step-label">{step.label}</p>
-                    <p className="plat-bill-detail__step-detail">{step.detail}</p>
-                  </div>
-                </li>
-              ))}
+              {timeline.map((step, i, arr) => {
+                const next = arr[i + 1];
+                const arrowTone = timelineArrowTone(step, next);
+                return (
+                  <li
+                    key={step.id}
+                    className={`plat-bill-detail__step is-${step.tone}`}
+                    style={
+                      {
+                        animationDelay: `${i * 90}ms`,
+                        ["--step-delay"]: `${i * 90}ms`,
+                      } as CSSProperties
+                    }
+                  >
+                    <span className="plat-bill-detail__step-dot" aria-hidden />
+                    <div className="plat-bill-detail__step-body">
+                      <p className="plat-bill-detail__step-label">
+                        {step.label}
+                      </p>
+                      <p className="plat-bill-detail__step-detail">
+                        {step.detail}
+                      </p>
+                    </div>
+                    {next ? (
+                      <span
+                        className={`plat-bill-detail__step-arrow ${arrowTone}`}
+                        aria-hidden
+                      >
+                        <span className="plat-bill-detail__step-arrow-inner">
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                        </span>
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
-          </section>
-
-          <section className="plat-bill-detail__card">
-            <h2 className="plat-bill-detail__section-title">Actions</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              Issue, adjust, void, and mark-paid are platform-only. Contact
-              platform ops if a bill needs a correction.
-            </p>
           </section>
         </aside>
       </div>
-
-      <p className="mono plat-bill-detail__raw-id" title={bill.id}>
-        Full ID · {bill.id}
-      </p>
     </div>
   );
 }

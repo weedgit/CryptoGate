@@ -27,7 +27,7 @@ async function loadVisibleSite(req, res, orgId) {
       res,
       400,
       "invalid_org_type",
-      "Setting overrides are only valid on merchant (site) orgs",
+      "Setting overrides are only valid on Site orgs",
     );
     return null;
   }
@@ -44,7 +44,7 @@ function inheritOnly(res) {
     res,
     403,
     "site_inherit_only",
-    "Merchant (site) inherits matching, fulfillment, and retention from the parent merchant",
+    "Site inherits matching, fulfillment, and retention from the parent merchant",
   );
 }
 

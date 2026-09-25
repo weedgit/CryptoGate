@@ -39,8 +39,8 @@ location /v1/ {
 }
 
 location /assets/ {
-    expires 1h;
-    add_header Cache-Control "public, max-age=3600, must-revalidate";
+    expires 5m;
+    add_header Cache-Control "public, max-age=300, must-revalidate";
     try_files $uri =404;
 }
 

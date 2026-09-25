@@ -204,7 +204,7 @@ export function registeredEmailConflict(
   const typeLabel =
     hit.type === "platform"
       ? "Platform"
-      : hit.type === "agent" || hit.type === "agent_sub"
+      : hit.type === "agent"
         ? "Agent account"
         : hit.type === "merchant"
           ? "Merchant account"

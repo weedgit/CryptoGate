@@ -1,117 +1,7 @@
 /**
  * Commission payout slip persistence (Decision 1b).
+ * Phase 1: platform → agent invoices only (issued → paid → settled).
  */
-
-/**
- * @param {unknown} body
- * @returns {{ ok: true, parsed: object } | { ok: false, status: number, code: string, message: string }}
- */
-export function validateUpsertCommissionPayoutBody(body) {
-  const payeeOrgId =
-    typeof body?.payeeOrgId === "string" ? body.payeeOrgId.trim() : "";
-  const payeeName =
-    typeof body?.payeeName === "string" ? body.payeeName.trim() : "";
-  const payer = body?.payer === "agent" ? "agent" : body?.payer === "platform" ? "platform" : "";
-  const payerOrgId =
-    typeof body?.payerOrgId === "string" && body.payerOrgId.trim()
-      ? body.payerOrgId.trim()
-      : null;
-  const periodKey =
-    typeof body?.periodKey === "string" ? body.periodKey.trim() : "";
-  const periodLabel =
-    typeof body?.periodLabel === "string" ? body.periodLabel.trim() : "";
-  const commissionPercent =
-    typeof body?.commissionPercent === "string"
-      ? body.commissionPercent.trim()
-      : "";
-  const paymentLink =
-    typeof body?.paymentLink === "string" ? body.paymentLink.trim() : "";
-
-  const platformFeeCollected = Number(body?.platformFeeCollected);
-  const commissionAmount = Number(body?.commissionAmount);
-
-  if (!payeeOrgId || !payeeName || !payer || !periodKey || !periodLabel) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message:
-        "payeeOrgId, payeeName, payer, periodKey, and periodLabel are required",
-    };
-  }
-  if (!commissionPercent || !paymentLink) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "commissionPercent and paymentLink are required",
-    };
-  }
-  if (!Number.isFinite(platformFeeCollected) || platformFeeCollected < 0) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "platformFeeCollected must be a non-negative number",
-    };
-  }
-  if (!Number.isFinite(commissionAmount) || commissionAmount < 0) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "commissionAmount must be a non-negative number",
-    };
-  }
-  if (payer === "platform" && payerOrgId) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "payerOrgId must be null for platform payouts",
-    };
-  }
-  if (payer === "agent" && !payerOrgId) {
-    return {
-      ok: false,
-      status: 400,
-      code: "invalid_request",
-      message: "payerOrgId is required for agent → sub payouts",
-    };
-  }
-
-  const payoutAddress =
-    typeof body?.payoutAddress === "string" && body.payoutAddress.trim()
-      ? body.payoutAddress.trim()
-      : null;
-  const asset =
-    typeof body?.asset === "string" && body.asset.trim()
-      ? body.asset.trim()
-      : null;
-  const network =
-    typeof body?.network === "string" && body.network.trim()
-      ? body.network.trim()
-      : null;
-
-  return {
-    ok: true,
-    parsed: {
-      payeeOrgId,
-      payeeName,
-      payer,
-      payerOrgId,
-      periodKey,
-      periodLabel,
-      platformFeeCollected,
-      commissionPercent,
-      commissionAmount,
-      payoutAddress,
-      asset,
-      network,
-      paymentLink,
-    },
-  };
-}
 
 /**
  * @param {unknown} body
@@ -119,6 +9,14 @@ export function validateUpsertCommissionPayoutBody(body) {
 export function validateMarkPaidBody(body) {
   const rawTx = typeof body?.txRef === "string" ? body.txRef.trim() : "";
   const rawNote = typeof body?.note === "string" ? body.note.trim() : "";
+  if (rawTx.length > 200) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "txRef must be at most 200 characters",
+    };
+  }
   if (rawNote.length > 2000) {
     return {
       ok: false,
@@ -134,14 +32,6 @@ export function validateMarkPaidBody(body) {
       note: rawNote || null,
     },
   };
-}
-
-/**
- * Confirm-sent body (optional note while entering Verification).
- * @param {unknown} body
- */
-export function validateConfirmSentBody(body) {
-  return validateMarkPaidBody(body ?? {});
 }
 
 /**
@@ -191,71 +81,49 @@ export function toCommissionPayout(row) {
 
 /**
  * Scope GET /commission-payouts for a non-platform agent caller.
- * Allows listing slips they issue (payerOrgId) and slips they receive
- * (payeeOrgId — platform → agent, or parent agent → sub-agent).
+ * Agents only see platform → self invoices (payeeOrgId in their agent orgs).
  *
  * @param {string[]} agentOrgIds
  * @param {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} query
- * @returns {{ ok: true, filter: { payer?: string, payeeOrgId?: string, payerOrgId?: string } } | { ok: false, status: number, code: string, message: string }}
+ * @returns {{ ok: true, filter: { payer?: string, payeeOrgId?: string } } | { ok: false, status: number, code: string, message: string }}
  */
 export function scopedCommissionPayoutListFilter(agentOrgIds, query) {
-  const payer = query.payer;
   const payeeOrgId = query.payeeOrgId;
-  const payerOrgId = query.payerOrgId;
-  /** @type {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} */
-  const filter = {};
 
-  if (payer === "platform") {
-    if (payeeOrgId && !agentOrgIds.includes(payeeOrgId)) {
-      return {
-        ok: false,
-        status: 403,
-        code: "forbidden",
-        message: "payeeOrgId outside your agent scope",
-      };
-    }
-    filter.payer = "platform";
-    filter.payeeOrgId =
-      payeeOrgId && agentOrgIds.includes(payeeOrgId)
-        ? payeeOrgId
-        : agentOrgIds[0];
-    return { ok: true, filter };
+  if (query.payer && query.payer !== "platform") {
+    return {
+      ok: false,
+      status: 403,
+      code: "forbidden",
+      message: "Agents may only list platform commission invoices",
+    };
+  }
+  if (query.payerOrgId) {
+    return {
+      ok: false,
+      status: 403,
+      code: "forbidden",
+      message: "payerOrgId is not available for agent callers",
+    };
   }
 
-  if (payeeOrgId) {
-    if (!agentOrgIds.includes(payeeOrgId)) {
-      return {
-        ok: false,
-        status: 403,
-        code: "forbidden",
-        message: "payeeOrgId outside your agent scope",
-      };
-    }
-    filter.payer = payer ?? "agent";
-    filter.payeeOrgId = payeeOrgId;
-    if (payerOrgId && agentOrgIds.includes(payerOrgId)) {
-      filter.payerOrgId = payerOrgId;
-    }
-    return { ok: true, filter };
+  if (payeeOrgId && !agentOrgIds.includes(payeeOrgId)) {
+    return {
+      ok: false,
+      status: 403,
+      code: "forbidden",
+      message: "payeeOrgId outside your agent scope",
+    };
   }
 
-  if (payerOrgId) {
-    if (!agentOrgIds.includes(payerOrgId)) {
-      return {
-        ok: false,
-        status: 403,
-        code: "forbidden",
-        message: "payerOrgId outside your agent scope",
-      };
-    }
-    filter.payerOrgId = payerOrgId;
-    if (payer) filter.payer = payer;
-    return { ok: true, filter };
-  }
-
-  if (payer === "agent" || !payer) {
-    filter.payerOrgId = agentOrgIds[0];
-    filter.payer = payer ?? "agent";
-  }
-  return { ok: true, filter };
+  return {
+    ok: true,
+    filter: {
+      payer: "platform",
+      payeeOrgId:
+        payeeOrgId && agentOrgIds.includes(payeeOrgId)
+          ? payeeOrgId
+          : agentOrgIds[0],
+    },
+  };
 }

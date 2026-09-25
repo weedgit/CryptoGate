@@ -27,6 +27,10 @@ describePg("POST /v1/service-bills/generate — Owner only (HTTP)", () => {
   let adminToken = "";
   /** @type {string | null} */
   let skipReason = null;
+  /** @type {string | null} */
+  let platformOrgId = null;
+  /** @type {string[]} */
+  const createdUserIds = [];
 
   before(async () => {
     try {
@@ -41,6 +45,7 @@ describePg("POST /v1/service-bills/generate — Owner only (HTTP)", () => {
       skipReason = "platform org required";
       return;
     }
+    platformOrgId = platform.id;
 
     const started = await startTestServer();
     server = started.server;
@@ -55,10 +60,12 @@ describePg("POST /v1/service-bills/generate — Owner only (HTTP)", () => {
     if (!ownerUser) {
       ownerUser = await createUser({ email: ownerEmail, password });
     }
+    createdUserIds.push(ownerUser.id);
     let adminUser = await findUserByEmail(adminEmail);
     if (!adminUser) {
       adminUser = await createUser({ email: adminEmail, password });
     }
+    createdUserIds.push(adminUser.id);
 
     await insertMembership({
       orgId: platform.id,
@@ -78,6 +85,28 @@ describePg("POST /v1/service-bills/generate — Owner only (HTTP)", () => {
   });
 
   after(async () => {
+    try {
+      const { getPool } = await import("../src/db/pool.mjs");
+      const pool = getPool();
+      if (platformOrgId && createdUserIds.length) {
+        await pool.query(
+          `DELETE FROM org_memberships
+           WHERE org_id = $1::uuid AND user_id = ANY($2::uuid[])`,
+          [platformOrgId, createdUserIds],
+        );
+        await pool.query(
+          `DELETE FROM sessions WHERE user_id = ANY($1::uuid[])`,
+          [createdUserIds],
+        );
+        await pool.query(
+          `DELETE FROM users WHERE id = ANY($1::uuid[])
+             AND email ILIKE 'gen-%@paymentgate.local'`,
+          [createdUserIds],
+        );
+      }
+    } catch {
+      /* best-effort cleanup */
+    }
     if (server) await stopTestServer(server);
     try {
       await closePool();

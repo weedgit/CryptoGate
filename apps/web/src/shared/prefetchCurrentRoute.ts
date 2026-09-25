@@ -34,8 +34,12 @@ function prefetchPlatform(sub: string) {
     else warm(() => import("../platform/ServiceBillsListPage"));
   }
   else if (sub === "audit") warm(() => import("../platform/AuditLogPage"));
-  else if (sub === "compliance") warm(() => import("../platform/CompliancePage"));
-  else if (sub === "commissions") warm(() => import("../platform/PlatformCommissionsPage"));
+  else if (sub === "support" || sub === "compliance")
+    warm(() => import("../platform/SupportPage"));
+  else if (sub.startsWith("commissions")) {
+    if (sub.includes("/")) warm(() => import("../platform/CommissionInvoiceDetailPage"));
+    else warm(() => import("../platform/PlatformCommissionsPage"));
+  }
 }
 
 function prefetchAgent(sub: string) {
@@ -49,7 +53,10 @@ function prefetchAgent(sub: string) {
     if (sub.includes("/")) warm(() => import("../agent/ServiceBillDetailPage"));
     else warm(() => import("../agent/ServiceBillsListPage"));
   }
-  else if (sub === "commissions") warm(() => import("../agent/CommissionsPage"));
+  else if (sub.startsWith("commissions")) {
+    if (sub.includes("/")) warm(() => import("../agent/CommissionInvoiceDetailPage"));
+    else warm(() => import("../agent/CommissionsPage"));
+  }
   else if (sub.startsWith("settings")) warm(() => import("../agent/AgentSettingsPage"));
 }
 

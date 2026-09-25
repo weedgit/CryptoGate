@@ -9,6 +9,8 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { AuditAction } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
+import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
+import { formatViewerDateTime } from "../shared/dateTime";
 import {
   ApiError,
   getPlatformOrgs,
@@ -65,6 +67,7 @@ const ACTION_LABEL: Record<string, string> = {
   agent_commission_put: "Agent commission updated",
   commission_payout_upsert: "Commission payout prepared",
   commission_payout_mark_paid: "Commission payout marked paid",
+  commission_payout_mark_paid_batch: "Commission payouts marked paid (batch)",
   commission_payout_generate: "Commission invoices generated",
   commission_payout_auto: "Commission invoices auto-created (day C)",
   contact_verification_override: "Owner verification override",
@@ -132,11 +135,7 @@ function toDateInputValue(d: Date): string {
 
 function orgDetailPath(orgId: string, orgs: OrgAccount[]): string {
   const type = orgs.find((o) => o.id === orgId)?.type;
-  if (
-    type === "merchant" ||
-    type === "agent" ||
-    type === "agent_sub"
-  ) {
+  if (type === "merchant" || type === "agent") {
     return platformRoute(`accounts/${type === "merchant" ? "merchants" : "agents"}/${orgId}`);
   }
   return platformRoute("accounts");
@@ -338,7 +337,7 @@ export function AuditLogPage() {
   const orgSelectOptions = useMemo(() => {
     const platform = orgOptions.filter((o) => o.type === "platform");
     const agents = orgOptions
-      .filter((o) => o.type === "agent" || o.type === "agent_sub")
+      .filter((o) => o.type === "agent")
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 200);
     const merchants = orgOptions
@@ -595,19 +594,33 @@ export function AuditLogPage() {
                     }}
                   >
                     <td className="plat-audit__when">
-                      {new Date(row.createdAt).toLocaleString()}
+                      {formatViewerDateTime(row.createdAt)}
                     </td>
                     <td>
                       <div className="plat-audit__actor">
-                        <span className="plat-audit__actor-email">
-                          {actorEmail}
+                        <span
+                          className={`plat-audit__actor-avatar${
+                            row.actorAvatarUrl ? "" : " is-default"
+                          }`}
+                          aria-hidden
+                        >
+                          {row.actorAvatarUrl ? (
+                            <img src={row.actorAvatarUrl} alt="" />
+                          ) : (
+                            <DefaultUserAvatar />
+                          )}
                         </span>
-                        {row.actorUserId &&
-                        (row.actorEmail || row.actorDisplayName) ? (
-                          <span className="plat-audit__actor-id">
-                            {shortId(row.actorUserId)}
+                        <div className="plat-audit__actor-copy">
+                          <span className="plat-audit__actor-email">
+                            {actorEmail}
                           </span>
-                        ) : null}
+                          {row.actorUserId &&
+                          (row.actorEmail || row.actorDisplayName) ? (
+                            <span className="plat-audit__actor-id">
+                              {shortId(row.actorUserId)}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </td>
                     <td>

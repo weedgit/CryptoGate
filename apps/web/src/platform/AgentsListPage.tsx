@@ -35,7 +35,7 @@ import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
-import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
+import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -50,7 +50,7 @@ type Props = { session: Session };
 
 type StatusFilter = "all" | "active" | "paused";
 
-type SortKey = "name" | "type" | "parent" | "merchants" | "payout" | "status";
+type SortKey = "name" | "merchants" | "payout" | "status";
 type SortDir = "asc" | "desc";
 type SortState = { key: SortKey; dir: SortDir };
 
@@ -72,12 +72,6 @@ const STATUS_PILLS: { id: StatusFilter; label: string }[] = [
   { id: "active", label: "Active" },
   { id: "paused", label: "Paused" },
 ];
-
-function shortId(id: string | null | undefined): string {
-  if (!id) return "—";
-  if (id.length <= 14) return id;
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
-}
 
 function ArrangeIcon({ dir }: { dir: SortDir | null }) {
   const showUp = dir === null || dir === "asc";
@@ -456,7 +450,7 @@ export function AgentsListPage({ session }: Props) {
   }, [location.pathname, load]);
 
   const agents = useMemo(
-    () => orgs.filter((o) => o.type === "agent" || o.type === "agent_sub"),
+    () => orgs.filter((o) => o.type === "agent"),
     [orgs],
   );
 
@@ -476,7 +470,7 @@ export function AgentsListPage({ session }: Props) {
     let cancelled = false;
     setEmailIndexLoading(true);
 
-    void listPlatformOrgMemberEmails({ types: ["agent", "agent_sub"] })
+    void listPlatformOrgMemberEmails({ types: ["agent"] })
       .then((rows) => {
         if (cancelled) return;
         setOrgEmailsByOrgId(orgEmailsMapFromBulkRows(rows));
@@ -492,8 +486,6 @@ export function AgentsListPage({ session }: Props) {
       cancelled = true;
     };
   }, [agentIdsKey, agents.length, query]);
-
-  const byId = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs]);
 
   const merchantCountByAgent = useMemo(
     () => merchantCountsByAgentId(orgs),
@@ -533,16 +525,6 @@ export function AgentsListPage({ session }: Props) {
       if (sort.key === "name") {
         return dir * a.name.localeCompare(b.name);
       }
-      if (sort.key === "type") {
-        const byType = dir * orgTypeLabel(a.type).localeCompare(orgTypeLabel(b.type));
-        return byType !== 0 ? byType : dir * a.name.localeCompare(b.name);
-      }
-      if (sort.key === "parent") {
-        const pa = a.parentId ? (byId.get(a.parentId)?.name ?? a.parentId) : "";
-        const pb = b.parentId ? (byId.get(b.parentId)?.name ?? b.parentId) : "";
-        const byParent = dir * pa.localeCompare(pb);
-        return byParent !== 0 ? byParent : dir * a.name.localeCompare(b.name);
-      }
       if (sort.key === "merchants") {
         const ca = merchantCountByAgent.get(a.id) ?? 0;
         const cb = merchantCountByAgent.get(b.id) ?? 0;
@@ -560,7 +542,7 @@ export function AgentsListPage({ session }: Props) {
       const byStatus = dir * sa.localeCompare(sb);
       return byStatus !== 0 ? byStatus : dir * a.name.localeCompare(b.name);
     });
-  }, [agents, query, statusFilter, sort, byId, merchantCountByAgent, payoutByAgentId, orgEmailsByOrgId]);
+  }, [agents, query, statusFilter, sort, merchantCountByAgent, payoutByAgentId, orgEmailsByOrgId]);
 
   useEffect(() => {
     setPage(1);
@@ -803,8 +785,6 @@ export function AgentsListPage({ session }: Props) {
                   <colgroup>
                     <col className="org-agents__col-num" />
                     <col className="org-agents__col-name" />
-                    <col className="org-agents__col-type" />
-                    <col className="org-agents__col-parent" />
                     <col className="org-agents__col-merchants" />
                     <col className="org-agents__col-payout" />
                     <col className="org-agents__col-status" />
@@ -817,19 +797,6 @@ export function AgentsListPage({ session }: Props) {
                         sortKey="name"
                         sort={sort}
                         onSort={onSort}
-                      />
-                      <SortHeader
-                        label="Type"
-                        sortKey="type"
-                        sort={sort}
-                        onSort={onSort}
-                      />
-                      <SortHeader
-                        label="Parent"
-                        sortKey="parent"
-                        sort={sort}
-                        onSort={onSort}
-                        className="org-agents__th-parent"
                       />
                       <SortHeader
                         label="Merchants"
@@ -858,7 +825,6 @@ export function AgentsListPage({ session }: Props) {
                   <tbody>
                     {paged.map((row, index) => {
                       const status = row.status ?? "active";
-                      const parent = row.parentId ? byId.get(row.parentId) : null;
                       const merchantCount = merchantCountByAgent.get(row.id) ?? 0;
                       const payout = payoutByAgentId.get(row.id) ?? null;
                       const isSelected = selectedId === row.id;
@@ -876,15 +842,6 @@ export function AgentsListPage({ session }: Props) {
                           <td className="org-agents__idx">{rowNum}</td>
                           <td>
                             <span className="org-agents__name">{row.name}</span>
-                          </td>
-                          <td>{orgTypeLabel(row.type)}</td>
-                          <td className="org-agents__td-parent">
-                            <span
-                              className="org-agents__parent"
-                              title={parent?.name ?? row.parentId ?? undefined}
-                            >
-                              {parent?.name ?? shortId(row.parentId)}
-                            </span>
                           </td>
                           <td className="org-agents__num">{merchantCount}</td>
                           <td className="org-agents__td-payout">

@@ -74,6 +74,12 @@ const catalogCache = { payload: null, expiresAt: 0 };
 
 const CATALOG_TTL_MS = 20_000;
 
+/** Drop in-memory catalog so the next build reflects maintenance / heartbeat changes. */
+export function invalidateNetworkCatalogCache() {
+  catalogCache.payload = null;
+  catalogCache.expiresAt = 0;
+}
+
 /** Missing table / optional enrichment — still return registry cards. */
 function isOptionalCatalogDbError(err, tableHint) {
   const message = err instanceof Error ? err.message : String(err);

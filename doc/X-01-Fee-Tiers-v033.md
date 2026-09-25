@@ -34,7 +34,7 @@ Additive to v0.3.2. Payment-order and signing paths unchanged.
 | `GET` | Platform O·A·V |
 | `PUT` | **Platform Owner only** |
 
-**Fields:** `maxAgentDepth` (Phase 1 default **2**). Mirrors `org_accounts.max_agent_depth` on platform row.
+**Fields:** `maxAgentDepth` (Phase 1 default **1** — Platform → Agent only; PUT accepts integer **0–1**). Mirrors `org_accounts.max_agent_depth` on platform row.
 
 **Rules**
 

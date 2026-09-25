@@ -36,11 +36,14 @@ On day C (agent remittance From day) at 00:00 UTC
     (line amounts; credits/adjustments do not reduce the commission base)
   → Commission = base × agent rate
   → Status issued (ready for platform remittance)
+  → Skip agents with $0 commission (no invoice row; reason skipped_zero)
+  → Audit commission_payout_auto even when all skipped (ops “Last auto run”)
 
-Platform marks paid → agent confirms → settled
+Platform marks paid (note required; optional txRef) → agent confirms → settled
+  → Ops may batch Confirm & pay from the Commissions list (issued multi-select; max 50)
 ```
 
-Merchants under one agent may have different onboard / activation dates; day **C** is a single platform calendar day so remittance stays predictable.
+Merchants under one agent may have different onboard / activation dates; day **C** is a single platform calendar day so remittance stays predictable. Platform Commissions list filters **Issued** vs **Awaiting confirm**; paid slips older than 7 days show an aging hint until the agent settles.
 
 ## Credit vs commission (locked)
 
@@ -83,12 +86,12 @@ Merchants under one agent may have different onboard / activation dates; day **C
 | Skip activation | Flag → anchor set without activation invoice |
 | Credit after paid | Grant next-period credit |
 | One-off merchant bill | Create Bill |
-| Missed day-C job | Catch-up while still in remittance window; or Owner **Backfill month** |
+| Missed day-C job | Catch-up while still in remittance window; or Owner **Generate (ops override)** on Commissions |
 
 ## Roles
 
-- **Owner**: billing calendar, commercial flags, all bill / commission actions; **Backfill month** (ops override)  
-- **Administrator**: send / cancel / adjust / mark paid / grant credit; commission remittance; one-off Create Bill  
+- **Owner**: billing calendar, commercial flags, all bill / commission actions; service-bill **Backfill month**; commission **Generate (ops override)**  
+- **Administrator**: send / cancel / adjust / mark paid / grant credit; commission remittance (note + optional txRef); one-off Create Bill  
 - **Viewer**: read-only  
 
 ## Jobs

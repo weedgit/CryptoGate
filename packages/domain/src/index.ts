@@ -7,7 +7,6 @@
 export const OrgType = {
   Platform: "platform",
   Agent: "agent",
-  AgentSub: "agent_sub",
   Merchant: "merchant",
   MerchantSite: "merchant_site",
 } as const;
@@ -140,11 +139,9 @@ export const MerchantTier = {
 
 export type MerchantTier = (typeof MerchantTier)[keyof typeof MerchantTier];
 
-/** Platform → agent monthly invoice + agent → sub slip statuses. */
+/** Platform → agent monthly invoice statuses (no cascade / agent→sub). */
 export const CommissionPayoutStatus = {
   Issued: "issued",
-  Ready: "ready",
-  Verifying: "verifying",
   Paid: "paid",
   Settled: "settled",
 } as const;

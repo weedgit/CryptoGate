@@ -52,7 +52,7 @@ function profileIdentity(
     role = platformRoleLabel(session);
   } else if (variant === "agent") {
     const m = session.memberships.find(
-      (x) => x.orgType === "agent" || x.orgType === "agent_sub",
+      (x) => x.orgType === "agent",
     );
     roleKey = m?.role ?? "viewer";
     role = m ? roleLabel(m.role) : "Agent";

@@ -115,12 +115,14 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
         }}
       />
       <p className="muted" style={{ marginBottom: "1.25rem", maxWidth: "40rem" }}>
-        Merchant fees use the <strong>activation payment date</strong>: after verify,
-        pay activation; one month later (and every month after) the system creates
-        subscription + volume invoices at <strong>00:00 UTC</strong>. Auto-send
-        controls whether drafts wait for Confirm &amp; send. Agent commission
-        invoices are created at <strong>00:00 UTC on remittance From day (C)</strong>;
-        commission = paid subscription + volume × rate.
+        Platform schedules use <strong>UTC</strong>. Merchant fees use the{" "}
+        <strong>activation payment date</strong>: after verify, pay activation;
+        one month later (and every month after) the system creates subscription +
+        volume invoices at <strong>00:00 UTC</strong>. Auto-send controls whether
+        drafts wait for Confirm &amp; send. Agent commission invoices are created
+        at <strong>00:00 UTC on remittance From day (C)</strong>; commission =
+        paid subscription + volume × rate. Timestamps in lists and history display
+        in each user’s profile timezone.
       </p>
       <form className="plat-billing-calendar__form" onSubmit={onSubmit}>
         <details className="plat-billing-calendar__fieldset plat-billing-calendar__legacy">
@@ -163,10 +165,12 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
         </details>
 
         <fieldset disabled={!canEdit || busy} className="plat-billing-calendar__fieldset">
-          <legend className="plat-billing-calendar__legend">Agent remittance window</legend>
+          <legend className="plat-billing-calendar__legend">
+            Agent remittance window (UTC)
+          </legend>
           <p className="muted" style={{ margin: "0 0 0.75rem", fontSize: "0.85rem" }}>
             From day (C): auto-create agent invoices at 00:00 UTC. To day: remittance /
-            catch-up window.
+            catch-up window. Day numbers are UTC calendar days.
           </p>
           <div className="plat-billing-calendar__row">
             <FieldControl label="From day (C)" htmlFor="agent-pay-start">

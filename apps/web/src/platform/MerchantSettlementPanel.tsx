@@ -9,7 +9,7 @@ import { ApiError, type SettlementAddress } from "./api";
 import { putSettlement, type Session } from "../merchant/api";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
-import { WalletCopyButton } from "../shared/OrgProfileEditModal";
+import { CopyGlyph } from "../shared/CopyGlyph";
 import { webChainEnvOverride } from "../shared/assetNetworks";
 import { FieldControl } from "../ui/FieldControl";
 import { NetworkIcon } from "./cryptoIcons";
@@ -88,6 +88,50 @@ function ConfigureGlyph() {
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+function EditGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+      <path
+        d="M9.2 3.2 12.8 6.8 5.5 14.1 2 14.6 2.5 11.1 9.2 3.2Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path d="M8.2 4.2 11.8 7.8" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+function SettlementCopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const address = value.trim();
+
+  async function copy() {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={`b3-settlement__icon-btn${copied ? " is-copied" : ""}`}
+      disabled={!address}
+      onClick={() => void copy()}
+      aria-label={copied ? "Address copied" : "Copy wallet address"}
+      title={copied ? "Copied" : "Copy"}
+    >
+      <CopyGlyph copied={copied} />
+    </button>
   );
 }
 
@@ -203,6 +247,18 @@ export function MerchantSettlementPanel({
     setDraftError(null);
   }
 
+  function openAddAddress() {
+    const empty = rows.find(
+      (row) => !addressByNetwork.get(row.network)?.address?.trim(),
+    );
+    if (empty) {
+      openEditor(empty.network, "configure");
+      return;
+    }
+    const first = rows[0];
+    if (first) openEditor(first.network, "edit");
+  }
+
   function requestSave() {
     if (!editTarget) return;
     const next = draftAddress.trim();
@@ -284,6 +340,15 @@ export function MerchantSettlementPanel({
             <span className="b3-settlement__configured-cap">
               {configuredCount} configured
             </span>
+            {canManage ? (
+              <button
+                type="button"
+                className="b3-agent-detail__onboard b3-settlement__configure b3-settlement__add"
+                onClick={openAddAddress}
+              >
+                + Add address
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -350,16 +415,26 @@ export function MerchantSettlementPanel({
                   </td>
                   <td>
                     <div className="b3-settlement__actions">
-                      {canManage ? (
+                      {configured ? (
+                        <>
+                          <SettlementCopyButton value={address} />
+                          {canManage ? (
+                            <button
+                              type="button"
+                              className="b3-settlement__icon-btn"
+                              aria-label={`Edit ${row.label} address`}
+                              title="Edit"
+                              onClick={() => openEditor(row.network, "edit")}
+                            >
+                              <EditGlyph />
+                            </button>
+                          ) : null}
+                        </>
+                      ) : canManage ? (
                         <button
                           type="button"
                           className="b3-agent-detail__onboard b3-settlement__configure"
-                          onClick={() =>
-                            openEditor(
-                              row.network,
-                              configured ? "edit" : "configure",
-                            )
-                          }
+                          onClick={() => openEditor(row.network, "configure")}
                         >
                           <ConfigureGlyph />
                           Configure
@@ -444,7 +519,7 @@ export function MerchantSettlementPanel({
                     </span>
                     <FieldControl
                       leading={<NetworkIcon network={editTarget.network} />}
-                      trailing={<WalletCopyButton value={draftAddress} />}
+                      trailing={<SettlementCopyButton value={draftAddress} />}
                       shellClassName="field-shell--wallet"
                     >
                       <input
@@ -503,7 +578,7 @@ export function MerchantSettlementPanel({
               setPendingSave(null);
             }
           }}
-          onVerify={(mfaCode) => void saveWithMfa(mfaCode)}
+          onVerify={(mfaCode) => saveWithMfa(mfaCode)}
         />
       ) : null}
     </div>

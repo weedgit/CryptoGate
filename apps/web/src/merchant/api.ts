@@ -426,25 +426,100 @@ export async function getPaymentDetails(orderId: string): Promise<PaymentDetails
 
 const inflightOrderLists = new Map<string, Promise<PaymentOrder[]>>();
 
+export type PaymentOrderListPage = {
+  items: PaymentOrder[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listOrdersPage(opts?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+  orgId?: string;
+  agentOrgId?: string;
+}): Promise<PaymentOrderListPage> {
+  const q = new URLSearchParams();
+  if (opts?.status) q.set("status", opts.status);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  if (opts?.offset != null) q.set("offset", String(opts.offset));
+  if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.agentOrgId) q.set("agentOrgId", opts.agentOrgId);
+  const suffix = q.toString() ? `?${q}` : "";
+  const res = await apiFetch(`${API_BASE}/orders${suffix}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as {
+    items: PaymentOrder[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+  };
+  const items = data.items ?? [];
+  return {
+    items,
+    total: data.total ?? items.length,
+    limit: data.limit ?? opts?.limit ?? 100,
+    offset: data.offset ?? opts?.offset ?? 0,
+  };
+}
+
 export async function listOrders(opts?: {
   status?: string;
   limit?: number;
+  offset?: number;
   orgId?: string;
   agentOrgId?: string;
 }): Promise<PaymentOrder[]> {
   const key = JSON.stringify({
     status: opts?.status ?? "",
     limit: opts?.limit ?? "",
+    offset: opts?.offset ?? "",
     orgId: opts?.orgId ?? "",
     agentOrgId: opts?.agentOrgId ?? "",
   });
   const hit = inflightOrderLists.get(key);
   if (hit) return hit;
-  const pending = fetchOrderList(opts).finally(() => {
-    inflightOrderLists.delete(key);
-  });
+  const pending = listOrdersPage(opts)
+    .then((page) => page.items)
+    .finally(() => {
+      inflightOrderLists.delete(key);
+    });
   inflightOrderLists.set(key, pending);
   return pending;
+}
+
+/** JSON max page is 200 — walk offset until loaded === total. */
+const LIST_ALL_ORDERS_PAGE = 200;
+
+export async function listAllOrders(opts?: {
+  status?: string;
+  orgId?: string;
+  agentOrgId?: string;
+}): Promise<PaymentOrder[]> {
+  let offset = 0;
+  let total = Infinity;
+  const out: PaymentOrder[] = [];
+  const seen = new Set<string>();
+  while (offset < total) {
+    const page = await listOrdersPage({
+      ...opts,
+      limit: LIST_ALL_ORDERS_PAGE,
+      offset,
+    });
+    total = page.total;
+    for (const row of page.items) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+    if (page.items.length === 0) break;
+    offset += page.items.length;
+  }
+  return out;
 }
 
 export type OrderSummary = {
@@ -465,27 +540,6 @@ export async function getOrderSummary(
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrderSummary;
-}
-
-async function fetchOrderList(opts?: {
-  status?: string;
-  limit?: number;
-  orgId?: string;
-  agentOrgId?: string;
-}): Promise<PaymentOrder[]> {
-  const q = new URLSearchParams();
-  if (opts?.status) q.set("status", opts.status);
-  if (opts?.limit != null) q.set("limit", String(opts.limit));
-  if (opts?.orgId) q.set("orgId", opts.orgId);
-  if (opts?.agentOrgId) q.set("agentOrgId", opts.agentOrgId);
-  const suffix = q.toString() ? `?${q}` : "";
-  const res = await apiFetch(`${API_BASE}/orders${suffix}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: PaymentOrder[] };
-  return data.items ?? [];
 }
 
 export async function getOrder(orderId: string): Promise<PaymentOrder> {
@@ -788,7 +842,7 @@ export type ServiceBill = {
   rxAddress?: string | null;
   /** Effective remittance destination (rx snapshot or live fee wallet). */
   remittancePayTo?: string | null;
-  invoiceSeller?: { name: string; email: string | null };
+  invoiceSeller?: { name: string; email: string | null; phone?: string | null };
   txAddress?: string | null;
   billKind?: string | null;
   createdAt?: string | null;
@@ -803,19 +857,54 @@ export type ServiceBillCheckout = {
   instructions: string;
 };
 
-export async function listServiceBills(opts?: {
+/** Match platform — API default 100 truncates merchant bill views. */
+export const SERVICE_BILLS_LIST_LIMIT = 5000;
+
+export type ServiceBillListPage = {
+  items: ServiceBill[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listServiceBillsPage(opts?: {
   status?: string;
-}): Promise<ServiceBill[]> {
+  limit?: number;
+  offset?: number;
+}): Promise<ServiceBillListPage> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
+  const limit = opts?.limit ?? SERVICE_BILLS_LIST_LIMIT;
+  q.set("limit", String(limit));
+  if (opts?.offset != null) q.set("offset", String(opts.offset));
   const suffix = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: ServiceBill[] };
-  return data.items ?? [];
+  const data = (await res.json()) as {
+    items: ServiceBill[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+  };
+  const items = data.items ?? [];
+  return {
+    items,
+    total: data.total ?? items.length,
+    limit: data.limit ?? limit,
+    offset: data.offset ?? opts?.offset ?? 0,
+  };
+}
+
+export async function listServiceBills(opts?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ServiceBill[]> {
+  const page = await listServiceBillsPage(opts);
+  return page.items;
 }
 
 export async function getServiceBill(billId: string): Promise<ServiceBill> {

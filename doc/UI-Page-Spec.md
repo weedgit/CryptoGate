@@ -145,7 +145,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 **Content**
 
-- Current org name + type badge (Platform / Agent / Agent (sub) / Merchant / Merchant (site))
+- Current org name + type badge (Platform / Agent / Merchant / Site)
 - Dropdown list of other orgs user belongs to
 - Role label beside each entry (Owner, Administrator, Viewer, Cashier)
 - **Sign out** action
@@ -332,13 +332,15 @@ Deep tabs for commercial/team/audit stay on B3/B6 (and agent equivalents); Archi
 **Content**
 
 - Search by name, ID, email
-- Filters: status (active/suspended), parent (top-level / under agent X)
-- Table columns: name, type (Agent / Agent (sub)), parent agent, depth level, merchant count, volume (period), status, created date
+- Filters: status (active/suspended)
+- Table columns: name, merchant count, payout status, status, created date
 - Row actions (O, A): View (B3), **Pause** / **Run** (resume), **Delete** (empty agents only), Edit commission (Owner)
 - **+ Onboard agent** (O, A) → B4
 - Status column: Active / Paused (`OrgAccount.status`)
 
 **Empty state:** “No agent accounts yet.”
+
+Phase 1: agents sit directly under Platform only — no type/parent/depth columns (sub-agents removed).
 
 ---
 
@@ -415,21 +417,51 @@ Platform O/A may override **email verified** / **phone verified** when SMS or em
 
 ---
 
+### B5a. Support — payment invoices (platform)
+
+| | |
+| --- | --- |
+| **Route** | `/platform/support` (legacy `/platform/compliance` redirects here) |
+| **Access** | O ✓ · A ✓ · V R |
+
+**Purpose**
+
+Platform ops workspace to watch **payment order invoices** by merchant or site, see org pause / order-create suspend status, and deep-link into order, merchant (Compliance / Cashiers), or related service bill. Service Bills and Commissions stay on their own nav items.
+
+**Filters**
+
+- Merchant select; Site select (scoped to merchant when set)
+- Search: order #, id, merchant/site name, cashier, receive address, asset/network
+- Matching mode pills (All / B / C / D / S)
+- Status KPIs: All · Anomaly · Pending · Verifying · Completed · Closed
+- When Anomaly selected: kind KPIs (Underpay / Overpay / Collision / Wrong network / Other)
+
+**Columns**
+
+Order · Merchant / Site · Cashier · Amount · Status · Mode · Network · Org status (Active/Paused + Suspended + bill link) · Hint (anomaly) · When
+
+**Notes**
+
+- Anomaly rows are **watch-only** — platform cannot mark paid; merchant reconciles.
+- Org status links to merchant `?tab=compliance` when paused or suspended.
+
+---
+
 ### B6. Merchant account — detail (platform view)
 
 | | |
 | --- | --- |
-| **Route** | `/platform/merchants/:id` |
+| **Route** | `/platform/accounts/merchants/:id` (legacy `/platform/merchants/:id` redirects) |
 | **Access** | O ✓ · A ✓ · V R |
 
-**Tabs**
+**Tabs (implemented)**
 
-1. **Overview** — structure, agent, tier, effective rate, status
-2. **Sites** — merchant (site) list if multi-location
-3. **Settlement settings** — **read-only**: addresses, xPub presence (not secret), matching mode — **no private keys**
-4. **Volume & orders** — aggregate stats; link to anomaly list
-5. **Service bills** — history
-6. **Compliance** — override log
+1. **Overview** — profile, commercial tier, settlement snapshot, recent activity
+2. **Team** — non-cashier members
+3. **Cashiers** — cashier roster
+4. **Compliance** — pause / order-create status, override log, inline B7 apply form (O/A)
+
+Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) remain reachable from Overview / Accounts / Support / Service Bills nav where applicable.
 
 **Actions (O, A)**
 
@@ -444,11 +476,12 @@ Platform O/A may override **email verified** / **phone verified** when SMS or em
 | | |
 | --- | --- |
 | **Access** | O ✓ · A ✓ (all actions logged) |
+| **Surface** | Inline on B6 Compliance tab (`variant=inline`); modal variant retained for other entry points |
 
 **Content**
 
 - Merchant name, current setting summary
-- Override type: settlement address / matching mode / suspend order create
+- Override type: settlement address / matching mode / suspend order create / suspend merchant
 - Reason (required textarea)
 - Ticket / case ID (optional)
 - MFA step-up required
@@ -561,8 +594,9 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 - Tabs: **Invoices** (platform → agent monthly invoices: issued / paid awaiting agent) · **Payout history** (settled after agent confirm)
 - Auto at **00:00 UTC on day C** (billing calendar): invoices for prior month from paid subtree **subscription + volume**; manual **Generate** remains an ops override; invoice shows tree fee status + onboard dates
 - Owner/Admin: **Confirm & pay** (USDT·TRON) → status **Paid**; agent Owner/Admin **Confirm receipt** → **Settled** → history
-- Click invoice row (Invoices or Payout history) → open invoice modal to review tree + remittance; Address / Tx open Tronscan (copy available)
-- URL: `?tab=invoices` (default) · `?tab=history`
+- Click invoice row (Invoices or Payout history) → **`/platform/commissions/:id`** detail (paper invoice + Issued → Paid → Settled timeline); Address / Tx open Tronscan (copy available)
+- Agent portal: **`/agent/commissions/:id`** for Confirm receipt
+- URL: `?tab=invoices` (default) · `?tab=history` · legacy `?payee=&period=` redirects to detail
 
 ---
 
@@ -577,7 +611,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 
 | Section | Fields | O | A |
 | --- | --- | --- | --- |
-| **Org policy** | Max agent nesting depth (default 2) | edit | view |
+| **Org policy** | Max agent nesting depth (default **1** — agents under platform only; no sub-agents) | edit | view |
 | **Security** | Password policy, session timeout, MFA required roles | edit | view |
 | **Networks** | Enabled assets/networks, maintenance toggles, confirmation counts | edit | edit |
 | **Notifications** | Email templates for bill issued, address change alert | edit | view |
@@ -650,17 +684,16 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 
 | | |
 | --- | --- |
-| **Route** | `/platform/ops/health` |
+| **Route** | `/platform/settings/networks` (legacy `/platform/ops/health` redirects here) |
 | **Access** | O ✓ · A ✓ |
 
-**Content**
+**Content** (embedded under **B16 Network**)
 
-- API uptime, watcher lag, queue depth, webhook retry backlog
-- Per-chain last block processed / watcher heartbeats
-- Error rate chart
+- Connected assets & networks table: orderability lamps (same as merchant/agent) + watcher lag / score / RPC / ingest
+- API / database / webhook probes remain in the platform shell alerts (not duplicate KPI cards on this page)
 - Link to runbook (doc)
 
-Asset/network orderability lives on **B16 Networks** (and dashboard volume filter), not on this page.
+Asset/network orderability is owned by **B16 Networks**; B17 is the watcher detail strip on that same page.
 
 ---
 
@@ -679,34 +712,33 @@ Agent users: **O**, **A**, **V**. Agents do **not** create payment orders.
 
 - KPIs: merchant count, subtree volume, open service bills, commission (MTD)
 - Chart: volume by merchant (top N)
-- **Quick actions** (O, A): Onboard merchant (C5). Nested sub-agent create is **disabled** in Phase 1 (legacy `agent_sub` rows remain view-only).
+- **Quick actions** (O, A): Onboard merchant (C5). No sub-agent product in Phase 1.
 - Alerts: merchants with overdue service bills, Enterprise rate pending platform approval
 
 ---
 
-### C2. Agent (sub) accounts — list
+### C2. Agent (sub) accounts — removed
 
 | | |
 | --- | --- |
-| **Route** | `/agent/agents` (redirects to merchants — nested create removed) |
-| **Access** | O ✓ · A ✓ · V R |
+| **Route** | `/agent/agents` (redirects to merchants) |
+| **Access** | — |
 
 **Content**
 
-- Legacy child agent accounts may still appear in Architecture / commissions as read-only
-- **+ Onboard agent (sub)** — **removed** (API `org_type_disabled`)
+- Sub-agents are out of Phase 1 (type purged). Create top-level agents from Platform only (B4).
 
 ---
 
-### C3. Agent (sub) — detail
+### C3. Agent (sub) — detail — removed
 
-Same structure as B3, scoped to subtree. No platform-only compliance override. Read-only Profile / Activity gate for legacy rows.
+Redirects with C2. No sub-agent detail product.
 
 ---
 
-### C4. Onboard agent (sub) wizard — **removed**
+### C4. Onboard agent (sub) wizard — removed
 
-Nested agent create is disabled. Create top-level agents from Platform only (B4). Legacy `agent_sub` orgs remain readable.
+Create top-level agents from Platform only (B4).
 
 ---
 
@@ -719,8 +751,8 @@ Nested agent create is disabled. Create top-level agents from Platform only (B4)
 
 **Content**
 
-- Merchants under this agent (and sub-agents if applicable)
-- Columns: name, tier, structure, volume fee % (effective), volume, status
+- Merchants under this agent (sites nest under merchants)
+- Columns: name, tier, volume fee % (effective), volume, status
 - **+ Onboard merchant** (O, A) → C6
 
 ---
@@ -806,8 +838,8 @@ First name · Last name · Billing email · Email verified · Phone verified · 
 
 **Content**
 
-- **Platform invoices** (top-level agents): issued / paid awaiting confirm / settled history; Owner/Admin **Confirm receipt** after platform remittance
-- Live fee-base statements + sub-agent payout slips (parent agents)
+- **Platform invoices** (top-level agents): issued / paid awaiting confirm / settled history; Owner/Admin **Confirm receipt** after platform remittance; detail route `/agent/commissions/:id` (shared invoice face + timeline)
+- Live fee-base statements (merchant orgs only — sites roll into merchant bills)
 - Not the same as merchant service bills — separate table and copy
 
 ---
@@ -1509,6 +1541,7 @@ Use consistently across portals.
 | Payment orders | — | — | D2–D4 | D2–D4 |
 | Service bills | B9–B10 | C9 | D5–D6 | D5–D6 |
 | Agents / merchants mgmt | B2–B6 | C2–C7 | — | — |
+| Support (payment invoices) | B5a | — | — | — |
 | Org architecture map | Architecture | Architecture | — | — |
 | Sites | — | — | D7–D9 | — |
 | Settlement settings | — | — | D11 | D11* |
@@ -1537,4 +1570,5 @@ Use: **payment order**, **service bill**, **merchant account**, **merchant (site
 
 | Date | Change |
 | --- | --- |
+| 2026-09-25 | Platform Compliance nav → Support (B5a); B6 Compliance tab + inline B7 |
 | 2026-08-22 | Initial UI page specification for Phase 1 design |

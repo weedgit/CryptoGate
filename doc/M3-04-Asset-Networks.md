@@ -117,6 +117,6 @@ Guest copy must name the exact asset+network for the order. USDT on Ethereum aga
 | Down | Enabled, but ingest `down` / no heartbeat |
 | Off | No enabled pairs (catalogued only) |
 
-Same lamp appears on System health “Connected assets & networks”, merchant Blockchain networks, and `GET /v1/networks/status` (any authenticated portal).
+Same lamp appears on Platform Network “Connected assets & networks” (B16/B17), merchant Blockchain networks, and `GET /v1/networks/status` (any authenticated portal). Legacy `/platform/ops/health` redirects to `/platform/settings/networks`.
 
 **Implemented vs live ingest:** registry + chain client code can be done while RPC is empty. Without `*_RPC_URL`, watcher stays in **stub** — catalog may still show enabled pairs, lamp → **Paused** (stub).

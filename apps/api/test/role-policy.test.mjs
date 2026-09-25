@@ -474,19 +474,13 @@ describe("role policy", () => {
     assert.equal(canCancelPaymentOrder(ownerCaller, anomalyOwn), false);
   });
 
-  it("allows agent channel O/A to manage direct children only", () => {
+  it("allows agent channel O/A to manage direct merchant children only", () => {
     const agentAdmin = {
       orgId: "a1",
       role: "administrator",
       orgType: "agent",
     };
-    const subAgentOwner = {
-      orgId: "s1",
-      role: "owner",
-      orgType: "agent_sub",
-    };
     const caller = { platformOperator: false, memberships: [agentAdmin] };
-    const subCaller = { platformOperator: false, memberships: [subAgentOwner] };
 
     assert.equal(
       canManageDirectChildOrg(caller, {
@@ -508,10 +502,10 @@ describe("role policy", () => {
     );
     assert.equal(
       canManageDirectChildOrg(caller, {
-        type: "agent_sub",
+        type: "agent",
         parentId: "a1",
       }),
-      true,
+      false,
     );
     assert.equal(
       canManageDirectChildOrg(caller, {
@@ -536,25 +530,6 @@ describe("role policy", () => {
         type: "merchant_site",
         parentId: "m1",
       }),
-      false,
-    );
-    assert.equal(
-      canManageDirectChildOrg(subCaller, {
-        type: "merchant",
-        parentId: "s1",
-      }),
-      true,
-    );
-    const dualCaller = {
-      platformOperator: false,
-      memberships: [agentAdmin, subAgentOwner],
-    };
-    assert.equal(
-      canManageDirectChildOrg(
-        dualCaller,
-        { type: "merchant", parentId: "s1" },
-        ["s1", "a1"],
-      ),
       false,
     );
     assert.equal(
@@ -587,7 +562,7 @@ describe("role policy", () => {
     );
     assert.equal(
       canUpdateMerchantCommercial(
-        dualCaller,
+        caller,
         { id: "m2", type: "merchant", parentId: "s1" },
         ["s1", "a1"],
       ),

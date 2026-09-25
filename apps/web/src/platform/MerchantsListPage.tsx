@@ -969,7 +969,8 @@ export function MerchantsListPage({ session }: Props) {
               initialTab={
                 detailTab === "overview" ||
                 detailTab === "team" ||
-                detailTab === "cashiers"
+                detailTab === "cashiers" ||
+                detailTab === "compliance"
                   ? detailTab
                   : undefined
               }

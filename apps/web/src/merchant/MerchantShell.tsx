@@ -14,6 +14,7 @@ import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
+import { setViewerTimeZone } from "../shared/dateTime";
 import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
 import { ActivationPaymentBanner } from "./ActivationPaymentBanner";
 import { VerifyContactBanner } from "../auth/VerifyContactBanner";
@@ -225,6 +226,10 @@ export function MerchantShell({
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    setViewerTimeZone(session.timezone);
+  }, [session.timezone]);
 
   useEffect(() => {
     initMerchantAlertReads(session.email);

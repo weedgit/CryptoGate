@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { scopedCommissionPayoutListFilter } from "../src/commercial/commission-payout-rules.mjs";
 
 const AGENT = "agent-1";
-const SUB = "sub-1";
+const OTHER = "agent-2";
 
 describe("scopedCommissionPayoutListFilter", () => {
   it("lists platform invoices as payee for the caller org", () => {
@@ -20,38 +20,41 @@ describe("scopedCommissionPayoutListFilter", () => {
     }
   });
 
-  it("rejects platform invoices for another agent", () => {
+  it("defaults payee to first agent org when omitted", () => {
     const scoped = scopedCommissionPayoutListFilter([AGENT], {
       payer: "platform",
-      payeeOrgId: SUB,
-    });
-    assert.equal(scoped.ok, false);
-  });
-
-  it("lists parent → sub slips when the sub-agent queries as payee", () => {
-    const scoped = scopedCommissionPayoutListFilter([SUB], {
-      payer: "agent",
-      payeeOrgId: SUB,
-    });
-    assert.equal(scoped.ok, true);
-    if (scoped.ok) {
-      assert.equal(scoped.filter.payer, "agent");
-      assert.equal(scoped.filter.payeeOrgId, SUB);
-      assert.equal(scoped.filter.payerOrgId, undefined);
-    }
-  });
-
-  it("lists agent → sub slips the parent issued", () => {
-    const scoped = scopedCommissionPayoutListFilter([AGENT], {
-      payer: "agent",
-      payerOrgId: AGENT,
     });
     assert.equal(scoped.ok, true);
     if (scoped.ok) {
       assert.deepEqual(scoped.filter, {
-        payer: "agent",
-        payerOrgId: AGENT,
+        payer: "platform",
+        payeeOrgId: AGENT,
       });
     }
+  });
+
+  it("rejects platform invoices for another agent", () => {
+    const scoped = scopedCommissionPayoutListFilter([AGENT], {
+      payer: "platform",
+      payeeOrgId: OTHER,
+    });
+    assert.equal(scoped.ok, false);
+  });
+
+  it("rejects agent payer (cascade removed)", () => {
+    const scoped = scopedCommissionPayoutListFilter([AGENT], {
+      payer: "agent",
+      payeeOrgId: AGENT,
+    });
+    assert.equal(scoped.ok, false);
+    if (!scoped.ok) assert.equal(scoped.status, 403);
+  });
+
+  it("rejects payerOrgId for agent callers", () => {
+    const scoped = scopedCommissionPayoutListFilter([AGENT], {
+      payer: "platform",
+      payerOrgId: AGENT,
+    });
+    assert.equal(scoped.ok, false);
   });
 });

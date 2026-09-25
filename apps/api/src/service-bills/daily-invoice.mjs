@@ -99,7 +99,12 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
   const calendar = await getBillingCalendarSettings();
   const autoSend = opts.autoSend ?? calendar.autoSendInvoices;
   const payDays = opts.payDays ?? calendar.activationPayDays;
-  const dueAt = merchantInvoiceDueAt(payDays);
+  // Pay-within runs from the invoice day (next_invoice_on), not wall-clock now —
+  // catch-up runs must still land due_at on invoiceOn + payDays.
+  const dueAt = merchantInvoiceDueAt(
+    payDays,
+    new Date(`${invoiceOn}T00:00:00.000Z`),
+  );
 
   const initialStatus = autoSend
     ? ServiceBillStatus.Issued

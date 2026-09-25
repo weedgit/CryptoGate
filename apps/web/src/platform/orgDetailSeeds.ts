@@ -89,13 +89,15 @@ export function agentSubtreeVolumeMtd(
   return Math.round(total * 100) / 100;
 }
 
-/** Sum volume fees on service bills whose period overlaps the current UTC month. */
+/** Sum platform fees (subscription + volume) on bills whose period overlaps the current UTC month. */
 export function agentSubtreePlatformFeeMtd(
   bills: ReadonlyArray<{
     orgId: string;
     periodStart: string;
     periodEnd: string;
+    subscriptionAmount?: string | null;
     volumeFeeAmount: string;
+    status?: string;
   }>,
   merchantIds: ReadonlySet<string>,
 ): number {
@@ -109,9 +111,14 @@ export function agentSubtreePlatformFeeMtd(
   let total = 0;
   for (const b of bills) {
     if (!merchantIds.has(b.orgId)) continue;
+    if (b.status === "void") continue;
     if (b.periodEnd < monthStart || b.periodStart > monthEnd) continue;
-    const n = Number(b.volumeFeeAmount);
-    if (Number.isFinite(n)) total += n;
+    const sub = Number(b.subscriptionAmount ?? 0);
+    const vol = Number(b.volumeFeeAmount);
+    const s = Number.isFinite(sub) ? sub : 0;
+    const v = Number.isFinite(vol) ? vol : 0;
+    const n = Math.round((s + v) * 100) / 100;
+    if (n > 0) total += n;
   }
   return Math.round(total * 100) / 100;
 }
@@ -151,8 +158,6 @@ function auditOrgTypeLabel(type: string | null): string {
   switch (type) {
     case "agent":
       return "Agent account";
-    case "agent_sub":
-      return "Sub-agent account";
     case "merchant":
       return "Merchant account";
     case "merchant_site":
@@ -420,11 +425,6 @@ function liveToMerchantRows(
 export function buildAgentAccountsForest(input: {
   agentId: string;
   agentName: string;
-  liveSubAgents: ReadonlyArray<{
-    id: string;
-    name: string;
-    status?: string | null;
-  }>;
   liveMerchants: ReadonlyArray<{
     id: string;
     name: string;

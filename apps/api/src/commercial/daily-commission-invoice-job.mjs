@@ -46,27 +46,33 @@ export function startDailyAgentCommissionInvoiceJob(options = {}) {
             parentId: row.payer_org_id ?? null,
           });
         }
-        if ((result.created?.length ?? 0) > 0) {
-          try {
-            await insertAuditEvent({
-              actorUserId: null,
-              orgId: null,
-              action: AUDIT_ACTIONS.commissionPayoutAuto,
-              metadata: {
-                today: result.today,
-                periodKey: result.periodKey ?? null,
-                reason: result.reason ?? null,
-                created: result.created.length,
-                skipped: result.skipped?.length ?? 0,
-              },
-            });
-          } catch {
-            /* audit must not block commission job */
-          }
+        const createdCount = result.created?.length ?? 0;
+        const skippedRows = result.skipped ?? [];
+        const skippedZero = skippedRows.filter(
+          (s) => s.reason === "skipped_zero",
+        ).length;
+        const skippedOther = skippedRows.length - skippedZero;
+        try {
+          await insertAuditEvent({
+            actorUserId: null,
+            orgId: null,
+            action: AUDIT_ACTIONS.commissionPayoutAuto,
+            metadata: {
+              today: result.today,
+              periodKey: result.periodKey ?? null,
+              reason: result.reason ?? null,
+              created: createdCount,
+              skipped: skippedRows.length,
+              skippedZero,
+              skippedOther,
+            },
+          });
+        } catch {
+          /* audit must not block commission job */
         }
-        if (process.env.NODE_ENV !== "test" && (result.created?.length ?? 0) > 0) {
+        if (process.env.NODE_ENV !== "test") {
           console.log(
-            `[commissions] daily invoice job ${result.today} period ${result.periodKey}: created ${result.created.length}, skipped ${result.skipped.length}`,
+            `[commissions] daily invoice job ${result.today} period ${result.periodKey}: created ${createdCount}, skipped ${skippedRows.length} (zero ${skippedZero})`,
           );
         }
       } catch (err) {

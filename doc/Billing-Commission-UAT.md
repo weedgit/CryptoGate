@@ -1,6 +1,6 @@
 # Billing & commission — portal UAT checklist
 
-Manual walkthrough after migrate `064`–`066` and API restart (daily jobs loaded).
+Manual walkthrough after migrate through **`067`** and API restart (daily jobs loaded).
 
 **Prep**
 
@@ -13,7 +13,9 @@ node scripts/billing-smoke.mjs --live
 
 Hard-refresh the portal (new web `dist`).
 
-Accounts: see [UAT-Client-Review-Logins.md](UAT-Client-Review-Logins.md).
+Accounts: see [UAT-Client-Review-Logins.md](UAT-Client-Review-Logins.md). Demo agent/platform owners are seeded contact-verified (email + phone) with first/last name so Confirm receipt is not blocked by setup gates.
+
+Phase 1: **no sub-agents**; commission fee base = **merchant orgs only** (sites roll into merchant bills).
 
 ---
 
@@ -64,16 +66,22 @@ console.log(await runDailyServiceBillInvoiceJob(new Date('YYYY-MM-DDT00:05:00.00
 
 ---
 
-## D. Platform — agent commission (day C)
+## D. Platform / agent — commission invoices (day C)
 
 | # | Step | Expect |
 |---|------|--------|
-| D1 | Merchants under agent have **paid** monthly bills with `paid_at` in prior UTC month | — |
-| D2 | Commissions page | Hint: auto-create 00:00 UTC on day C; Generate is **ops override** |
-| D3 | Day C 00:00 UTC (or force job / Generate for `YYYY-MM` prior month) | Issued invoices for top-level agents |
-| D4 | Amount | `(Σ subscription + volume on paid monthly bills) × agent %` — activation excluded |
+| D1 | Merchants under agent have **paid** monthly bills with `paid_at` in prior UTC month | Sites’ volume is on the **merchant** bill — not separate fee-base lines |
+| D2 | Platform → Commissions | Hint: auto-create 00:00 UTC on day C; Generate is **ops override**; **Last auto run** banner from `commission_payout_auto`; Invoices pills **All / Issued / Awaiting confirm** (list refetch uses `GET /v1/commission-payouts?status=&limit=&offset=`) |
+| D3 | Day C 00:00 UTC (or force job / Generate for `YYYY-MM` prior month) | Issued invoices for top-level agents with **commission &gt; 0** only (`skipped_zero` when none) |
+| D4 | Amount | `(Σ subscription + volume on paid monthly bills for merchant orgs) × agent %` — activation excluded; **no** `merchant_site` rows in the tree |
 | D5 | Credit on a merchant bill | Commission base **unchanged** (line amounts) |
-| D6 | Mark paid → agent confirms | Settled in payout history |
+| D6 | Open a row | Navigates to **`/platform/commissions/:id`** detail (paper invoice + Issued → Paid → Settled chevron timeline) — not a modal |
+| D7 | Platform: Confirm & pay on an **issued** detail | Note **required**; optional **tx hash**; status **paid**; face shows tx + explorer when set; timeline advances |
+| D7b | `paid` older than 7 days still open | List: aging hint on row; **Awaiting confirm** pill shows stuck count; warn banner with jump-to filter; stuck rows sort to the top |
+| D7c | Platform Commissions list: select multiple **issued** → Confirm & pay | Batch marks paid with shared note + optional txRef; toast shows paid / failed counts |
+| D7d | Issued / history buckets larger than one fetch page | First page uses `limit`/`offset`; **Load more** accumulates until `loaded === total` (no silent 500-row cap) |
+| D8 | Agent portal: open same invoice at **`/agent/commissions/:id`** → Confirm receipt | Status **settled**; appears in payout history |
+| D8b | Agent Commissions Current / History | Status-scoped list + search + **Load more** (same `limit`/`offset` as platform) |
 
 Force day-C job:
 
@@ -99,7 +107,7 @@ console.log(await runDailyAgentCommissionInvoiceJob(new Date('2026-04-10T00:05:0
 - [ ] A calendar copy + legacy window OK  
 - [ ] B activation gate + banner + unlock after mark paid  
 - [ ] C monthly create / overdue / late-pay reset  
-- [ ] D commission formula + day C / Generate override  
+- [ ] D commission formula + detail routes + merchant-only fee base + agent confirm  
 - [ ] E audit actions present  
 
 See also: [Service-Bill-Ops-Playbook.md](Service-Bill-Ops-Playbook.md).

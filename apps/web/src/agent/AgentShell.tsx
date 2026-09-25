@@ -26,6 +26,7 @@ import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { VerifyContactBanner } from "../auth/VerifyContactBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
+import { setViewerTimeZone } from "../shared/dateTime";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
@@ -134,6 +135,10 @@ export function AgentShell({
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    setViewerTimeZone(session.timezone);
+  }, [session.timezone]);
 
   useEffect(() => {
     let cancelled = false;

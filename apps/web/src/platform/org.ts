@@ -58,7 +58,6 @@ export function platformRoleMark(role: PlatformRoleKey): string {
 
 export function orgTypeLabel(type: string): string {
   if (type === "agent") return "Agent";
-  if (type === "agent_sub") return "Agent";
   if (type === "merchant") return "Merchant";
   if (type === "merchant_site") return "Site";
   if (type === "platform") return "Platform";
@@ -72,6 +71,16 @@ export function formatUsd(amount: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** Design-style money: `840.00 USD` (no leading $). */
+export function formatUsdCode(amount: string): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return amount;
+  return `${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} USD`;
 }
 
 export function formatShortDate(iso: string): string {

@@ -68,7 +68,10 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 
 - Copy: pay via **service-bill checkout** — not the guest payment page
 - `payTo` from platform billing settings (B11-lite), else `PLATFORM_BILLING_PAY_TO`
-- Link to service-bill checkout when payable
+- On the invoice face when payable (`issued` | `overdue`): receive address, network, asset, amount, pay QR, checkout link (open + copy)
+- When `paid`: receipt with tx hash + explorer link/QR — no pay QR / checkout CTA
+- When `voided` | `cancelled`: stamp + reason + address + amount (audit) — no pay QR / checkout CTA
+- No separate pay/preview card beside the invoice; Print opens the browser print dialog (Chrome preview)
 
 **Receipt (when paid)**
 
@@ -83,8 +86,9 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 ### Should
 
 - One-liner: “Completed payment-order volume in period”
-- Print control on invoice panel
+- Print control → browser Print → PDF
 - Keep B10 timeline / platform actions in ops sidebar (not duplicated inside print body)
+- Hide Platform actions when status is paid / voided / cancelled
 
 ### Won’t (Phase 1)
 

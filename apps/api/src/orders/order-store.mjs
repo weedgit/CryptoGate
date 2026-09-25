@@ -89,16 +89,22 @@ export async function findOrderByIdempotency(orgId, idempotencyKey, client) {
  *   orgId?: string | null,
  *   status?: string | null,
  *   limit: number,
+ *   offset?: number,
  * }} query
+ * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
  */
 export async function listPaymentOrders(query) {
   const params = [];
   /** @type {string[]} */
   const where = [];
+  const limit = query.limit;
+  const offset = Math.max(Number(query.offset) || 0, 0);
 
   if (query.kind === "filter") {
     const scope = appendPaymentOrderScope(query, params);
-    if (scope.empty) return [];
+    if (scope.empty) {
+      return { rows: [], total: 0, limit, offset };
+    }
     if (scope.clause) {
       where.push(scope.clause.replace(/^ AND /, ""));
     }
@@ -113,7 +119,17 @@ export async function listPaymentOrders(query) {
     where.push(`o.status = $${params.length}`);
   }
 
-  params.push(query.limit);
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const countRes = await db().query(
+    `SELECT count(*)::int AS n
+     FROM payment_orders o
+     ${whereSql}`,
+    params,
+  );
+  const total = countRes.rows[0]?.n ?? 0;
+
+  const listParams = [...params, limit, offset];
   const { rows } = await db().query(
     `SELECT ${ORDER_SELECT_O},
             org.name AS org_name,
@@ -121,12 +137,12 @@ export async function listPaymentOrders(query) {
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
      LEFT JOIN users creator ON creator.id = o.created_by
-     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ${whereSql}
      ORDER BY o.created_at DESC
-     LIMIT $${params.length}`,
-    params,
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    listParams,
   );
-  return rows;
+  return { rows, total, limit, offset };
 }
 
 /**

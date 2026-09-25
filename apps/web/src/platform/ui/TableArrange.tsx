@@ -92,14 +92,14 @@ export function SortHeader<K extends string>({
   sortKey: K;
   sort: SortState<K>;
   onSort: (key: K) => void;
-  align?: "end";
+  align?: "end" | "center";
 }) {
   const active = sort.key === sortKey;
   return (
     <button
       type="button"
       className={`plat-orders__sort${active ? " is-active" : ""}${
-        align === "end" ? " is-end" : ""
+        align === "end" ? " is-end" : align === "center" ? " is-center" : ""
       }`}
       onClick={() => onSort(sortKey)}
     >

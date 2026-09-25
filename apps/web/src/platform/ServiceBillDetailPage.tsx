@@ -30,9 +30,8 @@ import {
   resolveServiceBillInvoiceSeller,
   ServiceBillInvoiceFace,
 } from "../billing/ServiceBillInvoiceFace";
-import { ServiceBillPayQrCard } from "../billing/ServiceBillPayQrCard";
+import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import { AuthToast } from "../auth/AuthToast";
-import { formatShortTime } from "../merchant/orderStatus";
 
 type Props = { session: Session };
 
@@ -46,6 +45,29 @@ type TimelineStep = {
 function isPastDue(iso: string): boolean {
   const t = Date.parse(iso);
   return Number.isFinite(t) && t < Date.now();
+}
+
+function formatOrgIdLabel(id: string): string {
+  const t = id.trim();
+  if (!t) return "—";
+  if (t.length <= 12) return t.toUpperCase();
+  return `${t.slice(0, 8).toUpperCase()}…`;
+}
+
+/** Match commission slip lifecycle arrows: done / flowing / idle. */
+function timelineArrowTone(
+  step: TimelineStep,
+  next: TimelineStep | undefined,
+): "is-done" | "is-flowing" | "is-idle" {
+  if (!next) return "is-idle";
+  if (step.tone === "done" && next.tone === "done") return "is-done";
+  if (
+    (step.tone === "done" && next.tone === "current") ||
+    (step.tone === "current" && next.tone === "muted")
+  ) {
+    return "is-flowing";
+  }
+  return "is-idle";
 }
 
 function buildTimeline(bill: ServiceBill): TimelineStep[] {
@@ -70,6 +92,15 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     },
   ];
 
+  if (bill.status === "issued") {
+    steps.push({
+      id: "due",
+      label: "Due",
+      detail: formatShortDate(bill.dueAt),
+      tone: "muted",
+    });
+  }
+
   if (bill.status === "overdue") {
     steps.push({
       id: "overdue",
@@ -93,7 +124,7 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     }
   }
 
-  if (bill.voidedAt) {
+  if (bill.voidedAt || bill.status === "voided") {
     steps.push({
       id: "voided",
       label: "Voided",
@@ -105,16 +136,39 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     }
   }
 
+  if (bill.status === "cancelled") {
+    steps.push({
+      id: "cancelled",
+      label: "Cancelled",
+      detail: formatShortDate(bill.cancelledAt),
+      tone: "current",
+    });
+    for (const s of steps) {
+      if (s.id !== "cancelled") s.tone = "done";
+    }
+  }
+
   if (bill.lastAdjustmentReason) {
     steps.push({
       id: "adjust",
       label: "Adjusted",
       detail: bill.lastAdjustmentReason,
-      tone: bill.status === "paid" || bill.status === "voided" ? "done" : "muted",
+      tone: bill.status === "paid" || bill.status === "voided" || bill.status === "cancelled"
+        ? "done"
+        : "muted",
     });
   }
 
   return steps;
+}
+
+function showPlatformActions(status: string): boolean {
+  return (
+    status === "draft" ||
+    status === "issued" ||
+    status === "overdue" ||
+    status === "paid"
+  );
 }
 
 /** B10 — Service bill detail + Phase 1 invoice face. */
@@ -126,6 +180,7 @@ export function ServiceBillDetailPage({ session }: Props) {
   );
   const [merchant, setMerchant] = useState<OrgAccount | null>(null);
   const [buyerContactEmail, setBuyerContactEmail] = useState<string | null>(null);
+  const [buyerPhone, setBuyerPhone] = useState<string | null>(null);
   const [billing, setBilling] = useState<PlatformBillingWalletSettings | null>(
     null,
   );
@@ -145,13 +200,17 @@ export function ServiceBillDetailPage({ session }: Props) {
       const members = await listOrgUsers(row.orgId).catch(() => []);
       primeServiceBill(id, row);
       setBill(row);
-      setMerchant(orgs.find((o) => o.id === row.orgId) ?? null);
+      const org = orgs.find((o) => o.id === row.orgId) ?? null;
+      setMerchant(org);
       setBilling(wallet);
       const preferred =
         members.find((m) => /owner/i.test(m.role)) ??
         members.find((m) => /admin/i.test(m.role)) ??
         members[0];
-      setBuyerContactEmail(preferred?.email?.trim() || null);
+      setBuyerContactEmail(
+        org?.billingEmail?.trim() || preferred?.email?.trim() || null,
+      );
+      setBuyerPhone(preferred?.phone?.trim() || null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load bill");
     } finally {
@@ -181,7 +240,10 @@ export function ServiceBillDetailPage({ session }: Props) {
   );
 
   const duePast = bill
-    ? isPastDue(bill.dueAt) && bill.status !== "paid" && bill.status !== "voided"
+    ? isPastDue(bill.dueAt) &&
+      bill.status !== "paid" &&
+      bill.status !== "voided" &&
+      bill.status !== "cancelled"
     : false;
 
   if (loading) {
@@ -198,7 +260,7 @@ export function ServiceBillDetailPage({ session }: Props) {
         />
         <p className="muted">Could not load this service bill.</p>
         <Link className="plat-bill-detail__back" to={platformRoute("service-bills")}>
-          ← Back to bills
+          ← Back to service bills
         </Link>
       </div>
     );
@@ -211,10 +273,42 @@ export function ServiceBillDetailPage({ session }: Props) {
     bill.remittancePayTo?.trim() ||
     platformBillingPayToFallback() ||
     null;
+  const actionsOpen = showPlatformActions(bill.status);
+
+  const invoiceProps = {
+    bill,
+    buyer: {
+      name: merchant?.name ?? bill.orgId,
+      legalName: merchant?.legalName,
+      contactEmail: buyerContactEmail,
+      phone: buyerPhone,
+      country: merchant?.country,
+    },
+    seller,
+    remittance: payTo
+      ? {
+          payTo,
+          instructions:
+            "Merchants settle this invoice via service-bill checkout to the platform billing destination.",
+        }
+      : null,
+  } as const;
 
   return (
     <div className="plat-bill-detail">
-      <header className="plat-bill-detail__head">
+      <AuthToast
+        message={error}
+        tone="error"
+        onDismiss={() => setError(null)}
+      />
+
+      <header className="plat-bill-detail__head no-print">
+        <Link
+          className="plat-bill-detail__back-link"
+          to={platformRoute("service-bills")}
+        >
+          ← Back to service bills
+        </Link>
         <div className="plat-bill-detail__identity">
           <h1 className="plat-bill-detail__id">{title}</h1>
           <span
@@ -225,106 +319,93 @@ export function ServiceBillDetailPage({ session }: Props) {
             {serviceBillStatusLabel(bill.status)}
           </span>
           <span className="plat-bill-detail__merchant">
-            Merchant: {merchant?.name ?? bill.orgId}
+            <span>{merchant?.name ?? bill.orgId}</span>
+            {merchant?.id || bill.orgId ? (
+              <span className="plat-bill-detail__org-id">
+                Org ID {formatOrgIdLabel(merchant?.id ?? bill.orgId)}
+              </span>
+            ) : null}
           </span>
         </div>
-        <Link className="plat-bill-detail__back-btn" to={platformRoute("service-bills")}>
-          ← Back to bills
-        </Link>
+        <InvoicePrintButton />
       </header>
 
-      <div className="plat-bill-detail__split">
+      <div className="plat-bill-detail__split plat-bill-detail__split--invoice">
         <div className="plat-bill-detail__main">
           <ServiceBillInvoiceFace
-            bill={bill}
-            buyer={{
-              name: merchant?.name ?? bill.orgId,
-              legalName: merchant?.legalName,
-              contactEmail: buyerContactEmail,
-              country: merchant?.country,
-              orgId: bill.orgId,
-            }}
-            seller={seller}
-            remittance={
-              payTo
-                ? {
-                    payTo,
-                    instructions:
-                      "Merchants settle this invoice via service-bill checkout to the platform billing destination.",
-                  }
-                : null
-            }
-            statusBadge={
-              <span
-                className={`plat-bills__badge tone-${serviceBillStatusTone(bill.status)}`}
-              >
-                {serviceBillStatusLabel(bill.status)}
-              </span>
-            }
-            toolbar={
-              <button
-                type="button"
-                className="sb-invoice__print-btn"
-                onClick={() => window.print()}
-              >
-                Print invoice
-              </button>
-            }
+            {...invoiceProps}
             invoiceRef={invoiceRef}
           />
         </div>
 
-        <div className="plat-bill-detail__pay-card no-print">
-          <ServiceBillPayQrCard
-            totalAmount={bill.totalAmount}
-            payTo={payTo}
-            status={bill.status}
-            dueAt={bill.dueAt}
-            timerLabel={
-              bill.status === "paid"
-                ? "Payment completed — QR no longer needed"
-                : bill.status === "voided"
-                  ? "Bill voided"
-                  : bill.status === "overdue"
-                    ? "Overdue — settle remittance promptly"
-                    : bill.status === "issued"
-                      ? `Due ${formatShortTime(bill.dueAt)}`
-                      : serviceBillStatusLabel(bill.status)
-            }
-            hint="Merchant remittance destination — same QR as service-bill checkout."
-          />
-        </div>
-
-        <aside className="plat-bill-detail__side">
+        <aside className="plat-bill-detail__side no-print">
           <section className="plat-bill-detail__card plat-bill-detail__timeline-card">
-            <h2 className="plat-bill-detail__section-title">Bill state timeline</h2>
+            <h2 className="plat-bill-detail__section-title">
+              <span className="plat-bill-detail__section-title-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path
+                    fill="currentColor"
+                    d="M11 6.5h2v11h-2zM12 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 7.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 7.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4"
+                  />
+                </svg>
+              </span>
+              Bill state timeline
+            </h2>
             <ol className="plat-bill-detail__timeline">
-              {timeline.map((step, i) => (
-                <li
-                  key={step.id}
-                  className={`plat-bill-detail__step is-${step.tone}`}
-                  style={
-                    {
-                      animationDelay: `${i * 90}ms`,
-                      ["--step-delay"]: `${i * 90}ms`,
-                    } as CSSProperties
-                  }
-                >
-                  <span className="plat-bill-detail__step-dot" aria-hidden />
-                  <div className="plat-bill-detail__step-body">
-                    <p className="plat-bill-detail__step-label">{step.label}</p>
-                    <p className="plat-bill-detail__step-detail">{step.detail}</p>
-                  </div>
-                </li>
-              ))}
+              {timeline.map((step, i, arr) => {
+                const next = arr[i + 1];
+                const arrowTone = timelineArrowTone(step, next);
+                return (
+                  <li
+                    key={step.id}
+                    className={`plat-bill-detail__step is-${step.tone}`}
+                    style={
+                      {
+                        animationDelay: `${i * 90}ms`,
+                        ["--step-delay"]: `${i * 90}ms`,
+                      } as CSSProperties
+                    }
+                  >
+                    <span className="plat-bill-detail__step-dot" aria-hidden />
+                    <div className="plat-bill-detail__step-body">
+                      <p className="plat-bill-detail__step-label">
+                        {step.label}
+                      </p>
+                      <p className="plat-bill-detail__step-detail">
+                        {step.detail}
+                      </p>
+                    </div>
+                    {next ? (
+                      <span
+                        className={`plat-bill-detail__step-arrow ${arrowTone}`}
+                        aria-hidden
+                      >
+                        <span className="plat-bill-detail__step-arrow-inner">
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                          <span className="plat-bill-detail__step-chevron">
+                            &gt;
+                          </span>
+                        </span>
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           </section>
 
-          <ServiceBillActionsPanel
-            session={session}
-            bill={bill}
-            onUpdated={(updated) => setBill(updated)}
-          />
+          {actionsOpen ? (
+            <ServiceBillActionsPanel
+              session={session}
+              bill={bill}
+              onUpdated={(updated) => setBill(updated)}
+            />
+          ) : null}
         </aside>
       </div>
     </div>

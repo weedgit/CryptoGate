@@ -120,7 +120,7 @@ export function OnboardMerchantPage({ session }: Props) {
       });
     }
     for (const org of orgs) {
-      if (org.type !== "agent" && org.type !== "agent_sub") continue;
+      if (org.type !== "agent") continue;
       options.push({
         id: org.id,
         label: org.name,

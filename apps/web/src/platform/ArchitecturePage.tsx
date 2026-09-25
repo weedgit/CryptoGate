@@ -48,7 +48,6 @@ import {
   filterPlatformOrgForest,
   agentsForestRoots,
   merchantsForestRoots,
-  agentDepthOfNode,
   orgAddChildHref,
   orgBreadcrumbPath,
   orgCanAddChild,
@@ -337,14 +336,14 @@ function MetaRow({
 
 function treeBadgeClass(type: string): string {
   if (type === "platform") return "platform";
-  if (type === "agent" || type === "agent_sub") return "agent";
+  if (type === "agent") return "agent";
   if (type === "merchant_site") return "site";
   return "merchant";
 }
 
 function treeBadgeIcon(type: string): string {
   if (type === "platform") return "P";
-  if (type === "agent" || type === "agent_sub") return "A";
+  if (type === "agent") return "A";
   if (type === "merchant_site") return "S";
   return "M";
 }
@@ -662,7 +661,7 @@ function PlatformDetailPanel({
     for (const org of byId.values()) {
       if (org.type === "platform") continue;
       if (org.status === "active") active += 1;
-      if (org.type === "agent" || org.type === "agent_sub") agentIds.push(org.id);
+      if (org.type === "agent") agentIds.push(org.id);
       else if (org.type === "merchant") merchantIds.push(org.id);
     }
     const merchantPay = countStatusKeys(merchantIds, budgets.feeByMerchantId, [
@@ -893,7 +892,6 @@ function OrgTreeItem({
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const isPaused = node.status === "paused";
-  // Merchants attach under top-level agent only (not legacy agent_sub).
   const isAgent = node.type === "agent";
   const isMerchant = node.type === "merchant";
   const canOnboard = canManage && orgCanAddChild(node.type);
@@ -1337,13 +1335,11 @@ function OrgTreeDetail({
   const isPaused = node.status === "paused";
   const canDelete = node.type !== "platform";
   const showActions = canManage && (canAdd || canDelete);
-  // Merchants attach under top-level agent only (not legacy agent_sub).
   const isAgentParent = node.type === "agent";
   const isAgent = isAgentParent;
   const isMerchant = node.type === "merchant";
   const isPlatform = node.type === "platform";
   const parentNode = node.parentId ? byId.get(node.parentId) : undefined;
-  const depth = isAgent ? agentDepthOfNode(node, byId) : null;
   const ops = useOrgTreeOpsExtras(node);
   const onboardHref = isAgentParent
     ? withReturnTo(
@@ -1530,19 +1526,16 @@ function OrgTreeDetail({
             }
           />
           {isAgent ? (
-            <>
-              <MetaRow label="Depth" value={depth != null ? String(depth) : "-"} />
-              <MetaRow
-                label="Commission %"
-                value={
-                  ops.loading
-                    ? "…"
-                    : ops.commissionPercent
-                      ? `${ops.commissionPercent}%`
-                      : "-"
-                }
-              />
-            </>
+            <MetaRow
+              label="Commission %"
+              value={
+                ops.loading
+                  ? "…"
+                  : ops.commissionPercent
+                    ? `${ops.commissionPercent}%`
+                    : "-"
+              }
+            />
           ) : null}
           {isMerchant ? (
             <>
@@ -1944,7 +1937,7 @@ export function AccountsPage({ session }: { session: Session }) {
       else billsByOrg.set(bill.orgId, [bill]);
     }
     for (const org of orgs) {
-      if (org.type === "agent" || org.type === "agent_sub") {
+      if (org.type === "agent") {
         const merchantIds = merchantOrgIdsInAgentSubtree(org.id, orgs);
         const history = mergeCommissionHistory(
           bills,
@@ -1978,7 +1971,7 @@ export function AccountsPage({ session }: { session: Session }) {
     };
     return filterPlatformOrgForest(scoped, tabFilter, {
       payOf: (node) => {
-        if (node.type === "agent" || node.type === "agent_sub") {
+        if (node.type === "agent") {
           return treeBudgets.commissionByAgentId.get(node.id) ?? null;
         }
         if (node.type === "merchant") {
@@ -2003,7 +1996,7 @@ export function AccountsPage({ session }: { session: Session }) {
     let n = 0;
     const walk = (nodes: PlatformOrgTreeNode[]) => {
       for (const node of nodes) {
-        if (node.type === "agent" || node.type === "agent_sub") n += 1;
+        if (node.type === "agent") n += 1;
         if (node.children.length) walk(node.children);
       }
     };
@@ -2438,8 +2431,7 @@ export function AccountsPage({ session }: { session: Session }) {
           <aside className="org-architecture__detail-pane" aria-label="Account detail">
             <div className="org-architecture__detail-scroll">
               {selectedNode &&
-              (selectedNode.type === "agent" ||
-                selectedNode.type === "agent_sub") &&
+              selectedNode.type === "agent" &&
               orgs.some((o) => o.id === selectedNode.id) ? (
                 <AgentDetailCard
                   org={orgs.find((o) => o.id === selectedNode.id)!}
@@ -2475,7 +2467,8 @@ export function AccountsPage({ session }: { session: Session }) {
                   initialTab={
                     merchantTab === "overview" ||
                     merchantTab === "team" ||
-                    merchantTab === "cashiers"
+                    merchantTab === "cashiers" ||
+                    merchantTab === "compliance"
                       ? merchantTab
                       : undefined
                   }

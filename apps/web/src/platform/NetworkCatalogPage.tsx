@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
@@ -12,7 +13,7 @@ import {
 } from "./api";
 import { NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
-import { SystemHealthPage } from "./SystemHealthPage";
+import { SystemHealthPage, type WatcherLoadFn } from "./SystemHealthPage";
 import {
   sessionCanManagePlatform,
   sessionIsPlatformViewerOnly,
@@ -94,6 +95,14 @@ function applyMaintenanceToCard(
     ...card,
     status,
     lamp,
+    pairs: card.pairs.map((pair) => ({
+      ...pair,
+      lamp: computeOrderabilityLamp({
+        enabled: pair.enabled,
+        maintenanceActive: underMaintenance,
+        ingestStatus: card.ingest.ingestStatus,
+      }),
+    })),
     maintenance: {
       active: underMaintenance,
       message: underMaintenance ? maint.message : null,
@@ -124,10 +133,20 @@ export function NetworkCatalogPage({ session }: Props) {
   const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [catalog, setCatalog] = useState<NetworkCatalog | null>(null);
   const [loading, setLoading] = useState(true);
+  const [watcherLoading, setWatcherLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [busyNetwork, setBusyNetwork] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
+    null,
+  );
   const loadGen = useRef(0);
   const toggleBusyRef = useRef<string | null>(null);
+  const watcherLoadRef = useRef<WatcherLoadFn | null>(null);
+
+  useLayoutEffect(() => {
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
+  }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const gen = ++loadGen.current;
@@ -159,6 +178,21 @@ export function NetworkCatalogPage({ session }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await Promise.all([
+        load({ silent: true }),
+        watcherLoadRef.current?.({ silent: true }) ?? Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
+  const refreshBusy = refreshing || loading || watcherLoading;
 
   async function onToggleMaintenance(network: string) {
     if (!canManage || toggleBusyRef.current === network) return;
@@ -227,6 +261,21 @@ export function NetworkCatalogPage({ session }: Props) {
   return (
     <div className="dash-page plat-network-catalog">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      {topbarActionsSlot
+        ? createPortal(
+            <div className="plat-ops-health__topbar-actions">
+              <button
+                type="button"
+                className="plat-ops-health__topbar-btn"
+                onClick={() => void refreshAll()}
+                disabled={refreshBusy}
+              >
+                Refresh
+              </button>
+            </div>,
+            topbarActionsSlot,
+          )
+        : null}
 
       {readOnly ? (
         <div className="banner banner-warn" style={{ marginBottom: 16 }}>
@@ -451,7 +500,12 @@ export function NetworkCatalogPage({ session }: Props) {
         </div>
       )}
 
-      <SystemHealthPage />
+      <SystemHealthPage
+        catalog={catalog}
+        loadRef={watcherLoadRef}
+        hideTopbarRefresh
+        onLoadingChange={setWatcherLoading}
+      />
     </div>
   );
 }

@@ -142,6 +142,12 @@ export function computeCommissionAmount(feeCollected, commissionPercent) {
   return Math.round(base * (bps / 10_000) * 100) / 100;
 }
 
+/** Create an issued invoice only when commission amount is positive. */
+export function shouldCreateCommissionInvoice(commissionAmount) {
+  const n = Number(commissionAmount);
+  return Number.isFinite(n) && n > 0;
+}
+
 /**
  * Paid-at window for periodKey (UTC month).
  * @param {string} periodKey
@@ -160,7 +166,7 @@ function periodPaidBounds(periodKey) {
  * @param {import("pg").QueryResultRow[]} orgs
  */
 function isTopLevelAgent(org, byId) {
-  if (org.type !== "agent" && org.type !== "agent_sub") return false;
+  if (org.type !== "agent") return false;
   if (!org.parent_id) return true;
   const parent = byId.get(org.parent_id);
   return parent?.type === "platform";
@@ -172,7 +178,6 @@ function isTopLevelAgent(org, byId) {
  * @param {string} periodKey
  * @param {string} commissionPercent
  * @param {{ address: string, asset: string, network: string } | null} payout
- * @param {{ payer?: string, payerOrgId?: string | null, paymentLink?: string }} [extras]
  */
 async function buildInvoiceForAgent(
   agentId,
@@ -180,12 +185,11 @@ async function buildInvoiceForAgent(
   periodKey,
   commissionPercent,
   payout,
-  extras = {},
 ) {
   const subtree = await listOrgsInSubtree([agentId]);
-  const merchants = subtree.filter(
-    (o) => o.type === "merchant" || o.type === "merchant_site",
-  );
+  // Fee base = merchant orgs only. Sites have no wallets / don't pay platform
+  // fees; their volume rolls into the parent merchant monthly bill.
+  const merchants = subtree.filter((o) => o.type === "merchant");
   const merchantIds = merchants.map((m) => m.id);
   const { startIso, endExclusiveIso } = periodPaidBounds(periodKey);
 
@@ -252,19 +256,14 @@ async function buildInvoiceForAgent(
     commissionPercent,
   );
   const periodLabel = formatCommissionPeriodLabel(periodKey);
-  const payer = extras.payer === "agent" ? "agent" : "platform";
-  const payerOrgId = payer === "agent" ? extras.payerOrgId ?? null : null;
-  const paymentLink =
-    extras.paymentLink ??
-    (payer === "agent"
-      ? `/agent/commissions?payee=${encodeURIComponent(agentId)}&period=${encodeURIComponent(periodKey)}`
-      : `/platform/commissions?tab=invoices&payee=${encodeURIComponent(agentId)}&period=${encodeURIComponent(periodKey)}`);
+  // Store rewrites to /platform/commissions/:id after upsert.
+  const paymentLink = "";
 
   return {
     payeeOrgId: agentId,
     payeeName: agentName,
-    payer,
-    payerOrgId,
+    payer: "platform",
+    payerOrgId: null,
     periodKey,
     periodLabel,
     platformFeeCollected: feeCollected,
@@ -284,7 +283,7 @@ async function buildInvoiceForAgent(
 
 /**
  * Generate / refresh issued invoices for all top-level agents for periodKey.
- * Skips agents whose invoice is already paid or settled.
+ * Skips agents whose invoice is already paid or settled, and agents with $0 commission.
  * @param {string} periodKey
  */
 export async function generateMonthlyCommissionInvoices(periodKey) {
@@ -311,6 +310,14 @@ export async function generateMonthlyCommissionInvoices(periodKey) {
       resolved.commissionPercent ?? DEFAULT_AGENT_COMMISSION_PERCENT,
       payoutBy.get(agent.id) ?? null,
     );
+    if (!shouldCreateCommissionInvoice(input.commissionAmount)) {
+      skipped.push({
+        payeeOrgId: agent.id,
+        payeeName: agent.name,
+        reason: "skipped_zero",
+      });
+      continue;
+    }
     const row = await upsertIssuedCommissionInvoiceRow(input);
     if (!row) {
       skipped.push({
@@ -322,5 +329,10 @@ export async function generateMonthlyCommissionInvoices(periodKey) {
     }
     created.push(row);
   }
-  return { created, skipped, periodKey, periodLabel: formatCommissionPeriodLabel(periodKey) };
+  return {
+    created,
+    skipped,
+    periodKey,
+    periodLabel: formatCommissionPeriodLabel(periodKey),
+  };
 }

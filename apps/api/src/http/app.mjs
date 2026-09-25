@@ -153,11 +153,11 @@ import {
 } from "../commercial/agent-commission-routes.mjs";
 import {
   handleAgentConfirmCommissionPayout,
-  handleConfirmCommissionPayoutSent,
   handleGenerateCommissionInvoices,
+  handleGetCommissionPayout,
   handleListCommissionPayouts,
   handleMarkCommissionPayoutPaid,
-  handleUpsertCommissionPayout,
+  handleMarkCommissionPayoutPaidBatch,
 } from "../commercial/commission-payout-routes.mjs";
 import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
@@ -560,14 +560,15 @@ export async function handleRequest(req, res) {
       await handleListCommissionPayouts(req, res, url);
       return;
     }
-    if (method === "POST") {
-      await handleUpsertCommissionPayout(req, res);
-      return;
-    }
   }
 
   if (method === "POST" && path === "/v1/commission-payouts/generate") {
     await handleGenerateCommissionInvoices(req, res);
+    return;
+  }
+
+  if (method === "POST" && path === "/v1/commission-payouts/mark-paid-batch") {
+    await handleMarkCommissionPayoutPaidBatch(req, res);
     return;
   }
 
@@ -578,18 +579,6 @@ export async function handleRequest(req, res) {
 
   if (method === "GET" && path === "/v1/agent-payout-addresses") {
     await handleListAgentPayoutAddresses(req, res);
-    return;
-  }
-
-  const commissionPayoutConfirmMatch = path.match(
-    /^\/v1\/commission-payouts\/([^/]+)\/confirm-sent$/,
-  );
-  if (method === "POST" && commissionPayoutConfirmMatch) {
-    await handleConfirmCommissionPayoutSent(
-      req,
-      res,
-      decodeURIComponent(commissionPayoutConfirmMatch[1]),
-    );
     return;
   }
 
@@ -613,6 +602,18 @@ export async function handleRequest(req, res) {
       req,
       res,
       decodeURIComponent(commissionPayoutPaidMatch[1]),
+    );
+    return;
+  }
+
+  const commissionPayoutGetMatch = path.match(
+    /^\/v1\/commission-payouts\/([^/]+)$/,
+  );
+  if (method === "GET" && commissionPayoutGetMatch) {
+    await handleGetCommissionPayout(
+      req,
+      res,
+      decodeURIComponent(commissionPayoutGetMatch[1]),
     );
     return;
   }

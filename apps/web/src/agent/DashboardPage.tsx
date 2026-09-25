@@ -37,7 +37,7 @@ import {
   type VolumeSelection,
 } from "../platform/volumeFilter";
 import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
-import { feeAccruedFromBills } from "../platform/dashboardBillPeriod";
+import { feeAccruedFromBills, feeCollectedFromBills } from "../platform/dashboardBillPeriod";
 import {
   AgentsNavIcon,
   FeesNavIcon,
@@ -58,10 +58,12 @@ import { getAgentServiceBills, peekAgentServiceBills } from "./agentServiceBills
 import {
   merchantsInAgentSubtree,
   orgsInAgentSubtree,
-  subAgentsInAgentSubtree,
 } from "./agentSubtree";
 import { primaryAgentOrgId } from "./org";
-import { commissionHistoryFromBills } from "../commercial/commissionStatements";
+import {
+  fetchAgentCommissionDashboardKpis,
+} from "../commercial/commissionPayoutRecords";
+import { commissionMonthKeys } from "../commercial/commissionDashboardKpis";
 import { DEFAULT_AGENT_COMMISSION_PERCENT } from "../platform/orgDetailSeeds";
 
 type Props = { session: Session };
@@ -86,7 +88,6 @@ type AccountSlice = { total: number; active: number; idle: number; pause: number
 
 type OverviewStats = {
   merchants: AccountSlice;
-  subAgents: AccountSlice;
   invoicesIssued: number;
   invoicesPaid: number;
   invoicesOverdue: number;
@@ -107,7 +108,6 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
 
 const EMPTY_STATS: OverviewStats = {
   merchants: { total: 0, active: 0, idle: 0, pause: 0 },
-  subAgents: { total: 0, active: 0, idle: 0, pause: 0 },
   invoicesIssued: 0,
   invoicesPaid: 0,
   invoicesOverdue: 0,
@@ -154,8 +154,11 @@ function periodWindow(id: PeriodId): { from: Date; to: Date } {
   const to = endOfDay(now);
   if (id === "today") return { from: startOfDay(now), to };
   const from = startOfDay(now);
-  const days = id === "7d" ? 6 : 29;
-  from.setDate(from.getDate() - days);
+  if (id === "7d") {
+    from.setDate(from.getDate() - 6);
+  } else {
+    from.setMonth(from.getMonth() - 1);
+  }
   return { from, to };
 }
 
@@ -349,14 +352,7 @@ function volumeSeries(
 }
 
 function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
-  let total = 0;
-  for (const b of bills) {
-    if (b.status !== "paid") continue;
-    if (!inWindow(b.paidAt ?? b.dueAt, from, to)) continue;
-    const n = Number(b.volumeFeeAmount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
+  return feeCollectedFromBills(bills, from, to);
 }
 
 function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
@@ -535,10 +531,10 @@ export function DashboardPage({ session }: Props) {
       allOrders: PaymentOrder[],
       allBills: ServiceBill[],
       commission: { commissionPercent?: string } | null,
+      commissionKpis: { commissionOwed: number; commissionPaid: number },
     ) => {
       const subtreeOrgs = orgsInAgentSubtree(agentId, allOrgs);
       const merchantRows = merchantsInAgentSubtree(agentId, allOrgs);
-      const subAgentRows = subAgentsInAgentSubtree(agentId, allOrgs);
       const merchantIds = new Set(merchantRows.map((m) => m.id));
       const orders = allOrders.filter((o) => o.orgId && merchantIds.has(o.orgId));
       const bills = allBills.filter((b) => merchantIds.has(b.orgId));
@@ -549,25 +545,9 @@ export function DashboardPage({ session }: Props) {
       const overdueOrgIds = new Set(
         bills.filter((b) => b.status === "overdue").map((b) => b.orgId),
       );
-      const monthKey = new Date().toISOString().slice(0, 7);
       const commissionPct =
         commission?.commissionPercent?.trim() ||
         DEFAULT_AGENT_COMMISSION_PERCENT;
-      const statements = commissionHistoryFromBills(
-        bills,
-        merchantIds,
-        commissionPct,
-      );
-      const mtdRow =
-        statements.find((r) => r.periodKey === monthKey) ?? statements[0];
-      let commissionPaid = 0;
-      for (const row of statements) {
-        if (row.payoutStatus === "paid") commissionPaid += row.commissionAmount;
-      }
-      const commissionOwed =
-        mtdRow && mtdRow.payoutStatus !== "paid"
-          ? mtdRow.commissionAmount
-          : 0;
 
       setStats({
         merchants: accountSlice(
@@ -575,7 +555,6 @@ export function DashboardPage({ session }: Props) {
           leaves,
           children,
         ),
-        subAgents: accountSlice(subAgentRows, leaves, children),
         invoicesIssued: invoices.issued,
         invoicesPaid: invoices.paid,
         invoicesOverdue: invoices.overdue,
@@ -583,8 +562,8 @@ export function DashboardPage({ session }: Props) {
         fees: feeAccruedFromBills(bills, from, to),
         collected: feeCollected(bills, from, to),
         overdueMerchants: overdueOrgIds.size,
-        commissionOwed,
-        commissionPaid,
+        commissionOwed: commissionKpis.commissionOwed,
+        commissionPaid: commissionKpis.commissionPaid,
         commissionPercent: commissionPct,
       });
       setOrders(orders);
@@ -598,7 +577,13 @@ export function DashboardPage({ session }: Props) {
     const cachedBills = peekAgentServiceBills();
     const hadCache = Boolean(cachedOrgs || cachedOrders);
     if (hadCache) {
-      applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? [], null);
+      applyCore(
+        cachedOrgs ?? [],
+        cachedOrders ?? [],
+        cachedBills ?? [],
+        null,
+        { commissionOwed: 0, commissionPaid: 0 },
+      );
       setHasLoaded(true);
     }
 
@@ -611,16 +596,22 @@ export function DashboardPage({ session }: Props) {
 
     const fetchOpts = force ? { force: true as const } : undefined;
     try {
-      const [allOrgs, allOrders, allBills, commission] = await Promise.all([
-        getAgentOrgs(fetchOpts),
-        getAgentOrders(fetchOpts).catch(() => [] as PaymentOrder[]),
-        getAgentServiceBills(fetchOpts).catch(() => [] as ServiceBill[]),
-        getAgentCommission(agentId).catch(() => null),
-      ]);
+      const monthKeys = commissionMonthKeys(from, to);
+      const [allOrgs, allOrders, allBills, commission, commissionKpis] =
+        await Promise.all([
+          getAgentOrgs(fetchOpts),
+          getAgentOrders(fetchOpts).catch(() => [] as PaymentOrder[]),
+          getAgentServiceBills(fetchOpts).catch(() => [] as ServiceBill[]),
+          getAgentCommission(agentId).catch(() => null),
+          fetchAgentCommissionDashboardKpis(agentId, monthKeys).catch(() => ({
+            commissionOwed: 0,
+            commissionPaid: 0,
+          })),
+        ]);
 
       if (gen !== loadGen.current) return;
 
-      applyCore(allOrgs, allOrders, allBills, commission);
+      applyCore(allOrgs, allOrders, allBills, commission, commissionKpis);
       setHasLoaded(true);
       const now = Date.now();
       lastFetchAt.current = now;
@@ -656,6 +647,7 @@ export function DashboardPage({ session }: Props) {
       const needBills = slices.includes("serviceBills");
       const needOrgs = slices.includes("orgs");
       const needNetworks = slices.includes("networks");
+      const needCommissions = slices.includes("commissions");
 
       try {
         const allOrgs =
@@ -685,48 +677,32 @@ export function DashboardPage({ session }: Props) {
           const overdueOrgIds = new Set(
             bills.filter((b) => b.status === "overdue").map((b) => b.orgId),
           );
-          setStats((prev) => {
-            const pct =
-              prev.commissionPercent?.trim() ||
-              DEFAULT_AGENT_COMMISSION_PERCENT;
-            const statements = commissionHistoryFromBills(
-              bills,
-              merchantIds,
-              pct,
-            );
-            const monthKey = new Date().toISOString().slice(0, 7);
-            const mtdRow =
-              statements.find((r) => r.periodKey === monthKey) ??
-              statements[0];
-            let commissionPaid = 0;
-            for (const row of statements) {
-              if (row.payoutStatus === "paid") {
-                commissionPaid += row.commissionAmount;
-              }
-            }
-            const commissionOwed =
-              mtdRow && mtdRow.payoutStatus !== "paid"
-                ? mtdRow.commissionAmount
-                : 0;
-            return {
-              ...prev,
-              invoicesIssued: invoices.issued,
-              invoicesPaid: invoices.paid,
-              invoicesOverdue: invoices.overdue,
-              fees: feeAccruedFromBills(bills, from, to),
-              collected: feeCollected(bills, from, to),
-              overdueMerchants: overdueOrgIds.size,
-              commissionOwed,
-              commissionPaid,
-              commissionPercent: pct,
-            };
-          });
+          setStats((prev) => ({
+            ...prev,
+            invoicesIssued: invoices.issued,
+            invoicesPaid: invoices.paid,
+            invoicesOverdue: invoices.overdue,
+            fees: feeAccruedFromBills(bills, from, to),
+            collected: feeCollected(bills, from, to),
+            overdueMerchants: overdueOrgIds.size,
+          }));
+        }
+
+        if (needCommissions) {
+          const commissionKpis = await fetchAgentCommissionDashboardKpis(
+            agentId,
+            commissionMonthKeys(from, to),
+          ).catch(() => ({ commissionOwed: 0, commissionPaid: 0 }));
+          setStats((prev) => ({
+            ...prev,
+            commissionOwed: commissionKpis.commissionOwed,
+            commissionPaid: commissionKpis.commissionPaid,
+          }));
         }
 
         if (needOrgs) {
           const subtreeOrgs = orgsInAgentSubtree(agentId, allOrgs);
-          const subAgentRows = subAgentsInAgentSubtree(agentId, allOrgs);
-          setOrgs(subtreeOrgs);
+              setOrgs(subtreeOrgs);
           const children = buildChildrenMap(subtreeOrgs);
           const leaves = activeOrgIds(orders, from, to);
           setStats((prev) => ({
@@ -736,8 +712,7 @@ export function DashboardPage({ session }: Props) {
               leaves,
               children,
             ),
-            subAgents: accountSlice(subAgentRows, leaves, children),
-          }));
+              }));
         }
 
         if (needNetworks) {
@@ -986,9 +961,6 @@ export function DashboardPage({ session }: Props) {
             <CardHelp text="Merchants in your subtree: totals, payment activity, and paused." />
           </div>
           <AccountRows title="Merchants" slice={stats.merchants} />
-          {stats.subAgents.total > 0 ? (
-            <AccountRows title="Agents" slice={stats.subAgents} />
-          ) : null}
         </div>
 
         <div className="plat-overview-card glass-tone-emerald">
@@ -1079,7 +1051,7 @@ export function DashboardPage({ session }: Props) {
               <span>Volume</span>
             </div>
             <CardHelp
-              text={`Observed settled merchant volume in ${periodLabel} (non-custodial — funds stay in merchant wallets). Fees are volume-fee line items on service bills overlapping this range.`}
+              text={`Observed settled merchant volume in ${periodLabel} (non-custodial — funds stay in merchant wallets). Fees are platform fee line amounts (subscription + volume) on service bills overlapping this range.`}
             />
           </div>
           <div className="plat-fund-rail__primary">

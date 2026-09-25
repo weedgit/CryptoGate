@@ -12,7 +12,7 @@ import type { Session } from "./api";
 import {
   ArchitectureNavIcon,
   AuditLogNavIcon,
-  ComplianceNavIcon,
+  SupportNavIcon,
   DashboardNavIcon,
   NetworkNavIcon,
   ServiceBillsNavIcon,
@@ -34,6 +34,7 @@ import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
+import { setViewerTimeZone } from "../shared/dateTime";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
@@ -126,10 +127,10 @@ const NAV_GROUPS: NavGroup[] = [
         Icon: FeesNavIcon,
       },
       {
-        to: platformRoute("compliance"),
-        label: "Compliance",
-        matchPrefix: platformRoute("compliance"),
-        Icon: ComplianceNavIcon,
+        to: platformRoute("support"),
+        label: "Support",
+        matchPrefix: platformRoute("support"),
+        Icon: SupportNavIcon,
       },
     ],
   },
@@ -252,6 +253,10 @@ export function PlatformShell({
     const id = window.requestAnimationFrame(() => setShellEnter(true));
     return () => window.cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    setViewerTimeZone(session.timezone);
+  }, [session.timezone]);
 
   useEffect(() => {
     const sync = () => setUnreadAlerts(countUnreadPlatformAlerts());

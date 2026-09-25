@@ -25,7 +25,9 @@ import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { markUatDemoUserReady } from "./seed-uat-user-ready.mjs";
 import { NILE_HD_WALLETS, UAT_SETTLEMENT } from "./seed-nile-wallets.mjs";
+import { seedDemoAvatars } from "./seed-avatars.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_ORG = "Kevin Agent";
@@ -185,6 +187,10 @@ async function ensureUser(email, displayName) {
     `UPDATE users SET password_hash = $2, display_name = $3 WHERE id = $1`,
     [user.id, passwordHash, displayName],
   );
+  const parts = String(displayName || "Demo User").trim().split(/\s+/);
+  const firstName = parts[0] || "Demo";
+  const lastName = parts.slice(1).join(" ") || "User";
+  await markUatDemoUserReady(getPool(), user.id, { firstName, lastName });
   return user;
 }
 
@@ -443,6 +449,15 @@ async function main() {
       spec.matchingMode,
     );
   }
+
+  const avatars = await seedDemoAvatars(pool);
+  console.log(
+    `\n  Avatars: mapped ${avatars.updated}` +
+      (avatars.filledBlank ? `, filled blank ${avatars.filledBlank}` : "") +
+      (avatars.missing.length
+        ? ` (missing: ${avatars.missing.join(", ")})`
+        : ""),
+  );
 
   console.log("\nKevin UAT seed complete.\n");
   console.log("  Password (all users):", SEED_PASSWORD);

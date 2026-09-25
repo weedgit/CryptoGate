@@ -1,7 +1,6 @@
 import type { OrgAccount } from "./api";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
-const AGENT_TYPES = new Set(["agent", "agent_sub"]);
 
 function childrenByParentId(
   orgs: ReadonlyArray<OrgAccount>,
@@ -33,7 +32,7 @@ export function agentSubtreeIds(
   for (let i = 0; i < queue.length; i++) {
     const id = queue[i]!;
     for (const child of byParent.get(id) ?? []) {
-      if (!AGENT_TYPES.has(child.type) || ids.has(child.id)) continue;
+      if (child.type !== "agent" || ids.has(child.id)) continue;
       ids.add(child.id);
       queue.push(child.id);
     }
@@ -78,7 +77,7 @@ export function merchantsInAgentSubtree(
         out.push(child);
         // Walk merchant → sites.
         if (child.type === "merchant") queue.push(child.id);
-      } else if (AGENT_TYPES.has(child.type)) {
+      } else if (child.type === "agent") {
         queue.push(child.id);
       }
     }
@@ -94,7 +93,7 @@ export function merchantOrgIdsInAgentSubtree(
 }
 
 /**
- * Merchant-account counts (sites excluded) for every agent / agent_sub.
+ * Merchant-account counts (sites excluded) for every agent.
  * One tree pass — safe to call once per orgs load for list columns.
  */
 export function merchantCountsByAgentId(
@@ -109,24 +108,14 @@ export function merchantCountsByAgentId(
     let n = 0;
     for (const child of byParent.get(id) ?? []) {
       if (child.type === "merchant") n += 1;
-      else if (AGENT_TYPES.has(child.type)) n += count(child.id);
+      else if (child.type === "agent") n += count(child.id);
     }
     memo.set(id, n);
     return n;
   }
 
   for (const o of orgs) {
-    if (AGENT_TYPES.has(o.type)) count(o.id);
+    if (o.type === "agent") count(o.id);
   }
   return memo;
-}
-
-/** Direct Agent (sub) children of this agent (not deeper nesting). */
-export function subAgentsUnderAgent(
-  agentId: string,
-  orgs: ReadonlyArray<OrgAccount>,
-): OrgAccount[] {
-  return orgs.filter(
-    (o) => o.type === "agent_sub" && o.parentId === agentId,
-  );
 }

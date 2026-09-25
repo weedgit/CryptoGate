@@ -140,7 +140,7 @@ export async function ensureV032Seed() {
       type: "platform",
       name: "V032 Test Platform",
       parentId: null,
-      maxAgentDepth: 2,
+      maxAgentDepth: 1,
     });
     if (!created.ok) throw new Error("could not create platform org");
     platform = created.row;

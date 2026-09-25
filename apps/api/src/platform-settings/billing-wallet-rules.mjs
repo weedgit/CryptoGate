@@ -6,6 +6,7 @@ import { isTronReceiveAddress } from "@paymentgate/domain";
  * @returns {{
  *   ok: true,
  *   sellerName: string,
+ *   sellerEmail?: string | null,
  *   payTo: string | null,
  * } | {
  *   ok: false,
@@ -33,6 +34,31 @@ export function validateUpdateBillingWalletBody(body) {
       code: "invalid_request",
       message: "sellerName is required (max 200 characters)",
     };
+  }
+
+  let sellerEmail;
+  if (body.sellerEmail !== undefined) {
+    if (body.sellerEmail === null || body.sellerEmail === "") {
+      sellerEmail = null;
+    } else if (typeof body.sellerEmail === "string") {
+      const trimmed = body.sellerEmail.trim().toLowerCase();
+      if (!trimmed || trimmed.length > 254 || !trimmed.includes("@")) {
+        return {
+          ok: false,
+          status: 400,
+          code: "invalid_request",
+          message: "sellerEmail must be a valid email",
+        };
+      }
+      sellerEmail = trimmed;
+    } else {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "sellerEmail must be a string or null",
+      };
+    }
   }
 
   let payTo = null;
@@ -76,5 +102,10 @@ export function validateUpdateBillingWalletBody(body) {
     }
   }
 
-  return { ok: true, sellerName, payTo };
+  return {
+    ok: true,
+    sellerName,
+    payTo,
+    ...(sellerEmail !== undefined ? { sellerEmail } : {}),
+  };
 }

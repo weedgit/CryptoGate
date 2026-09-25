@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { OrgAccount, OrgPrimaryOwnerContact } from "../platform/api";
 import { formatOnboardDate } from "../platform/orgDetailSeeds";
+import { orgTypeLabel } from "../platform/org";
 import { OrgOwnerSupportFields } from "./OrgOwnerSupportFields";
 import {
   subjectOrgSetupStatus,
@@ -59,6 +60,11 @@ type Props = {
   setupKind?: SubjectSetupKind;
   /** Settlement or payout wallet present. */
   walletSet?: boolean;
+  /**
+   * `setup` (default): Activity gate checklist.
+   * `account`: Type + Status (design Overview for agents).
+   */
+  orgFieldMode?: "setup" | "account";
   /** Commission / commercial / payout / sites rows after core org fields. */
   extras?: ReactNode;
 };
@@ -76,6 +82,7 @@ export function AccountOverviewProfile({
   onOwnerUpdated,
   setupKind = "merchant",
   walletSet = false,
+  orgFieldMode = "setup",
   extras,
 }: Props) {
   const setup = subjectOrgSetupStatus({
@@ -86,6 +93,7 @@ export function AccountOverviewProfile({
     owner,
     walletSet,
   });
+  const paused = org.status === "paused";
 
   return (
     <div className="b3-agent-detail__overview-profile">
@@ -113,30 +121,44 @@ export function AccountOverviewProfile({
           ) : null}
         </div>
         <div className="b3-profile">
-          <div className="b3-profile__field">
-            <p className="b3-profile__label">Activity gate</p>
-            <p className="b3-profile__value">
-              {ownerLoading && !owner ? (
-                "…"
-              ) : setup.ready ? (
-                <span className="b3-profile__pill b3-profile__pill--ok">
-                  Ready · {setup.done}/{setup.total}
-                </span>
-              ) : (
+          {orgFieldMode === "setup" ? (
+            <div className="b3-profile__field b3-profile__field--gate">
+              <p className="b3-profile__label">Activity gate</p>
+              <div className="b3-profile__gate-content">
+                {!setup.ready && setup.missing.length > 0 && !ownerLoading ? (
+                  <p
+                    className="b3-profile__gate-missing"
+                    title={setup.missing.join(", ")}
+                  >
+                    {setup.missing.map((item, i) => (
+                      <span
+                        key={`${item}-${i}`}
+                        className="b3-profile__gate-missing-item"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </p>
+                ) : (
+                  <span className="b3-profile__value is-empty" aria-hidden>
+                    {setup.ready ? "" : "—"}
+                  </span>
+                )}
                 <span
-                  className="b3-profile__pill b3-profile__pill--warn"
-                  title={setup.missing.join(", ")}
+                  className={`b3-profile__gate-ratio${
+                    setup.ready ? " is-ready" : " is-incomplete"
+                  }`}
+                  aria-label={
+                    setup.ready
+                      ? `Ready ${setup.done} of ${setup.total}`
+                      : `Incomplete ${setup.done} of ${setup.total}`
+                  }
                 >
-                  Incomplete · {setup.done}/{setup.total}
+                  {ownerLoading && !owner ? "…" : `${setup.done}/${setup.total}`}
                 </span>
-              )}
-            </p>
-            {!setup.ready && setup.missing.length > 0 && !ownerLoading ? (
-              <p className="b3-profile__meta">
-                Missing: {setup.missing.join(", ")}
-              </p>
-            ) : null}
-          </div>
+              </div>
+            </div>
+          ) : null}
           <div className="b3-profile__field">
             <p className="b3-profile__label">Business name</p>
             <p className="b3-profile__value">{dash(org.name)}</p>
@@ -155,6 +177,25 @@ export function AccountOverviewProfile({
             <p className="b3-profile__label">Country</p>
             <p className="b3-profile__value">{dash(org.country)}</p>
           </div>
+          {orgFieldMode === "account" ? (
+            <>
+              <div className="b3-profile__field">
+                <p className="b3-profile__label">Type</p>
+                <p className="b3-profile__value">{orgTypeLabel(org.type)}</p>
+              </div>
+              <div className="b3-profile__field">
+                <p className="b3-profile__label">Status</p>
+                <p
+                  className={`b3-profile__value b3-profile__status${
+                    paused ? " is-paused" : ""
+                  }`}
+                >
+                  <span className="b3-profile__status-dot" aria-hidden />
+                  {paused ? "Paused" : "Active"}
+                </p>
+              </div>
+            </>
+          ) : null}
           <div className="b3-profile__field">
             <p className="b3-profile__label">Onboarded</p>
             <p className="b3-profile__value">

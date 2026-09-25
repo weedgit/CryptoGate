@@ -17,7 +17,7 @@ export function parentAgentName(
   const byId = new Map(orgs.map((o) => [o.id, o]));
   let current = byId.get(merchant.parentId);
   while (current) {
-    if (current.type === "agent" || current.type === "agent_sub") {
+    if (current.type === "agent") {
       return current.name;
     }
     if (!current.parentId) break;

@@ -78,7 +78,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
       type: "agent",
       name: `Audit recovery agent ${Date.now()}`,
       parentId: seed.platformOrgId,
-      maxAgentDepth: 2,
+      maxAgentDepth: null,
     });
     assert.equal(agent.ok, true);
 
@@ -118,7 +118,7 @@ describePg("org invite — platform-wide email uniqueness", () => {
       type: "agent",
       name: `Email uniq agent ${Date.now()}`,
       parentId: seed.platformOrgId,
-      maxAgentDepth: 2,
+      maxAgentDepth: null,
     });
     assert.equal(agent.ok, true);
 

@@ -23,7 +23,7 @@ export function normalizeEmail(email: string): string {
 
 function orgTypeLabel(type: string): string {
   if (type === "platform") return "Platform";
-  if (type === "agent" || type === "agent_sub") return "Agent account";
+  if (type === "agent") return "Agent account";
   if (type === "merchant") return "Merchant account";
   if (type === "merchant_site") return "Merchant site";
   return type.replace(/_/g, " ");
@@ -34,11 +34,7 @@ function formatOrgRef(ref: RegisteredEmailRef): string {
 }
 
 function isPlatformOrAgentStaff(ref: RegisteredEmailRef): boolean {
-  return (
-    ref.type === "platform" ||
-    ref.type === "agent" ||
-    ref.type === "agent_sub"
-  );
+  return ref.type === "platform" || ref.type === "agent";
 }
 
 function isPlatformOrAgentOperator(ref: RegisteredEmailRef): boolean {

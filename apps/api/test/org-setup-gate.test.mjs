@@ -13,17 +13,18 @@ import {
 } from "../src/auth/org-setup.mjs";
 
 describe("sub-agent removal", () => {
-  it("rejects agent_sub creates with org_type_disabled", () => {
+  it("rejects agent_sub creates as unknown org type", () => {
     const r = validateCreateOrg(
       { type: "agent_sub", name: "Nested", parentId: "a1" },
       {
         parent: { id: "a1", type: "agent", parent_id: "p1" },
-        maxAgentDepth: 2,
+        maxAgentDepth: 1,
         agentDepthOfParent: 1,
       },
     );
     assert.equal(r.ok, false);
-    assert.equal(r.code, "org_type_disabled");
+    assert.equal(r.status, 400);
+    assert.equal(r.code, "invalid_org_type");
   });
 });
 

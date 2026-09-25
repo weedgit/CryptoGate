@@ -2,58 +2,63 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
+  type MutableRefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { networkShortLabel } from "../shared/assetNetworks";
+import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import {
   getWatcherHealth,
+  type NetworkCatalog,
+  type NetworkOrderabilityLamp,
+  type WatcherHeartbeat,
   type WatcherHealthList,
 } from "./api";
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
 
-type HealthPayload = {
-  service?: string;
-  status?: string;
-  phase?: string;
-  timestamp?: string;
-  db?: string;
-  webhook?: string;
-  webhookDetail?: string;
-  webhookPendingOutbox?: number;
-  webhookOverdueDeliveries?: number;
-  webhookLastTickAt?: string | null;
-  backup?: string;
-  backupDetail?: string;
-  backupLastAt?: string | null;
-  backupAgeHours?: number | null;
+export type WatcherLoadFn = (opts?: { silent?: boolean }) => Promise<void>;
+
+type Props = {
+  /** Live catalog from Network page — keeps lamps in sync with maintenance toggles. */
+  catalog: NetworkCatalog | null;
+  /** Parent registers watcher reload for unified Network Refresh. */
+  loadRef?: MutableRefObject<WatcherLoadFn | null>;
+  /** When true, parent owns the topbar Refresh control. */
+  hideTopbarRefresh?: boolean;
+  /** Report watcher loading so parent can disable unified Refresh. */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
-type CheckTone = "ok" | "warn";
+type TableRow = {
+  network: string;
+  asset: string;
+  lamp: NetworkOrderabilityLamp;
+  heartbeat: WatcherHeartbeat | null;
+};
 
-function formatLag(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "—";
+function formatLag(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
   if (ms < 1000) return `${Math.round(ms)} ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
   return `${Math.round(ms / 60_000)} m`;
 }
 
-function heartbeatTone(status: string): CheckTone {
-  return status === "ok" ? "ok" : "warn";
+function pairKey(network: string, asset: string): string {
+  return `${asset}:${network}`;
 }
 
-function statusLabel(value: string | undefined, fallback = "Unknown"): string {
-  if (!value) return fallback;
-  if (value === "ok") return "OK";
-  return value.replace(/_/g, " ");
-}
-
-/** B17 — System health from live API /health + watcher heartbeats. */
-export function SystemHealthPage() {
-  const [health, setHealth] = useState<HealthPayload | null>(null);
+/** B17 — Connected assets & networks (embedded under Network catalog). */
+export function SystemHealthPage({
+  catalog,
+  loadRef,
+  hideTopbarRefresh = false,
+  onLoadingChange,
+}: Props) {
   const [watcher, setWatcher] = useState<WatcherHealthList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,30 +67,20 @@ export function SystemHealthPage() {
   );
 
   useLayoutEffect(() => {
+    if (hideTopbarRefresh) {
+      setTopbarActionsSlot(null);
+      return;
+    }
     setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
-  }, []);
+  }, [hideTopbarRefresh]);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const base =
-        (import.meta.env.VITE_API_ORIGIN as string | undefined)?.replace(
-          /\/$/,
-          "",
-        ) || "";
-      const [healthRes, watcherSnap] = await Promise.all([
-        fetch(`${base}/health`, {
-          headers: { Accept: "application/json" },
-        }),
-        getWatcherHealth().catch(() => null),
-      ]);
-      if (!healthRes.ok) throw new Error(`HTTP ${healthRes.status}`);
-      setHealth((await healthRes.json()) as HealthPayload);
-      setWatcher(watcherSnap);
+      setWatcher(await getWatcherHealth());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Health check failed");
-      setHealth(null);
+      setError(err instanceof Error ? err.message : "Watcher health failed");
       setWatcher(null);
     } finally {
       if (!opts?.silent) setLoading(false);
@@ -93,10 +88,21 @@ export function SystemHealthPage() {
   }, []);
 
   useEffect(() => {
+    if (!loadRef) return;
+    loadRef.current = load;
+    return () => {
+      loadRef.current = null;
+    };
+  }, [load, loadRef]);
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
+  useEffect(() => {
     void load();
     const id = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      // Silent refresh — shared shell already polls /health?checkDb=1 every 15s.
       void load({ silent: true });
     }, 15000);
     return () => window.clearInterval(id);
@@ -105,7 +111,7 @@ export function SystemHealthPage() {
   const enterOnceRef = useRef(false);
   const [enterMotion, setEnterMotion] = useState(false);
   useEffect(() => {
-    if (loading || enterOnceRef.current) return;
+    if ((loading && !catalog) || enterOnceRef.current) return;
     enterOnceRef.current = true;
     const raf = window.requestAnimationFrame(() => setEnterMotion(true));
     const clear = window.setTimeout(() => setEnterMotion(false), 900);
@@ -113,14 +119,46 @@ export function SystemHealthPage() {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(clear);
     };
-  }, [loading]);
+  }, [loading, catalog]);
+
+  const rows = useMemo((): TableRow[] => {
+    const heartbeatByPair = new Map<string, WatcherHeartbeat>();
+    for (const hb of watcher?.items ?? []) {
+      heartbeatByPair.set(pairKey(hb.network, hb.asset), hb);
+    }
+
+    if (!catalog) return [];
+
+    const out: TableRow[] = [];
+    for (const card of catalog.items) {
+      for (const pair of card.pairs) {
+        out.push({
+          network: card.network,
+          asset: pair.asset,
+          lamp: pair.lamp,
+          heartbeat:
+            heartbeatByPair.get(pairKey(card.network, pair.asset)) ?? null,
+        });
+      }
+    }
+    return out.sort((a, b) => {
+      const net = networkShortLabel(a.network).localeCompare(
+        networkShortLabel(b.network),
+      );
+      if (net !== 0) return net;
+      return a.asset.localeCompare(b.asset);
+    });
+  }, [catalog, watcher]);
+
+  const checkedAt = catalog?.checkedAt ?? watcher?.checkedAt;
+  const awaitingCatalog = !catalog && loading;
 
   return (
     <div
       className={`plat-ops-health${enterMotion ? " is-enter" : ""}`}
     >
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      {topbarActionsSlot
+      {topbarActionsSlot && !hideTopbarRefresh
         ? createPortal(
             <div className="plat-ops-health__topbar-actions">
               <button
@@ -136,71 +174,17 @@ export function SystemHealthPage() {
           )
         : null}
 
-      <div className="plat-ops-health__kpis">
-        <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">API status</p>
-          <p className="plat-ops-health__kpi-value">
-            {loading && !health ? "…" : statusLabel(health?.status, "—")}
-          </p>
-          <p className="plat-ops-health__kpi-copy">
-            {health?.service ?? "paymentgate-api"}
-          </p>
-        </div>
-        <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">Database</p>
-          <p className="plat-ops-health__kpi-value">
-            {loading && !health ? "…" : statusLabel(health?.db, "—")}
-          </p>
-          <p className="plat-ops-health__kpi-copy">SELECT 1 probe</p>
-        </div>
-        <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">Webhook</p>
-          <p className="plat-ops-health__kpi-value">
-            {loading && !health
-              ? "…"
-              : statusLabel(health?.webhook, "—")}
-          </p>
-          <p className="plat-ops-health__kpi-copy">
-            {loading && !health
-              ? "Delivery worker"
-              : health?.webhookDetail?.trim() || "Outbox fan-out on API"}
-          </p>
-        </div>
-        <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">DB backup</p>
-          <p className="plat-ops-health__kpi-value">
-            {loading && !health ? "…" : statusLabel(health?.backup, "—")}
-          </p>
-          <p className="plat-ops-health__kpi-copy">
-            {loading && !health
-              ? "deploy/backup.sh"
-              : health?.backupDetail?.trim() || "status.json"}
-          </p>
-        </div>
-        <div className="plat-ops-health__kpi">
-          <p className="plat-ops-health__kpi-label">Checked at</p>
-          <p className="plat-ops-health__kpi-value plat-ops-health__kpi-value--sm">
-            {loading && !health
-              ? "…"
-              : health?.timestamp
-                ? new Date(health.timestamp).toLocaleTimeString()
-                : "—"}
-          </p>
-          <p className="plat-ops-health__kpi-copy">Auto-refresh every 15s</p>
-        </div>
-      </div>
-
       <div className="plat-ops-health__panels">
         <div className="plat-ops-health__stack">
           <div className="plat-ops-health__card">
             <div className="plat-ops-health__card-head">
               <h2 className="plat-ops-health__card-title">
-                Watcher health by network
+                Connected assets &amp; networks
               </h2>
               <span className="plat-ops-health__meta">
-                {watcher?.checkedAt
-                  ? `Checked ${new Date(watcher.checkedAt).toLocaleTimeString()}`
-                  : "Awaiting heartbeats"}
+                {checkedAt
+                  ? `Checked ${new Date(checkedAt).toLocaleTimeString()}`
+                  : "Awaiting status"}
               </span>
             </div>
 
@@ -208,23 +192,22 @@ export function SystemHealthPage() {
               <p className="plat-ops-health__note">{watcher.note}</p>
             ) : null}
 
-            {loading && !watcher ? (
+            {awaitingCatalog || (loading && rows.length === 0) ? (
               <PagePending />
             ) : null}
 
-            {!loading && !watcher?.items?.length ? (
+            {!awaitingCatalog && !loading && rows.length === 0 ? (
               <div className="plat-ops-health__empty" role="status">
                 <p className="plat-ops-health__empty-title">
-                  No watcher heartbeats yet
+                  No asset / network pairs
                 </p>
                 <p className="plat-ops-health__empty-copy">
-                  Start <code>apps/watcher</code> with <code>DATABASE_URL</code>{" "}
-                  after migration 027 to populate lag and score per network.
+                  The network catalog has no pairs for this chain environment.
                 </p>
               </div>
             ) : null}
 
-            {!loading && watcher?.items?.length ? (
+            {rows.length > 0 ? (
               <div className="plat-ops-health__table-wrap">
                 <table className="plat-ops-health__table">
                   <thead>
@@ -240,10 +223,10 @@ export function SystemHealthPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {watcher.items.map((row) => {
-                      const tone = heartbeatTone(row.status);
+                    {rows.map((row) => {
+                      const hb = row.heartbeat;
                       return (
-                        <tr key={`${row.network}:${row.asset}`}>
+                        <tr key={pairKey(row.network, row.asset)}>
                           <td>
                             <div className="plat-ops-health__net-cell">
                               <NetworkIcon network={row.network} />
@@ -258,26 +241,33 @@ export function SystemHealthPage() {
                               </div>
                             </div>
                           </td>
-                          <td>
-                            <span
-                              className={`plat-ops-health__badge tone-${tone}`}
-                            >
-                              {statusLabel(row.status)}
-                            </span>
-                          </td>
-                          <td className="mono">{row.healthScore}%</td>
-                          <td className="mono">{formatLag(row.lagMs)}</td>
-                          <td className="plat-ops-health__cell-muted">
-                            {row.rpcOk ? "OK" : "No"} · {row.rpcMode}
-                          </td>
-                          <td className="plat-ops-health__cell-muted">
-                            {row.ingestMode}
+                          <td className="plat-ops-health__status-cell">
+                            <NetworkStatusLamp
+                              lamp={row.lamp}
+                              title="Orderability — Online means this pair can accept payments now"
+                            />
                           </td>
                           <td className="mono">
-                            {row.openOrders} / {row.awaitingConfirmations}
+                            {hb ? `${hb.healthScore}%` : "—"}
+                          </td>
+                          <td className="mono">{formatLag(hb?.lagMs)}</td>
+                          <td className="plat-ops-health__cell-muted">
+                            {hb
+                              ? `${hb.rpcOk ? "OK" : "No"} · ${hb.rpcMode}`
+                              : "—"}
                           </td>
                           <td className="plat-ops-health__cell-muted">
-                            {new Date(row.tickAt).toLocaleTimeString()}
+                            {hb?.ingestMode ?? "—"}
+                          </td>
+                          <td className="mono">
+                            {hb
+                              ? `${hb.openOrders} / ${hb.awaitingConfirmations}`
+                              : "—"}
+                          </td>
+                          <td className="plat-ops-health__cell-muted">
+                            {hb
+                              ? new Date(hb.tickAt).toLocaleTimeString()
+                              : "—"}
                           </td>
                         </tr>
                       );
