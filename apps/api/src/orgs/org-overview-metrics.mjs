@@ -72,7 +72,7 @@ export async function platformFeeMonthToDate(merchantOrgIds, now = new Date()) {
     `SELECT COALESCE(sum(${BILL_FEE}), 0) AS fee
      FROM service_bills b
      WHERE b.org_id = ANY($1::uuid[])
-       AND b.status NOT IN ('voided', 'cancelled')
+       AND b.status NOT IN ('waived', 'cancelled')
        AND b.period_start <= $3::date
        AND b.period_end >= $2::date`,
     [merchantOrgIds, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)],

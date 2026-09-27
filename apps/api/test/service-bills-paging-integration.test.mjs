@@ -104,7 +104,7 @@ describePg("service bills paging (Postgres integration)", () => {
     await bill("m1OldIssued", ids.m1, { periodStart: "2025-12-01", periodEnd: "2025-12-31", total: "20", dueAt: "2026-01-10T12:00:00Z", createdAt: "2026-01-01T00:00:00Z", status: "issued" });
     await bill("m1Activation", ids.m1, { periodStart: "2026-05-14", total: "99", dueAt: "2026-05-14T12:00:00Z", status: "draft", kind: "activation" });
     await bill("m2Overdue", ids.m2, { periodStart: "2026-04-01", periodEnd: "2026-04-30", total: "35", dueAt: "2026-05-15T12:00:00Z", status: "overdue" });
-    await bill("m2Voided", ids.m2, { periodStart: "2026-01-01", periodEnd: "2026-01-31", total: "10", dueAt: "2026-02-01T12:00:00Z", createdAt: "2026-01-20T00:00:00Z", status: "voided" });
+    await bill("m2Waived", ids.m2, { periodStart: "2026-01-01", periodEnd: "2026-01-31", total: "10", dueAt: "2026-02-01T12:00:00Z", createdAt: "2026-01-20T00:00:00Z", status: "waived" });
     await bill("m2Draft", ids.m2, { periodStart: "2026-05-01", periodEnd: "2026-05-31", total: "40", dueAt: "2026-05-13T12:00:00Z", status: "draft" });
     await bill("m2Paid", ids.m2, { periodStart: "2026-03-01", periodEnd: "2026-03-31", total: "15", dueAt: "2026-05-11T12:00:00Z", status: "paid", ref: TX_HASH });
 
@@ -132,13 +132,13 @@ describePg("service bills paging (Postgres integration)", () => {
   it("summary for one org hides closed bills outside the window", async () => {
     const { json } = await get("platform", `/v1/service-bills/summary?${WEEK}&orgId=${ids.m2}`);
     assert.equal(json.counts.all, 3);
-    assert.equal(json.counts.voided, 0);
+    assert.equal(json.counts.waived, 0);
     assert.equal(json.counts.overdue, 1);
     assert.equal(json.counts.draft, 1);
     assert.equal(json.amounts.overdueUsd, "35.00");
     const all = await get("platform", `/v1/service-bills/summary?orgId=${ids.m2}`);
     assert.equal(all.json.counts.all, 4);
-    assert.equal(all.json.counts.voided, 1);
+    assert.equal(all.json.counts.waived, 1);
   });
 
   it("pages with a server total", async () => {

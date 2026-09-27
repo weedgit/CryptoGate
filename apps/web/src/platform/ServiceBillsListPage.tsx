@@ -25,7 +25,9 @@ import { AssetIcon } from "./cryptoIcons";
 import {
   sessionCanIssueServiceBill,
   sessionIsPlatformOwner,
+  sessionIsPlatformStaff,
 } from "./org";
+import { BillingWaiversPanel } from "./BillingWaiversPanel";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
 import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
@@ -156,7 +158,7 @@ const STATUS_NAV: StatusNavItem[] = [
       { id: "draft", label: "Ready" },
       { id: "activation", label: "New merchant" },
       { id: "paid", label: "Paid" },
-      { id: "voided", label: "Voided" },
+      { id: "waived", label: "Waived" },
       { id: "cancelled", label: "Cancelled" },
     ],
   },
@@ -207,7 +209,7 @@ const STATUS_TAB_ACCENT: Partial<Record<StatusFilter, BillKpiAccent>> = {
   draft: "blue",
   activation: "violet",
   paid: "ok",
-  voided: "slate",
+  waived: "slate",
   cancelled: "slate",
 };
 
@@ -293,7 +295,7 @@ function StatusTabIcon({ id }: { id: StatusFilter }) {
   const accent = STATUS_TAB_ACCENT[id] ?? "slate";
   const className = `plat-bills__status-icon is-${accent}`;
   const size = 20;
-  if (id === "voided") {
+  if (id === "waived") {
     return (
       <svg
         className={className}
@@ -658,6 +660,10 @@ export function ServiceBillsListPage({ session }: Props) {
     () => (portal ? false : sessionIsPlatformOwner(session)),
     [portal, session],
   );
+  const showWaivers = useMemo(
+    () => (portal ? false : sessionIsPlatformStaff(session)),
+    [portal, session],
+  );
   const [issueOpen, setIssueOpen] = useState(
     () => canIssue && searchParams.get("issue") === "1",
   );
@@ -969,7 +975,7 @@ export function ServiceBillsListPage({ session }: Props) {
   const draftCount = counts?.draft ?? 0;
   const openActivationCount = counts?.activation ?? 0;
   const paidCount = counts?.paid ?? 0;
-  const voidedCount = counts?.voided ?? 0;
+  const waivedCount = counts?.waived ?? 0;
   const cancelledCount = counts?.cancelled ?? 0;
   const issuedArUsd = Number(summary?.amounts.issuedUsd ?? 0);
   const overdueArUsd = Number(summary?.amounts.overdueUsd ?? 0);
@@ -990,7 +996,7 @@ export function ServiceBillsListPage({ session }: Props) {
         draft: 0,
         activation: 0,
         paid: 0,
-        voided: 0,
+        waived: 0,
         cancelled: 0,
         open: 0,
         late: 0,
@@ -1246,12 +1252,12 @@ export function ServiceBillsListPage({ session }: Props) {
         />
         <BillKpiCard
           accent="slate"
-          label="Voided"
-          value={voidedCount}
+          label="Waived"
+          value={waivedCount}
           meta={
-            voidedCount === 1 ? "1 voided bill" : `${voidedCount} voided bills`
+            waivedCount === 1 ? "1 waived bill" : `${waivedCount} waived bills`
           }
-          filter="voided"
+          filter="waived"
           onView={onViewStatus}
         />
         <BillKpiCard
@@ -1625,6 +1631,14 @@ export function ServiceBillsListPage({ session }: Props) {
           </div>
         </div>
       </div>
+
+      {showWaivers ? (
+        <BillingWaiversPanel
+          merchants={billMerchants}
+          canEdit={canIssue}
+          onBillsChanged={() => void load()}
+        />
+      ) : null}
 
       <div className="plat-bills__foot">
         <p className="muted plat-bills__schedule-note" role="note">

@@ -15,6 +15,7 @@ import {
   updateMerchantBillingFlags,
 } from "./merchant-commercial-store.mjs";
 import { findFeeTierBand } from "../platform-settings/fee-tier-store.mjs";
+import { waiverSummaryForOrgs } from "../service-bills/billing-waiver-store.mjs";
 import {
   defaultMerchantSchedulePlan,
 } from "../platform-settings/pricing-resolve.mjs";
@@ -60,7 +61,8 @@ export async function handleGetMerchantCommercial(req, res, orgId) {
     sendError(res, 500, "internal_error", "Tier band missing");
     return;
   }
-  sendJson(res, 200, toMerchantCommercialSettings(row, bandRow));
+  const waivers = await waiverSummaryForOrgs([orgId]);
+  sendJson(res, 200, toMerchantCommercialSettings(row, bandRow, waivers.get(orgId)));
 }
 
 /**
@@ -86,11 +88,12 @@ export async function handleListMerchantCommercialSummaries(req, res, url) {
   const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   const allowed = orgIds.filter((id) => isVisibleOrg(visible, id));
   const rows = await listMerchantCommercialByOrgIds(allowed);
+  const waivers = await waiverSummaryForOrgs(rows.map((r) => r.org_id));
   const items = [];
   for (const row of rows) {
     const bandRow = await findFeeTierBand(row.tier);
     if (!bandRow) continue;
-    items.push(toMerchantCommercialSettings(row, bandRow));
+    items.push(toMerchantCommercialSettings(row, bandRow, waivers.get(row.org_id)));
   }
   sendJson(res, 200, { items });
 }
@@ -167,21 +170,16 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     if (validated.hasBillingFlags) {
       finalRow =
         (await updateMerchantBillingFlags(orgId, {
-          feeExemptUntil: validated.feeExemptUntil,
-          skipActivation: validated.skipActivation,
-          billingOpsNote: validated.billingOpsNote,
           serviceBillCreditUsd: validated.serviceBillCreditUsd,
         })) ?? row;
     }
     const band = await findFeeTierBand(finalRow.tier);
-    sendJson(res, 200, toMerchantCommercialSettings(finalRow, band));
+    const waivers = await waiverSummaryForOrgs([orgId]);
+    sendJson(res, 200, toMerchantCommercialSettings(finalRow, band, waivers.get(orgId)));
   }
 
   if (validated.flagsOnly) {
     const updated = await updateMerchantBillingFlags(orgId, {
-      feeExemptUntil: validated.feeExemptUntil,
-      skipActivation: validated.skipActivation,
-      billingOpsNote: validated.billingOpsNote,
       serviceBillCreditUsd: validated.serviceBillCreditUsd,
     });
     await insertAuditEvent({
@@ -190,14 +188,17 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
       action: AUDIT_ACTIONS.merchantCommercialPut,
       metadata: {
         billingFlagsOnly: true,
-        feeExemptUntil: validated.feeExemptUntil ?? null,
-        skipActivation: validated.skipActivation ?? null,
         serviceBillCreditUsd: validated.serviceBillCreditUsd ?? null,
         reason: validated.reason ?? null,
       },
     });
     const band = await findFeeTierBand((updated ?? existing).tier);
-    sendJson(res, 200, toMerchantCommercialSettings(updated ?? existing, band));
+    const waivers = await waiverSummaryForOrgs([orgId]);
+    sendJson(
+      res,
+      200,
+      toMerchantCommercialSettings(updated ?? existing, band, waivers.get(orgId)),
+    );
     return;
   }
 
@@ -274,6 +275,5 @@ export async function bootstrapMerchantCommercial(input) {
     tier: input.tier,
     volumeFeePercent: input.volumeFeePercent,
     rateMode,
-    enterpriseApprovalStatus: null,
   });
 }

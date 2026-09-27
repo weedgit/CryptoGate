@@ -444,7 +444,7 @@ For each portal, add frames:
 - Offline POS blocking screen
 
 Notification center populated with ALL types from product:
-settlement pending/activated, xPub change, site override approve/deny, payment anomaly, webhook failed, service bill issued/overdue, commission statement, compliance override, enterprise rate pending, API key expiring, network maintenance
+settlement pending/activated, xPub change, site override approve/deny, payment anomaly, webhook failed, service bill issued/overdue, commission statement, compliance override, API key expiring, network maintenance
 
 Make every interactive component feel “alive”: hover, focus ring (teal 2px), pressed, disabled, loading.
 ```

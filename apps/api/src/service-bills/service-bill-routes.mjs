@@ -45,7 +45,7 @@ import {
   serviceBillSummary,
   serviceBillOrgStatus,
   markServiceBillPaid,
-  voidServiceBill,
+  waiveServiceBill,
   cancelServiceBill,
   sendServiceBill,
   adjustServiceBill,
@@ -60,6 +60,18 @@ import {
   resetBillingAnchorAfterLatePay,
   addMerchantServiceBillCredit,
 } from "../commercial/merchant-commercial-store.mjs";
+import { maybeCreateActivationForMerchantOrg } from "./activation.mjs";
+
+/**
+ * Waived / cancelled bill that paused the merchant: resume the org.
+ * @param {object} row bill before the update
+ */
+async function resumeOrgPausedByBill(row) {
+  const org = await findOrgById(row.org_id);
+  if (org?.status === "paused" && String(org.status_reason_bill_id ?? "") === row.id) {
+    await updateOrgStatus(row.org_id, "active");
+  }
+}
 
 const SERVICE_BILL_LIST_MAX = 5000;
 
@@ -546,6 +558,35 @@ export async function handleUpdateServiceBill(req, res, billId) {
         orgId: row.org_id,
       });
     }
+  } else if (validated.action === ServiceBillUpdateAction.Waive) {
+    updated = await waiveServiceBill(billId, validated.reason);
+    if (updated && validated.opsNote !== undefined) {
+      updated = (await setServiceBillOpsNote(billId, validated.opsNote)) ?? updated;
+    }
+    if (updated) {
+      const isActivation = row.bill_kind === ServiceBillKind.Activation;
+      // Waived activation = activated today; monthly billing starts one month later.
+      if (isActivation) {
+        await setBillingAnchorFromActivationPaid(row.org_id, new Date());
+      }
+      await insertAuditEvent({
+        actorUserId: caller.userId,
+        orgId: row.org_id,
+        action: AUDIT_ACTIONS.serviceBillWaive,
+        metadata: {
+          billId,
+          billKind: row.bill_kind ?? ServiceBillKind.Monthly,
+          reason: validated.reason,
+          opsNote: validated.opsNote ?? null,
+        },
+      });
+      await resumeOrgPausedByBill(row);
+      emitDashboardLive({
+        type: "service_bill.waived",
+        slices: ["serviceBills"],
+        orgId: row.org_id,
+      });
+    }
   } else if (validated.action === ServiceBillUpdateAction.Cancel) {
     updated = await cancelServiceBill(billId, validated.reason);
     if (updated && validated.opsNote !== undefined) {
@@ -558,16 +599,15 @@ export async function handleUpdateServiceBill(req, res, billId) {
         action: AUDIT_ACTIONS.serviceBillCancel,
         metadata: {
           billId,
+          billKind: row.bill_kind ?? ServiceBillKind.Monthly,
           reason: validated.reason,
           opsNote: validated.opsNote ?? null,
         },
       });
-      const org = await findOrgById(row.org_id);
-      if (
-        org?.status === "paused" &&
-        String(org.status_reason_bill_id ?? "") === billId
-      ) {
-        await updateOrgStatus(row.org_id, "active");
+      await resumeOrgPausedByBill(row);
+      // Wrong activation bill: merchant stays unactivated; issue the corrected one.
+      if (row.bill_kind === ServiceBillKind.Activation) {
+        await maybeCreateActivationForMerchantOrg(row.org_id);
       }
       emitDashboardLive({
         type: "service_bill.cancelled",
@@ -651,16 +691,6 @@ export async function handleUpdateServiceBill(req, res, billId) {
         type: "service_bill.paid",
         slices: ["serviceBills"],
         orgId: row.org_id,
-      });
-    }
-  } else if (validated.action === ServiceBillUpdateAction.Void) {
-    updated = await voidServiceBill(billId, validated.reason);
-    if (updated) {
-      await insertAuditEvent({
-        actorUserId: caller.userId,
-        orgId: row.org_id,
-        action: AUDIT_ACTIONS.serviceBillVoid,
-        metadata: { billId, reason: validated.reason },
       });
     }
   } else if (validated.action === ServiceBillUpdateAction.Adjust) {

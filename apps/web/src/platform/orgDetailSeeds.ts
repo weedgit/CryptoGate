@@ -111,7 +111,7 @@ export function agentSubtreePlatformFeeMtd(
   let total = 0;
   for (const b of bills) {
     if (!merchantIds.has(b.orgId)) continue;
-    if (b.status === "void") continue;
+    if (b.status === "waived" || b.status === "cancelled") continue;
     if (b.periodEnd < monthStart || b.periodStart > monthEnd) continue;
     const sub = Number(b.subscriptionAmount ?? 0);
     const vol = Number(b.volumeFeeAmount);

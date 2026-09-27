@@ -203,10 +203,6 @@ export function toServiceBill(row) {
     bill.paidAt =
       row.paid_at instanceof Date ? row.paid_at.toISOString() : String(row.paid_at);
   }
-  if (row.voided_at) {
-    bill.voidedAt =
-      row.voided_at instanceof Date ? row.voided_at.toISOString() : String(row.voided_at);
-  }
   if (row.last_adjustment_reason) {
     bill.lastAdjustmentReason = row.last_adjustment_reason;
   }
@@ -250,6 +246,13 @@ export function toServiceBill(row) {
         ? row.cancelled_at.toISOString()
         : String(row.cancelled_at);
   }
+  if (row.waived_at) {
+    bill.waivedAt =
+      row.waived_at instanceof Date ? row.waived_at.toISOString() : String(row.waived_at);
+  }
+  if (row.close_reason) {
+    bill.closeReason = String(row.close_reason);
+  }
   if (row.ops_note) {
     bill.opsNote = String(row.ops_note);
   }
@@ -281,7 +284,10 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
     return { ok: true, action, opsNote: opsNote.value };
   }
 
-  if (action === ServiceBillUpdateAction.Cancel) {
+  if (
+    action === ServiceBillUpdateAction.Waive ||
+    action === ServiceBillUpdateAction.Cancel
+  ) {
     if (
       currentStatus !== ServiceBillStatus.Draft &&
       currentStatus !== ServiceBillStatus.Issued &&
@@ -290,17 +296,17 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
       return invalidTransition();
     }
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-    if (reason.length > 500) {
+    if (!reason || reason.length > 500) {
       return {
         ok: false,
         status: 400,
         code: "invalid_request",
-        message: "reason max 500 chars",
+        message: "reason is required (max 500 chars)",
       };
     }
     const opsNote = parseOpsNote(body.opsNote);
     if (opsNote.ok === false) return opsNote;
-    return { ok: true, action, reason: reason || null, opsNote: opsNote.value };
+    return { ok: true, action, reason, opsNote: opsNote.value };
   }
 
   if (action === ServiceBillUpdateAction.GrantCredit) {
@@ -375,25 +381,6 @@ export function validateUpdateServiceBillBody(body, currentStatus) {
       rxAddress: rxAddress || null,
       txAddress: txAddress || null,
     };
-  }
-
-  if (action === ServiceBillUpdateAction.Void) {
-    if (
-      currentStatus !== ServiceBillStatus.Issued &&
-      currentStatus !== ServiceBillStatus.Draft
-    ) {
-      return invalidTransition();
-    }
-    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-    if (!reason || reason.length > 500) {
-      return {
-        ok: false,
-        status: 400,
-        code: "invalid_request",
-        message: "reason is required (max 500 chars)",
-      };
-    }
-    return { ok: true, action, reason };
   }
 
   if (action === ServiceBillUpdateAction.Adjust) {
@@ -530,7 +517,7 @@ export function serviceBillQrPayload(payTo, totalAmount) {
 }
 
 /**
- * Issued and overdue bills may open checkout; paid/voided may not.
+ * Issued and overdue bills may open checkout; paid / waived / cancelled may not.
  * @param {string} status
  */
 export function checkoutAllowedForBillStatus(status) {

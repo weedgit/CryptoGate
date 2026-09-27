@@ -2,7 +2,7 @@
 /**
  * Dense service-bill rows for Platform Service Bills UI testing.
  * Covers every status tab: Ready (draft), Unpaid (issued), Overdue,
- * New merchant (activation), Paid, Voided, Cancelled.
+ * New merchant (activation), Paid, Waived, Cancelled.
  *
  * Prerequisites: seed-local (+ seed-kevin-uat recommended).
  * Idempotent: deletes prior UI seeds tagged last_adjustment_reason = 'ui-bill-seed'
@@ -25,7 +25,7 @@ const COUNTS = {
   issued: 16,
   overdue: 10,
   paid: 24,
-  voided: 16,
+  waived: 16,
   cancelled: 16,
   activationOpen: 5,
 };
@@ -89,7 +89,7 @@ async function insertUiBill(pool, bill) {
     `INSERT INTO service_bills (
        id, org_id, period_start, period_end,
        subscription_amount, volume_fee_amount, total_amount,
-       currency, status, due_at, paid_at, voided_at, cancelled_at, sent_at,
+       currency, status, due_at, paid_at, waived_at, cancelled_at, sent_at,
        payment_reference, rx_address, tx_address,
        tier, volume_fee_percent, billed_volume_usd, bill_kind,
        last_adjustment_reason,
@@ -114,7 +114,7 @@ async function insertUiBill(pool, bill) {
       bill.status,
       bill.dueAt.toISOString(),
       bill.paidAt ? bill.paidAt.toISOString() : null,
-      bill.voidedAt ? bill.voidedAt.toISOString() : null,
+      bill.waivedAt ? bill.waivedAt.toISOString() : null,
       bill.cancelledAt ? bill.cancelledAt.toISOString() : null,
       bill.sentAt ? bill.sentAt.toISOString() : null,
       bill.paymentReference,
@@ -213,7 +213,7 @@ async function main() {
       status: "draft",
       dueAt: daysFromNow(-(i % 26)),
       paidAt: null,
-      voidedAt: null,
+      waivedAt: null,
       cancelledAt: null,
       sentAt: null,
       paymentReference: `${SEED_PREFIX}draft-${i}`,
@@ -244,7 +244,7 @@ async function main() {
       // Keep due dates in the near future so status stays issued (not flipped overdue).
       dueAt: daysFromNow(2 + (i % 12)),
       paidAt: null,
-      voidedAt: null,
+      waivedAt: null,
       cancelledAt: null,
       sentAt: daysFromNow(-(2 + (i % 5))),
       paymentReference: `${SEED_PREFIX}issued-${i}`,
@@ -274,7 +274,7 @@ async function main() {
       status: "overdue",
       dueAt: daysFromNow(-(5 + (i % 20))),
       paidAt: null,
-      voidedAt: null,
+      waivedAt: null,
       cancelledAt: null,
       sentAt: daysFromNow(-(25 + (i % 10))),
       paymentReference: `${SEED_PREFIX}overdue-${i}`,
@@ -305,7 +305,7 @@ async function main() {
       status: "paid",
       dueAt: daysFromNow(-(1 + (i % 27))),
       paidAt: daysFromNow(-(i % 20)),
-      voidedAt: null,
+      waivedAt: null,
       cancelledAt: null,
       sentAt: daysFromNow(-(15 + (i % 10))),
       paymentReference: fakeEvmTxHash(`${SEED_PREFIX}${key}`),
@@ -319,8 +319,8 @@ async function main() {
     };
   });
 
-  // Voided (excluded from unique period index)
-  await seedMany(COUNTS.voided, (i, merchant, slot) => {
+  // Waived — $0 collected, real amounts kept
+  await seedMany(COUNTS.waived, (i, merchant, slot) => {
     const period = periodForSlot(slot);
     const sub = 49 + (i % 15);
     const fee = 4 + (i % 30);
@@ -332,13 +332,13 @@ async function main() {
       subscription: money(sub),
       volumeFee: money(fee),
       total: money(sub + fee),
-      status: "voided",
+      status: "waived",
       dueAt: daysFromNow(-(1 + (i % 25))),
       paidAt: null,
-      voidedAt: daysFromNow(-(i % 12)),
+      waivedAt: daysFromNow(-(i % 12)),
       cancelledAt: null,
       sentAt: daysFromNow(-(10 + (i % 5))),
-      paymentReference: `${SEED_PREFIX}voided-${i}`,
+      paymentReference: `${SEED_PREFIX}waived-${i}`,
       rxAddress: null,
       txAddress: null,
       tier: "mid",
@@ -365,7 +365,7 @@ async function main() {
       status: "cancelled",
       dueAt: daysFromNow(-(2 + (i % 24))),
       paidAt: null,
-      voidedAt: null,
+      waivedAt: null,
       cancelledAt: daysFromNow(-(i % 10)),
       sentAt: i % 2 === 0 ? daysFromNow(-(3 + (i % 4))) : null,
       paymentReference: `${SEED_PREFIX}cancelled-${i}`,
@@ -388,7 +388,7 @@ async function main() {
       `DELETE FROM service_bills
        WHERE org_id = $1
          AND bill_kind = 'activation'
-         AND status NOT IN ('voided', 'cancelled')`,
+         AND status <> 'cancelled'`,
       [merchant.id],
     );
     const status = i % 2 === 0 ? "issued" : "overdue";
@@ -406,7 +406,7 @@ async function main() {
         status,
         dueAt,
         paidAt: null,
-        voidedAt: null,
+        waivedAt: null,
         cancelledAt: null,
         sentAt: daysFromNow(-(1 + (i % 3))),
         paymentReference: `${SEED_PREFIX}act-open-${i}`,
@@ -439,7 +439,7 @@ async function main() {
     console.log(`  ${row.kind}/${row.status}: ${row.n}`);
   }
   console.log(
-    "\nTabs: All · Unpaid · Overdue · Ready · New merchant · Paid · Voided · Cancelled",
+    "\nTabs: All · Unpaid · Overdue · Ready · New merchant · Paid · Waived · Cancelled",
   );
   console.log("Refresh Platform → Service bills (period 1m) to review.");
 }

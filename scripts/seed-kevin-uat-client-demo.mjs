@@ -42,43 +42,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ONBOARD_AT = "2026-06-01T00:00:00.000Z";
 const MARKER_ATLAS = "Atlas Agent";
 
-/** Enterprise custom rates for Fees → Custom merchant rate overrides tab. */
-const ENTERPRISE_OVERRIDE_FIXTURES = [
-  {
-    merchantName: "Kevin Multi Merchant",
-    requestedVolumeFeePercent: "0.45",
-    status: "approved",
-    requestedByEmail: "own.agent@paymentgate.io",
-    daysAgo: 45,
-  },
-  {
-    merchantName: "Atlas Merchant · Casablanca",
-    requestedVolumeFeePercent: "1.05",
-    status: "approved",
-    requestedByEmail: "own.atlas@paymentgate.io",
-    daysAgo: 28,
-  },
-  {
-    merchantName: "Kevin Merchant #2",
-    requestedVolumeFeePercent: "0.52",
-    status: "approved",
-    requestedByEmail: "own.agent@paymentgate.io",
-    daysAgo: 12,
-  },
-  {
-    merchantName: "Kevin Merchant #3",
-    requestedVolumeFeePercent: "0.38",
-    status: "pending",
-    requestedByEmail: "own.agent@paymentgate.io",
-    daysAgo: 4,
-  },
-  {
-    merchantName: "Atlas Merchant · Rabat",
-    requestedVolumeFeePercent: "1.18",
-    status: "pending",
-    requestedByEmail: "own.atlas@paymentgate.io",
-    daysAgo: 1,
-  },
+/** Owner-set Fixed Enterprise rates (Fees → merchant rate overrides). */
+const ENTERPRISE_FIXED_RATE_FIXTURES = [
+  { merchantName: "Kevin Multi Merchant", volumeFeePercent: "0.45" },
+  { merchantName: "Atlas Merchant · Casablanca", volumeFeePercent: "1.05" },
+  { merchantName: "Kevin Merchant #2", volumeFeePercent: "0.52" },
 ];
 
 const PLATFORM_TEAM = [
@@ -640,90 +608,21 @@ async function syncSeptemberCommissions(pool) {
  * @param {import("pg").Pool} pool
  * @param {{ platformOwnerId: string }} ctx
  */
-async function seedEnterpriseRateOverrides(pool, { platformOwnerId }) {
+async function seedEnterpriseFixedRates(pool) {
   let upserted = 0;
-  for (const fixture of ENTERPRISE_OVERRIDE_FIXTURES) {
-    const { rows: merchants } = await pool.query(
-      `SELECT id FROM org_accounts
-       WHERE type = 'merchant' AND name = $1 LIMIT 1`,
-      [fixture.merchantName],
+  for (const fixture of ENTERPRISE_FIXED_RATE_FIXTURES) {
+    const { rowCount } = await pool.query(
+      `UPDATE merchant_commercial mc
+       SET tier = 'enterprise',
+           volume_fee_percent = $2,
+           rate_mode = 'fixed',
+           effective_from = LEAST(mc.effective_from, CURRENT_DATE),
+           updated_at = now()
+       FROM org_accounts o
+       WHERE o.id = mc.org_id AND o.type = 'merchant' AND o.name = $1`,
+      [fixture.merchantName, fixture.volumeFeePercent],
     );
-    const orgId = merchants[0]?.id;
-    if (!orgId) continue;
-
-    const requester = await findUserByEmail(fixture.requestedByEmail);
-    if (!requester) continue;
-
-    const createdAt = daysAgo(fixture.daysAgo);
-    const decidedAt =
-      fixture.status === "approved" ? daysAgo(Math.max(0, fixture.daysAgo - 2)) : null;
-
-    const { rows: existing } = await pool.query(
-      `SELECT id FROM enterprise_rate_approvals
-       WHERE org_id = $1 AND status = $2
-         AND requested_volume_fee_percent = $3
-       LIMIT 1`,
-      [orgId, fixture.status, fixture.requestedVolumeFeePercent],
-    );
-
-    if (existing[0]) {
-      await pool.query(
-        `UPDATE enterprise_rate_approvals
-         SET requested_by_user_id = COALESCE(requested_by_user_id, $2),
-             decided_by_user_id = COALESCE(decided_by_user_id, $3),
-             created_at = $4,
-             decided_at = COALESCE(decided_at, $5)
-         WHERE id = $1`,
-        [
-          existing[0].id,
-          requester.id,
-          fixture.status === "approved" ? platformOwnerId : null,
-          createdAt.toISOString(),
-          decidedAt?.toISOString() ?? null,
-        ],
-      );
-    } else {
-      await pool.query(
-        `INSERT INTO enterprise_rate_approvals (
-           org_id, requested_tier, requested_volume_fee_percent,
-           status, requested_by_user_id, decided_by_user_id,
-           created_at, decided_at
-         ) VALUES ($1, 'enterprise', $2, $3, $4, $5, $6, $7)`,
-        [
-          orgId,
-          fixture.requestedVolumeFeePercent,
-          fixture.status,
-          requester.id,
-          fixture.status === "approved" ? platformOwnerId : null,
-          createdAt.toISOString(),
-          decidedAt?.toISOString() ?? null,
-        ],
-      );
-    }
-
-    if (fixture.status === "approved") {
-      await pool.query(
-        `UPDATE merchant_commercial
-         SET tier = 'enterprise',
-             volume_fee_percent = $2,
-             enterprise_approval_status = NULL,
-             effective_from = LEAST(effective_from, CURRENT_DATE),
-             updated_at = now()
-         WHERE org_id = $1`,
-        [orgId, fixture.requestedVolumeFeePercent],
-      );
-    } else {
-      await pool.query(
-        `UPDATE merchant_commercial
-         SET tier = 'enterprise',
-             volume_fee_percent = $2,
-             enterprise_approval_status = 'pending',
-             updated_at = now()
-         WHERE org_id = $1`,
-        [orgId, fixture.requestedVolumeFeePercent],
-      );
-    }
-    upserted += 1;
+    upserted += rowCount ?? 0;
   }
   return upserted;
 }
@@ -923,10 +822,8 @@ async function main() {
   console.log("Commissions — merchant tree snapshots…");
   const treePatch = await patchCommissionTreeSnapshots(pool);
 
-  console.log("Fees — enterprise rate overrides…");
-  const overrideRows = await seedEnterpriseRateOverrides(pool, {
-    platformOwnerId: platformOwner.id,
-  });
+  console.log("Fees — Enterprise Fixed rates…");
+  const overrideRows = await seedEnterpriseFixedRates(pool);
 
   console.log("Avatars — demo profile photos…");
   const avatars = await seedDemoAvatars(pool);

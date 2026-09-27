@@ -124,7 +124,7 @@ Additive to v0.3.0. Signing canonical string unchanged.
 | Domain | `@paymentgate/domain` | `AuditAction`, `AuditLogEntry`, `AuditLogColumn`, `ServiceBillUpdateAction`; optional `ServiceBill.paidAt` / `voidedAt` |
 | Handoff | `doc/M4-36-Audit-Bills-v032.md` | Andrew implements GET `/audit`, PATCH service bills |
 | Audit | `GET /v1/audit` | Read-only; Cashier 403; scoped by role |
-| Service bills | `PATCH /v1/service-bills/{billId}` | Platform-only mark_paid / void / adjust |
+| Service bills | `PATCH /v1/service-bills/{billId}` | Platform-only send / waive / cancel / mark_paid / adjust / grant_credit (`void` renamed to `cancel` in 078) |
 
 Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
@@ -135,11 +135,11 @@ Additive to v0.3.1. Andrew: migration **018** suggested in handoff doc.
 
 | Artifact | Path | Notes |
 | --- | --- | --- |
-| Domain | `@paymentgate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put`, `enterprise_rate_decide` |
+| Domain | `@paymentgate/domain` | `MerchantTier`, `FeeTierBand`, `DEFAULT_FEE_TIER_BANDS`; audit actions `fee_tier_put`, `org_policy_put`, `merchant_commercial_put` |
 | Handoff | `doc/X-01-Fee-Tiers-v033.md` | Andrew implements platform settings + merchant commercial; migration **019** suggested |
 | Platform settings | `GET/PUT /platform/settings/fee-tiers`, `GET/PUT /platform/settings/org-policy` | Owner-only PUT; changes next billing period |
 | Merchant commercial | `GET/PUT /orgs/{orgId}/commercial` | Platform sets Automatic schedule or Fixed rate; agents **read-only** on merchant fee |
-| Enterprise | `GET /platform/enterprise-rate-approvals`, `PATCH …/{approvalId}` | Platform Owner approve/deny |
+| Enterprise | — | Approval queue removed (migration **077**); Owner sets Fixed rates via merchant commercial |
 | Create org | `CreateOrgRequest.commercial` | Merchant onboard (C6) |
 
 Additive to v0.3.2. Andrew: migration **019** for tier/commercial tables.

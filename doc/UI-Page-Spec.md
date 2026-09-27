@@ -221,7 +221,6 @@ Never merge these rails on one page or checkout.
 | Service bill overdue | Merchant O, A | “Service bill overdue — pay to avoid account restriction.” |
 | Commission statement | Agent O, A | “Commission statement **Aug 2026** available.” |
 | Compliance override | Merchant O, A | “Platform applied compliance override to settlement settings (logged).” |
-| Enterprise rate pending | Platform O | “Enterprise rate request from Agent **X** — review.” |
 | API key expiring | O, A | “API key **…abc** expires in 7 days.” |
 | Network maintenance | All merchants | “USDT (Tron) deposits paused until **time**.” |
 | Finish account setup (watch-only) | Agent / merchant, all roles | “Watch-only until setup is complete… finish **phone, settlement wallet** to unlock live actions.” → **Finish setup** opens the setup modal (`?setup=1`) |
@@ -234,7 +233,7 @@ Never merge these rails on one page or checkout.
 
 | Kind | Surface | Lifetime |
 | --- | --- | --- |
-| Open condition someone must clear or wait out (setup, activation, suspension, bills, cool-downs, maintenance, Attention, webhook failures, stuck commissions, Enterprise review) | **Alert** — bell drawer + bottom-right **dock** (“N alerts need your attention” / “Owner or Admin must clear N alerts” / “N alerts waiting to clear”) | Until the condition clears (marking read only clears the badge) |
+| Open condition someone must clear or wait out (setup, activation, suspension, bills, cool-downs, maintenance, Attention, webhook failures, stuck commissions) | **Alert** — bell drawer + bottom-right **dock** (“N alerts need your attention” / “Owner or Admin must clear N alerts” / “N alerts waiting to clear”) | Until the condition clears (marking read only clears the badge) |
 | One-time result of the user’s own action (saved, invitation sent, password updated, validation / permission errors) | **Toast** — single app-wide slot, bottom centre, ~6 s; a new toast replaces the old one | Auto-dismiss or × |
 | Who the user is and what they may do | **Role & permissions card** (sidebar, A8) | Always visible |
 | Context that belongs to one form or panel (MFA gate, site-inherits note, invite credentials, next-invoice hint, $0 commission note, compact cool-down chip on Settlement) | **Inline note** in that page | While the page is open |
@@ -322,7 +321,6 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 
 **Alerts (dock + drawer)**
 
-- Enterprise rate request pending — one alert per request (O only)
 - Paid commissions awaiting agent confirm 7+ days (O, A, V)
 - Viewer: no banner — role card (A8) shows Read-only; action buttons stay hidden
 
@@ -571,9 +569,10 @@ Single scroll page (no tabs):
 
 **Content**
 
-- Filters: status (draft/issued/paid/overdue), period, merchant, agent
+- Filters: status (draft/issued/paid/overdue/waived/cancelled), period, merchant, agent
 - Columns: bill ID, merchant, amount, due date, status, period, **Tx hash**, **Rx address**, **Tx address**
-- Actions (O, A): View (B10), Issue, Adjust, Mark paid (off-chain), Void (draft only)
+- Actions (O, A): View (B10), Issue, Adjust, Mark paid (off-chain), Waive, Cancel (draft / issued / overdue, reason required)
+- Waive lists (O, A edit · V read): **Waive platform fee** (merchant, months left, reason) and **Waive activation** (merchant, reason)
 
 **Receipt columns**
 
@@ -603,7 +602,7 @@ Single scroll page (no tabs):
   - Remittance: service-bill checkout / platform billing wallet — **not** guest payment page
   - Receipt when paid: paid at, **Tx hash** (`payment_reference`), **Rx address**, **Tx address**, amount
   - **Print** → browser PDF of invoice panel only
-- Ops sidebar: bill state timeline; Platform actions Issue / Adjust / Mark paid / Void (O, A) — reason required for adjustments
+- Ops sidebar: bill state timeline; Platform actions Issue / Adjust / Mark paid / Waive / Cancel (O, A) — reason required for adjustments, waive and cancel
   - Mark paid captures optional Tx hash, Rx address (defaults to billing wallet), Tx address (payer)
 - Rate / volume math frozen on bill at issue (do not re-read live commercial)
 
@@ -760,7 +759,7 @@ Agent users: **O**, **A**, **V**. Agents do **not** create payment orders.
 - KPIs: merchant count, subtree volume, open service bills, commission (MTD)
 - Chart: volume by merchant (top N)
 - **Quick actions** (O, A): Onboard merchant (C5). No sub-agent product in Phase 1.
-- Alerts: merchants with overdue service bills, Enterprise rate pending platform approval
+- Alerts: merchants with overdue service bills
 
 ---
 

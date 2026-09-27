@@ -50,12 +50,9 @@ type Props = {
     pricingMode: string;
     /** Watch-only public key (xPub) for Mode S — platform O/A view & edit. */
     publicKey?: string;
-    /** Billing schedule / activation flags (platform ops). */
+    /** Read-only billing dates (activation, next bill, waived months). */
     billingSchedule?: {
       statusLabel: string;
-      skipActivation: boolean;
-      feeExemptUntil: string;
-      billingOpsNote: string;
     };
   } | null;
   busy?: boolean;
@@ -81,11 +78,6 @@ type Props = {
       matchingMode: string;
       pricingMode: string;
       publicKey?: string;
-      billingSchedule?: {
-        skipActivation: boolean;
-        feeExemptUntil: string;
-        billingOpsNote: string;
-      };
     };
   }) => void | Promise<void>;
 };
@@ -322,15 +314,6 @@ export function OrgProfileEditModal({
   const [draftPublicKey, setDraftPublicKey] = useState(
     merchant?.publicKey?.trim() ?? "",
   );
-  const [draftSkipActivation, setDraftSkipActivation] = useState(
-    Boolean(merchant?.billingSchedule?.skipActivation),
-  );
-  const [draftFeeExemptUntil, setDraftFeeExemptUntil] = useState(
-    merchant?.billingSchedule?.feeExemptUntil ?? "",
-  );
-  const [draftBillingOpsNote, setDraftBillingOpsNote] = useState(
-    merchant?.billingSchedule?.billingOpsNote ?? "",
-  );
   const [fileError, setFileError] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
 
@@ -361,9 +344,6 @@ export function OrgProfileEditModal({
     setDraftMatching(normalizeMatchingMode(merchant?.matchingMode));
     setDraftPricing(merchant?.pricingMode ?? "pegged_1to1");
     setDraftPublicKey(merchant?.publicKey?.trim() ?? "");
-    setDraftSkipActivation(Boolean(merchant?.billingSchedule?.skipActivation));
-    setDraftFeeExemptUntil(merchant?.billingSchedule?.feeExemptUntil ?? "");
-    setDraftBillingOpsNote(merchant?.billingSchedule?.billingOpsNote ?? "");
     setFileError(null);
     setReadingFile(false);
   }, [
@@ -382,9 +362,6 @@ export function OrgProfileEditModal({
     merchant?.matchingMode,
     merchant?.pricingMode,
     merchant?.publicKey,
-    merchant?.billingSchedule?.skipActivation,
-    merchant?.billingSchedule?.feeExemptUntil,
-    merchant?.billingSchedule?.billingOpsNote,
   ]);
 
   const matchedFixedTier =
@@ -789,48 +766,12 @@ export function OrgProfileEditModal({
               ) : null}
 
               {merchant?.billingSchedule ? (
-                <>
-                  <div className="org-edit__field org-edit__field--wide org-edit__field--gap">
-                    <FieldLabel>Billing schedule</FieldLabel>
-                    <p className="org-edit__readonly-value">
-                      {merchant.billingSchedule.statusLabel}
-                    </p>
-                  </div>
-                  <label className="org-edit__field org-edit__check">
-                    <input
-                      type="checkbox"
-                      checked={draftSkipActivation}
-                      disabled={saving}
-                      onChange={(e) => setDraftSkipActivation(e.target.checked)}
-                    />
-                    <span>Skip activation invoice</span>
-                  </label>
-                  <label className="org-edit__field">
-                    <FieldLabel>Fee exempt until</FieldLabel>
-                    <FieldControl>
-                      <input
-                        className="field-control"
-                        type="date"
-                        value={draftFeeExemptUntil}
-                        disabled={saving}
-                        onChange={(e) => setDraftFeeExemptUntil(e.target.value)}
-                      />
-                    </FieldControl>
-                  </label>
-                  <label className="org-edit__field org-edit__field--wide">
-                    <FieldLabel>Billing ops note</FieldLabel>
-                    <FieldControl>
-                      <input
-                        className="field-control"
-                        value={draftBillingOpsNote}
-                        maxLength={240}
-                        disabled={saving}
-                        placeholder="Optional note"
-                        onChange={(e) => setDraftBillingOpsNote(e.target.value)}
-                      />
-                    </FieldControl>
-                  </label>
-                </>
+                <div className="org-edit__field org-edit__field--wide org-edit__field--gap">
+                  <FieldLabel>Billing schedule</FieldLabel>
+                  <p className="org-edit__readonly-value">
+                    {merchant.billingSchedule.statusLabel}
+                  </p>
+                </div>
               ) : null}
 
               {commission ? (
@@ -958,15 +899,6 @@ export function OrgProfileEditModal({
                         matchingMode: draftMatching,
                         pricingMode: draftPricing,
                         publicKey: draftPublicKey.trim(),
-                        ...(merchant.billingSchedule
-                          ? {
-                              billingSchedule: {
-                                skipActivation: draftSkipActivation,
-                                feeExemptUntil: draftFeeExemptUntil.trim(),
-                                billingOpsNote: draftBillingOpsNote.trim(),
-                              },
-                            }
-                          : {}),
                       },
                     }
                   : {}),

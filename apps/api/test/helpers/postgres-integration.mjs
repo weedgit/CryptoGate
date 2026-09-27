@@ -232,7 +232,7 @@ export async function migration018ColumnsPresent() {
      WHERE table_schema = 'public'
        AND table_name = 'service_bills'
        AND column_name = ANY($1::text[])`,
-    [["paid_at", "voided_at", "last_adjustment_reason", "payment_reference"]],
+    [["paid_at", "waived_at", "close_reason", "last_adjustment_reason", "payment_reference"]],
   );
   return rows.map((r) => r.column_name).sort();
 }

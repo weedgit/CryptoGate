@@ -44,7 +44,7 @@ function money(n) {
  *   subscription: string,
  *   volumeFee: string,
  *   total: string,
- *   status: "issued" | "paid" | "overdue" | "voided",
+ *   status: "issued" | "paid" | "overdue" | "waived" | "cancelled",
  *   dueAt: Date,
  *   paidAt: Date | null,
  *   createdAt: Date,

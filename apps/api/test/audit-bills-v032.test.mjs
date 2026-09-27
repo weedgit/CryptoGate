@@ -31,18 +31,33 @@ describe("service bill update rules (v0.3.2)", () => {
     assert.equal(bad.status, 422);
   });
 
-  it("void from issued only", () => {
-    const ok = validateUpdateServiceBillBody(
-      { action: ServiceBillUpdateAction.Void, reason: "duplicate" },
+  it("waive and cancel close draft / issued / overdue with a reason", () => {
+    for (const action of [ServiceBillUpdateAction.Waive, ServiceBillUpdateAction.Cancel]) {
+      for (const status of [
+        ServiceBillStatus.Draft,
+        ServiceBillStatus.Issued,
+        ServiceBillStatus.Overdue,
+      ]) {
+        const ok = validateUpdateServiceBillBody({ action, reason: "duplicate" }, status);
+        assert.equal(ok.ok, true);
+        assert.equal(ok.reason, "duplicate");
+      }
+      const noReason = validateUpdateServiceBillBody({ action }, ServiceBillStatus.Issued);
+      assert.equal(noReason.ok, false);
+      for (const status of [
+        ServiceBillStatus.Paid,
+        ServiceBillStatus.Waived,
+        ServiceBillStatus.Cancelled,
+      ]) {
+        const bad = validateUpdateServiceBillBody({ action, reason: "late" }, status);
+        assert.equal(bad.ok, false);
+      }
+    }
+    const legacyVoid = validateUpdateServiceBillBody(
+      { action: "void", reason: "duplicate" },
       ServiceBillStatus.Issued,
     );
-    assert.equal(ok.ok, true);
-
-    const bad = validateUpdateServiceBillBody(
-      { action: ServiceBillUpdateAction.Void, reason: "late" },
-      ServiceBillStatus.Overdue,
-    );
-    assert.equal(bad.ok, false);
+    assert.equal(legacyVoid.ok, false);
   });
 
   it("adjust applies signed delta and rejects negative total", () => {

@@ -79,7 +79,7 @@ erDiagram
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `service_bills` | Subscription + volume fee | `subscription_amount`, `volume_fee_amount`, `status`, `due_at`, `paid_at`, `voided_at`, `last_adjustment_reason`, `payment_reference` |
+| `service_bills` | Subscription + volume fee | `subscription_amount`, `volume_fee_amount`, `status`, `due_at`, `paid_at`, `waived_at`, `cancelled_at`, `close_reason`, `last_adjustment_reason`, `payment_reference` |
 
 ### Audit
 
@@ -119,7 +119,7 @@ erDiagram
 | `017_api_keys_mgmt.sql` | M4-11 | `label`, `last_used_at`, `expires_at` on `api_keys` |
 | `018_service_bill_lifecycle_audit.sql` | M4-36 | `paid_at`, `voided_at`, `last_adjustment_reason`, `payment_reference` on `service_bills`; audit action index |
 
-**Pending (X-01 / v0.3.3):** Andrew migration **019** — `platform_fee_tiers`, `merchant_commercial`, `enterprise_rate_approvals` (see [X-01-Fee-Tiers-v033.md](X-01-Fee-Tiers-v033.md)).
+**Pending (X-01 / v0.3.3):** Andrew migration **019** — `platform_fee_tiers`, `merchant_commercial`, `enterprise_rate_approvals` (see [X-01-Fee-Tiers-v033.md](X-01-Fee-Tiers-v033.md)). Migration **077** drops `enterprise_rate_approvals` and `merchant_commercial.enterprise_approval_status`.
 
 ---
 

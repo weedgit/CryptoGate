@@ -12,7 +12,7 @@ export const SERVICE_BILL_BUCKETS = Object.freeze([
   "draft",
   "activation",
   "paid",
-  "voided",
+  "waived",
   "cancelled",
   // Merchant portal: every bill still to pay (incl. drafts / activation), any overdue.
   "open",
@@ -32,7 +32,7 @@ export const SERVICE_BILL_SORTS = Object.freeze({
 });
 
 export const OPEN_ACTIVATION_SQL =
-  "(bill_kind = 'activation' AND status NOT IN ('paid', 'voided', 'cancelled'))";
+  "(bill_kind = 'activation' AND status NOT IN ('paid', 'waived', 'cancelled'))";
 
 /**
  * @param {string} bucket
@@ -55,7 +55,7 @@ export function bucketPredicateSql(bucket) {
     case "late":
       return "(status = 'overdue')";
     case "paid":
-    case "voided":
+    case "waived":
     case "cancelled":
       return `(status = '${bucket}')`;
     default:

@@ -37,6 +37,8 @@ Additive to v0.3.1. Signing, API keys, and payment-order paths unchanged.
 
 Platform Owner/Administrator only. Cashier **403**.
 
+> **Superseded by migration 078:** `void` / `voided` became `cancel` / `cancelled`, and a new `waive` action produces status `waived`. See [Service-Bill-Ops-Playbook.md](Service-Bill-Ops-Playbook.md#waive-vs-cancel). The table below is the original v0.3.2 contract.
+
 | `action` | From status | To | Body |
 | --- | --- | --- | --- |
 | `mark_paid` | `issued`, `overdue` | `paid` | optional `paymentReference` |

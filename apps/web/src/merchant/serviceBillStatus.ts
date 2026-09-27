@@ -4,7 +4,7 @@ export const SERVICE_BILL_STATUS_LABELS: Record<string, string> = {
   issued: "Issued",
   paid: "Paid",
   overdue: "Overdue",
-  voided: "Voided",
+  waived: "Waived",
   cancelled: "Cancelled",
 };
 
@@ -23,7 +23,7 @@ export function serviceBillStatusTone(status: string | null | undefined): string
       return "warn";
     case "overdue":
       return "anomaly";
-    case "voided":
+    case "waived":
     case "cancelled":
       return "muted";
     default:
@@ -68,6 +68,6 @@ export function isOpenActivationServiceBill(bill: {
 }): boolean {
   return (
     isActivationServiceBill(bill) &&
-    !["paid", "voided", "cancelled"].includes(bill.status)
+    !["paid", "waived", "cancelled"].includes(bill.status)
   );
 }

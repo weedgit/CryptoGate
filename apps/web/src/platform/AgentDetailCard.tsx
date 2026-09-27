@@ -110,7 +110,9 @@ const AUDIT_LABEL: Record<string, string> = {
   org_user_invite: "Team invite",
   service_bill_issue: "Service bill issued",
   service_bill_mark_paid: "Bill marked paid",
-  service_bill_void: "Bill voided",
+  service_bill_waive: "Bill waived",
+  service_bill_cancel: "Bill cancelled",
+  service_bill_void: "Bill cancelled",
   service_bill_adjust: "Bill adjusted",
 };
 

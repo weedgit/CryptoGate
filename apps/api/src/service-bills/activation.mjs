@@ -14,9 +14,18 @@ import {
   findActiveActivationBill,
   insertServiceBill,
   sendServiceBill,
+  waiveServiceBill,
 } from "./service-bill-store.mjs";
 import { listSettlementAddresses } from "../settlement/settlement-store.mjs";
-import { findMerchantCommercial } from "../commercial/merchant-commercial-store.mjs";
+import {
+  findMerchantCommercial,
+  setBillingAnchorFromActivationPaid,
+} from "../commercial/merchant-commercial-store.mjs";
+import {
+  deleteActivationWaiver,
+  findActivationWaiver,
+} from "./billing-waiver-store.mjs";
+import { activationWaiverCloseReason } from "./billing-waiver-rules.mjs";
 
 async function findOrgOwnerUser(orgId) {
   const team = await listMembershipsForOrg(orgId);
@@ -53,7 +62,9 @@ async function merchantSetupReadyForActivation(merchantOrgId) {
 
 /**
  * Create activation draft (or auto-send) when a merchant becomes setup-ready.
- * Idempotent: skips if an open activation bill already exists.
+ * Idempotent: returns the existing activation bill (open, paid or waived);
+ * does nothing once the merchant is activated. On the waive-activation list,
+ * the bill is saved as waived and the merchant is activated today.
  *
  * @param {string} merchantOrgId
  * @returns {Promise<object | null>}
@@ -66,28 +77,22 @@ export async function ensureActivationServiceBill(merchantOrgId) {
   const ready = await merchantSetupReadyForActivation(merchantOrgId);
   if (!ready) return null;
 
-  const commercial = await findMerchantCommercial(merchantOrgId);
-  if (commercial?.skip_activation) {
-    if (!commercial.billing_anchor_at) {
-      const { setBillingAnchorFromActivationPaid } = await import(
-        "../commercial/merchant-commercial-store.mjs"
-      );
-      await setBillingAnchorFromActivationPaid(merchantOrgId, new Date());
-    }
-    return null;
-  }
-
   const existing = await findActiveActivationBill(merchantOrgId);
   if (existing) return existing;
 
+  const commercial = await findMerchantCommercial(merchantOrgId);
+  if (commercial?.billing_anchor_at) return null;
+
+  const waiver = await findActivationWaiver(merchantOrgId);
   const calendar = await getBillingCalendarSettings();
   const fee = roundUsd(calendar.activationFeeUsd);
   const today = new Date().toISOString().slice(0, 10);
   const dueAt = merchantInvoiceDueAt(calendar.activationPayDays);
 
-  const initialStatus = calendar.autoSendInvoices
-    ? ServiceBillStatus.Issued
-    : ServiceBillStatus.Draft;
+  const initialStatus =
+    calendar.autoSendInvoices && !waiver
+      ? ServiceBillStatus.Issued
+      : ServiceBillStatus.Draft;
 
   const row = await insertServiceBill({
     orgId: merchantOrgId,
@@ -102,8 +107,21 @@ export async function ensureActivationServiceBill(merchantOrgId) {
     volumeFeePercent: "0",
     billedVolumeUsd: "0.00",
     billKind: ServiceBillKind.Activation,
-    sentAt: calendar.autoSendInvoices ? new Date().toISOString() : null,
+    sentAt: initialStatus === ServiceBillStatus.Issued ? new Date().toISOString() : null,
   });
+
+  if (waiver) {
+    const waived =
+      (await waiveServiceBill(row.id, activationWaiverCloseReason(waiver))) ?? row;
+    await setBillingAnchorFromActivationPaid(merchantOrgId, new Date());
+    await deleteActivationWaiver(merchantOrgId);
+    emitDashboardLive({
+      type: "service_bill.waived",
+      slices: ["serviceBills"],
+      orgId: merchantOrgId,
+    });
+    return waived;
+  }
 
   let finalRow = row;
   if (calendar.autoSendInvoices && row.status === ServiceBillStatus.Draft) {

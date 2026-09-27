@@ -15,7 +15,7 @@ export type ServiceBillBucket =
   | "draft"
   | "activation"
   | "paid"
-  | "voided"
+  | "waived"
   | "cancelled"
   /** Merchant portal: draft / issued / overdue (incl. activation). */
   | "open"

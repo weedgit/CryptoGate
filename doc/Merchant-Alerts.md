@@ -80,7 +80,6 @@ Same dock / drawer, fed into the shared platform store (`upsertPlatformAlert` / 
 | Payout wallet change pending (`agent:payout:cooldown:{orgId}`) | Agent | Wait |
 | Confirm commission receipt, 7+ days (`agent:commissions:stuck:{orgId}`) | Agent | Owner, Administrator |
 | Commissions awaiting agent confirm, 7+ days (`platform:commissions:stuck`) | Platform | Wait / follow up |
-| Enterprise rate needs review (`platform:enterprise:{approvalId}`) | Platform | Owner only |
 | API / database / webhook health (`sys-*`) | Platform, Agent | Owner, Administrator |
 
 Orphan orgs stay an inline notice on the Architecture page (needs the full org tree).

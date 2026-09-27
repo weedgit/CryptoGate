@@ -61,73 +61,26 @@ export function validateUpdateMerchantCommercialBody(body, currentTier) {
     volumeFeePercent: volumeFeePercent || null,
     rateMode,
     reason,
-    feeExemptUntil: flags.feeExemptUntil,
-    skipActivation: flags.skipActivation,
-    billingOpsNote: flags.billingOpsNote,
     serviceBillCreditUsd: flags.serviceBillCreditUsd,
     hasBillingFlags: flags.hasBillingFlags,
     flagsOnly,
   };
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT_RE = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;
 
 /**
+ * Waivers live on the Service Bills waive lists, not on commercial settings.
  * @param {object} body
  * @returns {{
  *   ok: true,
  *   hasBillingFlags: boolean,
- *   feeExemptUntil?: string | null,
- *   skipActivation?: boolean,
- *   billingOpsNote?: string | null,
  *   serviceBillCreditUsd?: string,
  * } | { ok: false, status: number, code: string, message: string }}
  */
 export function parseMerchantBillingFlagsBody(body) {
-  /** @type {{
-   *   ok: true,
-   *   hasBillingFlags: boolean,
-   *   feeExemptUntil?: string | null,
-   *   skipActivation?: boolean,
-   *   billingOpsNote?: string | null,
-   *   serviceBillCreditUsd?: string,
-   * }} */
+  /** @type {{ ok: true, hasBillingFlags: boolean, serviceBillCreditUsd?: string }} */
   const out = { ok: true, hasBillingFlags: false };
-  if (body.feeExemptUntil !== undefined) {
-    out.hasBillingFlags = true;
-    if (body.feeExemptUntil === null || body.feeExemptUntil === "") {
-      out.feeExemptUntil = null;
-    } else if (
-      typeof body.feeExemptUntil === "string" &&
-      DATE_RE.test(body.feeExemptUntil.trim())
-    ) {
-      out.feeExemptUntil = body.feeExemptUntil.trim();
-    } else {
-      return fail(400, "invalid_request", "feeExemptUntil must be YYYY-MM-DD or null");
-    }
-  }
-  if (body.skipActivation !== undefined) {
-    out.hasBillingFlags = true;
-    if (typeof body.skipActivation !== "boolean") {
-      return fail(400, "invalid_request", "skipActivation must be a boolean");
-    }
-    out.skipActivation = body.skipActivation;
-  }
-  if (body.billingOpsNote !== undefined) {
-    out.hasBillingFlags = true;
-    if (body.billingOpsNote === null) {
-      out.billingOpsNote = null;
-    } else if (typeof body.billingOpsNote === "string") {
-      const n = body.billingOpsNote.trim();
-      if (n.length > 1000) {
-        return fail(400, "invalid_request", "billingOpsNote max 1000 chars");
-      }
-      out.billingOpsNote = n || null;
-    } else {
-      return fail(400, "invalid_request", "billingOpsNote must be a string or null");
-    }
-  }
   if (body.serviceBillCreditUsd !== undefined) {
     out.hasBillingFlags = true;
     if (
@@ -149,16 +102,6 @@ export function parseMerchantBillingFlagsBody(body) {
  * @param {string} tier
  * @param {string} volumeFeePercent
  * @param {object} bandRow
- */
-export function commercialNeedsEnterpriseApproval(tier, volumeFeePercent, bandRow) {
-  if (tier !== MerchantTier.Enterprise) return false;
-  return !isPercentWithinBand(volumeFeePercent, bandRow);
-}
-
-/**
- * @param {string} tier
- * @param {string} volumeFeePercent
- * @param {object} bandRow
  * @param {"automatic" | "fixed"} [rateMode]
  */
 export function validateCommercialAgainstBand(
@@ -172,13 +115,11 @@ export function validateCommercialAgainstBand(
   }
   // Fixed Owner overrides may sit outside the published band.
   if (rateMode === "fixed") {
-    return { ok: true, needsApproval: false };
+    return { ok: true };
   }
+  // Enterprise bands are custom; the Owner sets a Fixed rate when needed.
   if (tier === MerchantTier.Enterprise) {
-    return {
-      ok: true,
-      needsApproval: !isPercentWithinBand(volumeFeePercent, bandRow),
-    };
+    return { ok: true };
   }
   if (!isPercentWithinBand(volumeFeePercent, bandRow)) {
     return fail(
@@ -187,15 +128,15 @@ export function validateCommercialAgainstBand(
       "volumeFeePercent must fall within the platform band for this tier",
     );
   }
-  return { ok: true, needsApproval: false };
+  return { ok: true };
 }
 
 /**
  * @param {object} row
  * @param {object} bandRow
- * @param {string | null} pendingApprovalStatus
+ * @param {{ waivedMonthsLeft: number | null, activationWaived: boolean }} [waivers]
  */
-export function toMerchantCommercialSettings(row, bandRow, pendingApprovalStatus = null) {
+export function toMerchantCommercialSettings(row, bandRow, waivers) {
   const effectiveFrom =
     row.effective_from instanceof Date
       ? row.effective_from.toISOString().slice(0, 10)
@@ -210,7 +151,6 @@ export function toMerchantCommercialSettings(row, bandRow, pendingApprovalStatus
     bandMinPercent: bandRow.volume_fee_min_percent,
     bandMaxPercent: bandRow.volume_fee_max_percent,
     effectiveFrom,
-    skipActivation: Boolean(row.skip_activation),
     serviceBillCreditUsd: String(row.service_bill_credit_usd ?? "0.00"),
     billingAnchorAt: row.billing_anchor_at
       ? row.billing_anchor_at instanceof Date
@@ -222,27 +162,11 @@ export function toMerchantCommercialSettings(row, bandRow, pendingApprovalStatus
         ? row.next_invoice_on.toISOString().slice(0, 10)
         : String(row.next_invoice_on).slice(0, 10)
       : null,
+    waivedMonthsLeft: waivers?.waivedMonthsLeft ?? null,
+    activationWaived: waivers?.activationWaived ?? false,
   };
-  if (row.fee_exempt_until) {
-    out.feeExemptUntil =
-      row.fee_exempt_until instanceof Date
-        ? row.fee_exempt_until.toISOString().slice(0, 10)
-        : String(row.fee_exempt_until).slice(0, 10);
-  } else {
-    out.feeExemptUntil = null;
-  }
-  if (row.billing_ops_note) {
-    out.billingOpsNote = String(row.billing_ops_note);
-  } else {
-    out.billingOpsNote = null;
-  }
   if (row.pending_volume_fee_percent) {
     out.pendingVolumeFeePercent = row.pending_volume_fee_percent;
-  }
-  if (pendingApprovalStatus) {
-    out.enterpriseApprovalStatus = pendingApprovalStatus;
-  } else if (row.enterprise_approval_status) {
-    out.enterpriseApprovalStatus = row.enterprise_approval_status;
   }
   return out;
 }

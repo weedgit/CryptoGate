@@ -19,7 +19,7 @@ import {
 } from "./api";
 import { getDashboardReports, type DashboardReports } from "../shared/dashboardApi";
 import { listSettlement } from "../merchant/api";
-import { tierLabel } from "../commercialLabels";
+import { billingScheduleSummary, tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import type { OrgPrimaryOwnerContact } from "../platform/api";
 import { PlatformPending } from "../platform/ui/PlatformPending";
@@ -51,7 +51,8 @@ const STATUS_LABEL: Record<string, string> = {
   issued: "Issued",
   paid: "Paid",
   overdue: "Overdue",
-  voided: "Voided",
+  waived: "Waived",
+  cancelled: "Cancelled",
 };
 
 const AUDIT_LABEL: Record<string, string> = {
@@ -61,7 +62,9 @@ const AUDIT_LABEL: Record<string, string> = {
   org_user_invite: "Team invite",
   service_bill_issue: "Service bill issued",
   service_bill_mark_paid: "Bill marked paid",
-  service_bill_void: "Bill voided",
+  service_bill_waive: "Bill waived",
+  service_bill_cancel: "Bill cancelled",
+  service_bill_void: "Bill cancelled",
   service_bill_adjust: "Bill adjusted",
 };
 
@@ -608,9 +611,6 @@ export function MerchantDetailCard({
                         {commercial.nextInvoiceOn
                           ? ` · Next invoice ${commercial.nextInvoiceOn}`
                           : null}
-                        {commercial.enterpriseApprovalStatus === "pending" ? (
-                          <> · Enterprise rate pending approval</>
-                        ) : null}
                       </p>
                     ) : null}
                   </div>
@@ -863,20 +863,7 @@ export function MerchantDetailCard({
                   <div className="b3-profile__field">
                     <p className="b3-profile__label">Billing schedule</p>
                     <p className="b3-profile__value">
-                      {[
-                        commercial.skipActivation ? "Skip activation" : null,
-                        commercial.feeExemptUntil
-                          ? `Exempt until ${commercial.feeExemptUntil}`
-                          : null,
-                        commercial.billingAnchorAt
-                          ? `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`
-                          : "Not activated",
-                        commercial.nextInvoiceOn
-                          ? `Next invoice ${commercial.nextInvoiceOn}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {billingScheduleSummary(commercial)}
                     </p>
                   </div>
                 </div>

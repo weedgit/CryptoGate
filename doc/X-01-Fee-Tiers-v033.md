@@ -6,6 +6,8 @@
 
 Additive to v0.3.2. Payment-order and signing paths unchanged.
 
+> **Removed (migration 077):** there is no Enterprise rate request / approval queue. Merchant fees are **Automatic** (volume schedule) or **Fixed** (set by Platform Owner) only — see [Business-Model.md](Business-Model.md).
+
 ---
 
 ## 1. Global tier bands — `/platform/settings/fee-tiers`
@@ -57,7 +59,7 @@ Additive to v0.3.2. Payment-order and signing paths unchanged.
 **Validation**
 
 - `volumeFeePercent` must fall within global band for tier (from fee-tiers GET).
-- **Enterprise** rate outside band or tier `enterprise` with custom rate → create **pending approval** (§4) instead of immediate apply.
+- **Enterprise** band is custom; out-of-band rates are set by the Platform Owner as **Fixed** (no approval queue).
 - Cashier **403**. Merchant roles **403** on PUT (read via GET only).
 - Scheduled changes: expose `pendingVolumeFeePercent` + `effectiveFrom`; audit `merchant_commercial_put`.
 
@@ -65,15 +67,9 @@ Additive to v0.3.2. Payment-order and signing paths unchanged.
 
 ---
 
-## 4. Enterprise approvals — `/platform/enterprise-rate-approvals`
+## 4. Enterprise approvals — removed
 
-| Method | Access |
-| --- | --- |
-| `GET` | Platform O·A·V; filter `status` |
-| `PATCH …/{approvalId}` | **Platform Owner only** — `decision`: `approve` \| `deny`; `reason` required on deny |
-
-On **approve:** apply requested tier/rate to merchant commercial (next period).  
-Audit: `enterprise_rate_decide`.
+The `/platform/enterprise-rate-approvals` endpoints, the `enterprise_rate_approvals` table, `merchant_commercial.enterprise_approval_status`, and audit action `enterprise_rate_decide` were removed (migration **077**). Nobody requests a rate in-product.
 
 ---
 
@@ -83,7 +79,6 @@ Audit: `enterprise_rate_decide`.
 | --- | --- |
 | `platform_fee_tiers` | One row per tier; JSON or columns for band fields |
 | `merchant_commercial` | `org_id`, `tier`, `volume_fee_percent`, `pending_*`, `effective_from` |
-| `enterprise_rate_approvals` | Queue for Platform Owner |
 | Optional: seed `platform_fee_tiers` from `DEFAULT_FEE_TIER_BANDS` on migrate |
 
 Service bill issue may read `subscriptionAmountUsd` + confirmed volume × `volumeFeePercent` — out of scope for this contract PR; issue path unchanged in v0.3.3.
@@ -98,7 +93,6 @@ Service bill issue may read `subscriptionAmountUsd` + confirmed volume × `volum
 | B13 Org policy | GET/PUT `/platform/settings/org-policy` |
 | B4/C6 commercial step | GET fee tiers + POST `/orgs` with `commercial` |
 | C8 Volume fee modal | GET commercial + PUT `/orgs/{id}/commercial` |
-| B8 Enterprise table | GET/PATCH enterprise-rate-approvals |
 
 Remove `MERCHANT_TIER_LABELS`-only stubs once routes land.
 

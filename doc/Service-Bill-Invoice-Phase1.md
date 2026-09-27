@@ -70,7 +70,7 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 - `payTo` from platform billing settings (B11-lite), else `PLATFORM_BILLING_PAY_TO`
 - On the invoice face when payable (`issued` | `overdue`): receive address, network, asset, amount, pay QR, checkout link (open + copy)
 - When `paid`: receipt with tx hash + explorer link/QR — no pay QR / checkout CTA
-- When `voided` | `cancelled`: stamp + reason + address + amount (audit) — no pay QR / checkout CTA
+- When `waived` | `cancelled`: stamp + reason + address + amount (audit) — no pay QR / checkout CTA
 - No separate pay/preview card beside the invoice; Print opens the browser print dialog (Chrome preview)
 
 **Receipt (when paid)**
@@ -88,7 +88,7 @@ generate / issue ──► persist snapshot ──► GET bill ──► Invoice
 - One-liner: “Completed payment-order volume in period”
 - Print control → browser Print → PDF
 - Keep B10 timeline / platform actions in ops sidebar (not duplicated inside print body)
-- Hide Platform actions when status is paid / voided / cancelled
+- Hide Platform actions when status is paid / waived / cancelled
 
 ### Won’t (Phase 1)
 
@@ -133,7 +133,7 @@ node scripts/backfill-service-bill-invoice-snapshots.mjs --dry-run
 node scripts/backfill-service-bill-invoice-snapshots.mjs
 ```
 
-Requires migrate through `037+` and `DATABASE_URL`. Skips voided bills and rows already fully snapped.
+Requires migrate through `037+` and `DATABASE_URL`. Skips cancelled bills and rows already fully snapped.
 
 ### Seller / payTo (B11-lite)
 

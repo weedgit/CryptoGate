@@ -101,11 +101,6 @@ export function MerchantBillingPlanCard({ session }: Props) {
           ) : null}
         </article>
       </div>
-      {commercial?.enterpriseApprovalStatus === "pending" ? (
-        <p className="plat-bills__plan-notice" role="status">
-          Custom Enterprise rate awaits platform Owner review.
-        </p>
-      ) : null}
       {commercial?.nextInvoiceOn ? (
         <p className="plat-bills__plan-hint" style={{ marginTop: "0.75rem" }}>
           Next subscription invoice on <strong>{commercial.nextInvoiceOn}</strong>

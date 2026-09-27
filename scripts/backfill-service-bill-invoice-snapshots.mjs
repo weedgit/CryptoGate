@@ -60,7 +60,7 @@ async function main() {
   const { rows } = await pool.query(
     `SELECT id, org_id, period_start, period_end, tier, volume_fee_percent, billed_volume_usd, status
      FROM service_bills
-     WHERE status <> 'voided'
+     WHERE status <> 'cancelled'
        AND (
          tier IS NULL
          OR volume_fee_percent IS NULL

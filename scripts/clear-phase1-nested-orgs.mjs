@@ -81,10 +81,6 @@ async function purgeOrgIds(client, orgIds) {
     [orgIds],
   );
   await client.query(
-    `DELETE FROM enterprise_rate_approvals WHERE org_id = ANY($1::uuid[])`,
-    [orgIds],
-  );
-  await client.query(
     `DELETE FROM notification_preferences WHERE org_id = ANY($1::uuid[])`,
     [orgIds],
   );

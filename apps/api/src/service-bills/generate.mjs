@@ -1,10 +1,7 @@
 import { ServiceBillKind, ServiceBillStatus } from "@paymentgate/domain";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
-import {
-  findMerchantCommercial,
-  consumeMerchantServiceBillCredit,
-} from "../commercial/merchant-commercial-store.mjs";
+import { consumeMerchantServiceBillCredit } from "../commercial/merchant-commercial-store.mjs";
 import { resolveMerchantRatesForBilling } from "../platform-settings/pricing-resolve.mjs";
 import { getBillingCalendarSettings } from "../platform-settings/billing-calendar-store.mjs";
 import { merchantInvoiceDueAt } from "../platform-settings/billing-calendar-rules.mjs";
@@ -23,6 +20,8 @@ import {
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
+import { findFeeWaiver } from "./billing-waiver-store.mjs";
+import { closeMonthlyBillAsWaived } from "./billing-waivers.mjs";
 
 /**
  * Draft (or auto-send) one service bill per active merchant for the period.
@@ -66,18 +65,6 @@ export async function generateServiceBillsForPeriod(input = {}) {
       continue;
     }
 
-    const commercialRow = await findMerchantCommercial(merchant.id);
-    if (commercialRow?.fee_exempt_until) {
-      const until =
-        commercialRow.fee_exempt_until instanceof Date
-          ? commercialRow.fee_exempt_until.toISOString().slice(0, 10)
-          : String(commercialRow.fee_exempt_until).slice(0, 10);
-      if (until >= periodEnd) {
-        skipped.push({ orgId: merchant.id, reason: "fee_exempt" });
-        continue;
-      }
-    }
-
     const subtree = await listOrgsInSubtree([merchant.id]);
     const volumeOrgIds = subtree
       .filter((r) => r.type === "merchant" || r.type === "merchant_site")
@@ -105,12 +92,16 @@ export async function generateServiceBillsForPeriod(input = {}) {
     const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
     let totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
 
-    const credit = await consumeMerchantServiceBillCredit(merchant.id, totalAmount);
-    totalAmount = credit.newTotal;
-    const creditAppliedUsd =
-      credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+    const waiver = await findFeeWaiver(merchant.id);
+    let creditAppliedUsd = null;
+    if (!waiver) {
+      const credit = await consumeMerchantServiceBillCredit(merchant.id, totalAmount);
+      totalAmount = credit.newTotal;
+      creditAppliedUsd = credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+    }
+    const autoSend = calendar.autoSendInvoices && !waiver;
 
-    const initialStatus = calendar.autoSendInvoices
+    const initialStatus = autoSend
       ? ServiceBillStatus.Issued
       : ServiceBillStatus.Draft;
 
@@ -127,8 +118,13 @@ export async function generateServiceBillsForPeriod(input = {}) {
       volumeFeePercent: String(resolved.volumeFeePercent),
       billedVolumeUsd,
       billKind: ServiceBillKind.Monthly,
-      sentAt: calendar.autoSendInvoices ? new Date().toISOString() : null,
+      sentAt: autoSend ? new Date().toISOString() : null,
     });
+
+    if (waiver) {
+      issued.push(await closeMonthlyBillAsWaived(row, waiver));
+      continue;
+    }
 
     if (creditAppliedUsd) {
       row =
@@ -142,13 +138,13 @@ export async function generateServiceBillsForPeriod(input = {}) {
         })) ?? row;
     }
 
-    if (calendar.autoSendInvoices && row.status === ServiceBillStatus.Draft) {
+    if (autoSend && row.status === ServiceBillStatus.Draft) {
       row = (await sendServiceBill(row.id, dueAt)) ?? row;
     }
 
     issued.push(row);
     emitDashboardLive({
-      type: calendar.autoSendInvoices
+      type: autoSend
         ? "service_bill.issued"
         : "service_bill.draft",
       slices: ["serviceBills"],

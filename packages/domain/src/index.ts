@@ -919,7 +919,9 @@ export const ServiceBillStatus = {
   Issued: "issued",
   Paid: "paid",
   Overdue: "overdue",
-  Voided: "voided",
+  /** Closed on purpose (waive list or Waive action): $0 collected, no commission. */
+  Waived: "waived",
+  /** Wrong bill, closed; money still owed goes on a new bill. */
   Cancelled: "cancelled",
 } as const;
 
@@ -987,8 +989,12 @@ export type ServiceBill = {
   billKind?: ServiceBillKind | null;
   /** When draft was sent to the merchant. */
   sentAt?: string | null;
-  /** When cancelled (unpaid). */
+  /** When cancelled (wrong bill). */
   cancelledAt?: string | null;
+  /** When waived. */
+  waivedAt?: string | null;
+  /** Why the bill was waived or cancelled. */
+  closeReason?: string | null;
   /** Ops note (waiver / special-case reason). */
   opsNote?: string | null;
   /** Credit from merchant balance applied on this bill. */
@@ -1001,8 +1007,6 @@ export type ServiceBill = {
   billedVolumeUsd?: string | null;
   /** Set when status becomes paid (v0.3.2). */
   paidAt?: string | null;
-  /** Set when status becomes voided (v0.3.2). */
-  voidedAt?: string | null;
   /** Last platform adjustment note (v0.3.2). */
   lastAdjustmentReason?: string | null;
   /** Last signed USD adjustment delta applied to total. */
@@ -1020,9 +1024,9 @@ export type ServiceBill = {
 /** Platform-only service bill lifecycle updates (v0.3.2). */
 export const ServiceBillUpdateAction = {
   Send: "send",
+  Waive: "waive",
   Cancel: "cancel",
   MarkPaid: "mark_paid",
-  Void: "void",
   Adjust: "adjust",
   GrantCredit: "grant_credit",
 } as const;
@@ -1057,13 +1061,15 @@ export const AuditAction = {
   WebhookRotateSecret: "webhook_rotate_secret",
   ServiceBillIssue: "service_bill_issue",
   ServiceBillSend: "service_bill_send",
+  ServiceBillWaive: "service_bill_waive",
   ServiceBillCancel: "service_bill_cancel",
   ServiceBillMarkPaid: "service_bill_mark_paid",
-  ServiceBillVoid: "service_bill_void",
   ServiceBillAdjust: "service_bill_adjust",
   ServiceBillGrantCredit: "service_bill_grant_credit",
   ServiceBillDailyAuto: "service_bill_daily_auto",
   BillingCalendarPut: "billing_calendar_put",
+  BillingWaiverPut: "billing_waiver_put",
+  BillingWaiverDelete: "billing_waiver_delete",
   ApiKeyCreate: "api_key_create",
   ApiKeyRevoke: "api_key_revoke",
   ApiKeyRotate: "api_key_rotate",
@@ -1072,7 +1078,6 @@ export const AuditAction = {
   OrgPolicyPut: "org_policy_put",
   BillingWalletPut: "billing_wallet_put",
   MerchantCommercialPut: "merchant_commercial_put",
-  EnterpriseRateDecide: "enterprise_rate_decide",
   ComplianceOverride: "compliance_override",
   SiteOverrideRequest: "site_override_request",
   SiteOverrideDecide: "site_override_decide",

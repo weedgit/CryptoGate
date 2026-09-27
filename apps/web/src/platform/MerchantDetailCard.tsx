@@ -47,7 +47,12 @@ import {
   mergeActivityFeed,
   RECENT_ACTIVITY_LIMIT,
 } from "./orgDetailSeeds";
-import { tierLabel } from "../commercialLabels";
+import {
+  billingScheduleParts,
+  billingScheduleSummary,
+  tierLabel,
+  waivedMonthsLabel,
+} from "../commercialLabels";
 import type { MerchantTier } from "../commercialLabels";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "./org";
 import { OrgTeamRoster } from "./OrgTeamRoster";
@@ -123,8 +128,12 @@ const AUDIT_LABEL: Record<string, string> = {
   org_user_invite: "Team invite",
   service_bill_issue: "Service bill issued",
   service_bill_mark_paid: "Bill marked paid",
-  service_bill_void: "Bill voided",
+  service_bill_waive: "Bill waived",
+  service_bill_cancel: "Bill cancelled",
+  service_bill_void: "Bill cancelled",
   service_bill_adjust: "Bill adjusted",
+  billing_waiver_put: "Billing waiver set",
+  billing_waiver_delete: "Billing waiver removed",
   compliance_override: "Compliance override",
 };
 
@@ -202,11 +211,6 @@ type MerchantEditSave = {
     matchingMode: string;
     pricingMode: string;
     publicKey?: string;
-    billingSchedule?: {
-      skipActivation: boolean;
-      feeExemptUntil: string;
-      billingOpsNote: string;
-    };
   };
 };
 
@@ -569,31 +573,17 @@ export function MerchantDetailCard({
           (next.merchant.rateMode === "fixed" &&
             (next.merchant.tier !== commercial.tier ||
               next.merchant.volumeFeePercent !== commercial.volumeFeePercent));
-        const schedule = next.merchant.billingSchedule;
-        const scheduleChanged =
-          schedule != null &&
-          (Boolean(schedule.skipActivation) !== Boolean(commercial.skipActivation) ||
-            (schedule.feeExemptUntil || "") !== (commercial.feeExemptUntil ?? "") ||
-            (schedule.billingOpsNote || "") !== (commercial.billingOpsNote ?? ""));
-        if (commercialChanged || scheduleChanged) {
-          const saved = await updateMerchantCommercial(org.id, {
-            ...(commercialChanged
-              ? next.merchant.rateMode === "automatic"
-                ? { rateMode: "automatic" as const }
-                : {
-                    tier: next.merchant.tier,
-                    volumeFeePercent: next.merchant.volumeFeePercent,
-                    rateMode: "fixed" as const,
-                  }
-              : {}),
-            ...(scheduleChanged && schedule
-              ? {
-                  skipActivation: schedule.skipActivation,
-                  feeExemptUntil: schedule.feeExemptUntil.trim() || null,
-                  billingOpsNote: schedule.billingOpsNote.trim() || null,
-                }
-              : {}),
-          });
+        if (commercialChanged) {
+          const saved = await updateMerchantCommercial(
+            org.id,
+            next.merchant.rateMode === "automatic"
+              ? { rateMode: "automatic" }
+              : {
+                  tier: next.merchant.tier,
+                  volumeFeePercent: next.merchant.volumeFeePercent,
+                  rateMode: "fixed",
+                },
+          );
           setCommercial(saved);
         }
         if (next.merchant.matchingMode !== matchingMode) {
@@ -760,14 +750,7 @@ export function MerchantDetailCard({
                 pricingMode,
                 publicKey: savedPublicKey,
                 billingSchedule: canEditCommercial
-                  ? {
-                      statusLabel: commercial.billingAnchorAt
-                        ? `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`
-                        : `Not activated · $${activationFeeUsd}`,
-                      skipActivation: Boolean(commercial.skipActivation),
-                      feeExemptUntil: commercial.feeExemptUntil ?? "",
-                      billingOpsNote: commercial.billingOpsNote ?? "",
-                    }
+                  ? { statusLabel: billingScheduleSummary(commercial, activationFeeUsd) }
                   : undefined,
               }
             : null
@@ -940,21 +923,18 @@ export function MerchantDetailCard({
                         {!commercial ? (
                           "…"
                         ) : commercial.billingAnchorAt ? (
-                          [
-                            `Activated ${String(commercial.billingAnchorAt).slice(0, 10)}`,
-                            commercial.nextInvoiceOn
-                              ? `Next invoice ${commercial.nextInvoiceOn}`
-                              : null,
-                            commercial.feeExemptUntil
-                              ? `Exempt until ${commercial.feeExemptUntil}`
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")
+                          billingScheduleParts(commercial).join(" · ")
                         ) : (
                           <>
                             Not activated ·{" "}
-                            <FundAmount amount={activationFeeUsd} />
+                            {commercial.activationWaived ? (
+                              "Activation waived"
+                            ) : (
+                              <FundAmount amount={activationFeeUsd} />
+                            )}
+                            {commercial.waivedMonthsLeft
+                              ? ` · ${waivedMonthsLabel(commercial.waivedMonthsLeft)}`
+                              : null}
                           </>
                         )}
                       </p>

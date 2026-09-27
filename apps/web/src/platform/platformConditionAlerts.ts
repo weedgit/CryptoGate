@@ -1,14 +1,9 @@
 import { getCommissionPayoutsSummary } from "../shared/commissionsServer";
 import { createConditionAlertGroup } from "../shared/conditionAlerts";
-import { formatShortTime } from "../merchant/orderStatus";
 import { platformRoute } from "../shared/portalRouting";
 import type { AlertItem } from "./ui/AlertsDrawer";
-import {
-  listEnterpriseRateApprovals,
-  type EnterpriseRateApproval,
-  type Session,
-} from "./api";
-import { sessionIsPlatformOwner, sessionIsPlatformStaff } from "./org";
+import type { Session } from "./api";
+import { sessionIsPlatformStaff } from "./org";
 
 const publish = createConditionAlertGroup();
 
@@ -36,36 +31,14 @@ function stuckCommissionsAlert(count: number): AlertItem {
   };
 }
 
-function enterpriseReviewAlert(row: EnterpriseRateApproval): AlertItem {
-  const name = row.merchantName?.trim() || "A merchant";
-  return {
-    id: `platform:enterprise:${row.id}`,
-    category: "billing",
-    title: "Enterprise rate needs review",
-    body: `${name} requested Enterprise at ${row.requestedVolumeFeePercent}% volume fee. Only the platform Owner can approve or deny.`,
-    at: formatShortTime(row.createdAt),
-    href: platformRoute(`accounts/${encodeURIComponent(row.orgId)}`),
-    hrefLabel: "Open merchant",
-    tone: "warn",
-    urgent: true,
-    unresolved: true,
-    actionable: true,
-  };
-}
-
-/** Recompute platform condition alerts (stuck commissions, Enterprise reviews for Owner). */
+/** Recompute platform condition alerts (stuck commissions). */
 export async function refreshPlatformConditionAlerts(session: Session): Promise<void> {
   if (!sessionIsPlatformStaff(session)) {
     publish([]);
     return;
   }
-  const owner = sessionIsPlatformOwner(session);
-  const [summary, approvals] = await Promise.all([
-    getCommissionPayoutsSummary().catch(() => null),
-    owner ? listEnterpriseRateApprovals("pending").catch(() => []) : Promise.resolve([]),
-  ]);
+  const summary = await getCommissionPayoutsSummary().catch(() => null);
   const items: AlertItem[] = [];
   if (summary && summary.stuckPaid > 0) items.push(stuckCommissionsAlert(summary.stuckPaid));
-  for (const row of approvals) items.push(enterpriseReviewAlert(row));
   publish(items);
 }

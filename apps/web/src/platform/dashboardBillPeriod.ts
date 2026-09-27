@@ -37,7 +37,7 @@ export function serviceBillInPeriod(
   return false;
 }
 
-/** Platform fees billed in period (subscription + volume; void excluded). */
+/** Platform fees billed in period (subscription + volume; waived / cancelled excluded). */
 export function feeAccruedFromBills(
   bills: ServiceBill[],
   from: Date,
@@ -45,7 +45,7 @@ export function feeAccruedFromBills(
 ): number {
   let total = 0;
   for (const bill of bills) {
-    if (bill.status === "void") continue;
+    if (bill.status === "waived" || bill.status === "cancelled") continue;
     if (!serviceBillInPeriod(bill, from, to)) continue;
     total += platformFeeFromBill(bill);
   }
@@ -78,7 +78,7 @@ export function invoiceStatsFromBills(
   let paid = 0;
   let overdue = 0;
   for (const bill of bills) {
-    if (bill.status === "void") continue;
+    if (bill.status === "waived" || bill.status === "cancelled") continue;
     if (serviceBillInPeriod(bill, from, to)) issued += 1;
     if (bill.status === "paid" && inWindow(bill.paidAt ?? bill.dueAt, from, to)) {
       paid += 1;

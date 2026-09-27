@@ -107,9 +107,6 @@ async function purgeOrgOperationalData(orgId, client) {
      WHERE site_org_id = $1 OR parent_org_id = $1`,
     [orgId],
   );
-  await client.query(`DELETE FROM enterprise_rate_approvals WHERE org_id = $1`, [
-    orgId,
-  ]);
   await client.query(`DELETE FROM notification_preferences WHERE org_id = $1`, [
     orgId,
   ]);

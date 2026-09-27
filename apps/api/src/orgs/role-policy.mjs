@@ -549,11 +549,24 @@ export function canGenerateServiceBills(caller) {
 }
 
 /**
- * Platform Owner/Admin may PATCH service bills (mark paid / void / adjust).
+ * Platform Owner/Admin may PATCH service bills (mark paid / waive / cancel / adjust).
  * @param {{ platformOperator: boolean }} caller
  */
 export function canUpdateServiceBill(caller) {
   return caller.platformOperator === true;
+}
+
+/**
+ * Waive platform fee / waive activation lists — Platform Owner/Admin; Viewer reads.
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canManageBillingWaivers(caller) {
+  return caller.platformOperator === true;
+}
+
+/** Waive lists are platform-internal: platform staff read, merchants/agents never. */
+export function canReadBillingWaivers(caller) {
+  return platformHasGlobalRead(caller);
 }
 
 /**
@@ -636,7 +649,7 @@ export function canViewServiceBill(caller, org, visibleOrgIds) {
   return false;
 }
 
-/** Platform Owner only — fee tiers, org policy, enterprise approve/deny. */
+/** Platform Owner only — fee tiers, org policy, Fixed rates. */
 export function canUpdatePlatformOwnerSettings(caller) {
   return caller.platformOwner === true;
 }
@@ -678,12 +691,6 @@ export function canListOrgMemberEmailsBulk(caller) {
 /** @deprecated Use canListOrgMemberEmailsBulk */
 export function canListPlatformOrgMemberEmails(caller) {
   return canListOrgMemberEmailsBulk(caller);
-}
-
-export function canListEnterpriseApprovals(caller) {
-  return caller.memberships.some(
-    (m) => m.orgType === "platform" && ORDER_READ_ROLES.has(m.role),
-  );
 }
 
 /**

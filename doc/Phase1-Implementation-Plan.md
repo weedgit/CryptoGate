@@ -70,7 +70,7 @@ Source: [Design System canvas](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA8
 | 1.3 | `GET/PUT /platform/settings/fee-tiers` | Platform Owner PUT; audit `fee_tier_put` |
 | 1.4 | `GET/PUT /platform/settings/org-policy` | `max_agent_depth` on platform org row |
 | 1.5 | `GET/PUT /orgs/{orgId}/commercial` | Agent/platform assign within band |
-| 1.6 | Enterprise approval queue + PATCH decide | Platform Owner only |
+| 1.6 | ~~Enterprise approval queue + PATCH decide~~ | Removed — Owner sets Fixed rates (migration 077) |
 | 1.7 | `POST /orgs` accepts `commercial` for merchant create | Wire agent C6 wizard |
 | 1.8 | Tests: rules, authz, band validation, 403 Cashier | `apps/api/test/` |
 | 1.9 | Update [M4-35-Database-Schema.md](M4-35-Database-Schema.md) for **019** | |
@@ -88,7 +88,7 @@ Source: [Design System canvas](https://www.figma.com/design/VjnnzGqWIo1q2aLRLdA8
 | 2.1 | Fee tiers settings page (B8) | `/platform/settings/fee-tiers` → `PlatformApp.tsx` |
 | 2.2 | Global org policy (B13) | `/platform/settings` or `/platform/settings/org-policy` |
 | 2.3 | Wire onboard wizards to API | `OnboardAgentPage`, `OnboardMerchantPage` |
-| 2.4 | Enterprise approval table (B8 sub-table) | platform settings |
+| 2.4 | ~~Enterprise approval table (B8 sub-table)~~ | Removed — no rate requests |
 | 2.5 | Service bill PATCH UI (B9/B10) | already on API v0.3.2 — wire forms |
 | 2.6 | Audit log filters polish (B14) | `AuditLogPage.tsx` |
 | 2.7 | `GET /orgs/{orgId}/users` list + team settings | [UI spec](UI-Page-Spec.md) team pages |

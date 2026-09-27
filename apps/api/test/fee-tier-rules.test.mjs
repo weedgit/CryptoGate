@@ -159,7 +159,7 @@ describe("merchant commercial rules (X-01)", () => {
     assert.equal(result.code, "rate_outside_band");
   });
 
-  it("enterprise outside band queues approval", () => {
+  it("enterprise accepts a custom rate outside the band (no approval queue)", () => {
     const band = {
       subscription_amount_usd: "0.00",
       volume_fee_min_percent: "0.5",
@@ -171,7 +171,7 @@ describe("merchant commercial rules (X-01)", () => {
       band,
     );
     assert.equal(result.ok, true);
-    assert.equal(result.needsApproval, true);
+    assert.equal("needsApproval" in result, false);
   });
 
   it("validates update body", () => {

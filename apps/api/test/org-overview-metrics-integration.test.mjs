@@ -107,7 +107,7 @@ describePg("org overview metrics (Postgres integration)", () => {
     await order(ids.m2, "confirmed", "10", thisMonth);
 
     await bill(ids.m1, ymd(monthStart), ymd(monthEnd), "20", "5", "issued", thisMonth);
-    await bill(ids.m2, ymd(monthStart), ymd(monthEnd), "30", "0", "voided", thisMonth);
+    await bill(ids.m2, ymd(monthStart), ymd(monthEnd), "30", "0", "waived", thisMonth);
     await bill(ids.m2, ymd(new Date(lastMonth)), ymd(new Date(lastMonth)), "70", "0", "issued", thisMonth);
 
     ({ server, base } = await startTestServer());

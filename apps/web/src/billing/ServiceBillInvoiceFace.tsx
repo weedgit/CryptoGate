@@ -33,7 +33,9 @@ export type InvoiceBill = {
   volumeFeePercent?: string | null;
   billedVolumeUsd?: string | null;
   paidAt?: string | null;
-  voidedAt?: string | null;
+  cancelledAt?: string | null;
+  waivedAt?: string | null;
+  closeReason?: string | null;
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
@@ -107,12 +109,11 @@ function isPayable(status: string): boolean {
 }
 
 function isClosed(status: string): boolean {
-  return status === "voided" || status === "cancelled";
+  return status === "waived" || status === "cancelled";
 }
 
 function closedStamp(status: string): string {
-  if (status === "cancelled") return "CANCELLED";
-  return "VOIDED";
+  return status === "waived" ? "WAIVED" : "CANCELLED";
 }
 
 export function platformInvoiceSeller(): InvoiceSeller {
@@ -272,6 +273,7 @@ export function ServiceBillInvoiceFace({
     ? explorerTxUrl(SERVICE_BILL_NETWORK, txHash)
     : null;
   const closedReason =
+    bill.closeReason?.trim() ||
     bill.lastAdjustmentReason?.trim() ||
     bill.opsNote?.trim() ||
     null;

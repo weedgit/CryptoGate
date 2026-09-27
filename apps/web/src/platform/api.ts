@@ -87,14 +87,15 @@ export type ServiceBill = {
   dueAt: string;
   billKind?: string | null;
   sentAt?: string | null;
-  cancelledAt?: string | null;
   opsNote?: string | null;
   creditAppliedUsd?: string | null;
   tier?: string | null;
   volumeFeePercent?: string | null;
   billedVolumeUsd?: string | null;
   paidAt?: string | null;
-  voidedAt?: string | null;
+  cancelledAt?: string | null;
+  waivedAt?: string | null;
+  closeReason?: string | null;
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
@@ -218,9 +219,9 @@ export {
 
 export type ServiceBillUpdateAction =
   | "send"
+  | "waive"
   | "cancel"
   | "mark_paid"
-  | "void"
   | "adjust"
   | "grant_credit";
 
@@ -556,6 +557,92 @@ export async function createOrg(body: {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
+}
+
+export type FeeWaiver = {
+  orgId: string;
+  orgName: string | null;
+  monthsLeft: number;
+  monthsGranted: number;
+  monthsUsed: number;
+  reason: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type ActivationWaiver = {
+  orgId: string;
+  orgName: string | null;
+  reason: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type BillingWaivers = { fee: FeeWaiver[]; activation: ActivationWaiver[] };
+
+export async function listBillingWaivers(): Promise<BillingWaivers> {
+  const res = await apiFetch(`${API_BASE}/billing-waivers`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as BillingWaivers;
+}
+
+async function putBillingWaiver<T>(
+  kind: "fee" | "activation",
+  orgId: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const res = await apiFetch(
+    `${API_BASE}/billing-waivers/${kind}/${encodeURIComponent(orgId)}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as T;
+}
+
+/** Add or edit: months left + reason (Owner / Administrator). */
+export function putFeeWaiver(
+  orgId: string,
+  body: { monthsLeft: number; reason: string },
+): Promise<FeeWaiver> {
+  return putBillingWaiver<FeeWaiver>("fee", orgId, body);
+}
+
+/** `activated` = setup was already done, so the merchant was activated now. */
+export function putActivationWaiver(
+  orgId: string,
+  body: { reason: string },
+): Promise<ActivationWaiver & { activated: boolean }> {
+  return putBillingWaiver<ActivationWaiver & { activated: boolean }>(
+    "activation",
+    orgId,
+    body,
+  );
+}
+
+export async function deleteBillingWaiver(
+  kind: "fee" | "activation",
+  orgId: string,
+): Promise<void> {
+  const res = await apiFetch(
+    `${API_BASE}/billing-waivers/${kind}/${encodeURIComponent(orgId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok && res.status !== 204) await parseError(res);
 }
 
 export async function updateServiceBill(
@@ -1245,39 +1332,14 @@ export type MerchantCommercialSettings = {
   bandMinPercent: string;
   bandMaxPercent: string;
   effectiveFrom: string;
-  enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
-  feeExemptUntil?: string | null;
-  skipActivation?: boolean;
-  billingOpsNote?: string | null;
   serviceBillCreditUsd?: string;
   billingAnchorAt?: string | null;
   nextInvoiceOn?: string | null;
+  /** Monthly bills still to be saved as waived (waive platform fee list). */
+  waivedMonthsLeft?: number | null;
+  /** On the waive activation list (activated with a waived bill at setup). */
+  activationWaived?: boolean;
 };
-
-export type EnterpriseRateApproval = {
-  id: string;
-  orgId: string;
-  merchantName: string | null;
-  requestedTier: string;
-  requestedVolumeFeePercent: string;
-  status: "pending" | "approved" | "denied";
-  createdAt: string;
-};
-
-export async function listEnterpriseRateApprovals(
-  status: "pending" | "approved" | "denied" = "pending",
-): Promise<EnterpriseRateApproval[]> {
-  const res = await apiFetch(
-    `${API_BASE}/platform/enterprise-rate-approvals?status=${status}&limit=50`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items?: EnterpriseRateApproval[] };
-  return data.items ?? [];
-}
 
 export async function getMerchantCommercial(
   orgId: string,
@@ -1300,9 +1362,6 @@ export async function updateMerchantCommercial(
     volumeFeePercent?: string;
     rateMode?: "automatic" | "fixed";
     reason?: string;
-    feeExemptUntil?: string | null;
-    skipActivation?: boolean;
-    billingOpsNote?: string | null;
     serviceBillCreditUsd?: string;
   },
 ): Promise<MerchantCommercialSettings> {

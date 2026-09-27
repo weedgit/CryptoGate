@@ -190,7 +190,7 @@ async function billKpis(pool, scope, range, cur) {
     OR (b.period_start <= $4::date AND b.period_end >= $3::date)
   )`;
   const paidInWindow = `(b.status = 'paid' AND COALESCE(b.paid_at, b.due_at) >= $1 AND COALESCE(b.paid_at, b.due_at) < $2)`;
-  const live = `b.status NOT IN ('voided', 'cancelled')`;
+  const live = `b.status NOT IN ('waived', 'cancelled')`;
   const { rows } = await pool.query(
     `SELECT
        count(*) FILTER (WHERE ${live} AND ${inPeriod}) AS issued,

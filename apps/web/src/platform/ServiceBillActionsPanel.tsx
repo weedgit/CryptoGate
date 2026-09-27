@@ -30,8 +30,8 @@ type PanelId =
   | "markPaid"
   | "adjustLines"
   | "adjustTotal"
+  | "waive"
   | "cancel"
-  | "void"
   | "credit"
   | null;
 
@@ -101,12 +101,12 @@ function IconCancel() {
   );
 }
 
-function IconVoid() {
+function IconWaive() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
       <path
         fill="currentColor"
-        d="M9 3h6l1 2h4v2H4V5h4zm1 6h2v9h-2zm4 0h2v9h-2zM7 9h2v9H7zm8 12H9a2 2 0 0 1-2-2V9h10v10a2 2 0 0 1-2 2"
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M8.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3m7 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3M16 6.6 17.4 8 8 17.4 6.6 16z"
       />
     </svg>
   );
@@ -258,7 +258,7 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
   const [paymentReference, setPaymentReference] = useState("");
   const [rxAddress, setRxAddress] = useState("");
   const [txAddress, setTxAddress] = useState("");
-  const [voidReason, setVoidReason] = useState("");
+  const [waiveReason, setWaiveReason] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [lineSub, setLineSub] = useState(bill.subscriptionAmount);
@@ -269,12 +269,14 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
   const [creditReason, setCreditReason] = useState("");
 
   const canSend = bill.status === "draft";
-  const canCancel =
+  const isOpen =
     bill.status === "draft" ||
     bill.status === "issued" ||
     bill.status === "overdue";
+  const canWaive = isOpen;
+  const canCancel = isOpen;
+  const isActivation = bill.billKind === "activation";
   const canMarkPaid = bill.status === "issued" || bill.status === "overdue";
-  const canVoid = bill.status === "issued" || bill.status === "draft";
   const canAdjust =
     bill.status === "issued" ||
     bill.status === "overdue" ||
@@ -355,12 +357,23 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
     );
   }
 
+  async function onWaive(e: FormEvent) {
+    e.preventDefault();
+    await run("waive", () =>
+      updateServiceBill(bill.id, {
+        action: "waive",
+        reason: waiveReason.trim(),
+        opsNote: opsNote.trim() || undefined,
+      }),
+    );
+  }
+
   async function onCancel(e: FormEvent) {
     e.preventDefault();
     await run("cancel", () =>
       updateServiceBill(bill.id, {
         action: "cancel",
-        reason: cancelReason.trim() || undefined,
+        reason: cancelReason.trim(),
         opsNote: opsNote.trim() || undefined,
       }),
     );
@@ -374,16 +387,6 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
         paymentReference: paymentReference.trim() || undefined,
         rxAddress: rxAddress.trim() || undefined,
         txAddress: txAddress.trim() || undefined,
-      }),
-    );
-  }
-
-  async function onVoid(e: FormEvent) {
-    e.preventDefault();
-    await run("void", () =>
-      updateServiceBill(bill.id, {
-        action: "void",
-        reason: voidReason.trim(),
       }),
     );
   }
@@ -427,15 +430,15 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
 
   async function onSaveNote(e: FormEvent) {
     e.preventDefault();
-    // Note is applied with the next send / adjust / cancel / credit action.
+    // Note is applied with the next send / adjust / waive / cancel / credit action.
     setOpenPanel(null);
   }
 
   if (
     !canSend &&
+    !canWaive &&
     !canCancel &&
     !canMarkPaid &&
-    !canVoid &&
     !canAdjust &&
     !canGrantCredit
   ) {
@@ -753,51 +756,86 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
           </MenuRow>
         ) : null}
 
-        {canCancel || canVoid ? (
+        {canWaive || canCancel ? (
           <div className="plat-bill-actions__danger">
             <div className="plat-bill-actions__danger-row">
-              {canCancel ? (
-                <button
-                  type="button"
-                  className="plat-bill-actions__danger-btn"
-                  disabled={busy !== null}
-                  aria-expanded={openPanel === "cancel"}
-                  onClick={() => toggle("cancel")}
-                >
-                  <IconCancel />
-                  <span>Cancel bill</span>
-                </button>
-              ) : (
-                <span className="plat-bill-actions__danger-spacer" />
-              )}
-              {canVoid ? (
-                <button
-                  type="button"
-                  className="plat-bill-actions__danger-btn"
-                  disabled={busy !== null}
-                  aria-expanded={openPanel === "void"}
-                  onClick={() => toggle("void")}
-                >
-                  <IconVoid />
-                  <span>Void bill</span>
-                </button>
-              ) : (
-                <span className="plat-bill-actions__danger-spacer" />
-              )}
+              <button
+                type="button"
+                className="plat-bill-actions__danger-btn"
+                disabled={busy !== null}
+                aria-expanded={openPanel === "waive"}
+                onClick={() => toggle("waive")}
+                title={
+                  isActivation
+                    ? "Activate the merchant today without collecting the fee"
+                    : "Close as waived: nothing collected, no agent commission"
+                }
+              >
+                <IconWaive />
+                <span>Waive bill</span>
+              </button>
+              <button
+                type="button"
+                className="plat-bill-actions__danger-btn"
+                disabled={busy !== null}
+                aria-expanded={openPanel === "cancel"}
+                onClick={() => toggle("cancel")}
+                title="Wrong bill: close it"
+              >
+                <IconCancel />
+                <span>Cancel bill</span>
+              </button>
             </div>
 
-            {canCancel && openPanel === "cancel" ? (
+            {openPanel === "waive" ? (
+              <form className="plat-bill-actions__danger-panel" onSubmit={onWaive}>
+                <p className="plat-bill-actions__hint">
+                  {isActivation
+                    ? "The merchant is activated today and monthly billing starts one month later. No activation bill is created again."
+                    : "Closed as Waived: nothing is collected and no agent commission is paid."}
+                </p>
+                <div className="b4-field">
+                  <label className="b4-field__label" htmlFor={`${baseId}-waive-r`}>
+                    Reason
+                  </label>
+                  <input
+                    id={`${baseId}-waive-r`}
+                    className="b4-field__control"
+                    required
+                    value={waiveReason}
+                    onChange={(e) => setWaiveReason(e.target.value)}
+                    disabled={busy !== null}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="plat-bill-actions__ghost"
+                  disabled={busy !== null}
+                >
+                  {busy === "waive" ? "Waiving…" : "Confirm waive"}
+                </button>
+              </form>
+            ) : null}
+
+            {openPanel === "cancel" ? (
               <form className="plat-bill-actions__danger-panel" onSubmit={onCancel}>
+                <p className="plat-bill-actions__hint">
+                  {isActivation
+                    ? "Wrong bill: the merchant stays unactivated and a corrected activation bill is created."
+                    : "Wrong bill: it is closed. Use Create bill if money is still owed."}
+                </p>
                 <div className="b4-field">
                   <label
                     className="b4-field__label"
                     htmlFor={`${baseId}-cancel-r`}
                   >
-                    Reason (optional)
+                    Reason
                   </label>
                   <input
                     id={`${baseId}-cancel-r`}
                     className="b4-field__control"
+                    required
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
                     disabled={busy !== null}
@@ -810,32 +848,6 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
                   disabled={busy !== null}
                 >
                   {busy === "cancel" ? "Cancelling…" : "Confirm cancel"}
-                </button>
-              </form>
-            ) : null}
-
-            {canVoid && openPanel === "void" ? (
-              <form className="plat-bill-actions__danger-panel" onSubmit={onVoid}>
-                <div className="b4-field">
-                  <label className="b4-field__label" htmlFor={`${baseId}-void-r`}>
-                    Reason
-                  </label>
-                  <input
-                    id={`${baseId}-void-r`}
-                    className="b4-field__control"
-                    required
-                    value={voidReason}
-                    onChange={(e) => setVoidReason(e.target.value)}
-                    disabled={busy !== null}
-                    autoFocus
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="plat-bill-actions__ghost"
-                  disabled={busy !== null}
-                >
-                  {busy === "void" ? "Voiding…" : "Confirm void"}
                 </button>
               </form>
             ) : null}

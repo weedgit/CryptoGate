@@ -10,7 +10,7 @@
  *   - agent_commission — varied % for top-level agents only (Phase 1)
  *   - agent_payout_addresses — USDT/tron payout per agent org
  *   - commission_payouts — platform→agent slips only (no payer=agent cascade)
- *   - enterprise_rate_approvals — pending outside-band rates (sample + named fixtures)
+ *   - merchant_commercial — Enterprise tier for a sparse sample (named fixtures)
  *   - payment_anomaly orders — Compliance tab fixtures (Shop *-R1, Demo, samples)
  *   - audit org_status reason — for paused orgs
  *
@@ -186,7 +186,7 @@ async function merchantHasBillInMonth(pool, orgId, monthStart) {
     `SELECT 1 FROM service_bills
      WHERE org_id = $1
        AND to_char(period_start, 'YYYY-MM') = $2
-       AND status <> 'voided'
+       AND status <> 'cancelled'
      LIMIT 1`,
     [orgId, key],
   );
@@ -551,7 +551,7 @@ async function main() {
       if (xRes.rowCount) xpubs += 1;
     }
 
-    // Pending enterprise approval for a sparse sample (out-of-band rate).
+    // Enterprise tier for a sparse sample (rate inside the Enterprise band).
     const forceEnterprise =
       n % 17 === 0 ||
       m.name === "Demo Merchant" ||
@@ -562,27 +562,11 @@ async function main() {
         `UPDATE merchant_commercial
          SET tier = 'enterprise',
              volume_fee_percent = '0.9',
-             enterprise_approval_status = 'pending',
              updated_at = now()
          WHERE org_id = $1`,
         [m.id],
       );
-      const { rows: existingApproval } = await pool.query(
-        `SELECT 1 FROM enterprise_rate_approvals
-         WHERE org_id = $1 AND status = 'pending'
-         LIMIT 1`,
-        [m.id],
-      );
-      if (existingApproval.length === 0) {
-        await pool.query(
-          `INSERT INTO enterprise_rate_approvals (
-             org_id, requested_tier, requested_volume_fee_percent,
-             status, requested_by_user_id
-           ) VALUES ($1, 'enterprise', '0.25', 'pending', $2)`,
-          [m.id, platformOwner.id],
-        );
-        enterprise += 1;
-      }
+      enterprise += 1;
     }
   }
 
@@ -835,7 +819,7 @@ async function main() {
   console.log(`  Matching modes upserted:   ${matching}`);
   console.log(`  Settlement addresses:      ${settlement}`);
   console.log(`  Mode S xPubs:              ${xpubs}`);
-  console.log(`  Enterprise pending:        ${enterprise}`);
+  console.log(`  Enterprise tier:           ${enterprise}`);
   console.log(`  Logic service bills:       ${logicBills}`);
   console.log(`  Compliance anomalies:      ${anomalies}`);
   console.log(`  Agent commissions:         ${commission}`);
@@ -857,7 +841,7 @@ async function main() {
   console.log("\nUI checks:");
   console.log("  Settlement → Mode / Scope follow B·C·D·S");
   console.log("  Addresses appear for every merchant; xPub only when Mode = S");
-  console.log("  Compliance → pending enterprise + payment anomalies");
+  console.log("  Compliance → payment anomalies");
   console.log("  Agents → Profile commission + payout address");
   console.log(
     "  Commissions → payout slips match paid bill volume fees × commission %",
@@ -866,7 +850,7 @@ async function main() {
     "  Service bills → one row per merchant per calendar month (logic-bill-*)",
   );
   console.log(
-    "\nTry: Load Shop 001-R1 (anomalies + enterprise) · Demo Agent (/agent/commissions)",
+    "\nTry: Load Shop 001-R1 (anomalies + Enterprise tier) · Demo Agent (/agent/commissions)",
   );
 }
 

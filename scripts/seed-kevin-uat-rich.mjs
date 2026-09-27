@@ -431,7 +431,7 @@ async function merchantHasBillInMonth(pool, orgId, monthKey) {
     `SELECT 1 FROM service_bills
      WHERE org_id = $1
        AND to_char(period_start, 'YYYY-MM') = $2
-       AND status <> 'voided'
+       AND status <> 'cancelled'
      LIMIT 1`,
     [orgId, monthKey],
   );

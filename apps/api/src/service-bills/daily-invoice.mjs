@@ -20,6 +20,8 @@ import {
   sumCompletedPayableVolume,
 } from "./service-bill-store.mjs";
 import { recurringVolumeWindow, toUtcDateString, utcToday } from "./billing-anchor-rules.mjs";
+import { findFeeWaiver } from "./billing-waiver-store.mjs";
+import { closeMonthlyBillAsWaived } from "./billing-waivers.mjs";
 
 /**
  * Create one recurring (sub + volume) invoice for a merchant whose next_invoice_on is due.
@@ -39,14 +41,6 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
   const invoiceOn = toUtcDateString(commercialRow.next_invoice_on);
   if (!invoiceOn) {
     return { ok: false, reason: "no_next_invoice_on" };
-  }
-
-  if (commercialRow.fee_exempt_until) {
-    const until = toUtcDateString(commercialRow.fee_exempt_until);
-    if (until && until >= invoiceOn) {
-      await advanceNextInvoiceOn(orgId, invoiceOn);
-      return { ok: false, reason: "fee_exempt", advanced: true };
-    }
   }
 
   const periodStart =
@@ -91,13 +85,16 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
   const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
   let totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
 
-  const credit = await consumeMerchantServiceBillCredit(orgId, totalAmount);
-  totalAmount = credit.newTotal;
-  const creditAppliedUsd =
-    credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+  const waiver = await findFeeWaiver(orgId);
+  let creditAppliedUsd = null;
+  if (!waiver) {
+    const credit = await consumeMerchantServiceBillCredit(orgId, totalAmount);
+    totalAmount = credit.newTotal;
+    creditAppliedUsd = credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+  }
 
   const calendar = await getBillingCalendarSettings();
-  const autoSend = opts.autoSend ?? calendar.autoSendInvoices;
+  const autoSend = !waiver && (opts.autoSend ?? calendar.autoSendInvoices);
   const payDays = opts.payDays ?? calendar.activationPayDays;
   // Pay-within runs from the invoice day (next_invoice_on), not wall-clock now —
   // catch-up runs must still land due_at on invoiceOn + payDays.
@@ -125,6 +122,12 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
     billKind: ServiceBillKind.Monthly,
     sentAt: autoSend ? new Date().toISOString() : null,
   });
+
+  if (waiver) {
+    row = await closeMonthlyBillAsWaived(row, waiver);
+    await advanceNextInvoiceOn(orgId, invoiceOn);
+    return { ok: true, bill: row, waived: true };
+  }
 
   if (creditAppliedUsd) {
     row =

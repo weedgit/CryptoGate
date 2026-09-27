@@ -993,7 +993,9 @@ export type ServiceBill = {
   volumeFeePercent?: string | null;
   billedVolumeUsd?: string | null;
   paidAt?: string | null;
-  voidedAt?: string | null;
+  cancelledAt?: string | null;
+  waivedAt?: string | null;
+  closeReason?: string | null;
   lastAdjustmentReason?: string | null;
   lastAdjustmentAmount?: string | null;
   paymentReference?: string | null;
@@ -1760,7 +1762,6 @@ export type MerchantCommercialSettings = {
   bandMinPercent: string;
   bandMaxPercent: string;
   effectiveFrom: string;
-  enterpriseApprovalStatus?: "pending" | "approved" | "denied" | null;
   billingAnchorAt?: string | null;
   nextInvoiceOn?: string | null;
 };

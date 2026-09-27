@@ -103,7 +103,7 @@ describe("@paymentgate/domain", () => {
     assert.equal(DEFAULT_FEE_TIER_BANDS[0].tier, MerchantTier.Small);
     assert.equal(DEFAULT_FEE_TIER_BANDS[0].defaultSignupPercent, "2.0");
     assert.equal(AuditAction.FeeTierPut, "fee_tier_put");
-    assert.equal(AuditAction.EnterpriseRateDecide, "enterprise_rate_decide");
+    assert.equal("EnterpriseRateDecide" in AuditAction, false);
     assert.equal(AuditAction.ComplianceOverride, "compliance_override");
     assert.equal(AuditAction.SiteOverrideRequest, "site_override_request");
     assert.equal(AuditAction.SiteOverrideDecide, "site_override_decide");

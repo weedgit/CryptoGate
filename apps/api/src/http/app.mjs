@@ -119,14 +119,19 @@ import {
   handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
 import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs";
+import {
+  handleDeleteActivationWaiver,
+  handleDeleteFeeWaiver,
+  handleListBillingWaivers,
+  handlePutActivationWaiver,
+  handlePutFeeWaiver,
+} from "../service-bills/billing-waiver-routes.mjs";
 import { handleExportAuditLog, handleListAuditLog } from "../audit/audit-routes.mjs";
 import {
-  handleDecideEnterpriseRateApproval,
   handleGetBillingCalendarSettings,
   handleGetBillingWalletSettings,
   handleGetFeeTierSettings,
   handleGetPlatformOrgPolicy,
-  handleListEnterpriseRateApprovals,
   handlePutBillingCalendarSettings,
   handlePutBillingWalletSettings,
   handlePutFeeTierSettings,
@@ -755,6 +760,25 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/billing-waivers" && method === "GET") {
+    await handleListBillingWaivers(req, res);
+    return;
+  }
+
+  const billingWaiverMatch = path.match(
+    /^\/v1\/billing-waivers\/(fee|activation)\/([^/]+)$/,
+  );
+  if (billingWaiverMatch && (method === "PUT" || method === "DELETE")) {
+    const orgId = decodeURIComponent(billingWaiverMatch[2]);
+    const fee = billingWaiverMatch[1] === "fee";
+    if (method === "PUT") {
+      await (fee ? handlePutFeeWaiver : handlePutActivationWaiver)(req, res, orgId);
+    } else {
+      await (fee ? handleDeleteFeeWaiver : handleDeleteActivationWaiver)(req, res, orgId);
+    }
+    return;
+  }
+
   if (path === "/v1/service-bills/org-status" && method === "GET") {
     await handleServiceBillOrgStatus(req, res);
     return;
@@ -839,11 +863,6 @@ export async function handleRequest(req, res) {
       await handlePutPlatformPricingSettings(req, res);
       return;
     }
-  }
-
-  if (path === "/v1/platform/enterprise-rate-approvals" && method === "GET") {
-    await handleListEnterpriseRateApprovals(req, res, url);
-    return;
   }
 
   if (path === "/v1/platform/watcher-health" && method === "GET") {
@@ -986,18 +1005,6 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/platform/org-emails" && method === "GET") {
     await handleListOrgMemberEmails(req, res, url);
-    return;
-  }
-
-  const enterpriseApprovalMatch = path.match(
-    /^\/v1\/platform\/enterprise-rate-approvals\/([^/]+)$/,
-  );
-  if (method === "PATCH" && enterpriseApprovalMatch) {
-    await handleDecideEnterpriseRateApproval(
-      req,
-      res,
-      decodeURIComponent(enterpriseApprovalMatch[1]),
-    );
     return;
   }
 

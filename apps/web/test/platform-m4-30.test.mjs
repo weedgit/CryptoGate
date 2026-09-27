@@ -81,7 +81,9 @@ describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
       "utf8",
     );
     assert.match(actions, /mark_paid/);
-    assert.match(actions, /action: "void"/);
+    assert.match(actions, /action: "waive"/);
+    assert.match(actions, /action: "cancel"/);
+    assert.doesNotMatch(actions, /action: "void"/);
     assert.match(actions, /action: "adjust"/);
 
     const audit = readFileSync(join(root, "src/platform/AuditLogPage.tsx"), "utf8");
@@ -98,6 +100,7 @@ describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
     assert.match(list, /plat-bills__badge/);
     assert.match(list, /GenerateServiceBillsModal/);
     assert.match(list, /IssueServiceBillModal/);
+    assert.match(list, /BillingWaiversPanel/);
     assert.match(list, /Backfill/);
     assert.match(list, /Recurring invoices appear automatically/);
     assert.match(list, /service-bills\/\$\{/);

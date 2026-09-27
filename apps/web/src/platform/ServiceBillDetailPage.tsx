@@ -128,15 +128,17 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     }
   }
 
-  if (bill.voidedAt || bill.status === "voided") {
+  if (bill.status === "waived") {
     steps.push({
-      id: "voided",
-      label: "Voided",
-      detail: formatShortDate(bill.voidedAt),
+      id: "waived",
+      label: "Waived",
+      detail: [formatShortDate(bill.waivedAt), bill.closeReason]
+        .filter(Boolean)
+        .join(" · "),
       tone: "current",
     });
     for (const s of steps) {
-      if (s.id !== "voided") s.tone = "done";
+      if (s.id !== "waived") s.tone = "done";
     }
   }
 
@@ -144,7 +146,9 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
     steps.push({
       id: "cancelled",
       label: "Cancelled",
-      detail: formatShortDate(bill.cancelledAt),
+      detail: [formatShortDate(bill.cancelledAt), bill.closeReason]
+        .filter(Boolean)
+        .join(" · "),
       tone: "current",
     });
     for (const s of steps) {
@@ -157,7 +161,7 @@ function buildTimeline(bill: ServiceBill): TimelineStep[] {
       id: "adjust",
       label: "Adjusted",
       detail: bill.lastAdjustmentReason,
-      tone: bill.status === "paid" || bill.status === "voided" || bill.status === "cancelled"
+      tone: bill.status === "paid" || bill.status === "waived" || bill.status === "cancelled"
         ? "done"
         : "muted",
     });
@@ -271,7 +275,7 @@ export function ServiceBillDetailPage({ session }: Props) {
   const duePast = bill
     ? isPastDue(bill.dueAt) &&
       bill.status !== "paid" &&
-      bill.status !== "voided" &&
+      bill.status !== "waived" &&
       bill.status !== "cancelled"
     : false;
 

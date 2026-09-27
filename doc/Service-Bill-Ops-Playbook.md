@@ -80,18 +80,40 @@ Merchants under one agent may have different onboard / activation dates; day **C
 
 | Need | Action |
 |------|--------|
-| Lower / waive this bill | Adjust lines / delta, or Cancel |
-| Ops note | On send / cancel / adjust / grant credit |
-| Fee holiday | Merchant **fee exempt until** |
-| Skip activation | Flag → anchor set without activation invoice |
+| Lower this bill | Adjust lines / delta |
+| Forgive this bill | **Waive** (reason required) → status **Waived** |
+| Wrong bill | **Cancel** (reason required) → status **Cancelled** |
+| Ops note | On send / waive / cancel / adjust / grant credit |
+| Fee holiday (N months) | Service Bills → **Waive platform fee** list |
+| Free activation | Service Bills → **Waive activation** list |
 | Credit after paid | Grant next-period credit |
 | One-off merchant bill | Create Bill |
 | Missed day-C job | Catch-up while still in remittance window; or Owner **Generate (ops override)** on Commissions |
 
+## Waive vs cancel
+
+Both work on draft, issued and overdue bills and need a reason. Either one resumes a merchant that was suspended by that bill.
+
+| | Waive | Cancel |
+|---|---|---|
+| Meaning | Real bill, platform forgives it | Bill was wrong |
+| Status | `waived` (amounts kept, $0 collected, no agent commission) | `cancelled` |
+| Activation bill | Merchant activated today; first monthly bill one month later; never regenerated | Merchant stays unactivated; a corrected activation bill is regenerated |
+| Monthly bill | Closed as waived | Closed; use **Create Bill** if money is still owed |
+
+## Waive lists (Service Bills page)
+
+Owner and Administrator add, edit and remove entries; Viewer sees them read-only. A reason is required and every change is audited (`billing_waiver_put`, `billing_waiver_delete`).
+
+- **Waive platform fee** — merchant + months left. Each monthly bill the daily job creates is saved as **Waived** with the real amounts and the reason `Waived N of M — <reason>`; months left drops by 1 and the merchant leaves the list at 0. Credits are not consumed and nothing is auto-sent.
+- **Waive activation** — merchant + reason. When setup completes, the merchant is activated that day, the activation bill is saved as **Waived** (`Activation waived — <reason>`) and the entry is removed. Adding a merchant that already finished setup activates it immediately.
+
+Merchant detail shows the billing schedule read-only: `Activated YYYY-MM-DD · Next bill YYYY-MM-DD · N waived months left`.
+
 ## Roles
 
 - **Owner**: billing calendar, commercial flags, all bill / commission actions; service-bill **Backfill month**; commission **Generate (ops override)**  
-- **Administrator**: send / cancel / adjust / mark paid / grant credit; commission remittance (note + optional txRef); one-off Create Bill  
+- **Administrator**: send / waive / cancel / adjust / mark paid / grant credit; commission remittance (note + optional txRef); one-off Create Bill  
 - **Viewer**: read-only  
 
 ## Jobs
@@ -114,3 +136,4 @@ Portal click-through: [Billing-Commission-UAT.md](Billing-Commission-UAT.md).
 - `064_billing_calendar_draft_bills.sql`  
 - `065_merchant_billing_flags_credits.sql`  
 - `066_billing_anchor_next_invoice.sql`  
+- `078_billing_waivers.sql` — `waived` status, `voided` → `cancelled`, waive lists; migrates `fee_exempt_until` / `skip_activation` and drops them with `billing_ops_note`  

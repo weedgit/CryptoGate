@@ -84,4 +84,4 @@ Events: `payment_order.created` / `verifying` / `completed` / `expired` / `payme
 
 Separate tag and path prefix `/service-bills`. USD strings, not `Money`/`AssetCode`. Cashier **403**. Platform Owner/Admin **POST** (issue). Merchant Owner/Admin **GET** own org. Agent **GET** subtree (read-only). `GET /service-bills/{id}/checkout` is **not** the guest payment page.
 
-Statuses: `issued` \| `paid` \| `overdue` \| `voided`.
+Statuses: `draft` \| `issued` \| `paid` \| `overdue` \| `waived` \| `cancelled` (`voided` was folded into `cancelled` in migration 078).

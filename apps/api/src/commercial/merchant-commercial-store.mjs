@@ -4,22 +4,17 @@ import { nextBillingPeriodStart } from "../platform-settings/fee-tier-rules.mjs"
 
 const SELECT_COLS = `org_id, tier, volume_fee_percent, pending_volume_fee_percent,
             pending_tier, effective_from, pending_effective_from,
-            enterprise_approval_status,
             COALESCE(rate_mode, 'automatic') AS rate_mode,
-            fee_exempt_until, skip_activation, billing_ops_note,
             COALESCE(service_bill_credit_usd, '0.00') AS service_bill_credit_usd,
             billing_anchor_at, next_invoice_on, volume_period_start,
             created_at, updated_at`;
 const SELECT_COLS_LEGACY = `org_id, tier, volume_fee_percent, pending_volume_fee_percent,
             pending_tier, effective_from, pending_effective_from,
-            enterprise_approval_status,
             COALESCE(rate_mode, 'automatic') AS rate_mode,
             created_at, updated_at`;
 const SELECT_COLS_FLAGS = `org_id, tier, volume_fee_percent, pending_volume_fee_percent,
             pending_tier, effective_from, pending_effective_from,
-            enterprise_approval_status,
             COALESCE(rate_mode, 'automatic') AS rate_mode,
-            fee_exempt_until, skip_activation, billing_ops_note,
             COALESCE(service_bill_credit_usd, '0.00') AS service_bill_credit_usd,
             created_at, updated_at`;
 
@@ -44,11 +39,8 @@ async function queryCommercial(sql, params = []) {
           if (!(inner && inner.code === "42703")) throw inner;
         }
       }
-      if (sql.includes("fee_exempt_until")) {
+      if (sql.includes("service_bill_credit_usd")) {
         const stripped = sql
-          .replace(/,\s*fee_exempt_until/g, "")
-          .replace(/,\s*skip_activation/g, "")
-          .replace(/,\s*billing_ops_note/g, "")
           .replace(/,\s*COALESCE\(service_bill_credit_usd, '0\.00'\) AS service_bill_credit_usd/g, "")
           .replace(SELECT_COLS, SELECT_COLS_LEGACY)
           .replace(SELECT_COLS_FLAGS, SELECT_COLS_LEGACY);
@@ -93,7 +85,6 @@ export async function listMerchantCommercialByOrgIds(orgIds) {
  *   volumeFeePercent: string,
  *   rateMode?: "automatic" | "fixed",
  *   effectiveFrom?: string,
- *   enterpriseApprovalStatus?: string | null,
  * }} input
  */
 export async function insertMerchantCommercial(input) {
@@ -102,16 +93,14 @@ export async function insertMerchantCommercial(input) {
   const rateMode = input.rateMode === "fixed" ? "fixed" : "automatic";
   const { rows } = await getPool().query(
     `INSERT INTO merchant_commercial (
-       org_id, tier, volume_fee_percent, effective_from,
-       enterprise_approval_status, rate_mode
-     ) VALUES ($1, $2, $3, $4::date, $5, $6)
+       org_id, tier, volume_fee_percent, effective_from, rate_mode
+     ) VALUES ($1, $2, $3, $4::date, $5)
      RETURNING ${SELECT_COLS}`,
     [
       input.orgId,
       input.tier,
       input.volumeFeePercent,
       effectiveFrom,
-      input.enterpriseApprovalStatus ?? null,
       rateMode,
     ],
   );
@@ -130,7 +119,6 @@ export async function scheduleMerchantCommercialChange(orgId, change) {
      SET pending_tier = $2,
          pending_volume_fee_percent = $3,
          pending_effective_from = $4::date,
-         enterprise_approval_status = NULL,
          updated_at = now()
      WHERE org_id = $1
      RETURNING ${SELECT_COLS}`,
@@ -159,7 +147,6 @@ export async function applyMerchantCommercialImmediate(orgId, applied) {
          pending_tier = NULL,
          pending_volume_fee_percent = NULL,
          pending_effective_from = NULL,
-         enterprise_approval_status = NULL,
          updated_at = now()
      WHERE org_id = $1
      RETURNING ${SELECT_COLS}`,
@@ -169,72 +156,13 @@ export async function applyMerchantCommercialImmediate(orgId, applied) {
 }
 
 /**
+ * Next-period service-bill credit on a merchant.
  * @param {string} orgId
- */
-export async function setEnterpriseApprovalPending(orgId) {
-  await getPool().query(
-    `UPDATE merchant_commercial
-     SET enterprise_approval_status = 'pending', updated_at = now()
-     WHERE org_id = $1`,
-    [orgId],
-  );
-}
-
-/**
- * @param {string} orgId
- * @param {"approved" | "denied"} status
- * @param {{ tier: string, volumeFeePercent: string, rateMode?: "automatic" | "fixed" }} [applied]
- */
-export async function finalizeEnterpriseApproval(orgId, status, applied) {
-  if (status === "approved" && applied) {
-    return applyMerchantCommercialImmediate(orgId, {
-      ...applied,
-      rateMode: applied.rateMode ?? "fixed",
-    });
-  }
-  const { rows } = await getPool().query(
-    `UPDATE merchant_commercial
-     SET enterprise_approval_status = $2,
-         pending_tier = NULL,
-         pending_volume_fee_percent = NULL,
-         pending_effective_from = NULL,
-         updated_at = now()
-     WHERE org_id = $1
-     RETURNING ${SELECT_COLS}`,
-    [orgId, status],
-  );
-  return rows[0] ?? null;
-}
-
-/**
- * Platform billing flags / next-period credit on a merchant.
- * @param {string} orgId
- * @param {{
- *   feeExemptUntil?: string | null,
- *   skipActivation?: boolean,
- *   billingOpsNote?: string | null,
- *   serviceBillCreditUsd?: string,
- * }} patch
+ * @param {{ serviceBillCreditUsd?: string }} patch
  */
 export async function updateMerchantBillingFlags(orgId, patch) {
   const current = await findMerchantCommercial(orgId);
   if (!current) return null;
-  const feeExemptUntil =
-    patch.feeExemptUntil !== undefined
-      ? patch.feeExemptUntil
-      : current.fee_exempt_until
-        ? current.fee_exempt_until instanceof Date
-          ? current.fee_exempt_until.toISOString().slice(0, 10)
-          : String(current.fee_exempt_until).slice(0, 10)
-        : null;
-  const skipActivation =
-    patch.skipActivation !== undefined
-      ? Boolean(patch.skipActivation)
-      : Boolean(current.skip_activation);
-  const billingOpsNote =
-    patch.billingOpsNote !== undefined
-      ? patch.billingOpsNote
-      : current.billing_ops_note ?? null;
   const credit =
     patch.serviceBillCreditUsd !== undefined
       ? patch.serviceBillCreditUsd
@@ -242,14 +170,11 @@ export async function updateMerchantBillingFlags(orgId, patch) {
   try {
     const { rows } = await getPool().query(
       `UPDATE merchant_commercial
-       SET fee_exempt_until = $2::date,
-           skip_activation = $3,
-           billing_ops_note = $4,
-           service_bill_credit_usd = $5,
+       SET service_bill_credit_usd = $2,
            updated_at = now()
        WHERE org_id = $1
        RETURNING ${SELECT_COLS}`,
-      [orgId, feeExemptUntil, skipActivation, billingOpsNote, credit],
+      [orgId, credit],
     );
     return rows[0] ?? null;
   } catch (err) {

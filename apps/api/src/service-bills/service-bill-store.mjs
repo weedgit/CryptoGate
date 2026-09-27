@@ -11,8 +11,8 @@ import {
 
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
-  total_amount, currency, status, due_at, paid_at, voided_at, cancelled_at, sent_at,
-  last_adjustment_reason, last_adjustment_amount, payment_reference,
+  total_amount, currency, status, due_at, paid_at, cancelled_at, waived_at,
+  close_reason, sent_at, last_adjustment_reason, last_adjustment_amount, payment_reference,
   rx_address, tx_address, created_at, updated_at,
   tier, volume_fee_percent, billed_volume_usd, bill_kind,
   ops_note, credit_applied_usd
@@ -20,7 +20,7 @@ const BILL_SELECT = `
 
 const BILL_SELECT_LEGACY = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
-  total_amount, currency, status, due_at, paid_at, voided_at,
+  total_amount, currency, status, due_at, paid_at,
   last_adjustment_reason, payment_reference, created_at, updated_at
 `;
 
@@ -37,6 +37,7 @@ async function queryBills(sql, params = []) {
         sql.includes("bill_kind") ||
         sql.includes("sent_at") ||
         sql.includes("cancelled_at") ||
+        sql.includes("waived_at") ||
         sql.includes("ops_note") ||
         sql.includes("credit_applied_usd")
       ) {
@@ -44,6 +45,8 @@ async function queryBills(sql, params = []) {
           .replace(/,\s*bill_kind/g, "")
           .replace(/,\s*sent_at/g, "")
           .replace(/,\s*cancelled_at/g, "")
+          .replace(/,\s*waived_at/g, "")
+          .replace(/,\s*close_reason/g, "")
           .replace(/,\s*ops_note/g, "")
           .replace(/,\s*credit_applied_usd/g, "")
           .replace(/bill_kind\s*=\s*\$\d+,?\s*/g, "")
@@ -414,18 +417,39 @@ export async function sendServiceBill(id, dueAt) {
 }
 
 /**
+ * Close on purpose: nothing collected, no agent commission.
  * @param {string} id
- * @param {string} [_reason]
+ * @param {string} reason
  */
-export async function cancelServiceBill(id, _reason) {
+export async function waiveServiceBill(id, reason) {
+  const { rows } = await queryBills(
+    `UPDATE service_bills
+     SET status = 'waived',
+         waived_at = now(),
+         close_reason = $2,
+         updated_at = now()
+     WHERE id = $1 AND status IN ('draft', 'issued', 'overdue')
+     RETURNING ${BILL_SELECT}`,
+    [id, reason],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Wrong bill: closed; money still owed goes on a new bill.
+ * @param {string} id
+ * @param {string} reason
+ */
+export async function cancelServiceBill(id, reason) {
   const { rows } = await queryBills(
     `UPDATE service_bills
      SET status = 'cancelled',
          cancelled_at = now(),
+         close_reason = $2,
          updated_at = now()
      WHERE id = $1 AND status IN ('draft', 'issued', 'overdue')
      RETURNING ${BILL_SELECT}`,
-    [id],
+    [id, reason],
   );
   return rows[0] ?? null;
 }
@@ -467,21 +491,6 @@ export async function markServiceBillPaid(id, receipt = {}) {
     );
     return rows[0] ?? null;
   }
-}
-
-/**
- * @param {string} id
- * @param {string} reason
- */
-export async function voidServiceBill(id, _reason) {
-  const { rows } = await queryBills(
-    `UPDATE service_bills
-     SET status = 'voided', voided_at = now(), updated_at = now()
-     WHERE id = $1 AND status IN ('issued', 'draft')
-     RETURNING ${BILL_SELECT}`,
-    [id],
-  );
-  return rows[0] ?? null;
 }
 
 /**
@@ -568,7 +577,7 @@ export async function findActiveServiceBillForPeriod(orgId, periodStart) {
     `SELECT ${BILL_SELECT}
      FROM service_bills
      WHERE org_id = $1 AND period_start = $2::date
-       AND status NOT IN ('voided', 'cancelled')
+       AND status <> 'cancelled'
        AND COALESCE(bill_kind, 'monthly') = 'monthly'
      LIMIT 1`,
     [orgId, periodStart],
@@ -585,7 +594,7 @@ export async function findActiveActivationBill(orgId) {
      FROM service_bills
      WHERE org_id = $1
        AND bill_kind = 'activation'
-       AND status NOT IN ('voided', 'cancelled')
+       AND status <> 'cancelled'
      LIMIT 1`,
     [orgId],
   );

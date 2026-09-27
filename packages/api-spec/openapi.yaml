@@ -3064,7 +3064,7 @@ paths:
         merchants. Issues one USD service bill per active merchant for the calendar
         period (subscription + volume fee on completed payment-order volume). Does
         not debit payer on-chain amounts. Idempotent per org + period (existing
-        non-voided bills are skipped). Recurring invoices normally create themselves
+        non-cancelled bills are skipped). Recurring invoices normally create themselves
         each day from each merchant’s next_invoice_on schedule.
       security:
         - sessionCookie: []
@@ -3122,10 +3122,13 @@ paths:
     patch:
       tags: [service-bills]
       operationId: updateServiceBill
-      summary: Mark paid, void, or adjust a service bill (platform only)
+      summary: Send, waive, cancel, mark paid, or adjust a service bill (platform only)
       description: >
         Platform Owner/Administrator only. mark_paid: issued or overdue → paid.
-        void: issued → voided (reason required). adjust: issued or overdue —
+        waive: draft, issued or overdue → waived (reason required; $0 collected, no
+        agent commission; an activation bill also activates the merchant today).
+        cancel: draft, issued or overdue → cancelled (wrong bill, reason required; a
+        cancelled activation bill is regenerated). adjust: issued or overdue —
         delta on totalAmount (reason required). Cashier 403.
       security:
         - sessionCookie: []
@@ -3189,6 +3192,168 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /billing-waivers:
+    get:
+      tags: [service-bills]
+      operationId: listBillingWaivers
+      summary: Waive platform fee and waive activation lists
+      description: >
+        Platform Owner, Administrator and Viewer. `fee` lists merchants whose next
+        monthly bills are saved as waived (months left counts down by one per bill;
+        the entry is removed at 0). `activation` lists merchants that are activated
+        automatically when setup completes, with the activation bill saved as waived.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Both lists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingWaivers"
+        "403":
+          description: Not platform staff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /billing-waivers/fee/{orgId}:
+    put:
+      tags: [service-bills]
+      operationId: putFeeWaiver
+      summary: Add or edit a waive-platform-fee entry
+      description: Platform Owner or Administrator. Reason required; audited.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutFeeWaiverRequest"
+      responses:
+        "200":
+          description: Saved entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeWaiver"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Merchant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid months or reason
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [service-bills]
+      operationId: deleteFeeWaiver
+      summary: Remove a waive-platform-fee entry
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not on the list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /billing-waivers/activation/{orgId}:
+    put:
+      tags: [service-bills]
+      operationId: putActivationWaiver
+      summary: Add or edit a waive-activation entry
+      description: >
+        Platform Owner or Administrator. Reason required; audited. If the merchant
+        already finished setup, it is activated now (activation bill saved as
+        waived, entry removed) and `activated` is true. 409 when already activated.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutActivationWaiverRequest"
+      responses:
+        "200":
+          description: Saved entry
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ActivationWaiver"
+                  - type: object
+                    required: [activated]
+                    properties:
+                      activated:
+                        type: boolean
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Merchant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: already_activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [service-bills]
+      operationId: deleteActivationWaiver
+      summary: Remove a waive-activation entry
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/orgId"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not on the list
           content:
             application/json:
               schema:
@@ -3440,8 +3605,8 @@ paths:
         Agent Owner/Administrator for merchants in subtree; Platform
         Owner/Administrator for any merchant. Rate must fall inside the tier band
         unless tier is Enterprise. Changes apply **immediately** to the merchant's
-        effective rate. Enterprise rates outside the band create a pending approval
-        (see /platform/enterprise-rate-approvals). Merchant roles and Cashier 403.
+        effective rate. There is no rate request / approval queue. Merchant roles
+        and Cashier 403.
       security:
         - sessionCookie: []
       parameters:
@@ -3686,78 +3851,6 @@ paths:
                 $ref: "#/components/schemas/PlatformOrgMemberEmailList"
         "403":
           description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /platform/enterprise-rate-approvals:
-    get:
-      tags: [platform-settings]
-      operationId: listEnterpriseRateApprovals
-      summary: List pending Enterprise custom rate requests
-      description: Platform Owner/Administrator/Viewer. Cashier 403.
-      security:
-        - sessionCookie: []
-      parameters:
-        - name: status
-          in: query
-          schema:
-            $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-      responses:
-        "200":
-          description: Approval queue
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EnterpriseRateApprovalList"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /platform/enterprise-rate-approvals/{approvalId}:
-    patch:
-      tags: [platform-settings]
-      operationId: decideEnterpriseRateApproval
-      summary: Approve or deny Enterprise custom rate (Platform Owner only)
-      security:
-        - sessionCookie: []
-      parameters:
-        - name: approvalId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DecideEnterpriseRateApprovalRequest"
-      responses:
-        "200":
-          description: Decision recorded; merchant commercial updated on approve
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EnterpriseRateApproval"
-        "403":
-          description: Not Platform Owner
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
           content:
             application/json:
               schema:
@@ -5473,7 +5566,7 @@ components:
     ServiceBillStatus:
       type: string
       description: Matches @paymentgate/domain ServiceBillStatus
-      enum: [issued, paid, overdue, voided]
+      enum: [draft, issued, paid, overdue, waived, cancelled]
     ServiceBill:
       type: object
       required:
@@ -5539,11 +5632,22 @@ components:
           format: date-time
           nullable: true
           description: Set when status is paid (v0.3.2)
-        voidedAt:
+        waivedAt:
           type: string
           format: date-time
           nullable: true
-          description: Set when status is voided (v0.3.2)
+          description: Set when status is waived
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when status is cancelled
+        closeReason:
+          type: string
+          nullable: true
+          description: >
+            Reason recorded when the bill was waived or cancelled, e.g.
+            "Waived 2 of 3 — Launch promo".
         lastAdjustmentReason:
           type: string
           nullable: true
@@ -5685,13 +5789,13 @@ components:
       properties:
         action:
           type: string
-          enum: [mark_paid, void, adjust]
+          enum: [send, waive, cancel, mark_paid, adjust, grant_credit]
           description: Matches @paymentgate/domain ServiceBillUpdateAction
         reason:
           type: string
           minLength: 1
           maxLength: 500
-          description: Required for void and adjust
+          description: Required for waive, cancel and adjust
         adjustmentAmount:
           type: string
           description: >
@@ -5928,10 +6032,94 @@ components:
           type: string
           format: date
           description: Start of billing period this rate applies to
-        enterpriseApprovalStatus:
-          $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
+        waivedMonthsLeft:
+          type: integer
+          description: Monthly bills still to be saved as waived (0 when not on the list)
+        activationWaived:
+          type: boolean
+          description: Merchant is on the waive-activation list
+    FeeWaiver:
+      type: object
+      required: [orgId, orgName, monthsLeft, monthsGranted, monthsUsed, reason]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
           nullable: true
-          description: Set when Enterprise custom rate awaits or completed platform review
+        monthsLeft:
+          type: integer
+          minimum: 1
+          maximum: 120
+        monthsGranted:
+          type: integer
+        monthsUsed:
+          type: integer
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ActivationWaiver:
+      type: object
+      required: [orgId, orgName, reason]
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+          nullable: true
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    BillingWaivers:
+      type: object
+      required: [fee, activation]
+      properties:
+        fee:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeeWaiver"
+        activation:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivationWaiver"
+    PutFeeWaiverRequest:
+      type: object
+      required: [monthsLeft, reason]
+      additionalProperties: false
+      properties:
+        monthsLeft:
+          type: integer
+          minimum: 1
+          maximum: 120
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    PutActivationWaiverRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
     UpdateMerchantCommercialRequest:
       type: object
       additionalProperties: false
@@ -5947,60 +6135,6 @@ components:
         reason:
           type: string
           description: Optional note; logged to audit
-    EnterpriseRateApprovalStatus:
-      type: string
-      enum: [pending, approved, denied]
-    EnterpriseRateApproval:
-      type: object
-      required:
-        - id
-        - orgId
-        - merchantName
-        - requestedTier
-        - requestedVolumeFeePercent
-        - status
-        - requestedByUserId
-        - createdAt
-      properties:
-        id:
-          type: string
-          format: uuid
-        orgId:
-          type: string
-          format: uuid
-        merchantName:
-          type: string
-        requestedTier:
-          $ref: "#/components/schemas/MerchantTier"
-        requestedVolumeFeePercent:
-          type: string
-        status:
-          $ref: "#/components/schemas/EnterpriseRateApprovalStatus"
-        requestedByUserId:
-          type: string
-          format: uuid
-        decidedByUserId:
-          type: string
-          format: uuid
-          nullable: true
-        decisionReason:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        decidedAt:
-          type: string
-          format: date-time
-          nullable: true
-    EnterpriseRateApprovalList:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/EnterpriseRateApproval"
     WatcherHealthStatus:
       type: string
       enum: [ok, degraded, down, unknown]
@@ -6514,17 +6648,6 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/AgentPayoutAddress"
-    DecideEnterpriseRateApprovalRequest:
-      type: object
-      required: [decision]
-      additionalProperties: false
-      properties:
-        decision:
-          type: string
-          enum: [approve, deny]
-        reason:
-          type: string
-          description: Required when decision is deny
     AuditAction:
       type: string
       description: Matches @paymentgate/domain AuditAction
@@ -6549,7 +6672,12 @@ components:
         - webhook_delete
         - service_bill_issue
         - service_bill_mark_paid
-        - service_bill_void
+        - service_bill_send
+        - service_bill_waive
+        - service_bill_cancel
+        - service_bill_grant_credit
+        - billing_waiver_put
+        - billing_waiver_delete
         - service_bill_adjust
         - api_key_create
         - api_key_revoke
@@ -6558,7 +6686,6 @@ components:
         - org_policy_put
         - billing_wallet_put
         - merchant_commercial_put
-        - enterprise_rate_decide
         - compliance_override
         - site_override_request
         - site_override_decide
