@@ -197,6 +197,15 @@ export function toPaymentOrder(row) {
   if (row.creator_email) {
     order.createdByEmail = row.creator_email;
   }
+  if (row.creator_name) {
+    order.createdByName = row.creator_name;
+  }
+  if (
+    typeof row.creator_avatar_url === "string" &&
+    row.creator_avatar_url.trim()
+  ) {
+    order.createdByAvatarUrl = row.creator_avatar_url.trim();
+  }
   const merchantReference = merchantReferenceFromMetadata(row.merchant_metadata);
   if (merchantReference) {
     order.merchantReference = merchantReference;

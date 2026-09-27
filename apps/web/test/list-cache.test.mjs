@@ -48,9 +48,10 @@ describe("persisted list caches", () => {
       "utf8",
     );
     assert.match(prefetch, /getPlatformOrgs/);
-    assert.match(prefetch, /getPlatformOrders/);
     assert.match(prefetch, /getAgentOrgs/);
-    assert.match(prefetch, /getMerchantOrders/);
+    assert.match(prefetch, /prefetchDashboard/);
+    assert.match(prefetch, /getDashboardKpis/);
+    assert.doesNotMatch(prefetch, /getPlatformOrders|getMerchantOrders|listAllOrders/);
 
     const navPrefetch = readFileSync(
       join(root, "src/shared/prefetchPortalNavData.ts"),
@@ -61,8 +62,9 @@ describe("persisted list caches", () => {
     assert.match(navPrefetch, /prefetchMerchantNavData/);
     assert.match(navPrefetch, /getPlatformOrgs/);
     assert.match(navPrefetch, /getAgentOrgs/);
-    assert.match(navPrefetch, /getMerchantOrders/);
+    assert.match(navPrefetch, /prefetchServiceBillsList/);
     assert.match(navPrefetch, /getCachedServiceBill/);
+    assert.doesNotMatch(navPrefetch, /getPlatformServiceBills|listAllOrders/);
     assert.match(navPrefetch, /getMerchantOrder/);
 
     const entityCache = readFileSync(

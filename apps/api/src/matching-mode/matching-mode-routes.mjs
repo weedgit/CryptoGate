@@ -22,6 +22,8 @@ import {
   grantSiteOverrideAfterPlatformWrite,
   settingsLookupOrgId,
 } from "../sites/site-inherit.mjs";
+import { denyIfOrgSuspended } from "../orgs/org-ancestry.mjs";
+import { requireMfaStepUp } from "../auth/require-mfa-step-up.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -78,6 +80,7 @@ export async function handlePutMatchingMode(req, res, orgId) {
     sendError(res, 403, "forbidden", "Not allowed to change matching mode");
     return;
   }
+  if (await denyIfOrgSuspended(res, loaded.org, sendError)) return;
   if (await denySiteWriteWithoutOverride(res, loaded.org, "matching_mode", loaded.caller)) {
     return;
   }
@@ -88,6 +91,11 @@ export async function handlePutMatchingMode(req, res, orgId) {
   } catch {
     sendError(res, 400, "invalid_json", "Request body must be JSON");
     return;
+  }
+
+  if (loaded.caller.platformOperator) {
+    const ok = await requireMfaStepUp(loaded.caller, body?.mfaCode, res);
+    if (!ok) return;
   }
 
   const validated = validateMatchingModeBody(body);

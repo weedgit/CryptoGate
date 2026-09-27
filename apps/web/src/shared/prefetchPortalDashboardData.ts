@@ -1,12 +1,8 @@
 import { readCachedSession } from "../auth/sessionCache";
 import { getAgentOrgs } from "../agent/agentOrgList";
-import { getAgentOrders } from "../agent/agentOrdersList";
-import { getAgentServiceBills } from "../agent/agentServiceBillsList";
 import { getAgentCommission } from "../agent/api";
 import { primaryAgentOrgId } from "../agent/org";
 import { getMerchantOrgs } from "../merchant/merchantOrgList";
-import { getMerchantOrders } from "../merchant/merchantOrdersList";
-import { getMerchantServiceBills } from "../merchant/merchantServiceBillsList";
 import {
   getMerchantCommercial,
   listSettlement,
@@ -17,11 +13,9 @@ import {
   primaryMerchantOrgId,
   sessionIsCashierOnly,
 } from "../merchant/org";
-import { getPlatformDashboardSummary } from "../platform/api";
 import { getPlatformOrgs } from "../platform/platformOrgList";
-import { getPlatformOrders } from "../platform/platformOrdersList";
-import { getPlatformServiceBills } from "../platform/platformServiceBillsList";
-import { periodWindow } from "./dashboardPeriod";
+import { periodWindow, toDateInputValue } from "./dashboardPeriod";
+import { getDashboardKpis, prefetchDashboard } from "./dashboardApi";
 import { getPortal, isDedicatedPortalHost } from "./portalRouting";
 
 function portalSubpath(): string {
@@ -50,29 +44,25 @@ export function prefetchPortalDashboardData(): void {
   const portal = getPortal();
   const sub = portalSubpath();
   const onDashboard = isDashboardRoute(sub);
-  const { from, to } = periodWindow("7d");
+  const week = periodWindow("7d");
+  const weekQuery = {
+    from: toDateInputValue(week.from),
+    to: toDateInputValue(week.to),
+  };
 
   if (portal === "platform") {
     void getPlatformOrgs();
-    void getPlatformServiceBills();
-    if (onDashboard) {
-      void getPlatformOrders();
-      void getPlatformDashboardSummary(
-        from.toISOString(),
-        to.toISOString(),
-      ).catch(() => undefined);
-    }
+    if (onDashboard) prefetchDashboard(weekQuery);
     return;
   }
 
   if (portal === "agent") {
     void getAgentOrgs();
-    void getAgentServiceBills();
     if (onDashboard) {
-      void getAgentOrders();
       const session = readCachedSession();
       const agentId = session ? primaryAgentOrgId(session) : null;
       if (agentId) {
+        prefetchDashboard({ ...weekQuery, orgId: agentId });
         void getAgentCommission(agentId).catch(() => undefined);
       }
     }
@@ -81,12 +71,15 @@ export function prefetchPortalDashboardData(): void {
 
   void getMerchantOrgs();
   if (onDashboard) {
-    void getMerchantOrders();
+    const mtd = periodWindow("mtd");
+    void getDashboardKpis({
+      from: toDateInputValue(mtd.from),
+      to: toDateInputValue(mtd.to),
+    }).catch(() => undefined);
     const session = readCachedSession();
     if (session && !sessionIsCashierOnly(session)) {
       const orgId = primaryMerchantOrgId(session);
       if (orgId) {
-        void getMerchantServiceBills().catch(() => undefined);
         void getMerchantCommercial(orgId).catch(() => undefined);
         void listSettlement(orgId).catch(() => undefined);
         void listXpub(orgId).catch(() => undefined);

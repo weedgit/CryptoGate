@@ -21,7 +21,7 @@ const NOTIFICATION_META: Record<
     blurb: "Order reaches Completed after required confirmations.",
   },
   payment_anomaly: {
-    label: "Payment anomaly",
+    label: "Attention",
     blurb: "Underpay, overpay, collision, or wrong-network cases.",
   },
   settlement_address: {

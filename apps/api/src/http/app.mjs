@@ -50,10 +50,22 @@ import {
 import { handleRefreshPaymentOrderQuote } from "../orders/order-quote-routes.mjs";
 import { handleListPaymentOrders } from "../orders/order-list-routes.mjs";
 import {
+  handleCreateInvoiceExport,
+  handleDownloadInvoiceExport,
+  handleGetInvoiceExport,
+} from "../orders/order-export-routes.mjs";
+import {
   handleGetAgentDashboardSummary,
   handleGetOrderSummary,
   handleGetPlatformDashboardSummary,
 } from "../dashboard/dashboard-summary-routes.mjs";
+import {
+  handleGetDashboardKpis,
+  handleGetDashboardOrgCards,
+  handleGetDashboardReports,
+  handleGetDashboardRates,
+  handleGetDashboardSeries,
+} from "../dashboard/dashboard-routes.mjs";
 import { handleGetDashboardEvents } from "../events/dashboard-events-routes.mjs";
 import {
   handleGetSettlement,
@@ -102,10 +114,12 @@ import {
   handleGetServiceBillCheckout,
   handleIssueServiceBill,
   handleListServiceBills,
+  handleServiceBillSummary,
+  handleServiceBillOrgStatus,
   handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
 import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs";
-import { handleListAuditLog } from "../audit/audit-routes.mjs";
+import { handleExportAuditLog, handleListAuditLog } from "../audit/audit-routes.mjs";
 import {
   handleDecideEnterpriseRateApproval,
   handleGetBillingCalendarSettings,
@@ -131,7 +145,16 @@ import {
   handleGetNetworksStatus,
   handleListActiveNetworkMaintenance,
   handlePutNetworkMaintenance,
+  handlePutPlatformNetworkRailSettings,
+  handleGetMerchantNetworkRails,
+  handlePutMerchantNetworkRailSettings,
 } from "../platform-settings/network-maintenance-routes.mjs";
+import {
+  handleGetPlatformOrgNetworkRailSettings,
+  handlePutPlatformOrgNetworkRailSettings,
+  handleGetPlatformSiteNetworkRailSettings,
+  handlePutPlatformSiteNetworkRailSettings,
+} from "../platform-settings/network-org-rail-routes.mjs";
 import {
   handleApplyComplianceOverride,
   handleListComplianceOverrides,
@@ -156,6 +179,7 @@ import {
   handleGenerateCommissionInvoices,
   handleGetCommissionPayout,
   handleListCommissionPayouts,
+  handleCommissionPayoutSummary,
   handleMarkCommissionPayoutPaid,
   handleMarkCommissionPayoutPaidBatch,
 } from "../commercial/commission-payout-routes.mjs";
@@ -285,6 +309,33 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/orders/exports" && method === "POST") {
+    await handleCreateInvoiceExport(req, res);
+    return;
+  }
+
+  const exportDownloadMatch = path.match(
+    /^\/v1\/orders\/exports\/([^/]+)\/download$/,
+  );
+  if (method === "GET" && exportDownloadMatch) {
+    await handleDownloadInvoiceExport(
+      req,
+      res,
+      decodeURIComponent(exportDownloadMatch[1]),
+    );
+    return;
+  }
+
+  const exportGetMatch = path.match(/^\/v1\/orders\/exports\/([^/]+)$/);
+  if (method === "GET" && exportGetMatch) {
+    await handleGetInvoiceExport(
+      req,
+      res,
+      decodeURIComponent(exportGetMatch[1]),
+    );
+    return;
+  }
+
   if (path === "/v1/orders") {
     if (method === "POST") {
       await handleCreatePaymentOrder(req, res);
@@ -303,6 +354,31 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/events" && method === "GET") {
     await handleGetDashboardEvents(req, res);
+    return;
+  }
+
+  if (path === "/v1/dashboard/kpis" && method === "GET") {
+    await handleGetDashboardKpis(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/dashboard/series" && method === "GET") {
+    await handleGetDashboardSeries(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/dashboard/rates" && method === "GET") {
+    await handleGetDashboardRates(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/dashboard/reports" && method === "GET") {
+    await handleGetDashboardReports(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/dashboard/org-cards" && method === "GET") {
+    await handleGetDashboardOrgCards(req, res, url);
     return;
   }
 
@@ -555,6 +631,11 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/commission-payouts/summary" && method === "GET") {
+    await handleCommissionPayoutSummary(req, res, url);
+    return;
+  }
+
   if (path === "/v1/commission-payouts") {
     if (method === "GET") {
       await handleListCommissionPayouts(req, res, url);
@@ -674,6 +755,16 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  if (path === "/v1/service-bills/org-status" && method === "GET") {
+    await handleServiceBillOrgStatus(req, res);
+    return;
+  }
+
+  if (path === "/v1/service-bills/summary" && method === "GET") {
+    await handleServiceBillSummary(req, res, url);
+    return;
+  }
+
   if (path === "/v1/service-bills") {
     if (method === "GET") {
       await handleListServiceBills(req, res, url);
@@ -687,6 +778,11 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/audit" && method === "GET") {
     await handleListAuditLog(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/audit/export" && method === "GET") {
+    await handleExportAuditLog(req, res, url);
     return;
   }
 
@@ -783,6 +879,73 @@ export async function handleRequest(req, res) {
       req,
       res,
       decodeURIComponent(networkMaintMatch[1]),
+    );
+    return;
+  }
+
+  const networkRailMatch = path.match(
+    /^\/v1\/platform\/networks\/([^/]+)\/rail-settings$/,
+  );
+  if (method === "PUT" && networkRailMatch) {
+    await handlePutPlatformNetworkRailSettings(
+      req,
+      res,
+      decodeURIComponent(networkRailMatch[1]),
+    );
+    return;
+  }
+
+  const platformOrgRailMatch = path.match(
+    /^\/v1\/platform\/orgs\/([^/]+)\/networks\/([^/]+)\/rail-settings$/,
+  );
+  if (platformOrgRailMatch) {
+    const orgId = decodeURIComponent(platformOrgRailMatch[1]);
+    const network = decodeURIComponent(platformOrgRailMatch[2]);
+    if (method === "GET") {
+      await handleGetPlatformOrgNetworkRailSettings(req, res, orgId, network);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutPlatformOrgNetworkRailSettings(req, res, orgId, network);
+      return;
+    }
+  }
+
+  const platformSiteRailMatch = path.match(
+    /^\/v1\/platform\/sites\/([^/]+)\/networks\/([^/]+)\/rail-settings$/,
+  );
+  if (platformSiteRailMatch) {
+    const siteId = decodeURIComponent(platformSiteRailMatch[1]);
+    const network = decodeURIComponent(platformSiteRailMatch[2]);
+    if (method === "GET") {
+      await handleGetPlatformSiteNetworkRailSettings(req, res, siteId, network);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutPlatformSiteNetworkRailSettings(req, res, siteId, network);
+      return;
+    }
+  }
+
+  const merchantRailsMatch = path.match(/^\/v1\/orgs\/([^/]+)\/network-rails$/);
+  if (method === "GET" && merchantRailsMatch) {
+    await handleGetMerchantNetworkRails(
+      req,
+      res,
+      decodeURIComponent(merchantRailsMatch[1]),
+    );
+    return;
+  }
+
+  const merchantRailPutMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/networks\/([^/]+)\/rail-settings$/,
+  );
+  if (method === "PUT" && merchantRailPutMatch) {
+    await handlePutMerchantNetworkRailSettings(
+      req,
+      res,
+      decodeURIComponent(merchantRailPutMatch[1]),
+      decodeURIComponent(merchantRailPutMatch[2]),
     );
     return;
   }

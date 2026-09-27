@@ -1,8 +1,18 @@
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { getHealthPayload } from "../src/health-payload.mjs";
 
 describe("health-payload", () => {
+  let prevBackupPath;
+  before(() => {
+    prevBackupPath = process.env.PAYMENTGATE_BACKUP_STATUS_PATH;
+    process.env.PAYMENTGATE_BACKUP_STATUS_PATH = "/nonexistent/paymentgate-backup-status.json";
+  });
+  after(() => {
+    if (prevBackupPath === undefined) delete process.env.PAYMENTGATE_BACKUP_STATUS_PATH;
+    else process.env.PAYMENTGATE_BACKUP_STATUS_PATH = prevBackupPath;
+  });
+
   it("returns ok without db check", async () => {
     const p = await getHealthPayload({ checkDb: false });
     assert.equal(p.service, "paymentgate-api");

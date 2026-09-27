@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -14,73 +15,123 @@ import { formatViewerDateTime } from "../shared/dateTime";
 import {
   ApiError,
   getPlatformOrgs,
-  listAuditLog,
-  listOrgUsers,
   peekPlatformOrgs,
   type AuditLogEntry,
   type OrgAccount,
 } from "./api";
-import { PagePending } from "./ui/PlatformPending";
+import {
+  PlatformPending,
+  PlatformTableSkeleton,
+} from "./ui/PlatformPending";
 import { OrgListPagination } from "./OrgListPagination";
 import { platformRoute } from "../shared/portalRouting";
 import {
   auditResourceLabel,
   summarizeAuditMetadata,
 } from "../shared/auditDetailFormat";
+import {
+  downloadAuditLogCsv,
+  listAuditLogServer,
+  peekAuditLogServer,
+  type AuditListParams,
+} from "../shared/auditServer";
+import type { ServerPage } from "../shared/serverListApi";
+import { useDebouncedValue } from "../shared/useDebouncedValue";
 
 const PAGE_SIZE = 10;
-const LIMIT_OPTIONS = [50, 100, 200, 500] as const;
 
 const ACTION_LABEL: Record<string, string> = {
-  login: "Login",
-  logout: "Logout",
-  mfa_enroll: "MFA enroll",
-  mfa_verify_enroll: "MFA verify enroll",
-  mfa_verify_login: "MFA verify login",
-  org_create: "Org created",
-  org_status: "Org status",
-  org_delete: "Org deleted",
-  org_user_invite: "Team invite",
+  login: "Signed in",
+  logout: "Signed out",
+  mfa_enroll: "Started MFA setup",
+  mfa_verify_enroll: "MFA setup confirmed",
+  mfa_verify_login: "Signed in with MFA",
+  mfa_reset: "Authenticator reset",
+  org_create: "Organization created",
+  org_status: "Organization status changed",
+  org_profile: "Organization profile updated",
+  org_delete: "Organization deleted",
+  org_user_invite: "Team member invited",
   org_user_role: "Role changed",
   org_user_pause: "Member paused",
   org_user_resume: "Member resumed",
   org_user_remove: "Member removed",
-  settlement_put: "Settlement updated",
+  settlement_put: "Settlement address updated",
   matching_mode_put: "Matching mode updated",
+  fulfillment_policy_put: "Fulfillment policy updated",
   xpub_put: "xPub updated",
   webhook_register: "Webhook registered",
   webhook_delete: "Webhook deleted",
-  webhook_resend: "Webhook delivery resent",
+  webhook_resend: "Webhook resent",
+  webhook_rotate_secret: "Webhook secret rotated",
   service_bill_issue: "Service bill issued",
+  service_bill_send: "Service bill sent",
+  service_bill_cancel: "Service bill cancelled",
   service_bill_mark_paid: "Bill marked paid",
   service_bill_void: "Bill voided",
   service_bill_adjust: "Bill adjusted",
-  service_bill_daily_auto: "Service bills auto-created (daily job)",
+  service_bill_grant_credit: "Credit granted",
+  service_bill_daily_auto: "Service bills auto-created",
   api_key_create: "API key created",
   api_key_revoke: "API key revoked",
   api_key_rotate: "API key rotated",
+  notification_prefs_put: "Notification prefs saved",
   fee_tier_put: "Fee tiers saved",
   org_policy_put: "Org policy saved",
+  billing_wallet_put: "Billing wallet updated",
   merchant_commercial_put: "Merchant commercial updated",
   enterprise_rate_decide: "Enterprise rate decided",
   agent_payout_put: "Agent payout updated",
   agent_commission_put: "Agent commission updated",
   commission_payout_upsert: "Commission payout prepared",
   commission_payout_mark_paid: "Commission payout marked paid",
-  commission_payout_mark_paid_batch: "Commission payouts marked paid (batch)",
+  commission_payout_mark_paid_batch: "Commission payouts marked paid",
   commission_payout_generate: "Commission invoices generated",
-  commission_payout_auto: "Commission invoices auto-created (day C)",
-  contact_verification_override: "Owner verification override",
+  commission_payout_auto: "Commission invoices auto-created",
+  commission_payout_confirm_sent: "Commission payout confirm sent",
+  commission_payout_agent_confirm: "Agent confirmed commission payout",
+  contact_email_otp_send: "Email code sent",
+  contact_email_verified: "Email verified",
+  contact_phone_otp_send: "Phone code sent",
+  contact_phone_verified: "Phone verified",
+  contact_verification_override: "Verification overridden",
   profile_update: "Profile updated",
   billing_calendar_put: "Billing calendar saved",
   password_reset_request: "Password reset requested",
   password_reset_complete: "Password reset completed",
+  pos_pin_set: "POS PIN set",
+  pos_pin_clear: "POS PIN cleared",
+  pos_pin_verify: "POS PIN verified",
+  pos_pin_admin_set: "POS PIN set by admin",
+  pos_pin_admin_clear: "POS PIN cleared by admin",
+  network_maintenance_put: "Network maintenance updated",
+  network_rail_settings_put: "Network rail settings updated",
+  merchant_network_rail_settings_put: "Merchant rail settings updated",
+  platform_org_rail_settings_put: "Platform org rail settings updated",
+  platform_site_rail_settings_put: "Site rail settings updated",
+  compliance_override: "Compliance override",
+  site_override_request: "Site override requested",
+  site_override_decide: "Site override decided",
 };
 
 const ACTION_FILTERS = Object.values(AuditAction).sort();
 
 function actionLabel(action: string): string {
-  return ACTION_LABEL[action] ?? action.replace(/_/g, " ");
+  if (ACTION_LABEL[action]) return ACTION_LABEL[action];
+  return action
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** Action codes whose label or code contains the search text. */
+function actionsMatchingLabel(q: string): string[] {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return [];
+  return ACTION_FILTERS.filter(
+    (a) => actionLabel(a).toLowerCase().includes(needle),
+  ).slice(0, 100);
 }
 
 function orgNameMap(orgs: OrgAccount[]): Map<string, string> {
@@ -153,58 +204,6 @@ function toDateEnd(isoDate: string): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
-function csvEscape(value: string): string {
-  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
-function downloadAuditCsv(
-  rows: AuditLogEntry[],
-  orgNames: Map<string, string>,
-  actorEmails: Map<string, string>,
-) {
-  const header = [
-    "createdAt",
-    "action",
-    "actorUserId",
-    "actorEmail",
-    "orgId",
-    "orgName",
-    "role",
-    "ip",
-    "resource",
-    "metadata",
-  ];
-  const lines = [header.join(",")];
-  for (const row of rows) {
-    lines.push(
-      [
-        row.createdAt,
-        row.action,
-        row.actorUserId ?? "",
-        row.actorUserId ? (row.actorEmail?.trim() ?? actorEmails.get(row.actorUserId) ?? "") : "",
-        row.orgId ?? "",
-        row.orgId ? (orgNames.get(row.orgId) ?? "") : "",
-        metadataRole(row.metadata),
-        metadataIp(row.metadata),
-        metadataResource(row.metadata),
-        JSON.stringify(row.metadata),
-      ]
-        .map((c) => csvEscape(String(c)))
-        .join(","),
-    );
-  }
-  const blob = new Blob([lines.join("\n")], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `paymentgate-audit-${toDateInputValue(new Date())}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 /** B14 — Append-only platform audit log. */
 export function AuditLogPage() {
   const defaultFrom = useMemo(() => {
@@ -213,7 +212,6 @@ export function AuditLogPage() {
     return toDateInputValue(d);
   }, []);
 
-  const [items, setItems] = useState<AuditLogEntry[]>([]);
   const [orgNames, setOrgNames] = useState<Map<string, string>>(() => {
     const cached = peekPlatformOrgs();
     return cached ? orgNameMap(cached) : new Map();
@@ -221,118 +219,134 @@ export function AuditLogPage() {
   const [orgOptions, setOrgOptions] = useState<OrgAccount[]>(
     () => peekPlatformOrgs() ?? [],
   );
-  const [actorEmails, setActorEmails] = useState<Map<string, string>>(
-    () => new Map(),
-  );
   const [action, setAction] = useState("");
   const [orgId, setOrgId] = useState("");
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
-  const [limit, setLimit] = useState<number>(100);
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
-    null,
-  );
 
   const dismissToast = useCallback(() => setError(null), []);
 
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("platform-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
+  const filterKey = `${action}|${orgId}|${fromDate}|${toDate}|${debouncedQuery}`;
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = useCallback(
+    (next: number) => setPageState({ key: filterKey, page: next }),
+    [filterKey],
+  );
+
+  const filterParams = useMemo<Omit<AuditListParams, "limit" | "offset">>(
+    () => ({
+      action: action || undefined,
+      orgId: orgId || undefined,
+      from: fromDateStart(fromDate),
+      to: toDateEnd(toDate),
+      q: debouncedQuery || undefined,
+      qActions: actionsMatchingLabel(debouncedQuery),
+    }),
+    [action, orgId, fromDate, toDate, debouncedQuery],
+  );
+  const listParams = useMemo<AuditListParams>(
+    () => ({ ...filterParams, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+    [filterParams, page],
+  );
+
+  const [pageData, setPageData] = useState<ServerPage<AuditLogEntry> | null>(
+    () => peekAuditLogServer(listParams),
+  );
+  const [fetching, setFetching] = useState(false);
+  const listSeq = useRef(0);
+
+  const reportError = useCallback((err: unknown, fallback: string) => {
+    setError(
+      err instanceof ApiError
+        ? err.code === "rate_limited"
+          ? "Too many requests — wait a moment and retry."
+          : err.message
+        : fallback,
+    );
+  }, []);
+
+  const loadList = useCallback(
+    async (params: AuditListParams) => {
+      const seq = ++listSeq.current;
+      const cached = peekAuditLogServer(params);
+      if (cached) setPageData(cached);
+      setFetching(true);
+      try {
+        const result = await listAuditLogServer(params);
+        if (seq === listSeq.current) setPageData(result);
+      } catch (err) {
+        if (seq === listSeq.current) reportError(err, "Failed to load audit log");
+      } finally {
+        if (seq === listSeq.current) setFetching(false);
+      }
+    },
+    [reportError],
+  );
+
+  const loadOrgs = useCallback(async () => {
     try {
-      const [rows, orgs] = await Promise.all([
-        listAuditLog({
-          action: action || undefined,
-          orgId: orgId || undefined,
-          from: fromDateStart(fromDate),
-          to: toDateEnd(toDate),
-          limit,
-        }),
-        getPlatformOrgs(),
-      ]);
-      setItems(rows);
+      const orgs = await getPlatformOrgs();
       setOrgOptions(orgs);
       setOrgNames(orgNameMap(orgs));
-      setPage(1);
-      setExpandedId(null);
-
-      const emailByUser = new Map<string, string>();
-      for (const row of rows) {
-        if (row.actorUserId && row.actorEmail?.trim()) {
-          emailByUser.set(row.actorUserId, row.actorEmail.trim());
-        }
-      }
-      const platform = orgs.find((o) => o.type === "platform");
-      if (platform) {
-        try {
-          const members = await listOrgUsers(platform.id);
-          for (const m of members) {
-            if (!emailByUser.has(m.userId)) {
-              emailByUser.set(m.userId, m.email);
-            }
-          }
-        } catch {
-          /* keep emails from audit rows */
-        }
-      }
-      setActorEmails(emailByUser);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.code === "rate_limited"
-            ? "Too many requests — wait a moment and retry."
-            : err.message
-          : "Failed to load audit log",
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      /* names fall back to ids */
     }
-  }, [action, orgId, fromDate, toDate, limit]);
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((row) => {
-      const org = row.orgId
-        ? (orgNames.get(row.orgId) ?? row.orgId).toLowerCase()
-        : "";
-      const actor = actorLabel(row).toLowerCase();
-      const meta = JSON.stringify(row.metadata).toLowerCase();
-      return (
-        actionLabel(row.action).toLowerCase().includes(q) ||
-        row.action.toLowerCase().includes(q) ||
-        org.includes(q) ||
-        actor.includes(q) ||
-        meta.includes(q) ||
-        metadataIp(row.metadata).toLowerCase().includes(q) ||
-        metadataResource(row.metadata).toLowerCase().includes(q)
-      );
-    });
-  }, [items, query, orgNames]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+    void loadList(listParams);
+  }, [loadList, listParams]);
 
   useEffect(() => {
-    if (page > pageCount) setPage(pageCount);
-  }, [page, pageCount]);
+    void loadOrgs();
+  }, [loadOrgs]);
+
+  useEffect(() => {
+    setExpandedId(null);
+  }, [listParams]);
+
+  const load = useCallback(async () => {
+    setError(null);
+    await Promise.all([loadList(listParams), loadOrgs()]);
+  }, [loadList, loadOrgs, listParams]);
+
+  const loading = pageData == null;
+  const paged = pageData?.items ?? [];
+  const total = pageData?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    if (pageData && page > pageCount) setPage(pageCount);
+  }, [pageData, page, pageCount, setPage]);
+
+  const exportCsv = useCallback(async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const blob = await downloadAuditLogCsv(filterParams);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `paymentgate-audit-${toDateInputValue(new Date())}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      reportError(err, "Failed to export audit log");
+    } finally {
+      setExporting(false);
+    }
+  }, [filterParams, reportError]);
 
   const orgSelectOptions = useMemo(() => {
     const platform = orgOptions.filter((o) => o.type === "platform");
@@ -348,8 +362,72 @@ export function AuditLogPage() {
   }, [orgOptions]);
 
   return (
-    <div className="plat-audit">
+    <div className="plat-audit plat-bills">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
+
+      <div className="plat-bills__period-bar">
+        <div className="plat-bills__intro">
+          <span className="plat-bills__intro-icon" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              width="36"
+              height="36"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+              <path d="M8 13h8M8 17h5" />
+            </svg>
+          </span>
+          <div className="plat-bills__intro-copy">
+            <h1 className="plat-bills__intro-title">Audit</h1>
+            <p className="plat-bills__intro-sub">
+              Platform activity log — who did what, and when.
+            </p>
+          </div>
+        </div>
+        <div className="plat-bills__period-tools">
+          <button
+            type="button"
+            className="pg-dash__period-refresh"
+            onClick={() => void load()}
+            disabled={fetching}
+            aria-label="Refresh audit log"
+            title="Refresh"
+          >
+            {fetching ? "…" : "↻"}
+          </button>
+          <button
+            type="button"
+            className="btn-primary plat-bills__action-btn plat-audit__export-cta"
+            disabled={loading || exporting || total === 0}
+            onClick={() => void exportCsv()}
+          >
+            <span className="plat-audit__export-cta-icon" aria-hidden>
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                <path
+                  d="M8 2.5v7.2M8 9.7 5.2 6.9M8 9.7l2.8-2.8"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 12.5h10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            Export CSV
+          </button>
+        </div>
+      </div>
 
       {topbarSlot
         ? createPortal(
@@ -375,44 +453,12 @@ export function AuditLogPage() {
                 className="field-control org-agents__search plat-audit__search"
                 type="search"
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search actor, org, action…"
                 aria-label="Search audit log"
               />
             </label>,
             topbarSlot,
-          )
-        : null}
-
-      {topbarActionsSlot
-        ? createPortal(
-            <div
-              className="org-agents__actions plat-audit__topbar-actions"
-              aria-label="Audit actions"
-            >
-              <button
-                type="button"
-                className="plat-audit__topbar-btn"
-                disabled={loading || filtered.length === 0}
-                onClick={() =>
-                  downloadAuditCsv(filtered, orgNames, actorEmails)
-                }
-              >
-                Export CSV
-              </button>
-              <button
-                type="button"
-                className="plat-audit__topbar-btn"
-                disabled={loading}
-                onClick={() => void load()}
-              >
-                {loading ? "Loading…" : "Refresh"}
-              </button>
-            </div>,
-            topbarActionsSlot,
           )
         : null}
 
@@ -507,63 +553,32 @@ export function AuditLogPage() {
             ))}
           </select>
         </label>
-        <label className="plat-audit__field">
-          <span>Limit</span>
-          <select
-            className="plat-audit__input"
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value))}
-          >
-            {LIMIT_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n} rows
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="plat-audit__kpis">
-        <div className="plat-audit__kpi">
-          <p className="plat-audit__kpi-label">Fetched</p>
-          <p className="plat-audit__kpi-value">
-            {loading ? "…" : items.length.toLocaleString()}
-          </p>
-          <p className="plat-audit__kpi-copy">Server page (max {limit})</p>
-        </div>
-        <div className="plat-audit__kpi">
-          <p className="plat-audit__kpi-label">Visible</p>
-          <p className="plat-audit__kpi-value">
-            {loading ? "…" : filtered.length.toLocaleString()}
-          </p>
-          <p className="plat-audit__kpi-copy">After search filter</p>
-        </div>
-        <div className="plat-audit__kpi">
-          <p className="plat-audit__kpi-label">Range</p>
-          <p className="plat-audit__kpi-value plat-audit__kpi-value--sm">
-            {fromDate || "—"} → {toDate || "—"}
-          </p>
-          <p className="plat-audit__kpi-copy">Inclusive local dates</p>
-        </div>
       </div>
 
       <div className="plat-audit__table-wrap">
         {loading ? (
-          <PagePending />
+          <div className="plat-audit__pending">
+            <PlatformPending
+              compact
+              title="Loading audit"
+              copy="Fetching platform activity."
+            />
+            <PlatformTableSkeleton columns={7} rows={8} />
+          </div>
         ) : null}
 
-        {!loading && filtered.length === 0 ? (
+        {!loading && total === 0 ? (
           <div className="plat-audit__empty" role="status">
             <p className="plat-audit__empty-title">No audit events</p>
             <p className="plat-audit__empty-copy">
-              {items.length === 0
-                ? "Nothing in this date range and filter. Widen the range or clear action/org."
-                : "No rows match the search box. Clear search to see fetched events."}
+              {debouncedQuery
+                ? `Nothing matched “${debouncedQuery}” in this date range and filter.`
+                : "Nothing in this date range and filter. Widen the range or clear action/org."}
             </p>
           </div>
         ) : null}
 
-        {!loading && filtered.length > 0 ? (
+        {!loading && total > 0 ? (
           <table className="plat-audit__table">
             <thead>
               <tr>
@@ -675,7 +690,6 @@ export function AuditLogPage() {
         ) : null}
 
         {!loading &&
-        filtered.length > 0 &&
         expandedId &&
         paged.some((r) => r.id === expandedId) ? (
           (() => {
@@ -696,20 +710,22 @@ export function AuditLogPage() {
                     ))}
                   </ul>
                 ) : null}
-                <details className="plat-audit__detail-raw">
-                  <summary>Raw JSON</summary>
-                  <pre>{JSON.stringify(row.metadata, null, 2)}</pre>
-                </details>
+                {Object.keys(row.metadata).length > 0 ? (
+                  <details className="plat-audit__detail-raw">
+                    <summary>Technical details</summary>
+                    <pre>{JSON.stringify(row.metadata, null, 2)}</pre>
+                  </details>
+                ) : null}
               </div>
             );
           })()
         ) : null}
 
-        {!loading && filtered.length > 0 ? (
+        {!loading && total > 0 ? (
           <OrgListPagination
             page={page}
             pageCount={pageCount}
-            total={filtered.length}
+            total={total}
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />

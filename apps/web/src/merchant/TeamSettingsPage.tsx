@@ -48,6 +48,7 @@ import {
   sessionLiveActionsUnlocked,
 } from "../auth/contactVerification";
 import { formatPhoneDisplay } from "../shared/phoneFormat";
+import { RoleBadge } from "../shared/RoleBadge";
 import {
   CloseIcon,
   InviteMarkIcon,
@@ -83,10 +84,6 @@ function inviteRoleOptions(orgType: string | undefined) {
     id: r,
     label: roleLabel(r),
   }));
-}
-
-function roleBadgeText(role: string): string {
-  return roleLabel(role);
 }
 
 function formatRelativeLogin(iso: string | null | undefined): string {
@@ -614,9 +611,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                             />
                           </div>
                         ) : (
-                          <span className="plat-team__role">
-                            {roleBadgeText(m.role)}
-                          </span>
+                          <RoleBadge role={m.role} />
                         )}
                       </td>
                       <td className="plat-team__td-mfa">

@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { AuthToast } from "../auth/AuthToast";
-import { FieldControl } from "../ui/FieldControl";
+import { NumberStepper } from "../ui/NumberStepper";
 import {
   ApiError,
   getBillingCalendarSettings,
@@ -20,6 +20,11 @@ import { PagePending } from "./ui/PlatformPending";
 type Props = {
   session: Session;
   onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+  /** Nested under Fees single-page layout — quieter chrome. */
+  embedded?: boolean;
+  /** Form id for external submit (title-row Save). */
+  formId?: string;
 };
 
 const EMPTY: BillingCalendarSettings = {
@@ -34,7 +39,13 @@ const EMPTY: BillingCalendarSettings = {
 };
 
 /** Owner-configurable activation fee, auto-send, and agent remittance window. */
-export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
+export function BillingCalendarPanel({
+  session,
+  onDirtyChange,
+  onBusyChange,
+  embedded = false,
+  formId = "fee-billing-calendar-form",
+}: Props) {
   const canEdit = useMemo(() => sessionIsPlatformOwner(session), [session]);
   const [form, setForm] = useState<BillingCalendarSettings>(EMPTY);
   const [saved, setSaved] = useState<BillingCalendarSettings>(EMPTY);
@@ -53,6 +64,10 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,10 +117,16 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
     }
   }
 
-  if (loading) return <PagePending />;
+  if (loading) {
+    return (
+      <PagePending title={embedded ? "Loading billing calendar…" : undefined} />
+    );
+  }
 
   return (
-    <section className="plat-billing-calendar">
+    <section
+      className={`plat-billing-calendar${embedded ? " plat-billing-calendar--embedded" : ""}`}
+    >
       <AuthToast
         message={error ?? message}
         tone={error ? "error" : "ok"}
@@ -114,104 +135,65 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
           setMessage(null);
         }}
       />
-      <p className="muted" style={{ marginBottom: "1.25rem", maxWidth: "40rem" }}>
-        Platform schedules use <strong>UTC</strong>. Merchant fees use the{" "}
-        <strong>activation payment date</strong>: after verify, pay activation;
-        one month later (and every month after) the system creates subscription +
-        volume invoices at <strong>00:00 UTC</strong>. Auto-send controls whether
-        drafts wait for Confirm &amp; send. Agent commission invoices are created
-        at <strong>00:00 UTC on remittance From day (C)</strong>; commission =
-        paid subscription + volume × rate. Timestamps in lists and history display
-        in each user’s profile timezone.
-      </p>
-      <form className="plat-billing-calendar__form" onSubmit={onSubmit}>
-        <details className="plat-billing-calendar__fieldset plat-billing-calendar__legacy">
-          <summary className="plat-billing-calendar__legend">
-            Merchant pay window (legacy — display only)
-          </summary>
-          <p className="muted" style={{ margin: "0.5rem 0 0.75rem", fontSize: "0.85rem" }}>
-            Not used for due dates. Merchant invoices use{" "}
-            <strong>Pay within (days)</strong> from send/create time (activation
-            and monthly).
-          </p>
-          <fieldset disabled style={{ border: 0, margin: 0, padding: 0 }}>
-            <div className="plat-billing-calendar__row">
-              <FieldControl label="From day" htmlFor="merchant-pay-start">
-                <input
-                  id="merchant-pay-start"
-                  className="b4-field__control"
-                  type="number"
-                  min={1}
-                  max={28}
-                  value={form.merchantPayDayStart}
-                  readOnly
-                  aria-readonly="true"
-                />
-              </FieldControl>
-              <FieldControl label="To day" htmlFor="merchant-pay-end">
-                <input
-                  id="merchant-pay-end"
-                  className="b4-field__control"
-                  type="number"
-                  min={1}
-                  max={28}
-                  value={form.merchantPayDayEnd}
-                  readOnly
-                  aria-readonly="true"
-                />
-              </FieldControl>
-            </div>
-          </fieldset>
-        </details>
-
+      <form
+        id={formId}
+        className="plat-billing-calendar__form"
+        onSubmit={onSubmit}
+      >
+        <div className="plat-billing-calendar__cards">
         <fieldset disabled={!canEdit || busy} className="plat-billing-calendar__fieldset">
           <legend className="plat-billing-calendar__legend">
             Agent remittance window (UTC)
           </legend>
-          <p className="muted" style={{ margin: "0 0 0.75rem", fontSize: "0.85rem" }}>
-            From day (C): auto-create agent invoices at 00:00 UTC. To day: remittance /
-            catch-up window. Day numbers are UTC calendar days.
-          </p>
           <div className="plat-billing-calendar__row">
-            <FieldControl label="From day (C)" htmlFor="agent-pay-start">
-              <input
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="agent-pay-start">
+                From day (C)
+              </label>
+              <NumberStepper
                 id="agent-pay-start"
-                className="b4-field__control"
-                type="number"
+                className="plat-billing-calendar__stepper"
+                inputClassName="b4-field__control"
                 min={1}
                 max={28}
                 value={form.agentPayDayStart}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    agentPayDayStart: Number(e.target.value),
-                  }))
-                }
+                aria-label="Agent pay from day"
+                onChange={(raw) => {
+                  const n = Number(raw);
+                  if (!Number.isFinite(n)) return;
+                  setForm((f) => ({ ...f, agentPayDayStart: n }));
+                }}
               />
-            </FieldControl>
-            <FieldControl label="To day" htmlFor="agent-pay-end">
-              <input
+            </div>
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="agent-pay-end">
+                To day
+              </label>
+              <NumberStepper
                 id="agent-pay-end"
-                className="b4-field__control"
-                type="number"
+                className="plat-billing-calendar__stepper"
+                inputClassName="b4-field__control"
                 min={1}
                 max={28}
                 value={form.agentPayDayEnd}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    agentPayDayEnd: Number(e.target.value),
-                  }))
-                }
+                aria-label="Agent pay to day"
+                onChange={(raw) => {
+                  const n = Number(raw);
+                  if (!Number.isFinite(n)) return;
+                  setForm((f) => ({ ...f, agentPayDayEnd: n }));
+                }}
               />
-            </FieldControl>
+            </div>
           </div>
         </fieldset>
 
         <fieldset disabled={!canEdit || busy} className="plat-billing-calendar__fieldset">
           <legend className="plat-billing-calendar__legend">Activation invoice</legend>
-          <div className="plat-billing-calendar__row">
-            <FieldControl label="Activation fee (USD)" htmlFor="activation-fee">
+          <div className="plat-billing-calendar__row plat-billing-calendar__row--activation">
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="activation-fee">
+                Activation fee (USD)
+              </label>
               <input
                 id="activation-fee"
                 className="b4-field__control"
@@ -222,53 +204,51 @@ export function BillingCalendarPanel({ session, onDirtyChange }: Props) {
                   setForm((f) => ({ ...f, activationFeeUsd: e.target.value }))
                 }
               />
-            </FieldControl>
-            <FieldControl label="Pay within (days)" htmlFor="activation-days">
-              <input
+            </div>
+            <div className="b4-field">
+              <label className="b4-field__label" htmlFor="activation-days">
+                Pay within (days)
+              </label>
+              <NumberStepper
                 id="activation-days"
-                className="b4-field__control"
-                type="number"
+                className="plat-billing-calendar__stepper"
+                inputClassName="b4-field__control"
                 min={1}
                 max={90}
                 value={form.activationPayDays}
+                aria-label="Pay within days"
+                onChange={(raw) => {
+                  const n = Number(raw);
+                  if (!Number.isFinite(n)) return;
+                  setForm((f) => ({ ...f, activationPayDays: n }));
+                }}
+              />
+            </div>
+            <label className="plat-billing-calendar__check">
+              <input
+                type="checkbox"
+                checked={form.autoSendInvoices}
                 onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    activationPayDays: Number(e.target.value),
-                  }))
+                  setForm((f) => ({ ...f, autoSendInvoices: e.target.checked }))
                 }
               />
-            </FieldControl>
+              Auto-send invoices
+            </label>
           </div>
-          <p className="muted" style={{ margin: "0.5rem 0 0.75rem", fontSize: "0.85rem" }}>
-            Pay within applies to activation and monthly invoices (due = send/create +
-            these days).
-          </p>
-          <label className="plat-billing-calendar__check">
-            <input
-              type="checkbox"
-              checked={form.autoSendInvoices}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, autoSendInvoices: e.target.checked }))
-              }
-            />
-            Auto-send without confirm (drafts become issued immediately)
-          </label>
         </fieldset>
+        </div>
 
         {canEdit ? (
           <div className="plat-billing-calendar__actions">
             <button
               type="submit"
-              className="btn btn--primary"
+              className={embedded ? "plat-fees__save" : "btn btn--primary"}
               disabled={!dirty || busy}
             >
               {busy ? "Saving…" : "Save calendar"}
             </button>
           </div>
-        ) : (
-          <p className="muted">Only Platform Owner may change these settings.</p>
-        )}
+        ) : null}
       </form>
     </section>
   );

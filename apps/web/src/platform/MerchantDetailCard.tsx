@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { platformRoute } from "../shared/portalRouting";
+import { billsReviewQuery, volumeReviewQuery } from "./accountReviewLinks";
+import { useAccountsPortal } from "./accountsPortal";
 import { AuthToast } from "../auth/AuthToast";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
@@ -13,19 +15,17 @@ import {
   getMatchingMode,
   getOrgOverview,
   ownerContactWithMfa,
-  listComplianceOverrides,
   listSettlement,
   listXpub,
   updateMerchantCommercial,
   patchOrgProfile,
-  type ComplianceOverride,
   type FeeTierBand,
   type AuditLogEntry,
   type MerchantCommercialSettings,
   type OrgAccount,
   type OrgMember,
   type OrgPrimaryOwnerContact,
-  type PaymentOrder,
+  type OrgOverviewMetrics,
   type SettlementAddress,
   type XpubSettings,
 } from "./api";
@@ -44,7 +44,6 @@ import {
 import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
 import { AccountsDetailHero } from "./AccountsDetailHero";
 import {
-  merchantBillingPeriodStartMs,
   mergeActivityFeed,
   RECENT_ACTIVITY_LIMIT,
 } from "./orgDetailSeeds";
@@ -54,8 +53,7 @@ import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
 import { MerchantSettlementPanel } from "./MerchantSettlementPanel";
-import { ComplianceOverrideModal } from "./ComplianceOverrideModal";
-import { formatViewerDateTime } from "../shared/dateTime";
+import { OrgNetworkRailPanel } from "./OrgNetworkRailPanel";
 import { KpiChartIcon, KpiCoinsIcon, KpiPeopleIcon } from "./detailKpiMarks";
 import {
   HeroPauseIcon,
@@ -68,7 +66,7 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "team", label: "Team" },
   { id: "cashiers", label: "Cashiers" },
-  { id: "compliance", label: "Compliance" },
+  { id: "networks", label: "Networks" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -131,6 +129,8 @@ const AUDIT_LABEL: Record<string, string> = {
 };
 
 function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
+  const portal = useAccountsPortal();
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   return (
     <div className="b3-agent-detail__activity-empty" role="status">
       <div
@@ -159,10 +159,10 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
           ? "Fetching audit events for this merchant."
           : "Sign-ins, team invites, and status changes appear here when recorded."}
       </p>
-      {!loading ? (
+      {!loading && auditHref ? (
         <Link
           className="b3-agent-detail__activity-audit b3-agent-detail__activity-audit--inline"
-          to={platformRoute("audit")}
+          to={auditHref}
           title="Open platform audit log"
         >
           Platform audit log
@@ -224,18 +224,27 @@ export function MerchantDetailCard({
   onOrgPatched,
   inviteCreds,
 }: Props) {
+  const portal = useAccountsPortal();
+  const route = portal?.route ?? platformRoute;
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   const canEditCommercial = useMemo(
-    () => sessionCanManagePlatform(session),
-    [session],
+    () => (portal ? false : sessionCanManagePlatform(session)),
+    [portal, session],
   );
   const canLockFixedRates = useMemo(
-    () => sessionIsPlatformOwner(session),
-    [session],
+    () => (portal ? false : sessionIsPlatformOwner(session)),
+    [portal, session],
   );
   const canSupportOwner = useMemo(
-    () => sessionIsPlatformOwner(session),
-    [session],
+    () => (portal ? false : sessionIsPlatformOwner(session)),
+    [portal, session],
   );
+  const canOnboardHere = portal ? portal.canOnboardUnder(org) : canManage;
+  const canLifecycleHere = portal ? portal.canLifecycle(org) : canManage;
+  const canEditOrg = portal ? portal.canEditProfile(org) : canManage;
+  const canManageTeam = portal ? portal.canManageTeam(org) : canManage;
+  /** Network rail settings are Platform-only on the API. */
+  const tabs = portal ? TABS.filter((t) => t.id !== "networks") : TABS;
   const [primaryOwner, setPrimaryOwner] = useState<OrgPrimaryOwnerContact | null>(
     null,
   );
@@ -243,7 +252,7 @@ export function MerchantDetailCard({
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
   );
 
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [metrics, setMetrics] = useState<OrgOverviewMetrics | null>(null);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
   const [settlement, setSettlement] = useState<SettlementAddress[]>([]);
@@ -269,9 +278,6 @@ export function MerchantDetailCard({
   const [editReason, setEditReason] = useState("");
   const [feeTiers, setFeeTiers] = useState<FeeTierBand[]>([]);
   const [activationFeeUsd, setActivationFeeUsd] = useState("49.00");
-  const [overrides, setOverrides] = useState<ComplianceOverride[]>([]);
-  const [overridesLoading, setOverridesLoading] = useState(false);
-  const [overridesError, setOverridesError] = useState<string | null>(null);
   const [localOrg, setLocalOrg] = useState<OrgAccount>(org);
 
   useEffect(() => {
@@ -279,28 +285,7 @@ export function MerchantDetailCard({
   }, [org]);
 
   const status = localOrg.status ?? "active";
-  const orderCreateSuspended = localOrg.orderCreateSuspended === true;
-  const periodStart = useMemo(
-    () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
-    [org.createdAt],
-  );
-  const mtdOrders = useMemo(
-    () =>
-      orders.filter((o) => {
-        const created = o.createdAt ? Date.parse(o.createdAt) : NaN;
-        return Number.isFinite(created) ? created >= periodStart : true;
-      }),
-    [orders, periodStart],
-  );
-  const settledVolume = useMemo(() => {
-    let total = 0;
-    for (const o of mtdOrders) {
-      if (o.status !== "completed") continue;
-      const n = Number(o.payableAmount.amount);
-      if (Number.isFinite(n)) total += n;
-    }
-    return total;
-  }, [mtdOrders]);
+  const settledVolume = metrics?.settledVolumeMtdUsd ?? 0;
   const displayVolume = settledVolume;
   const cashierCount = team.filter((member) => member.role === "cashier").length;
   const scheduleTier = useMemo(
@@ -347,7 +332,7 @@ export function MerchantDetailCard({
     setTabError(null);
     setCommercial(null);
     setAudit([]);
-    setOrders([]);
+    setMetrics(null);
     setSettlement([]);
     setXpubs([]);
     setMatchingMode("—");
@@ -356,35 +341,7 @@ export function MerchantDetailCard({
     setCommercialEditOpen(false);
     setCommercialError(null);
     setPrimaryOwner(null);
-    setOverrides([]);
-    setOverridesError(null);
   }, [org.id, initialTab]);
-
-  useEffect(() => {
-    if (tab !== "compliance") return;
-    let cancelled = false;
-    setOverridesLoading(true);
-    setOverridesError(null);
-    void listComplianceOverrides(org.id)
-      .then((data) => {
-        if (cancelled) return;
-        setOverrides(data.items ?? []);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setOverridesError(
-          err instanceof ApiError
-            ? err.message
-            : "Failed to load compliance overrides",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setOverridesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, org.id]);
 
   const selectedBand = useMemo(
     () => feeTiers.find((t) => t.tier === editTier) ?? null,
@@ -400,19 +357,21 @@ export function MerchantDetailCard({
       .catch(() => {
         if (!cancelled) setFeeTiers([]);
       });
-    void getBillingCalendarSettings()
-      .then((cal) => {
-        if (!cancelled && cal.activationFeeUsd?.trim()) {
-          setActivationFeeUsd(cal.activationFeeUsd.trim());
-        }
-      })
-      .catch(() => {
-        /* keep default activation fee */
-      });
+    if (!portal) {
+      void getBillingCalendarSettings()
+        .then((cal) => {
+          if (!cancelled && cal.activationFeeUsd?.trim()) {
+            setActivationFeeUsd(cal.activationFeeUsd.trim());
+          }
+        })
+        .catch(() => {
+          /* keep default activation fee */
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, portal]);
 
   useEffect(() => {
     if (!commercialEditOpen) return;
@@ -472,19 +431,24 @@ export function MerchantDetailCard({
     setOverviewLoading(true);
     setTeamLoading(true);
     void getOrgOverview(org.id)
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
-        setTeam(data.team ?? []);
+        let teamRows = data.team ?? [];
+        if (portal && teamRows.length === 0) {
+          teamRows = await portal.loadTeam(org.id).catch(() => []);
+          if (cancelled) return;
+        }
+        setTeam(teamRows);
         setAudit(data.audit);
         setCommercial(data.commercial);
-        setOrders(data.orders);
+        setMetrics(data.metrics);
         const contact = data.primaryOwnerContact ?? null;
         if (contact) {
-          setPrimaryOwner(ownerContactWithMfa(contact, data.team ?? []));
+          setPrimaryOwner(ownerContactWithMfa(contact, teamRows));
         } else {
           const ownerRow =
-            (data.team ?? []).find((m) => m.role === "owner") ??
-            (data.team ?? [])[0] ??
+            teamRows.find((m) => m.role === "owner") ??
+            teamRows[0] ??
             null;
           setPrimaryOwner(
             ownerRow
@@ -508,7 +472,7 @@ export function MerchantDetailCard({
           setTeam([]);
           setAudit([]);
           setCommercial(null);
-          setOrders([]);
+          setMetrics(null);
           setPrimaryOwner(null);
         }
       })
@@ -521,7 +485,7 @@ export function MerchantDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, portal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -684,61 +648,68 @@ export function MerchantDetailCard({
               status === "paused" ? " is-paused" : ""
             }`}
           >
-            {status === "paused" ? "PAUSED" : "ACTIVE"}
+            {status === "paused" ? "SUSPENDED" : "ACTIVE"}
           </span>
         }
         actions={
-          canManage ? (
+          canOnboardHere || canLifecycleHere ? (
             <>
-              <Link
-                className="b3-agent-detail__onboard"
-                to={`${platformRoute("sites/new")}?parentId=${encodeURIComponent(org.id)}`}
-              >
-                <HeroPersonPlusIcon />
-                New Site
-              </Link>
-              {status === "active" ? (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onPause}
+              {canOnboardHere ? (
+                <Link
+                  className="b3-agent-detail__onboard"
+                  to={`${route("sites/new")}?parentId=${encodeURIComponent(org.id)}`}
                 >
-                  <HeroPauseIcon />
-                  Suspend
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onRun}
-                >
-                  <HeroPlayIcon />
-                  Run
-                </button>
-              )}
-              <button
-                type="button"
-                className="b3-agent-detail__delete"
-                disabled={busy}
-                onClick={onDelete}
-              >
-                <HeroTrashIcon />
-                Delete
-              </button>
+                  <HeroPersonPlusIcon />
+                  New Site
+                </Link>
+              ) : null}
+              {canLifecycleHere ? (
+                <>
+                  {status === "active" ? (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onPause}
+                    >
+                      <HeroPauseIcon />
+                      Suspend
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onRun}
+                    >
+                      <HeroPlayIcon />
+                      Run
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="b3-agent-detail__delete"
+                    disabled={busy}
+                    onClick={onDelete}
+                  >
+                    <HeroTrashIcon />
+                    Delete
+                  </button>
+                </>
+              ) : null}
             </>
           ) : null
         }
       />
-      {status === "paused" && localOrg.statusReason ? (
+      {status === "paused" ? (
         <p className="platform-detail__pause-reason muted" role="status">
-          {localOrg.statusReason}
+          Suspended
+          {localOrg.statusReason ? `: ${localOrg.statusReason}` : ""}
           {localOrg.statusReasonBillId ? (
             <>
               {" — "}
               <Link
-                to={platformRoute(
+                to={route(
                   `service-bills/${encodeURIComponent(localOrg.statusReasonBillId)}`,
                 )}
               >
@@ -746,6 +717,7 @@ export function MerchantDetailCard({
               </Link>
             </>
           ) : null}
+          . Sites under this merchant are watch-only.
         </p>
       ) : null}
 
@@ -836,7 +808,7 @@ export function MerchantDetailCard({
 
       <div className="platform-detail__body b3-agent-detail__shell">
       <div className="b3-agent-detail__tabs" role="tablist">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           let label: string = t.label;
           if (t.id === "team") {
             const teamCount = team.filter((m) => m.role !== "cashier").length;
@@ -887,7 +859,18 @@ export function MerchantDetailCard({
                   <KpiCoinsIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <p className="b3-card__label">Volume (MTD)</p>
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Volume (MTD)</p>
+                    {portal ? null : (
+                      <Link
+                        className="b3-kpi__more"
+                        to={`${platformRoute("invoices")}?${volumeReviewQuery({ merchantId: org.id })}`}
+                        aria-label="Review this month's completed invoices"
+                      >
+                        Review →
+                      </Link>
+                    )}
+                  </div>
                   <p className="b3-card__value b3-card__value--gold">
                     <FundAmount amount={displayVolume} />
                   </p>
@@ -898,7 +881,18 @@ export function MerchantDetailCard({
                   <KpiChartIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <p className="b3-card__label">Platform fee (MTD)</p>
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Platform fee (MTD)</p>
+                    {portal ? null : (
+                      <Link
+                        className="b3-kpi__more"
+                        to={`${platformRoute("service-bills")}?${billsReviewQuery({ merchantId: org.id })}`}
+                        aria-label="Review service bills for this month"
+                      >
+                        Review →
+                      </Link>
+                    )}
+                  </div>
                   <p className="b3-card__value b3-card__value--ok">
                     <FundAmount amount={displayPlatformFeeMtd} />
                   </p>
@@ -911,7 +905,7 @@ export function MerchantDetailCard({
                 org={org}
                 owner={primaryOwner}
                 ownerLoading={overviewLoading && !primaryOwner}
-                canEditOrg={canManage}
+                canEditOrg={canEditOrg}
                 canEditOwner={canSupportOwner}
                 setupKind="merchant"
                 walletSet={settlement.some(
@@ -983,7 +977,7 @@ export function MerchantDetailCard({
               <MerchantSettlementPanel
                 orgId={org.id}
                 session={session}
-                canManage={canManage}
+                canManage={canSupportOwner}
                 settlement={settlement}
                 loading={tabLoading}
                 onSettlementChange={setSettlement}
@@ -994,14 +988,16 @@ export function MerchantDetailCard({
                 loading={overviewLoading && audit.length === 0}
                 empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
                 action={
-                  <Link
-                    className="b3-agent-detail__view-all"
-                    to={platformRoute("audit")}
-                    title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
-                  >
-                    View all activity
-                    <span aria-hidden>→</span>
-                  </Link>
+                  auditHref ? (
+                    <Link
+                      className="b3-agent-detail__view-all"
+                      to={auditHref}
+                      title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
+                    >
+                      View all activity
+                      <span aria-hidden>→</span>
+                    </Link>
+                  ) : undefined
                 }
               />
             </div>
@@ -1014,7 +1010,7 @@ export function MerchantDetailCard({
             orgs={orgs}
             members={team}
             loading={teamLoading}
-            canManage={canManage}
+            canManage={canManageTeam}
             onMembersChange={setTeam}
             variant="team"
           />
@@ -1026,112 +1022,18 @@ export function MerchantDetailCard({
             orgs={orgs}
             members={team}
             loading={teamLoading}
-            canManage={canManage}
+            canManage={canManageTeam}
             onMembersChange={setTeam}
             variant="cashiers"
           />
         ) : null}
 
-        {tab === "compliance" ? (
-          <div className="b6-compliance">
-            <AuthToast
-              message={overridesError}
-              tone="error"
-              onDismiss={() => setOverridesError(null)}
-            />
-            <div className="b6-compliance__status" role="status">
-              <span
-                className={`b6-compliance__badge${
-                  status === "paused" ? " is-paused" : " is-active"
-                }`}
-              >
-                {status === "paused" ? "Paused" : "Active"}
-              </span>
-              {orderCreateSuspended ? (
-                <span className="b6-compliance__badge is-suspended">
-                  Order create suspended
-                </span>
-              ) : (
-                <span className="b6-compliance__badge is-ok">
-                  Order create allowed
-                </span>
-              )}
-              {localOrg.statusReason ? (
-                <p className="b6-compliance__reason">
-                  {localOrg.statusReason}
-                  {localOrg.statusReasonBillId ? (
-                    <>
-                      {" "}
-                      <Link
-                        to={platformRoute(
-                          `service-bills/${encodeURIComponent(localOrg.statusReasonBillId)}`,
-                        )}
-                      >
-                        Open service bill
-                      </Link>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-            </div>
-
-            <section className="b6-compliance__log" aria-labelledby="b6-override-log-title">
-              <header className="b6-compliance__log-head">
-                <h3 id="b6-override-log-title">Override log</h3>
-                <p>MFA-gated compliance actions applied to this merchant.</p>
-              </header>
-              {overridesLoading && overrides.length === 0 ? (
-                <p className="b6-compliance__empty">Loading overrides…</p>
-              ) : null}
-              {!overridesLoading && overrides.length === 0 ? (
-                <p className="b6-compliance__empty">
-                  No compliance overrides recorded for this merchant yet.
-                </p>
-              ) : null}
-              {overrides.length > 0 ? (
-                <div className="b6-compliance__table-wrap">
-                  <table className="b6-compliance__table">
-                    <thead>
-                      <tr>
-                        <th>When</th>
-                        <th>Type</th>
-                        <th>Reason</th>
-                        <th>Notes</th>
-                        <th>Ticket</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {overrides.map((row) => (
-                        <tr key={row.id}>
-                          <td>{formatViewerDateTime(row.createdAt)}</td>
-                          <td>{row.overrideType.replace(/_/g, " ")}</td>
-                          <td>{row.reasonCode.replace(/_/g, " ")}</td>
-                          <td title={row.notes}>{row.notes || "—"}</td>
-                          <td>{row.ticketId?.trim() || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </section>
-
-            <ComplianceOverrideModal
-              org={localOrg}
-              session={session}
-              canApply={canEditCommercial}
-              variant="inline"
-              onApplied={(result) => {
-                if (result.org) {
-                  setLocalOrg(result.org);
-                  onOrgPatched?.(result.org);
-                }
-                void listComplianceOverrides(org.id)
-                  .then((data) => setOverrides(data.items ?? []))
-                  .catch(() => undefined);
-              }}
-            />
-          </div>
+        {tab === "networks" && !portal ? (
+          <OrgNetworkRailPanel
+            session={session}
+            scope="merchant"
+            scopeId={org.id}
+          />
         ) : null}
       </div>
       </div>

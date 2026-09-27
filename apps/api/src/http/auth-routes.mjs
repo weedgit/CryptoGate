@@ -78,7 +78,6 @@ async function sessionPayload(user, memberships) {
       avatarUrl: user.avatarUrl ?? null,
       locale: user.locale ?? "en",
       timezone: user.timezone ?? "UTC",
-      mfaEnforcement: user.mfaEnforcement === true,
       sessionTimeoutMinutes: user.sessionTimeoutMinutes,
       emailVerified: user.emailVerified === true,
       phone: user.phone ?? null,
@@ -222,10 +221,10 @@ export async function handleMfaEnroll(req, res) {
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleMfaReset(req, res) {
-  const auth = await requireSession(req, res);
-  if (!auth) return;
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
 
-  if (!canEnrollMfa(auth.memberships)) {
+  if (!canEnrollMfa(caller.memberships)) {
     sendError(res, 403, "forbidden", "Only Owner or Administrator may reset MFA");
     return;
   }
@@ -245,7 +244,7 @@ export async function handleMfaReset(req, res) {
     return;
   }
 
-  const profile = await findUserById(auth.userId);
+  const profile = await findUserById(caller.userId);
   if (!profile) {
     sendError(res, 401, "unauthorized", "Not authenticated");
     return;
@@ -266,7 +265,8 @@ export async function handleMfaReset(req, res) {
     actorUserId: user.id,
     action: AUDIT_ACTIONS.mfaReset,
   });
-  sendJson(res, 200, await sessionPayload({ id: user.id, email: user.email }));
+  const refreshed = await findUserById(user.id);
+  sendJson(res, 200, await sessionPayload(refreshed ?? profile));
 }
 
 /**
@@ -477,11 +477,13 @@ export async function handlePatchProfile(req, res) {
     patch.timezone = body.timezone;
   }
   if (body?.mfaEnforcement !== undefined) {
-    if (typeof body.mfaEnforcement !== "boolean") {
-      sendError(res, 400, "invalid_request", "mfaEnforcement must be a boolean");
-      return;
-    }
-    patch.mfaEnforcement = body.mfaEnforcement;
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "Two-step verification enrollment is set by org role policy and cannot be changed here",
+    );
+    return;
   }
   if (body?.sessionTimeoutMinutes !== undefined) {
     const mins = Number(body.sessionTimeoutMinutes);
@@ -523,7 +525,6 @@ export async function handlePatchProfile(req, res) {
       hasAvatar: Boolean(updated.avatarUrl),
       locale: updated.locale,
       timezone: updated.timezone,
-      mfaEnforcement: updated.mfaEnforcement,
       sessionTimeoutMinutes: updated.sessionTimeoutMinutes,
     },
   });

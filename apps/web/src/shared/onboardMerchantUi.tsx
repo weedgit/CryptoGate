@@ -107,14 +107,8 @@ export function NumberSpinButtons({
         tabIndex={-1}
         onClick={onUp}
       >
-        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden>
-          <path
-            d="M1 5l4-4 4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg viewBox="0 0 12 8" width="12" height="8" aria-hidden>
+          <path fill="currentColor" d="M6 1.1 11 6.9H1Z" />
         </svg>
       </button>
       <button
@@ -125,14 +119,8 @@ export function NumberSpinButtons({
         tabIndex={-1}
         onClick={onDown}
       >
-        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden>
-          <path
-            d="M1 1l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg viewBox="0 0 12 8" width="12" height="8" aria-hidden>
+          <path fill="currentColor" d="M6 6.9 1 1.1h10Z" />
         </svg>
       </button>
     </div>

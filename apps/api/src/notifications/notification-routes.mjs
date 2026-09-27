@@ -3,7 +3,7 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import {
-  canChangeSettlementSettings,
+  canManageMerchantOrgOps,
   canViewSettlementSettings,
   isMerchantOrgType,
 } from "../orgs/role-policy.mjs";
@@ -47,7 +47,7 @@ async function loadPrefsOrg(req, res, orgId, mode) {
     return null;
   }
 
-  if (mode === "manage" && !canChangeSettlementSettings(caller, org)) {
+  if (mode === "manage" && !canManageMerchantOrgOps(caller, org)) {
     // Same O/A bar as other merchant settings (Cashier / Viewer 403 on write).
     sendError(res, 403, "forbidden", "Not allowed to change notification preferences");
     return null;

@@ -724,8 +724,8 @@ export function ArchitecturePage({ session }: { session: Session }) {
   }, []);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("agent-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("agent-topbar-actions"));
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   useLayoutEffect(() => {

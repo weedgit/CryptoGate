@@ -15,6 +15,23 @@ function isTwilioConfigured() {
 }
 
 /**
+ * Notify-only alert to the previous verified phone (no OTP). Best-effort.
+ * @param {{
+ *   to: string,
+ *   phase: "requested" | "completed",
+ *   newPhone?: string,
+ * }} input
+ */
+export async function sendPhoneChangeNotice(input) {
+  const phase = input.phase === "completed" ? "completed" : "requested";
+  const text =
+    phase === "completed"
+      ? `PaymentGate: your phone was changed${input.newPhone ? ` to ${input.newPhone}` : ""}. If this was not you, contact support.`
+      : "PaymentGate: a phone change was requested. A code was sent to the new number. Your current number stays active until confirmed. If this was not you, contact support.";
+  return sendSms({ to: input.to, text });
+}
+
+/**
  * @param {{ to: string, text: string }} message
  * @returns {Promise<{ delivered: boolean, mode: "stub" | "twilio" }>}
  */

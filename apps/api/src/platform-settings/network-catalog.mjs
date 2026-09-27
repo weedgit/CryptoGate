@@ -6,6 +6,8 @@ import { listNetworkMaintenanceRows } from "./network-maintenance-store.mjs";
 import { isMaintenanceEffective } from "./network-maintenance-rules.mjs";
 import { listWatcherHeartbeats } from "../ops/watcher-health-store.mjs";
 import { computeOrderabilityLamp } from "./network-lamp.mjs";
+import { resolveRailPolicy, registryNetworkFloors } from "./network-rail-settings-rules.mjs";
+import { loadPlatformRailOverlays, pairKey } from "./network-rail-resolve.mjs";
 
 const NETWORK_TITLE = {
   [NetworkId.Ethereum]: "Ethereum",
@@ -107,6 +109,7 @@ function buildRegistryOnlyCatalog() {
   for (const [network, rows] of byNet) {
     const enabledPairs = rows.filter((r) => r.enabled);
     const primary = pickPrimary(rows);
+    const floors = registryNetworkFloors(network);
     const ingest = ingestFromHeartbeat(undefined);
     let status = "catalogued";
     if (enabledPairs.length > 0) status = "active";
@@ -115,6 +118,9 @@ function buildRegistryOnlyCatalog() {
       maintenanceActive: false,
       ingestStatus: ingest.ingestStatus,
     });
+    const primaryResolved = primary
+      ? resolveRailPolicy(primary.asset, primary.network, {})
+      : null;
     items.push({
       network,
       title: NETWORK_TITLE[network] || network.replace(/_/g, " "),
@@ -124,23 +130,32 @@ function buildRegistryOnlyCatalog() {
       enabledCount: enabledPairs.length,
       catalogFraction: rows.length > 0 ? enabledPairs.length / rows.length : 0,
       primaryAsset: primary?.asset ?? null,
-      confirmations: primary?.requiredConfirmations ?? null,
-      minAmount: primary?.minAmount ?? null,
+      confirmations: primaryResolved?.requiredConfirmations ?? null,
+      minAmount: primaryResolved?.minAmount ?? null,
+      registryConfirmations: floors.requiredConfirmations,
+      registryMinAmount: floors.minAmount,
+      railOverride: {
+        requiredConfirmations: null,
+        minAmount: null,
+      },
       contractAddress: primary?.contractAddress ?? null,
-      pairs: rows.map((r) => ({
-        asset: r.asset,
-        enabled: r.enabled,
-        contractAddress: r.contractAddress,
-        decimals: r.decimals,
-        minAmount: r.minAmount,
-        requiredConfirmations: r.requiredConfirmations,
-        displayNetwork: r.displayNetwork,
-        lamp: computeOrderabilityLamp({
+      pairs: rows.map((r) => {
+        const resolved = resolveRailPolicy(r.asset, r.network, {}) ?? r;
+        return {
+          asset: r.asset,
           enabled: r.enabled,
-          maintenanceActive: false,
-          ingestStatus: ingest.ingestStatus,
-        }),
-      })),
+          contractAddress: r.contractAddress,
+          decimals: r.decimals,
+          minAmount: resolved.minAmount,
+          requiredConfirmations: resolved.requiredConfirmations,
+          displayNetwork: r.displayNetwork,
+          lamp: computeOrderabilityLamp({
+            enabled: r.enabled,
+            maintenanceActive: false,
+            ingestStatus: ingest.ingestStatus,
+          }),
+        };
+      }),
       maintenance: {
         active: false,
         message: null,
@@ -199,6 +214,8 @@ async function buildNetworkCatalogFresh() {
 
   let maintenanceRows = [];
   let heartbeats = [];
+  /** @type {{ confirmsByNet: Map<string, number | null>, minByPair: Map<string, string> }} */
+  let railOverlays = { confirmsByNet: new Map(), minByPair: new Map() };
   try {
     maintenanceRows = await listNetworkMaintenanceRows();
   } catch (err) {
@@ -209,6 +226,16 @@ async function buildNetworkCatalogFresh() {
   } catch (err) {
     if (!isOptionalCatalogDbError(err, "watcher_heartbeats")) throw err;
   }
+  try {
+    railOverlays = await loadPlatformRailOverlays();
+  } catch (err) {
+    if (
+      !isOptionalCatalogDbError(err, "platform_network_rail_settings") &&
+      !isOptionalCatalogDbError(err, "platform_pair_rail_settings")
+    ) {
+      throw err;
+    }
+  }
 
   const maintByNet = new Map(maintenanceRows.map((m) => [m.network, m]));
   const hbByNet = new Map(heartbeats.map((h) => [h.network, h]));
@@ -217,6 +244,8 @@ async function buildNetworkCatalogFresh() {
   for (const [network, rows] of byNet) {
     const enabledPairs = rows.filter((r) => r.enabled);
     const primary = pickPrimary(rows);
+    const floors = registryNetworkFloors(network);
+    const netConfirms = railOverlays.confirmsByNet.get(network) ?? null;
     const maint = maintByNet.get(network) ?? null;
     const underMaintenance = isMaintenanceEffective(maint);
     // Heartbeats are keyed by watcher network id (tron covers Nile ingest today).
@@ -235,6 +264,38 @@ async function buildNetworkCatalogFresh() {
       ingestStatus: ingest.ingestStatus,
     });
 
+    const pairs = rows.map((r) => {
+      const pairLamp = computeOrderabilityLamp({
+        enabled: r.enabled,
+        maintenanceActive: underMaintenance,
+        ingestStatus: ingest.ingestStatus,
+      });
+      const pairMin = railOverlays.minByPair.get(pairKey(network, r.asset)) ?? null;
+      const resolved =
+        resolveRailPolicy(r.asset, r.network, {
+          platform: {
+            requiredConfirmations: netConfirms,
+            minAmount: pairMin,
+          },
+        }) ?? r;
+      return {
+        asset: r.asset,
+        enabled: r.enabled,
+        contractAddress: r.contractAddress,
+        decimals: r.decimals,
+        minAmount: resolved.minAmount,
+        registryMinAmount: r.minAmount,
+        minAmountOverride: pairMin,
+        requiredConfirmations: resolved.requiredConfirmations,
+        displayNetwork: r.displayNetwork,
+        lamp: pairLamp,
+      };
+    });
+
+    const primaryResolved = primary
+      ? pairs.find((p) => p.asset === primary.asset) ?? null
+      : null;
+
     items.push({
       network,
       title: NETWORK_TITLE[network] || network.replace(/_/g, " "),
@@ -245,26 +306,16 @@ async function buildNetworkCatalogFresh() {
       catalogFraction:
         rows.length > 0 ? enabledPairs.length / rows.length : 0,
       primaryAsset: primary?.asset ?? null,
-      confirmations: primary?.requiredConfirmations ?? null,
-      minAmount: primary?.minAmount ?? null,
+      confirmations: primaryResolved?.requiredConfirmations ?? null,
+      minAmount: primaryResolved?.minAmount ?? null,
+      registryConfirmations: floors.requiredConfirmations,
+      registryMinAmount: floors.minAmount,
+      railOverride: {
+        requiredConfirmations: netConfirms,
+        minAmount: primaryResolved?.minAmountOverride ?? null,
+      },
       contractAddress: primary?.contractAddress ?? null,
-      pairs: rows.map((r) => {
-        const pairLamp = computeOrderabilityLamp({
-          enabled: r.enabled,
-          maintenanceActive: underMaintenance,
-          ingestStatus: ingest.ingestStatus,
-        });
-        return {
-          asset: r.asset,
-          enabled: r.enabled,
-          contractAddress: r.contractAddress,
-          decimals: r.decimals,
-          minAmount: r.minAmount,
-          requiredConfirmations: r.requiredConfirmations,
-          displayNetwork: r.displayNetwork,
-          lamp: pairLamp,
-        };
-      }),
+      pairs,
       maintenance: {
         active: underMaintenance,
         message: underMaintenance ? (maint?.message ?? null) : null,

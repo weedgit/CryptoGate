@@ -90,7 +90,7 @@ export function MfaEnrollmentWizard({
     : "";
 
   return (
-    <AuthLayout wide footer={false}>
+    <AuthLayout wide footer={false} split={false}>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div className="login-brand login-brand--compact">
         <GateLogoMark size={32} className="login-logo-mark-svg" />

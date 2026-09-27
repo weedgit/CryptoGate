@@ -1,4 +1,4 @@
-export type DashboardPeriodId = "today" | "7d" | "1m" | "mtd";
+export type DashboardPeriodId = "today" | "7d" | "1m" | "mtd" | "3m";
 
 export const DASHBOARD_PERIOD_OPTIONS: {
   id: DashboardPeriodId;
@@ -7,6 +7,7 @@ export const DASHBOARD_PERIOD_OPTIONS: {
   { id: "today", label: "Today" },
   { id: "7d", label: "7d" },
   { id: "mtd", label: "MTD" },
+  { id: "3m", label: "3m" },
 ];
 
 export function startOfDay(d: Date): Date {
@@ -41,6 +42,11 @@ export function periodWindow(id: DashboardPeriodId): { from: Date; to: Date } {
   if (id === "mtd") {
     const from = startOfDay(now);
     from.setDate(1);
+    return { from, to };
+  }
+  if (id === "3m") {
+    const from = startOfDay(now);
+    from.setMonth(from.getMonth() - 3);
     return { from, to };
   }
   const from = startOfDay(now);

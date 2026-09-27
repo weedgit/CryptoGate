@@ -283,10 +283,14 @@ Include **test** env alerts routed to a lower-noise channel so integrations are 
 | --- | --- | --- |
 | API access / app logs | Company A log stack | Per Company A policy (e.g. 30–90 days) |
 | Watcher JSON ticks | stdout → log agent | 7–14 days minimum for lag debugging |
-| **`audit_log` table** | Postgres | **Do not truncate** — compliance (M1-17) |
+| **`audit_log` (hot)** | Postgres | UI/search window — default **180 days** (`AUDIT_HOT_RETENTION_DAYS`); older rows moved by archive job |
+| **`audit_log_archive` (cold)** | Postgres | **Do not truncate** — compliance retain (M1-17). Restore via SQL if needed |
+| **Payment orders** | Postgres | Per-merchant `orderDeleteDays` (default **90**); terminal statuses purged by retention job |
 | Postgres provider logs | Cloud console | Match backup retention |
 
 **Never log:** secrets per [M4-02-Secrets-TLS.md](M4-02-Secrets-TLS.md) §5.
+
+Env (API process): `ORDER_RETENTION_PURGE_*`, `AUDIT_ARCHIVE_*`, `AUDIT_HOT_RETENTION_DAYS` — see `.env.example`.
 
 ---
 

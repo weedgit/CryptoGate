@@ -197,11 +197,25 @@ export async function ensureV032Seed() {
 /**
  * @param {string} merchantOrgId
  */
+/** Monthly bills are unique per (org, period_start), so each call takes the next free month. */
 export async function createIssuedBill(merchantOrgId) {
+  const { rows } = await getPool().query(
+    `SELECT to_char(p, 'YYYY-MM-DD') AS start,
+            to_char(p + interval '1 month' - interval '1 day', 'YYYY-MM-DD') AS "end"
+     FROM (
+       SELECT COALESCE(
+         date_trunc('month', MAX(period_start)) + interval '1 month',
+         DATE '2026-08-01'
+       )::date AS p
+       FROM service_bills
+       WHERE org_id = $1 AND bill_kind = 'monthly'
+     ) t`,
+    [merchantOrgId],
+  );
   return insertServiceBill({
     orgId: merchantOrgId,
-    periodStart: "2026-08-01",
-    periodEnd: "2026-08-31",
+    periodStart: rows[0].start,
+    periodEnd: rows[0].end,
     subscriptionAmount: "49.00",
     volumeFeeAmount: "12.50",
     totalAmount: "61.50",

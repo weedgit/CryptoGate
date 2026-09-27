@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import type { ServiceBill, Session } from "./api";
 import {
-  listServiceBills,
-  type ServiceBill,
-  type Session,
-} from "./api";
+  listServiceBillsServer,
+  OPEN_ACTIVATION_QUERY,
+} from "../shared/serviceBillsServer";
 import { merchantRoute } from "../shared/portalRouting";
 import {
   ACTIVATION_PAYMENT_LOCKED_HINT,
@@ -29,21 +29,9 @@ export function ActivationPaymentBanner({ session }: Props) {
       return;
     }
     let cancelled = false;
-    void listServiceBills()
-      .then((rows) => {
-        if (cancelled) return;
-        const byKind = rows.find(
-          (b) =>
-            b.billKind === "activation" &&
-            !["paid", "voided", "cancelled"].includes(b.status),
-        );
-        const fallback = rows.find(
-          (b) =>
-            !["paid", "voided", "cancelled"].includes(b.status) &&
-            b.periodStart === b.periodEnd &&
-            Number(b.volumeFeeAmount) === 0,
-        );
-        setActivation(byKind ?? fallback ?? null);
+    void listServiceBillsServer<ServiceBill>(OPEN_ACTIVATION_QUERY)
+      .then((page) => {
+        if (!cancelled) setActivation(page.items[0] ?? null);
       })
       .catch(() => {
         if (!cancelled) setActivation(null);

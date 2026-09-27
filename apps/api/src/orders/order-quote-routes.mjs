@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig, OrderStatus } from "@paymentgate/domain";
+import { OrderStatus } from "@paymentgate/domain";
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
@@ -8,7 +8,10 @@ import {
   withCreateOrderLock,
 } from "./order-store.mjs";
 import { getPool } from "../db/pool.mjs";
+import { findOrgById } from "../orgs/org-store.mjs";
+import { findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
 import { resolveOrderQuote } from "../rates/resolve-order-quote.mjs";
+import { resolveEffectiveAssetNetworkConfig } from "../platform-settings/network-rail-resolve.mjs";
 
 /**
  * POST /v1/orders/:id/quote — refresh FX lock while order is still pending.
@@ -51,8 +54,20 @@ export async function handleRefreshPaymentOrderQuote(req, res, orderId) {
     typeof body.network === "string" && body.network.trim()
       ? body.network.trim()
       : existing.network;
-  const config = getAssetNetworkConfig(asset, network);
-  if (!config) {
+  const orderOrg = await findOrgById(existing.org_id);
+  const billingMerchant =
+    orderOrg?.type === "merchant_site"
+      ? await findBillingMerchantOrg(orderOrg)
+      : orderOrg?.type === "merchant"
+        ? orderOrg
+        : null;
+  const railOrgId = billingMerchant?.id ?? existing.org_id;
+  const railSiteId =
+    orderOrg?.type === "merchant_site" ? orderOrg.id : null;
+  const config = await resolveEffectiveAssetNetworkConfig(asset, network, {
+    orgId: railOrgId,
+    siteId: railSiteId,
+  });  if (!config) {
     sendError(res, 422, "asset_network_disabled", "Asset and network are not enabled");
     return;
   }

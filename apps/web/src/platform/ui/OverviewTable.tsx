@@ -167,6 +167,10 @@ type DragState = {
 };
 
 function shortDay(label: string): string {
+  const week = /^W(\d{4}-\d{2}-\d{2})$/.exec(label);
+  if (week) return shortDay(week[1]!);
+  const hour = /^\d{4}-\d{2}-\d{2}T(\d{2})$/.exec(label);
+  if (hour) return `${hour[1]}:00`;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
   if (!m) return label.length > 10 ? label.slice(5) : label;
   const months = [

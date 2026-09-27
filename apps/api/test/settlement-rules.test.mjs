@@ -69,14 +69,14 @@ describe("settlement rules", () => {
     assert.equal(r.ok, true);
   });
 
-  it("accepts live USDC on Polygon settlement", () => {
+  it("rejects USDC on Polygon settlement while the rail is disabled", () => {
     const r = validateSettlementBody({
       asset: "USDC",
       network: "polygon",
       address: "0xabc1234567890123456789012345678901234",
       mfaCode: "123456",
     });
-    assert.equal(r.ok, true);
+    assert.equal(r.ok, false);
   });
 
   it("maps pending cool-down onto the API shape", () => {

@@ -12,7 +12,7 @@ import {
   type OrgAccount,
   type OrgMember,
   type OrgPrimaryOwnerContact,
-  type PaymentOrder,
+  type OrgOverviewMetrics,
 } from "./api";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
@@ -24,23 +24,25 @@ import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
 import { KpiCoinsIcon, KpiOrdersIcon, KpiPeopleIcon } from "./detailKpiMarks";
 import {
-  merchantBillingPeriodStartMs,
   mergeActivityFeed,
   RECENT_ACTIVITY_LIMIT,
 } from "./orgDetailSeeds";
 import { platformRoute } from "../shared/portalRouting";
+import { useAccountsPortal } from "./accountsPortal";
 import {
   HeroPauseIcon,
   HeroPersonPlusIcon,
   HeroPlayIcon,
   HeroTrashIcon,
 } from "./detailHeroIcons";
+import { OrgNetworkRailPanel } from "./OrgNetworkRailPanel";
 import type { Session } from "../merchant/api";
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "team", label: "Team" },
   { id: "cashiers", label: "Cashiers" },
+  { id: "networks", label: "Networks" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -55,6 +57,8 @@ const AUDIT_LABEL: Record<string, string> = {
 };
 
 function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
+  const portal = useAccountsPortal();
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   return (
     <div className="b3-agent-detail__activity-empty" role="status">
       <div
@@ -83,10 +87,10 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
           ? "Fetching audit events for this site."
           : "Sign-ins, team invites, and status changes appear here when recorded."}
       </p>
-      {!loading ? (
+      {!loading && auditHref ? (
         <Link
           className="b3-agent-detail__activity-audit b3-agent-detail__activity-audit--inline"
-          to={platformRoute("audit")}
+          to={auditHref}
         >
           Platform audit log
           <span aria-hidden>→</span>
@@ -124,10 +128,19 @@ export function SiteDetailCard({
   onDelete,
   onOrgPatched,
 }: Props) {
+  const portal = useAccountsPortal();
+  const route = portal?.route ?? platformRoute;
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   const canSupportOwner = useMemo(
-    () => sessionIsPlatformOwner(session),
-    [session],
+    () => (portal ? false : sessionIsPlatformOwner(session)),
+    [portal, session],
   );
+  const canOnboardHere = portal ? portal.canOnboardUnder(org) : canManage;
+  const canLifecycleHere = portal ? portal.canLifecycle(org) : canManage;
+  const canEditOrg = portal ? portal.canEditProfile(org) : canManage;
+  const canManageTeam = portal ? portal.canManageTeam(org) : canManage;
+  /** Network rail settings are Platform-only on the API. */
+  const tabs = portal ? TABS.filter((t) => t.id !== "networks") : TABS;
   const [tab, setTab] = useState<TabId>(() =>
     initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview",
   );
@@ -138,7 +151,7 @@ export function SiteDetailCard({
   const [profileEditBusy, setProfileEditBusy] = useState(false);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [metrics, setMetrics] = useState<OrgOverviewMetrics | null>(null);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
   const [overviewLoading, setOverviewLoading] = useState(true);
@@ -149,27 +162,7 @@ export function SiteDetailCard({
     () => (org.parentId ? orgs.find((o) => o.id === org.parentId) ?? null : null),
     [org.parentId, orgs],
   );
-  const periodStart = useMemo(
-    () => merchantBillingPeriodStartMs(org.createdAt ?? new Date().toISOString()),
-    [org.createdAt],
-  );
-  const mtdOrders = useMemo(
-    () =>
-      orders.filter((o) => {
-        const created = o.createdAt ? Date.parse(o.createdAt) : NaN;
-        return Number.isFinite(created) ? created >= periodStart : true;
-      }),
-    [orders, periodStart],
-  );
-  const displayVolume = useMemo(() => {
-    let total = 0;
-    for (const o of mtdOrders) {
-      if (o.status !== "completed") continue;
-      const n = Number(o.payableAmount.amount);
-      if (Number.isFinite(n)) total += n;
-    }
-    return total;
-  }, [mtdOrders]);
+  const displayVolume = metrics?.settledVolumeMtdUsd ?? 0;
   const cashierCount = team.filter((member) => member.role === "cashier").length;
   const recentActivity = useMemo(() => {
     const feed = mergeActivityFeed(
@@ -201,7 +194,7 @@ export function SiteDetailCard({
     setTabError(null);
     setTeam([]);
     setAudit([]);
-    setOrders([]);
+    setMetrics(null);
     setPrimaryOwner(null);
   }, [org.id, initialTab]);
 
@@ -210,18 +203,23 @@ export function SiteDetailCard({
     setOverviewLoading(true);
     setTeamLoading(true);
     void getOrgOverview(org.id)
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
-        setTeam(data.team ?? []);
+        let teamRows = data.team ?? [];
+        if (portal && teamRows.length === 0) {
+          teamRows = await portal.loadTeam(org.id).catch(() => []);
+          if (cancelled) return;
+        }
+        setTeam(teamRows);
         setAudit(data.audit);
-        setOrders(data.orders);
+        setMetrics(data.metrics);
         const contact = data.primaryOwnerContact ?? null;
         if (contact) {
-          setPrimaryOwner(ownerContactWithMfa(contact, data.team ?? []));
+          setPrimaryOwner(ownerContactWithMfa(contact, teamRows));
         } else {
           const ownerRow =
-            (data.team ?? []).find((m) => m.role === "owner") ??
-            (data.team ?? [])[0] ??
+            teamRows.find((m) => m.role === "owner") ??
+            teamRows[0] ??
             null;
           setPrimaryOwner(
             ownerRow
@@ -244,7 +242,7 @@ export function SiteDetailCard({
         if (!cancelled) {
           setTeam([]);
           setAudit([]);
-          setOrders([]);
+          setMetrics(null);
           setPrimaryOwner(null);
           setTabError(err instanceof ApiError ? err.message : "Failed to load site");
         }
@@ -258,7 +256,7 @@ export function SiteDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, portal]);
 
   return (
     <aside className="platform-detail b3-agent-detail" aria-label="Site detail">
@@ -284,45 +282,51 @@ export function SiteDetailCard({
           </span>
         }
         actions={
-          canManage ? (
+          canOnboardHere || canLifecycleHere ? (
             <>
-              <Link
-                className="b3-agent-detail__onboard"
-                to={`${platformRoute("sites/new")}?parentId=${encodeURIComponent(org.id)}`}
-              >
-                <HeroPersonPlusIcon />
-                New Site
-              </Link>
-              {status === "active" ? (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onPause}
+              {canOnboardHere ? (
+                <Link
+                  className="b3-agent-detail__onboard"
+                  to={`${route("sites/new")}?parentId=${encodeURIComponent(org.id)}`}
                 >
-                  <HeroPauseIcon />
-                  Suspend
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onRun}
-                >
-                  <HeroPlayIcon />
-                  Run
-                </button>
-              )}
-              <button
-                type="button"
-                className="b3-agent-detail__delete"
-                disabled={busy}
-                onClick={onDelete}
-              >
-                <HeroTrashIcon />
-                Delete
-              </button>
+                  <HeroPersonPlusIcon />
+                  New Site
+                </Link>
+              ) : null}
+              {canLifecycleHere ? (
+                <>
+                  {status === "active" ? (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onPause}
+                    >
+                      <HeroPauseIcon />
+                      Suspend
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onRun}
+                    >
+                      <HeroPlayIcon />
+                      Run
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="b3-agent-detail__delete"
+                    disabled={busy}
+                    onClick={onDelete}
+                  >
+                    <HeroTrashIcon />
+                    Delete
+                  </button>
+                </>
+              ) : null}
             </>
           ) : null
         }
@@ -373,7 +377,7 @@ export function SiteDetailCard({
 
       <div className="platform-detail__body b3-agent-detail__shell">
         <div className="b3-agent-detail__tabs" role="tablist">
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             let label: string = t.label;
             if (t.id === "team") {
               const teamCount = team.filter((m) => m.role !== "cashier").length;
@@ -436,7 +440,7 @@ export function SiteDetailCard({
                   </span>
                   <div className="b3-kpi__copy">
                     <p className="b3-card__label">Orders (MTD)</p>
-                    <p className="b3-card__value">{mtdOrders.length}</p>
+                    <p className="b3-card__value">{metrics?.ordersMtd ?? 0}</p>
                   </div>
                 </div>
               </div>
@@ -445,7 +449,7 @@ export function SiteDetailCard({
                   org={org}
                   owner={primaryOwner}
                   ownerLoading={overviewLoading && !primaryOwner}
-                  canEditOrg={canManage}
+                  canEditOrg={canEditOrg}
                   canEditOwner={canSupportOwner}
                   setupKind="merchant"
                   walletSet={true}
@@ -479,10 +483,12 @@ export function SiteDetailCard({
                   loading={overviewLoading && audit.length === 0}
                   empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
                   action={
-                    <Link className="b3-agent-detail__view-all" to={platformRoute("audit")}>
-                      View all activity
-                      <span aria-hidden>→</span>
-                    </Link>
+                    auditHref ? (
+                      <Link className="b3-agent-detail__view-all" to={auditHref}>
+                        View all activity
+                        <span aria-hidden>→</span>
+                      </Link>
+                    ) : undefined
                   }
                 />
               </div>
@@ -495,7 +501,7 @@ export function SiteDetailCard({
               orgs={orgs}
               members={team}
               loading={teamLoading}
-              canManage={canManage}
+              canManage={canManageTeam}
               onMembersChange={setTeam}
               variant="team"
             />
@@ -507,9 +513,17 @@ export function SiteDetailCard({
               orgs={orgs}
               members={team}
               loading={teamLoading}
-              canManage={canManage}
+              canManage={canManageTeam}
               onMembersChange={setTeam}
               variant="cashiers"
+            />
+          ) : null}
+
+          {tab === "networks" && !portal ? (
+            <OrgNetworkRailPanel
+              session={session}
+              scope="site"
+              scopeId={org.id}
             />
           ) : null}
         </div>

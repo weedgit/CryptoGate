@@ -3,6 +3,8 @@ import { roleOnOrg } from "./org-access.mjs";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 const MFA_ROLES = new Set(["owner", "administrator"]);
+/** Orgs that control or touch fund rails — MFA enrollment is mandatory for O/A. */
+const MFA_REQUIRED_ORG_TYPES = new Set(["platform", "merchant"]);
 const ORDER_CREATE_ROLES = new Set(["owner", "administrator", "cashier"]);
 const SETTINGS_ROLES = new Set(["owner", "administrator"]);
 
@@ -27,11 +29,34 @@ function platformHasGlobalRead(caller) {
 }
 
 /**
- * OpenAPI: Owner / Administrator may enroll MFA (platform, agent, or merchant).
- * @param {{ role: string }[]} memberships
+ * Owner / Administrator may enroll TOTP (platform, merchant, agent — agent
+ * payout step-up needs enrollment even though login MFA is not forced).
+ * Cashier, Viewer, and site-only roles cannot enroll.
+ * @param {{ role: string, orgType?: string | null }[] | null | undefined} memberships
  */
 export function canEnrollMfa(memberships) {
-  return memberships.some((m) => MFA_ROLES.has(m.role));
+  if (!Array.isArray(memberships)) return false;
+  return memberships.some((m) => {
+    if (!MFA_ROLES.has(m.role)) return false;
+    const orgType = m.orgType ?? null;
+    // Site O/A: no fund rails — no enroll. Agent/platform/merchant O/A: yes.
+    if (orgType === "merchant_site") return false;
+    return true;
+  });
+}
+
+/**
+ * Forced MFA (enroll + login TOTP): Platform or Merchant Owner/Administrator only.
+ * Agent, site, Cashier, Viewer are not forced (fund-risk split).
+ * @param {{ role: string, orgType?: string | null }[] | null | undefined} memberships
+ */
+export function mustEnrollMfa(memberships) {
+  if (!Array.isArray(memberships)) return false;
+  return memberships.some(
+    (m) =>
+      MFA_ROLES.has(m.role) &&
+      MFA_REQUIRED_ORG_TYPES.has(m.orgType ?? ""),
+  );
 }
 
 /**
@@ -300,17 +325,14 @@ export function canComplianceOverride(caller) {
 }
 
 /**
- * Cashier cannot change settlement address, xPub, matching mode, or fees.
- * Agent memberships are not enough — caller must be Owner/Admin on that merchant org
- * (or platform Owner for direct settlement put; Administrators use compliance override).
- * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * Fund rails (settlement address, xPub/HD): Merchant Owner or Platform Owner only.
+ * Not Platform Administrator, not merchant Administrator (Business-Model Decision 19).
+ * @param {{ platformOwner?: boolean, platformOperator?: boolean, memberships: { orgId: string, role: string }[] }} caller
  * @param {{ id: string, type: string }} org
  */
 export function canChangeSettlementSettings(caller, org) {
   if (!MERCHANT_TYPES.has(org.type)) return false;
-  // Platform Owner or Administrator may support-edit settlement.
-  if (caller.platformOperator === true) return true;
-  // Merchant Owner only (not Administrator) — Business-Model decision 19.
+  if (caller.platformOwner === true) return true;
   const role = roleOnOrg(caller.memberships, org.id);
   return role === "owner";
 }
@@ -334,9 +356,22 @@ export function canViewSettlementSettings(caller, org) {
   return caller.memberships.some((m) => m.role !== "cashier");
 }
 
-/** Same bar as settlement: Cashier cannot change matching mode. */
+/**
+ * Non-fund merchant ops (matching, fulfillment, retention, webhooks, prefs):
+ * Platform O/A or merchant Owner/Administrator.
+ * @param {{ platformOperator?: boolean, memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string }} org
+ */
+export function canManageMerchantOrgOps(caller, org) {
+  if (!MERCHANT_TYPES.has(org.type)) return false;
+  if (caller.platformOperator === true) return true;
+  const role = roleOnOrg(caller.memberships, org.id);
+  return role === "owner" || role === "administrator";
+}
+
+/** Matching mode: Platform O/A or merchant O/A (not fund rails). */
 export function canChangeMatchingModeSettings(caller, org) {
-  return canChangeSettlementSettings(caller, org);
+  return canManageMerchantOrgOps(caller, org);
 }
 
 /**
@@ -374,7 +409,7 @@ export function canViewMatchingModeSettings(caller, org) {
 
 /** Same bar as matching mode: Cashier cannot change fulfillment policy. */
 export function canChangeFulfillmentPolicySettings(caller, org) {
-  return canChangeSettlementSettings(caller, org);
+  return canManageMerchantOrgOps(caller, org);
 }
 
 /** Same bar as matching mode: Cashier cannot view fulfillment policy settings. */
@@ -393,12 +428,12 @@ export function canViewXpubSettings(caller, org) {
 }
 
 /**
- * Webhooks: Owner/Admin on merchant (or platform owner). Cashier and agent 403.
+ * Webhooks: Owner/Admin on merchant (or platform O/A). Cashier and agent 403.
  * @param {{ platformOwner: boolean, memberships: { orgId: string, role: string, orgType: string }[] }} caller
  * @param {{ id: string, type: string }} org
  */
 export function canManageWebhooks(caller, org) {
-  return canChangeSettlementSettings(caller, org);
+  return canManageMerchantOrgOps(caller, org);
 }
 
 /**

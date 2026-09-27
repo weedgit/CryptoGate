@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import type { Session } from "../merchant/api";
@@ -16,7 +15,7 @@ import { ProfileNavIcon, SignOutNavIcon } from "../platform/NavIcons";
 import { RoleBadge } from "../shared/RoleBadge";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
 import { sessionDisplayLabel, sessionHasAvatar } from "./profileIdentity";
-import { SecuritySettingsPage } from "./SecuritySettingsPage";
+import { ProfileSettingsModal } from "./ProfileSettingsModal";
 
 type Props = {
   session: Session;
@@ -84,7 +83,6 @@ export function SidebarProfileMenu({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuId = useId();
-  const dialogTitleId = useId();
   const identity = useMemo(
     () => profileIdentity(session, variant),
     [session, variant],
@@ -163,15 +161,6 @@ export function SidebarProfileMenu({
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSettingsOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [settingsOpen]);
-
   function openSettings() {
     setMenuOpen(false);
     setSettingsOpen(true);
@@ -182,11 +171,6 @@ export function SidebarProfileMenu({
     onSignOut();
   }
 
-  function stopBackdrop(e: ReactMouseEvent) {
-    e.stopPropagation();
-  }
-
-  const profileMenuLabel = "Profile";
   const ProfileMenuIcon = ProfileNavIcon;
 
   const ariaLabel = `${identity.name}, ${identity.role}, ${identity.email}`;
@@ -274,7 +258,7 @@ export function SidebarProfileMenu({
                 onClick={openSettings}
               >
                 <ProfileMenuIcon className="sidebar-profile__menu-icon" />
-                {profileMenuLabel}
+                Profile
               </button>
               <button
                 type="button"
@@ -290,47 +274,14 @@ export function SidebarProfileMenu({
           )
         : null}
 
-      {settingsOpen
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop profile-settings-modal-backdrop"
-              role="presentation"
-              onClick={() => setSettingsOpen(false)}
-            >
-              <div
-                className="b3-commission-modal profile-settings-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={dialogTitleId}
-                onClick={stopBackdrop}
-              >
-                <header className="profile-settings-modal__head">
-                  <div className="profile-settings-modal__head-copy">
-                    <h3 id={dialogTitleId}>{profileMenuLabel}</h3>
-                    <p>Account, MFA, and session preferences for this user.</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close profile-settings-modal__close"
-                    aria-label="Close"
-                    onClick={() => setSettingsOpen(false)}
-                  >
-                    ×
-                  </button>
-                </header>
-                <div className="b3-commission-modal__body profile-settings-modal__body">
-                  <SecuritySettingsPage
-                    session={session}
-                    variant={variant}
-                    embedded
-                    onSessionRefresh={onSessionRefresh}
-                  />
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {settingsOpen ? (
+        <ProfileSettingsModal
+          session={session}
+          title="Profile"
+          onClose={() => setSettingsOpen(false)}
+          onSessionRefresh={onSessionRefresh}
+        />
+      ) : null}
     </div>
   );
 }

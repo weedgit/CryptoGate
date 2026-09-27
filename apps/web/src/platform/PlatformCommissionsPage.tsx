@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
@@ -15,15 +16,15 @@ import { formatCommissionPeriodLabel } from "../commercial/commissionStatements"
 import { truncateAddress } from "./orgDetailSeeds";
 import { displayServiceBillTxHash } from "../shared/serviceBillPeriod";
 import {
-  listCommissionPayouts,
   generateCommissionInvoices,
   defaultCommissionPeriodKey,
   findPayout,
+  markCommissionPayoutsPaidBatch,
   type CommissionPayoutRecord,
 } from "../commercial/commissionPayoutRecords";
+import { BulkMarkPaidModal } from "./BulkMarkPaidModal";
 import {
   formatCommissionPaidAgingHint,
-  commissionPaidIsAging,
 } from "../commercial/commissionAging";
 import {
   remittanceNetwork,
@@ -39,23 +40,37 @@ import {
 } from "./api";
 import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
 import { platformRoute } from "../shared/portalRouting";
+import { useCommissionsPortal } from "./commissionsPortal";
 import { FundAmount } from "./FundAmount";
 import { OrgListPagination } from "./OrgListPagination";
 import { sessionCanIssueServiceBill, sessionIsPlatformViewerOnly } from "./org";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
-import { isCustomOrgIcon, orgIconGlyph } from "../shared/orgBrand";
 import { PagePending } from "./ui/PlatformPending";
 import {
+  getCommissionPayoutsSummary,
+  listCommissionPayoutsServer,
+  peekCommissionPayoutsServer,
+  peekCommissionPayoutsSummary,
+  type CommissionPayoutSortKey,
+  type CommissionPayoutsListParams,
+  type CommissionPayoutsSummary,
+} from "../shared/commissionsServer";
+import { invalidateServerJson, type ServerPage } from "../shared/serverListApi";
+import { useDebouncedValue } from "../shared/useDebouncedValue";
+import {
   SortHeader,
-  compareDate,
-  compareNumber,
-  compareText,
   toggleSortState,
   type SortState,
 } from "./ui/TableArrange";
 
 type StatusFilter = "all" | "issued" | "paid" | "settled";
+
+type StatusNavItem = {
+  id: StatusFilter;
+  label: string;
+  children?: StatusNavItem[];
+};
 
 type InvoiceSortKey =
   | "period"
@@ -78,56 +93,46 @@ type HistorySortKey =
 
 type Props = { session: Session };
 
-const STATUS_NAV: { id: StatusFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "issued", label: "Issued" },
-  { id: "paid", label: "Awaiting" },
-  { id: "settled", label: "Settled" },
+const STATUS_NAV: StatusNavItem[] = [
+  {
+    id: "all",
+    label: "All",
+    children: [
+      { id: "issued", label: "Issued" },
+      { id: "paid", label: "Awaiting" },
+      { id: "settled", label: "Settled" },
+    ],
+  },
 ];
 
-const PAGE_SIZE = 14;
-/** Server page size for accumulating list rows (API max 500). */
-const FETCH_PAGE = 200;
+const PAGE_SIZE = 10;
+/** Server cap for POST /commission-payouts/mark-paid-batch. */
+const BATCH_MARK_PAID_MAX = 50;
 const PERIOD_KEY_RE = /^\d{4}-\d{2}$/;
+
+function statusNavContains(
+  item: StatusNavItem,
+  filter: StatusFilter,
+): boolean {
+  if (item.id === filter) return true;
+  return Boolean(item.children?.some((child) => statusNavContains(child, filter)));
+}
+
+const HISTORY_SORT_SERVER: Record<HistorySortKey, CommissionPayoutSortKey> = {
+  paidAt: "settledAt",
+  period: "period",
+  agent: "agent",
+  amount: "commission",
+  address: "address",
+  tx: "tx",
+  status: "status",
+};
 
 function listStatusForView(status: StatusFilter): string | string[] {
   if (status === "settled") return "settled";
   if (status === "issued") return "issued";
   if (status === "paid") return "paid";
-  return ["issued", "paid"];
-}
-
-function mergePayoutRows(
-  prev: CommissionPayoutRecord[],
-  next: CommissionPayoutRecord[],
-): CommissionPayoutRecord[] {
-  const map = new Map(prev.map((r) => [r.id, r]));
-  for (const r of next) map.set(r.id, r);
-  return [...map.values()];
-}
-
-async function countStuckPaidAcrossPages(): Promise<number> {
-  let offset = 0;
-  let total = Infinity;
-  let aging = 0;
-  const seen = new Set<string>();
-  while (offset < total) {
-    const page = await listCommissionPayouts({
-      payer: "platform",
-      status: "paid",
-      limit: FETCH_PAGE,
-      offset,
-    });
-    total = page.total;
-    for (const r of page.items) {
-      if (seen.has(r.id)) continue;
-      seen.add(r.id);
-      if (commissionPaidIsAging(r.paidAt)) aging += 1;
-    }
-    if (page.items.length === 0) break;
-    offset += page.items.length;
-  }
-  return aging;
+  return ["issued", "paid", "settled"];
 }
 
 function formatLastAutoRunBanner(entry: AuditLogEntry | null): string {
@@ -363,13 +368,6 @@ function orgIconMap(
   return new Map(orgs.map((o) => [o.id, o.iconKey ?? null]));
 }
 
-function agentInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
-}
-
 function AgentOrgAvatar({
   name,
   iconKey,
@@ -377,34 +375,34 @@ function AgentOrgAvatar({
   name: string;
   iconKey?: string | null;
 }) {
-  const hasBrand =
-    isCustomOrgIcon(iconKey) || Boolean(orgIconGlyph(iconKey));
-  if (hasBrand) {
-    return (
-      <OrgBrandMark
-        name={name}
-        iconKey={iconKey}
-        size={36}
-        className="plat-bills__merchant-avatar plat-bills__merchant-avatar--brand"
-      />
-    );
-  }
   return (
-    <span className="plat-bills__merchant-avatar" aria-hidden>
-      {agentInitials(name)}
-    </span>
+    <OrgBrandMark
+      name={name}
+      iconKey={iconKey}
+      size={36}
+      className="plat-bills__merchant-avatar plat-bills__merchant-avatar--brand"
+    />
   );
 }
 
+const STATUS_ICON_TONE: Record<StatusFilter, "warn" | "teal" | "ok" | "slate"> =
+  {
+    all: "slate",
+    issued: "warn",
+    paid: "teal",
+    settled: "ok",
+  };
+
 function StatusTabIcon({ id }: { id: StatusFilter }) {
+  const tone = STATUS_ICON_TONE[id];
   const common = {
-    className: "plat-bills__status-icon",
+    className: `plat-bills__status-icon is-${tone}`,
     viewBox: "0 0 24 24",
-    width: 15,
-    height: 15,
+    width: 20,
+    height: 20,
     fill: "none" as const,
     stroke: "currentColor",
-    strokeWidth: 2,
+    strokeWidth: 1.8,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     "aria-hidden": true as const,
@@ -435,12 +433,146 @@ function StatusTabIcon({ id }: { id: StatusFilter }) {
     );
   }
   return (
-    <svg {...common}>
-      <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M9 13h6" />
-      <path d="M9 17h4" />
+    <svg {...common} fill="currentColor" stroke="none">
+      <path d="M12 2.8 20.2 7.4v9.2L12 21.2 3.8 16.6V7.4L12 2.8Zm0 2.2L5.7 8.55 12 12.1l6.3-3.55L12 5ZM5.7 10.65v5.2L11.05 19V13.8L5.7 10.65Zm7.35 3.15V19l5.35-3.15v-5.2L13.05 13.8Z" />
     </svg>
+  );
+}
+
+const STATUS_TREE_PAD = 6;
+const STATUS_TREE_GUIDE = 16;
+const STATUS_TREE_CHEVRON_HALF = 10;
+
+function statusTreeCaretX(depth: number): number {
+  return STATUS_TREE_PAD + depth * STATUS_TREE_GUIDE + STATUS_TREE_CHEVRON_HALF;
+}
+
+function StatusNavNodes({
+  items,
+  depth,
+  ancestors = [],
+  statusFilter,
+  statusCounts,
+  onSelect,
+}: {
+  items: StatusNavItem[];
+  depth: number;
+  ancestors?: boolean[];
+  statusFilter: StatusFilter;
+  statusCounts: Record<StatusFilter, number>;
+  onSelect: (id: StatusFilter) => void;
+}) {
+  return (
+    <>
+      {items.map((item, index) => {
+        const children = item.children;
+        const hasChildren = Boolean(children?.length);
+        const count = statusCounts[item.id];
+        const active = statusFilter === item.id;
+        const descendantActive = Boolean(
+          children?.some((child) => statusNavContains(child, statusFilter)),
+        );
+        const branchOpen = hasChildren;
+        const isLast = index === items.length - 1;
+        const caretX = statusTreeCaretX(depth);
+        const parentDepth = depth - 1;
+        const parentRailX =
+          depth > 0
+            ? statusTreeCaretX(parentDepth)
+            : STATUS_TREE_PAD + STATUS_TREE_CHEVRON_HALF;
+        const forkGuideStart =
+          STATUS_TREE_PAD + Math.max(0, parentDepth) * STATUS_TREE_GUIDE;
+        const forkLeft =
+          depth > 0 ? parentRailX - forkGuideStart : STATUS_TREE_CHEVRON_HALF;
+        const forkWidth = depth > 0 ? caretX - parentRailX : 0;
+
+        return (
+          <div
+            key={item.id}
+            className={`b3-accounts__node${branchOpen ? " is-open" : ""}`}
+            role="treeitem"
+            aria-expanded={hasChildren ? branchOpen : undefined}
+            aria-selected={active}
+          >
+            <button
+              type="button"
+              role="tab"
+              className={`b3-accounts__row plat-bills__status-row${
+                active ? " is-selected" : ""
+              }${descendantActive ? " is-parent-active" : ""}`}
+              style={
+                {
+                  ["--tree-stem-x"]: `${caretX}px`,
+                  ["--tree-guide-w"]: `${STATUS_TREE_GUIDE}px`,
+                  ["--tree-fork-left"]: `${forkLeft}px`,
+                  ["--tree-fork-width"]: `${forkWidth}px`,
+                } as CSSProperties
+              }
+              aria-selected={active}
+              onClick={() => onSelect(item.id)}
+            >
+              {depth > 0 ? (
+                <span className="b3-accounts__guides" aria-hidden>
+                  {ancestors.map((show, guideIndex) => (
+                    <span
+                      key={`a-${guideIndex}`}
+                      className={`b3-accounts__guide${show ? " is-line" : ""}`}
+                    />
+                  ))}
+                  <span
+                    className={`b3-accounts__guide is-fork${
+                      isLast ? " is-last" : ""
+                    }`}
+                  />
+                </span>
+              ) : null}
+              {hasChildren ? (
+                <span className="b3-accounts__chevron" aria-hidden>
+                  <span
+                    className={`b3-accounts__caret${
+                      branchOpen ? " is-open" : ""
+                    }`}
+                  />
+                </span>
+              ) : (
+                <span
+                  className="b3-accounts__chevron b3-accounts__chevron--spacer"
+                  aria-hidden
+                />
+              )}
+              <span className="plat-bills__status-badge" aria-hidden>
+                <StatusTabIcon id={item.id} />
+              </span>
+              <span className="b3-accounts__name">
+                <span className="b3-accounts__name-text">{item.label}</span>
+              </span>
+              <span className="plat-bills__status-item-count">{count}</span>
+            </button>
+            {branchOpen && children?.length ? (
+              <div
+                className="b3-accounts__children"
+                role="group"
+                aria-label={item.label}
+                style={
+                  {
+                    ["--tree-line-x"]: `${caretX}px`,
+                  } as CSSProperties
+                }
+              >
+                <StatusNavNodes
+                  items={children}
+                  depth={depth + 1}
+                  ancestors={depth > 0 ? [...ancestors, !isLast] : []}
+                  statusFilter={statusFilter}
+                  statusCounts={statusCounts}
+                  onSelect={onSelect}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -462,19 +594,22 @@ export function PlatformCommissionsPage({ session }: Props) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() =>
     parseStatusFilter(searchParams.get("status"), searchParams.get("tab")),
   );
-  const canPay = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const portal = useCommissionsPortal();
+  const route = portal?.route ?? platformRoute;
+  const peekOrgs = portal?.peekOrgs ?? peekPlatformOrgs;
+  const payeeScope = useMemo(
+    () => (portal?.payeeOrgId ? { payeeOrgId: portal.payeeOrgId } : {}),
+    [portal],
+  );
+  const canPay = useMemo(
+    () => (portal ? false : sessionCanIssueServiceBill(session)),
+    [portal, session],
+  );
   const isViewer = useMemo(
-    () => sessionIsPlatformViewerOnly(session),
-    [session],
+    () => (portal ? portal.readOnly : sessionIsPlatformViewerOnly(session)),
+    [portal, session],
   );
 
-  const [platformPayouts, setPlatformPayouts] = useState<
-    CommissionPayoutRecord[]
-  >([]);
-  const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
-  const [hasLoaded, setHasLoaded] = useState(() => peekPlatformOrgs() != null);
-  const hasLoadedRef = useRef(hasLoaded);
-  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [generatePeriod, setGeneratePeriod] = useState(() =>
@@ -485,23 +620,10 @@ export function PlatformCommissionsPage({ session }: Props) {
   const [billingCalendar, setBillingCalendar] =
     useState<BillingCalendarSettings | null>(null);
   const [lastAutoRun, setLastAutoRun] = useState<AuditLogEntry | null>(null);
-  const [stuckPaidCount, setStuckPaidCount] = useState(0);
-  const [listTotal, setListTotal] = useState(0);
-  const [statusCounts, setStatusCounts] = useState<
-    Record<StatusFilter, number>
-  >({
-    all: 0,
-    issued: 0,
-    paid: 0,
-    settled: 0,
-  });
-  const [loadingMore, setLoadingMore] = useState(false);
   const [orgIcons, setOrgIcons] = useState<Map<string, string | null>>(() => {
-    const cached = peekPlatformOrgs();
+    const cached = peekOrgs();
     return cached ? orgIconMap(cached) : new Map();
   });
-  const [invoicesPage, setInvoicesPage] = useState(1);
-  const [historyPage, setHistoryPage] = useState(1);
   const [invoiceSort, setInvoiceSort] = useState<SortState<InvoiceSortKey>>({
     key: "period",
     dir: "desc",
@@ -518,6 +640,7 @@ export function PlatformCommissionsPage({ session }: Props) {
   }, []);
 
   const loadLastAutoRun = useCallback(async () => {
+    if (portal) return;
     try {
       const items = await listAuditLog({
         action: "commission_payout_auto",
@@ -527,7 +650,7 @@ export function PlatformCommissionsPage({ session }: Props) {
     } catch {
       /* optional ops banner */
     }
-  }, []);
+  }, [portal]);
 
   const deepLinkPayee = searchParams.get("payee");
   const deepLinkPeriod = searchParams.get("period");
@@ -552,6 +675,7 @@ export function PlatformCommissionsPage({ session }: Props) {
   }, [deepLinkPayee, deepLinkPeriod]);
 
   useEffect(() => {
+    if (portal) return;
     let cancelled = false;
     void getBillingCalendarSettings()
       .then((settings) => {
@@ -564,7 +688,7 @@ export function PlatformCommissionsPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [loadLastAutoRun]);
+  }, [loadLastAutoRun, portal]);
 
   const writeSearchParams = useCallback(
     (next: { status?: StatusFilter }) => {
@@ -585,300 +709,216 @@ export function PlatformCommissionsPage({ session }: Props) {
     setTopbarSlot(document.getElementById("platform-topbar-center"));
   }, []);
 
-  const refreshStuckPaidCount = useCallback(async () => {
-    try {
-      setStuckPaidCount(await countStuckPaidAcrossPages());
-    } catch {
-      /* optional ops cue */
-    }
+  const showOpenInvoices = statusFilter !== "settled";
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
+  const filterKey = showOpenInvoices
+    ? `${statusFilter}|${debouncedQuery}|${invoiceSort.key}|${invoiceSort.dir}`
+    : `${statusFilter}|${debouncedQuery}|${historySort.key}|${historySort.dir}`;
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = useCallback(
+    (next: number) => setPageState({ key: filterKey, page: next }),
+    [filterKey],
+  );
+
+  const canBulkPay = canPay && !isViewer && showOpenInvoices;
+  const [selection, setSelection] = useState<{ key: string; ids: Set<string> }>(
+    () => ({ key: filterKey, ids: new Set() }),
+  );
+  const selectedIds = useMemo(
+    () => (selection.key === filterKey ? selection.ids : new Set<string>()),
+    [selection, filterKey],
+  );
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const toggleSelected = useCallback(
+    (ids: string[], on: boolean) => {
+      setSelection((prev) => {
+        const next = new Set(prev.key === filterKey ? prev.ids : []);
+        for (const id of ids) {
+          if (!on) next.delete(id);
+          else if (next.size < BATCH_MARK_PAID_MAX) next.add(id);
+        }
+        return { key: filterKey, ids: next };
+      });
+    },
+    [filterKey],
+  );
+  const clearSelection = useCallback(
+    () => setSelection({ key: filterKey, ids: new Set() }),
+    [filterKey],
+  );
+
+  const listParams = useMemo<CommissionPayoutsListParams>(() => {
+    const base = {
+      ...payeeScope,
+      status: listStatusForView(statusFilter),
+      q: debouncedQuery || undefined,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    };
+    return showOpenInvoices
+      ? { ...base, sort: invoiceSort.key, dir: invoiceSort.dir, agingFirst: true }
+      : {
+          ...base,
+          sort: HISTORY_SORT_SERVER[historySort.key],
+          dir: historySort.dir,
+        };
+  }, [
+    payeeScope,
+    statusFilter,
+    debouncedQuery,
+    page,
+    showOpenInvoices,
+    invoiceSort,
+    historySort,
+  ]);
+
+  const [pageData, setPageData] =
+    useState<ServerPage<CommissionPayoutRecord> | null>(() =>
+      peekCommissionPayoutsServer(listParams),
+    );
+  const [summary, setSummary] = useState<CommissionPayoutsSummary | null>(() =>
+    peekCommissionPayoutsSummary(payeeScope),
+  );
+  const [fetching, setFetching] = useState(false);
+  const listSeq = useRef(0);
+  const summarySeq = useRef(0);
+
+  const reportError = useCallback((err: unknown, fallback: string) => {
+    setError(
+      err instanceof ApiError
+        ? err.code === "rate_limited"
+          ? "Too many requests — wait a moment and retry."
+          : err.message
+        : err instanceof Error
+          ? err.message
+          : fallback,
+    );
   }, []);
 
-  /** Totals for every status pill — independent of the active tab filter. */
-  const refreshStatusCounts = useCallback(async () => {
+  const loadList = useCallback(
+    async (params: CommissionPayoutsListParams) => {
+      const seq = ++listSeq.current;
+      const cached = peekCommissionPayoutsServer(params);
+      if (cached) setPageData(cached);
+      setFetching(true);
+      try {
+        const result = await listCommissionPayoutsServer(params);
+        if (seq === listSeq.current) setPageData(result);
+      } catch (err) {
+        if (seq === listSeq.current) {
+          reportError(err, "Failed to load commission invoices");
+        }
+      } finally {
+        if (seq === listSeq.current) setFetching(false);
+      }
+    },
+    [reportError],
+  );
+
+  const loadSummary = useCallback(async () => {
+    const seq = ++summarySeq.current;
+    const cached = peekCommissionPayoutsSummary(payeeScope);
+    if (cached) setSummary(cached);
     try {
-      const [issued, paid, settled] = await Promise.all([
-        listCommissionPayouts({
-          payer: "platform",
-          status: "issued",
-          limit: 1,
-          offset: 0,
-        }),
-        listCommissionPayouts({
-          payer: "platform",
-          status: "paid",
-          limit: 1,
-          offset: 0,
-        }),
-        listCommissionPayouts({
-          payer: "platform",
-          status: "settled",
-          limit: 1,
-          offset: 0,
-        }),
-      ]);
-      setStatusCounts({
-        issued: issued.total,
-        paid: paid.total,
-        settled: settled.total,
-        all: issued.total + paid.total,
-      });
+      const result = await getCommissionPayoutsSummary(payeeScope);
+      if (seq === summarySeq.current) setSummary(result);
     } catch {
       /* keep prior badge counts */
     }
-  }, []);
+  }, [payeeScope]);
 
-  const showOpenInvoices = statusFilter !== "settled";
+  const loadOrgs = useCallback(async () => {
+    try {
+      const orgs = await (portal ? portal.getOrgs() : getPlatformOrgs());
+      setOrgIcons(orgIconMap(orgs));
+    } catch {
+      /* icons are optional */
+    }
+  }, [portal]);
+
+  useEffect(() => {
+    void loadList(listParams);
+  }, [loadList, listParams]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    void loadOrgs();
+  }, [loadOrgs]);
 
   const refreshPayouts = useCallback(async () => {
-    const page = await listCommissionPayouts({
-      payer: "platform",
-      status: listStatusForView(statusFilter),
-      limit: FETCH_PAGE,
-      offset: 0,
-    });
-    setPlatformPayouts(page.items);
-    setListTotal(page.total);
-    await refreshStatusCounts();
-    if (showOpenInvoices) await refreshStuckPaidCount();
-    else setStuckPaidCount(0);
-  }, [
-    statusFilter,
-    showOpenInvoices,
-    refreshStuckPaidCount,
-    refreshStatusCounts,
-  ]);
+    invalidateServerJson("/commission-payouts");
+    await Promise.all([loadList(listParams), loadSummary()]);
+  }, [loadList, loadSummary, listParams]);
 
-  const load = useCallback(async () => {
-    if (!hasLoadedRef.current) setLoading(true);
-    setError(null);
-    try {
-      const orgs = await getPlatformOrgs();
-      setOrgIcons(orgIconMap(orgs));
-      const page = await listCommissionPayouts({
-        payer: "platform",
-        status: listStatusForView(statusFilter),
-        limit: FETCH_PAGE,
-        offset: 0,
-      });
-      setPlatformPayouts(page.items);
-      setListTotal(page.total);
-      await refreshStatusCounts();
-      if (statusFilter !== "settled") await refreshStuckPaidCount();
-      else setStuckPaidCount(0);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.code === "rate_limited"
-            ? "Too many requests — wait a moment and retry."
-            : err.message
-          : err instanceof Error
+  const onBulkConfirm = useCallback(
+    async ({ note, txRef }: { note: string; txRef: string }) => {
+      const ids = [...selectedIds];
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      setBulkError(null);
+      try {
+        const result = await markCommissionPayoutsPaidBatch(ids, { note, txRef });
+        setBulkOpen(false);
+        clearSelection();
+        if (result.paid.length > 0) {
+          setOkMessage(
+            result.paid.length === 1
+              ? "Marked 1 invoice paid — awaiting agent confirm."
+              : `Marked ${result.paid.length} invoices paid — awaiting agent confirm.`,
+          );
+        }
+        if (result.failed.length > 0) {
+          setError(
+            `${result.failed.length} not marked paid: ${result.failed[0].message}` +
+              (result.failed.length > 1 ? ` (and ${result.failed.length - 1} more)` : "") +
+              ".",
+          );
+        }
+        await refreshPayouts();
+      } catch (err) {
+        setBulkError(
+          err instanceof ApiError || err instanceof Error
             ? err.message
-            : "Failed to load commission invoices",
-      );
-    } finally {
-      setLoading(false);
-      setHasLoaded(true);
-    }
-  }, [statusFilter, refreshStuckPaidCount, refreshStatusCounts]);
+            : "Failed to mark invoices paid",
+        );
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selectedIds, clearSelection, refreshPayouts],
+  );
 
-  const loadMorePayouts = useCallback(async () => {
-    if (loadingMore || platformPayouts.length >= listTotal) return;
-    setLoadingMore(true);
+  /** Refresh button. */
+  const load = useCallback(async () => {
     setError(null);
-    try {
-      const page = await listCommissionPayouts({
-        payer: "platform",
-        status: listStatusForView(statusFilter),
-        limit: FETCH_PAGE,
-        offset: platformPayouts.length,
-      });
-      setPlatformPayouts((prev) => mergePayoutRows(prev, page.items));
-      setListTotal(page.total);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load more invoices",
-      );
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [
-    loadingMore,
-    platformPayouts.length,
-    listTotal,
-    statusFilter,
-  ]);
+    await Promise.all([refreshPayouts(), loadOrgs()]);
+  }, [refreshPayouts, loadOrgs]);
 
-  const hasMoreServer = platformPayouts.length < listTotal;
+  const loading = pageData == null;
+  const rows = pageData?.items ?? [];
+  const issuedOnPage = rows.filter((r) => r.payoutStatus === "issued").map((r) => r.id);
+  const total = pageData?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const statusCounts: Record<StatusFilter, number> = summary?.counts ?? {
+    all: 0,
+    issued: 0,
+    paid: 0,
+    settled: 0,
+  };
+  const stuckPaidCount = showOpenInvoices ? (summary?.stuckPaid ?? 0) : 0;
+  const viewEmpty = !loading && total === 0 && !debouncedQuery;
+  const noMatches = !loading && total === 0 && Boolean(debouncedQuery);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const invoices = useMemo(
-    () =>
-      platformPayouts.filter(
-        (p) => p.payoutStatus === "issued" || p.payoutStatus === "paid",
-      ),
-    [platformPayouts],
-  );
-
-  const history = useMemo(
-    () => platformPayouts.filter((p) => p.payoutStatus === "settled"),
-    [platformPayouts],
-  );
-
-  const queryNorm = query.trim().toLowerCase();
-
-  const filteredInvoices = useMemo(() => {
-    const matched = !queryNorm
-      ? [...invoices]
-      : invoices.filter((r) => {
-          const hay = [
-            r.payeeName,
-            r.payeeOrgId,
-            r.periodLabel,
-            r.periodKey,
-            r.payoutStatus,
-            r.payoutAddress,
-            r.txRef,
-            displayServiceBillTxHash(r.txRef),
-            displayCommissionInvoiceId(r.id),
-            r.id,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(queryNorm);
-        });
-    const dir = invoiceSort.dir === "asc" ? 1 : -1;
-    return matched.sort((a, b) => {
-      const agingA =
-        a.payoutStatus === "paid" && commissionPaidIsAging(a.paidAt) ? 1 : 0;
-      const agingB =
-        b.payoutStatus === "paid" && commissionPaidIsAging(b.paidAt) ? 1 : 0;
-      if (agingA !== agingB) return agingB - agingA;
-
-      let cmp = 0;
-      switch (invoiceSort.key) {
-        case "agent":
-          cmp = compareText(a.payeeName, b.payeeName);
-          break;
-        case "fee":
-          cmp = compareNumber(a.platformFeeCollected, b.platformFeeCollected);
-          break;
-        case "rate":
-          cmp = compareNumber(
-            Number(a.commissionPercent),
-            Number(b.commissionPercent),
-          );
-          break;
-        case "commission":
-          cmp = compareNumber(
-            Number(a.commissionAmount),
-            Number(b.commissionAmount),
-          );
-          break;
-        case "status":
-          cmp = compareText(a.payoutStatus, b.payoutStatus);
-          break;
-        case "tx":
-          cmp = compareText(a.txRef ?? "", b.txRef ?? "");
-          break;
-        case "paidAt":
-          cmp = compareDate(a.paidAt ?? "", b.paidAt ?? "");
-          break;
-        case "period":
-        default:
-          cmp = compareText(a.periodKey, b.periodKey);
-          break;
-      }
-      if (cmp !== 0) return dir * cmp;
-      return dir * compareText(a.payeeName, b.payeeName);
-    });
-  }, [invoices, queryNorm, invoiceSort]);
-
-  useEffect(() => {
-    setInvoicesPage(1);
-  }, [statusFilter, queryNorm]);
-
-  const filteredHistory = useMemo(() => {
-    const list = !queryNorm
-      ? [...history]
-      : history.filter((h) => {
-          const hay = [
-            h.payeeName,
-            h.payeeOrgId,
-            h.periodLabel,
-            h.periodKey,
-            h.payoutStatus,
-            h.payoutAddress,
-            h.txRef,
-            displayServiceBillTxHash(h.txRef),
-            displayCommissionInvoiceId(h.id),
-            h.id,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(queryNorm);
-        });
-    const dir = historySort.dir === "asc" ? 1 : -1;
-    return list.sort((a, b) => {
-      let cmp = 0;
-      switch (historySort.key) {
-        case "period":
-          cmp = compareText(a.periodKey, b.periodKey);
-          break;
-        case "agent":
-          cmp = compareText(a.payeeName, b.payeeName);
-          break;
-        case "amount":
-          cmp = compareNumber(
-            Number(a.commissionAmount),
-            Number(b.commissionAmount),
-          );
-          break;
-        case "address":
-          cmp = compareText(a.payoutAddress ?? "", b.payoutAddress ?? "");
-          break;
-        case "tx":
-          cmp = compareText(a.txRef ?? "", b.txRef ?? "");
-          break;
-        case "status":
-          cmp = compareText(a.payoutStatus, b.payoutStatus);
-          break;
-        case "paidAt":
-        default:
-          cmp = compareDate(a.settledAt ?? a.paidAt ?? "", b.settledAt ?? b.paidAt ?? "");
-          break;
-      }
-      if (cmp !== 0) return dir * cmp;
-      return dir * compareDate(a.settledAt ?? a.paidAt ?? "", b.settledAt ?? b.paidAt ?? "");
-    });
-  }, [history, queryNorm, historySort]);
-
-  const invoicesPageCount = Math.max(
-    1,
-    Math.ceil(filteredInvoices.length / PAGE_SIZE),
-  );
-  const pagedInvoices = useMemo(() => {
-    const start = (invoicesPage - 1) * PAGE_SIZE;
-    return filteredInvoices.slice(start, start + PAGE_SIZE);
-  }, [filteredInvoices, invoicesPage]);
-
-  const historyPageCount = Math.max(
-    1,
-    Math.ceil(filteredHistory.length / PAGE_SIZE),
-  );
-  const pagedHistory = useMemo(() => {
-    const start = (historyPage - 1) * PAGE_SIZE;
-    return filteredHistory.slice(start, start + PAGE_SIZE);
-  }, [filteredHistory, historyPage]);
-
-  useEffect(() => {
-    setInvoicesPage(1);
-    setHistoryPage(1);
-  }, [queryNorm, invoiceSort, historySort]);
+    if (pageData && page > pageCount) setPage(pageCount);
+  }, [pageData, page, pageCount, setPage]);
 
   const onInvoiceSort = useCallback((key: InvoiceSortKey) => {
     setInvoiceSort((prev) =>
@@ -906,16 +946,8 @@ export function PlatformCommissionsPage({ session }: Props) {
     );
   }, []);
 
-  useEffect(() => {
-    if (invoicesPage > invoicesPageCount) setInvoicesPage(invoicesPageCount);
-  }, [invoicesPage, invoicesPageCount]);
-
-  useEffect(() => {
-    if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
-  }, [historyPage, historyPageCount]);
-
   function openInvoice(record: CommissionPayoutRecord) {
-    navigate(platformRoute(`commissions/${record.id}`));
+    navigate(route(`commissions/${record.id}`));
   }
 
   async function onGenerateInvoices() {
@@ -966,7 +998,7 @@ export function PlatformCommissionsPage({ session }: Props) {
   if (deepLinkId) {
     return (
       <Navigate
-        to={platformRoute(`commissions/${deepLinkId}`)}
+        to={route(`commissions/${deepLinkId}`)}
         replace
       />
     );
@@ -976,6 +1008,16 @@ export function PlatformCommissionsPage({ session }: Props) {
     <div className="plat-bills plat-commissions">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <AuthToast message={okMessage} tone="ok" onDismiss={dismissToast} />
+      {canBulkPay ? (
+        <BulkMarkPaidModal
+          open={bulkOpen}
+          count={selectedIds.size}
+          busy={bulkBusy}
+          error={bulkError}
+          onClose={() => setBulkOpen(false)}
+          onConfirm={(opts) => void onBulkConfirm(opts)}
+        />
+      ) : null}
 
       <div className="plat-bills__period-bar">
         <div className="plat-bills__intro">
@@ -999,7 +1041,9 @@ export function PlatformCommissionsPage({ session }: Props) {
           <div className="plat-bills__intro-copy">
             <h1 className="plat-bills__intro-title">Commissions</h1>
             <p className="plat-bills__intro-sub">
-              Platform → agent monthly invoices and remittance.
+              {portal
+                ? "Monthly commission invoices from the platform."
+                : "Platform → agent monthly invoices and remittance."}
             </p>
           </div>
         </div>
@@ -1008,7 +1052,7 @@ export function PlatformCommissionsPage({ session }: Props) {
             type="button"
             className="pg-dash__period-refresh"
             onClick={() => void load()}
-            disabled={loading}
+            disabled={fetching}
             aria-label="Refresh commissions"
             title="Refresh"
           >
@@ -1038,7 +1082,9 @@ export function PlatformCommissionsPage({ session }: Props) {
 
       {isViewer ? (
         <p className="banner banner-warn" style={{ marginBottom: 12 }}>
-          Viewer — generate invoices is hidden.
+          {portal
+            ? "Viewer — confirm receipt is hidden."
+            : "Viewer — generate invoices is hidden."}
         </p>
       ) : null}
 
@@ -1080,9 +1126,13 @@ export function PlatformCommissionsPage({ session }: Props) {
           role="status"
           style={{ marginBottom: 12 }}
         >
-          {stuckPaidCount === 1
-            ? "1 paid invoice has awaited agent confirm for 7+ days."
-            : `${stuckPaidCount} paid invoices have awaited agent confirm for 7+ days.`}{" "}
+          {portal
+            ? stuckPaidCount === 1
+              ? "1 paid invoice has awaited your confirmation for 7+ days."
+              : `${stuckPaidCount} paid invoices have awaited your confirmation for 7+ days.`
+            : stuckPaidCount === 1
+              ? "1 paid invoice has awaited agent confirm for 7+ days."
+              : `${stuckPaidCount} paid invoices have awaited agent confirm for 7+ days.`}{" "}
           {statusFilter !== "paid" ? (
             <button
               type="button"
@@ -1110,33 +1160,16 @@ export function PlatformCommissionsPage({ session }: Props) {
           <p className="plat-bills__status-rail-title">Invoice status</p>
           <nav
             className="plat-bills__status-nav"
-            role="tablist"
+            role="tree"
             aria-label="Status filter"
           >
-            {STATUS_NAV.map((item) => {
-              const count = statusCounts[item.id];
-              const active = statusFilter === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  className={`plat-bills__status-item${
-                    active ? " is-active" : ""
-                  }`}
-                  aria-selected={active}
-                  onClick={() => selectStatus(item.id)}
-                >
-                  <span className="plat-bills__status-badge" aria-hidden>
-                    <StatusTabIcon id={item.id} />
-                  </span>
-                  <span className="plat-bills__status-item-label">
-                    {item.label}
-                  </span>
-                  <span className="plat-bills__status-item-count">{count}</span>
-                </button>
-              );
-            })}
+            <StatusNavNodes
+              items={STATUS_NAV}
+              depth={0}
+              statusFilter={statusFilter}
+              statusCounts={statusCounts}
+              onSelect={selectStatus}
+            />
           </nav>
         </aside>
 
@@ -1145,9 +1178,9 @@ export function PlatformCommissionsPage({ session }: Props) {
             <div className="plat-bills__table-scroll">
             {showOpenInvoices ? (
               <>
-                {loading && !hasLoaded ? <PagePending /> : null}
+                {loading ? <PagePending /> : null}
 
-                {!loading && invoices.length === 0 ? (
+                {viewEmpty && statusFilter === "all" ? (
                   <div className="plat-commissions__empty" role="status">
                     <p className="plat-commissions__empty-title">
                       No invoices yet
@@ -1158,12 +1191,10 @@ export function PlatformCommissionsPage({ session }: Props) {
                   </div>
                 ) : null}
 
-                {!loading &&
-                invoices.length > 0 &&
-                filteredInvoices.length === 0 ? (
+                {noMatches || (viewEmpty && statusFilter !== "all") ? (
                   <div className="plat-commissions__empty" role="status">
                     <p className="plat-commissions__empty-title">
-                      {queryNorm
+                      {debouncedQuery
                         ? "No matches"
                         : statusFilter === "issued"
                           ? "No issued invoices"
@@ -1172,7 +1203,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                             : "No invoices"}
                     </p>
                     <p className="plat-commissions__empty-copy">
-                      {queryNorm
+                      {debouncedQuery
                         ? `Nothing matched “${query.trim()}”.`
                         : statusFilter === "issued"
                           ? "Nothing waiting to remit."
@@ -1183,26 +1214,74 @@ export function PlatformCommissionsPage({ session }: Props) {
                   </div>
                 ) : null}
 
-                {!loading && filteredInvoices.length > 0 ? (
+                {canBulkPay && selectedIds.size > 0 ? (
+                  <div className="plat-commissions__bulk-bar" role="status">
+                    <span>
+                      {selectedIds.size} selected
+                      {selectedIds.size >= BATCH_MARK_PAID_MAX
+                        ? ` (max ${BATCH_MARK_PAID_MAX} per batch)`
+                        : ""}
+                    </span>
+                    <button type="button" className="btn-secondary" onClick={clearSelection}>
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => {
+                        setBulkError(null);
+                        setBulkOpen(true);
+                      }}
+                    >
+                      Confirm &amp; pay {selectedIds.size}
+                    </button>
+                  </div>
+                ) : null}
+
+                {!loading && rows.length > 0 ? (
                     <table className="plat-bills__table plat-commissions__table">
                       <colgroup>
+                        {canBulkPay ? <col className="plat-commissions__col-select" /> : null}
                         <col className="plat-commissions__col-agent" />
+                        <col className="plat-commissions__col-period" />
                         <col className="plat-commissions__col-num" />
                         <col className="plat-commissions__col-rate" />
                         <col className="plat-commissions__col-num" />
-                        <col className="plat-commissions__col-period" />
                         <col className="plat-commissions__col-status" />
                         <col className="plat-commissions__col-tx" />
                         <col className="plat-commissions__col-actions" />
                       </colgroup>
                       <thead>
                         <tr>
+                          {canBulkPay ? (
+                            <th className="plat-commissions__th-select">
+                              <input
+                                type="checkbox"
+                                aria-label="Select issued invoices on this page"
+                                disabled={issuedOnPage.length === 0}
+                                checked={
+                                  issuedOnPage.length > 0 &&
+                                  issuedOnPage.every((id) => selectedIds.has(id))
+                                }
+                                onChange={(e) => toggleSelected(issuedOnPage, e.target.checked)}
+                              />
+                            </th>
+                          ) : null}
                           <th>
                             <SortHeader
                               label="Agent"
                               sortKey="agent"
                               sort={invoiceSort}
                               onSort={onInvoiceSort}
+                            />
+                          </th>
+                          <th className="plat-commissions__th-center">
+                            <SortHeader
+                              label="Period"
+                              sortKey="period"
+                              sort={invoiceSort}
+                              onSort={onInvoiceSort}
+                              align="center"
                             />
                           </th>
                           <th className="plat-commissions__th-num">
@@ -1234,15 +1313,6 @@ export function PlatformCommissionsPage({ session }: Props) {
                           </th>
                           <th className="plat-commissions__th-center">
                             <SortHeader
-                              label="Period"
-                              sortKey="period"
-                              sort={invoiceSort}
-                              onSort={onInvoiceSort}
-                              align="center"
-                            />
-                          </th>
-                          <th className="plat-commissions__th-center">
-                            <SortHeader
                               label="Status"
                               sortKey="status"
                               sort={invoiceSort}
@@ -1264,13 +1334,13 @@ export function PlatformCommissionsPage({ session }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {pagedInvoices.map((row) => {
+                        {rows.map((row) => {
                           const txHash = displayServiceBillTxHash(row.txRef);
                           const aging =
                             row.payoutStatus === "paid"
                               ? formatCommissionPaidAgingHint(row.paidAt)
                               : null;
-                          const href = platformRoute(`commissions/${row.id}`);
+                          const href = route(`commissions/${row.id}`);
                           return (
                             <tr
                               key={row.id}
@@ -1278,7 +1348,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                               onClick={(e) => {
                                 if (
                                   (e.target as HTMLElement).closest(
-                                    "a, button, .chain-value",
+                                    "a, button, input, .chain-value",
                                   )
                                 ) {
                                   return;
@@ -1294,6 +1364,25 @@ export function PlatformCommissionsPage({ session }: Props) {
                               tabIndex={0}
                               aria-label={`Open ${formatCommissionPeriodLabel(row.periodKey)} invoice for ${row.payeeName}`}
                             >
+                              {canBulkPay ? (
+                                <td
+                                  className="plat-commissions__td-select"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {row.payoutStatus === "issued" ? (
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Select ${row.payeeName} ${formatCommissionPeriodLabel(row.periodKey)}`}
+                                      checked={selectedIds.has(row.id)}
+                                      disabled={
+                                        !selectedIds.has(row.id) &&
+                                        selectedIds.size >= BATCH_MARK_PAID_MAX
+                                      }
+                                      onChange={(e) => toggleSelected([row.id], e.target.checked)}
+                                    />
+                                  ) : null}
+                                </td>
+                              ) : null}
                               <td
                                 className="plat-bills__merchant"
                                 onClick={(e) => e.stopPropagation()}
@@ -1306,9 +1395,13 @@ export function PlatformCommissionsPage({ session }: Props) {
                                   <span className="plat-bills__merchant-meta">
                                     <Link
                                       className="plat-bills__merchant-name"
-                                      to={platformRoute(
-                                        `accounts/agents/${row.payeeOrgId}`,
-                                      )}
+                                      to={
+                                        portal
+                                          ? route(`accounts/${row.payeeOrgId}`)
+                                          : platformRoute(
+                                              `accounts/agents/${row.payeeOrgId}`,
+                                            )
+                                      }
                                     >
                                       {row.payeeName}
                                     </Link>
@@ -1322,6 +1415,9 @@ export function PlatformCommissionsPage({ session }: Props) {
                                   </span>
                                 </span>
                               </td>
+                              <td className="plat-commissions__period">
+                                {formatCommissionPeriodLabel(row.periodKey)}
+                              </td>
                               <td className="plat-commissions__num">
                                 <FundAmount amount={row.platformFeeCollected} />
                               </td>
@@ -1330,9 +1426,6 @@ export function PlatformCommissionsPage({ session }: Props) {
                               </td>
                               <td className="plat-commissions__num plat-commissions__num--emph">
                                 <FundAmount amount={row.commissionAmount} />
-                              </td>
-                              <td className="plat-commissions__period">
-                                {formatCommissionPeriodLabel(row.periodKey)}
                               </td>
                               <td className="plat-bills__status-cell">
                                 <span className="plat-bills__status-row">
@@ -1343,6 +1436,19 @@ export function PlatformCommissionsPage({ session }: Props) {
                                   >
                                     {commissionStatusLabel(row.payoutStatus)}
                                   </span>
+                                  {portal?.canConfirmReceipt &&
+                                  row.payoutStatus === "paid" ? (
+                                    <button
+                                      type="button"
+                                      className="plat-bills__kind-chip is-action"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openInvoice(row);
+                                      }}
+                                    >
+                                      Confirm receipt
+                                    </button>
+                                  ) : null}
                                 </span>
                                 {aging ? (
                                   <span
@@ -1393,7 +1499,7 @@ export function PlatformCommissionsPage({ session }: Props) {
             ) : (
               <>
                 {loading ? <PagePending /> : null}
-                {!loading && history.length === 0 ? (
+                {viewEmpty ? (
                   <div className="plat-commissions__empty" role="status">
                     <p className="plat-commissions__empty-title">
                       No settled payouts
@@ -1403,9 +1509,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                     </p>
                   </div>
                 ) : null}
-                {!loading &&
-                history.length > 0 &&
-                filteredHistory.length === 0 ? (
+                {noMatches ? (
                   <div className="plat-commissions__empty" role="status">
                     <p className="plat-commissions__empty-title">No matches</p>
                     <p className="plat-commissions__empty-copy">
@@ -1413,7 +1517,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                     </p>
                   </div>
                 ) : null}
-                {!loading && filteredHistory.length > 0 ? (
+                {!loading && rows.length > 0 ? (
                     <table className="plat-bills__table plat-commissions__table plat-commissions__table--history">
                       <colgroup>
                         <col className="plat-commissions__col-agent" />
@@ -1494,8 +1598,8 @@ export function PlatformCommissionsPage({ session }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {pagedHistory.map((h) => {
-                          const href = platformRoute(`commissions/${h.id}`);
+                        {rows.map((h) => {
+                          const href = route(`commissions/${h.id}`);
                           return (
                             <tr
                               key={h.id}
@@ -1503,7 +1607,7 @@ export function PlatformCommissionsPage({ session }: Props) {
                               onClick={(e) => {
                                 if (
                                   (e.target as HTMLElement).closest(
-                                    "a, button, .chain-value",
+                                    "a, button, input, .chain-value",
                                   )
                                 ) {
                                   return;
@@ -1531,9 +1635,13 @@ export function PlatformCommissionsPage({ session }: Props) {
                                   <span className="plat-bills__merchant-meta">
                                     <Link
                                       className="plat-bills__merchant-name"
-                                      to={platformRoute(
-                                        `accounts/agents/${h.payeeOrgId}`,
-                                      )}
+                                      to={
+                                        portal
+                                          ? route(`accounts/${h.payeeOrgId}`)
+                                          : platformRoute(
+                                              `accounts/agents/${h.payeeOrgId}`,
+                                            )
+                                      }
                                     >
                                       {h.payeeName}
                                     </Link>
@@ -1618,41 +1726,14 @@ export function PlatformCommissionsPage({ session }: Props) {
               </>
             )}
             </div>
-            {!loading && showOpenInvoices && filteredInvoices.length > 0 ? (
+            {!loading && total > 0 ? (
               <OrgListPagination
-                page={invoicesPage}
-                pageCount={invoicesPageCount}
-                total={filteredInvoices.length}
+                page={page}
+                pageCount={pageCount}
+                total={total}
                 pageSize={PAGE_SIZE}
-                onPageChange={setInvoicesPage}
+                onPageChange={setPage}
               />
-            ) : null}
-            {!loading && !showOpenInvoices && filteredHistory.length > 0 ? (
-              <OrgListPagination
-                page={historyPage}
-                pageCount={historyPageCount}
-                total={filteredHistory.length}
-                pageSize={PAGE_SIZE}
-                onPageChange={setHistoryPage}
-              />
-            ) : null}
-            {hasMoreServer &&
-            !loading &&
-            ((showOpenInvoices && filteredInvoices.length > 0) ||
-              (!showOpenInvoices && filteredHistory.length > 0)) ? (
-              <div className="plat-bills__load-more">
-                <p className="muted">
-                  Loaded {platformPayouts.length} of {listTotal}
-                </p>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={loadingMore}
-                  onClick={() => void loadMorePayouts()}
-                >
-                  {loadingMore ? "Loading…" : "Load more"}
-                </button>
-              </div>
             ) : null}
           </div>
         </div>
@@ -1666,9 +1747,13 @@ export function PlatformCommissionsPage({ session }: Props) {
               <strong>{billingCalendar.agentPayDayStart}</strong>.{" "}
             </>
           ) : null}
-          <span className="plat-bills__auto-run" role="status">
-            {formatLastAutoRunBanner(lastAutoRun)}
-          </span>
+          {portal ? (
+            "Invoices are created monthly by the platform. Confirm receipt once the remittance lands."
+          ) : (
+            <span className="plat-bills__auto-run" role="status">
+              {formatLastAutoRunBanner(lastAutoRun)}
+            </span>
+          )}
         </p>
       </div>
     </div>

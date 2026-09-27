@@ -5,12 +5,13 @@ import { OrgDeleteConfirmModal } from "../platform/ui/OrgDeleteConfirmModal";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { SuspendOrgModal } from "../platform/ui/SuspendOrgModal";
 import { FundAmount } from "../platform/FundAmount";
+import { OrgListPagination } from "../platform/OrgListPagination";
 import {
   ApiError,
   deleteOrg,
   getOrg,
   getOrgDeletePreview,
-  listAllOrders,
+  listOrdersPage,
   listOrgUsers,
   setOrgStatus,
   type OrgAccount,
@@ -31,6 +32,8 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
+
+const ORDERS_PAGE_SIZE = 10;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -94,6 +97,8 @@ export function SiteDetailCard({
   const [statusBusy, setStatusBusy] = useState(false);
   const [memberEmail, setMemberEmail] = useState<string | null>(null);
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersPage, setOrdersPage] = useState(1);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   useEffect(() => {
@@ -138,14 +143,21 @@ export function SiteDetailCard({
     if (tab !== "orders") return;
     let cancelled = false;
     setOrdersLoading(true);
-    void listAllOrders({ orgId: site.id })
-      .then((rows) => {
-        if (!cancelled) setOrders(rows);
+    void listOrdersPage({
+      orgId: site.id,
+      limit: ORDERS_PAGE_SIZE,
+      offset: (ordersPage - 1) * ORDERS_PAGE_SIZE,
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setOrders(page.items);
+        setOrdersTotal(page.total);
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : "Failed to load orders");
           setOrders([]);
+          setOrdersTotal(0);
         }
       })
       .finally(() => {
@@ -154,7 +166,11 @@ export function SiteDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [tab, site.id]);
+  }, [tab, site.id, ordersPage]);
+
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [site.id]);
 
   useEffect(() => {
     if (!deleteOpen) {
@@ -357,7 +373,7 @@ export function SiteDetailCard({
           ) : null}
 
           {tab === "orders" ? (
-            ordersLoading ? (
+            ordersLoading && orders.length === 0 ? (
               <PlatformPending
                 compact
                 title="Loading orders"
@@ -416,6 +432,13 @@ export function SiteDetailCard({
                     })}
                   </tbody>
                 </table>
+                <OrgListPagination
+                  page={ordersPage}
+                  pageCount={Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE))}
+                  total={ordersTotal}
+                  pageSize={ORDERS_PAGE_SIZE}
+                  onPageChange={setOrdersPage}
+                />
               </div>
             )
           ) : null}

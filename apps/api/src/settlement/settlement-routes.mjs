@@ -25,6 +25,7 @@ import {
   grantSiteOverrideAfterPlatformWrite,
   settingsLookupOrgId,
 } from "../sites/site-inherit.mjs";
+import { denyIfOrgSuspended } from "../orgs/org-ancestry.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -81,6 +82,7 @@ export async function handlePutSettlement(req, res, orgId) {
     sendError(res, 403, "forbidden", "Not allowed to change settlement address");
     return;
   }
+  if (await denyIfOrgSuspended(res, loaded.org, sendError)) return;
   if (await denySiteWriteWithoutOverride(res, loaded.org, "settlement", loaded.caller)) {
     return;
   }

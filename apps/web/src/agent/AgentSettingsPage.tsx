@@ -131,7 +131,7 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
   }, [load]);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("agent-topbar-center"));
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
   }, []);
 
   function onSavePayout(e: FormEvent) {

@@ -41,3 +41,58 @@ export async function findBillingMerchantOrg(org, getById = findOrgById) {
   }
   return null;
 }
+
+/**
+ * Suspend cascade: org is paused, or an ancestor merchant is paused.
+ * Sites under a suspended merchant are watch-only without flipping each row.
+ * @param {{ id?: string, type?: string, status?: string, parent_id?: string | null, parentId?: string | null, status_reason?: string | null }} org
+ * @returns {Promise<{ blocked: boolean, reason: string | null, pausedOrgId: string | null }>}
+ */
+export async function resolveOrgSuspendBlock(org) {
+  if (!org) {
+    return { blocked: false, reason: null, pausedOrgId: null };
+  }
+  if (org.status === "paused") {
+    return {
+      blocked: true,
+      reason: org.status_reason ? String(org.status_reason) : "Account is suspended",
+      pausedOrgId: org.id ?? null,
+    };
+  }
+  if (org.type === "merchant_site") {
+    const ancestors = await collectAncestorOrgIds(org);
+    for (const ancestorId of ancestors) {
+      const row = await findOrgById(ancestorId);
+      if (!row) continue;
+      if (row.status === "paused") {
+        return {
+          blocked: true,
+          reason: row.status_reason
+            ? String(row.status_reason)
+            : "Parent merchant is suspended",
+          pausedOrgId: row.id,
+        };
+      }
+      if (row.type === "merchant") break;
+    }
+  }
+  return { blocked: false, reason: null, pausedOrgId: null };
+}
+
+/**
+ * @param {import("http").ServerResponse} res
+ * @param {object} org
+ * @param {(status: number, code: string, message: string) => void} sendErrorFn
+ * @returns {Promise<boolean>} true if blocked (response already sent)
+ */
+export async function denyIfOrgSuspended(res, org, sendErrorFn) {
+  const block = await resolveOrgSuspendBlock(org);
+  if (!block.blocked) return false;
+  sendErrorFn(
+    res,
+    403,
+    "org_paused",
+    block.reason || "Account is suspended; this action is read-only",
+  );
+  return true;
+}

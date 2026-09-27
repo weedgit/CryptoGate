@@ -110,7 +110,7 @@ fun HomeScreen(
                     .posPressScale(createPress),
                 shape = RoundedCornerShape(18.dp),
             ) {
-                Text("Create order", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text("Create invoice", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(

@@ -52,7 +52,7 @@ const WEBHOOK_EVENT_LABELS: Record<(typeof WEBHOOK_EVENTS)[number], string> = {
   "payment_order.verifying": "Payment verifying",
   "payment_order.completed": "Payment completed",
   "payment_order.expired": "Order expired",
-  "payment_order.payment_anomaly": "Payment anomaly",
+  "payment_order.payment_anomaly": "Attention",
   "payment_order.failed": "Payment failed",
 };
 

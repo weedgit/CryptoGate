@@ -20,7 +20,12 @@ import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { OrgListPagination } from "../platform/OrgListPagination";
 import { handleOrgTableKeyDown } from "../platform/orgTableKeyboard";
-import { serviceBillStatusLabel, isOpenActivationServiceBill } from "../platform/serviceBillStatus";
+import { serviceBillStatusLabel } from "../platform/serviceBillStatus";
+import {
+  getServiceBillOrgStatus,
+  peekServiceBillOrgStatus,
+  type ServiceBillOrgStatus,
+} from "../shared/serviceBillsServer";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import { merchantsInAgentSubtree } from "./agentSubtree";
@@ -34,10 +39,6 @@ import {
   removeAgentOrgFromList,
 } from "./agentOrgList";
 import {
-  getAgentServiceBills,
-  peekAgentServiceBills,
-} from "./agentServiceBillsList";
-import {
   ApiError,
   getOrderSummary,
   listMerchantCommercialSummaries,
@@ -45,7 +46,6 @@ import {
   setOrgStatus,
   type MerchantCommercialSettings,
   type OrgAccount,
-  type ServiceBill,
   type Session,
 } from "./api";
 import { MerchantDetailCard } from "./MerchantDetailCard";
@@ -86,24 +86,6 @@ const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
 function billSortRank(status: MerchantBillStatus | null): number {
   if (!status) return 4;
   return BILL_SORT_RANK[status];
-}
-
-function resolveMerchantBillStatus(
-  bills: ServiceBill[],
-): MerchantBillStatus | null {
-  let hasIssued = false;
-  let hasPaid = false;
-  let hasOpenActivation = false;
-  for (const bill of bills) {
-    if (bill.status === "overdue") return "overdue";
-    if (isOpenActivationServiceBill(bill)) hasOpenActivation = true;
-    else if (bill.status === "issued" || bill.status === "draft") hasIssued = true;
-    else if (bill.status === "paid") hasPaid = true;
-  }
-  if (hasOpenActivation) return "activation";
-  if (hasIssued) return "issued";
-  if (hasPaid) return "paid";
-  return null;
 }
 
 function ArrangeIcon({ dir }: { dir: SortDir | null }) {
@@ -355,8 +337,8 @@ export function MerchantsListPage({ session }: Props) {
   );
 
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekAgentOrgs() ?? []);
-  const [bills, setBills] = useState<ServiceBill[]>(
-    () => peekAgentServiceBills() ?? [],
+  const [billStatus, setBillStatus] = useState<Map<string, ServiceBillOrgStatus>>(
+    () => peekServiceBillOrgStatus() ?? new Map(),
   );
   const [volumeByOrg, setVolumeByOrg] = useState<
     { orgId: string; volume: string }[]
@@ -388,8 +370,8 @@ export function MerchantsListPage({ session }: Props) {
   const prevPathRef = useRef(location.pathname);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("agent-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("agent-topbar-actions"));
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   useLayoutEffect(() => {
@@ -428,16 +410,16 @@ export function MerchantsListPage({ session }: Props) {
     if (!hasCachedOrgs) setLoading(true);
     setError(null);
     try {
-      const [orgRows, billRows, summary] = await Promise.all([
+      const [orgRows, statusRows, summary] = await Promise.all([
         getAgentOrgs(opts),
-        getAgentServiceBills().catch(() => [] as ServiceBill[]),
+        getServiceBillOrgStatus().catch(() => null),
         getOrderSummary(
           new Date(Date.now() - 90 * 86400000).toISOString(),
           new Date().toISOString(),
         ).catch(() => null),
       ]);
       setOrgs(orgRows);
-      setBills(billRows);
+      if (statusRows) setBillStatus(statusRows);
       setVolumeByOrg(summary?.volumeByOrg ?? []);
     } catch (err) {
       setError(
@@ -553,18 +535,12 @@ export function MerchantsListPage({ session }: Props) {
   }, [volumeByOrg, orgs]);
 
   const billStatusByMerchantId = useMemo(() => {
-    const byOrg = new Map<string, ServiceBill[]>();
-    for (const bill of bills) {
-      const list = byOrg.get(bill.orgId);
-      if (list) list.push(bill);
-      else byOrg.set(bill.orgId, [bill]);
-    }
     const map = new Map<string, MerchantBillStatus | null>();
     for (const m of merchants) {
-      map.set(m.id, resolveMerchantBillStatus(byOrg.get(m.id) ?? []));
+      map.set(m.id, billStatus.get(m.id)?.billStatus ?? null);
     }
     return map;
-  }, [bills, merchants]);
+  }, [billStatus, merchants]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

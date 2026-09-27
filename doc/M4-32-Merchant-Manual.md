@@ -28,9 +28,11 @@ Payers send crypto **directly to your wallet**. PaymentGate is watch-only.
 | --- | --- | --- | --- | --- |
 | Create payment orders | ✓ | ✓ | — | ✓ (own) |
 | Change matching mode | ✓ | ✓ | read | **No** (403) |
-| Change settlement address | ✓ | ✓ (+ MFA / cool-down) | read | **No** |
-| Register / replace xPub (Smart address) | ✓ | ✓ (+ MFA / cool-down) | read | **No** |
+| Change settlement address | ✓ (+ MFA / cool-down) | **No** | read | **No** |
+| Register / replace xPub (Smart address) | ✓ (+ MFA / cool-down) | **No** | read | **No** |
 | View HD pool summary | ✓ | ✓ | read | **No** |
+
+**Suspended merchant:** if Platform (or billing overdue) Suspends the merchant, Owner/Admin/Cashier become **watch-only** until Resume — no orders, no settings writes. Portals show the suspend reason.
 
 Cashiers use web or the Cashier APK to create orders and show QR only. See [Cashier-Apk.md](Cashier-Apk.md).
 
@@ -90,7 +92,7 @@ After an order reaches a final status, the derived address goes to **COOLDOWN**,
 
 Changing where funds land is high risk. PaymentGate requires:
 
-1. **MFA** step-up for Owner/Administrator  
+1. **MFA** step-up for **Owner** (merchant) or **Platform Owner** (support)  
 2. **Cool-down** before the new address / xPub becomes active (default **24 hours**, `SETTLEMENT_COOLDOWN_MS`)  
 3. **Audit log** entry  
 4. Banner while pending: new address activates at the shown time  

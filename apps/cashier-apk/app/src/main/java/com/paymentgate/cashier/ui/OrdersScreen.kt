@@ -29,7 +29,7 @@ import com.paymentgate.cashier.api.PaymentOrder
 
 private enum class OrdersFilter { All, Paid, Open, Failed }
 
-/** V3 Orders — filter chips + search (All activity). */
+/** V3 Invoices — filter chips + search (All activity). */
 @Composable
 fun OrdersScreen(
     orders: List<PaymentOrder>,
@@ -70,7 +70,7 @@ fun OrdersScreen(
         PaymentGateBrand()
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Orders",
+            text = "Invoices",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
         )
@@ -101,7 +101,7 @@ fun OrdersScreen(
         when {
             loading -> Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             !error.isNullOrBlank() -> Text(error, color = MaterialTheme.colorScheme.error)
-            filtered.isEmpty() -> Text("No orders match.", style = MaterialTheme.typography.bodyMedium)
+            filtered.isEmpty() -> Text("No invoices match.", style = MaterialTheme.typography.bodyMedium)
             else ->
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(filtered, key = { it.id }) { order ->

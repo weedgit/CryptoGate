@@ -83,7 +83,7 @@ Quiet traffic uses the main settlement address. On same-amount conflict, assign 
 
 **Current:** “locked to the account owner”  
 
-**Correct:** “Owner and Administrator (MFA + cool-down for address / xPub). **Cashier: no.** Viewer: read-only.”
+**Correct:** “**Owner only** for settlement address / xPub (MFA + cool-down). Merchant Administrator: matching mode OK, fund rails **No**. Cashier: no. Viewer: read-only.”
 
 ### 7. Create / marketing language
 
@@ -173,6 +173,6 @@ Keep: Fees on the amber rail; not guest payment orders; tier/rate display-only (
 - [ ] No “custodial” anywhere  
 - [ ] Cashier ≠ merchant business definition  
 - [ ] Matching modes use B / C / D / S (not A/B/C/D for Standard…)  
-- [ ] Owner **and** Administrator for settlement (Cashier denied)  
+- [ ] Owner only for settlement / xPub (Cashier and merchant Admin denied)
 - [ ] Status vocabulary: Pending Payment → Verifying → Confirmed → Completed / Expired / Payment Anomaly / Failed  
 - [ ] Platform/Agent playbook content not mixed unlabeled into Merchant spreads  

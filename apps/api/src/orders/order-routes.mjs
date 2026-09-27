@@ -4,7 +4,7 @@ import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
-import { collectAncestorOrgIds } from "../orgs/org-ancestry.mjs";
+import { collectAncestorOrgIds, findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
@@ -31,6 +31,7 @@ import { getEffectiveFulfillmentPolicy } from "../fulfillment-policy/fulfillment
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
 import { resolveSiteInherit } from "../sites/site-inherit.mjs";
 import { getEffectiveNetworkMaintenance } from "../platform-settings/network-maintenance-store.mjs";
+import { resolveEffectiveAssetNetworkConfig } from "../platform-settings/network-rail-resolve.mjs";
 import { resolveOrderQuote } from "../rates/resolve-order-quote.mjs";
 
 /**
@@ -152,6 +153,27 @@ export async function handleCreatePaymentOrder(req, res) {
     );
     return;
   }
+
+  // Overlay platform + merchant/site rail policy (new orders only; snapshotted below).
+  const billingMerchant =
+    merchantOrg.type === "merchant_site"
+      ? await findBillingMerchantOrg(merchantOrg)
+      : merchantOrg.type === "merchant"
+        ? merchantOrg
+        : null;
+  const railOrgId = billingMerchant?.id ?? scope.orgId;
+  const railSiteId =
+    merchantOrg.type === "merchant_site" ? merchantOrg.id : null;
+  const effectiveConfig = await resolveEffectiveAssetNetworkConfig(
+    validated.parsed.asset,
+    validated.parsed.network,
+    { orgId: railOrgId, siteId: railSiteId },
+  );
+  if (!effectiveConfig) {
+    sendError(res, 422, "asset_network_disabled", "Asset and network are not enabled");
+    return;
+  }
+  validated.parsed.config = effectiveConfig;
   if (merchantOrg.type === "merchant_site") {
     const ancestors = await collectAncestorOrgIds(merchantOrg);
     for (const ancestorId of ancestors) {
@@ -549,7 +571,7 @@ export async function handleResolvePaymentAnomaly(req, res, orderId) {
       403,
       "forbidden",
       existing.status !== "payment_anomaly"
-        ? "Only payment anomalies can be resolved this way"
+        ? "Only Attention invoices can be resolved this way"
         : "Cashiers can resolve only their own anomalies; ask Owner or Administrator",
     );
     return;
@@ -561,7 +583,7 @@ export async function handleResolvePaymentAnomaly(req, res, orderId) {
       res,
       409,
       "order_not_resolvable",
-      "Order is no longer a payment anomaly",
+      "Order no longer needs Attention",
     );
     return;
   }

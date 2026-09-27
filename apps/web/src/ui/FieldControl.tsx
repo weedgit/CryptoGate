@@ -8,6 +8,7 @@ import {
   GlobeIcon,
   LockIcon,
   MailIcon,
+  PhoneIcon,
   TagIcon,
   UserIcon,
 } from "../auth/LoginIcons";
@@ -15,6 +16,7 @@ import {
 export type FieldControlIcon =
   | "user"
   | "mail"
+  | "phone"
   | "globe"
   | "clock"
   | "lock"
@@ -25,6 +27,7 @@ export type FieldControlIcon =
 function FieldIconGlyph({ name }: { name: FieldControlIcon }) {
   if (name === "user") return <UserIcon />;
   if (name === "mail") return <MailIcon />;
+  if (name === "phone") return <PhoneIcon />;
   if (name === "globe") return <GlobeIcon />;
   if (name === "clock") return <ClockIcon />;
   if (name === "coins") return <CoinsIcon />;

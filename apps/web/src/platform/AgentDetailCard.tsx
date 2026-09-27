@@ -10,8 +10,6 @@ import {
   ApiError,
   getFeeTierSettings,
   getOrgOverview,
-  listServiceBills,
-  SERVICE_BILLS_LIST_LIMIT,
   putAgentCommission,
   putAgentPayout,
   ownerContactWithMfa,
@@ -23,8 +21,7 @@ import {
   type AuditLogEntry,
   type OrgAccount,
   type OrgMember,
-  type PaymentOrder,
-  type ServiceBill,
+  type OrgOverviewMetrics,
   type Session,
 } from "./api";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
@@ -41,14 +38,14 @@ import {
   mergeActivityFeed,
   RECENT_ACTIVITY_LIMIT,
   agentCommissionMtd,
-  agentSubtreePlatformFeeMtd,
-  agentSubtreeVolumeMtd,
   DEFAULT_AGENT_COMMISSION_PERCENT,
 } from "./orgDetailSeeds";
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
 import { KpiChartIcon, KpiCoinsIcon, KpiPeopleIcon } from "./detailKpiMarks";
 import { platformRoute } from "../shared/portalRouting";
+import { billsReviewQuery, volumeReviewQuery } from "./accountReviewLinks";
+import { useAccountsPortal } from "./accountsPortal";
 import { platformFeeAsset, platformFeeNetwork } from "../shared/platformFeePair";
 import { AssetIcon } from "./cryptoIcons";
 import {
@@ -118,6 +115,8 @@ const AUDIT_LABEL: Record<string, string> = {
 };
 
 function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
+  const portal = useAccountsPortal();
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   return (
     <div className="b3-agent-detail__activity-empty" role="status">
       <div
@@ -146,10 +145,10 @@ function ActivitySectionEmpty({ loading }: { loading?: boolean }) {
           ? "Fetching audit events for this agent."
           : "Sign-ins, team invites, and status changes appear here when recorded."}
       </p>
-      {!loading ? (
+      {!loading && auditHref ? (
         <Link
           className="b3-agent-detail__activity-audit b3-agent-detail__activity-audit--inline"
-          to={platformRoute("audit")}
+          to={auditHref}
           title="Open platform audit log"
         >
           Platform audit log
@@ -243,18 +242,25 @@ export function AgentDetailCard({
   onDelete,
   onOrgPatched,
 }: Props) {
+  const portal = useAccountsPortal();
+  const route = portal?.route ?? platformRoute;
+  const auditHref = portal ? portal.auditHref : platformRoute("audit");
   const canEditCommission = useMemo(
-    () => sessionIsPlatformOwner(session),
-    [session],
+    () => (portal ? false : sessionIsPlatformOwner(session)),
+    [portal, session],
   );
   const canEditPayout = useMemo(
-    () => sessionCanManagePlatform(session),
-    [session],
+    () => (portal ? portal.canEditAgentPayout(org) : sessionCanManagePlatform(session)),
+    [portal, org, session],
   );
   const canSupportOwner = useMemo(
-    () => sessionIsPlatformOwner(session),
-    [session],
+    () => (portal ? false : sessionIsPlatformOwner(session)),
+    [portal, session],
   );
+  const canOnboardHere = portal ? portal.canOnboardUnder(org) : canManage;
+  const canLifecycleHere = portal ? portal.canLifecycle(org) : canManage;
+  const canEditOrg = portal ? portal.canEditProfile(org) : canManage;
+  const canManageTeam = portal ? portal.canManageTeam(org) : canManage;
   const [primaryOwner, setPrimaryOwner] = useState<OrgPrimaryOwnerContact | null>(
     null,
   );
@@ -265,8 +271,7 @@ export function AgentDetailCard({
   const [pendingPayoutSave, setPendingPayoutSave] = useState<OrgEditSave | null>(
     null,
   );
-  const [bills, setBills] = useState<ServiceBill[]>([]);
-  const [subtreeOrders, setSubtreeOrders] = useState<PaymentOrder[]>([]);
+  const [metrics, setMetrics] = useState<OrgOverviewMetrics | null>(null);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -327,19 +332,8 @@ export function AgentDetailCard({
     () => merchantOrgIdsInAgentSubtree(org.id, orgs),
     [org.id, orgs],
   );
-  const agentBills = useMemo(
-    () => bills.filter((b) => merchantIds.has(b.orgId)),
-    [bills, merchantIds],
-  );
-  const liveVolumeMtd = useMemo(
-    () => agentSubtreeVolumeMtd(subtreeOrders, merchantIds),
-    [subtreeOrders, merchantIds],
-  );
-  const livePlatformFeeMtd = useMemo(
-    () => agentSubtreePlatformFeeMtd(agentBills, merchantIds),
-    [agentBills, merchantIds],
-  );
-  const displayVolumeMtd = liveVolumeMtd;
+  const displayVolumeMtd = metrics?.settledVolumeMtdUsd ?? 0;
+  const livePlatformFeeMtd = metrics?.platformFeeMtdUsd ?? 0;
   const commissionPercent =
     commission?.commissionPercent ?? String(DEFAULT_AGENT_COMMISSION_PERCENT);
   const automaticRate = useMemo(() => {
@@ -427,7 +421,7 @@ export function AgentDetailCard({
         setAudit(data.audit);
         setPayout(data.payout);
         setCommission(data.commission);
-        setSubtreeOrders(data.orders);
+        setMetrics(data.metrics);
         const contact = data.primaryOwnerContact ?? null;
         if (contact) {
           setPrimaryOwner(ownerContactWithMfa(contact, data.team));
@@ -457,7 +451,7 @@ export function AgentDetailCard({
           setAudit([]);
           setPayout(null);
           setCommission(null);
-          setSubtreeOrders([]);
+          setMetrics(null);
           setPrimaryOwner(null);
         }
       })
@@ -477,7 +471,6 @@ export function AgentDetailCard({
     setTabError(null);
     setTeam([]);
     setCommission(null);
-    setBills([]);
     setPrimaryOwner(null);
   }, [org.id]);
 
@@ -491,30 +484,6 @@ export function AgentDetailCard({
     return () => clearTimeout(t);
   }, [toast]);
 
-  /** Bills feed commission MTD KPI on Overview (no bills/commissions tabs). */
-  useEffect(() => {
-    let cancelled = false;
-    setTabError(null);
-    (async () => {
-      try {
-        const rows = await listServiceBills({ limit: SERVICE_BILLS_LIST_LIMIT });
-        if (!cancelled) setBills(rows);
-      } catch (err) {
-        if (!cancelled) {
-          setTabError(
-            err instanceof ApiError
-              ? err.code === "rate_limited"
-                ? "Too many requests — wait a moment and retry."
-                : err.message
-              : "Failed to load commission metrics",
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [org.id]);
 
   return (
     <aside className="platform-detail b3-agent-detail" aria-label="Agent detail">
@@ -547,45 +516,51 @@ export function AgentDetailCard({
           </span>
         }
         actions={
-          canManage ? (
+          canOnboardHere || canLifecycleHere ? (
             <>
-              <Link
-                className="b3-agent-detail__onboard"
-                to={`${platformRoute("merchants/new")}?parentId=${encodeURIComponent(org.id)}`}
-              >
-                <HeroPersonPlusIcon />
-                Onboard
-              </Link>
-              {status === "active" ? (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onPause}
+              {canOnboardHere ? (
+                <Link
+                  className="b3-agent-detail__onboard"
+                  to={`${route("merchants/new")}?parentId=${encodeURIComponent(org.id)}`}
                 >
-                  <HeroPauseIcon />
-                  Suspend
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="b3-agent-detail__suspend"
-                  disabled={busy}
-                  onClick={onRun}
-                >
-                  <HeroPlayIcon />
-                  Run
-                </button>
-              )}
-              <button
-                type="button"
-                className="b3-agent-detail__delete"
-                disabled={busy}
-                onClick={onDelete}
-              >
-                <HeroTrashIcon />
-                Delete
-              </button>
+                  <HeroPersonPlusIcon />
+                  Onboard
+                </Link>
+              ) : null}
+              {canLifecycleHere ? (
+                <>
+                  {status === "active" ? (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onPause}
+                    >
+                      <HeroPauseIcon />
+                      Suspend
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="b3-agent-detail__suspend"
+                      disabled={busy}
+                      onClick={onRun}
+                    >
+                      <HeroPlayIcon />
+                      Run
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="b3-agent-detail__delete"
+                    disabled={busy}
+                    onClick={onDelete}
+                  >
+                    <HeroTrashIcon />
+                    Delete
+                  </button>
+                </>
+              ) : null}
             </>
           ) : null
         }
@@ -696,7 +671,18 @@ export function AgentDetailCard({
                   <KpiCoinsIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <p className="b3-card__label">Volume (MTD)</p>
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Volume (MTD)</p>
+                    {portal ? null : (
+                      <Link
+                        className="b3-kpi__more"
+                        to={`${platformRoute("invoices")}?${volumeReviewQuery({ agentId: org.id })}`}
+                        aria-label="Review this month's completed invoices"
+                      >
+                        Review →
+                      </Link>
+                    )}
+                  </div>
                   <p className="b3-card__value b3-card__value--gold">
                     <FundAmount amount={displayVolumeMtd} unit="code" />
                   </p>
@@ -707,7 +693,18 @@ export function AgentDetailCard({
                   <KpiChartIcon />
                 </span>
                 <div className="b3-kpi__copy">
-                  <p className="b3-card__label">Commission (MTD)</p>
+                  <div className="b3-kpi__label-row">
+                    <p className="b3-card__label">Commission (MTD)</p>
+                    {portal ? null : (
+                      <Link
+                        className="b3-kpi__more"
+                        to={`${platformRoute("service-bills")}?${billsReviewQuery({ agentId: org.id })}`}
+                        aria-label="Review service bills for this month"
+                      >
+                        Review →
+                      </Link>
+                    )}
+                  </div>
                   <p className="b3-card__value b3-card__value--teal">
                     <FundAmount amount={displayCommissionMtd} unit="code" />
                   </p>
@@ -720,7 +717,7 @@ export function AgentDetailCard({
                 org={org}
                 owner={primaryOwner}
                 ownerLoading={overviewLoading && !primaryOwner}
-                canEditOrg={canManage}
+                canEditOrg={canEditOrg}
                 canEditOwner={canSupportOwner}
                 setupKind="agent"
                 orgFieldMode="account"
@@ -750,14 +747,16 @@ export function AgentDetailCard({
                 loading={overviewLoading && audit.length === 0}
                 empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
                 action={
-                  <Link
-                    className="b3-agent-detail__view-all"
-                    to={platformRoute("audit")}
-                    title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
-                  >
-                    View all activity
-                    <span aria-hidden>→</span>
-                  </Link>
+                  auditHref ? (
+                    <Link
+                      className="b3-agent-detail__view-all"
+                      to={auditHref}
+                      title={`Platform audit log (up to ${RECENT_ACTIVITY_LIMIT} events shown here)`}
+                    >
+                      View all activity
+                      <span aria-hidden>→</span>
+                    </Link>
+                  ) : undefined
                 }
               />
             </div>
@@ -771,14 +770,16 @@ export function AgentDetailCard({
             loading={overviewLoading && audit.length === 0}
             empty={<ActivitySectionEmpty loading={overviewLoading && audit.length === 0} />}
             action={
-              <Link
-                className="b3-agent-detail__view-all"
-                to={platformRoute("audit")}
-                title="Open platform audit log"
-              >
-                View all activity
-                <span aria-hidden>→</span>
-              </Link>
+              auditHref ? (
+                <Link
+                  className="b3-agent-detail__view-all"
+                  to={auditHref}
+                  title="Open platform audit log"
+                >
+                  View all activity
+                  <span aria-hidden>→</span>
+                </Link>
+              ) : undefined
             }
           />
         ) : null}
@@ -789,7 +790,7 @@ export function AgentDetailCard({
             orgs={orgs}
             members={team}
             loading={teamLoading}
-            canManage={canManage}
+            canManage={canManageTeam}
             onMembersChange={setTeam}
             variant="team"
           />

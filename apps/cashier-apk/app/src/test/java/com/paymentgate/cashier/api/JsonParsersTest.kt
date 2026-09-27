@@ -169,7 +169,7 @@ class JsonParsersTest {
 class OrderStatusUiTest {
     @Test
     fun anomalyIsNotCompleted() {
-        assertEquals("Payment Anomaly", OrderStatusUi.label("payment_anomaly"))
+        assertEquals("Attention", OrderStatusUi.label("payment_anomaly"))
         assertEquals("Pending Payment", OrderStatusUi.label("pending_payment"))
         assertTrue(OrderStatusUi.isAnomaly("payment_anomaly"))
         assertTrue(OrderStatusUi.isTerminal("payment_anomaly"))

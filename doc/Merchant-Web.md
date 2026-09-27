@@ -22,7 +22,7 @@ Dev server: `http://127.0.0.1:5174` (proxies `/v1` → API `:3000`).
 | `/merchant` | Dashboard placeholder |
 | other `/merchant/*` | Shell placeholders |
 
-Settlement: Owner/Admin only. Cashier gets a clear 403 message. Matching save confirms “new orders only”. Address/public key changes require MFA. GET public key reveals the full string for Platform Owner/Administrator; merchant staff get presence-only.
+Settlement: **Owner only** (Merchant Owner or Platform Owner support). Cashier and merchant Administrator get a clear 403. Matching save confirms “new orders only”. Address/public key changes require MFA. GET public key reveals the full string for Platform Owner/Administrator; merchant staff get presence-only.
 
 ## Product rules applied
 

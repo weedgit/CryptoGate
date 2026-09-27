@@ -221,7 +221,7 @@ export function MerchantApp() {
           path="networks"
           element={
             <OwnerOnly session={session} area="network catalog">
-              <NetworksPage />
+              <NetworksPage session={session} />
             </OwnerOnly>
           }
         />

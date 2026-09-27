@@ -161,7 +161,22 @@ describe("role policy", () => {
     );
     assert.equal(
       canChangeSettlementSettings(
-        { platformOwner: false, platformOperator: true, memberships: [platformOwner] },
+        {
+          platformOwner: false,
+          platformOperator: true,
+          memberships: [platformOwner],
+        },
+        merchant,
+      ),
+      false,
+    );
+    assert.equal(
+      canChangeSettlementSettings(
+        {
+          platformOwner: true,
+          platformOperator: true,
+          memberships: [platformOwner],
+        },
         merchant,
       ),
       true,
@@ -200,7 +215,7 @@ describe("role policy", () => {
     );
   });
 
-  it("uses the same role bar for matching mode as settlement", () => {
+  it("allows merchant Owner to change matching mode; Cashier cannot", () => {
     const merchant = { id: "m1", type: "merchant" };
     assert.equal(
       canChangeMatchingModeSettings(

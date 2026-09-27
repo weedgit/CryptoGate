@@ -25,6 +25,8 @@ import {
   canUpdateMerchantCommercial,
   isMerchantOrgType,
 } from "../orgs/role-policy.mjs";
+import { denyIfOrgSuspended } from "../orgs/org-ancestry.mjs";
+import { requireMfaStepUp } from "../auth/require-mfa-step-up.mjs";
 
 /**
  * GET /v1/orgs/{orgId}/commercial
@@ -111,6 +113,7 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
     sendError(res, 404, "not_found", "Merchant org not found");
     return;
   }
+  if (await denyIfOrgSuspended(res, org, sendError)) return;
 
   let body;
   try {
@@ -118,6 +121,11 @@ export async function handlePutMerchantCommercial(req, res, orgId) {
   } catch {
     sendError(res, 400, "invalid_json", "Request body must be JSON");
     return;
+  }
+
+  if (caller.platformOperator) {
+    const ok = await requireMfaStepUp(caller, body?.mfaCode, res);
+    if (!ok) return;
   }
 
   const existing = await findMerchantCommercial(orgId);

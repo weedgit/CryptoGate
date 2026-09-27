@@ -34,11 +34,19 @@ type View = "login" | "forgot" | "reset" | "mfa";
 const RESEND_SECONDS = 30;
 const SHAKE_MS = 480;
 
+function productLineFromSubtitle(subtitle: string): string {
+  const s = subtitle.toLowerCase();
+  if (s.includes("merchant")) return "MERCHANT POS";
+  if (s.includes("agent")) return "AGENT PORTAL";
+  return "PLATFORM";
+}
+
 export function PortalLoginPage({
   portalSubtitle,
   onSignedIn,
   startOnMfa = false,
 }: Props) {
+  const productLine = productLineFromSubtitle(portalSubtitle);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -272,7 +280,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout>
+      <AuthLayout productLine={productLine}>
         <form className="login-card" onSubmit={onResetSubmit}>
           <div className="login-card-head">
             <h1>Reset password</h1>
@@ -351,7 +359,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout>
+      <AuthLayout productLine={productLine}>
         <form className="login-card" onSubmit={onForgotSubmit}>
           <div className="login-card-head">
             <h1>Forgot password</h1>
@@ -398,7 +406,7 @@ export function PortalLoginPage({
     return (
       <>
         {alarm}
-      <AuthLayout footer={false}>
+      <AuthLayout productLine={productLine} footer={false}>
           <form
             className={loginCardClass("login-card--mfa")}
             onSubmit={onMfaSubmit}
@@ -457,15 +465,15 @@ export function PortalLoginPage({
   return (
     <>
       {alarm}
-    <AuthLayout>
+    <AuthLayout productLine={productLine}>
       <form
         className={loginCardClass()}
         onSubmit={onLoginSubmit}
         onAnimationEnd={onCardShakeEnd}
       >
-        <div className="login-card-head login-card-head--center login-card-head--sign-in">
-          <h1>Sign In</h1>
-          <p>{portalSubtitle}</p>
+        <div className="login-card-head login-card-head--welcome">
+          <h1>Welcome</h1>
+          <p>Sign in to your PaymentGate account.</p>
         </div>
 
         {resetSuccess ? (
@@ -477,12 +485,12 @@ export function PortalLoginPage({
         <div className="login-fields">
           <AuthField
             id="email"
-            label="Email Address"
+            label="Email address"
             value={email}
             onChange={setEmail}
             type="email"
             icon="mail"
-            placeholder="Name@company.com"
+            placeholder="you@company.com"
             disabled={loading}
             autoComplete="email"
             required
@@ -520,8 +528,24 @@ export function PortalLoginPage({
         </div>
 
         <button className="login-submit" type="submit" disabled={loading}>
-          {loading ? "Please wait…" : "Sign In"}
+          {loading ? (
+            "Please wait…"
+          ) : (
+            <>
+              Sign in
+              <span className="login-submit__arrow" aria-hidden>
+                →
+              </span>
+            </>
+          )}
         </button>
+
+        <p className="login-verify-note">
+          <span className="login-verify-note__icon" aria-hidden>
+            <ShieldIcon />
+          </span>
+          Additional verification may be required.
+        </p>
       </form>
     </AuthLayout>
     </>

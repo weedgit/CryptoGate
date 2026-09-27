@@ -226,10 +226,14 @@ export function PlatformApp() {
           path="orders/:id"
           element={<OrderDetailPage session={session} variant="platform" />}
         />
-        <Route path="support" element={<SupportPage />} />
+        <Route path="invoices" element={<SupportPage session={session} />} />
+        <Route
+          path="support"
+          element={<Navigate to={platformRoute("invoices")} replace />}
+        />
         <Route
           path="compliance"
-          element={<Navigate to={platformRoute("support")} replace />}
+          element={<Navigate to={platformRoute("invoices")} replace />}
         />
         <Route path="settings" element={<Navigate to={platformRoute()} replace />} />
         <Route
@@ -248,7 +252,7 @@ export function PlatformApp() {
           path="settings/billing-wallet"
           element={
             <Navigate
-              to={`${platformRoute("settings/fee-tiers")}?tab=remittance`}
+              to={`${platformRoute("settings/fee-tiers")}#fee-wallet`}
               replace
             />
           }

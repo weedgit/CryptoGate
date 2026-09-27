@@ -53,7 +53,7 @@ Company B must implement the account hierarchy, roles, permissions, and audit ru
 18. Merchant and agent API keys, webhooks, and security settings (scoped by role).
 19. Setting up and managing merchant payment receive addresses and optional xPub (per [Phase1-Project-Plan.md](Phase1-Project-Plan.md) matching modes).
 20. Viewing transaction history, order status, payment data, and service bill statements; exporting reports scoped to org visibility.
-21. **Platform administration backend:** agent and merchant management, Automatic/Fixed fee configuration, billing wallet, agent payout override, compliance override, immutable audit log review.
+21. **Platform administration backend:** agent and merchant management, Automatic/Fixed fee configuration, billing wallet, agent payout override, partner **Suspend/Resume** (reason + MFA; cascade watch-only to sites), fund rails changeable by **Platform Owner** only among platform roles, immutable audit log review. Sensitive platform child writes (Suspend, fund rails, matching, commercial locks) require MFA.
 22. **Immutable audit log:** all login and privileged actions recorded append-only; no user may delete audit records.
 
 Whether the merchant KYC/KYB verification function is included in the Phase 1 business scope will be determined based on the final product requirements document confirmed by both parties.

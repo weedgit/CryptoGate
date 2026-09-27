@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadSeedEnv } from "./seed-env.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 
 const PREFIX = "Load";
@@ -17,21 +18,7 @@ const BILL_REF_PREFIX = "load-bill-";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadEnv() {
-  const envPath = join(root, ".env");
-  if (existsSync(envPath)) {
-    for (const line of readFileSync(envPath, "utf8").split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq <= 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      if (!process.env[key]) process.env[key] = trimmed.slice(eq + 1).trim();
-    }
-  }
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL =
-      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
-  }
+  loadSeedEnv();
 }
 
 function daysAgo(days) {

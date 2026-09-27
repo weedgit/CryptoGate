@@ -50,39 +50,24 @@ describe("@paymentgate/web dashboard commission KPIs", () => {
     assert.deepEqual([...keys], ["2026-08", "2026-09", "2026-10"]);
   });
 
-  it("dashboard loads KPIs via status-scoped full walk helper", () => {
+  it("dashboard commission KPIs are summed on the server (no full walks)", () => {
     const page = readFileSync(
       join(root, "src/platform/DashboardPage.tsx"),
       "utf8",
     );
-    assert.match(page, /fetchPlatformCommissionDashboardKpis/);
-    assert.doesNotMatch(
-      page,
-      /listCommissionPayouts\(\{\s*payer: "platform",\s*limit: 500/,
-    );
+    assert.match(page, /getDashboardKpis/);
+    assert.doesNotMatch(page, /listCommissionPayouts|listAllCommissionPayouts/);
     const agent = readFileSync(
       join(root, "src/agent/DashboardPage.tsx"),
       "utf8",
     );
-    assert.match(agent, /fetchAgentCommissionDashboardKpis/);
-    assert.doesNotMatch(agent, /commissionHistoryFromBills/);
-    assert.match(agent, /needCommissions/);
+    assert.match(agent, /PlatformDashboardPage/);
+    assert.doesNotMatch(agent, /commissionHistoryFromBills|listAllCommissionPayouts/);
     const client = readFileSync(
       join(root, "src/commercial/commissionPayoutRecords.ts"),
       "utf8",
     );
-    assert.match(client, /listAllCommissionPayouts/);
-    assert.match(client, /fetchAgentCommissionDashboardKpis/);
-    assert.match(client, /status: "issued"/);
-    assert.match(client, /status: \["paid", "settled"\]/);
-    const billsList = readFileSync(
-      join(root, "src/agent/agentServiceBillsList.ts"),
-      "utf8",
-    );
-    assert.match(billsList, /limit: SERVICE_BILLS_LIST_LIMIT/);
-    assert.match(
-      readFileSync(join(root, "src/agent/api.ts"), "utf8"),
-      /SERVICE_BILLS_LIST_LIMIT = 5000/,
-    );
+    assert.doesNotMatch(client, /listAllCommissionPayouts/);
+    assert.doesNotMatch(client, /fetch(Platform|Agent)CommissionDashboardKpis/);
   });
 });

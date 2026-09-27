@@ -4,7 +4,6 @@ import type { Session } from "./api";
 import {
   getNotificationPreferences,
   getOrderSummary,
-  listServiceBills,
   listSettlement,
   listWebhookDeliveries,
   listWebhooks,
@@ -12,6 +11,7 @@ import {
   type PaymentOrder,
   type ServiceBill,
 } from "./api";
+import { listServiceBillsServer } from "../shared/serviceBillsServer";
 import { anomalyAmountLine, anomalyExplain, formatShortTime } from "./orderStatus";
 import {
   formatCountdown,
@@ -313,8 +313,14 @@ async function loadBillingAlerts(
   canPay: boolean,
 ): Promise<void> {
   try {
-    const billList = await listServiceBills();
-    for (const bill of billList.filter(
+    const page = await listServiceBillsServer<ServiceBill>({
+      bucket: "open",
+      sort: "dueDate",
+      dir: "asc",
+      limit: 20,
+      offset: 0,
+    });
+    for (const bill of page.items.filter(
       (b) => b.status === "overdue" || b.status === "issued",
     )) {
       next.push(serviceBillAlert(bill, canPay));

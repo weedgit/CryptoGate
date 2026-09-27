@@ -85,7 +85,7 @@ fun confirmationProgress(
                 phase = ConfirmationPhase.Anomaly,
                 confirmations = confirmations,
                 requiredConfirmations = req,
-                title = "Payment anomaly",
+                title = "Attention",
                 detail = "Do not treat as completed",
             )
         status == OrderStatusUi.EXPIRED || status == OrderStatusUi.FAILED ->

@@ -172,7 +172,9 @@ Roles apply **inside** one org account. One person may have different roles on d
 | Create payment order | — | — | **No** | — | ✓ | — | ✓ own only |
 | View orders in scope | ✓ | R | merchants R | R | ✓ | R | own only |
 | Resolve anomaly | ✓ | — | — | — | ✓ | — | own only |
-| Change receive address / xPub / matching | override (logged) | — | **No** | — | ✓ MFA + cool-down | R | **No** |
+| Change matching mode | O/A (logged); platform MFA | — | **No** | — | ✓ | R | **No** |
+| Change receive address / xPub | **Platform Owner** only (MFA) | — | **No** | — | **Owner** MFA + cool-down | R | **No** |
+| Suspend / Resume partner | ✓ MFA + reason | — | direct child | — | site under self | — | — |
 | API keys / webhook secrets | platform ops | — | **No** merchant secrets | — | ✓ | — | **No** |
 | Service bills | issue / mark paid (billing rail) | R | merchants R | R | view / pay own | R | **No** |
 | Onboard agent / merchant | ✓ | — | merchant only | — | invite Cashiers | — | — |

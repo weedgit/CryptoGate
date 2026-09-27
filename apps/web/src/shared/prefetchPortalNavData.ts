@@ -1,7 +1,5 @@
 import { readCachedSession } from "../auth/sessionCache";
 import { getAgentOrgs } from "../agent/agentOrgList";
-import { getAgentOrders } from "../agent/agentOrdersList";
-import { getAgentServiceBills } from "../agent/agentServiceBillsList";
 import { getAgentPayout } from "../agent/api";
 import { primaryAgentOrgId } from "../agent/org";
 import {
@@ -16,17 +14,27 @@ import { getMerchantIntegrations } from "../merchant/merchantIntegrationsCache";
 import { getMerchantOrgs } from "../merchant/merchantOrgList";
 import { getMerchantOrder } from "../merchant/merchantOrderDetail";
 import { getMerchantOrderPayment } from "../merchant/merchantOrderPaymentDetails";
-import { getMerchantOrders } from "../merchant/merchantOrdersList";
-import { getMerchantServiceBills } from "../merchant/merchantServiceBillsList";
+import { getDashboardReports } from "./dashboardApi";
+import { toDateInputValue } from "./dashboardPeriod";
 import { primaryMerchantOrgId } from "../merchant/org";
 import { getPlatformOrgs } from "../platform/platformOrgList";
-import { getPlatformOrders } from "../platform/platformOrdersList";
-import { getPlatformServiceBills } from "../platform/platformServiceBillsList";
 import { getCachedServiceBill } from "./serviceBillDetailCache";
 import { getOrgUsers } from "./orgUsersCache";
+import {
+  getServiceBillOrgStatus,
+  prefetchServiceBillsList,
+} from "./serviceBillsServer";
 
-function isPortalRoot(path: string, portal: "platform" | "agent" | "merchant"): boolean {
-  return path === "" || path === portal;
+function isAccountListPath(path: string): boolean {
+  return (
+    path === "accounts" ||
+    path.startsWith("accounts/") ||
+    path === "architecture" ||
+    path === "agents" ||
+    path.startsWith("agents/") ||
+    path === "merchants" ||
+    path.startsWith("merchants/")
+  );
 }
 
 function prefetchServiceBillDetail(path: string): void {
@@ -99,22 +107,14 @@ export function prefetchPlatformNavData(path: string) {
   ) {
     void getPlatformOrgs();
   }
-  if (
-    path === "accounts" ||
-    path.startsWith("accounts/") ||
-    path === "agents" ||
-    path.startsWith("agents/") ||
-    path === "merchants" ||
-    path.startsWith("merchants/") ||
-    path === "service-bills" ||
-    path.startsWith("service-bills/") ||
-    path === "commissions"
-  ) {
-    void getPlatformServiceBills();
+  if (isAccountListPath(path)) {
+    void getServiceBillOrgStatus().catch(() => undefined);
   }
-  if (path === "support" || path === "compliance") {
-    void getPlatformOrders();
-    void listOrders({ limit: 200 }).catch(() => undefined);
+  if (path === "service-bills") prefetchServiceBillsList("platform");
+  if (path === "invoices" || path === "support" || path === "compliance") {
+    void listOrders({ status: "payment_anomaly", limit: 25 }).catch(
+      () => undefined,
+    );
   }
   prefetchServiceBillDetail(path);
   prefetchOrderDetail(path);
@@ -129,35 +129,23 @@ export function prefetchAgentNavData(path: string) {
   ) {
     void getAgentOrgs();
   }
-  if (
-    path === "agents" ||
-    path.startsWith("agents/") ||
-    path === "merchants" ||
-    path.startsWith("merchants/") ||
-    path === "service-bills" ||
-    path.startsWith("service-bills/") ||
-    path === "commissions"
-  ) {
-    void getAgentServiceBills();
+  if (isAccountListPath(path)) {
+    void getServiceBillOrgStatus().catch(() => undefined);
   }
-  if (isPortalRoot(path, "agent") || path === "commissions") {
-    void getAgentOrders();
-  }
+  if (path === "service-bills") prefetchServiceBillsList("agent");
   prefetchServiceBillDetail(path);
   prefetchAgentSettings(path);
 }
 
 export function prefetchMerchantNavData(path: string) {
-  if (
-    isPortalRoot(path, "merchant") ||
-    path === "orders" ||
-    path.startsWith("orders/") ||
-    path === "reports" ||
-    path.startsWith("reports/") ||
-    path === "sites" ||
-    path.startsWith("sites/")
-  ) {
-    void getMerchantOrders();
+  if (path === "reports") {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - 30);
+    void getDashboardReports({
+      from: toDateInputValue(from),
+      to: toDateInputValue(to),
+    }).catch(() => undefined);
   }
   if (
     path === "reports" ||
@@ -167,9 +155,7 @@ export function prefetchMerchantNavData(path: string) {
   ) {
     void getMerchantOrgs();
   }
-  if (path === "service-bills" || path.startsWith("service-bills/")) {
-    void getMerchantServiceBills();
-  }
+  if (path === "service-bills") prefetchServiceBillsList("merchant");
   prefetchOrderDetail(path);
   prefetchServiceBillDetail(path);
   prefetchMerchantSettings(path);

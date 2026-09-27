@@ -52,15 +52,16 @@ describe("order create rules", () => {
     assert.equal(r.parsed.config.requiredConfirmations, 12);
   });
 
-  it("accepts live BTC on Bitcoin", () => {
+  it("rejects BTC on Bitcoin while the rail is disabled in the registry", () => {
     const r = validateCreateOrderBody({
       amount: "0.0001",
       asset: "BTC",
       network: "bitcoin",
       validitySeconds: 900,
     });
-    assert.equal(r.ok, true);
-    assert.equal(r.parsed.config.requiredConfirmations, 3);
+    assert.equal(r.ok, false);
+    assert.equal(r.status, 422);
+    assert.equal(r.code, "asset_network_disabled");
   });
 
   it("rejects tron_nile when chain env is mainnet (product default)", () => {
@@ -142,7 +143,7 @@ describe("order create rules", () => {
     assert.equal(bad.ok, false);
   });
 
-  it("rejects short validity and over-decimal amounts", () => {
+  it("rejects short validity and malformed amounts", () => {
     assert.equal(
       validateCreateOrderBody({
         amount: "1.00",
@@ -154,7 +155,7 @@ describe("order create rules", () => {
     );
     assert.equal(
       validateCreateOrderBody({
-        amount: "1.1234567",
+        amount: "1.2.3",
         asset: "USDT",
         network: "tron",
         validitySeconds: 60,

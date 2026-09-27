@@ -1,4 +1,5 @@
 import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
+import { mustEnrollMfa } from "../orgs/role-policy.mjs";
 import { loadOrgSetupStatus } from "./org-setup.mjs";
 
 /**
@@ -13,7 +14,6 @@ import { loadOrgSetupStatus } from "./org-setup.mjs";
  *   avatarUrl?: string | null,
  *   locale?: string | null,
  *   timezone?: string | null,
- *   mfaEnforcement?: boolean,
  *   sessionTimeoutMinutes?: number,
  *   emailVerified?: boolean,
  *   phone?: string | null,
@@ -38,7 +38,8 @@ export function sessionFromUser(user, memberships = []) {
     contactVerified: user.emailVerified === true && user.phoneVerified === true,
     mfaEnrolled: user.mfaEnrolled === true,
     mfaEnrollmentPending: user.mfaEnrollmentPending === true,
-    mfaEnforcement: user.mfaEnforcement === true,
+    /** Business-Model §25: forced enroll for Platform/Merchant O/A only. */
+    mfaEnforcement: mustEnrollMfa(memberships),
     sessionTimeoutMinutes: normalizeSessionTimeoutMinutes(
       user.sessionTimeoutMinutes,
     ),

@@ -1133,3 +1133,72 @@ select.field-control,
     transform: translateX(4px);
   }
 }
+
+/* —— Number stepper (custom up/down; native spin hidden) —— */
+.cg-number-stepper {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.cg-number-stepper__input {
+  box-sizing: border-box;
+  width: 100%;
+  padding-right: 28px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.cg-number-stepper__input::-webkit-outer-spin-button,
+.cg-number-stepper__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cg-number-stepper__spin {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 26px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 7px 7px 0;
+  overflow: hidden;
+  border-left: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cg-number-stepper__btn {
+  flex: 1 1 0;
+  display: inline-grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.cg-number-stepper__btn + .cg-number-stepper__btn {
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.cg-number-stepper__btn:hover:not(:disabled) {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cg-number-stepper__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cg-number-stepper__btn svg {
+  display: block;
+  width: 12px;
+  height: 8px;
+}

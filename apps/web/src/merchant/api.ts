@@ -44,7 +44,7 @@ export type Session = {
   mfaEnrolled?: boolean;
   /** Setup started but 6-digit verify not finished — reopen setup to view secret again. */
   mfaEnrollmentPending?: boolean;
-  /** Live platform org policy — force Owner/Admin enrollment when true. */
+  /** Business-Model §25: force enroll for Platform/Merchant Owner/Admin. */
   mfaEnforcement?: boolean;
   /** Live platform sliding session TTL (minutes). */
   sessionTimeoutMinutes?: number;
@@ -75,6 +75,8 @@ export type PaymentOrder = {
   createdAt?: string;
   createdBy?: string;
   createdByEmail?: string | null;
+  createdByName?: string | null;
+  createdByAvatarUrl?: string | null;
   merchantReference?: string | null;
   /** Invoice USD (volume unit). */
   invoiceAmountUsd?: string;
@@ -416,6 +418,80 @@ export async function getNetworksStatus(): Promise<NetworksStatus> {
   return (await res.json()) as NetworksStatus;
 }
 
+export type MerchantNetworkRailItem = {
+  network: string;
+  title: string;
+  lamp: NetworkOrderabilityLamp;
+  primaryAsset: string | null;
+  minAmount: string | null;
+  platformFloorConfirmations: number;
+  merchantConfirmations: number | null;
+  effectiveConfirmations: number;
+  pairs: {
+    asset: string;
+    displayNetwork: string;
+    lamp: NetworkOrderabilityLamp;
+    minAmount: string;
+    platformConfirmations: number;
+    effectiveConfirmations: number;
+  }[];
+};
+
+export async function getMerchantNetworkRails(orgId: string): Promise<{
+  orgId: string;
+  checkedAt: string;
+  items: MerchantNetworkRailItem[];
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/network-rails`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    orgId: string;
+    checkedAt: string;
+    items: MerchantNetworkRailItem[];
+  };
+}
+
+export async function putMerchantNetworkRailSettings(
+  orgId: string,
+  network: string,
+  body: { requiredConfirmations: number | null },
+): Promise<{
+  orgId: string;
+  network: string;
+  platformFloorConfirmations: number;
+  merchantConfirmations: number | null;
+  effectiveConfirmations: number;
+  updatedAt: string;
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    orgId: string;
+    network: string;
+    platformFloorConfirmations: number;
+    merchantConfirmations: number | null;
+    effectiveConfirmations: number;
+    updatedAt: string;
+  };
+}
+
 export async function getPaymentDetails(orderId: string): Promise<PaymentDetails> {
   const res = await apiFetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/payment`, {
     headers: { Accept: "application/json" },
@@ -426,11 +502,18 @@ export async function getPaymentDetails(orderId: string): Promise<PaymentDetails
 
 const inflightOrderLists = new Map<string, Promise<PaymentOrder[]>>();
 
+export type PaymentOrderListSummary = {
+  count: number;
+  invoiceAmountUsd: string | null;
+  byAsset: { asset: string; payableAmount: string; receivedAmount: string }[];
+};
+
 export type PaymentOrderListPage = {
   items: PaymentOrder[];
   total: number;
   limit: number;
   offset: number;
+  summary: PaymentOrderListSummary;
 };
 
 export async function listOrdersPage(opts?: {
@@ -438,14 +521,28 @@ export async function listOrdersPage(opts?: {
   limit?: number;
   offset?: number;
   orgId?: string;
+  includeSubtree?: boolean;
   agentOrgId?: string;
+  createdBy?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  q?: string;
+  asset?: string;
+  network?: string;
 }): Promise<PaymentOrderListPage> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   if (opts?.offset != null) q.set("offset", String(opts.offset));
   if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.includeSubtree) q.set("includeSubtree", "1");
   if (opts?.agentOrgId) q.set("agentOrgId", opts.agentOrgId);
+  if (opts?.createdBy) q.set("createdBy", opts.createdBy);
+  if (opts?.createdFrom) q.set("createdFrom", opts.createdFrom);
+  if (opts?.createdTo) q.set("createdTo", opts.createdTo);
+  if (opts?.q) q.set("q", opts.q);
+  if (opts?.asset) q.set("asset", opts.asset);
+  if (opts?.network) q.set("network", opts.network);
   const suffix = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${API_BASE}/orders${suffix}`, {
     credentials: "include",
@@ -457,13 +554,20 @@ export async function listOrdersPage(opts?: {
     total?: number;
     limit?: number;
     offset?: number;
+    summary?: PaymentOrderListSummary;
   };
   const items = data.items ?? [];
+  const total = data.total ?? items.length;
   return {
     items,
-    total: data.total ?? items.length,
+    total,
     limit: data.limit ?? opts?.limit ?? 100,
     offset: data.offset ?? opts?.offset ?? 0,
+    summary: data.summary ?? {
+      count: total,
+      invoiceAmountUsd: null,
+      byAsset: [],
+    },
   };
 }
 
@@ -472,14 +576,28 @@ export async function listOrders(opts?: {
   limit?: number;
   offset?: number;
   orgId?: string;
+  includeSubtree?: boolean;
   agentOrgId?: string;
+  createdBy?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  q?: string;
+  asset?: string;
+  network?: string;
 }): Promise<PaymentOrder[]> {
   const key = JSON.stringify({
     status: opts?.status ?? "",
     limit: opts?.limit ?? "",
     offset: opts?.offset ?? "",
     orgId: opts?.orgId ?? "",
+    includeSubtree: opts?.includeSubtree ? "1" : "",
     agentOrgId: opts?.agentOrgId ?? "",
+    createdBy: opts?.createdBy ?? "",
+    createdFrom: opts?.createdFrom ?? "",
+    createdTo: opts?.createdTo ?? "",
+    q: opts?.q ?? "",
+    asset: opts?.asset ?? "",
+    network: opts?.network ?? "",
   });
   const hit = inflightOrderLists.get(key);
   if (hit) return hit;
@@ -490,36 +608,6 @@ export async function listOrders(opts?: {
     });
   inflightOrderLists.set(key, pending);
   return pending;
-}
-
-/** JSON max page is 200 — walk offset until loaded === total. */
-const LIST_ALL_ORDERS_PAGE = 200;
-
-export async function listAllOrders(opts?: {
-  status?: string;
-  orgId?: string;
-  agentOrgId?: string;
-}): Promise<PaymentOrder[]> {
-  let offset = 0;
-  let total = Infinity;
-  const out: PaymentOrder[] = [];
-  const seen = new Set<string>();
-  while (offset < total) {
-    const page = await listOrdersPage({
-      ...opts,
-      limit: LIST_ALL_ORDERS_PAGE,
-      offset,
-    });
-    total = page.total;
-    for (const row of page.items) {
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      out.push(row);
-    }
-    if (page.items.length === 0) break;
-    offset += page.items.length;
-  }
-  return out;
 }
 
 export type OrderSummary = {
@@ -609,13 +697,83 @@ export async function getOnChain(orderId: string): Promise<OnChainDetails> {
 export function ordersCsvUrl(opts?: {
   status?: string;
   orgId?: string;
+  includeSubtree?: boolean;
+  createdBy?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  q?: string;
+  asset?: string;
+  network?: string;
   limit?: number;
 }): string {
   const q = new URLSearchParams({ format: "csv" });
   if (opts?.status) q.set("status", opts.status);
   if (opts?.orgId) q.set("orgId", opts.orgId);
+  if (opts?.includeSubtree) q.set("includeSubtree", "1");
+  if (opts?.createdBy) q.set("createdBy", opts.createdBy);
+  if (opts?.createdFrom) q.set("createdFrom", opts.createdFrom);
+  if (opts?.createdTo) q.set("createdTo", opts.createdTo);
+  if (opts?.q) q.set("q", opts.q);
+  if (opts?.asset) q.set("asset", opts.asset);
+  if (opts?.network) q.set("network", opts.network);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
   return `${API_BASE}/orders?${q}`;
+}
+
+export type InvoiceExportJob = {
+  id: string;
+  status: "queued" | "running" | "ready" | "failed" | "expired" | string;
+  totalRows: number | null;
+  error: string | null;
+  createdAt: string;
+  readyAt: string | null;
+  expiresAt: string;
+};
+
+export type InvoiceExportFilters = {
+  status?: string;
+  orgId?: string;
+  includeSubtree?: boolean;
+  createdBy?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  q?: string;
+  asset?: string;
+  network?: string;
+};
+
+export async function createInvoiceExport(
+  filters: InvoiceExportFilters,
+): Promise<InvoiceExportJob> {
+  const res = await apiFetch(`${API_BASE}/orders/exports`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(filters),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as InvoiceExportJob;
+}
+
+export async function getInvoiceExport(
+  id: string,
+): Promise<InvoiceExportJob> {
+  const res = await apiFetch(
+    `${API_BASE}/orders/exports/${encodeURIComponent(id)}`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as InvoiceExportJob;
+}
+
+export function invoiceExportDownloadUrl(id: string): string {
+  return `${API_BASE}/orders/exports/${encodeURIComponent(id)}/download`;
 }
 
 export type SettingsSource = "merchant" | "inherit" | "override";
@@ -1200,6 +1358,10 @@ export type OrgAccount = {
   name: string;
   parentId: string | null;
   status?: "active" | "paused";
+  /** When paused for unpaid service bill. */
+  statusReason?: string | null;
+  statusReasonBillId?: string | null;
+  orderCreateSuspended?: boolean;
   country?: string | null;
   legalName?: string | null;
   billingEmail?: string | null;
@@ -1377,17 +1539,21 @@ export async function changePassword(body: {
 
 export type ContactOtpSendResult = {
   status: "sent" | "already_verified";
+  email?: string;
   phone?: string;
+  /** True when OTP targets a new address/number; current stays active until verify. */
+  pendingChange?: boolean;
   expiresAt?: string;
   devCode?: string;
   session?: Session;
 };
 
-export async function sendEmailOtp(): Promise<ContactOtpSendResult> {
+export async function sendEmailOtp(email?: string): Promise<ContactOtpSendResult> {
   const res = await apiFetch(`${API_BASE}/auth/contact/email/send`, {
     method: "POST",
     credentials: "include",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(email ? { email } : {}),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as ContactOtpSendResult;

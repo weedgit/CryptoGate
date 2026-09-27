@@ -19,7 +19,9 @@ import {
   scopedCommissionPayoutListFilter,
   validateMarkPaidBody,
 } from "./commission-payout-rules.mjs";
+import { parseCommissionListQuery } from "./commission-payout-list-rules.mjs";
 import {
+  commissionPayoutSummary,
   findCommissionPayoutById,
   listCommissionPayoutRows,
   markCommissionPayoutPaidRow,
@@ -27,8 +29,64 @@ import {
 } from "./commission-payout-store.mjs";
 
 /**
+ * Caller-scoped payout filter from query params (list + summary).
+ * @returns {{ ok: true, filter: object | null } | { ok: false, status: number, code: string, message: string }}
+ *   filter null = caller has no agent scope (empty result).
+ */
+function resolvePayoutFilter(caller, searchParams, { withStatus }) {
+  const payer = searchParams.get("payer") || undefined;
+  const payeeOrgId = searchParams.get("payeeOrgId") || undefined;
+  const payerOrgId = searchParams.get("payerOrgId") || undefined;
+  const statusRaw = withStatus ? searchParams.get("status") || undefined : undefined;
+
+  if (payer && payer !== "platform") {
+    return { ok: false, status: 400, code: "invalid_request", message: "payer must be platform" };
+  }
+  if (statusRaw) {
+    const parts = statusRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    const allowed = new Set(["issued", "paid", "settled"]);
+    if (parts.length === 0 || parts.some((s) => !allowed.has(s))) {
+      return {
+        ok: false,
+        status: 400,
+        code: "invalid_request",
+        message: "status must be issued, paid, settled (comma-separated)",
+      };
+    }
+  }
+
+  // Non-platform: platform → self invoices only.
+  if (!canReadAllCommissionPayouts(caller)) {
+    const agentRoots = caller.memberships
+      .filter(
+        (m) =>
+          m.orgType === "agent" &&
+          ["owner", "administrator", "viewer"].includes(m.role),
+      )
+      .map((m) => m.orgId);
+    if (agentRoots.length === 0) return { ok: true, filter: null };
+    const scoped = scopedCommissionPayoutListFilter(agentRoots, {
+      payer,
+      payeeOrgId,
+      payerOrgId,
+    });
+    if (!scoped.ok) return scoped;
+    return { ok: true, filter: { ...scoped.filter, status: statusRaw } };
+  }
+
+  /** @type {{ payer?: string, payeeOrgId?: string, payerOrgId?: string, status?: string }} */
+  const filter = {};
+  if (payer) filter.payer = payer;
+  if (payeeOrgId) filter.payeeOrgId = payeeOrgId;
+  if (payerOrgId) filter.payerOrgId = payerOrgId;
+  if (statusRaw) filter.status = statusRaw;
+  return { ok: true, filter };
+}
+
+/**
  * GET /v1/commission-payouts
- * Query: payer, payeeOrgId, payerOrgId, status (comma list), limit, offset
+ * Query: payer, payeeOrgId, payerOrgId, status (comma list), q, sort, dir,
+ * agingFirst=1, limit, offset
  */
 export async function handleListCommissionPayouts(req, res, url) {
   const caller = await requireCaller(req, res);
@@ -39,31 +97,8 @@ export async function handleListCommissionPayouts(req, res, url) {
     return;
   }
 
-  const payer = url.searchParams.get("payer") || undefined;
-  const payeeOrgId = url.searchParams.get("payeeOrgId") || undefined;
-  const payerOrgId = url.searchParams.get("payerOrgId") || undefined;
-  const statusRaw = url.searchParams.get("status") || undefined;
   const limitRaw = url.searchParams.get("limit");
   const offsetRaw = url.searchParams.get("offset");
-
-  if (payer && payer !== "platform") {
-    sendError(res, 400, "invalid_request", "payer must be platform");
-    return;
-  }
-
-  if (statusRaw) {
-    const parts = statusRaw.split(",").map((s) => s.trim()).filter(Boolean);
-    const allowed = new Set(["issued", "paid", "settled"]);
-    if (parts.length === 0 || parts.some((s) => !allowed.has(s))) {
-      sendError(
-        res,
-        400,
-        "invalid_request",
-        "status must be issued, paid, settled (comma-separated)",
-      );
-      return;
-    }
-  }
 
   let limit;
   if (limitRaw != null && limitRaw !== "") {
@@ -83,53 +118,64 @@ export async function handleListCommissionPayouts(req, res, url) {
     }
   }
 
-  /** @type {{ payer?: string, payeeOrgId?: string, payerOrgId?: string, status?: string, limit?: number, offset?: number }} */
-  let filter = {};
-  if (payer) filter.payer = payer;
-  if (payeeOrgId) filter.payeeOrgId = payeeOrgId;
-  if (statusRaw) filter.status = statusRaw;
-  if (limit != null) filter.limit = limit;
-  if (offset != null) filter.offset = offset;
+  const listQuery = parseCommissionListQuery(url.searchParams);
+  if (!listQuery.ok) {
+    sendError(res, 400, "invalid_request", listQuery.message);
+    return;
+  }
+  const hasSort = url.searchParams.has("sort");
 
-  // Non-platform: platform → self invoices only.
-  if (!canReadAllCommissionPayouts(caller)) {
-    const agentRoots = caller.memberships
-      .filter(
-        (m) =>
-          m.orgType === "agent" &&
-          ["owner", "administrator", "viewer"].includes(m.role),
-      )
-      .map((m) => m.orgId);
-    if (agentRoots.length === 0) {
-      sendJson(res, 200, {
-        items: [],
-        total: 0,
-        limit: limit ?? 200,
-        offset: offset ?? 0,
-      });
-      return;
-    }
-    const scoped = scopedCommissionPayoutListFilter(agentRoots, {
-      payer,
-      payeeOrgId,
-      payerOrgId,
-    });
-    if (!scoped.ok) {
-      sendError(res, scoped.status, scoped.code, scoped.message);
-      return;
-    }
-    filter = { ...scoped.filter, status: statusRaw, limit, offset };
-  } else if (payerOrgId) {
-    filter.payerOrgId = payerOrgId;
+  const resolved = resolvePayoutFilter(caller, url.searchParams, { withStatus: true });
+  if (!resolved.ok) {
+    sendError(res, resolved.status, resolved.code, resolved.message);
+    return;
+  }
+  if (!resolved.filter) {
+    sendJson(res, 200, { items: [], total: 0, limit: limit ?? 200, offset: offset ?? 0 });
+    return;
   }
 
-  const result = await listCommissionPayoutRows(filter);
+  const result = await listCommissionPayoutRows({
+    ...resolved.filter,
+    q: listQuery.query.q,
+    sort: hasSort ? listQuery.query.sort : undefined,
+    dir: listQuery.query.dir,
+    agingFirst: listQuery.query.agingFirst,
+    limit,
+    offset,
+  });
   sendJson(res, 200, {
     items: result.rows.map(toCommissionPayout),
     total: result.total,
     limit: result.limit,
     offset: result.offset,
   });
+}
+
+/**
+ * GET /v1/commission-payouts/summary — status counts + stuck paid count.
+ * Query: payer, payeeOrgId, payerOrgId
+ */
+export async function handleCommissionPayoutSummary(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  if (!canReadCommissionPayouts(caller)) {
+    sendError(res, 403, "forbidden", "Not allowed to list commission payouts");
+    return;
+  }
+  const resolved = resolvePayoutFilter(caller, url.searchParams, { withStatus: false });
+  if (!resolved.ok) {
+    sendError(res, resolved.status, resolved.code, resolved.message);
+    return;
+  }
+  if (!resolved.filter) {
+    sendJson(res, 200, {
+      counts: { all: 0, issued: 0, paid: 0, settled: 0 },
+      stuckPaid: 0,
+    });
+    return;
+  }
+  sendJson(res, 200, await commissionPayoutSummary(resolved.filter));
 }
 
 /**

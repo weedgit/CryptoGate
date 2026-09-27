@@ -121,7 +121,7 @@ describe("@paymentgate/web platform B3 agent detail", () => {
       "utf8",
     );
     assert.match(detail, /merchantsInAgentSubtree/);
-    assert.match(detail, /service-bills/);
+    assert.match(detail, /data\.metrics|metrics\./);
 
     const subtree = readFileSync(
       join(root, "src/platform/agentSubtree.ts"),
@@ -167,7 +167,7 @@ describe("@paymentgate/web platform B8 B13 v0.3.3", () => {
     const api = readFileSync(join(root, "src/platform/api.ts"), "utf8");
     assert.match(api, /getFeeTierSettings/);
     assert.match(api, /updatePlatformOrgPolicy/);
-    assert.match(api, /decideEnterpriseRateApproval/);
+    assert.doesNotMatch(api, /decideEnterpriseRateApproval/);
 
     const app = readFileSync(join(root, "src/platform/PlatformApp.tsx"), "utf8");
     assert.match(app, /settings\/fee-tiers/);
@@ -187,15 +187,20 @@ describe("@paymentgate/web platform B8 B13 v0.3.3", () => {
       "utf8",
     );
     assert.match(b8, /next billing period/i);
-    assert.match(b8, /Custom merchant rate overrides/i);
-    assert.match(b8, /Platform fees/);
+    assert.doesNotMatch(b8, /Custom merchant rate overrides/i);
+    assert.doesNotMatch(b8, /Rate overrides/);
+    assert.match(b8, /Volume fee schedule/);
+    assert.match(b8, /Fee wallet/);
+    assert.match(b8, /Billing calendar/);
 
     const profile = readFileSync(
       join(root, "src/auth/SecuritySettingsPage.tsx"),
       "utf8",
     );
-    assert.match(profile, /Require two-step verification|mfaEnforcement/);
-    assert.match(profile, /sessionTimeoutMinutes|Session timeout/i);
+    assert.match(profile, /Authenticator|Start MFA enrollment/);
+    assert.doesNotMatch(profile, /Require two-step verification/);
+    assert.doesNotMatch(profile, /Session timeout/i);
+    assert.match(profile, /ProfileContactVerify|sendPhoneOtp|Email me a code/);
     assert.match(profile, /Profile/);
 
     const menu = readFileSync(

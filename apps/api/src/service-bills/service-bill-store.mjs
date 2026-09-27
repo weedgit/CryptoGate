@@ -1,4 +1,13 @@
 import { getPool } from "../db/pool.mjs";
+import { safeNumericSql } from "../dashboard/dashboard-range.mjs";
+import {
+  OPEN_ACTIVATION_SQL,
+  SERVICE_BILL_BUCKETS,
+  SERVICE_BILL_SORTS,
+  billIdSearchHex,
+  bucketPredicateSql,
+  escapeLike,
+} from "./service-bill-list-rules.mjs";
 
 const BILL_SELECT = `
   id, org_id, period_start, period_end, subscription_amount, volume_fee_amount,
@@ -101,16 +110,62 @@ export async function findServiceBillById(id) {
  * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
  */
 export async function listServiceBills(query) {
+  const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 5000);
+  const offset = Math.max(Number(query.offset) || 0, 0);
+  const built = buildServiceBillWhere(query);
+  if (!built) return { rows: [], total: 0, limit, offset };
+  const { params, where } = built;
+
+  const bucketSql = query.bucket ? bucketPredicateSql(query.bucket) : null;
+  if (bucketSql) where.push(bucketSql);
+  if (query.q) appendServiceBillSearch(params, where, query.q);
+
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const countRes = await queryBills(
+    `SELECT count(*)::int AS n FROM service_bills ${whereSql}`,
+    params,
+  );
+  const total = countRes.rows[0]?.n ?? 0;
+
+  const dir = query.dir === "asc" ? "ASC" : "DESC";
+  const sortExpr =
+    query.sort && Object.hasOwn(SERVICE_BILL_SORTS, query.sort)
+      ? SERVICE_BILL_SORTS[query.sort]
+      : "due_at";
+  const orderSql =
+    sortExpr === "activationFirst"
+      ? `(CASE WHEN ${OPEN_ACTIVATION_SQL} THEN 0 ELSE 1 END), due_at DESC, id DESC`
+      : sortExpr === "due_at"
+        ? `due_at ${dir}, created_at ${dir}, id ${dir}`
+        : `${sortExpr} ${dir} NULLS LAST, due_at ${dir}, id ${dir}`;
+
+  const listParams = [...params, limit, offset];
+  const { rows } = await queryBills(
+    `SELECT ${BILL_SELECT}
+     FROM service_bills
+     ${whereSql}
+     ORDER BY ${orderSql}
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    listParams,
+  );
+  return { rows, total, limit, offset };
+}
+
+/**
+ * Scope + status + date-window filters shared by list and summary.
+ * `period` keeps bills whose billing period overlaps [from, to] — the same rule
+ * as the org overview platform-fee MTD, so Review links add up to the card.
+ * @param {{ kind: "all" | "filter", orgIds?: string[], orgId?: string | null, status?: string | null, window?: { from: string, to: string, tz: string } | null, period?: { from: string, to: string } | null }} query
+ * @returns {{ params: unknown[], where: string[] } | null} null = scope is empty
+ */
+function buildServiceBillWhere(query) {
+  /** @type {unknown[]} */
   const params = [];
   /** @type {string[]} */
   const where = [];
-
   if (query.kind === "filter") {
-    if (!query.orgIds || query.orgIds.length === 0) {
-      const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 5000);
-      const offset = Math.max(Number(query.offset) || 0, 0);
-      return { rows: [], total: 0, limit, offset };
-    }
+    if (!query.orgIds || query.orgIds.length === 0) return null;
     params.push(query.orgIds);
     where.push(`org_id = ANY($${params.length}::uuid[])`);
   }
@@ -122,27 +177,160 @@ export async function listServiceBills(query) {
     params.push(query.status);
     where.push(`status = $${params.length}`);
   }
+  if (query.period) {
+    params.push(query.period.from, query.period.to);
+    where.push(
+      `(period_start <= $${params.length}::date AND period_end >= $${params.length - 1}::date)`,
+    );
+  }
+  if (query.window) {
+    params.push(query.window.from, query.window.to, query.window.tz);
+    const f = params.length - 2;
+    const t = params.length - 1;
+    const z = params.length;
+    const lo = `(($${f}::date)::timestamp AT TIME ZONE $${z}::text)`;
+    const hi = `((($${t}::date) + 1)::timestamp AT TIME ZONE $${z}::text)`;
+    where.push(
+      `(status IN ('issued', 'overdue')
+        OR (due_at >= ${lo} AND due_at < ${hi})
+        OR (created_at >= ${lo} AND created_at < ${hi}))`,
+    );
+  }
+  return { params, where };
+}
 
+/**
+ * Bill id / merchant name + legal name / ancestor (agent) name + legal name /
+ * payment reference / Rx / Tx address / period dates / total / status.
+ * @param {unknown[]} params
+ * @param {string[]} where
+ * @param {string} q
+ */
+function appendServiceBillSearch(params, where, q) {
+  params.push(`%${escapeLike(q.toLowerCase())}%`);
+  const like = `$${params.length}`;
+  const parts = [
+    `id::text ILIKE ${like}`,
+    `COALESCE(payment_reference, '') ILIKE ${like}`,
+    `COALESCE(rx_address, '') ILIKE ${like}`,
+    `COALESCE(tx_address, '') ILIKE ${like}`,
+    `period_start::text ILIKE ${like}`,
+    `period_end::text ILIKE ${like}`,
+    `total_amount ILIKE ${like}`,
+    `status ILIKE ${like}`,
+    `org_id IN (
+       WITH RECURSIVE hit AS (
+         SELECT id FROM org_accounts
+         WHERE name ILIKE ${like} OR COALESCE(legal_name, '') ILIKE ${like}
+         UNION
+         SELECT c.id FROM org_accounts c JOIN hit h ON c.parent_id = h.id
+       )
+       SELECT id FROM hit
+     )`,
+  ];
+  const hex = billIdSearchHex(q);
+  if (hex) {
+    params.push(`%${hex}%`);
+    parts.push(`replace(id::text, '-', '') LIKE $${params.length}`);
+  }
+  where.push(`(${parts.join(" OR ")})`);
+}
+
+/**
+ * One row per merchant with bills: collection status for account lists plus
+ * the latest billing month (agents roll these up into a payout badge).
+ * billStatus priority: overdue → open activation → issued/draft → paid.
+ * feeStatus (Accounts tree) ignores drafts: overdue → issued → paid.
+ * @param {{ kind: "all" | "filter", orgIds?: string[] }} query
+ * @returns {Promise<{ orgId: string, billStatus: "overdue" | "activation" | "issued" | "paid" | null, feeStatus: "overdue" | "issued" | "paid" | null, latestPeriod: string | null, latestPeriodOpen: boolean }[]>}
+ */
+export async function serviceBillOrgStatus(query) {
+  const built = buildServiceBillWhere({ kind: query.kind, orgIds: query.orgIds });
+  if (!built) return [];
+  const { params, where } = built;
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 5000);
-  const offset = Math.max(Number(query.offset) || 0, 0);
-
-  const countRes = await queryBills(
-    `SELECT count(*)::int AS n FROM service_bills ${whereSql}`,
+  const { rows } = await queryBills(
+    `WITH b AS (
+       SELECT org_id, status, to_char(period_start, 'YYYY-MM') AS pk,
+              ${OPEN_ACTIVATION_SQL} AS open_act
+       FROM service_bills
+       ${whereSql}
+     ),
+     latest AS (SELECT org_id, max(pk) AS lp FROM b GROUP BY org_id)
+     SELECT b.org_id,
+            l.lp AS latest_period,
+            bool_or(b.status = 'overdue') AS has_overdue,
+            bool_or(b.open_act) AS has_open_activation,
+            bool_or(NOT b.open_act AND b.status IN ('issued', 'draft')) AS has_issued,
+            bool_or(NOT b.open_act AND b.status = 'paid') AS has_paid,
+            bool_or(b.status = 'issued') AS any_issued,
+            bool_or(b.status = 'paid') AS any_paid,
+            bool_or(b.status IN ('issued', 'overdue') AND b.pk = l.lp) AS latest_open
+     FROM b JOIN latest l USING (org_id)
+     GROUP BY b.org_id, l.lp`,
     params,
   );
-  const total = countRes.rows[0]?.n ?? 0;
+  return rows.map((r) => ({
+    orgId: r.org_id,
+    billStatus: r.has_overdue
+      ? "overdue"
+      : r.has_open_activation
+        ? "activation"
+        : r.has_issued
+          ? "issued"
+          : r.has_paid
+            ? "paid"
+            : null,
+    feeStatus: r.has_overdue
+      ? "overdue"
+      : r.any_issued
+        ? "issued"
+        : r.any_paid
+          ? "paid"
+          : null,
+    latestPeriod: r.latest_period ?? null,
+    latestPeriodOpen: Boolean(r.latest_open),
+  }));
+}
 
-  const listParams = [...params, limit, offset];
+/**
+ * Bucket counts + USD totals for the Service Bills KPI row and status tree.
+ * @param {{ kind: "all" | "filter", orgIds?: string[], orgId?: string | null, window?: { from: string, to: string, tz: string } | null }} query
+ */
+export async function serviceBillSummary(query) {
+  const counts = Object.fromEntries(SERVICE_BILL_BUCKETS.map((b) => [b, 0]));
+  const empty = {
+    counts,
+    amounts: { issuedUsd: "0.00", overdueUsd: "0.00", paidUsd: "0.00" },
+  };
+  const built = buildServiceBillWhere(query);
+  if (!built) return empty;
+  const { params, where } = built;
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const total = safeNumericSql("total_amount");
+  const bucketCols = SERVICE_BILL_BUCKETS.filter((b) => b !== "all")
+    .map((b) => `count(*) FILTER (WHERE ${bucketPredicateSql(b)})::int AS "${b}"`)
+    .join(",\n       ");
   const { rows } = await queryBills(
-    `SELECT ${BILL_SELECT}
+    `SELECT count(*)::int AS "all",
+       ${bucketCols},
+       COALESCE(sum(${total}) FILTER (WHERE ${bucketPredicateSql("issued")}), 0)::text AS issued_usd,
+       COALESCE(sum(${total}) FILTER (WHERE ${bucketPredicateSql("overdue")}), 0)::text AS overdue_usd,
+       COALESCE(sum(${total}) FILTER (WHERE ${bucketPredicateSql("paid")}), 0)::text AS paid_usd
      FROM service_bills
-     ${whereSql}
-     ORDER BY due_at DESC, created_at DESC
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    listParams,
+     ${whereSql}`,
+    params,
   );
-  return { rows, total, limit, offset };
+  const r = rows[0] ?? {};
+  for (const b of SERVICE_BILL_BUCKETS) counts[b] = Number(r[b] ?? 0);
+  return {
+    counts,
+    amounts: {
+      issuedUsd: Number(r.issued_usd ?? 0).toFixed(2),
+      overdueUsd: Number(r.overdue_usd ?? 0).toFixed(2),
+      paidUsd: Number(r.paid_usd ?? 0).toFixed(2),
+    },
+  };
 }
 
 /**

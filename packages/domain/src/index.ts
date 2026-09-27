@@ -854,6 +854,10 @@ export type PaymentOrder = PaymentOrderAssignFields & {
   createdBy?: string;
   /** Cashier / staff email when list/detail joins users */
   createdByEmail?: string | null;
+  /** Cashier / staff display name when list/detail joins users */
+  createdByName?: string | null;
+  /** Cashier / staff avatar URL when list/detail joins users */
+  createdByAvatarUrl?: string | null;
   /** Merchant site or parent org display name */
   orgName?: string | null;
   /** Merchant PO / table / purpose reference (merchant_metadata.reference) */
@@ -1076,6 +1080,11 @@ export const AuditAction = {
   ContactVerificationOverride: "contact_verification_override",
   CommissionPayoutGenerate: "commission_payout_generate",
   CommissionPayoutAuto: "commission_payout_auto",
+  NetworkMaintenancePut: "network_maintenance_put",
+  NetworkRailSettingsPut: "network_rail_settings_put",
+  MerchantNetworkRailSettingsPut: "merchant_network_rail_settings_put",
+  PlatformOrgRailSettingsPut: "platform_org_rail_settings_put",
+  PlatformSiteRailSettingsPut: "platform_site_rail_settings_put",
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];

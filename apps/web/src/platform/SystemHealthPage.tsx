@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { NetworkId } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import { networkShortLabel } from "../shared/assetNetworks";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
@@ -36,8 +37,9 @@ type Props = {
 
 type TableRow = {
   network: string;
-  asset: string;
   lamp: NetworkOrderabilityLamp;
+  /** Enabled catalog assets on this network (secondary detail). */
+  assets: string[];
   heartbeat: WatcherHeartbeat | null;
 };
 
@@ -48,11 +50,22 @@ function formatLag(ms: number | null | undefined): string {
   return `${Math.round(ms / 60_000)} m`;
 }
 
-function pairKey(network: string, asset: string): string {
-  return `${asset}:${network}`;
+/**
+ * Watcher heartbeats are one row per network (`ON CONFLICT (network)`).
+ * Nile may share Tron ingest until it has its own heartbeat (same as B16 catalog).
+ */
+function heartbeatForNetwork(
+  byNetwork: Map<string, WatcherHeartbeat>,
+  network: string,
+): WatcherHeartbeat | null {
+  return (
+    byNetwork.get(network) ??
+    (network === NetworkId.TronNile ? byNetwork.get(NetworkId.Tron) : undefined) ??
+    null
+  );
 }
 
-/** B17 — Connected assets & networks (embedded under Network catalog). */
+/** B17 — Connected networks (embedded under Network catalog). */
 export function SystemHealthPage({
   catalog,
   loadRef,
@@ -122,32 +135,28 @@ export function SystemHealthPage({
   }, [loading, catalog]);
 
   const rows = useMemo((): TableRow[] => {
-    const heartbeatByPair = new Map<string, WatcherHeartbeat>();
-    for (const hb of watcher?.items ?? []) {
-      heartbeatByPair.set(pairKey(hb.network, hb.asset), hb);
-    }
-
     if (!catalog) return [];
+
+    const heartbeatByNetwork = new Map<string, WatcherHeartbeat>();
+    for (const hb of watcher?.items ?? []) {
+      heartbeatByNetwork.set(hb.network, hb);
+    }
 
     const out: TableRow[] = [];
     for (const card of catalog.items) {
-      for (const pair of card.pairs) {
-        out.push({
-          network: card.network,
-          asset: pair.asset,
-          lamp: pair.lamp,
-          heartbeat:
-            heartbeatByPair.get(pairKey(card.network, pair.asset)) ?? null,
-        });
-      }
+      out.push({
+        network: card.network,
+        lamp: card.lamp,
+        assets: card.pairs
+          .filter((pair) => pair.enabled)
+          .map((pair) => pair.asset)
+          .sort((a, b) => a.localeCompare(b)),
+        heartbeat: heartbeatForNetwork(heartbeatByNetwork, card.network),
+      });
     }
-    return out.sort((a, b) => {
-      const net = networkShortLabel(a.network).localeCompare(
-        networkShortLabel(b.network),
-      );
-      if (net !== 0) return net;
-      return a.asset.localeCompare(b.asset);
-    });
+    return out.sort((a, b) =>
+      networkShortLabel(a.network).localeCompare(networkShortLabel(b.network)),
+    );
   }, [catalog, watcher]);
 
   const checkedAt = catalog?.checkedAt ?? watcher?.checkedAt;
@@ -178,9 +187,14 @@ export function SystemHealthPage({
         <div className="plat-ops-health__stack">
           <div className="plat-ops-health__card">
             <div className="plat-ops-health__card-head">
-              <h2 className="plat-ops-health__card-title">
-                Connected assets &amp; networks
-              </h2>
+              <div className="plat-ops-health__card-titles">
+                <h2 className="plat-ops-health__card-title">
+                  Connected networks
+                </h2>
+                <p className="plat-ops-health__card-sub">
+                  Real-time status and performance for each connected chain.
+                </p>
+              </div>
               <span className="plat-ops-health__meta">
                 {checkedAt
                   ? `Checked ${new Date(checkedAt).toLocaleTimeString()}`
@@ -199,10 +213,10 @@ export function SystemHealthPage({
             {!awaitingCatalog && !loading && rows.length === 0 ? (
               <div className="plat-ops-health__empty" role="status">
                 <p className="plat-ops-health__empty-title">
-                  No asset / network pairs
+                  No networks
                 </p>
                 <p className="plat-ops-health__empty-copy">
-                  The network catalog has no pairs for this chain environment.
+                  The network catalog has no networks for this chain environment.
                 </p>
               </div>
             ) : null}
@@ -226,7 +240,7 @@ export function SystemHealthPage({
                     {rows.map((row) => {
                       const hb = row.heartbeat;
                       return (
-                        <tr key={pairKey(row.network, row.asset)}>
+                        <tr key={row.network}>
                           <td>
                             <div className="plat-ops-health__net-cell">
                               <NetworkIcon network={row.network} />
@@ -234,17 +248,33 @@ export function SystemHealthPage({
                                 <span className="plat-ops-health__net">
                                   {networkShortLabel(row.network)}
                                 </span>
-                                <span className="plat-ops-health__asset">
-                                  <AssetIcon asset={row.asset} />
-                                  <span>{row.asset}</span>
-                                </span>
+                                {row.assets.length > 0 ? (
+                                  <span
+                                    className="plat-ops-health__assets"
+                                    title={`Enabled: ${row.assets.join(", ")}`}
+                                  >
+                                    {row.assets.map((asset) => (
+                                      <span
+                                        key={asset}
+                                        className="plat-ops-health__asset"
+                                      >
+                                        <AssetIcon asset={asset} />
+                                        <span>{asset}</span>
+                                      </span>
+                                    ))}
+                                  </span>
+                                ) : (
+                                  <span className="plat-ops-health__asset">
+                                    No enabled assets
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
                           <td className="plat-ops-health__status-cell">
                             <NetworkStatusLamp
                               lamp={row.lamp}
-                              title="Orderability — Online means this pair can accept payments now"
+                              title="Orderability — Online means this network can accept payments now"
                             />
                           </td>
                           <td className="mono">

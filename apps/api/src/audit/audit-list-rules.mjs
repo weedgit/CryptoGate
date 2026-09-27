@@ -32,6 +32,53 @@ export function parseAuditLimit(raw) {
 
 /**
  * @param {string | null} raw
+ */
+export function parseAuditOffset(raw) {
+  if (raw == null || raw === "") return { ok: true, offset: 0 };
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "offset must be an integer ≥ 0",
+    };
+  }
+  return { ok: true, offset: n };
+}
+
+/**
+ * Free-text search (action, actor, org, metadata).
+ * @param {string | null} raw
+ */
+export function parseAuditSearch(raw) {
+  const q = (raw ?? "").trim();
+  if (q.length > 200) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "q must be at most 200 characters",
+    };
+  }
+  return { ok: true, q: q || null };
+}
+
+/**
+ * Action codes whose UI label matched the search box (comma list, OR-ed into q).
+ * @param {string | null} raw
+ */
+export function parseAuditSearchActions(raw) {
+  if (raw == null || raw.trim() === "") return { ok: true, actions: [] };
+  const actions = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (actions.length > 100 || actions.some((a) => !AUDIT_ACTIONS.has(a))) {
+    return { ok: false, status: 400, code: "invalid_request", message: "Invalid qActions" };
+  }
+  return { ok: true, actions };
+}
+
+/**
+ * @param {string | null} raw
  * @param {string} name
  */
 export function parseIsoDateTimeFilter(raw, name) {

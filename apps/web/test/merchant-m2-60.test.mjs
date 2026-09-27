@@ -112,7 +112,7 @@ describe("@paymentgate/web merchant D1-D3 orders shell", () => {
       "utf8",
     );
     assert.match(status, /Pending Payment/);
-    assert.match(status, /Payment Anomaly/);
+    assert.match(status, /Attention/);
     assert.doesNotMatch(status, /:\s*"Paid"/);
     const detail = readFileSync(
       join(root, "src/merchant/OrderDetailPage.tsx"),
@@ -120,7 +120,7 @@ describe("@paymentgate/web merchant D1-D3 orders shell", () => {
     );
     assert.doesNotMatch(detail, /<button[^>]*>[^<]*Mark paid/i);
     assert.match(detail, /order-detail-anomaly/);
-    assert.match(detail, /Resolve anomaly/);
+    assert.match(detail, /"Resolve"/);
     assert.match(detail, /resolveOrderAnomaly/);
     assert.match(detail, /listWebhookDeliveries/);
     assert.match(detail, /resendWebhookDelivery/);
@@ -133,11 +133,11 @@ describe("@paymentgate/web merchant D17 cashier shell", () => {
     assert.match(shell, /Cashier/);
     assert.match(shell, /Cashier terminal/);
     assert.match(shell, /CASHIER_GROUPS/);
-    assert.match(shell, /My Orders/);
-    assert.match(shell, /Create Order/);
     assert.match(shell, /showCashierBanner/);
     const cashierNav =
       shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
+    assert.match(cashierNav, /label: "Invoice"/);
+    assert.match(cashierNav, /label: "Create invoice"/);
     assert.doesNotMatch(cashierNav, /service-bills/i);
 
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
@@ -182,7 +182,7 @@ describe("@paymentgate/web merchant D5-D6 service bills", () => {
       "utf8",
     );
     assert.match(list, /Platform SaaS invoices/);
-    assert.match(list, /getMerchantServiceBills/);
+    assert.match(list, /listServiceBillsServer/);
     assert.doesNotMatch(list, /createOrder|listOrders/);
     const detail = readFileSync(
       join(root, "src/merchant/ServiceBillDetailPage.tsx"),
@@ -231,8 +231,9 @@ describe("@paymentgate/web merchant D10 reports", () => {
   it("shows volume breakdown and separate from service bills", () => {
     const page = readFileSync(join(root, "src/merchant/ReportsPage.tsx"), "utf8");
     assert.match(page, /Completed volume/i);
-    assert.match(page, /volumeForOrder/);
-    assert.match(page, /matchingMode/);
+    assert.match(page, /getDashboardReports/);
+    assert.match(page, /byMode/);
+    assert.doesNotMatch(page, /listAllOrders|volumeForOrder/);
     assert.match(page, /ordersCsvUrl/);
     assert.doesNotMatch(page, /Mark paid/i);
     assert.doesNotMatch(page, /listServiceBills/);

@@ -14,6 +14,7 @@ import {
 } from "./api";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { formatPhoneDisplay } from "../shared/phoneFormat";
+import { RoleBadge } from "../shared/RoleBadge";
 import { PlatformPending } from "./ui/PlatformPending";
 import { TeamMemberEditModal } from "./TeamMemberEditModal";
 import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
@@ -409,7 +410,7 @@ export function OrgTeamRoster({
                           onChange={(role) => void onRoleChange(m, role)}
                         />
                       ) : (
-                        <span className="b3-team__role">{roleLabel(m.role)}</span>
+                        <RoleBadge role={m.role} className="b3-team__role" />
                       )}
                     </td>
                     <td>

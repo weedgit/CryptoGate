@@ -6,6 +6,9 @@ import { startServiceBillOverdueJob } from "./service-bills/service-bill-overdue
 import { startDailyServiceBillInvoiceJob } from "./service-bills/daily-invoice-job.mjs";
 import { startDailyAgentCommissionInvoiceJob } from "./commercial/daily-commission-invoice-job.mjs";
 import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
+import { startInvoiceExportJob } from "./orders/order-export-job.mjs";
+import { startOrderRetentionPurgeJob } from "./retention/order-retention-purge-job.mjs";
+import { startAuditArchiveJob } from "./retention/audit-archive-job.mjs";
 import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
 import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mjs";
 
@@ -13,7 +16,8 @@ assertWatchOnlyEnv();
 
 /**
  * HTTP entry. Background: order expiry (M2-14), service bill overdue + daily
- * invoices, agent commission day-C invoices, webhook fan-out + delivery (M3-14).
+ * invoices, agent commission day-C invoices, webhook fan-out + delivery (M3-14),
+ * invoice CSV export jobs, order retention purge, audit hot→archive.
  */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
@@ -37,11 +41,17 @@ let expiryJob = null;
 /** @type {{ stop: () => void } | null} */
 let webhookJob = null;
 /** @type {{ stop: () => void } | null} */
+let invoiceExportJob = null;
+/** @type {{ stop: () => void } | null} */
 let serviceBillOverdueJob = null;
 /** @type {{ stop: () => void } | null} */
 let dailyServiceBillInvoiceJob = null;
 /** @type {{ stop: () => void } | null} */
 let dailyAgentCommissionInvoiceJob = null;
+/** @type {{ stop: () => void } | null} */
+let orderRetentionPurgeJob = null;
+/** @type {{ stop: () => void } | null} */
+let auditArchiveJob = null;
 
 server.listen(port, host, () => {
   console.log(`paymentgate-api listening on http://${host}:${port}`);
@@ -53,6 +63,16 @@ server.listen(port, host, () => {
   dailyServiceBillInvoiceJob = startDailyServiceBillInvoiceJob();
   dailyAgentCommissionInvoiceJob = startDailyAgentCommissionInvoiceJob();
   webhookJob = startWebhookDeliveryJob();
+  invoiceExportJob = startInvoiceExportJob();
+  orderRetentionPurgeJob = startOrderRetentionPurgeJob();
+  void import("./retention/audit-archive.mjs")
+    .then(async ({ ensureAuditArchiveSchema }) => {
+      await ensureAuditArchiveSchema();
+      auditArchiveJob = startAuditArchiveJob();
+    })
+    .catch((err) => {
+      console.error("[retention] failed to start audit archive job:", err);
+    });
 });
 
 function shutdown() {
@@ -66,6 +86,12 @@ function shutdown() {
   dailyAgentCommissionInvoiceJob = null;
   webhookJob?.stop();
   webhookJob = null;
+  invoiceExportJob?.stop();
+  invoiceExportJob = null;
+  orderRetentionPurgeJob?.stop();
+  orderRetentionPurgeJob = null;
+  auditArchiveJob?.stop();
+  auditArchiveJob = null;
   server.close(async () => {
     await closePool();
     process.exit(0);

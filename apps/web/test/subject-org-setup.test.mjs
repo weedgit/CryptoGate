@@ -37,7 +37,7 @@ describe("subjectOrgSetupStatus", () => {
     });
     assert.equal(incomplete.total, 8);
     assert.equal(incomplete.ready, false);
-    assert.ok(incomplete.missing.includes("country"));
+    assert.ok(incomplete.missing.includes("Country"));
 
     const ready = subjectOrgSetupStatus({
       kind: "merchant",
@@ -66,10 +66,9 @@ describe("subjectOrgSetupStatus", () => {
       walletSet: false,
     });
     assert.equal(r.ready, false);
-    assert.ok(r.missing.includes("billing email"));
-    assert.ok(r.missing.includes("owner name"));
-    assert.ok(r.missing.includes("owner email verified"));
-    assert.ok(r.missing.includes("owner timezone"));
-    assert.ok(r.missing.includes("payout wallet"));
+    assert.equal(r.missing.filter((m) => m === "Email").length, 2);
+    assert.ok(r.missing.includes("Owner"));
+    assert.ok(r.missing.includes("Timezone"));
+    assert.ok(r.missing.includes("Wallet"));
   });
 });

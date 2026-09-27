@@ -1783,13 +1783,61 @@ paths:
         - name: status
           in: query
           schema:
-            $ref: "#/components/schemas/OrderStatus"
+            oneOf:
+              - $ref: "#/components/schemas/OrderStatus"
+              - type: string
+                enum: [closed, open]
+          description: >
+            Filter by OrderStatus, or `closed` (expired+failed+cancelled),
+            or `open` (pending_payment+verifying).
         - name: orgId
           in: query
           schema:
             type: string
             format: uuid
           description: Restrict to one org in the caller’s merchant tree
+        - name: includeSubtree
+          in: query
+          schema:
+            type: boolean
+          description: >
+            With orgId, include descendant merchant_site orders (and the org itself)
+            in one query. Requires orgId; org must be merchant or merchant_site.
+        - name: createdBy
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Restrict to orders created by this user (cashier)
+        - name: createdFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Inclusive lower bound on created_at (ISO)
+        - name: createdTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Inclusive upper bound on created_at (ISO)
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: >
+            Exact order UUID, exact order_number (4+ digits), or merchant
+            reference prefix (min 2 chars).
+        - name: asset
+          in: query
+          schema:
+            type: string
+          description: Exact asset code filter (e.g. USDT)
+        - name: network
+          in: query
+          schema:
+            type: string
+          description: Exact network id filter (e.g. tron)
         - name: agentOrgId
           in: query
           schema:
@@ -4991,6 +5039,26 @@ components:
         offset:
           type: integer
           minimum: 0
+        summary:
+          type: object
+          description: Aggregates for the same filters as items (not the current page only)
+          properties:
+            count:
+              type: integer
+            invoiceAmountUsd:
+              type: string
+              nullable: true
+            byAsset:
+              type: array
+              items:
+                type: object
+                properties:
+                  asset:
+                    type: string
+                  payableAmount:
+                    type: string
+                  receivedAmount:
+                    type: string
     PaymentDetails:
       type: object
       description: Guest pay / POS QR payload. Never includes keys, xPub, or fees.

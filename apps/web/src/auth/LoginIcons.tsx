@@ -65,6 +65,41 @@ export function GlobeIcon({ className }: IconProps) {
   );
 }
 
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3.5 5.25L7 8.75L10.5 5.25"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function HelpCircleIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M9 15.75C12.7279 15.75 15.75 12.7279 15.75 9C15.75 5.27208 12.7279 2.25 9 2.25C5.27208 2.25 2.25 5.27208 2.25 9C2.25 12.7279 5.27208 15.75 9 15.75Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.75 6.75a2.25 2.25 0 0 1 4.38.75c0 1.5-2.25 2.25-2.25 2.25M9 12.75h.008"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ClockIcon({ className }: IconProps) {
   return (
     <svg className={className} width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
@@ -143,6 +178,20 @@ export function TagIcon({ className }: IconProps) {
   );
 }
 
+export function PhoneIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M6.3 2.4H4.35C3.604 2.4 3 3.004 3 3.75c0 7.042 5.708 12.75 12.75 12.75.746 0 1.35-.604 1.35-1.35V13.2c0-.746-.604-1.35-1.35-1.35h-2.025c-.373 0-.72.154-.97.423l-.97 1.048a.9.9 0 0 1-1.012.225 10.05 10.05 0 0 1-4.469-4.469.9.9 0 0 1 .225-1.012l1.048-.97a1.35 1.35 0 0 0 .423-.97V3.75c0-.746-.604-1.35-1.35-1.35Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ShieldIcon({ className }: IconProps) {
   return (
     <svg className={className} width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden>
@@ -151,6 +200,33 @@ export function ShieldIcon({ className }: IconProps) {
         d="M24 13C24.1761 13 24.3347 13.0388 24.4609 13.0977L24.5762 13.1621C27.3215 15.0792 31.2476 16.5996 34.5 16.5996C34.6958 16.5996 34.8502 16.6643 34.9355 16.7324C34.9755 16.7644 34.9926 16.7903 34.998 16.8008C34.9989 16.8024 34.9996 16.8037 35 16.8047V25.1982C35 27.8536 33.8587 29.8341 31.9609 31.3916C30.0274 32.9784 27.3127 34.1167 24.248 34.9717C24.1003 35.0116 23.9352 35.0087 23.791 34.9658L23.7812 34.9629L23.7715 34.9609L23.1992 34.7979C20.3603 33.9677 17.8563 32.8766 16.041 31.3896C14.1418 29.8338 13 27.8536 13 25.1982V16.8047C13.0004 16.8037 13.0011 16.8024 13.002 16.8008C13.0074 16.7903 13.0245 16.7644 13.0645 16.7324C13.1498 16.6643 13.3042 16.5996 13.5 16.5996C16.7531 16.5996 20.6943 15.0667 23.4238 13.1621C23.561 13.0684 23.7652 13 24 13Z"
         stroke="#00D4C8"
         strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+export function ShieldCheckIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3 5 5.8v5.4c0 4.3 2.9 8.1 7 9.8 4.1-1.7 7-5.5 7-9.8V5.8L12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="m8.8 12.2 2.2 2.2 4.2-4.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function BoltIcon({ className }: IconProps) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M13.5 2.5 4.8 13.4h6.4l-1.2 8.1 8.7-10.9h-6.4l1.2-8.1Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
       />
     </svg>
   );

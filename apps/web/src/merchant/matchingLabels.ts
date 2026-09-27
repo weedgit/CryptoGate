@@ -72,7 +72,7 @@ export function matchingModeHint(mode: string | null | undefined): string {
     case "S":
       return "Uses the main settlement address unless a same-amount conflict requires an HD pool address.";
     default:
-      return "Only one open order per amount on the main address. A second create is blocked until the first finishes or is cancelled; residual match collisions still become Payment Anomaly — never auto-completed.";
+      return "Only one open order per amount on the main address. A second create is blocked until the first finishes or is cancelled; residual match collisions still need Attention — never auto-completed.";
   }
 }
 
@@ -91,7 +91,7 @@ export function matchingModeTooltip(mode: string | null | undefined): string {
     case "S":
       return `${intro} Smart address: normally uses the merchant’s main receive address; if two open orders would collide on the same amount, PaymentGate assigns a temporary HD address from the merchant’s watch-only public key.`;
     default:
-      return `${intro} Standard (default): guests pay the merchant’s fixed receive address for the exact order amount. Only one open order per amount on that address — if two share the same amount, staff see a Payment Anomaly instead of PaymentGate guessing which order was paid.`;
+      return `${intro} Standard (default): guests pay the merchant’s fixed receive address for the exact order amount. Only one open order per amount on that address — if two share the same amount, staff see Attention instead of PaymentGate guessing which order was paid.`;
   }
 }
 

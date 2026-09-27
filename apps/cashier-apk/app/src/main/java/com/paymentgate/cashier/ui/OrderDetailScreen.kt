@@ -80,7 +80,7 @@ fun OrderDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(onClick = onBack) { Text("← Orders") }
+                TextButton(onClick = onBack) { Text("← Invoices") }
                 Text(
                     text = siteName,
                     style = MaterialTheme.typography.bodyMedium,
@@ -225,7 +225,7 @@ fun OrderDetailScreen(
                             .height(56.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
-                    Text("Back to Orders", fontWeight = FontWeight.SemiBold)
+                    Text("Back to Invoices", fontWeight = FontWeight.SemiBold)
                 }
             }
             Row(
@@ -246,7 +246,7 @@ fun OrderDetailScreen(
                     },
                     enabled = showCopyTx,
                 ) { Text("Copy tx id") }
-                TextButton(onClick = onBack) { Text("Back to Orders") }
+                TextButton(onClick = onBack) { Text("Back to Invoices") }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -285,8 +285,8 @@ private enum class OrderDetailVariant(
     ),
     Anomaly(
         "ANOMALY",
-        "Payment anomaly — resolve on the merchant web portal before reprinting as paid.",
-        "Anomaly · do not treat as paid on POS",
+        "Attention — resolve on the merchant web portal before reprinting as paid.",
+        "Attention · do not treat as paid on POS",
     ),
 }
 

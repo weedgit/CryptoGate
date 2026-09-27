@@ -244,32 +244,34 @@ describe("M4-10 authz regression — Owner / Admin / Viewer", () => {
 });
 
 describe("M4-10 authz regression — platform operator", () => {
-  const p = caller([platformOwner], {
+  const owner = caller([platformOwner], {
     platformOperator: true,
     platformOwner: true,
   });
+  const admin = caller([platformOwner], {
+    platformOperator: true,
+    platformOwner: false,
+  });
 
-  it("may issue bills, change merchant settings, and read any order", () => {
-    assert.equal(canIssueServiceBill(p), true);
-    assert.equal(canGenerateServiceBills(p), true);
-    assert.equal(canChangeSettlementSettings(p, merchantA), true);
-    assert.equal(canManageWebhooks(p, merchantA), true);
-    assert.equal(canReadPaymentOrder(p, orderB), true);
-    assert.equal(paymentOrderListScope(p).kind, "all");
-    assert.equal(serviceBillListScope(p).kind, "all");
+  it("Platform Owner may change settlement; Platform Admin may not", () => {
+    assert.equal(canIssueServiceBill(owner), true);
+    assert.equal(canGenerateServiceBills(owner), true);
+    assert.equal(canChangeSettlementSettings(owner, merchantA), true);
+    assert.equal(canChangeSettlementSettings(admin, merchantA), false);
+    assert.equal(canManageWebhooks(owner, merchantA), true);
+    assert.equal(canManageWebhooks(admin, merchantA), true);
+    assert.equal(canReadPaymentOrder(owner, orderB), true);
+    assert.equal(paymentOrderListScope(owner).kind, "all");
+    assert.equal(serviceBillListScope(owner).kind, "all");
   });
 
   it("platform Admin may issue bills but not month backfill", () => {
-    const admin = caller([platformOwner], {
-      platformOperator: true,
-      platformOwner: false,
-    });
     assert.equal(canIssueServiceBill(admin), true);
     assert.equal(canGenerateServiceBills(admin), false);
   });
 
   it("still cannot create merchant payment orders via agent/platform membership alone", () => {
-    assert.equal(canCreatePaymentOrder(p.memberships, "m-a"), false);
+    assert.equal(canCreatePaymentOrder(owner.memberships, "m-a"), false);
   });
 });
 

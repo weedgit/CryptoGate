@@ -1,15 +1,20 @@
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../../auth/AuthToast";
+import { MfaStepUpGate } from "../../auth/MfaStepUpGate";
+import type { Session } from "../../merchant/api";
 
 const REASON_MAX = 500;
 
 type Props = {
   orgName: string;
+  session: Session;
   busy?: boolean;
   error?: string | null;
+  /** Platform Suspend requires MFA step-up. */
+  requireMfa?: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string, mfaCode?: string) => void | Promise<void>;
 };
 
 function SuspendPauseIcon() {
@@ -68,13 +73,16 @@ function SuspendInfoIcon() {
 
 export function SuspendOrgModal({
   orgName,
+  session,
   busy = false,
   error = null,
+  requireMfa = true,
   onClose,
   onConfirm,
 }: Props) {
   const [reason, setReason] = useState("");
   const [toastError, setToastError] = useState<string | null>(null);
+  const [pendingMfa, setPendingMfa] = useState(false);
   const uid = useId().replace(/:/g, "");
   const gA = `suspend-gold-a-${uid}`;
   const gB = `suspend-gold-b-${uid}`;
@@ -82,6 +90,7 @@ export function SuspendOrgModal({
 
   useEffect(() => {
     setReason("");
+    setPendingMfa(false);
   }, [orgName]);
 
   useEffect(() => {
@@ -98,6 +107,19 @@ export function SuspendOrgModal({
 
   function onReasonChange(value: string) {
     setReason(value.slice(0, REASON_MAX));
+  }
+
+  function requestConfirm() {
+    const trimmed = reason.trim();
+    if (trimmed.length < 3) {
+      setToastError("Enter a suspend reason (at least 3 characters).");
+      return;
+    }
+    if (requireMfa) {
+      setPendingMfa(true);
+      return;
+    }
+    void onConfirm(trimmed);
   }
 
   return createPortal(
@@ -254,8 +276,8 @@ export function SuspendOrgModal({
             <button
               type="button"
               className="b3-suspend-modal__confirm"
-              disabled={busy}
-              onClick={() => onConfirm(reason.trim())}
+              disabled={busy || pendingMfa}
+              onClick={() => requestConfirm()}
             >
               <SuspendConfirmIcon />
               {busy ? "Suspending…" : "Suspend account"}
@@ -263,6 +285,17 @@ export function SuspendOrgModal({
           </footer>
         </div>
       </div>
+      {pendingMfa ? (
+        <MfaStepUpGate
+          session={session}
+          actionLabel="suspend this account"
+          onClose={() => setPendingMfa(false)}
+          onVerify={async (mfaCode) => {
+            await onConfirm(reason.trim(), mfaCode);
+            setPendingMfa(false);
+          }}
+        />
+      ) : null}
     </>,
     document.body,
   );

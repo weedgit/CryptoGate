@@ -1,9 +1,7 @@
 import type { ServiceBill } from "../merchant/api";
 import { getServiceBill } from "../merchant/api";
-import { peekAgentServiceBills } from "../agent/agentServiceBillsList";
 import { createEntityCache } from "./entityCache";
-import { peekMerchantServiceBills } from "../merchant/merchantServiceBillsList";
-import { peekPlatformServiceBills } from "../platform/platformServiceBillsList";
+import { findCachedPageItem } from "./serverListApi";
 
 const billDetailCache = createEntityCache<ServiceBill>({
   storageKeyPrefix: "paymentgate.service-bill",
@@ -11,12 +9,7 @@ const billDetailCache = createEntityCache<ServiceBill>({
 });
 
 export function peekServiceBillInLists(billId: string): ServiceBill | null {
-  return (
-    peekMerchantServiceBills()?.find((b) => b.id === billId) ??
-    peekAgentServiceBills()?.find((b) => b.id === billId) ??
-    peekPlatformServiceBills()?.find((b) => b.id === billId) ??
-    null
-  );
+  return findCachedPageItem<ServiceBill>("/service-bills", billId);
 }
 
 export function peekServiceBill(billId: string): ServiceBill | null {

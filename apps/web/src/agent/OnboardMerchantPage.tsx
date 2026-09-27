@@ -12,6 +12,7 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
+import { OnboardWizardLoading } from "../shared/OnboardWizardLoading";
 import { OnboardWizardPortal } from "../shared/OnboardWizardPortal";
 import { primaryAgentOrgId } from "./org";
 import {
@@ -24,17 +25,19 @@ import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { agentRoute } from "../shared/portalRouting";
 import { onboardInviteCreds } from "../shared/onboardInviteState";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
   OnboardFieldHead,
+  OnboardFixedParent,
   OnboardMerchantHead,
 } from "../shared/onboardMerchantUi";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function agentReturnPrefix(): string {
   const base = agentRoute();
   return base === "/" ? "/" : `${base}/`;
 }
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function agentOnboardReturnPath(
   searchParams: URLSearchParams,
@@ -52,24 +55,23 @@ type FormState = {
   ownerEmail: string;
 };
 
+/** Agent B5 add — onboard merchant under this agent (Platform wizard layout). */
 export function OnboardMerchantPage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const parentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const cancelTo = useMemo(
-    () => agentOnboardReturnPath(searchParams, agentRoute("merchants")),
+    () => agentOnboardReturnPath(searchParams, agentRoute("accounts")),
     [searchParams],
   );
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [registeredEmails, setRegisteredEmails] = useState<
     Map<string, RegisteredEmailRef>
   >(() => new Map());
+  const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>({
-    name: "",
-    ownerEmail: "",
-  });
+  const [form, setForm] = useState<FormState>({ name: "", ownerEmail: "" });
 
   const dismissToast = useCallback(() => setError(null), []);
 
@@ -82,7 +84,8 @@ export function OnboardMerchantPage({ session }: Props) {
   useEffect(() => {
     listOrgs()
       .then(setOrgs)
-      .catch(() => setOrgs([]));
+      .catch(() => setOrgs([]))
+      .finally(() => setBooting(false));
   }, []);
 
   useEffect(() => {
@@ -99,6 +102,11 @@ export function OnboardMerchantPage({ session }: Props) {
     };
   }, [orgs]);
 
+  const parentOrg = useMemo(
+    () => (parentId ? (orgs.find((o) => o.id === parentId) ?? null) : null),
+    [orgs, parentId],
+  );
+  const parentName = parentOrg?.name ?? "your agent";
 
   function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -140,7 +148,7 @@ export function OnboardMerchantPage({ session }: Props) {
         name: form.name.trim(),
         parentId,
         legalName: form.name.trim(),
-              });
+      });
       mergeAgentOrg(created);
       const invitedEmail = form.ownerEmail.trim();
       const invite = await inviteOrgUser(created.id, {
@@ -148,7 +156,7 @@ export function OnboardMerchantPage({ session }: Props) {
         role: "owner",
       });
       await refreshAgentOrgList();
-      navigate(agentRoute(`merchants/${created.id}`), {
+      navigate(agentRoute(`accounts/merchants/${created.id}`), {
         state: {
           invitationSent: true,
           enterprisePending: false,
@@ -157,7 +165,11 @@ export function OnboardMerchantPage({ session }: Props) {
         },
       });
     } catch (err) {
-      setError(inviteEmailErrorMessage(err));
+      if (err instanceof ApiError && err.code === "email_taken") {
+        setError(REGISTERED_EMAIL_API_MESSAGE);
+      } else {
+        setError(inviteEmailErrorMessage(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -176,7 +188,7 @@ export function OnboardMerchantPage({ session }: Props) {
           <div className="b4-wizard-backdrop">
             <div className="b4-wizard" role="dialog" aria-modal="true">
               <OnboardMerchantHead
-                titleId="b5-agent-wizard-title"
+                titleId="b5-wizard-title"
                 title="Onboard merchant"
                 subtitle="Create a new merchant account under your agent."
                 closeTo={cancelTo}
@@ -198,6 +210,16 @@ export function OnboardMerchantPage({ session }: Props) {
     );
   }
 
+  if (booting) {
+    return (
+      <OnboardWizardLoading
+        title="Onboard merchant"
+        copy="Fetching your agent account."
+        closeTo={cancelTo}
+      />
+    );
+  }
+
   return (
     <OnboardWizardPortal>
       <div className="b4-wizard-page">
@@ -207,18 +229,34 @@ export function OnboardMerchantPage({ session }: Props) {
             className="b4-wizard b4-wizard--single b4-wizard--merchant"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="b5-agent-wizard-title"
+            aria-labelledby="b5-wizard-title"
           >
             <OnboardMerchantHead
-              titleId="b5-agent-wizard-title"
+              titleId="b5-wizard-title"
               title="Onboard merchant"
-              subtitle="Create a new merchant account under your agent."
+              subtitle={`Create a new merchant account under ${parentName}.`}
               closeTo={cancelTo}
             />
 
             <form className="b4-wizard__form" onSubmit={onSubmit}>
               <div className="b4-wizard__body">
-                <div className="b4-field">
+                <div className="b4-aside-row">
+                  <span className="b4-aside-row__label">Parent organization</span>
+                  <OnboardFixedParent
+                    id="parent-org"
+                    name={parentName}
+                    typeLabel="Agent"
+                    mark={
+                      <OrgBrandMark
+                        name={parentName}
+                        iconKey={parentOrg?.iconKey}
+                        size={36}
+                      />
+                    }
+                  />
+                </div>
+
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="merchant-name"
                     label="Business name"
@@ -237,7 +275,7 @@ export function OnboardMerchantPage({ session }: Props) {
                   </FieldControl>
                 </div>
 
-                <div className="b4-field">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Merchant Owner email"

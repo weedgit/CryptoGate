@@ -1,15 +1,13 @@
 import { readCachedSession } from "../auth/sessionCache";
 import { invalidateAgentOrdersList } from "../agent/agentOrdersList";
 import { invalidateAgentOrgList } from "../agent/agentOrgList";
-import { invalidateAgentServiceBillsList } from "../agent/agentServiceBillsList";
 import { invalidateMerchantIntegrations } from "../merchant/merchantIntegrationsCache";
 import { invalidateMerchantOrdersList } from "../merchant/merchantOrdersList";
 import { invalidateMerchantOrgList } from "../merchant/merchantOrgList";
-import { invalidateMerchantServiceBillsList } from "../merchant/merchantServiceBillsList";
 import { invalidatePlatformOrdersList } from "../platform/platformOrdersList";
 import { invalidatePlatformOrgList } from "../platform/platformOrgList";
-import { invalidatePlatformServiceBillsList } from "../platform/platformServiceBillsList";
 import { invalidateAllEntityCaches } from "./entityCache";
+import { invalidateServerJson } from "./serverListApi";
 
 const PERSISTED_PREFIXES = [
   "paymentgate.merchant.",
@@ -38,13 +36,11 @@ export function clearPersistedPortalDataCaches(): void {
 export function invalidateAllPortalDataCaches(): void {
   invalidateMerchantOrdersList();
   invalidateMerchantOrgList();
-  invalidateMerchantServiceBillsList();
   invalidateAgentOrdersList();
   invalidateAgentOrgList();
-  invalidateAgentServiceBillsList();
   invalidatePlatformOrdersList();
   invalidatePlatformOrgList();
-  invalidatePlatformServiceBillsList();
+  invalidateServerJson("");
   invalidateAllEntityCaches();
   clearPersistedPortalDataCaches();
 }

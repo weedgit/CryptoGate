@@ -30,8 +30,9 @@ describe("@paymentgate/web commission ops hardening", () => {
     assert.doesNotMatch(page, /Awaiting confirm/);
     assert.match(page, /statusFilter/);
     assert.match(page, /formatCommissionPaidAgingHint/);
-    assert.match(page, /commissionPaidIsAging/);
-    assert.match(page, /refreshStatusCounts/);
+    assert.match(page, /agingFirst: true/);
+    assert.match(page, /getCommissionPayoutsSummary/);
+    assert.match(page, /summary\?\.stuckPaid/);
     assert.match(page, /stuckPaidCount/);
     assert.match(page, /plat-commissions__aging-banner/);
     assert.match(page, /commission_payout_auto/);

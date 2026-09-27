@@ -16,12 +16,23 @@ import {
   ApiError,
   getMerchantCommercial,
   getOrg,
-  listServiceBillsPage,
   type MerchantCommercialSettings,
   type ServiceBill,
   type Session,
 } from "./api";
-import { peekMerchantServiceBills } from "./merchantServiceBillsList";
+import { OrgListPagination } from "../platform/OrgListPagination";
+import {
+  getServiceBillsSummary,
+  listServiceBillsServer,
+  peekServiceBillsServer,
+  peekServiceBillsSummary,
+  type ServiceBillBucket,
+  type ServiceBillsListParams,
+  type ServiceBillsSummary,
+  OPEN_ACTIVATION_QUERY as ACTIVATION_QUERY,
+} from "../shared/serviceBillsServer";
+import type { ServerPage } from "../shared/serverListApi";
+import { useDebouncedValue } from "../shared/useDebouncedValue";
 import { getCachedServiceBill } from "../shared/serviceBillDetailCache";
 import { formatShortDate } from "../platform/org";
 import { tierLabel } from "../commercialLabels";
@@ -43,7 +54,17 @@ import {
 
 type Filter = "all" | "overdue" | "unpaid" | "paid";
 
-const FETCH_PAGE = 500;
+const PAGE_SIZE = 10;
+
+const FILTER_BUCKET: Record<Filter, ServiceBillBucket> = {
+  all: "all",
+  unpaid: "open",
+  overdue: "late",
+  paid: "paid",
+};
+
+const NO_WINDOW = {};
+
 
 const STATUS_PILLS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
@@ -54,72 +75,45 @@ const STATUS_PILLS: { id: Filter; label: string }[] = [
 
 type Props = { session: Session };
 
-function mergeServiceBills(
-  prev: ServiceBill[],
-  next: ServiceBill[],
-): ServiceBill[] {
-  const map = new Map(prev.map((b) => [b.id, b]));
-  for (const b of next) map.set(b.id, b);
-  return [...map.values()];
-}
-
-function matchesFilter(bill: ServiceBill, filter: Filter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "unpaid":
-      return (
-        bill.status === "issued" ||
-        bill.status === "overdue" ||
-        bill.status === "draft" ||
-        isOpenActivationServiceBill(bill)
-      );
-    case "overdue":
-      return bill.status === "overdue";
-    case "paid":
-      return bill.status === "paid";
-    default:
-      return true;
-  }
-}
-
-function matchesQuery(bill: ServiceBill, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return (
-    bill.id.toLowerCase().includes(q) ||
-    formatBillId(bill.id).toLowerCase().includes(q) ||
-    bill.periodStart.toLowerCase().includes(q) ||
-    bill.periodEnd.toLowerCase().includes(q) ||
-    bill.totalAmount.toLowerCase().includes(q) ||
-    bill.currency.toLowerCase().includes(q) ||
-    bill.status.toLowerCase().includes(q) ||
-    serviceBillStatusLabel(bill.status).toLowerCase().includes(q) ||
-    (bill.paymentReference?.toLowerCase().includes(q) ?? false)
-  );
-}
-
 export function ServiceBillsListPage({ session }: Props) {
   const navigate = useNavigate();
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canPay = useMemo(() => sessionCanCheckoutServiceBill(session), [session]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<ServiceBill[]>(
-    () => peekMerchantServiceBills() ?? [],
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
+  const filterKey = `${filter}|${debouncedQuery}`;
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = useCallback(
+    (next: number) => setPageState({ key: filterKey, page: next }),
+    [filterKey],
   );
-  const [listTotal, setListTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const listParams = useMemo<ServiceBillsListParams>(
+    () => ({
+      bucket: FILTER_BUCKET[filter],
+      q: debouncedQuery,
+      sort: "activationFirst",
+      dir: "desc",
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    }),
+    [filter, debouncedQuery, page],
+  );
+  const [pageData, setPageData] = useState<ServerPage<ServiceBill> | null>(() =>
+    peekServiceBillsServer<ServiceBill>(listParams),
+  );
+  const [summary, setSummary] = useState<ServiceBillsSummary | null>(() =>
+    peekServiceBillsSummary(NO_WINDOW),
+  );
+  const [openActivation, setOpenActivation] = useState<ServiceBill | null>(
+    () => peekServiceBillsServer<ServiceBill>(ACTIVATION_QUERY)?.items[0] ?? null,
+  );
+  const listSeq = useRef(0);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
   );
   const [agentName, setAgentName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => peekMerchantServiceBills() == null);
-  const [hasLoaded, setHasLoaded] = useState(
-    () => peekMerchantServiceBills() != null,
-  );
-  const hasLoadedRef = useRef(hasLoaded);
-  hasLoadedRef.current = hasLoaded;
   const [error, setError] = useState<string | null>(null);
   const [topbarCenterSlot, setTopbarCenterSlot] = useState<HTMLElement | null>(
     null,
@@ -131,51 +125,47 @@ export function ServiceBillsListPage({ session }: Props) {
 
   const dismissToast = useCallback(() => setError(null), []);
 
-  const load = useCallback(async () => {
-    if (!hasLoadedRef.current) setLoading(true);
-    setError(null);
+  const loadList = useCallback(async (params: ServiceBillsListParams) => {
+    const seq = ++listSeq.current;
+    const cached = peekServiceBillsServer<ServiceBill>(params);
+    if (cached) setPageData(cached);
     try {
-      const page = await listServiceBillsPage({
-        limit: FETCH_PAGE,
-        offset: 0,
-      });
-      setItems(page.items);
-      setListTotal(page.total);
+      const result = await listServiceBillsServer<ServiceBill>(params);
+      if (seq === listSeq.current) setPageData(result);
     } catch (err) {
+      if (seq !== listSeq.current) return;
       setError(err instanceof ApiError ? err.message : "Failed to load service bills");
-      setItems([]);
-      setListTotal(0);
-    } finally {
-      setLoading(false);
-      setHasLoaded(true);
+      setPageData((prev) => prev ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 });
     }
   }, []);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || items.length >= listTotal) return;
-    setLoadingMore(true);
-    setError(null);
-    try {
-      const page = await listServiceBillsPage({
-        limit: FETCH_PAGE,
-        offset: items.length,
-      });
-      setItems((prev) => mergeServiceBills(prev, page.items));
-      setListTotal(page.total);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load more service bills",
-      );
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [loadingMore, items.length, listTotal]);
-
-  const hasMoreServer = items.length < listTotal;
+  useEffect(() => {
+    void loadList(listParams);
+  }, [loadList, listParams]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void Promise.all([
+      getServiceBillsSummary(NO_WINDOW).catch(() => null),
+      listServiceBillsServer<ServiceBill>(ACTIVATION_QUERY).catch(() => null),
+    ]).then(([nextSummary, activation]) => {
+      if (cancelled) return;
+      if (nextSummary) setSummary(nextSummary);
+      if (activation) setOpenActivation(activation.items[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loading = pageData == null;
+  const filtered = pageData?.items ?? [];
+  const total = pageData?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    if (pageData && page > pageCount) setPage(pageCount);
+  }, [pageData, page, pageCount, setPage]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -209,43 +199,13 @@ export function ServiceBillsListPage({ session }: Props) {
     };
   }, [orgId]);
 
-  const filtered = useMemo(() => {
-    const rows = items.filter(
-      (bill) => matchesFilter(bill, filter) && matchesQuery(bill, query),
-    );
-    // Open activation invoices first so merchants see the paywall bill.
-    return [...rows].sort((a, b) => {
-      const aAct = isOpenActivationServiceBill(a) ? 0 : 1;
-      const bAct = isOpenActivationServiceBill(b) ? 0 : 1;
-      if (aAct !== bAct) return aAct - bAct;
-      return 0;
-    });
-  }, [items, filter, query]);
-
-  const openActivation = useMemo(
-    () => items.find((b) => isOpenActivationServiceBill(b)) ?? null,
-    [items],
-  );
   const needsActivationPay = useMemo(
     () => sessionNeedsActivationPayment(session),
     [session],
   );
 
-  const unpaidCount = useMemo(
-    () =>
-      items.filter(
-        (b) =>
-          b.status === "issued" ||
-          b.status === "overdue" ||
-          b.status === "draft" ||
-          isOpenActivationServiceBill(b),
-      ).length,
-    [items],
-  );
-  const overdueCount = useMemo(
-    () => items.filter((b) => b.status === "overdue").length,
-    [items],
-  );
+  const unpaidCount = summary?.counts.open ?? 0;
+  const overdueCount = summary?.counts.late ?? 0;
 
   const topbarFilters = topbarCenterSlot
     ? createPortal(
@@ -414,9 +374,7 @@ export function ServiceBillsListPage({ session }: Props) {
       ) : null}
 
       <div className="plat-bills__table-wrap">
-        {loading && !hasLoaded ? (
-          <PagePending />
-        ) : null}
+        {loading ? <PagePending /> : null}
 
         {!loading && filtered.length === 0 ? (
           <p className="plat-bills__empty">
@@ -552,29 +510,14 @@ export function ServiceBillsListPage({ session }: Props) {
             </tbody>
           </table>
         ) : null}
-        {hasMoreServer ? (
-          <div
-            className="plat-bills__load-more"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <p className="muted" style={{ margin: 0 }}>
-              Loaded {items.length} of {listTotal}
-            </p>
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={loadingMore}
-              onClick={() => void loadMore()}
-            >
-              {loadingMore ? "Loading…" : "Load more"}
-            </button>
-          </div>
+        {!loading && total > 0 ? (
+          <OrgListPagination
+            page={page}
+            pageCount={pageCount}
+            total={total}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         ) : null}
       </div>
     </div>

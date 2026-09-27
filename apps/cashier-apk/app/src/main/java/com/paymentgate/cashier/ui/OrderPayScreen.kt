@@ -396,7 +396,7 @@ fun OrderPayScreen(
                     Text(
                         when {
                             printing -> "Printing…"
-                            OrderStatusUi.isAnomaly(details.status) -> "Print anomaly receipt"
+                            OrderStatusUi.isAnomaly(details.status) -> "Print Attention receipt"
                             else -> "Print receipt"
                         },
                     )
@@ -420,11 +420,11 @@ fun OrderPayScreen(
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text(if (orderOpen) "Leave / New order" else "New order →")
+                Text(if (orderOpen) "Leave / New invoice" else "New invoice →")
             }
             if (!orderOpen && onViewReceipt != null) {
                 TextButton(onClick = onViewReceipt, modifier = Modifier.fillMaxWidth()) {
-                    Text("View order / receipt")
+                    Text("View invoice / receipt")
                 }
             }
         }

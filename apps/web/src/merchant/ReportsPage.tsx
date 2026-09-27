@@ -10,14 +10,18 @@ import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   ApiError,
-  listAllOrders,
   ordersCsvUrl,
   type OrgAccount,
-  type PaymentOrder,
   type Session,
 } from "./api";
 import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
-import { peekMerchantOrders } from "./merchantOrdersList";
+import {
+  getDashboardReports,
+  peekDashboardReports,
+  type DashboardReports,
+  type DashboardReportsQuery,
+} from "../shared/dashboardApi";
+import { toDateInputValue } from "../shared/dashboardPeriod";
 import { matchingModeLabel } from "./matchingLabels";
 import { orderStatusLabel, orderStatusTone } from "./orderStatus";
 import { sessionCanExportOrders, truncateAddress } from "./org";
@@ -33,6 +37,16 @@ type AssetNetworkStats = VolumeStats & {
   network: string;
 };
 
+const EMPTY_REPORT: DashboardReports = {
+  totals: { orders: 0, settledVolumeUsd: 0, anomalies: 0 },
+  byStatus: [],
+  byAsset: [],
+  byOrg: [],
+  byDay: [],
+  byCreator: [],
+  byMode: [],
+};
+
 const DATE_PRESET_OPTIONS = [
   { id: "7d", label: "7d" },
   { id: "30d", label: "30d" },
@@ -40,47 +54,25 @@ const DATE_PRESET_OPTIONS = [
   { id: "all", label: "All" },
 ] as const;
 
-function presetRange(preset: DatePreset): { from: Date | null; to: Date } {
+/** Local calendar dates for the preset; "all" = no bounds. */
+function presetQuery(preset: DatePreset): { from: string | null; to: string | null } {
+  if (preset === "all") return { from: null, to: null };
   const to = new Date();
-  if (preset === "all") return { from: null, to };
   const from = new Date(to);
-  if (preset === "7d") {
-    from.setDate(from.getDate() - 7);
-  } else if (preset === "30d") {
-    from.setDate(from.getDate() - 30);
-  } else {
-    from.setDate(1);
-    from.setHours(0, 0, 0, 0);
-  }
-  from.setHours(0, 0, 0, 0);
-  return { from, to };
+  if (preset === "7d") from.setDate(from.getDate() - 7);
+  else if (preset === "30d") from.setDate(from.getDate() - 30);
+  else from.setDate(1);
+  return { from: toDateInputValue(from), to: toDateInputValue(to) };
 }
 
-function orderTimestamp(o: PaymentOrder): string {
-  return o.createdAt ?? o.expiresAt;
-}
-
-function inRange(iso: string, from: Date | null, to: Date): boolean {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return false;
-  if (from && t < from.getTime()) return false;
-  return t <= to.getTime();
-}
-
-function sumCompletedVolume(orders: PaymentOrder[]): number {
-  let total = 0;
-  for (const o of orders) {
-    if (o.status !== "completed" && o.status !== "confirmed") continue;
-    const n = Number(o.payableAmount.amount);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
-}
-
-function volumeForOrder(o: PaymentOrder): number {
-  if (o.status !== "completed" && o.status !== "confirmed") return 0;
-  const n = Number(o.payableAmount.amount);
-  return Number.isFinite(n) ? n : 0;
+function dayLabel(day: string): string {
+  const d = new Date(`${day}T12:00:00`);
+  if (!Number.isFinite(d.getTime())) return day;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function maxVolume(rows: VolumeStats[]): number {
@@ -130,11 +122,14 @@ export function ReportsPage({ session }: Props) {
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekMerchantOrgs() ?? []);
   const [preset, setPreset] = useState<DatePreset>("30d");
   const [siteOrgId, setSiteOrgId] = useState<string>("");
-  const [items, setItems] = useState<PaymentOrder[]>(() => peekMerchantOrders() ?? []);
-  const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
-  const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
-  const hasLoadedRef = useRef(hasLoaded);
-  hasLoadedRef.current = hasLoaded;
+  const reportQuery = useMemo<DashboardReportsQuery>(
+    () => ({ ...presetQuery(preset), orgId: siteOrgId || null }),
+    [preset, siteOrgId],
+  );
+  const [report, setReport] = useState<DashboardReports | null>(() =>
+    peekDashboardReports(reportQuery),
+  );
+  const reportSeq = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] =
     useState<HTMLElement | null>(null);
@@ -172,150 +167,89 @@ export function ReportsPage({ session }: Props) {
     setTopbarCenterSlot(document.getElementById("merchant-topbar-center"));
   }, []);
 
-  const load = useCallback(async () => {
-    if (siteOrgId) {
-      setLoading(true);
-    } else if (!hasLoadedRef.current) {
-      setLoading(true);
-    }
+  useEffect(() => {
+    void getMerchantOrgs()
+      .then(setOrgs)
+      .catch(() => undefined);
+  }, []);
+
+  const load = useCallback(async (q: DashboardReportsQuery) => {
+    const seq = ++reportSeq.current;
+    const cached = peekDashboardReports(q);
+    setReport(cached);
     setError(null);
     try {
-      if (siteOrgId) {
-        const [rows, orgRows] = await Promise.all([
-          listAllOrders({ orgId: siteOrgId }),
-          getMerchantOrgs().catch(() => [] as OrgAccount[]),
-        ]);
-        setItems(rows);
-        setOrgs(orgRows);
-      } else {
-        const [rows, orgRows] = await Promise.all([
-          listAllOrders(),
-          getMerchantOrgs(),
-        ]);
-        setItems(rows);
-        setOrgs(orgRows);
-      }
+      const next = await getDashboardReports(q);
+      if (seq === reportSeq.current) setReport(next);
     } catch (err) {
+      if (seq !== reportSeq.current) return;
       setError(
         err instanceof ApiError ? err.message : "Failed to load report data",
       );
-      setItems([]);
-    } finally {
-      setLoading(false);
-      setHasLoaded(true);
+      setReport((prev) => prev ?? EMPTY_REPORT);
     }
-  }, [siteOrgId]);
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(reportQuery);
+  }, [load, reportQuery]);
 
-  const { from, to } = useMemo(() => presetRange(preset), [preset]);
+  const loading = report == null;
+  const data = report ?? EMPTY_REPORT;
 
-  const filtered = useMemo(
-    () => items.filter((o) => inRange(orderTimestamp(o), from, to)),
-    [items, from, to],
+  const statusCounts = useMemo(
+    () =>
+      data.byStatus.map(
+        (r) => [r.status, { count: r.count, volume: r.volumeUsd }] as const,
+      ),
+    [data],
   );
-
-  const statusCounts = useMemo(() => {
-    const map = new Map<string, VolumeStats>();
-    for (const o of filtered) {
-      const cur = map.get(o.status) ?? { count: 0, volume: 0 };
-      cur.count += 1;
-      cur.volume += volumeForOrder(o);
-      map.set(o.status, cur);
-    }
-    return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
-  }, [filtered]);
-
-  const assetCounts = useMemo(() => {
-    const map = new Map<string, AssetNetworkStats>();
-    for (const o of filtered) {
-      const key = `${o.asset}|${o.network}`;
-      const cur = map.get(key) ?? {
-        asset: o.asset,
-        network: o.network,
-        count: 0,
-        volume: 0,
-      };
-      cur.count += 1;
-      cur.volume += volumeForOrder(o);
-      map.set(key, cur);
-    }
-    return [...map.values()].sort((a, b) => b.volume - a.volume);
-  }, [filtered]);
-
-  const siteCounts = useMemo(() => {
-    const map = new Map<string, VolumeStats>();
-    for (const o of filtered) {
-      const key =
-        o.orgName ??
-        (o.orgId ? orgNameById.get(o.orgId) : null) ??
-        o.orgId ??
-        "Unknown";
-      const cur = map.get(key) ?? { count: 0, volume: 0 };
-      cur.count += 1;
-      cur.volume += volumeForOrder(o);
-      map.set(key, cur);
-    }
-    return [...map.entries()].sort((a, b) => b[1].volume - a[1].volume);
-  }, [filtered, orgNameById]);
-
-  const dayCounts = useMemo(() => {
-    const map = new Map<
-      string,
-      VolumeStats & { sortKey: string }
-    >();
-    for (const o of filtered) {
-      const iso = orderTimestamp(o);
-      const d = new Date(iso);
-      if (!Number.isFinite(d.getTime())) continue;
-      const sortKey = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-      const cur = map.get(label) ?? { count: 0, volume: 0, sortKey };
-      cur.count += 1;
-      cur.volume += volumeForOrder(o);
-      map.set(label, cur);
-    }
-    return [...map.entries()]
-      .sort((a, b) => b[1].sortKey.localeCompare(a[1].sortKey))
-      .slice(0, 14);
-  }, [filtered]);
-
-  const cashierCounts = useMemo(() => {
-    const map = new Map<string, VolumeStats>();
-    for (const o of filtered) {
-      const key =
-        o.createdByEmail ??
-        (o.createdBy ? truncateAddress(o.createdBy, 6, 4) : "—");
-      const cur = map.get(key) ?? { count: 0, volume: 0 };
-      cur.count += 1;
-      cur.volume += volumeForOrder(o);
-      map.set(key, cur);
-    }
-    return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
-  }, [filtered]);
-
-  const modeCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const o of filtered) {
-      map.set(o.matchingMode, (map.get(o.matchingMode) ?? 0) + 1);
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered]);
-
-  const completedVolume = useMemo(
-    () => sumCompletedVolume(filtered),
-    [filtered],
+  const assetCounts = useMemo<AssetNetworkStats[]>(
+    () =>
+      data.byAsset.map((r) => ({
+        asset: r.asset,
+        network: r.network,
+        count: r.count,
+        volume: r.volumeUsd,
+      })),
+    [data],
   );
-  const anomalyCount = useMemo(
-    () => filtered.filter((o) => o.status === "payment_anomaly").length,
-    [filtered],
+  const siteCounts = useMemo(
+    () =>
+      data.byOrg.map(
+        (r) =>
+          [
+            r.orgName ?? orgNameById.get(r.orgId) ?? r.orgId ?? "Unknown",
+            { count: r.count, volume: r.volumeUsd },
+          ] as const,
+      ),
+    [data, orgNameById],
   );
+  const dayCounts = useMemo(
+    () =>
+      data.byDay.map(
+        (r) => [dayLabel(r.day), { count: r.count, volume: r.volumeUsd }] as const,
+      ),
+    [data],
+  );
+  const cashierCounts = useMemo(
+    () =>
+      data.byCreator.map(
+        (r) =>
+          [
+            r.email ?? (r.userId ? truncateAddress(r.userId, 6, 4) : "—"),
+            { count: r.count, volume: r.volumeUsd },
+          ] as const,
+      ),
+    [data],
+  );
+  const modeCounts = useMemo(
+    () => data.byMode.map((r) => [r.mode, r.count] as const),
+    [data],
+  );
+  const completedVolume = data.totals.settledVolumeUsd;
+  const anomalyCount = data.totals.anomalies;
+  const orderCount = data.totals.orders;
 
   const statusMaxVol = useMemo(
     () => maxVolume(statusCounts.map(([, s]) => s)),
@@ -414,7 +348,7 @@ export function ReportsPage({ session }: Props) {
           )
         : null}
 
-      {loading && (!hasLoaded || siteOrgId) ? (
+      {loading ? (
         <PagePending />
       ) : (
         <>
@@ -452,7 +386,7 @@ export function ReportsPage({ session }: Props) {
                   decimals={2}
                   className="merchant-reports__kpi-amount"
                 />
-                <span className="merchant-reports__kpi-unit">USDT</span>
+                <span className="merchant-reports__kpi-unit">USD</span>
               </p>
             </article>
 
@@ -485,7 +419,7 @@ export function ReportsPage({ session }: Props) {
                 </span>
               </div>
               <p className="merchant-reports__kpi-value">
-                <AnimatedMetric value={filtered.length} />
+                <AnimatedMetric value={orderCount} />
               </p>
             </article>
 
@@ -514,7 +448,7 @@ export function ReportsPage({ session }: Props) {
                     />
                   </svg>
                 </span>
-                <span className="merchant-reports__kpi-label">Anomalies</span>
+                <span className="merchant-reports__kpi-label">Attention</span>
               </div>
               <p className="merchant-reports__kpi-value">
                 <AnimatedMetric value={anomalyCount} />

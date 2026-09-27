@@ -6,9 +6,9 @@ import {
   ApiError,
   getBillingCalendarSettings,
   getPlatformOrgs,
-  invalidatePlatformServiceBillsList,
   issueServiceBill,
 } from "./api";
+import { invalidateServiceBillsServer } from "../shared/serviceBillsServer";
 import { platformRoute } from "../shared/portalRouting";
 
 function monthBounds(): { start: string; end: string } {
@@ -89,7 +89,7 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
         subscriptionAmount,
         volumeFeeAmount,
       });
-      invalidatePlatformServiceBillsList();
+      invalidateServiceBillsServer();
       onIssued?.();
       onClose();
       navigate(platformRoute(`service-bills/${bill.id}`));

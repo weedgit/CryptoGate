@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** V3 PG / Hardware Dock — Create · Today · Orders · More */
+/** V3 PG / Hardware Dock — Create · Today · Invoice · More */
 enum class HardwareDockTab {
     Create,
     Today,
@@ -65,7 +65,7 @@ fun HardwareDock(
             DockItem("Today", Icons.Outlined.Today, active == HardwareDockTab.Today) {
                 onSelect(HardwareDockTab.Today)
             }
-            DockItem("Orders", Icons.Outlined.History, active == HardwareDockTab.Orders) {
+            DockItem("Invoice", Icons.Outlined.History, active == HardwareDockTab.Orders) {
                 onSelect(HardwareDockTab.Orders)
             }
             DockItem("More", Icons.Outlined.Menu, active == HardwareDockTab.More) {

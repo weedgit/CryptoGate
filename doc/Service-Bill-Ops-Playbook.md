@@ -17,7 +17,7 @@ Every day at 00:00 UTC
   → Advance next_invoice_on by +1 month
 
 Unpaid past due (pay-within days, Owner setting)
-  → Overdue + merchant paused (reason + invoice link)
+  → Overdue + merchant Suspended (reason + invoice link; sites inherit watch-only)
 
 Late pay on day E while paused
   → Active again; new anchor = E; next invoice = E + 1 month

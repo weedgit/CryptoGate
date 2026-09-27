@@ -46,7 +46,7 @@ export function ForceChangePasswordGate({ onChanged }: Props) {
   return (
     <>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      <AuthLayout>
+      <AuthLayout productLine="PLATFORM" split={false}>
         <form className="login-card" onSubmit={onSubmit}>
           <div className="login-card-head">
             <h1>Change password</h1>

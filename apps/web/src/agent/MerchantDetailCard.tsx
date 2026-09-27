@@ -8,23 +8,22 @@ import {
   ApiError,
   getMerchantCommercial,
   listAuditLog,
-  listAllOrders,
   listOrgUsers,
   listOrgMemberEmails,
-  listServiceBills,
-  SERVICE_BILLS_LIST_LIMIT,
+  listServiceBillsPage,
   type AuditLogEntry,
   type MerchantCommercialSettings,
   type OrgAccount,
   type OrgMember,
-  type PaymentOrder,
   type ServiceBill,
 } from "./api";
+import { getDashboardReports, type DashboardReports } from "../shared/dashboardApi";
 import { listSettlement } from "../merchant/api";
 import { tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
 import type { OrgPrimaryOwnerContact } from "../platform/api";
 import { PlatformPending } from "../platform/ui/PlatformPending";
+import { OrgListPagination } from "../platform/OrgListPagination";
 import {
   formatOnboardDate,
   merchantBillingPeriodStartMs,
@@ -43,6 +42,8 @@ const TABS = [
   { id: "service-bills", label: "Service bills" },
   { id: "commission", label: "Commission" },
 ] as const;
+
+const BILLS_PAGE_SIZE = 10;
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -242,6 +243,12 @@ type Props = {
 };
 
 /** Merchant detail card — platform b3 chrome, agent-scoped (no settlement keys). */
+const OPEN_ORDER_STATUSES = new Set(["pending_payment", "verifying", "payment_anomaly"]);
+
+function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function MerchantDetailCard({
   org,
   orgs,
@@ -255,7 +262,10 @@ export function MerchantDetailCard({
 }: Props) {
   const [tab, setTab] = useState<TabId>(() => parseTab(initialTab));
   const [bills, setBills] = useState<ServiceBill[]>([]);
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
+  const [billsTotal, setBillsTotal] = useState(0);
+  const [billsPage, setBillsPage] = useState(1);
+  const [periodReport, setPeriodReport] = useState<DashboardReports | null>(null);
+  const [openOrders, setOpenOrders] = useState(0);
   const [audit, setAudit] = useState<AuditLogEntry[]>([]);
   const [team, setTeam] = useState<OrgMember[]>([]);
   const [commercial, setCommercial] =
@@ -286,36 +296,13 @@ export function MerchantDetailCard({
       ),
     [org.createdAt],
   );
-  const mtdOrders = useMemo(
-    () =>
-      orders.filter((o) => {
-        const created = o.createdAt ? Date.parse(o.createdAt) : NaN;
-        return Number.isFinite(created) ? created >= periodStart : true;
-      }),
-    [orders, periodStart],
-  );
-  const settledVolume = useMemo(() => {
-    let total = 0;
-    for (const o of mtdOrders) {
-      if (o.status !== "completed") continue;
-      const n = Number(o.payableAmount.amount);
-      if (Number.isFinite(n)) total += n;
-    }
-    return total;
-  }, [mtdOrders]);
-  const displayOrders = mtdOrders.length;
+  const settledVolume = periodReport?.totals.settledVolumeUsd ?? 0;
+  const displayOrders = periodReport?.totals.orders ?? 0;
   const feePct = Number(commercial?.volumeFeePercent);
   const displayPlatformFeeMtd =
     Number.isFinite(feePct) && settledVolume > 0
       ? Math.round(settledVolume * (feePct / 100) * 100) / 100
       : 0;
-  const openOrders = useMemo(
-    () =>
-      orders.filter((o) =>
-        ["pending", "verifying", "payment_anomaly"].includes(o.status),
-      ).length,
-    [orders],
-  );
   const recentActivity = useMemo(() => {
     const feed = mergeActivityFeed(
       audit as SeedAuditEntry[],
@@ -342,7 +329,10 @@ export function MerchantDetailCard({
     setTabError(null);
     setCommercial(null);
     setBills([]);
-    setOrders([]);
+    setBillsTotal(0);
+    setBillsPage(1);
+    setPeriodReport(null);
+    setOpenOrders(0);
     setAudit([]);
     setTeam([]);
     setPrimaryOwner(null);
@@ -354,19 +344,27 @@ export function MerchantDetailCard({
     setOverviewLoading(true);
     void Promise.all([
       getMerchantCommercial(org.id).catch(() => null),
-      listAllOrders({ orgId: org.id }).catch(
-        () => [] as PaymentOrder[],
-      ),
+      getDashboardReports({
+        orgId: org.id,
+        from: localYmd(new Date(periodStart)),
+        to: localYmd(new Date()),
+      }).catch(() => null),
+      getDashboardReports({ orgId: org.id }).catch(() => null),
       listAuditLog({ orgId: org.id, limit: 20 }).catch(
         () => [] as AuditLogEntry[],
       ),
       listOrgUsers(org.id).catch(() => [] as OrgMember[]),
       listSettlement(org.id).catch(() => [] as { address?: string }[]),
     ])
-      .then(([comm, ord, aud, teamRows, settlement]) => {
+      .then(([comm, period, allTime, aud, teamRows, settlement]) => {
         if (cancelled) return;
         setCommercial(comm);
-        setOrders(ord);
+        setPeriodReport(period);
+        setOpenOrders(
+          (allTime?.byStatus ?? [])
+            .filter((s) => OPEN_ORDER_STATUSES.has(s.status))
+            .reduce((sum, s) => sum + s.count, 0),
+        );
         setAudit(aud);
         setTeam(teamRows);
         setPrimaryOwner(primaryOwnerFromTeam(teamRows));
@@ -382,7 +380,7 @@ export function MerchantDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, periodStart]);
 
   useEffect(() => {
     if (tab !== "sites" || sites.length === 0) {
@@ -411,22 +409,20 @@ export function MerchantDetailCard({
   }, [tab, sites]);
 
   useEffect(() => {
-    if (tab !== "service-bills" && tab !== "volume") return;
-    if (tab === "volume" && orders.length > 0) return;
+    if (tab !== "service-bills") return;
     let cancelled = false;
     setTabLoading(true);
     setTabError(null);
     void (async () => {
       try {
-        if (tab === "service-bills") {
-          const rows = await listServiceBills({
-            orgId: org.id,
-            limit: SERVICE_BILLS_LIST_LIMIT,
-          });
-          if (!cancelled) setBills(rows);
-        } else {
-          const rows = await listAllOrders({ orgId: org.id });
-          if (!cancelled) setOrders(rows);
+        const page = await listServiceBillsPage({
+          orgId: org.id,
+          limit: BILLS_PAGE_SIZE,
+          offset: (billsPage - 1) * BILLS_PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setBills(page.items);
+          setBillsTotal(page.total);
         }
       } catch (err) {
         if (!cancelled) {
@@ -441,7 +437,7 @@ export function MerchantDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id, tab, orders.length]);
+  }, [org.id, tab, billsPage]);
 
   return (
     <aside className="b3-agent-detail" aria-label="Merchant detail">
@@ -750,11 +746,11 @@ export function MerchantDetailCard({
         ) : null}
 
         {tab === "volume" ? (
-          tabLoading ? (
+          overviewLoading && !periodReport ? (
             <PlatformPending
               compact
               title="Loading volume"
-              copy="Fetching payment orders for this merchant."
+              copy="Fetching order totals for this merchant."
             />
           ) : (
             <>
@@ -825,6 +821,13 @@ export function MerchantDetailCard({
                   ))}
                 </tbody>
               </table>
+              <OrgListPagination
+                page={billsPage}
+                pageCount={Math.max(1, Math.ceil(billsTotal / BILLS_PAGE_SIZE))}
+                total={billsTotal}
+                pageSize={BILLS_PAGE_SIZE}
+                onPageChange={setBillsPage}
+              />
             </div>
           )
         ) : null}

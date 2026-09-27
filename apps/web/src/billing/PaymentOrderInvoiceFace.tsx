@@ -97,7 +97,7 @@ function humanStaffLabel(label: string | null | undefined): string | null {
 
 function documentKicker(status: string): string {
   if (isSettled(status)) return "Payment receipt";
-  if (status === "payment_anomaly") return "Payment anomaly document";
+  if (status === "payment_anomaly") return "Attention document";
   if (status === "expired" || status === "failed" || status === "cancelled") {
     return "Payment invoice (closed)";
   }
@@ -323,8 +323,8 @@ export function PaymentOrderInvoiceFace({
         <div className="sb-invoice__receipt po-invoice__anomaly" role="alert">
           <h3>
             {order.status === "payment_anomaly"
-              ? "Payment anomaly"
-              : "Resolved payment anomaly"}
+              ? "Attention"
+              : "Resolved — Attention"}
           </h3>
           <p>
             {order.anomalyReasonLabel

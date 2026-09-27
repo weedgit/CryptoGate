@@ -9,13 +9,18 @@ const prefetchAgentOnboardMerchant = () => void import("./OnboardMerchantPage");
 
 export function prefetchAgentRoute(path: string) {
   prefetchAgentNavData(path);
-  if (path === "architecture") warm(() => import("./ArchitecturePage"));
-  else if (path === "merchants/new" || path.startsWith("merchants/new"))
+  if (path === "merchants/new" || path.startsWith("merchants/new"))
     prefetchAgentOnboardMerchant();
   else if (path === "sites/new" || path.startsWith("sites/new"))
     warm(() => import("./OnboardSitePage"));
-  else if (path === "merchants" || path.startsWith("merchants/"))
-    warm(() => import("./AgentMerchantsRoutes"));
+  else if (
+    path === "accounts" ||
+    path.startsWith("accounts/") ||
+    path === "architecture" ||
+    path === "merchants" ||
+    path.startsWith("merchants/")
+  )
+    warm(() => import("./AgentAccountsRoutes"));
   else if (path === "service-bills" || path.startsWith("service-bills/"))
     warm(() => import("./ServiceBillsListPage"));
   else if (path === "commissions" || path.startsWith("commissions/")) {

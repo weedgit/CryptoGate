@@ -322,7 +322,7 @@ fun CreateOrderScreen(
             PaymentGateBrand()
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "New order",
+                text = "New invoice",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )

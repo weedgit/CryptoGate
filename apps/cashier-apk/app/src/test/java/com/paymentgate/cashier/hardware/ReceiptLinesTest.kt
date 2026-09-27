@@ -40,7 +40,7 @@ class ReceiptLinesTest {
                     asset = "USDT",
                     network = "tron",
                     receiveAddress = "TXabc",
-                    statusLabel = "Payment Anomaly",
+                    statusLabel = "Attention",
                     isAnomaly = true,
                 ),
             )

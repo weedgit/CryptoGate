@@ -1,4 +1,11 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import "../styles/merchant.css";
 import "../styles/components.css";
 import { logout, type Session } from "./api";
@@ -14,6 +21,14 @@ import { RequireAgentPortal } from "./RequireAgentPortal";
 import { agentRoute } from "../shared/portalRouting";
 import { LazyRoute } from "../shared/LazyRoute";
 import { lazyNamed } from "../shared/lazyNamed";
+
+function AccountsMerchantRedirect() {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const qs = searchParams.toString();
+  const target = agentRoute(`accounts/merchants/${id ?? ""}`);
+  return <Navigate to={qs ? `${target}?${qs}` : target} replace />;
+}
 
 const DashboardPage = lazyNamed(
   () => import("./DashboardPage"),
@@ -32,9 +47,9 @@ const CommissionInvoiceDetailPage = lazyNamed(
   () => import("./CommissionInvoiceDetailPage"),
   "CommissionInvoiceDetailPage",
 );
-const AgentMerchantsRoutes = lazyNamed(
-  () => import("./AgentMerchantsRoutes"),
-  "AgentMerchantsRoutes",
+const AgentAccountsRoutes = lazyNamed(
+  () => import("./AgentAccountsRoutes"),
+  "AgentAccountsRoutes",
 );
 const ServiceBillDetailPage = lazyNamed(
   () => import("./ServiceBillDetailPage"),
@@ -43,10 +58,6 @@ const ServiceBillDetailPage = lazyNamed(
 const ServiceBillsListPage = lazyNamed(
   () => import("./ServiceBillsListPage"),
   "ServiceBillsListPage",
-);
-const ArchitecturePage = lazyNamed(
-  () => import("./ArchitecturePage"),
-  "ArchitecturePage",
 );
 const TeamSettingsPage = lazyNamed(
   () => import("./TeamSettingsPage"),
@@ -126,28 +137,45 @@ export function AgentApp() {
       <Route element={shell}>
         <Route index element={<DashboardPage session={session} />} />
         <Route
-          path="merchants"
-          element={<AgentMerchantsRoutes session={session} />}
+          path="accounts"
+          element={<AgentAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/merchants"
+          element={<AgentAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/merchants/:id"
+          element={<AgentAccountsRoutes session={session} />}
+        />
+        <Route
+          path="accounts/agents/*"
+          element={<Navigate to={agentRoute("accounts")} replace />}
+        />
+        <Route
+          path="accounts/:id"
+          element={<AgentAccountsRoutes session={session} />}
         />
         <Route
           path="merchants/new"
-          element={<AgentMerchantsRoutes session={session} />}
-        />
-        <Route
-          path="merchants/:id"
-          element={<AgentMerchantsRoutes session={session} />}
+          element={<AgentAccountsRoutes session={session} />}
         />
         <Route
           path="sites/new"
-          element={<AgentMerchantsRoutes session={session} />}
+          element={<AgentAccountsRoutes session={session} />}
         />
         <Route
+          path="merchants"
+          element={<Navigate to={agentRoute("accounts/merchants")} replace />}
+        />
+        <Route path="merchants/:id" element={<AccountsMerchantRedirect />} />
+        <Route
           path="architecture"
-          element={<ArchitecturePage session={session} />}
+          element={<Navigate to={agentRoute("accounts")} replace />}
         />
         <Route
           path="agents/*"
-          element={<Navigate to={agentRoute("merchants")} replace />}
+          element={<Navigate to={agentRoute("accounts")} replace />}
         />
         <Route
           path="settings"
@@ -168,8 +196,8 @@ export function AgentApp() {
           path="commissions/:id"
           element={<CommissionInvoiceDetailPage session={session} />}
         />
-        <Route path="service-bills" element={<ServiceBillsListPage />} />
-        <Route path="service-bills/:id" element={<ServiceBillDetailPage />} />
+        <Route path="service-bills" element={<ServiceBillsListPage session={session} />} />
+        <Route path="service-bills/:id" element={<ServiceBillDetailPage session={session} />} />
         <Route path="*" element={<Navigate to={agentRoute()} replace />} />
       </Route>
     </Routes>

@@ -26,12 +26,18 @@ import { PagePending } from "./ui/PlatformPending";
 
 type Props = {
   session: Session;
-  /** Notify parent when local edits are unsaved (for tab-leave confirm). */
+  /** Notify parent when local edits are unsaved. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Nested under Fees single-page layout — quieter chrome. */
+  embedded?: boolean;
 };
 
-/** B11-lite — crypto fee wallet + invoice seller, embedded under Fees → Fee wallet. */
-export function BillingWalletPanel({ session, onDirtyChange }: Props) {
+/** B11-lite — crypto fee wallet + invoice seller. */
+export function BillingWalletPanel({
+  session,
+  onDirtyChange,
+  embedded = false,
+}: Props) {
   const canEdit = useMemo(() => sessionIsPlatformOwner(session), [session]);
   const feeNetworkLabel = useMemo(
     () => displayNetworkForPair(SERVICE_BILL_ASSET, SERVICE_BILL_NETWORK),
@@ -135,27 +141,38 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
   }
 
   if (loading) {
-    return <PagePending />;
+    return <PagePending title={embedded ? "Loading fee wallet…" : undefined} />;
   }
 
   return (
-    <div className="plat-fee-billing">
-      <AuthToast
-        message={error ?? message}
-        tone={error ? "error" : "ok"}
-        onDismiss={() => {
-          setError(null);
-          setMessage(null);
-        }}
-      />
+    <div className={`plat-fee-billing${embedded ? " plat-fee-billing--embedded" : ""}`}>
+      {!embedded ? (
+        <AuthToast
+          message={error ?? message}
+          tone={error ? "error" : "ok"}
+          onDismiss={() => {
+            setError(null);
+            setMessage(null);
+          }}
+        />
+      ) : error || message ? (
+        <AuthToast
+          message={error ?? message}
+          tone={error ? "error" : "ok"}
+          onDismiss={() => {
+            setError(null);
+            setMessage(null);
+          }}
+        />
+      ) : null}
 
       {dirty && canEdit ? (
-        <div className="plat-fee-bands__dirty" role="status">
-          Unsaved changes — save before leaving this tab.
+        <div className="plat-fees__dirty" role="status">
+          Unsaved fee wallet changes.
         </div>
       ) : null}
 
-      {!canEdit ? (
+      {!canEdit && !embedded ? (
         <p className="plat-fee-bands__readonly">
           Platform Owner only — Administrators and Viewers are read-only.
         </p>
@@ -207,10 +224,6 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                     placeholder="billing@paymentgate.example"
                   />
                 </FieldControl>
-                <p className="b4-field__hint">
-                  Shown on service-bill invoices. Falls back to the platform
-                  Owner email when empty.
-                </p>
               </div>
             </div>
           </section>
@@ -220,11 +233,8 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
               <div>
                 <h3>Platform wallet address</h3>
                 <p>
-                  Merchants pay <strong>SaaS service bills</strong> in{" "}
-                  <strong>USDT on {feeNetworkLabel}</strong>. Paste a public
-                  receive address you control. This is not a custody vault —
-                  PaymentGate never holds merchant or payer spend keys, and
-                  guest payments still go to the merchant wallet.
+                  Merchants pay SaaS service bills in USDT on {feeNetworkLabel}.
+                  Paste a public receive address you control.
                 </p>
                 <div
                   className="plat-fee-billing__rail"
@@ -260,20 +270,10 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
                     disabled={!canEdit || busy}
                     onChange={(e) => setPayTo(e.target.value)}
                     maxLength={500}
-                    rows={4}
-                    placeholder="Paste Tron USDT wallet address (starts with T)"
+                    rows={3}
+                    placeholder="Tron USDT address (T…)"
                   />
                 </FieldControl>
-                <p className="b4-field__hint">
-                  Public address only. Never paste a private key, mnemonic, or
-                  xprv. Leave empty until you have a wallet you control.
-                </p>
-                {canEdit && !payTo.trim() && !dirty ? (
-                  <p className="b4-field__hint" role="status">
-                    No fee address yet — merchants cannot pay service bills
-                    on-chain until you save one.
-                  </p>
-                ) : null}
               </div>
             </div>
           </section>
@@ -281,20 +281,23 @@ export function BillingWalletPanel({ session, onDirtyChange }: Props) {
 
         <div className="plat-fee-bands__actions">
           <p className="plat-fee-bands__actions-note">
-            {dirty
-              ? "You have unsaved fee wallet changes."
-              : updatedAt
-                ? `Last saved ${new Date(updatedAt).toLocaleString()}`
-                : "Fee wallet matches the saved settings."}{" "}
+            {updatedAt
+              ? `Last saved ${new Date(updatedAt).toLocaleString()}`
+              : null}
+            {updatedAt ? " · " : null}
             <Link className="plat-fee-billing__bills-link" to={platformRoute("service-bills")}>
-              View service bills
+              Service bills
             </Link>
           </p>
           {canEdit ? (
             <div className="plat-fee-bands__actions-buttons">
               <button
                 type="submit"
-                className="btn-primary plat-fee-bands__save"
+                className={
+                  embedded
+                    ? "plat-fees__save"
+                    : "btn-primary plat-fee-bands__save"
+                }
                 disabled={busy || !dirty}
               >
                 {busy ? "Saving…" : "Save Platform Wallet"}

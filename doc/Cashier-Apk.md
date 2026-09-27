@@ -12,7 +12,7 @@
 - Matching mode / wallet / xPub settings are **not** in the APK (server 403 + UI hide).
 - Create order sends only `amount`, `asset`, `network`, `validitySeconds` plus `Idempotency-Key`. Never matchingMode / receiveAddress / fees.
 - QR and copy fields come from `GET /v1/orders/{id}/payment` (same payload as the guest page). No “mark paid”.
-- Pay screen polls that endpoint every 4s until a terminal status. Anomaly is labeled **Payment anomaly**, never Completed.
+- Pay screen polls that endpoint every 4s until a terminal status. Attention is labeled **Attention**, never Completed.
 - Thermal print (Z108S / SmartPos) is optional hardware — see [M5-02-Cashier-Printer.md](M5-02-Cashier-Printer.md). Generic builds use a no-op printer stub.
 - Customer second screen mirrors pay fields only (G5) — see [M5-03-Customer-Display.md](M5-03-Customer-Display.md).
 

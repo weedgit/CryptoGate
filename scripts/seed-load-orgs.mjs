@@ -31,6 +31,7 @@ import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { insertMembership } from "../apps/api/src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../apps/api/src/orgs/org-store.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { loadSeedEnv } from "./seed-env.mjs";
 
 const COUNT = 100;
 const PREFIX = "Load";
@@ -53,21 +54,7 @@ const ASSETS = [
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadEnv() {
-  const envPath = join(root, ".env");
-  if (existsSync(envPath)) {
-    for (const line of readFileSync(envPath, "utf8").split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq <= 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      if (!process.env[key]) process.env[key] = trimmed.slice(eq + 1).trim();
-    }
-  }
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL =
-      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
-  }
+  loadSeedEnv();
 }
 
 function pad(n) {

@@ -6,6 +6,7 @@ import {
   getMerchantCommercial,
   getNetworksStatus,
   listActiveNetworkMaintenance,
+  listOrders,
   listSettlement,
   listXpub,
   type ActiveNetworkMaintenance,
@@ -13,15 +14,14 @@ import {
   type NetworkOrderabilityLamp,
   type OrgAccount,
   type PaymentOrder,
-  type ServiceBill,
   type Session,
 } from "./api";
 import { getMerchantOrgs } from "./merchantOrgList";
-import { getMerchantOrders, peekMerchantOrders } from "./merchantOrdersList";
 import {
-  getMerchantServiceBills,
-  peekMerchantServiceBills,
-} from "./merchantServiceBillsList";
+  getDashboardKpis,
+  peekDashboardKpis,
+  type DashboardKpis,
+} from "../shared/dashboardApi";
 import { matchingModeLabel } from "./matchingLabels";
 import {
   anomalyExplain,
@@ -49,8 +49,6 @@ import {
 } from "../shared/useDashboardLiveEvents";
 import {
   DASHBOARD_PERIOD_OPTIONS,
-  inWindow,
-  parseDateInput,
   periodLabel,
   periodWindow,
   toDateInputValue,
@@ -71,15 +69,15 @@ function orderTime(o: PaymentOrder): string {
   return o.createdAt || o.expiresAt;
 }
 
-function formatUsdtAmount(n: number): string {
+function formatUsdAmount(n: number): string {
   return n.toLocaleString(undefined, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   });
 }
 
-function formatUsdt(n: number): string {
-  return `${formatUsdtAmount(n)} USDT`;
+function formatUsd(n: number): string {
+  return `${formatUsdAmount(n)} USD`;
 }
 
 function tierLabel(tier: string | undefined): string {
@@ -97,10 +95,8 @@ export function DashboardPage({ session }: Props) {
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
 
-  const [items, setItems] = useState<PaymentOrder[]>(
-    () => peekMerchantOrders() ?? [],
-  );
-  const [bills, setBills] = useState<ServiceBill[]>([]);
+  const [recent, setRecent] = useState<PaymentOrder[]>([]);
+  const [anomalyOrders, setAnomalyOrders] = useState<PaymentOrder[]>([]);
   const [sites, setSites] = useState<OrgAccount[]>([]);
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
@@ -122,9 +118,11 @@ export function DashboardPage({ session }: Props) {
   const [endDate, setEndDate] = useState(() =>
     toDateInputValue(periodWindow("mtd").to),
   );
-  const [loading, setLoading] = useState(() => peekMerchantOrders() == null);
-  const [hasLoaded, setHasLoaded] = useState(() => peekMerchantOrders() != null);
-  const initialLoadRef = useRef(hasLoaded);
+  const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(() =>
+    peekDashboardKpis({ from: startDate, to: endDate }),
+  );
+  const [loading, setLoading] = useState(() => dashKpis == null);
+  const [hasLoaded, setHasLoaded] = useState(() => dashKpis != null);
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
@@ -157,35 +155,55 @@ export function DashboardPage({ session }: Props) {
     setStartDate((prev) => (prev && value < prev ? value : prev));
   }, []);
 
-  const load = useCallback(async () => {
-    if (!initialLoadRef.current) setLoading(true);
-    setError(null);
-
-    void getMerchantOrders()
-      .then((orders) => {
-        setItems(orders);
-      })
-      .catch((err) => {
-        setError(
-          err instanceof ApiError ? err.message : "Failed to load dashboard",
-        );
-      })
-      .finally(() => {
-        setLoading(false);
-        initialLoadRef.current = true;
+  /** Period cards come from server aggregates (sums / counts in SQL). */
+  const loadKpis = useCallback(
+    async (fresh = false) => {
+      if (!startDate || !endDate) return;
+      const cached = fresh ? null : peekDashboardKpis({ from: startDate, to: endDate });
+      if (cached) {
+        setDashKpis(cached);
         setHasLoaded(true);
-      });
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        setDashKpis(await getDashboardKpis({ from: startDate, to: endDate, fresh }));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Failed to load dashboard");
+      } finally {
+        setLoading(false);
+        setHasLoaded(true);
+      }
+    },
+    [startDate, endDate],
+  );
+
+  useEffect(() => {
+    void loadKpis();
+  }, [loadKpis]);
+
+  /** Latest rows only — the lists show 8 each. */
+  const loadRecentOrders = useCallback(async () => {
+    const [latest, attention] = await Promise.all([
+      listOrders({ limit: 8 }).catch(() => null),
+      listOrders({ status: "payment_anomaly", limit: 8 }).catch(() => null),
+    ]);
+    if (latest) setRecent(latest);
+    if (attention) setAnomalyOrders(attention);
+  }, []);
+
+  const load = useCallback(async () => {
+    void loadRecentOrders();
 
     if (orgId && !cashierOnly) {
       void Promise.all([
-        getMerchantServiceBills().catch(() => [] as ServiceBill[]),
         getMerchantCommercial(orgId).catch(() => null),
         getMerchantOrgs().catch(() => [] as OrgAccount[]),
         listSettlement(orgId).catch(() => []),
         listXpub(orgId).catch(() => []),
       ])
-        .then(([billList, commercialSettings, orgs, settlement, xpubs]) => {
-          setBills(billList);
+        .then(([commercialSettings, orgs, settlement, xpubs]) => {
           setCommercial(commercialSettings);
           const root = parentId ?? orgId;
           setSites(
@@ -205,7 +223,6 @@ export function DashboardPage({ session }: Props) {
         })
         .catch(() => undefined);
     } else {
-      setBills([]);
       setCommercial(null);
       setSites([]);
       setSettlementCooldown(0);
@@ -231,7 +248,7 @@ export function DashboardPage({ session }: Props) {
       .catch(() => {
         setLampByPair(new Map());
       });
-  }, [orgId, parentId, cashierOnly]);
+  }, [orgId, parentId, cashierOnly, loadRecentOrders]);
 
   useEffect(() => {
     void load();
@@ -242,20 +259,10 @@ export function DashboardPage({ session }: Props) {
       try {
         if (
           slices.includes("volume") ||
-          slices.includes("anomalies")
+          slices.includes("anomalies") ||
+          slices.includes("serviceBills")
         ) {
-          const orders = await getMerchantOrders({ force: true });
-          setItems(orders);
-        }
-        if (
-          slices.includes("serviceBills") &&
-          orgId &&
-          !cashierOnly
-        ) {
-          const billList = await getMerchantServiceBills({
-            force: true,
-          }).catch(() => [] as ServiceBill[]);
-          setBills(billList);
+          await Promise.all([loadKpis(true), loadRecentOrders()]);
         }
         if (slices.includes("networks")) {
           await Promise.all([
@@ -279,92 +286,35 @@ export function DashboardPage({ session }: Props) {
         // Keep last good SWR snapshot.
       }
     },
-    [orgId, cashierOnly],
+    [loadKpis, loadRecentOrders],
   );
 
   useDashboardLiveEvents({
     enabled: hasLoaded,
+    debounceMs: 5_000,
     onSlices: (slices) => {
       void softRevalidateLiveSlices(slices);
     },
   });
 
-  const chartWindow = useMemo(() => {
-    const from = parseDateInput(startDate, false);
-    const to = parseDateInput(endDate, true);
-    return { from, to };
-  }, [startDate, endDate]);
-
-  const periodOrders = useMemo(
-    () =>
-      items.filter((o) =>
-        inWindow(orderTime(o), chartWindow.from, chartWindow.to),
-      ),
-    [items, chartWindow],
-  );
-
   const activePeriodLabel = periodLabel(period, startDate, endDate);
 
   const kpis = useMemo(() => {
-    const completed = periodOrders.filter(
-      (o) => o.status === "completed" || o.status === "confirmed",
-    );
-    let volume = 0;
-    for (const o of completed) {
-      const n = Number(o.payableAmount.amount);
-      if (Number.isFinite(n)) volume += n;
-    }
+    const volume = dashKpis?.orders.volumeUsd ?? 0;
     const feePct = Number(commercial?.volumeFeePercent);
     const platformFee =
       Number.isFinite(feePct) && feePct > 0 ? (volume * feePct) / 100 : 0;
-    const openWork = items.filter(
-      (o) => o.status === "pending_payment" || o.status === "verifying",
-    ).length;
-    const anomalies = items.filter((o) => o.status === "payment_anomaly").length;
-    const now = Date.now();
-    const expiringSoon = items.filter((o) => {
-      if (o.status !== "pending_payment") return false;
-      const exp = Date.parse(o.expiresAt);
-      return Number.isFinite(exp) && exp > now && exp - now < 30 * 60 * 1000;
-    }).length;
-    const openBills = bills.filter(
-      (b) => b.status === "issued" || b.status === "overdue",
-    ).length;
-    const overdueBills = bills.filter((b) => b.status === "overdue").length;
     return {
       volume,
       platformFee,
-      openWork,
-      anomalies,
-      expiringSoon,
-      openBills,
-      overdueBills,
-      completedCount: completed.length,
+      openWork: dashKpis?.orders.open ?? 0,
+      anomalies: dashKpis?.orders.anomalies ?? 0,
+      expiringSoon: dashKpis?.orders.expiringSoon ?? 0,
+      openBills: dashKpis?.bills.open ?? 0,
+      overdueBills: dashKpis?.bills.overdueOpen ?? 0,
+      completedCount: dashKpis?.orders.settled ?? 0,
     };
-  }, [periodOrders, items, bills, commercial]);
-
-  const anomalyOrders = useMemo(
-    () =>
-      items
-        .filter((o) => o.status === "payment_anomaly")
-        .sort(
-          (a, b) =>
-            Date.parse(orderTime(b)) - Date.parse(orderTime(a)),
-        )
-        .slice(0, 8),
-    [items],
-  );
-
-  const recent = useMemo(
-    () =>
-      [...items]
-        .sort(
-          (a, b) =>
-            Date.parse(orderTime(b)) - Date.parse(orderTime(a)),
-        )
-        .slice(0, 8),
-    [items],
-  );
+  }, [dashKpis, commercial]);
 
   const networkPairs = useMemo(() => {
     return [...visibleRegistry()]
@@ -394,27 +344,18 @@ export function DashboardPage({ session }: Props) {
 
   const siteRows = useMemo((): SiteRow[] => {
     if (cashierOnly || sites.length === 0) return [];
+    const byOrg = new Map((dashKpis?.byOrg ?? []).map((r) => [r.orgId, r]));
     return sites.map((site) => {
-      const siteOrders = items.filter((o) => o.orgId === site.id);
-      const inPeriod = siteOrders.filter((o) =>
-        inWindow(orderTime(o), chartWindow.from, chartWindow.to),
-      );
-      let volume = 0;
-      for (const o of inPeriod) {
-        if (o.status !== "completed" && o.status !== "confirmed") continue;
-        const n = Number(o.payableAmount.amount);
-        if (Number.isFinite(n)) volume += n;
-      }
+      const row = byOrg.get(site.id);
       return {
         id: site.id,
         name: site.name,
-        orders: inPeriod.length,
-        volume,
-        anomalies: siteOrders.filter((o) => o.status === "payment_anomaly")
-          .length,
+        orders: row?.orders ?? 0,
+        volume: row?.volumeUsd ?? 0,
+        anomalies: row?.anomalies ?? 0,
       };
     });
-  }, [sites, items, chartWindow, cashierOnly]);
+  }, [sites, dashKpis, cashierOnly]);
 
   const alertItems = useMemo(() => {
     const rows: Array<{ id: string; tone: "warn" | "danger"; body: string; to?: string }> =
@@ -458,7 +399,7 @@ export function DashboardPage({ session }: Props) {
       rows.push({
         id: "anomalies",
         tone: "danger",
-        body: `${kpis.anomalies} payment anomal${kpis.anomalies === 1 ? "y" : "ies"} need review — Resolve with a note (no Mark paid).`,
+        body: `${kpis.anomalies} invoice${kpis.anomalies === 1 ? "" : "s"} need Attention — Resolve with a note (no Mark paid).`,
         to: merchantRoute("orders"),
       });
     }
@@ -615,7 +556,7 @@ export function DashboardPage({ session }: Props) {
                 decimals={2}
                 className="merchant-dash__kpi-amount"
               />
-              <span className="merchant-dash__kpi-unit">USDT</span>
+              <span className="merchant-dash__kpi-unit">USD</span>
             </p>
             <p className="merchant-dash__kpi-foot">
               <span className="merchant-dash__kpi-pill">
@@ -656,7 +597,7 @@ export function DashboardPage({ session }: Props) {
                   decimals={2}
                   className="merchant-dash__kpi-amount"
                 />
-                <span className="merchant-dash__kpi-unit">USDT</span>
+                <span className="merchant-dash__kpi-unit">USD</span>
               </p>
               <p className="merchant-dash__kpi-foot">
                 <span className="merchant-dash__kpi-pill">
@@ -760,7 +701,7 @@ export function DashboardPage({ session }: Props) {
                   />
                 </svg>
               </span>
-              <span className="merchant-dash__kpi-label">Anomalies</span>
+              <span className="merchant-dash__kpi-label">Attention</span>
             </div>
             <p className="merchant-dash__kpi-value">
               <AnimatedMetric value={kpis.anomalies} />
@@ -896,7 +837,7 @@ export function DashboardPage({ session }: Props) {
 
         <section className="merchant-dash-anomalies">
           <div className="plat-dash-merchants__head">
-            <h2>Open anomalies</h2>
+            <h2>Open Attention</h2>
             <Link
               className="plat-dash-merchants__all"
               to={merchantRoute("orders")}
@@ -908,7 +849,7 @@ export function DashboardPage({ session }: Props) {
             <p className="muted plat-dash-merchants__empty">Loading…</p>
           ) : anomalyOrders.length === 0 ? (
             <p className="muted plat-dash-merchants__empty">
-              No open payment anomalies.
+              No open invoices need Attention.
             </p>
           ) : (
             <ul className="merchant-dash-anomalies__list">
@@ -978,7 +919,7 @@ export function DashboardPage({ session }: Props) {
               >
                 <span>{s.name}</span>
                 <span className="mono">{s.orders}</span>
-                <span className="mono">{formatUsdt(s.volume)}</span>
+                <span className="mono">{formatUsd(s.volume)}</span>
                 <span className="mono">{s.anomalies}</span>
               </button>
             ))}

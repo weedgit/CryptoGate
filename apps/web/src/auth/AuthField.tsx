@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "./LoginIcons";
 
 type Props = {
@@ -14,6 +15,8 @@ type Props = {
   autoComplete?: string;
   required?: boolean;
   placeholder?: string;
+  /** Optional control beside the label (e.g. Forgot password?). */
+  labelAction?: ReactNode;
 };
 
 export function AuthField({
@@ -30,6 +33,7 @@ export function AuthField({
   autoComplete,
   required,
   placeholder,
+  labelAction,
 }: Props) {
   const inputType =
     type === "password" ? (showPassword ? "text" : "password") : type;
@@ -37,7 +41,10 @@ export function AuthField({
 
   return (
     <div className="field login-field">
-      <label htmlFor={id}>{label}</label>
+      <div className="login-field__label-row">
+        <label htmlFor={id}>{label}</label>
+        {labelAction ? <div className="login-field__label-action">{labelAction}</div> : null}
+      </div>
       <div
         className={`login-input-shell${icon ? " login-input-shell--with-icon" : ""}${showToggle ? " login-input-shell--toggle" : ""}`}
       >

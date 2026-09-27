@@ -1,4 +1,9 @@
 import { getPool } from "../db/pool.mjs";
+import {
+  COMMISSION_PAID_AGING_SQL,
+  COMMISSION_PAYOUT_SORTS,
+  payoutIdSearchHex,
+} from "./commission-payout-list-rules.mjs";
 
 const SELECT = `
   id, payee_org_id, payee_name, payer, payer_org_id,
@@ -9,38 +14,69 @@ const SELECT = `
 `;
 
 /**
+ * Scope + status + search filters shared by list and summary.
+ * @param {{ payer?: string, payeeOrgId?: string, payerOrgId?: string, status?: string | string[], q?: string }} filter
+ */
+function buildPayoutWhere(filter) {
+  const clauses = [];
+  const params = [];
+  if (filter.payer) {
+    params.push(filter.payer);
+    clauses.push(`payer = $${params.length}`);
+  }
+  if (filter.payeeOrgId) {
+    params.push(filter.payeeOrgId);
+    clauses.push(`payee_org_id = $${params.length}`);
+  }
+  if (filter.payerOrgId) {
+    params.push(filter.payerOrgId);
+    clauses.push(`payer_org_id = $${params.length}`);
+  }
+  const statuses = normalizeStatusFilter(filter.status);
+  if (statuses) {
+    params.push(statuses);
+    clauses.push(`payout_status = ANY($${params.length}::text[])`);
+  }
+  if (filter.q) {
+    params.push(`%${escapeLike(filter.q)}%`);
+    const like = `$${params.length}`;
+    const parts = [
+      `payee_name ILIKE ${like}`,
+      `payee_org_id::text ILIKE ${like}`,
+      `period_label ILIKE ${like}`,
+      `period_key ILIKE ${like}`,
+      `payout_status ILIKE ${like}`,
+      `COALESCE(payout_address, '') ILIKE ${like}`,
+      `COALESCE(tx_ref, '') ILIKE ${like}`,
+      `id::text ILIKE ${like}`,
+    ];
+    const hex = payoutIdSearchHex(filter.q);
+    if (hex) {
+      params.push(`%${hex}%`);
+      parts.push(`replace(id::text, '-', '') LIKE $${params.length}`);
+    }
+    clauses.push(`(${parts.join(" OR ")})`);
+  }
+  return { params, where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "" };
+}
+
+/**
  * @param {{
  *   payer?: string,
  *   payeeOrgId?: string,
  *   payerOrgId?: string,
  *   status?: string | string[],
+ *   q?: string,
+ *   sort?: string,
+ *   dir?: "asc" | "desc",
+ *   agingFirst?: boolean,
  *   limit?: number,
  *   offset?: number,
  * }} [filter]
  * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
  */
 export async function listCommissionPayoutRows(filter = {}) {
-  const clauses = [];
-  const params = [];
-  let i = 1;
-  if (filter.payer) {
-    clauses.push(`payer = $${i++}`);
-    params.push(filter.payer);
-  }
-  if (filter.payeeOrgId) {
-    clauses.push(`payee_org_id = $${i++}`);
-    params.push(filter.payeeOrgId);
-  }
-  if (filter.payerOrgId) {
-    clauses.push(`payer_org_id = $${i++}`);
-    params.push(filter.payerOrgId);
-  }
-  const statuses = normalizeStatusFilter(filter.status);
-  if (statuses) {
-    clauses.push(`payout_status = ANY($${i++}::text[])`);
-    params.push(statuses);
-  }
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const { params, where } = buildPayoutWhere(filter);
   const limit = Math.min(Math.max(Number(filter.limit) || 200, 1), 500);
   const offset = Math.max(Number(filter.offset) || 0, 0);
 
@@ -50,16 +86,61 @@ export async function listCommissionPayoutRows(filter = {}) {
   );
   const total = countRes.rows[0]?.n ?? 0;
 
+  const dir = filter.dir === "asc" ? "ASC" : "DESC";
+  const order = [];
+  if (filter.agingFirst) order.push(`${COMMISSION_PAID_AGING_SQL} DESC`);
+  if (filter.sort && Object.hasOwn(COMMISSION_PAYOUT_SORTS, filter.sort)) {
+    order.push(`${COMMISSION_PAYOUT_SORTS[filter.sort]} ${dir} NULLS LAST`);
+    order.push(`lower(payee_name) ${dir}`, `id ${dir}`);
+  } else {
+    order.push("period_key DESC", "updated_at DESC", "id DESC");
+  }
+
   const listParams = [...params, limit, offset];
   const { rows } = await getPool().query(
     `SELECT ${SELECT}
      FROM commission_payouts
      ${where}
-     ORDER BY period_key DESC, updated_at DESC
-     LIMIT $${i++} OFFSET $${i}`,
+     ORDER BY ${order.join(", ")}
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     listParams,
   );
   return { rows, total, limit, offset };
+}
+
+/**
+ * Status counts + paid invoices stuck awaiting confirmation (commissions page pills / banner).
+ * @param {{ payer?: string, payeeOrgId?: string, payerOrgId?: string }} filter
+ */
+export async function commissionPayoutSummary(filter = {}) {
+  const { params, where } = buildPayoutWhere({
+    payer: filter.payer,
+    payeeOrgId: filter.payeeOrgId,
+    payerOrgId: filter.payerOrgId,
+  });
+  const { rows } = await getPool().query(
+    `SELECT
+       count(*) FILTER (WHERE payout_status = 'issued')::int AS issued,
+       count(*) FILTER (WHERE payout_status = 'paid')::int AS paid,
+       count(*) FILTER (WHERE payout_status = 'settled')::int AS settled,
+       count(*) FILTER (WHERE ${COMMISSION_PAID_AGING_SQL})::int AS stuck_paid
+     FROM commission_payouts
+     ${where}`,
+    params,
+  );
+  const r = rows[0] ?? {};
+  const issued = r.issued ?? 0;
+  const paid = r.paid ?? 0;
+  const settled = r.settled ?? 0;
+  return {
+    counts: { all: issued + paid + settled, issued, paid, settled },
+    stuckPaid: r.stuck_paid ?? 0,
+  };
+}
+
+/** @param {string} s */
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 /**

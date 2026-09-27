@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 import { findUserByEmail } from "../apps/api/src/auth/users.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
+import { loadSeedEnv } from "./seed-env.mjs";
 
 const MATCHING_CYCLE = ["B", "C", "D", "S"];
 const COMMISSION_CYCLE = ["10", "12", "15", "18", "20"];
@@ -64,21 +65,7 @@ const VECTOR_XPUB =
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadEnv() {
-  const envPath = join(root, ".env");
-  if (existsSync(envPath)) {
-    for (const line of readFileSync(envPath, "utf8").split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq <= 0) continue;
-      const key = trimmed.slice(0, eq).trim();
-      if (!process.env[key]) process.env[key] = trimmed.slice(eq + 1).trim();
-    }
-  }
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL =
-      "postgres://paymentgate:paymentgate@localhost:5432/paymentgate";
-  }
+  loadSeedEnv();
 }
 
 function fakeAddress(seed) {

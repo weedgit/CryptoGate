@@ -35,9 +35,15 @@ import {
 } from "./service-bill-rules.mjs";
 import { roundUsd } from "./generate-rules.mjs";
 import {
+  parseServiceBillListQuery,
+  parseServiceBillWindow,
+} from "./service-bill-list-rules.mjs";
+import {
   findServiceBillById,
   insertServiceBill,
   listServiceBills,
+  serviceBillSummary,
+  serviceBillOrgStatus,
   markServiceBillPaid,
   voidServiceBill,
   cancelServiceBill,
@@ -96,8 +102,52 @@ async function expandServiceBillOrgIds(scope) {
   return { kind: "filter", orgIds };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Optional `periodFrom` + `periodTo` (YYYY-MM-DD): billing period overlaps the range.
+ * @param {URL} url
+ * @returns {{ ok: true, period: { from: string, to: string } | null } | { ok: false, message: string }}
+ */
+function parseBillingPeriodOverlap(url) {
+  const from = url.searchParams.get("periodFrom")?.trim() ?? "";
+  const to = url.searchParams.get("periodTo")?.trim() ?? "";
+  if (!from && !to) return { ok: true, period: null };
+  if (!DATE_RE.test(from) || !DATE_RE.test(to) || from > to) {
+    return { ok: false, message: "periodFrom and periodTo must be YYYY-MM-DD with periodFrom <= periodTo" };
+  }
+  return { ok: true, period: { from, to } };
+}
+
+/**
+ * Optional `agentOrgId`: narrow the caller's scope to merchants under that agent.
+ * Sends the error and returns null when invalid or outside scope.
+ * @param {import("node:http").ServerResponse} res
+ * @param {URL} url
+ * @param {{ kind: "all" } | { kind: "filter", orgIds: string[] }} expanded
+ */
+async function narrowToAgent(res, url, expanded) {
+  const raw = url.searchParams.get("agentOrgId")?.trim();
+  if (!raw) return expanded;
+  if (!UUID_RE.test(raw)) {
+    sendError(res, 400, "invalid_request", "agentOrgId must be a UUID");
+    return null;
+  }
+  const rows = await listOrgsInSubtree([raw]);
+  const agentMerchants = rows.filter((r) => isMerchantOrgType(r.type)).map((r) => r.id);
+  if (expanded.kind === "all") return { kind: "filter", orgIds: agentMerchants };
+  const allowed = new Set(expanded.orgIds);
+  if (agentMerchants.length > 0 && !agentMerchants.some((id) => allowed.has(id))) {
+    sendError(res, 403, "forbidden", "Outside service-bill scope");
+    return null;
+  }
+  return { kind: "filter", orgIds: agentMerchants.filter((id) => allowed.has(id)) };
+}
+
 /**
  * GET /v1/service-bills
+ * Query also accepts agentOrgId (merchants in that agent's subtree).
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  * @param {URL} url
@@ -121,7 +171,8 @@ export async function handleListServiceBills(req, res, url) {
   const orgIdRaw = url.searchParams.get("orgId");
   const orgId = orgIdRaw && orgIdRaw.trim() ? orgIdRaw.trim() : null;
 
-  const expanded = await expandServiceBillOrgIds(scope);
+  const expanded = await narrowToAgent(res, url, await expandServiceBillOrgIds(scope));
+  if (!expanded) return;
   if (orgId) {
     if (expanded.kind === "filter" && !expanded.orgIds.includes(orgId)) {
       sendError(res, 403, "forbidden", "Outside service-bill scope");
@@ -135,12 +186,26 @@ export async function handleListServiceBills(req, res, url) {
     return;
   }
 
+  const listQuery = parseServiceBillListQuery(url.searchParams);
+  if (!listQuery.ok) {
+    sendError(res, 400, "invalid_request", listQuery.message);
+    return;
+  }
+
+  const period = parseBillingPeriodOverlap(url);
+  if (!period.ok) {
+    sendError(res, 400, "invalid_request", period.message);
+    return;
+  }
+
   const limit = parseServiceBillListLimit(url.searchParams.get("limit"));
   const result = await listServiceBills({
     kind: expanded.kind === "all" ? "all" : "filter",
     orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
     orgId,
     status: statusFilter.status,
+    period: period.period,
+    ...listQuery.query,
     limit,
     offset: offsetParsed.offset,
   });
@@ -150,6 +215,75 @@ export async function handleListServiceBills(req, res, url) {
     limit: result.limit,
     offset: result.offset,
   });
+}
+
+/**
+ * GET /v1/service-bills/summary — bucket counts + USD totals (same scope and
+ * date window as the list; search does not narrow KPIs).
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {URL} url
+ */
+export async function handleServiceBillSummary(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const scope = serviceBillListScope(caller);
+  if (scope.kind === "none") {
+    sendError(res, 403, "forbidden", "Cashiers cannot view service bills");
+    return;
+  }
+
+  const win = parseServiceBillWindow(url.searchParams);
+  if (!win.ok) {
+    sendError(res, 400, "invalid_request", win.message);
+    return;
+  }
+
+  const orgIdRaw = url.searchParams.get("orgId");
+  const orgId = orgIdRaw && orgIdRaw.trim() ? orgIdRaw.trim() : null;
+  const expanded = await narrowToAgent(res, url, await expandServiceBillOrgIds(scope));
+  if (!expanded) return;
+  if (orgId && expanded.kind === "filter" && !expanded.orgIds.includes(orgId)) {
+    sendError(res, 403, "forbidden", "Outside service-bill scope");
+    return;
+  }
+
+  const period = parseBillingPeriodOverlap(url);
+  if (!period.ok) {
+    sendError(res, 400, "invalid_request", period.message);
+    return;
+  }
+
+  const summary = await serviceBillSummary({
+    kind: expanded.kind === "all" ? "all" : "filter",
+    orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
+    orgId,
+    window: win.window,
+    period: period.period,
+  });
+  sendJson(res, 200, summary);
+}
+
+/**
+ * GET /v1/service-bills/org-status — per-merchant bill badge for account lists.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ */
+export async function handleServiceBillOrgStatus(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  const scope = serviceBillListScope(caller);
+  if (scope.kind === "none") {
+    sendError(res, 403, "forbidden", "Cashiers cannot view service bills");
+    return;
+  }
+  const expanded = await expandServiceBillOrgIds(scope);
+  const items = await serviceBillOrgStatus({
+    kind: expanded.kind === "all" ? "all" : "filter",
+    orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
+  });
+  sendJson(res, 200, { items });
 }
 
 /**
@@ -181,8 +315,8 @@ export async function handleIssueServiceBill(req, res) {
   }
 
   const org = await findOrgById(validated.orgId);
-  if (!org || !isMerchantOrgType(org.type)) {
-    sendError(res, 400, "invalid_org_type", "Service bills target merchant orgs only");
+  if (!org || org.type !== "merchant") {
+    sendError(res, 400, "invalid_org_type", "Service bills target merchant orgs only (not sites)");
     return;
   }
 

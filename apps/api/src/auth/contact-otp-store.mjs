@@ -81,15 +81,18 @@ export async function issueContactOtp(userId, channel, destination) {
  * @param {string} userId
  * @param {"email" | "phone"} channel
  * @param {string} code
- * @returns {Promise<"ok" | "invalid" | "expired" | "locked">}
+ * @returns {Promise<
+ *   | { status: "ok", destination: string }
+ *   | { status: "invalid" | "expired" | "locked" }
+ * >}
  */
 export async function consumeContactOtp(userId, channel, code) {
   const trimmed = typeof code === "string" ? code.trim() : "";
-  if (!/^\d{6}$/.test(trimmed)) return "invalid";
+  if (!/^\d{6}$/.test(trimmed)) return { status: "invalid" };
 
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, code_hash, expires_at, consumed_at, attempt_count
+    `SELECT id, destination, code_hash, expires_at, consumed_at, attempt_count
      FROM contact_otps
      WHERE user_id = $1 AND channel = $2 AND consumed_at IS NULL
      ORDER BY created_at DESC
@@ -97,15 +100,15 @@ export async function consumeContactOtp(userId, channel, code) {
     [userId, channel],
   );
   const row = rows[0];
-  if (!row) return "expired";
+  if (!row) return { status: "expired" };
   if (new Date(row.expires_at).getTime() <= Date.now()) {
     await pool.query(`UPDATE contact_otps SET consumed_at = now() WHERE id = $1`, [
       row.id,
     ]);
-    return "expired";
+    return { status: "expired" };
   }
   if (Number(row.attempt_count) >= OTP_MAX_ATTEMPTS) {
-    return "locked";
+    return { status: "locked" };
   }
 
   const ok = hashSessionToken(trimmed) === row.code_hash;
@@ -121,15 +124,18 @@ export async function consumeContactOtp(userId, channel, code) {
       await pool.query(`UPDATE contact_otps SET consumed_at = now() WHERE id = $1`, [
         row.id,
       ]);
-      return "locked";
+      return { status: "locked" };
     }
-    return "invalid";
+    return { status: "invalid" };
   }
 
   await pool.query(`UPDATE contact_otps SET consumed_at = now() WHERE id = $1`, [
     row.id,
   ]);
-  return "ok";
+  return {
+    status: "ok",
+    destination: typeof row.destination === "string" ? row.destination : "",
+  };
 }
 
 export function echoOtpInHttp() {

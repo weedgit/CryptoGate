@@ -10,7 +10,7 @@ object ReceiptLines {
     fun build(job: ReceiptJob): List<ReceiptLine> {
         val lines = mutableListOf<ReceiptLine>()
         if (job.isAnomaly) {
-            lines += ReceiptLine("PAYMENT ANOMALY", ReceiptStyle.Title)
+            lines += ReceiptLine("ATTENTION", ReceiptStyle.Title)
             lines += ReceiptLine("Do not treat as completed sale", ReceiptStyle.Body)
             lines += ReceiptLine("Contact supervisor", ReceiptStyle.Body)
         } else {

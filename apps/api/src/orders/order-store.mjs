@@ -86,12 +86,29 @@ export async function findOrderByIdempotency(orgId, idempotencyKey, client) {
  *   treeOrgIds?: string[],
  *   cashierOrgIds?: string[],
  *   createdBy?: string | null,
+ *   creatorUserId?: string | null,
  *   orgId?: string | null,
  *   status?: string | null,
+ *   statuses?: string[] | null,
+ *   createdFrom?: string | null,
+ *   createdTo?: string | null,
+ *   q?: string | null,
+ *   asset?: string | null,
+ *   network?: string | null,
  *   limit: number,
  *   offset?: number,
  * }} query
- * @returns {Promise<{ rows: object[], total: number, limit: number, offset: number }>}
+ * @returns {Promise<{
+ *   rows: object[],
+ *   total: number,
+ *   limit: number,
+ *   offset: number,
+ *   summary: {
+ *     count: number,
+ *     invoiceAmountUsd: string | null,
+ *     byAsset: { asset: string, payableAmount: string, receivedAmount: string }[],
+ *   },
+ * }>}
  */
 export async function listPaymentOrders(query) {
   const params = [];
@@ -103,7 +120,13 @@ export async function listPaymentOrders(query) {
   if (query.kind === "filter") {
     const scope = appendPaymentOrderScope(query, params);
     if (scope.empty) {
-      return { rows: [], total: 0, limit, offset };
+      return {
+        rows: [],
+        total: 0,
+        limit,
+        offset,
+        summary: { count: 0, invoiceAmountUsd: null, byAsset: [] },
+      };
     }
     if (scope.clause) {
       where.push(scope.clause.replace(/^ AND /, ""));
@@ -114,26 +137,94 @@ export async function listPaymentOrders(query) {
     params.push(query.orgId);
     where.push(`o.org_id = $${params.length}::uuid`);
   }
-  if (query.status) {
+  if (query.statuses && query.statuses.length > 0) {
+    params.push(query.statuses);
+    where.push(`o.status = ANY($${params.length}::text[])`);
+  } else if (query.status) {
     params.push(query.status);
     where.push(`o.status = $${params.length}`);
+  }
+  if (query.creatorUserId) {
+    params.push(query.creatorUserId);
+    where.push(`o.created_by = $${params.length}::uuid`);
+  }
+  if (query.createdFrom) {
+    params.push(query.createdFrom);
+    where.push(`o.created_at >= $${params.length}::timestamptz`);
+  }
+  if (query.createdTo) {
+    params.push(query.createdTo);
+    where.push(`o.created_at <= $${params.length}::timestamptz`);
+  }
+  if (query.asset) {
+    params.push(query.asset);
+    where.push(`o.asset = $${params.length}`);
+  }
+  if (query.network) {
+    params.push(query.network);
+    where.push(`o.network = $${params.length}`);
+  }
+  if (query.q) {
+    const q = query.q.trim();
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        q,
+      )
+    ) {
+      params.push(q);
+      where.push(`o.id = $${params.length}::uuid`);
+    } else if (/^\d{4,}$/.test(q)) {
+      params.push(q);
+      where.push(`o.order_number = $${params.length}`);
+    } else {
+      params.push(q);
+      where.push(
+        `o.merchant_metadata->>'reference' ILIKE ($${params.length} || '%')`,
+      );
+    }
   }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
   const countRes = await db().query(
-    `SELECT count(*)::int AS n
+    `SELECT count(*)::int AS n,
+            coalesce(sum(o.invoice_amount_usd::numeric), 0)::text AS invoice_usd_sum,
+            count(o.invoice_amount_usd)::int AS invoice_usd_n
      FROM payment_orders o
      ${whereSql}`,
     params,
   );
   const total = countRes.rows[0]?.n ?? 0;
+  const invoiceUsdN = countRes.rows[0]?.invoice_usd_n ?? 0;
+  const invoiceAmountUsd =
+    invoiceUsdN > 0 ? (countRes.rows[0]?.invoice_usd_sum ?? null) : null;
+
+  const assetRes = await db().query(
+    `SELECT o.asset,
+            coalesce(sum(o.payable_amount::numeric), 0)::text AS payable_sum,
+            coalesce(sum(o.received_amount::numeric), 0)::text AS received_sum
+     FROM payment_orders o
+     ${whereSql}
+     GROUP BY o.asset
+     ORDER BY o.asset`,
+    params,
+  );
+  const byAsset = assetRes.rows.map((row) => ({
+    asset: row.asset,
+    payableAmount: row.payable_sum,
+    receivedAmount: row.received_sum,
+  }));
 
   const listParams = [...params, limit, offset];
   const { rows } = await db().query(
     `SELECT ${ORDER_SELECT_O},
             org.name AS org_name,
-            creator.email AS creator_email
+            creator.email AS creator_email,
+            nullif(
+              btrim(concat_ws(' ', creator.first_name, creator.last_name)),
+              ''
+            ) AS creator_name,
+            creator.avatar_url AS creator_avatar_url
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
      LEFT JOIN users creator ON creator.id = o.created_by
@@ -142,7 +233,17 @@ export async function listPaymentOrders(query) {
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     listParams,
   );
-  return { rows, total, limit, offset };
+  return {
+    rows,
+    total,
+    limit,
+    offset,
+    summary: {
+      count: total,
+      invoiceAmountUsd,
+      byAsset,
+    },
+  };
 }
 
 /**
@@ -152,7 +253,12 @@ export async function findOrderById(id) {
   const { rows } = await db().query(
     `SELECT ${ORDER_SELECT_O},
             org.name AS org_name,
-            creator.email AS creator_email
+            creator.email AS creator_email,
+            nullif(
+              btrim(concat_ws(' ', creator.first_name, creator.last_name)),
+              ''
+            ) AS creator_name,
+            creator.avatar_url AS creator_avatar_url
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
      LEFT JOIN users creator ON creator.id = o.created_by

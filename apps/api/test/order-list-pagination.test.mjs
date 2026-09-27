@@ -13,7 +13,7 @@ describe("payment order list pagination", () => {
       "utf8",
     );
     assert.match(store, /OFFSET \$\$/);
-    assert.match(store, /return \{ rows, total, limit, offset \}/);
+    assert.match(store, /return \{\s*rows,\s*total,\s*limit,\s*offset,/);
   });
 
   it("routes respond with pagination fields", () => {

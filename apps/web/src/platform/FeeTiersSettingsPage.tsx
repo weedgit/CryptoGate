@@ -3,17 +3,16 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
-  decideEnterpriseRateApproval,
   getFeeTierSettings,
-  listEnterpriseRateApprovals,
   updateFeeTierSettings,
-  type EnterpriseRateApproval,
   type FeeTierBand,
   type FeeTierEffectiveTiming,
   type Session,
@@ -21,84 +20,302 @@ import {
 import { BillingWalletPanel } from "./BillingWalletPanel";
 import { BillingCalendarPanel } from "./BillingCalendarPanel";
 import {
-  formatTierPercent,
-  formatTierSubscription,
   formatVolumeBand,
   nextBillingPeriodLabel,
   TIER_ORDER,
   TIER_TITLE,
-  tierFeatures,
   tiersSnapshot,
 } from "./feeTierDisplay";
 import { sessionIsPlatformOwner } from "./org";
-import { OrgListPagination } from "./OrgListPagination";
 import { PagePending } from "./ui/PlatformPending";
-
-const TIER_LABEL: Record<string, string> = {
-  small: "Small",
-  mid: "Mid",
-  enterprise: "Enterprise",
-};
-
-const OVERRIDES_PAGE_SIZE = 18;
-
-type TabId = "pricing" | "bands" | "overrides" | "remittance" | "calendar";
-
-function parseTab(raw: string | null): TabId {
-  if (
-    raw === "overrides" ||
-    raw === "bands" ||
-    raw === "remittance" ||
-    raw === "calendar"
-  ) {
-    return raw;
-  }
-  /* Legacy Fees → Billing deep link */
-  if (raw === "billing") return "remittance";
-  return "pricing";
-}
 
 type Props = { session: Session };
 
-function overrideStatusTone(status: string): string {
-  if (status === "approved") return "ok";
-  if (status === "pending") return "warn";
-  return "muted";
+function FeesIcon({ children }: { children: ReactNode }) {
+  return <span className="plat-fees__icon">{children}</span>;
 }
 
-function overrideStatusLabel(status: string): string {
-  if (status === "approved") return "ACTIVE OVERRIDE";
-  if (status === "pending") return "PENDING";
-  if (status === "denied") return "DENIED";
-  return status.toUpperCase();
+function IconLayers() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 3.2 2.5 8.2l9.5 5 9.5-5L12 3.2Zm0 7.1L4.2 9.2 12 13.3l7.8-4.1L12 10.3Zm0 4.3L4.2 13.5 12 17.6l7.8-4.1L12 14.6Zm0 4.3L4.2 17.8 12 21.9l7.8-4.1L12 18.9Z"
+      />
+    </svg>
+  );
 }
 
-/** B8 — Fee tiers & pricing (Figma `b8-fee-tiers-pricing`). */
+function IconWallet() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M19 6H7a2 2 0 0 0-2 2v1H4a1 1 0 0 0 0 2h1v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2Zm0 10H7V9h12v7Zm-2.5-2.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
+      />
+    </svg>
+  );
+}
+
+function IconCalendar() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M8 3a1 1 0 0 0-1 1v1H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V4a1 1 0 1 0-2 0v1H9V4a1 1 0 0 0-1-1Zm10 8H6v7h12v-7Z"
+      />
+    </svg>
+  );
+}
+
+function IconSave() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M17.6 3.2H5.2A2.2 2.2 0 0 0 3 5.4v13.2A2.2 2.2 0 0 0 5.2 20.8h13.6a2.2 2.2 0 0 0 2.2-2.2V7.8l-3.4-4.6ZM12 18.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2Zm3.4-10.8H6.4V5.2h9Z"
+      />
+    </svg>
+  );
+}
+
+function moneyUsd(n: number): string {
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+}
+
+function guideExample(tier: FeeTierBand, volume: number) {
+  const sub = Number(tier.subscriptionAmountUsd) || 0;
+  const feePct = Number(tier.defaultSignupPercent) || 0;
+  const agentPct = Number(tier.agentCommissionPercent) || 0;
+  const fee = (volume * feePct) / 100;
+  const mtc = sub + fee;
+  const agent = (fee * agentPct) / 100;
+  const pnr = mtc - agent;
+  return {
+    title: TIER_TITLE[tier.tier] ?? tier.tier,
+    volume,
+    sub,
+    feePct,
+    agentPct,
+    fee,
+    mtc,
+    agent,
+    pnr,
+  };
+}
+
+function FeesOwnerGuide({ tiers }: { tiers: FeeTierBand[] }) {
+  const small = tiers.find((t) => t.tier === "small");
+  const mid = tiers.find((t) => t.tier === "mid");
+  const examples = [
+    small ? guideExample(small, 10_000) : null,
+    mid ? guideExample(mid, 100_000) : null,
+  ].filter(Boolean) as ReturnType<typeof guideExample>[];
+
+  return (
+    <aside className="plat-fees__guide" aria-label="Platform owner guide">
+      <header className="plat-fees__guide-head">
+        <h2 className="plat-fees__guide-title">Platform owner guide</h2>
+        <p className="plat-fees__guide-lede">
+          How schedule, wallet, and calendar money flows work. Examples update
+          from the live tier fields on the left.
+        </p>
+      </header>
+
+      <div className="plat-fees__guide-block">
+        <h3>1 · Volume fee schedule</h3>
+        <p>
+          Merchants land in one volume band. That band sets subscription, default
+          signup fee %, fee min/max, and agent commission % of fee revenue.
+        </p>
+        <p className="plat-fees__guide-formula">
+          MTC = Subscription + (Volume × Fee %)
+          <br />
+          Agent = Fee × Agent commission %
+          <br />
+          PNR = MTC − Agent
+        </p>
+        <p>
+          <strong>MTC</strong> = merchant total cost · <strong>PNR</strong> =
+          platform net revenue (what you keep after the agent cut).
+        </p>
+        {examples.map((ex) => (
+          <div key={ex.title} className="plat-fees__guide-example">
+            <strong>
+              Example · {ex.title} · {moneyUsd(ex.volume)} volume
+            </strong>
+            <p>
+              Fee @ {ex.feePct}% → {moneyUsd(ex.fee)}
+              <br />
+              MTC = {moneyUsd(ex.sub)} + {moneyUsd(ex.fee)} ={" "}
+              <b>{moneyUsd(ex.mtc)}</b>
+              <br />
+              Agent @ {ex.agentPct}% → {moneyUsd(ex.agent)}
+              <br />
+              PNR → <b>{moneyUsd(ex.pnr)}</b>
+            </p>
+          </div>
+        ))}
+        <p>
+          <strong>Change effectivity</strong> chooses when a saved schedule
+          applies: next billing cycle (safer) or immediately.
+        </p>
+      </div>
+
+      <div className="plat-fees__guide-block">
+        <h3>2 · Fee wallet</h3>
+        <p>
+          Seller name/email on invoices, plus your USDT receive address for
+          service bills. Keep both current so merchants can pay you correctly.
+        </p>
+      </div>
+
+      <div className="plat-fees__guide-block">
+        <h3>3 · Billing calendar</h3>
+        <p>
+          <strong>Agent remittance window (UTC)</strong> is the day range each
+          month when agent commissions are paid:
+        </p>
+        <p className="plat-fees__guide-formula">
+          Pay when From day ≤ UTC day-of-month ≤ To day
+        </p>
+        <div className="plat-fees__guide-example">
+          <strong>Example · remittance</strong>
+          <p>
+            From <b>10</b>, To <b>15</b> → payouts run on the 10th–15th (UTC)
+            every month.
+          </p>
+        </div>
+        <p>
+          <strong>Activation invoice</strong> is the one-time onboarding bill:
+        </p>
+        <p className="plat-fees__guide-formula">
+          Due date = Signup date + Pay within (days)
+        </p>
+        <div className="plat-fees__guide-example">
+          <strong>Example · activation</strong>
+          <p>
+            Signup Mar 1, pay within <b>7</b> days → due Mar 8. Amount =
+            Activation fee (e.g. {moneyUsd(49)}).
+          </p>
+        </div>
+        <p>
+          Turn on <strong>Auto-send invoices</strong> only after seller + wallet
+          are correct — otherwise new merchants may get invoices they cannot pay.
+        </p>
+      </div>
+    </aside>
+  );
+}
+
+function TimingSelect({
+  value,
+  billingNote,
+  disabled,
+  onChange,
+}: {
+  value: FeeTierEffectiveTiming;
+  billingNote: string;
+  disabled?: boolean;
+  onChange: (next: FeeTierEffectiveTiming) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const options: { value: FeeTierEffectiveTiming; label: string }[] = [
+    {
+      value: "next_billing_cycle",
+      label: `Next billing cycle (${billingNote})`,
+    },
+    { value: "immediate", label: "Immediately" },
+  ];
+  const current =
+    options.find((o) => o.value === value)?.label ?? options[0]!.label;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div
+      className={`plat-fees__select${open ? " is-open" : ""}`}
+      ref={rootRef}
+    >
+      <button
+        type="button"
+        className="plat-fees__select-trigger"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span>{current}</span>
+        <svg viewBox="0 0 12 8" width="10" height="7" aria-hidden="true">
+          <path fill="currentColor" d="M6 6.8 1 1.2h10Z" />
+        </svg>
+      </button>
+      {open ? (
+        <ul className="plat-fees__select-menu" role="listbox">
+          {options.map((opt) => (
+            <li key={opt.value} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={opt.value === value}
+                className={`plat-fees__select-option${opt.value === value ? " is-active" : ""}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/** Legacy ?tab=… deep links → section anchors. */
+function sectionFromTab(raw: string | null): string | null {
+  if (raw === "remittance" || raw === "billing") return "fee-wallet";
+  if (raw === "calendar") return "fee-calendar";
+  if (raw === "bands" || raw === "pricing") return "fee-schedule";
+  return null;
+}
+
+/** B8 — Platform fees: schedule, wallet, and billing calendar on one page. */
 export function FeeTiersSettingsPage({ session }: Props) {
   const canEdit = useMemo(() => sessionIsPlatformOwner(session), [session]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState<TabId>(() => parseTab(searchParams.get("tab")));
   const [tiers, setTiers] = useState<FeeTierBand[]>([]);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [approvals, setApprovals] = useState<EnterpriseRateApproval[]>([]);
-  const [overridesPage, setOverridesPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [billingDirty, setBillingDirty] = useState(false);
   const [calendarDirty, setCalendarDirty] = useState(false);
+  const [calendarBusy, setCalendarBusy] = useState(false);
   const [effectiveTiming, setEffectiveTiming] =
     useState<FeeTierEffectiveTiming>("next_billing_cycle");
-  const [pendingEffectiveFrom, setPendingEffectiveFrom] = useState<string | null>(
-    null,
-  );
-
-  const pendingOverrideCount = useMemo(
-    () => approvals.filter((a) => a.status === "pending").length,
-    [approvals],
-  );
 
   const billingNote = useMemo(() => nextBillingPeriodLabel(), []);
   const dirty = tiersSnapshot(tiers) !== savedSnapshot;
@@ -117,20 +334,10 @@ export function FeeTiersSettingsPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [settings, pending, approved] = await Promise.all([
-        getFeeTierSettings(),
-        listEnterpriseRateApprovals({ status: "pending" }),
-        listEnterpriseRateApprovals({ status: "approved" }),
-      ]);
+      const settings = await getFeeTierSettings();
       setTiers(settings.tiers);
       setSavedSnapshot(tiersSnapshot(settings.tiers));
       setUpdatedAt(settings.updatedAt);
-      setPendingEffectiveFrom(settings.pendingEffectiveFrom ?? null);
-      setApprovals(
-        [...pending, ...approved].sort((a, b) =>
-          b.createdAt.localeCompare(a.createdAt),
-        ),
-      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load fee tiers");
     } finally {
@@ -142,21 +349,26 @@ export function FeeTiersSettingsPage({ session }: Props) {
     void load();
   }, [load]);
 
-  const overridesPageCount = Math.max(
-    1,
-    Math.ceil(approvals.length / OVERRIDES_PAGE_SIZE),
-  );
-
   useEffect(() => {
-    if (overridesPage > overridesPageCount) {
-      setOverridesPage(overridesPageCount);
+    const tab = searchParams.get("tab");
+    const fromTab = sectionFromTab(tab);
+    const hash = window.location.hash.replace(/^#/, "");
+    const section =
+      fromTab ||
+      (hash === "fee-wallet" || hash === "fee-calendar" || hash === "fee-schedule"
+        ? hash
+        : null);
+    if (tab != null) {
+      setSearchParams({}, { replace: true });
     }
-  }, [overridesPage, overridesPageCount]);
-
-  const pagedApprovals = useMemo(() => {
-    const start = (overridesPage - 1) * OVERRIDES_PAGE_SIZE;
-    return approvals.slice(start, start + OVERRIDES_PAGE_SIZE);
-  }, [approvals, overridesPage]);
+    if (!section) return;
+    window.requestAnimationFrame(() => {
+      document.getElementById(section)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -172,35 +384,10 @@ export function FeeTiersSettingsPage({ session }: Props) {
     setTiers((prev) =>
       prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
+    setMessage(null);
   }
 
-  function switchTab(next: TabId) {
-    if (dirty && tab === "bands" && next !== "bands") {
-      const leave = window.confirm(
-        "Band settings have unsaved changes. Leave without saving?",
-      );
-      if (!leave) return;
-    }
-    if (billingDirty && tab === "remittance" && next !== "remittance") {
-      const leave = window.confirm(
-        "Fee wallet has unsaved changes. Leave without saving?",
-      );
-      if (!leave) return;
-    }
-    if (calendarDirty && tab === "calendar" && next !== "calendar") {
-      const leave = window.confirm(
-        "Billing calendar has unsaved changes. Leave without saving?",
-      );
-      if (!leave) return;
-    }
-    setTab(next);
-    setSearchParams(
-      next === "pricing" ? {} : { tab: next },
-      { replace: true },
-    );
-  }
-
-  async function onSave(e: FormEvent) {
+  async function onSaveSchedule(e: FormEvent) {
     e.preventDefault();
     if (!canEdit) return;
     setBusy(true);
@@ -211,13 +398,11 @@ export function FeeTiersSettingsPage({ session }: Props) {
       setTiers(saved.tiers);
       setSavedSnapshot(tiersSnapshot(saved.tiers));
       setUpdatedAt(saved.updatedAt);
-      setPendingEffectiveFrom(saved.pendingEffectiveFrom ?? null);
       setMessage(
         effectiveTiming === "immediate"
-          ? "Fee tiers saved — schedule is live immediately."
-          : `Fee tiers saved — changes apply next billing period (${billingNote}).`,
+          ? "Fee schedule saved — live immediately."
+          : `Fee schedule saved — applies next billing period (${billingNote}).`,
       );
-      setTab("pricing");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save fee tiers");
     } finally {
@@ -225,29 +410,12 @@ export function FeeTiersSettingsPage({ session }: Props) {
     }
   }
 
-  async function onDecide(id: string, decision: "approve" | "deny") {
-    if (!canEdit) return;
-    let reason: string | undefined;
-    if (decision === "deny") {
-      reason = window.prompt("Denial reason (required):")?.trim();
-      if (!reason) return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await decideEnterpriseRateApproval(id, { decision, reason });
-      await load();
-      setMessage(decision === "approve" ? "Enterprise rate approved." : "Request denied.");
-      setTab("overrides");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Decision failed");
-    } finally {
-      setBusy(false);
-    }
+  if (loading) {
+    return <PagePending title="Loading fees…" />;
   }
 
   return (
-    <div className="plat-fee-tiers">
+    <div className="plat-fees">
       <AuthToast
         message={error ?? message}
         tone={error ? "error" : "ok"}
@@ -256,540 +424,257 @@ export function FeeTiersSettingsPage({ session }: Props) {
           setMessage(null);
         }}
       />
-      <div className="b3-agent-detail__tabs" role="tablist" aria-label="Platform fees">
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "pricing" ? " is-active" : ""}`}
-          aria-selected={tab === "pricing"}
-          onClick={() => switchTab("pricing")}
-        >
-          Platform fees
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "bands" ? " is-active" : ""}`}
-          aria-selected={tab === "bands"}
-          onClick={() => switchTab("bands")}
-        >
-          Band settings
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "overrides" ? " is-active" : ""}`}
-          aria-selected={tab === "overrides"}
-          onClick={() => switchTab("overrides")}
-        >
-          Rate overrides
-          {pendingOverrideCount > 0 ? (
-            <span className="plat-fee-tiers__tab-count">{pendingOverrideCount}</span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "remittance" ? " is-active" : ""}`}
-          aria-selected={tab === "remittance"}
-          onClick={() => switchTab("remittance")}
-        >
-          Fee wallet
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`b3-agent-detail__tab${tab === "calendar" ? " is-active" : ""}`}
-          aria-selected={tab === "calendar"}
-          onClick={() => switchTab("calendar")}
-        >
-          Billing calendar
-        </button>
-      </div>
 
-      {tab === "remittance" ? (
-        <BillingWalletPanel session={session} onDirtyChange={setBillingDirty} />
-      ) : tab === "calendar" ? (
-        <BillingCalendarPanel session={session} onDirtyChange={setCalendarDirty} />
-      ) : loading ? (
-        <PagePending />
-      ) : tab === "pricing" ? (
-        <>
-          <div className="plat-fee-tiers__banner" role="status">
-            <span className="plat-fee-tiers__banner-icon" aria-hidden />
-            <p>
-              Merchants and agents follow the volume schedule automatically.
-              Platform Owner may lock fixed specials per org. Band edits can
-              apply immediately or from the next billing period ({billingNote})
-              {pendingEffectiveFrom
-                ? ` — pending schedule live ${pendingEffectiveFrom}`
-                : ""}.
-            </p>
-          </div>
-
-          {updatedAt ? (
-            <p className="plat-fee-tiers__meta">
-              Last updated {new Date(updatedAt).toLocaleString()}
-            </p>
-          ) : null}
-
-          <div className="plat-fee-tiers__cards">
-            {sortedTiers.map((tier, index) => {
-              const popular = tier.tier === "mid";
-              const features = tierFeatures(tier);
-              return (
-                <article
-                  key={tier.tier}
-                  className={`plat-fee-tier-card plat-fee-tier-card--${tier.tier}${popular ? " plat-fee-tier-card--popular" : ""}`}
-                  style={{ animationDelay: `${index * 60}ms` }}
-                >
-                  <header className="plat-fee-tier-card__head">
-                    <h3>{TIER_TITLE[tier.tier] ?? tier.tier}</h3>
-                    {popular ? (
-                      <span className="plat-fee-tier-card__badge">POPULAR</span>
-                    ) : null}
-                  </header>
-                  <div className="plat-fee-tier-card__price">
-                    <p className="plat-fee-tier-card__rate">
-                      {formatTierPercent(tier.defaultSignupPercent)}{" "}
-                      <span>
-                        + {formatTierSubscription(tier.subscriptionAmountUsd)}
-                      </span>
-                    </p>
-                    <p className="plat-fee-tier-card__band">
-                      {formatVolumeBand(tier)}
-                    </p>
-                    <p className="plat-fee-tier-card__range">
-                      Merchant fee {formatTierPercent(tier.defaultSignupPercent)}
-                      {" · "}
-                      Agent commission{" "}
-                      {formatTierPercent(tier.agentCommissionPercent ?? "15")}
-                    </p>
-                  </div>
-                  <ul className="plat-fee-tier-card__features" aria-label="Tier assignment notes">
-                    {features.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      className="plat-fee-tier-card__edit"
-                      onClick={() => setTab("bands")}
-                    >
-                      Edit band
-                    </button>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </>
-      ) : tab === "bands" ? (
-        <div className="plat-fee-bands">
-          <div className="plat-fee-bands__notice" role="status">
-            <p>
-              Independent merchant volume fees and agent commissions per tier.
-              Choose when schedule changes take effect below — not retroactive
-              on open service bills.
-            </p>
-          </div>
-
-          {dirty ? (
-            <div className="plat-fee-bands__dirty" role="status">
-              Unsaved changes — save before leaving this tab.
-            </div>
-          ) : null}
-
+      <header className="plat-fees__head">
+        <div className="plat-fees__head-main">
+          <h1 className="plat-fees__title">Fees</h1>
           {!canEdit ? (
-            <p className="plat-fee-bands__readonly">
-              Platform Owner only — Administrators and Viewers are read-only.
-            </p>
+            <span className="plat-fees__readonly-chip">Viewer · read-only</span>
           ) : null}
+        </div>
+        <p className="plat-fees__subtitle">
+          Volume schedule, platform fee wallet, and billing calendar.
+        </p>
+      </header>
 
-          <form className="plat-fee-bands__form" onSubmit={onSave}>
-            <div className="plat-fee-bands__grid">
-            {sortedTiers.map((tier) => {
-              const index = tiers.findIndex((t) => t.tier === tier.tier);
-              const popular = tier.tier === "mid";
-              return (
-                <section
-                  key={tier.tier}
-                  className={`plat-fee-bands__tier${popular ? " plat-fee-bands__tier--mid" : ""}`}
-                >
-                  <header className="plat-fee-bands__tier-head">
-                    <div>
+      <div className="plat-fees__layout">
+      <div className="plat-fees__stack">
+        {/* —— Volume schedule —— */}
+        <section className="plat-fees__panel" id="fee-schedule">
+          <div className="plat-fees__panel-top">
+            <FeesIcon>
+              <IconLayers />
+            </FeesIcon>
+            <div className="plat-fees__panel-copy">
+              <h2 className="plat-fees__panel-title">Volume fee schedule</h2>
+              <p className="plat-fees__panel-sub">
+                Small / Mid / Enterprise bands. Merchants follow this schedule
+                automatically; Platform Owner may lock a fixed rate per org.
+              </p>
+            </div>
+          </div>
+
+          <form className="plat-fees__schedule" onSubmit={onSaveSchedule}>
+            {dirty && canEdit ? (
+              <div className="plat-fees__dirty" role="status">
+                Unsaved schedule changes.
+              </div>
+            ) : null}
+
+            <div className="plat-fees__tier-grid">
+              {sortedTiers.map((tier) => {
+                const index = tiers.findIndex((t) => t.tier === tier.tier);
+                const popular = tier.tier === "mid";
+                return (
+                  <article
+                    key={tier.tier}
+                    className={`plat-fees__tier plat-fees__tier--${tier.tier}${popular ? " is-popular" : ""}`}
+                  >
+                    <header className="plat-fees__tier-head">
                       <h3>{TIER_TITLE[tier.tier] ?? tier.tier}</h3>
-                      <p>
-                        {formatVolumeBand(tier)} · automatic schedule rates
-                      </p>
-                    </div>
-                    {popular ? (
-                      <span className="plat-fee-tier-card__badge">POPULAR</span>
-                    ) : null}
-                  </header>
+                      {popular ? (
+                        <span className="plat-fees__tier-badge">Popular</span>
+                      ) : null}
+                    </header>
+                    <p className="plat-fees__tier-band">{formatVolumeBand(tier)}</p>
 
-                  <div className="plat-fee-bands__metrics">
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-sub`}>
-                        Subscription (USD)
-                      </label>
-                      <input
-                        id={`${tier.tier}-sub`}
-                        className="b4-field__control"
-                        inputMode="decimal"
-                        value={tier.subscriptionAmountUsd}
-                        onChange={(e) =>
-                          patchTier(index, {
-                            subscriptionAmountUsd: e.target.value,
-                          })
-                        }
-                        disabled={!canEdit || busy}
-                      />
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-min`}>
-                        Volume fee min
-                      </label>
-                      <div className="plat-fee-bands__affix-wrap plat-fee-bands__affix-wrap--suffix">
+                    <div className="plat-fees__tier-fields">
+                      <label className="plat-fees__field">
+                        <span>Subscription (USD)</span>
                         <input
-                          id={`${tier.tier}-min`}
-                          className="b4-field__control plat-fee-bands__affix-input plat-fee-bands__affix-input--suffix"
                           inputMode="decimal"
-                          value={tier.volumeFeeMinPercent}
+                          value={tier.subscriptionAmountUsd}
+                          disabled={!canEdit || busy}
                           onChange={(e) =>
                             patchTier(index, {
-                              volumeFeeMinPercent: e.target.value,
+                              subscriptionAmountUsd: e.target.value,
                             })
                           }
-                          disabled={!canEdit || busy}
                         />
-                        <span className="plat-fee-bands__affix plat-fee-bands__affix--suffix" aria-hidden>
-                          %
-                        </span>
-                      </div>
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-max`}>
-                        Volume fee max
                       </label>
-                      <div className="plat-fee-bands__affix-wrap plat-fee-bands__affix-wrap--suffix">
+                      <label className="plat-fees__field">
+                        <span>Default signup %</span>
                         <input
-                          id={`${tier.tier}-max`}
-                          className="b4-field__control plat-fee-bands__affix-input plat-fee-bands__affix-input--suffix"
-                          inputMode="decimal"
-                          value={tier.volumeFeeMaxPercent}
-                          onChange={(e) =>
-                            patchTier(index, {
-                              volumeFeeMaxPercent: e.target.value,
-                            })
-                          }
-                          disabled={!canEdit || busy}
-                        />
-                        <span className="plat-fee-bands__affix plat-fee-bands__affix--suffix" aria-hidden>
-                          %
-                        </span>
-                      </div>
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-default`}>
-                        Default signup rate
-                      </label>
-                      <div className="plat-fee-bands__affix-wrap plat-fee-bands__affix-wrap--suffix">
-                        <input
-                          id={`${tier.tier}-default`}
-                          className="b4-field__control plat-fee-bands__affix-input plat-fee-bands__affix-input--suffix"
                           inputMode="decimal"
                           value={tier.defaultSignupPercent}
+                          disabled={!canEdit || busy}
                           onChange={(e) =>
                             patchTier(index, {
                               defaultSignupPercent: e.target.value,
                             })
                           }
-                          disabled={!canEdit || busy}
                         />
-                        <span className="plat-fee-bands__affix plat-fee-bands__affix--suffix" aria-hidden>
-                          %
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-vmin`}>
-                        Volume min (USD)
                       </label>
-                      <input
-                        id={`${tier.tier}-vmin`}
-                        className="b4-field__control"
-                        inputMode="decimal"
-                        value={tier.volumeMinUsd ?? "0"}
-                        onChange={(e) =>
-                          patchTier(index, { volumeMinUsd: e.target.value })
-                        }
-                        disabled={!canEdit || busy}
-                      />
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-vmax`}>
-                        Volume max (USD)
-                      </label>
-                      <input
-                        id={`${tier.tier}-vmax`}
-                        className="b4-field__control"
-                        inputMode="decimal"
-                        value={tier.volumeMaxUsd ?? ""}
-                        onChange={(e) =>
-                          patchTier(index, {
-                            volumeMaxUsd: e.target.value.trim()
-                              ? e.target.value
-                              : null,
-                          })
-                        }
-                        disabled={!canEdit || busy}
-                        placeholder="Unbounded"
-                      />
-                    </div>
-                    <div className="b4-field">
-                      <label className="b4-field__label" htmlFor={`${tier.tier}-agent`}>
-                        Agent commission
-                      </label>
-                      <div className="plat-fee-bands__affix-wrap plat-fee-bands__affix-wrap--suffix">
+                      <label className="plat-fees__field">
+                        <span>Fee min %</span>
                         <input
-                          id={`${tier.tier}-agent`}
-                          className="b4-field__control plat-fee-bands__affix-input plat-fee-bands__affix-input--suffix"
+                          inputMode="decimal"
+                          value={tier.volumeFeeMinPercent}
+                          disabled={!canEdit || busy}
+                          onChange={(e) =>
+                            patchTier(index, {
+                              volumeFeeMinPercent: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="plat-fees__field">
+                        <span>Fee max %</span>
+                        <input
+                          inputMode="decimal"
+                          value={tier.volumeFeeMaxPercent}
+                          disabled={!canEdit || busy}
+                          onChange={(e) =>
+                            patchTier(index, {
+                              volumeFeeMaxPercent: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="plat-fees__field">
+                        <span>Volume min (USD)</span>
+                        <input
+                          inputMode="decimal"
+                          value={tier.volumeMinUsd ?? "0"}
+                          disabled={!canEdit || busy}
+                          onChange={(e) =>
+                            patchTier(index, { volumeMinUsd: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="plat-fees__field">
+                        <span>Volume max (USD)</span>
+                        <input
+                          inputMode="decimal"
+                          value={tier.volumeMaxUsd ?? ""}
+                          disabled={!canEdit || busy}
+                          placeholder="Unbounded"
+                          onChange={(e) =>
+                            patchTier(index, {
+                              volumeMaxUsd: e.target.value.trim()
+                                ? e.target.value
+                                : null,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="plat-fees__field plat-fees__field--wide">
+                        <span>Agent commission %</span>
+                        <input
                           inputMode="decimal"
                           value={tier.agentCommissionPercent ?? "15"}
+                          disabled={!canEdit || busy}
                           onChange={(e) =>
                             patchTier(index, {
                               agentCommissionPercent: e.target.value,
                             })
                           }
-                          disabled={!canEdit || busy}
                         />
-                        <span className="plat-fee-bands__affix plat-fee-bands__affix--suffix" aria-hidden>
-                          %
-                        </span>
-                      </div>
+                      </label>
+                      <label className="plat-fees__field plat-fees__field--wide">
+                        <span>Assignment notes</span>
+                        <textarea
+                          rows={2}
+                          value={tier.tierDescription ?? ""}
+                          disabled={!canEdit || busy}
+                          onChange={(e) =>
+                            patchTier(index, { tierDescription: e.target.value })
+                          }
+                        />
+                      </label>
                     </div>
-                  </div>
-
-                  <div className="b4-field plat-fee-bands__notes">
-                    <label className="b4-field__label" htmlFor={`${tier.tier}-notes`}>
-                      Tier assignment notes
-                    </label>
-                    <textarea
-                      id={`${tier.tier}-notes`}
-                      className="b4-field__control plat-fee-bands__textarea"
-                      rows={3}
-                      value={tier.tierDescription ?? ""}
-                      onChange={(e) =>
-                        patchTier(index, { tierDescription: e.target.value })
-                      }
-                      disabled={!canEdit || busy}
-                      placeholder={"Single-location merchants, low volume\nAgent assigns rate within band"}
-                    />
-                    <p className="b4-field__hint">
-                      One line per bullet on the Pricing tab.
-                    </p>
-                  </div>
-                </section>
-              );
-            })}
+                  </article>
+                );
+              })}
             </div>
 
             {canEdit ? (
-              <div className="plat-fee-bands__timing b4-field" style={{ marginTop: "1.25rem" }}>
-                <label className="b4-field__label" htmlFor="fee-tier-timing">
-                  When schedule changes take effect
-                </label>
-                <select
-                  id="fee-tier-timing"
-                  className="b4-field__control"
-                  value={effectiveTiming}
-                  onChange={(e) =>
-                    setEffectiveTiming(e.target.value as FeeTierEffectiveTiming)
-                  }
-                  disabled={busy}
-                >
-                  <option value="next_billing_cycle">
-                    Next billing cycle ({billingNote})
-                  </option>
-                  <option value="immediate">Immediately</option>
-                </select>
-              </div>
-            ) : null}
-
-            {canEdit ? (
-              <div className="plat-fee-bands__actions">
-                <p className="plat-fee-bands__actions-note">
-                  {dirty
-                    ? "You have unsaved band changes."
-                    : updatedAt
+              <div className="plat-fees__schedule-foot">
+                <div className="plat-fees__timing">
+                  <span>When schedule changes take effect</span>
+                  <TimingSelect
+                    value={effectiveTiming}
+                    billingNote={billingNote}
+                    disabled={busy}
+                    onChange={(next) => {
+                      setEffectiveTiming(next);
+                      setMessage(null);
+                    }}
+                  />
+                </div>
+                <div className="plat-fees__schedule-actions">
+                  <p className="plat-fees__meta">
+                    {updatedAt
                       ? `Last saved ${new Date(updatedAt).toLocaleString()}`
-                      : "Showing platform defaults — save once to persist."}
-                </p>
-                <div className="plat-fee-bands__actions-buttons">
+                      : null}
+                  </p>
                   <button
                     type="submit"
-                    className="btn-primary plat-fee-bands__save"
+                    className="plat-fees__save"
                     disabled={busy || !dirty}
                   >
-                    {busy ? "Saving…" : "Save fee tiers"}
+                    <IconSave />
+                    {busy ? "Saving…" : "Save schedule"}
                   </button>
                 </div>
               </div>
             ) : null}
           </form>
-        </div>
-      ) : (
-        <section className="plat-fee-tiers__overrides" id="fee-tier-overrides">
-          <div className="plat-fee-tiers__overrides-head">
-            <div className="plat-fee-tiers__overrides-titles">
-              <h2>Custom merchant rate overrides</h2>
-              <p className="plat-fee-tiers__overrides-lede">
-                Fixed specials and legacy enterprise rate requests. Prefer locking
-                a fixed rate from the merchant detail page (Platform Owner).
-                Approved rates stay here until you change or revoke them.
+        </section>
+
+        {/* —— Fee wallet —— */}
+        <section className="plat-fees__panel plat-fees__panel--block" id="fee-wallet">
+          <div className="plat-fees__panel-top">
+            <FeesIcon>
+              <IconWallet />
+            </FeesIcon>
+            <div className="plat-fees__panel-copy">
+              <h2 className="plat-fees__panel-title">Fee wallet</h2>
+              <p className="plat-fees__panel-sub">
+                Invoice seller details and the USDT address merchants use to pay
+                platform service bills.
               </p>
             </div>
-            {pendingOverrideCount > 0 ? (
-              <span className="plat-fee-tiers__overrides-pending">
-                {pendingOverrideCount} pending
-              </span>
+          </div>
+          <BillingWalletPanel session={session} embedded />
+        </section>
+
+        {/* —— Billing calendar —— */}
+        <section className="plat-fees__panel plat-fees__panel--block" id="fee-calendar">
+          <div className="plat-fees__panel-top">
+            <FeesIcon>
+              <IconCalendar />
+            </FeesIcon>
+            <div className="plat-fees__panel-copy">
+              <h2 className="plat-fees__panel-title">Billing calendar</h2>
+              <p className="plat-fees__panel-sub">
+                Activation fee, pay-within window, auto-send, and agent remittance
+                days (UTC).
+              </p>
+            </div>
+            {canEdit ? (
+              <button
+                type="submit"
+                form="fee-billing-calendar-form"
+                className="plat-fees__save"
+                disabled={!calendarDirty || calendarBusy}
+              >
+                {calendarBusy ? "Saving…" : "Save calendar"}
+              </button>
             ) : null}
           </div>
-          {!canEdit ? (
-            <p className="plat-fee-tiers__readonly">
-              Platform Owner approves or denies pending Enterprise rates.
-            </p>
-          ) : null}
-          {approvals.length === 0 ? (
-            <div className="plat-fee-tiers__empty" role="status">
-              <div className="plat-fee-tiers__empty-mark" aria-hidden>
-                <svg viewBox="0 0 48 48" width="32" height="32" fill="none">
-                  <rect
-                    x="10"
-                    y="8"
-                    width="28"
-                    height="32"
-                    rx="3"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M16 18h16M16 24h10"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                  <circle
-                    cx="18"
-                    cy="33"
-                    r="2.2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <circle
-                    cx="30"
-                    cy="33"
-                    r="2.2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M20 35.5 28 30.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <h3 className="plat-fee-tiers__empty-title">
-                No enterprise rate overrides yet
-              </h3>
-              <p className="plat-fee-tiers__empty-copy">
-                When an agent requests a custom Enterprise rate during merchant
-                onboard, the request lands in this queue for review.
-              </p>
-              <ul className="plat-fee-tiers__empty-hints">
-                <li>Requested on merchant onboard — not from this page</li>
-                <li>Platform Owner approves or denies pending rates</li>
-              </ul>
-            </div>
-          ) : (
-            <div className="plat-fee-tiers__table-wrap">
-              <table className="plat-fee-tiers__table">
-                <thead>
-                  <tr>
-                    <th>Merchant</th>
-                    <th>Custom rate</th>
-                    <th>Tier</th>
-                    <th>Granted by</th>
-                    <th>Status</th>
-                    {canEdit ? (
-                      <th className="plat-fee-tiers__th-actions">Actions</th>
-                    ) : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedApprovals.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.merchantName}</td>
-                      <td className="mono">
-                        {formatTierPercent(row.requestedVolumeFeePercent)}
-                      </td>
-                      <td>{TIER_LABEL[row.requestedTier] ?? row.requestedTier}</td>
-                      <td className="muted mono">
-                        {row.requestedByUserId.slice(0, 12)}…
-                      </td>
-                      <td>
-                        <span
-                          className={`status-badge tone-${overrideStatusTone(row.status)}`}
-                        >
-                          {overrideStatusLabel(row.status)}
-                        </span>
-                      </td>
-                      {canEdit ? (
-                        <td className="plat-fee-tiers__actions">
-                          <div className="plat-fee-tiers__action-row">
-                            {row.status === "pending" ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="plat-fee-tiers__approve"
-                                  disabled={busy}
-                                  onClick={() => void onDecide(row.id, "approve")}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  className="plat-fee-tiers__deny"
-                                  disabled={busy}
-                                  onClick={() => void onDecide(row.id, "deny")}
-                                >
-                                  Deny
-                                </button>
-                              </>
-                            ) : null}
-                          </div>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <OrgListPagination
-                page={overridesPage}
-                pageCount={overridesPageCount}
-                total={approvals.length}
-                pageSize={OVERRIDES_PAGE_SIZE}
-                onPageChange={setOverridesPage}
-              />
-            </div>
-          )}
+          <BillingCalendarPanel
+            session={session}
+            embedded
+            formId="fee-billing-calendar-form"
+            onDirtyChange={setCalendarDirty}
+            onBusyChange={setCalendarBusy}
+          />
         </section>
-      )}
+      </div>
+
+      <FeesOwnerGuide tiers={sortedTiers} />
+      </div>
     </div>
   );
 }

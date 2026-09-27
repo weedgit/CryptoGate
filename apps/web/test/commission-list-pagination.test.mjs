@@ -19,35 +19,39 @@ describe("@paymentgate/web commission list pagination", () => {
     assert.match(client, /items: rows/);
   });
 
-  it("platform commissions page refetches by tab/pill status", () => {
+  it("server client sends status/search/sort/paging and reads a separate summary", () => {
+    const client = readFileSync(join(root, "src/shared/commissionsServer.ts"), "utf8");
+    assert.match(client, /status:/);
+    assert.match(client, /q: p\.q/);
+    assert.match(client, /agingFirst/);
+    assert.match(client, /limit: p\.limit/);
+    assert.match(client, /offset: p\.offset/);
+    assert.match(client, /\/summary/);
+  });
+
+  it("platform commissions page shows one server page at a time (no Load more)", () => {
     const page = readFileSync(
       join(root, "src/platform/PlatformCommissionsPage.tsx"),
       "utf8",
     );
-    assert.match(page, /listStatusForView/);
-    assert.match(page, /status: listStatusForView\(tab, invoiceStatusFilter\)/);
-    assert.match(page, /FETCH_PAGE/);
-    assert.match(page, /offset: platformPayouts\.length/);
-    assert.match(page, /Load more/);
-    assert.match(page, /hasMoreServer/);
+    assert.match(page, /status: listStatusForView\(statusFilter\)/);
+    assert.match(page, /listCommissionPayoutsServer/);
+    assert.match(page, /getCommissionPayoutsSummary/);
+    assert.match(page, /offset: \(page - 1\) \* PAGE_SIZE/);
+    assert.match(page, /OrgListPagination/);
+    assert.match(page, /useDebouncedValue/);
     assert.match(page, /findPayout/);
-    assert.match(page, /refreshStuckPaidCount/);
-    assert.match(page, /countStuckPaidAcrossPages/);
+    assert.doesNotMatch(page, /Load more|hasMoreServer|FETCH_PAGE|countStuckPaidAcrossPages/);
   });
 
-  it("agent commissions page uses status-scoped fetch, search, and Load more", () => {
-    const page = readFileSync(
-      join(root, "src/agent/CommissionsPage.tsx"),
+  it("agent commissions reuse the platform page scoped to the agent payee", () => {
+    const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
+    assert.match(page, /PlatformCommissionsPage/);
+    assert.match(page, /useAgentCommissionsPortal/);
+    const platform = readFileSync(
+      join(root, "src/platform/PlatformCommissionsPage.tsx"),
       "utf8",
     );
-    assert.match(page, /listStatusForTab/);
-    assert.match(page, /status: listStatusForTab\(tab\)/);
-    assert.match(page, /FETCH_PAGE/);
-    assert.match(page, /offset: platformInvoices\.length/);
-    assert.match(page, /Load more/);
-    assert.match(page, /hasMoreServer/);
-    assert.match(page, /findPayout/);
-    assert.match(page, /Search period, status, or ref/);
-    assert.doesNotMatch(page, /limit: 500/);
+    assert.match(platform, /payeeOrgId: portal\.payeeOrgId/);
   });
 });

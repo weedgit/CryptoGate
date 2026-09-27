@@ -20,6 +20,7 @@ import {
   fetchRegisteredEmailIndex,
   ownerOnboardEmailConflict,
   inviteEmailErrorMessage,
+  REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
@@ -32,12 +33,12 @@ import {
   OnboardMerchantHead,
 } from "../shared/onboardMerchantUi";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function agentReturnPrefix(): string {
   const base = agentRoute();
   return base === "/" ? "/" : `${base}/`;
 }
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function agentOnboardReturnPath(
   searchParams: URLSearchParams,
@@ -56,7 +57,7 @@ type FormState = {
   ownerEmail: string;
 };
 
-/** Agent — create a merchant_site under a channel merchant (or nested site). */
+/** Agent — create a merchant_site under a channel merchant (Platform wizard layout). */
 export function OnboardSitePage({ session }: Props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -66,7 +67,7 @@ export function OnboardSitePage({ session }: Props) {
   );
   const agentId = useMemo(() => primaryAgentOrgId(session), [session]);
   const cancelTo = useMemo(
-    () => agentOnboardReturnPath(searchParams, agentRoute("merchants")),
+    () => agentOnboardReturnPath(searchParams, agentRoute("accounts")),
     [searchParams],
   );
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
@@ -123,22 +124,14 @@ export function OnboardSitePage({ session }: Props) {
 
   const parentInChannel = useMemo(() => {
     if (!parentOrg) return false;
-    if (parentOrg.type === "merchant") {
-      return channelMerchantIds.has(parentOrg.id);
-    }
-    if (parentOrg.type === "merchant_site") {
-      // Allow nesting under a site whose billing merchant is in channel.
-      let cur: OrgAccount | null = parentOrg;
-      const seen = new Set<string>();
-      while (cur && !seen.has(cur.id)) {
-        seen.add(cur.id);
-        if (cur.type === "merchant") return channelMerchantIds.has(cur.id);
-        const parentId = cur.parentId ?? null;
-        cur = parentId
-          ? (orgs.find((o) => o.id === parentId) ?? null)
-          : null;
-      }
-      return false;
+    let cur: OrgAccount | null = parentOrg;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      if (cur.type === "merchant") return channelMerchantIds.has(cur.id);
+      if (cur.type !== "merchant_site") return false;
+      const parentId = cur.parentId ?? null;
+      cur = parentId ? (orgs.find((o) => o.id === parentId) ?? null) : null;
     }
     return false;
   }, [parentOrg, channelMerchantIds, orgs]);
@@ -201,24 +194,22 @@ export function OnboardSitePage({ session }: Props) {
         inviteCreds = onboardInviteCreds(invitedEmail, invite);
       }
       await refreshAgentOrgList();
-      const merchantId =
-        parentOrg?.type === "merchant"
-          ? parentOrg.id
-          : (parentOrg?.parentId ?? form.parentId);
-      navigate(agentRoute(`merchants/${merchantId}`), {
-        state: {
-          invitationSent: Boolean(invitedEmail),
-          onboardedOrgId: created.id,
-          inviteCreds,
-          detailTab: "sites",
+      navigate(
+        agentRoute(`accounts/merchants/${created.id}`),
+        {
+          state: {
+            invitationSent: Boolean(invitedEmail),
+            onboardedOrgId: created.id,
+            inviteCreds,
+          },
         },
-      });
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? inviteEmailErrorMessage(err)
-          : "Failed to create site",
       );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "email_taken") {
+        setError(REGISTERED_EMAIL_API_MESSAGE);
+      } else {
+        setError(inviteEmailErrorMessage(err));
+      }
     } finally {
       setBusy(false);
     }
@@ -239,7 +230,7 @@ export function OnboardSitePage({ session }: Props) {
               <OnboardMerchantHead
                 titleId="site-wizard-title"
                 title="New site"
-                subtitle="Create a site under a channel merchant."
+                subtitle="Create a site under a merchant."
                 closeTo={cancelTo}
               />
               <div className="b4-wizard__body">
@@ -277,13 +268,13 @@ export function OnboardSitePage({ session }: Props) {
               <OnboardMerchantHead
                 titleId="site-wizard-title"
                 title="New site"
-                subtitle="Create a site under a channel merchant."
+                subtitle="Create a site under a merchant."
                 closeTo={cancelTo}
               />
               <div className="b4-wizard__body">
                 <p className="muted">
-                  Open this from a merchant detail Sites tab (Onboard site), or
-                  pass a valid parentId for a merchant in your channel.
+                  Open this from a merchant in Accounts (right-click → New
+                  Site), or pass a valid parentId for a merchant in your channel.
                 </p>
               </div>
               <footer className="b4-wizard__foot">
@@ -338,55 +329,57 @@ export function OnboardSitePage({ session }: Props) {
                   />
                 </div>
 
-                <label className="b4-field" htmlFor="site-name">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
+                    htmlFor="site-name"
                     label="Site name"
-                    tip="Outlet or storefront name shown on the site portal."
+                    lede="Outlet or location shown in PaymentGate."
                   />
-                  <FieldControl>
+                  <FieldControl icon="user">
                     <input
                       id="site-name"
-                      className="field-control"
+                      className="b4-field__control"
+                      required
                       value={form.name}
                       onChange={(e) => patch("name", e.target.value)}
-                      disabled={busy}
+                      placeholder="e.g. Downtown branch"
                       autoFocus
-                      autoComplete="organization"
-                      required
                     />
                   </FieldControl>
-                </label>
+                </div>
 
-                <label className="b4-field" htmlFor="site-owner-email">
+                <div className="b4-aside-row">
                   <OnboardFieldHead
-                    label="Owner email (optional)"
-                    tip="Invite an Owner for this site. Cannot be a Platform or Agent Owner/Administrator."
+                    htmlFor="owner-email"
+                    label="Site Owner email"
+                    lede="Optional — invite a site owner after create."
                   />
-                  <FieldControl>
+                  <FieldControl icon="mail">
                     <input
-                      id="site-owner-email"
-                      className="field-control"
+                      id="owner-email"
+                      className="b4-field__control"
                       type="email"
                       value={form.ownerEmail}
                       onChange={(e) => patch("ownerEmail", e.target.value)}
-                      disabled={busy}
-                      autoComplete="email"
-                      placeholder="owner@example.com"
+                      placeholder="name@company.com"
                     />
                   </FieldControl>
-                </label>
+                </div>
               </div>
 
               <footer className="b4-wizard__foot">
-                <Link className="b4-wizard__cancel" to={cancelTo}>
-                  Cancel
-                </Link>
+                <div className="b4-wizard__foot-left">
+                  <Link className="b4-wizard__cancel" to={cancelTo}>
+                    Cancel
+                  </Link>
+                </div>
                 <button
                   type="submit"
-                  className="btn-primary"
-                  disabled={busy || !form.name.trim()}
+                  className="b4-wizard__continue b4-wizard__continue--gold"
+                  disabled={busy}
                 >
-                  {busy ? "Creating…" : "Create site"}
+                  {busy ? "Creating…" : "Create"}
+                  {!busy ? <span aria-hidden>→</span> : null}
                 </button>
               </footer>
             </form>

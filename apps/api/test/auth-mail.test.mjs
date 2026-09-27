@@ -51,13 +51,20 @@ describe("auth-mail", () => {
     delete process.env.MAIL_TRANSPORT;
     delete process.env.SMTP_HOST;
     try {
-      const { sendPasswordResetEmail } = await import("../src/mail/auth-mail.mjs");
+      const { sendEmailChangeNotice, sendPasswordResetEmail } = await import(
+        "../src/mail/auth-mail.mjs"
+      );
       const out = await sendPasswordResetEmail({
         to: "a@example.com",
         resetUrl: "http://localhost/reset",
       });
       assert.equal(out.delivered, false);
       assert.equal(out.mode, "stub");
+      const notice = await sendEmailChangeNotice({
+        to: "old@example.com",
+        phase: "requested",
+      });
+      assert.equal(notice.mode, "stub");
     } finally {
       restoreEnv(prev);
     }

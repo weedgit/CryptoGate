@@ -11,6 +11,16 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 - Role abbreviations: **O** Owner · **A** Administrator · **V** Viewer · **C** Cashier.
 - **✓** = role has access; **—** = no access; **R** = read-only.
 
+**Glossary (three different “invoices”)**
+
+| Term | Meaning | Nav |
+| --- | --- | --- |
+| **Invoice** | Guest **payment order** (payer → merchant). List + detail + CSV. | Platform / Merchant / Cashier **Invoice**; APK **Invoice** |
+| **Service Bill** | Merchant ↔ platform **fee bill** (subscription / volume). | **Service Bills** |
+| **Commission** | Agent **payout** statement / remittance invoice. | **Commissions** |
+
+Never merge these rails on one page or checkout.
+
 **Apps**
 
 | App | Audience |
@@ -97,7 +107,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 | | |
 | --- | --- |
 | **Route** | `/login/mfa` |
-| **Access** | Users with MFA enrolled (merchant/agent Owner & Administrator; optional others) |
+| **Access** | Users with MFA enrolled. **Required enroll + login TOTP** for Platform and Merchant Owner/Administrator (fund rails). Agent, site, Cashier, Viewer are **not** forced; agent O/A may enroll optionally for payout step-up. |
 
 **Content**
 
@@ -117,8 +127,8 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 | | |
 | --- | --- |
-| **Route** | `/settings/security/mfa` or forced wizard after first Owner/Admin login |
-| **Access** | O, A (required for merchant/agent Owner & Administrator per plan) |
+| **Route** | `/settings/security/mfa` or forced wizard after first Platform/Merchant Owner/Admin login |
+| **Access** | Platform / Merchant / Agent Owner & Administrator may enroll. **Forced** for Platform and Merchant O/A only. |
 
 **Content**
 
@@ -130,7 +140,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 **States**
 
-- Forced enrollment banner on dashboard until complete (Owner/Admin)
+- Forced enrollment gate on portal until complete (**Platform / Merchant** Owner/Admin only)
 - Success toast: “MFA enabled.”
 - Lost device: platform Operator clears MFA, then user re-enrolls
 
@@ -204,7 +214,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 | xPub change pending / activated | Merchant O, A | Same pattern as address |
 | Site override approval requested | Merchant O (parent) | “Site **Downtown** requested wallet override — **Approve** / **Deny**.” |
 | Site override approved / denied | Site O, A | Result of approval flow |
-| Payment Anomaly | Merchant O, A, C (own order) | “Order **#12345** — Amount received was less than expected. Expected 10 USDT, received 9. Open the order… Resolve with a note.” |
+| Attention | Merchant O, A, C (own order) | “Order **#12345** — Amount received was less than expected. Expected 10 USDT, received 9. Open the order… Resolve with a note.” |
 | Webhook delivery failed | Merchant O, A | “Webhook not reaching your server — **host** failed 5 times…” |
 | Service bill issued | Merchant O, A | “Bill **Aug 2026** ready — due **date**. Platform fees, not a customer payment.” |
 | Service bill overdue | Merchant O, A | “Service bill overdue — pay to avoid account restriction.” |
@@ -232,7 +242,7 @@ Complete page inventory for UI/UX design. Covers every portal, role, public surf
 
 **Sections**
 
-1. **Profile** — **first name**, **last name** (all roles: Platform → Cashier), email (change with verification), phone (with verification), language/timezone. Users edit **self** only. **Administrator cannot** edit the org **Owner’s** person profile. **Platform Owner** may support-edit partner Owner contact / verification (audit). Phase 1 channels: email + phone SMS only.
+1. **Profile** — **first name**, **last name** (all roles: Platform → Cashier), email (change with verification), phone (with verification), language/timezone. Users edit **self** only. **Administrator cannot** edit the org **Owner’s** person profile. **Platform Owner** may support-edit partner Owner contact / verification (audit). Phase 1 channels: email + phone SMS only. **Contact change:** OTP is sent to the **new** email/phone; the current verified value stays active until the new OTP succeeds (no old-channel OTP required). The previous verified email/phone receives a **notify-only** alert when the change is requested and when it completes (not a second OTP). OTP entry uses a **focused modal** (same shell as login / MFA step-up), not inline on the Profile page.
 2. **Password** — change password (current + new + confirm); policy checklist
 3. **MFA** — link to A5; status badge Enabled/Disabled
 4. **Active sessions** — list devices, IP, last active; **Revoke** per session; **Revoke all other sessions**
@@ -417,33 +427,52 @@ Platform O/A may override **email verified** / **phone verified** when SMS or em
 
 ---
 
-### B5a. Support — payment invoices (platform)
+### B5a. Invoice — payment orders (platform)
 
 | | |
 | --- | --- |
-| **Route** | `/platform/support` (legacy `/platform/compliance` redirects here) |
+| **Route** | `/platform/invoices` (legacy `/platform/support` and `/platform/compliance` redirect here) |
 | **Access** | O ✓ · A ✓ · V R |
+| **Nav** | **Invoice** |
 
 **Purpose**
 
-Platform ops workspace to watch **payment order invoices** by merchant or site, see org pause / order-create suspend status, and deep-link into order, merchant (Compliance / Cashiers), or related service bill. Service Bills and Commissions stay on their own nav items.
+Shared **Invoice** workbench for guest payment orders: ops triage (**Attention** / Open) and accountant history (Completed + period + export). Service Bills and Commissions stay separate.
 
-**Filters**
+**Glossary:** Invoice = payment order. Not a Service Bill or Commission invoice.
 
-- Merchant select; Site select (scoped to merchant when set)
-- Search: order #, id, merchant/site name, cashier, receive address, asset/network
-- Matching mode pills (All / B / C / D / S)
-- Status KPIs: All · Anomaly · Pending · Verifying · Completed · Closed
-- When Anomaly selected: kind KPIs (Underpay / Overpay / Collision / Wrong network / Other)
+**Defaults**
+
+- Platform O/A: Attention (`payment_anomaly`)
+- Platform Viewer: Completed + This month
+
+**Layout**
+
+1. **Header** — title + invoice count; **Total invoice value** (USD) on the right
+2. **Asset cards** — per-asset payable totals (e.g. ETH, USDT, USDC, BTC)
+3. **Filters** sidebar (Period · Merchant · Site · Cashier · Asset · Network) + **Reset**
+4. **Main** — status chips (**All** · **Attention** · **Open** · **Completed** · **Closed**) · lean table (page size **25**, server `total`/`offset`) + pager
+5. **Top bar** — search: invoice # (exact digits), UUID, or merchant reference prefix (`q`, min 2 chars for reference); Export CSV / Request export (O/A/V) · Refresh
+
+**Scale gates**
+
+- Open triage (Attention / Open) may load platform-wide without merchant/site
+- Unscoped **Completed / Closed**: period max **31 days** (Today / 7d / This month / Last month / 30d); **All time** and **90d** require merchant or site
+- Unscoped **All** status: period max **7 days** (Today / Last 7 days) — month/30d/90d/All time need merchant or site
+- Merchant selected → `includeSubtree`; site → exact `orgId`
+- Deep archives: Export (sync ≤5000 / async ≤100k), not unbounded live browse
 
 **Columns**
 
-Order · Merchant / Site · Cashier · Amount · Status · Mode · Network · Org status (Active/Paused + Suspended + bill link) · Hint (anomaly) · When
+Invoice (# + reference) · Merchant & Cashier · Amount (USD) · Asset & Network · Status · Created
 
 **Notes**
 
-- Anomaly rows are **watch-only** — platform cannot mark paid; merchant reconciles.
-- Org status links to merchant `?tab=compliance` when paused or suspended.
+- Soft load: `PagePending` only when empty; refetch dims table (no skeleton)
+- Attention rows watch-only on platform
+- CSV sync export when filtered total ≤ 5000; if total &gt; 5000 → **Request export** (async job) → poll → **Download** (same columns/filters). Hard cap **100_000** rows; files expire after **24h**. Cashiers cannot export.
+- Asset / Network live under **More** so the default filter bar stays calm
+- Platform: **Suspended** badge on Merchant/Site cell deep-links to merchant detail (header Suspend)
 
 ---
 
@@ -459,37 +488,36 @@ Order · Merchant / Site · Cashier · Amount · Status · Mode · Network · Or
 1. **Overview** — profile, commercial tier, settlement snapshot, recent activity
 2. **Team** — non-cashier members
 3. **Cashiers** — cashier roster
-4. **Compliance** — pause / order-create status, override log, inline B7 apply form (O/A)
+4. **Networks** — per-merchant rail confirms / mins (raise-only vs platform floor)
 
-Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) remain reachable from Overview / Accounts / Support / Service Bills nav where applicable.
+Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) remain reachable from Overview / Accounts / Invoice / Service Bills nav where applicable.
 
 **Actions (O, A)**
 
-- Edit any merchant org / owner profile fields, verification status, settlement wallet (O/A; MFA + cool-down + audit for wallet)
-- Suspend merchant; fee Automatic/Fixed (Owner for Fixed) — **no fee editor on merchant portal**
+- Edit merchant org fields; settlement / xPub: **Platform Owner only** among platform roles (MFA + cool-down + audit). Platform Administrator cannot change fund rails
+- **Suspend / Resume** (header): required reason + MFA for platform; cascades watch-only to descendant sites; reason shown on portals (header banner + status badge)
+- Fee Automatic/Fixed (Owner for Fixed) — **no fee editor on merchant portal**
 - Agents never edit merchant profile/settlement from agent portal; **verified** Agent O/A may be invited onto merchant/site **team** (Viewers cannot). Platform/Agent O/A must not be the **Owner** email at merchant/site onboard
 
 ---
 
-### B7. Compliance override (modal / page)
+### B7. Suspend (was “compliance override”)
 
 | | |
 | --- | --- |
 | **Access** | O ✓ · A ✓ (all actions logged) |
-| **Surface** | Inline on B6 Compliance tab (`variant=inline`); modal variant retained for other entry points |
+| **Surface** | Header **Suspend/Run** on B6 (no separate Compliance tab) |
 
-**Content**
+**Suspend (everyday freeze)**
 
-- Merchant name, current setting summary
-- Override type: settlement address / matching mode / suspend order create / suspend merchant
-- Reason (required textarea)
-- Ticket / case ID (optional)
-- MFA step-up required
-- **Apply override** — confirmation dialog with irreversibility note
+- Required reason → MFA step-up (platform) → `status=paused` + `status_reason`
+- Descendant sites inherit watch-only; portals show reason
+- Resume clears reason (and any legacy order-create-suspend flag)
+- Historical overrides remain in Audit Log / API; not a merchant-detail tab
 
 **Notifications**
 
-- Merchant sees A9 “Compliance override” notification
+- Merchant sees Suspend reason banner when paused
 - Audit event immutable
 
 ---
@@ -503,10 +531,11 @@ Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) rema
 
 **Tabs**
 
-1. **Platform fees** — tier cards (Small / Mid / Enterprise): subscription, default signup rate, agent band, assignment notes
-2. **Band settings** — edit subscription / min–max / default signup / notes (O only); apply next billing period
-3. **Rate overrides** — Enterprise custom-rate approve/deny queue (O only)
-4. **Fee wallet** (B11-lite) — invoice seller name + contact email; crypto wallet merchants use to pay platform fees (`payTo`); rotation audited as `billing_wallet_put`. Checkout/invoice face prefer live settings over env. Route `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`; legacy `/platform/settings/billing-wallet` redirects).
+Single scroll page (no tabs):
+
+1. **Volume fee schedule** — editable Small / Mid / Enterprise bands (subscription, signup %, min–max, volume bounds, agent commission, notes); apply next billing period or immediately (O only)
+2. **Fee wallet** (B11-lite) — invoice seller name + contact email; crypto wallet merchants use to pay platform fees (`payTo`); rotation audited as `billing_wallet_put`. Deep link `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`) scrolls to this section; legacy `/platform/settings/billing-wallet` redirects.
+3. **Billing calendar** — agent remittance window and activation invoice timing
 
 **Banners**
 
@@ -877,8 +906,8 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 | Nav item | O | A | V | C |
 | --- | --- | --- | --- | --- |
 | Dashboard | ✓ | ✓ | R | ✓ (limited) |
-| Payment orders | ✓ | ✓ | R | own only |
-| Create order | ✓ | ✓ | — | ✓ |
+| Payment orders / Invoice | ✓ | ✓ | R | own only |
+| Create invoice | ✓ | ✓ | — | ✓ |
 | Service bills | ✓ | R | R | — |
 | Sites | ✓ parent only | ✓ | R | — |
 | Reports | ✓ | ✓ | R | — |
@@ -886,7 +915,7 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 | Team | O only | — | — | — |
 | API & webhooks | ✓ | ✓ | R | — |
 
-Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no Settings, Team, API, Service bills.**
+Cashier nav: Dashboard (own invoices), **Invoice**, **Create invoice**, Sign out — **no Settings, Team, API, Service bills.**
 
 ---
 
@@ -900,34 +929,41 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 **Content**
 
 - Period controls (topbar): **Today / 7d / MTD** + custom date range — filters volume / fee / sites widgets
-- **Alerts banner** (priority): settlement cool-down, xPub cool-down, network maintenance, overdue service bills (O/A/V), open payment anomalies
+- **Alerts banner** (priority): settlement cool-down, xPub cool-down, network maintenance, overdue service bills (O/A/V), open Attention
 - **KPIs**
-  - O / A / V: **Completed volume**, **Platform fee** (est. from effective volume fee %), **Tier** + fee %, **Open orders** (pending + verifying), **Anomalies**
-  - C: Completed volume, Open orders, Anomalies (own scope) — no fee / tier
+  - O / A / V: **Completed volume**, **Platform fee** (est. from effective volume fee %), **Tier** + fee %, **Open orders** (pending + verifying), **Attention**
+  - C: Completed volume, Open orders, Attention (own scope) — no fee / tier
 - **Network status** strip (O/A/V): enabled pairs with asset/network icons + orderability lamps → Networks
-- **Split panels:** Recent payment orders · Open anomalies (C: own only on orders)
-- **Sites** summary when child sites exist (O/A/V): orders / volume / anomalies in period → Sites
+- **Split panels:** Recent payment orders · Open Attention (C: own only on orders)
+- **Sites** summary when child sites exist (O/A/V): orders / volume / Attention in period → Sites
 
 **Not on D1 (Phase 1):** live login/session table (IP / device) — use Security / audit when available; full analytics charts.
 
 ---
 
-### D2. Payment orders — list
+### D2. Invoice — payment orders list
 
 | | |
 | --- | --- |
 | **Route** | `/merchant/orders` |
+| **Nav** | **Invoice** (cashier: Invoice + Create invoice) |
 | **Access** | O, A, V (all in scope); C (own only) |
 
-**Content**
+**Shared with platform B5a** — same Invoice list component (`variant=merchant|cashier`).
 
-- Filters: status, date range, asset, network, site, created by, matching mode, anomaly flag
-- Columns: order #, **merchant reference**, expires, amount, asset, network, receive address (truncated), matching mode, status
-- Bulk export CSV (O, A, V — not C) — includes merchant_reference
-- Row click → D3
-- Status badges: Pending Payment, Verifying, Confirmed, Completed, Expired, Payment Anomaly, Failed
+**Defaults**
 
-**Empty state:** “No payment orders yet” + **Create order** CTA (if permitted)
+- Merchant O/A: Open · All time (tree-scoped)
+- Merchant Viewer: Completed · This month
+- Cashier: Open · Today (own orders)
+
+**Filters / summary / export** — same model as B5a (site, cashier, period, More → asset/network, `q` including merchant reference, summary strip). Sync CSV when ≤5000 rows; async Request export → Download when &gt;5000 (O/A/V only; cashiers cannot export).
+
+**Columns**
+
+Invoice (# + reference) · Merchant & Cashier (site-only label for cashier variant) · Amount (USD) · Asset & Network · Status · Created
+
+**Empty state:** “No invoices”; Create invoice when permitted
 
 ---
 
@@ -956,15 +992,15 @@ Cashier nav: Dashboard (own orders), Create order, My orders, Sign out — **no 
 - **Cancel order** (pending only) — O, A any on org; C own only — frees Mode B amount create locks
 - **Copy** payment details
 - **Resend webhook** (O, A)
-- Anomaly: **no “Mark paid”** button — plain-language reason + expected/received + **Resolve anomaly** (required note) → cancelled; invoice keeps reason + staff note
+- Attention: **no “Mark paid”** button — plain-language reason + expected/received + **Resolve** (required note) → cancelled; invoice keeps reason + staff note
 
-**Anomaly detail panel**
+**Attention detail panel**
 
 - Reason in plain language (underpay / overpay / wrong network / late pay / same-amount collision / …)
 - Expected vs received amounts when known
 - Suggested merchant actions (manual reconciliation)
-- **Resolve** with required note (O/A any on org; C own) — closes ticket; leaves anomaly list and urgent alerts
-- Anomalies do **not** block creating a new order for the same amount (Mode B)
+- **Resolve** with required note (O/A any on org; C own) — closes ticket; leaves Attention list and urgent alerts
+- Attention items do **not** block creating a new order for the same amount (Mode B)
 
 **Never** show service-bill remittance or platform billing wallet on this page.
 
@@ -1297,7 +1333,7 @@ When logged into a **merchant (site) account**, same pages as D1–D16 with thes
 | Verifying | Verifying badge; confirmation segments fill + flow step **Verifying** with directional animation |
 | Confirmed / Completed | Teal “Payment received” + Completed badge; confirmations full + flow at **Confirmed** |
 | Expired | Greyed QR, “This order has expired” + contact merchant |
-| Payment Anomaly | “Payment received but could not be matched automatically” — payer-safe message |
+| Attention | “Payment received but could not be matched automatically” — payer-safe message |
 | Failed | Error explanation |
 
 **Progress panel** (below warnings, above order ref) — simpler than merchant D3:
@@ -1369,14 +1405,14 @@ Cashier role only. Kotlin native preferred.
 ### G2. Home / shift start
 
 - Cashier name, site name
-- **Create order** (primary CTA)
-- **Today’s orders** (own only)
+- **Create invoice** (primary CTA)
+- **Today’s invoices** (own only)
 - Connection indicator (online/offline)
 - Logout
 
 ---
 
-### G3. Create order
+### G3. Create invoice
 
 - Amount keypad
 - Asset picker (merchant-enabled list)
@@ -1388,7 +1424,7 @@ Cashier role only. Kotlin native preferred.
 **Mode B same-amount create lock**
 
 - If another **live** open order (`pending_payment` / `verifying` / `confirmed`) already uses the same payable amount on the main settlement address → **do not create**
-- **Payment Anomaly** does not block create (reconcile separately; new same-amount ticket allowed)
+- **Attention** does not block create (reconcile separately; new same-amount ticket allowed)
 - API `409 mode_b_amount_in_use` with `details.blockingOrder` (order #, creator email, status)
 - UI: explain collision, show first order (by who + `#CG-…`), link to that order; poll until first is finished/cancelled/expired; then show **Continue** to retry create
 - Suggest change amount or ask Owner for Amount fingerprint / Smart address
@@ -1415,7 +1451,7 @@ Cashier role only. Kotlin native preferred.
 
 **Status line**
 
-- Pending Payment / Verifying (**n/N** confirmations) / Completed / Expired / **Payment Anomaly** / Failed
+- Pending Payment / Verifying (**n/N** confirmations) / Completed / Expired / **Attention** / Failed
 
 **Actions**
 
@@ -1456,16 +1492,20 @@ Cashier role only. Kotlin native preferred.
 - Tx hash (when known)
 - Footer: non-custodial disclaimer (short)
 
-**Anomaly receipt** (distinct template)
+**Attention receipt** (distinct template)
 
-- Status: Payment Anomaly
+- Status: Attention
 - “Do not treat as completed sale — contact supervisor”
 
 ---
 
-### G8. Today’s orders (cashier scope)
+### G8. Today’s invoices / Invoice list (cashier scope)
 
-- List: own orders today only
+- Dock: **Create** · **Today** · **Invoice** · **More**
+- List title: **Invoices**; empty: “No invoices…”
+- Today CTA: **See all invoices**
+- Detail back: **Back to Invoices**
+- List: own orders today / all activity filters
 - Tap → G4 read-only
 - **Reprint last receipt**
 
@@ -1489,7 +1529,7 @@ Cashier role only. Kotlin native preferred.
 | Session expiring | Modal: extend / logout |
 | Network lost during active order | Red banner; pause countdown display note |
 | Order expired | Sound optional + visual transition |
-| Payment Anomaly | Red status + supervisor message |
+| Attention | Red status + supervisor message |
 | Printer error | Toast + retry print |
 | Second screen disconnected | Warning on cashier screen only |
 
@@ -1501,7 +1541,7 @@ Use consistently across portals.
 
 | Pattern | Use |
 | --- | --- |
-| **MFA step-up** | Address change, xPub change, compliance override, API secret reveal |
+| **MFA step-up** | Address change, xPub change, Suspend/Resume (platform), matching/commercial (platform on child), API secret reveal |
 | **Dangerous action** | Revoke API key, remove team member, void service bill, suspend merchant |
 | **Cool-down confirm** | “This change takes effect in **24h**.” |
 | **Owner approval** | Site override, Administrator-initiated address change |
@@ -1541,7 +1581,7 @@ Use consistently across portals.
 | Payment orders | — | — | D2–D4 | D2–D4 |
 | Service bills | B9–B10 | C9 | D5–D6 | D5–D6 |
 | Agents / merchants mgmt | B2–B6 | C2–C7 | — | — |
-| Support (payment invoices) | B5a | — | — | — |
+| Invoice (payment orders) | B5a | D2 | — | G8 |
 | Org architecture map | Architecture | Architecture | — | — |
 | Sites | — | — | D7–D9 | — |
 | Settlement settings | — | — | D11 | D11* |
@@ -1562,7 +1602,7 @@ Do not use in any user-facing string:
 
 - Guest invoice, platform admin, sub-merchant, branch, location account, sub-agent, reader, company (ambiguous), business (alone)
 
-Use: **payment order**, **service bill**, **merchant account**, **merchant (site) account**, **agent (sub) account**, **Owner / Administrator / Viewer / Cashier**, **Platform**.
+Use: **Invoice** (guest payment order), **payment order** (API/domain), **service bill**, **commission** (agent payout), **merchant account**, **merchant (site) account**, **agent (sub) account**, **Owner / Administrator / Viewer / Cashier**, **Platform**.
 
 ---
 
@@ -1570,5 +1610,11 @@ Use: **payment order**, **service bill**, **merchant account**, **merchant (site
 
 | Date | Change |
 | --- | --- |
+| 2026-09-25 | UI: payment_anomaly shown as **Attention** (API status unchanged) |
+| 2026-09-25 | Invoice scale: platform-wide All ≤7d; Completed/Closed ≤31d; large-set hint; ops default period 30d |
+| 2026-09-25 | Invoice v1.2: APK Invoice copy; platform Compliance deep-link badges; glossary Invoice vs Service Bill vs Commission |
+| 2026-09-25 | Invoice v1.1 (B5a/D2): More filters asset/network; `q` merchant reference; async CSV export &gt;5000 |
+| 2026-09-25 | Unified Invoice nav (B5a/D2): filters, summary, scale gates; Support→Invoice |
+| 2026-09-25 | Support B5a triage default + merchant-required history; page size 25 |
 | 2026-09-25 | Platform Compliance nav → Support (B5a); B6 Compliance tab + inline B7 |
 | 2026-08-22 | Initial UI page specification for Phase 1 design |

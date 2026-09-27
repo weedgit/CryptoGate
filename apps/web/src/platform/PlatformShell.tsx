@@ -2,13 +2,11 @@ import {
   useEffect,
   useRef,
   useState,
-  type ComponentType,
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
-  type CSSProperties,
 } from "react";
-import { NavLink, useLocation } from "react-router-dom";
 import type { Session } from "./api";
+import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
 import {
   ArchitectureNavIcon,
   AuditLogNavIcon,
@@ -16,7 +14,9 @@ import {
   DashboardNavIcon,
   NetworkNavIcon,
   ServiceBillsNavIcon,
+  CommissionsNavIcon,
   FeesNavIcon,
+  RatesNavIcon,
   SidebarCollapseIcon,
   TeamNavIcon,
 } from "./NavIcons";
@@ -62,25 +62,7 @@ function PlatformHealthBeacon() {
   return null;
 }
 
-type NavItem = {
-  to: string;
-  label: string;
-  end?: boolean;
-  matchPrefix?: string;
-  matchPrefixes?: string[];
-  /** Exact path match only (for parent that has children). */
-  exactActive?: boolean;
-  Icon: ComponentType<{ className?: string }>;
-  /** Omit on nested items to show label-only (tree dot still marks the branch). */
-  children?: Array<Omit<NavItem, "children" | "Icon"> & { Icon?: NavItem["Icon"] }>;
-};
-
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
-
-const NAV_GROUPS: NavGroup[] = [
+const NAV_GROUPS: PortalNavGroup[] = [
   {
     label: "Core systems",
     items: [
@@ -124,12 +106,12 @@ const NAV_GROUPS: NavGroup[] = [
         to: platformRoute("commissions"),
         label: "Commissions",
         matchPrefix: platformRoute("commissions"),
-        Icon: FeesNavIcon,
+        Icon: CommissionsNavIcon,
       },
       {
-        to: platformRoute("support"),
-        label: "Support",
-        matchPrefix: platformRoute("support"),
+        to: platformRoute("invoices"),
+        label: "Invoice",
+        matchPrefix: platformRoute("invoices"),
         Icon: SupportNavIcon,
       },
     ],
@@ -159,7 +141,7 @@ const NAV_GROUPS: NavGroup[] = [
         to: platformRoute("settings/rates"),
         label: "Rates",
         matchPrefix: platformRoute("settings/rates"),
-        Icon: FeesNavIcon,
+        Icon: RatesNavIcon,
       },
       {
         to: platformRoute("audit"),
@@ -180,57 +162,12 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
 };
 
-function navPrefetchKey(item: NavItem): string {
-  return item.to.replace(/^\//, "");
-}
-
-function navItemClass(
-  pathname: string,
-  item: NavItem,
-  isActive: boolean,
-): string {
-  if (item.exactActive) {
-    const base = item.to.replace(/\/$/, "") || "/";
-    const onNamedChild =
-      item.children?.some(
-        (c) =>
-          pathname === c.to ||
-          pathname.startsWith(`${c.to}/`) ||
-          (c.matchPrefix != null && pathname.startsWith(c.matchPrefix)),
-      ) ?? false;
-    if (onNamedChild) return "nav-item";
-    if (pathname === base || pathname === `${base}/`) {
-      return "nav-item active";
-    }
-    if (pathname.startsWith(`${base}/`)) {
-      return "nav-item active";
-    }
-    const prefixHit =
-      item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false;
-    return `nav-item${prefixHit && !onNamedChild ? " active" : ""}`;
-  }
-  const prefixActive =
-    (item.matchPrefix != null && pathname.startsWith(item.matchPrefix)) ||
-    (item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false);
-  const active = isActive || prefixActive;
-  return `nav-item${active ? " active" : ""}`;
-}
-
-function navBranchOpen(pathname: string, item: NavItem): boolean {
-  if (!item.children?.length) return false;
-  if (pathname.startsWith(item.to)) return true;
-  return (
-    item.matchPrefixes?.some((p) => pathname.startsWith(p)) ?? false
-  );
-}
-
 export function PlatformShell({
   session,
   children,
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const location = useLocation();
   const readOnly = sessionIsPlatformViewerOnly(session);
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -293,8 +230,6 @@ export function PlatformShell({
     e.preventDefault();
   };
 
-  let navDelayIndex = 0;
-
   return (
     <div
       className={`shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
@@ -335,117 +270,13 @@ export function PlatformShell({
             />
           </button>
         </div>
-        <nav className="nav-list" aria-label="Platform" ref={navRef}>
-          {NAV_GROUPS.map((group, groupIndex) => (
-            <div key={group.label} className="nav-group">
-              {!navCollapsed ? (
-                <p
-                  className="nav-label"
-                  style={
-                    {
-                      "--nav-delay": `${80 + groupIndex * 300}ms`,
-                    } as CSSProperties
-                  }
-                >
-                  {group.label}
-                </p>
-              ) : null}
-              {group.items.map((item) => {
-                const { Icon } = item;
-                const delayMs = 120 + navDelayIndex * 38;
-                navDelayIndex += 1;
-                const hasChildren = Boolean(item.children?.length) && !navCollapsed;
-                const branchOpen = hasChildren
-                  ? navBranchOpen(location.pathname, item)
-                  : false;
-                return (
-                  <div
-                    key={item.to}
-                    className={`nav-branch${branchOpen ? " is-open" : ""}${
-                      hasChildren ? " has-children" : ""
-                    }`}
-                  >
-                    <NavLink
-                      to={item.to}
-                      end={item.end ?? false}
-                      title={item.label}
-                      aria-label={item.label}
-                      aria-expanded={hasChildren ? branchOpen : undefined}
-                      style={{ "--nav-delay": `${delayMs}ms` } as CSSProperties}
-                      className={({ isActive }) =>
-                        navItemClass(location.pathname, item, isActive)
-                      }
-                      onMouseEnter={() =>
-                        prefetchPlatformRoute(navPrefetchKey(item))
-                      }
-                      onFocus={() => prefetchPlatformRoute(navPrefetchKey(item))}
-                    >
-                      <Icon />
-                      {!navCollapsed ? <span>{item.label}</span> : null}
-                      {hasChildren ? (
-                        <span className="nav-branch__chevron" aria-hidden>
-                          <svg viewBox="0 0 10 6" width="10" height="6" fill="none">
-                            <path
-                              d="M1 1l4 4 4-4"
-                              stroke="currentColor"
-                              strokeWidth="1.4"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                      ) : null}
-                    </NavLink>
-                    {hasChildren && branchOpen ? (
-                      <div className="nav-sub" role="group" aria-label={item.label}>
-                        {item.children!.map((child) => {
-                          const ChildIcon = child.Icon;
-                          const childDelay = 120 + navDelayIndex * 38;
-                          navDelayIndex += 1;
-                          return (
-                            <NavLink
-                              key={child.to}
-                              to={child.to}
-                              title={child.label}
-                              aria-label={child.label}
-                              style={
-                                {
-                                  "--nav-delay": `${childDelay}ms`,
-                                } as CSSProperties
-                              }
-                              className={({ isActive }) => {
-                                const prefixActive =
-                                  child.matchPrefix != null &&
-                                  location.pathname.startsWith(child.matchPrefix);
-                                return `nav-sub__item${
-                                  isActive || prefixActive ? " is-active" : ""
-                                }`;
-                              }}
-                              onMouseEnter={() =>
-                                prefetchPlatformRoute(
-                                  child.to.replace(/^\//, ""),
-                                )
-                              }
-                              onFocus={() =>
-                                prefetchPlatformRoute(
-                                  child.to.replace(/^\//, ""),
-                                )
-                              }
-                            >
-                              <span className="nav-sub__dot" aria-hidden />
-                              {ChildIcon ? <ChildIcon /> : null}
-                              <span>{child.label}</span>
-                            </NavLink>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <PortalNav
+          groups={NAV_GROUPS}
+          collapsed={navCollapsed}
+          ariaLabel="Platform"
+          prefetch={prefetchPlatformRoute}
+          navRef={navRef}
+        />
       </aside>
       <div className="main">
         <header className="topbar topbar--chrome">

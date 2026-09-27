@@ -18,6 +18,7 @@ import {
   slipLifecycleSteps,
 } from "../commercial/commissionInvoiceShared";
 import {
+  agentConfirmCommissionPayout,
   getCommissionPayout,
   markCommissionPayoutPaid,
   type CommissionPayoutRecord,
@@ -25,6 +26,7 @@ import {
 import { formatCommissionPeriodLabel } from "../commercial/commissionStatements";
 import { formatViewerDateTime } from "../shared/dateTime";
 import { platformRoute } from "../shared/portalRouting";
+import { useCommissionsPortal } from "./commissionsPortal";
 import {
   ApiError,
   listAgentPayoutAddresses,
@@ -60,7 +62,10 @@ function timelineArrowTone(
   return "is-idle";
 }
 
-function buildTimeline(slip: CommissionPayoutRecord): TimelineStep[] {
+function buildTimeline(
+  slip: CommissionPayoutRecord,
+  awaitingConfirm = "Awaiting agent confirm",
+): TimelineStep[] {
   return slipLifecycleSteps(slip.payoutStatus).map((step) => {
     let detail = "—";
     if (step.id === "issued") {
@@ -70,11 +75,11 @@ function buildTimeline(slip: CommissionPayoutRecord): TimelineStep[] {
         ? formatViewerDateTime(slip.paidAt)
         : step.state === "todo"
           ? "Awaiting remittance"
-          : "Awaiting agent confirm";
+          : awaitingConfirm;
     } else if (step.id === "settled") {
       detail = slip.settledAt
         ? formatViewerDateTime(slip.settledAt)
-        : "Awaiting agent confirm";
+        : awaitingConfirm;
     }
     const tone: TimelineStep["tone"] =
       step.state === "done"
@@ -90,7 +95,12 @@ function buildTimeline(slip: CommissionPayoutRecord): TimelineStep[] {
 export function CommissionInvoiceDetailPage({ session }: Props) {
   const { id } = useParams<{ id: string }>();
   const invoiceRef = useRef<HTMLElement | null>(null);
-  const canPay = useMemo(() => sessionCanIssueServiceBill(session), [session]);
+  const portal = useCommissionsPortal();
+  const route = portal?.route ?? platformRoute;
+  const canPay = useMemo(
+    () => (portal ? false : sessionCanIssueServiceBill(session)),
+    [portal, session],
+  );
   const [slip, setSlip] = useState<CommissionPayoutRecord | null>(null);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
   const [payoutAddrs, setPayoutAddrs] = useState<
@@ -109,7 +119,7 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
     try {
       const [row, orgRows, payoutAddrRows] = await Promise.all([
         getCommissionPayout(id),
-        getPlatformOrgs(),
+        portal ? portal.getOrgs() : getPlatformOrgs(),
         listAgentPayoutAddresses(),
       ]);
       if (!row) {
@@ -145,14 +155,34 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, portal]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const byId = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs]);
-  const timeline = useMemo(() => (slip ? buildTimeline(slip) : []), [slip]);
+  const timeline = useMemo(
+    () =>
+      slip
+        ? portal
+          ? buildTimeline(slip, "Awaiting your confirm")
+          : buildTimeline(slip)
+        : [],
+    [slip, portal],
+  );
+  const orgHref = useMemo(
+    () =>
+      portal
+        ? (type: string, orgId: string) =>
+            type === "merchant" || type === "merchant_site"
+              ? portal.route(`accounts/merchants/${orgId}`)
+              : type === "agent"
+                ? portal.route(`accounts/${orgId}`)
+                : null
+        : orgDetailHref,
+    [portal],
+  );
   const dest = slip
     ? destForInvoice(slip, payoutAddrs.get(slip.payeeOrgId) ?? null)
     : null;
@@ -185,6 +215,26 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
     }
   }
 
+  async function onConfirmReceipt() {
+    if (!slip || !portal?.canConfirmReceipt) return;
+    if (slip.payeeOrgId !== portal.payeeOrgId || slip.payoutStatus !== "paid") {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await agentConfirmCommissionPayout(slip.id);
+      if (updated) setSlip(updated);
+      else setError("Invoice not found");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to confirm commission",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return <PagePending />;
   }
@@ -198,7 +248,7 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this commission invoice.</p>
-        <Link className="plat-bill-detail__back" to={platformRoute("commissions")}>
+        <Link className="plat-bill-detail__back" to={route("commissions")}>
           ← Back
         </Link>
       </div>
@@ -209,7 +259,7 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
     return (
       <div className="plat-bill-detail">
         <p className="muted">Invoice not found.</p>
-        <Link className="plat-bill-detail__back" to={platformRoute("commissions")}>
+        <Link className="plat-bill-detail__back" to={route("commissions")}>
           ← Back
         </Link>
       </div>
@@ -217,6 +267,11 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
   }
 
   const payable = canPay && slip.payoutStatus === "issued";
+  const confirmable =
+    portal != null &&
+    portal.canConfirmReceipt &&
+    slip.payeeOrgId === portal.payeeOrgId &&
+    slip.payoutStatus === "paid";
 
   return (
     <div className="plat-bill-detail">
@@ -229,7 +284,7 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
       <header className="plat-bill-detail__head no-print">
         <Link
           className="plat-bill-detail__back-link"
-          to={platformRoute("commissions")}
+          to={route("commissions")}
         >
           ← Back
         </Link>
@@ -255,11 +310,15 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
           <CommissionInvoiceFace
             slip={slip}
             dest={dest}
-            viewerPortal="platform"
+            viewerPortal={portal ? "agent" : "platform"}
             byId={byId}
-            orgHref={orgDetailHref}
+            orgHref={orgHref}
             invoiceRef={invoiceRef}
-            missingAddressHint="No payout address on this agent yet. Set it on the agent detail page before sending funds."
+            missingAddressHint={
+              portal
+                ? "No payout address on this agent yet. Set it on your agent account, then reopen this invoice."
+                : "No payout address on this agent yet. Set it on the agent detail page before sending funds."
+            }
           />
         </div>
 
@@ -376,6 +435,26 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
                     sending funds off-platform.
                   </p>
                 ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {confirmable ? (
+            <section className="plat-bill-detail__card plat-commission-pay">
+              <h2 className="plat-bill-detail__section-title">Confirm receipt</h2>
+              <div className="plat-commission-pay__body">
+                <p className="plat-commission-pay__hint" role="note">
+                  Confirm you received the platform remittance to settle this
+                  invoice.
+                </p>
+                <button
+                  type="button"
+                  className="plat-commission-pay__submit"
+                  disabled={busy}
+                  onClick={() => void onConfirmReceipt()}
+                >
+                  {busy ? "Confirming…" : "Confirm receipt"}
+                </button>
               </div>
             </section>
           ) : null}

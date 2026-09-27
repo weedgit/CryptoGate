@@ -11,11 +11,11 @@ import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   getBillingWalletSettings,
-  invalidatePlatformServiceBillsList,
   updateServiceBill,
   type ServiceBill,
   type Session,
 } from "./api";
+import { invalidateServiceBillsServer } from "../shared/serviceBillsServer";
 import { sessionCanIssueServiceBill } from "./org";
 
 type Props = {
@@ -331,7 +331,7 @@ export function ServiceBillActionsPanel({ session, bill, onUpdated }: Props) {
     setError(null);
     try {
       const next = await fn();
-      invalidatePlatformServiceBillsList();
+      invalidateServiceBillsServer();
       onUpdated(next);
       setOpenPanel(null);
     } catch (err) {

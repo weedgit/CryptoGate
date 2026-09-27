@@ -62,7 +62,7 @@ fun PaymentDetails.toCustomerPayContent(): CustomerPayContent {
     val phaseTitle =
         when (progress.phase) {
             ConfirmationPhase.Paid -> "PAYMENT CONFIRMED"
-            ConfirmationPhase.Anomaly -> "PAYMENT ANOMALY"
+            ConfirmationPhase.Anomaly -> "ATTENTION"
             ConfirmationPhase.Expired -> "PAYMENT EXPIRED"
             ConfirmationPhase.Detected -> "PAYMENT DETECTED"
             ConfirmationPhase.Confirming -> "CONFIRMING PAYMENT"

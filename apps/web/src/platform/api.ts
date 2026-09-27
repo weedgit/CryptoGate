@@ -5,6 +5,7 @@ import {
   login,
   logout,
   listOrders,
+  listOrdersPage,
   getOrderSummary,
   getMatchingMode,
   listOrgUsers,
@@ -34,6 +35,7 @@ export {
   login,
   logout,
   listOrders,
+  listOrdersPage,
   getOrderSummary,
   getMatchingMode,
   listSettlement,
@@ -167,10 +169,20 @@ export function ownerContactWithMfa(
   return { ...contact, mfaEnrolled: row?.mfaEnrolled === true };
 }
 
+export type OrgOverviewMetrics = {
+  periodStart: string;
+  ordersMtd: number;
+  settledVolumeMtdUsd: number;
+  openOrders: number;
+  /** Agents only: platform fees on bills overlapping the current UTC month. */
+  platformFeeMtdUsd: number | null;
+};
+
 export type OrgOverview = {
   team: OrgMember[];
   audit: AuditLogEntry[];
-  orders: PaymentOrder[];
+  /** Period-to-date aggregates (null when the caller cannot read orders). */
+  metrics: OrgOverviewMetrics | null;
   commercial: MerchantCommercialSettings | null;
   payout: AgentPayoutAddress | null;
   commission: AgentCommissionSettings | null;
@@ -203,11 +215,6 @@ export {
   removePlatformOrgFromList,
   PLATFORM_ORGS_UPDATED_EVENT,
 } from "./platformOrgList";
-export {
-  getPlatformServiceBills,
-  invalidatePlatformServiceBillsList,
-  peekPlatformServiceBills,
-} from "./platformServiceBillsList";
 
 export type ServiceBillUpdateAction =
   | "send"
@@ -250,11 +257,17 @@ export async function listOrgs(): Promise<OrgAccount[]> {
 export async function setOrgStatus(
   orgId: string,
   status: "active" | "paused",
-  opts?: { reason?: string },
+  opts?: { reason?: string; mfaCode?: string },
 ): Promise<OrgAccount> {
-  const body: { status: "active" | "paused"; reason?: string } = { status };
+  const body: {
+    status: "active" | "paused";
+    reason?: string;
+    mfaCode?: string;
+  } = { status };
   const reason = opts?.reason?.trim();
   if (reason) body.reason = reason;
+  const mfaCode = opts?.mfaCode?.trim();
+  if (mfaCode) body.mfaCode = mfaCode;
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`, {
     method: "PUT",
     credentials: "include",
@@ -627,17 +640,6 @@ export type PlatformOrgPolicy = {
   sessionTimeoutMinutes: number;
 };
 
-export type EnterpriseRateApproval = {
-  id: string;
-  orgId: string;
-  merchantName: string;
-  requestedTier: string;
-  requestedVolumeFeePercent: string;
-  status: string;
-  requestedByUserId: string;
-  createdAt: string;
-};
-
 export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
   const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
     credentials: "include",
@@ -789,24 +791,6 @@ export async function getPlatformDashboardSummary(
   return (await res.json()) as PlatformDashboardSummary;
 }
 
-export async function listEnterpriseRateApprovals(opts?: {
-  status?: string;
-}): Promise<EnterpriseRateApproval[]> {
-  const q = new URLSearchParams();
-  if (opts?.status) q.set("status", opts.status);
-  const suffix = q.toString() ? `?${q}` : "";
-  const res = await apiFetch(
-    `${API_BASE}/platform/enterprise-rate-approvals${suffix}`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: EnterpriseRateApproval[] };
-  return data.items ?? [];
-}
-
 export type WatcherHealthStatus = "ok" | "degraded" | "down" | "unknown";
 
 export type WatcherHeartbeat = {
@@ -890,6 +874,12 @@ export type NetworkCatalogCard = {
   primaryAsset: string | null;
   confirmations: number | null;
   minAmount: string | null;
+  registryConfirmations?: number | null;
+  registryMinAmount?: string | null;
+  railOverride?: {
+    requiredConfirmations: number | null;
+    minAmount: string | null;
+  };
   contractAddress: string | null;
   pairs: {
     asset: string;
@@ -897,6 +887,8 @@ export type NetworkCatalogCard = {
     contractAddress: string | null;
     decimals: number;
     minAmount: string;
+    registryMinAmount?: string;
+    minAmountOverride?: string | null;
     requiredConfirmations: number;
     displayNetwork: string;
     lamp: NetworkOrderabilityLamp;
@@ -994,6 +986,231 @@ export async function putNetworkMaintenance(
     endsAt: string | null;
     updatedAt: string;
   };
+}
+
+export async function putPlatformNetworkRailSettings(
+  network: string,
+  body: {
+    requiredConfirmations?: number | null;
+    asset?: string;
+    minAmount?: string | null;
+  },
+): Promise<{
+  network: string;
+  asset?: string | null;
+  requiredConfirmations: number | null;
+  minAmount: string | null;
+  registryConfirmations: number | null;
+  registryMinAmount: string | null;
+  railOverride: {
+    requiredConfirmations: number | null;
+    minAmount: string | null;
+  };
+  updatedAt: string;
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    network: string;
+    asset?: string | null;
+    requiredConfirmations: number | null;
+    minAmount: string | null;
+    registryConfirmations: number | null;
+    registryMinAmount: string | null;
+    railOverride: {
+      requiredConfirmations: number | null;
+      minAmount: string | null;
+    };
+    updatedAt: string;
+  };
+}
+
+export type MerchantNetworkRailItem = {
+  network: string;
+  title: string;
+  lamp: NetworkOrderabilityLamp;
+  primaryAsset: string | null;
+  minAmount: string | null;
+  platformFloorConfirmations: number;
+  merchantConfirmations: number | null;
+  effectiveConfirmations: number;
+  pairs: {
+    asset: string;
+    displayNetwork: string;
+    lamp: NetworkOrderabilityLamp;
+    minAmount: string;
+    platformConfirmations: number;
+    effectiveConfirmations: number;
+  }[];
+};
+
+export async function getMerchantNetworkRails(
+  orgId: string,
+): Promise<{
+  orgId: string;
+  checkedAt: string;
+  items: MerchantNetworkRailItem[];
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/network-rails`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    orgId: string;
+    checkedAt: string;
+    items: MerchantNetworkRailItem[];
+  };
+}
+
+export async function putMerchantNetworkRailSettings(
+  orgId: string,
+  network: string,
+  body: { requiredConfirmations: number | null },
+): Promise<{
+  orgId: string;
+  network: string;
+  platformFloorConfirmations: number;
+  merchantConfirmations: number | null;
+  effectiveConfirmations: number;
+  updatedAt: string;
+}> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    orgId: string;
+    network: string;
+    platformFloorConfirmations: number;
+    merchantConfirmations: number | null;
+    effectiveConfirmations: number;
+    updatedAt: string;
+  };
+}
+
+export type ScopedNetworkRailPair = {
+  asset: string;
+  parentFloorMinAmount: string;
+  overrideMinAmount: string | null;
+  effectiveMinAmount: string;
+  registryMinAmount: string;
+};
+
+export type ScopedNetworkRailSettings = {
+  network: string;
+  orgId?: string;
+  siteId?: string;
+  merchantOrgId?: string | null;
+  parentFloorConfirmations: number;
+  overrideConfirmations: number | null;
+  effectiveConfirmations: number;
+  pairs: ScopedNetworkRailPair[];
+  primaryAsset: string | null;
+  updatedAt: string;
+};
+
+export async function getPlatformOrgNetworkRailSettings(
+  orgId: string,
+  network: string,
+): Promise<ScopedNetworkRailSettings> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ScopedNetworkRailSettings;
+}
+
+export async function putPlatformOrgNetworkRailSettings(
+  orgId: string,
+  network: string,
+  body: {
+    requiredConfirmations?: number | null;
+    asset?: string;
+    minAmount?: string | null;
+  },
+): Promise<ScopedNetworkRailSettings> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ScopedNetworkRailSettings;
+}
+
+export async function getPlatformSiteNetworkRailSettings(
+  siteId: string,
+  network: string,
+): Promise<ScopedNetworkRailSettings> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/sites/${encodeURIComponent(siteId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ScopedNetworkRailSettings;
+}
+
+export async function putPlatformSiteNetworkRailSettings(
+  siteId: string,
+  network: string,
+  body: {
+    requiredConfirmations?: number | null;
+    asset?: string;
+    minAmount?: string | null;
+  },
+): Promise<ScopedNetworkRailSettings> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/sites/${encodeURIComponent(siteId)}/networks/${encodeURIComponent(network)}/rail-settings`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as ScopedNetworkRailSettings;
 }
 
 export type ActiveNetworkMaintenance = {
@@ -1190,26 +1407,6 @@ export async function putAgentCommission(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as AgentCommissionSettings;
-}
-
-export async function decideEnterpriseRateApproval(
-  approvalId: string,
-  body: { decision: "approve" | "deny"; reason?: string },
-): Promise<EnterpriseRateApproval> {
-  const res = await apiFetch(
-    `${API_BASE}/platform/enterprise-rate-approvals/${encodeURIComponent(approvalId)}`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as EnterpriseRateApproval;
 }
 
 export type ComplianceOverrideType =

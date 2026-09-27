@@ -90,6 +90,30 @@ export function FeesNavIcon({ className }: IconProps) {
   );
 }
 
+/** Agent / platform commission share (percent). */
+export function CommissionsNavIcon({ className }: IconProps) {
+  return (
+    <IconShell className={className}>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </IconShell>
+  );
+}
+
+/** FX / venue rate feed (market chart). */
+export function RatesNavIcon({ className }: IconProps) {
+  return (
+    <IconShell className={className}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16V12" />
+      <path d="M12 16V8" />
+      <path d="M17 16v-5" />
+      <polyline points="7 12 12 8 17 11" />
+    </IconShell>
+  );
+}
+
 export function ServiceBillsNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>

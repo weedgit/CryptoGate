@@ -2,7 +2,7 @@
  * ESM loader: transpile .ts/.tsx via TypeScript for node --test.
  * Type-only imports are erased; no Vite/React runtime required for pure helpers.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   JsxEmit,
@@ -10,6 +10,23 @@ import {
   ScriptTarget,
   transpileModule,
 } from "typescript";
+
+const TS_EXTENSIONS = [".ts", ".tsx", "/index.ts", "/index.tsx"];
+
+/** Vite-style extensionless relative imports between .ts/.tsx sources. */
+export async function resolve(specifier, context, nextResolve) {
+  const parent = context.parentURL ?? "";
+  const relative = specifier.startsWith("./") || specifier.startsWith("../");
+  if (relative && /\.tsx?$/.test(parent) && !/\.[cm]?[jt]sx?$|\.json$/.test(specifier)) {
+    for (const ext of TS_EXTENSIONS) {
+      const candidate = new URL(specifier + ext, parent);
+      if (existsSync(fileURLToPath(candidate))) {
+        return { url: candidate.href, shortCircuit: true };
+      }
+    }
+  }
+  return nextResolve(specifier, context);
+}
 
 export async function load(url, context, nextLoad) {
   if (!url.endsWith(".ts") && !url.endsWith(".tsx")) {

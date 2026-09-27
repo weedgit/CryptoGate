@@ -43,6 +43,8 @@ Do **not** add a max-lines linter. Do **not** split a 120-line function into fiv
 1. Receive address on a payment order is merchant-controlled. Platform has no spend keys.
 2. Volume fee is **not** deducted from the payer on-chain payment.
 3. Cashier cannot change settlement address, xPub, matching mode, or fees.
+4. Fund rails (settlement/xPub): Merchant Owner or Platform Owner only.
+5. Suspended merchant orgs cascade watch-only to descendant sites; reason persisted and shown.
 4. Agent accounts do not create merchant payment orders.
 5. Same-amount collision on Mode B → anomaly; never FIFO guess.
 6. Mode S never holds keys, never signs, never sweeps.

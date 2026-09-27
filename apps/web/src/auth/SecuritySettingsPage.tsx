@@ -6,20 +6,25 @@ import {
   getPosPinStatus,
   getSession,
   resetMfa,
+  sendEmailOtp,
+  sendPhoneOtp,
   setPosPin,
   updateProfile,
+  verifyEmailOtp,
+  verifyPhoneOtp,
   type Session,
 } from "../merchant/api";
+import { formatPhoneInput } from "../shared/phoneFormat";
 import { readOrgIconFile } from "../shared/orgBrand";
 import { FieldControl } from "../ui/FieldControl";
 import { AuthToast } from "./AuthToast";
+import { ContactOtpModal } from "./ContactOtpModal";
 import { MfaEnrollmentWizard } from "./MfaEnrollmentWizard";
 import { sessionCanEnrollMfa } from "./mfaSession";
 import {
   evaluatePasswordPolicy,
 } from "./passwordPolicy";
 import {
-  sessionDisplayLabel,
   sessionHasAvatar,
 } from "./profileIdentity";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
@@ -50,8 +55,6 @@ const TIMEZONE_OPTIONS = [
   "America/Los_Angeles",
 ] as const;
 
-const SESSION_OPTIONS = [15, 30, 60, 120] as const;
-
 function formatTimezoneLabel(tz: string): string {
   if (tz === "UTC") return "UTC — Coordinated Universal Time";
   try {
@@ -66,6 +69,466 @@ function formatTimezoneLabel(tz: string): string {
   } catch {
     return tz.replace(/_/g, " ");
   }
+}
+
+function ContactVerifyBadge({ verified }: { verified: boolean }) {
+  return (
+    <span
+      className={`b3-profile__verify${verified ? " is-verified" : " is-pending"}`}
+    >
+      {verified ? "Verified" : "Unverified"}
+    </span>
+  );
+}
+
+type ContactOtpPending = {
+  channel: "email" | "phone";
+  destination: string;
+  pendingChange: boolean;
+  initialCode?: string;
+};
+
+function ProfileContactVerify({
+  session,
+  variant,
+  onSessionRefresh,
+}: {
+  session: Session;
+  variant: "platform" | "agent" | "merchant";
+  onSessionRefresh?: (session: Session) => void;
+}) {
+  const platform = variant === "platform";
+  const actionBtn = platform
+    ? "login-btn-secondary profile-action-btn"
+    : "btn-secondary btn-inline";
+  const primaryBtn = platform ? "plat-settings__save profile-action-btn" : "btn-primary btn-inline";
+  const [email, setEmail] = useState(session.email);
+  const [phone, setPhone] = useState(formatPhoneInput(session.phone ?? ""));
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [phoneSent, setPhoneSent] = useState(false);
+  const [otpModal, setOtpModal] = useState<ContactOtpPending | null>(null);
+  const [busy, setBusy] = useState<"email" | "phone" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingEmail) {
+      setEmail(session.email);
+      if (session.emailVerified) {
+        setEmailSent(false);
+      }
+    }
+  }, [session.email, session.emailVerified, editingEmail]);
+
+  useEffect(() => {
+    if (!editingPhone) {
+      setPhone(formatPhoneInput(session.phone ?? ""));
+      if (session.phoneVerified) {
+        setPhoneSent(false);
+      }
+    }
+  }, [session.phone, session.phoneVerified, editingPhone]);
+
+  const emailLocked = session.emailVerified === true && !editingEmail;
+  const phoneLocked = session.phoneVerified === true && !editingPhone;
+  const showEmailVerify = !emailLocked;
+  const showPhoneVerify = !phoneLocked;
+
+  function startChangeEmail() {
+    setEditingEmail(true);
+    setEmailSent(false);
+    setOtpModal(null);
+    setError(null);
+    setOk(null);
+  }
+
+  function cancelChangeEmail() {
+    setEditingEmail(false);
+    setEmail(session.email);
+    setEmailSent(false);
+    setOtpModal(null);
+    setError(null);
+    setOk(null);
+  }
+
+  function startChangePhone() {
+    setEditingPhone(true);
+    setPhoneSent(false);
+    setOtpModal(null);
+    setError(null);
+    setOk(null);
+  }
+
+  function cancelChangePhone() {
+    setEditingPhone(false);
+    setPhone(formatPhoneInput(session.phone ?? ""));
+    setPhoneSent(false);
+    setOtpModal(null);
+    setError(null);
+    setOk(null);
+  }
+
+  async function sendEmail() {
+    const next = email.trim().toLowerCase();
+    if (!next.includes("@") || next.length < 5) {
+      setError("Enter a valid email address");
+      return;
+    }
+    if (editingEmail && next === session.email.toLowerCase()) {
+      setError("Enter a new email address to change it");
+      return;
+    }
+    setBusy("email");
+    setError(null);
+    setOk(null);
+    try {
+      const result = await sendEmailOtp(next);
+      if (result.session) onSessionRefresh?.(result.session);
+      const destination = result.email ?? next;
+      setEmail(destination);
+      if (result.status === "already_verified") {
+        setEditingEmail(false);
+        setEmailSent(false);
+        setOtpModal(null);
+        setOk("Email already verified.");
+        return;
+      }
+      setEmailSent(true);
+      setOtpModal({
+        channel: "email",
+        destination,
+        pendingChange: result.pendingChange === true,
+        initialCode: result.devCode,
+      });
+      setOk(
+        result.pendingChange
+          ? "Code sent. Confirm to switch email."
+          : "Email code sent.",
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not send email code");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sendPhone() {
+    const normalized = phone.trim();
+    if (normalized.length < 8) {
+      setError("Enter a valid mobile number with country code");
+      return;
+    }
+    const currentDigits = (session.phone ?? "").replace(/\D/g, "");
+    const nextDigits = normalized.replace(/\D/g, "");
+    if (editingPhone && currentDigits && nextDigits === currentDigits) {
+      setError("Enter a new mobile number to change it");
+      return;
+    }
+    setBusy("phone");
+    setError(null);
+    setOk(null);
+    try {
+      const result = await sendPhoneOtp(normalized);
+      if (result.session) onSessionRefresh?.(result.session);
+      const destination = result.phone ?? normalized;
+      setPhone(formatPhoneInput(destination));
+      if (result.status === "already_verified") {
+        setEditingPhone(false);
+        setPhoneSent(false);
+        setOtpModal(null);
+        setOk("Phone already verified.");
+        return;
+      }
+      setPhoneSent(true);
+      setOtpModal({
+        channel: "phone",
+        destination,
+        pendingChange: result.pendingChange === true,
+        initialCode: result.devCode,
+      });
+      setOk(
+        result.pendingChange
+          ? "Code sent. Confirm to switch phone."
+          : "SMS code sent.",
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not send SMS code");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const emailBlock = (
+    <>
+      <div className="profile-contact__head">
+        <span>Email</span>
+        <ContactVerifyBadge verified={session.emailVerified === true && !editingEmail} />
+      </div>
+      {platform ? (
+        <FieldControl icon="mail">
+          <input
+            id="profile-email"
+            className="plat-settings__input"
+            value={email}
+            disabled={emailLocked || busy === "email" || emailSent}
+            readOnly={emailLocked}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
+          />
+        </FieldControl>
+      ) : (
+        <input
+          className="field-control"
+          value={email}
+          disabled={emailLocked || busy === "email" || emailSent}
+          readOnly={emailLocked}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          inputMode="email"
+        />
+      )}
+      {emailLocked ? (
+        <div className="profile-contact__verify">
+          <button
+            type="button"
+            className={actionBtn}
+            disabled={busy !== null}
+            onClick={startChangeEmail}
+          >
+            Update email
+          </button>
+        </div>
+      ) : null}
+      {showEmailVerify ? (
+        <div className="profile-contact__verify">
+          {editingEmail ? (
+            <p className={platform ? "plat-settings__row-hint" : "muted"} style={{ marginTop: 6 }}>
+              Current email stays active until you confirm.
+            </p>
+          ) : null}
+          {emailSent ? (
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy !== null}
+              onClick={() =>
+                setOtpModal({
+                  channel: "email",
+                  destination: email.trim().toLowerCase(),
+                  pendingChange: editingEmail,
+                })
+              }
+            >
+              Enter code
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy !== null || !email.trim().includes("@")}
+              onClick={() => void sendEmail()}
+            >
+              {busy === "email" ? "Sending…" : "Verify email"}
+            </button>
+          )}
+          {editingEmail ? (
+            <button
+              type="button"
+              className={actionBtn}
+              disabled={busy !== null}
+              onClick={cancelChangeEmail}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const phoneBlock = (
+    <>
+      <div className="profile-contact__head">
+        <span>Phone</span>
+        <ContactVerifyBadge verified={session.phoneVerified === true && !editingPhone} />
+      </div>
+      {platform ? (
+        <FieldControl icon="phone">
+          <input
+            id="profile-phone"
+            className="plat-settings__input"
+            value={phone}
+            disabled={phoneLocked || busy === "phone" || phoneSent}
+            onChange={(e) => setPhone(formatPhoneInput(e.target.value, phone))}
+            placeholder="+65 8123 4567"
+            autoComplete="tel"
+            inputMode="tel"
+          />
+        </FieldControl>
+      ) : (
+        <input
+          className="field-control"
+          value={phone}
+          disabled={phoneLocked || busy === "phone" || phoneSent}
+          onChange={(e) => setPhone(formatPhoneInput(e.target.value, phone))}
+          placeholder="+65 8123 4567"
+          autoComplete="tel"
+          inputMode="tel"
+        />
+      )}
+      {phoneLocked ? (
+        <div className="profile-contact__verify">
+          <button
+            type="button"
+            className={actionBtn}
+            disabled={busy !== null}
+            onClick={startChangePhone}
+          >
+            Update phone
+          </button>
+        </div>
+      ) : null}
+      {showPhoneVerify ? (
+        <div className="profile-contact__verify">
+          {editingPhone ? (
+            <p className={platform ? "plat-settings__row-hint" : "muted"} style={{ margin: 0 }}>
+              Current number stays active until you confirm.
+            </p>
+          ) : null}
+          {phoneSent ? (
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy !== null}
+              onClick={() =>
+                setOtpModal({
+                  channel: "phone",
+                  destination: phone.trim(),
+                  pendingChange: editingPhone,
+                })
+              }
+            >
+              Enter code
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={busy !== null || phone.trim().length < 8}
+              onClick={() => void sendPhone()}
+            >
+              {busy === "phone" ? "Sending…" : "Verify phone"}
+            </button>
+          )}
+          {editingPhone ? (
+            <button
+              type="button"
+              className={actionBtn}
+              disabled={busy !== null}
+              onClick={cancelChangePhone}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const otpDialog =
+    otpModal != null ? (
+      <ContactOtpModal
+        key={`${otpModal.channel}:${otpModal.destination}:${otpModal.initialCode ?? ""}`}
+        channel={otpModal.channel}
+        destination={otpModal.destination}
+        pendingChange={otpModal.pendingChange}
+        initialCode={otpModal.initialCode}
+        onClose={() => setOtpModal(null)}
+        onVerify={async (code) => {
+          try {
+            if (otpModal.channel === "email") {
+              onSessionRefresh?.(await verifyEmailOtp(code));
+              setEditingEmail(false);
+              setEmailSent(false);
+              setOk("Email verified.");
+            } else {
+              onSessionRefresh?.(await verifyPhoneOtp(code));
+              setEditingPhone(false);
+              setPhoneSent(false);
+              setOk("Phone verified.");
+            }
+            setError(null);
+          } catch (err) {
+            throw new Error(
+              err instanceof ApiError ? err.message : "Invalid verification code",
+            );
+          }
+        }}
+        onResend={async () => {
+          try {
+            if (otpModal.channel === "email") {
+              const result = await sendEmailOtp(otpModal.destination);
+              if (result.session) onSessionRefresh?.(result.session);
+              if (result.status === "already_verified") {
+                setEditingEmail(false);
+                setEmailSent(false);
+                setOtpModal(null);
+                setOk("Email already verified.");
+                return {};
+              }
+              return { code: result.devCode };
+            }
+            const result = await sendPhoneOtp(otpModal.destination);
+            if (result.session) onSessionRefresh?.(result.session);
+            if (result.status === "already_verified") {
+              setEditingPhone(false);
+              setPhoneSent(false);
+              setOtpModal(null);
+              setOk("Phone already verified.");
+              return {};
+            }
+            return { code: result.devCode };
+          } catch (err) {
+            throw new Error(
+              err instanceof ApiError ? err.message : "Could not resend code",
+            );
+          }
+        }}
+      />
+    ) : null;
+
+  if (platform) {
+    return (
+      <>
+        <div className="plat-settings__row plat-settings__row--stack">
+          <div className="plat-settings__field">{emailBlock}</div>
+        </div>
+        <div className="plat-settings__row plat-settings__row--stack">
+          <div className="plat-settings__field">{phoneBlock}</div>
+        </div>
+        {error ? (
+          <p className="plat-settings__flash plat-settings__flash--error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
+        {otpDialog}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <label className="field">{emailBlock}</label>
+      <label className="field">{phoneBlock}</label>
+      {error ? <p className="banner banner-error">{error}</p> : null}
+      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      {otpDialog}
+    </>
+  );
 }
 
 function ProfileForm({
@@ -116,8 +579,6 @@ function ProfileForm({
     if (timezone) set.add(timezone);
     return [...set];
   }, [timezone]);
-
-  const sidebarLabel = useMemo(() => sessionDisplayLabel(session), [session]);
 
   async function onPickFile(file: File | undefined) {
     if (!file) return;
@@ -175,11 +636,6 @@ function ProfileForm({
       </div>
       <div className="profile-avatar-editor__copy">
         <span className="profile-avatar-editor__label">Avatar</span>
-        <p className="plat-settings__row-hint profile-avatar-editor__hint">
-          {avatarUrl
-            ? "Custom photo shown in the top bar and sidebar."
-            : "No photo yet — showing the default profile icon."}
-        </p>
         <div className="profile-avatar-editor__actions">
           <input
             ref={fileInputRef}
@@ -201,20 +657,6 @@ function ProfileForm({
                 ? "Change photo…"
                 : "Upload photo…"}
           </button>
-          {avatarUrl ? (
-            <button
-              type="button"
-              className="btn-ghost profile-avatar-editor__btn"
-              disabled={saving}
-              onClick={() => {
-                setAvatarUrl(null);
-                setError(null);
-                setOk(null);
-              }}
-            >
-              Use default
-            </button>
-          ) : null}
         </div>
       </div>
     </div>
@@ -266,28 +708,13 @@ function ProfileForm({
                 autoComplete="family-name"
               />
             </FieldControl>
-            {!firstName.trim() && !lastName.trim() ? (
-              <p className="plat-settings__row-hint profile-settings-card__name-hint">
-                Shown in the sidebar as <strong>{sidebarLabel}</strong> until you
-                save your name.
-              </p>
-            ) : null}
           </label>
         </div>
-        <div className="plat-settings__row plat-settings__row--stack">
-          <label className="plat-settings__field" htmlFor="profile-email">
-            <span>Email</span>
-            <FieldControl icon="mail">
-              <input
-                id="profile-email"
-                className="plat-settings__input"
-                value={session.email}
-                disabled
-                readOnly
-              />
-            </FieldControl>
-          </label>
-        </div>
+        <ProfileContactVerify
+          session={session}
+          variant="platform"
+          onSessionRefresh={onSessionRefresh}
+        />
         <div className="plat-settings__row plat-settings__row--stack">
           <label className="plat-settings__field" htmlFor="profile-timezone">
             <span>Timezone</span>
@@ -306,11 +733,6 @@ function ProfileForm({
                 ))}
               </select>
             </FieldControl>
-            <p className="plat-settings__row-hint profile-settings-card__timezone-hint">
-              Order times, bill due times, activity, and audit timestamps in this
-              portal display in this timezone. Platform billing schedules (invoice
-              jobs, remittance day C) stay on UTC.
-            </p>
           </label>
         </div>
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
@@ -335,9 +757,6 @@ function ProfileForm({
         onDismiss={() => setError(null)}
       />
       <h2>Profile</h2>
-      <p className="muted">
-        Avatar, name, and timezone for this portal.
-      </p>
       {avatarEditor}
       <label className="field">
         <span>First name</span>
@@ -362,17 +781,12 @@ function ProfileForm({
           placeholder="Last name"
           autoComplete="family-name"
         />
-        {!firstName.trim() && !lastName.trim() ? (
-          <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
-            Shown in the sidebar as <strong>{sidebarLabel}</strong> until you save
-            your name.
-          </span>
-        ) : null}
       </label>
-      <label className="field">
-        <span>Email</span>
-        <input className="field-control" value={session.email} disabled readOnly />
-      </label>
+      <ProfileContactVerify
+        session={session}
+        variant={variant}
+        onSessionRefresh={onSessionRefresh}
+      />
       <label className="field">
         <span>Timezone</span>
         <select
@@ -387,9 +801,6 @@ function ProfileForm({
             </option>
           ))}
         </select>
-        <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
-          Order times, bills, and activity display in this timezone.
-        </span>
       </label>
       {ok ? <p className="banner banner-ok" role="status">{ok}</p> : null}
       <button type="submit" className="btn-primary" disabled={saving || !dirty}>
@@ -702,9 +1113,7 @@ export function SecuritySettingsPage({
             void getSession().then((next) => {
               onSessionRefresh?.(next);
               setWizardOpen(false);
-              setMessage(
-                "MFA enabled. You will need your authenticator on next sign-in.",
-              );
+              setMessage("Authenticator enabled.");
             });
           }}
         />
@@ -720,7 +1129,7 @@ export function SecuritySettingsPage({
             <div>
               <h2 className="plat-settings__title">Profile</h2>
               <p className="plat-settings__subtitle">
-                Your account details, sign-in MFA, and session preferences.
+                Name, contact, and sign-in security.
               </p>
             </div>
           </header>
@@ -760,8 +1169,6 @@ export function SecuritySettingsPage({
             variant="platform"
             onSessionRefresh={onSessionRefresh}
           />
-
-          <PosPinForm variant="platform" />
         </div>
       </div>
     );
@@ -790,7 +1197,7 @@ export function SecuritySettingsPage({
         variant={variant}
         onSessionRefresh={onSessionRefresh}
       />
-      <PosPinForm variant={variant} />
+      {variant === "merchant" ? <PosPinForm variant={variant} /> : null}
       {message ? <p className="banner banner-ok">{message}</p> : null}
     </div>
   );
@@ -875,10 +1282,6 @@ function PosPinForm({
   return (
     <form className={cardClass} onSubmit={(e) => void onSave(e)}>
       <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Cashier POS PIN</h3>
-      <p className="muted">
-        Managed here for PaymentGate Cashier terminals. After email sign-in on the
-        device, cashiers unlock with this PIN.
-      </p>
       <p className="settings-mfa-status" role="status">
         Status:{" "}
         <strong className={configured ? "ok" : ""}>
@@ -950,7 +1353,7 @@ function PosPinForm({
 }
 
 function SecurityPrefsForm({
-  session,
+  session: _session,
   variant,
   onSessionRefresh,
   canEnroll = false,
@@ -966,48 +1369,12 @@ function SecurityPrefsForm({
   enrollmentPending?: boolean;
   onStartEnrollment?: () => void;
 }) {
-  const [mfaEnforcement, setMfaEnforcement] = useState(
-    session.mfaEnforcement === true,
-  );
-  const [sessionTimeoutMin, setSessionTimeoutMin] = useState(
-    session.sessionTimeoutMinutes ?? 120,
-  );
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replacePassword, setReplacePassword] = useState("");
   const [showReplacePassword, setShowReplacePassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMfaEnforcement(session.mfaEnforcement === true);
-    setSessionTimeoutMin(session.sessionTimeoutMinutes ?? 120);
-  }, [session.mfaEnforcement, session.sessionTimeoutMinutes]);
-
-  const dirty =
-    mfaEnforcement !== (session.mfaEnforcement === true) ||
-    sessionTimeoutMin !== (session.sessionTimeoutMinutes ?? 120);
-
-  async function onSave() {
-    if (!dirty || busy) return;
-    setBusy(true);
-    setError(null);
-    setOk(null);
-    try {
-      const next = await updateProfile({
-        mfaEnforcement,
-        sessionTimeoutMinutes: sessionTimeoutMin,
-      });
-      onSessionRefresh?.(next);
-      setOk("Security preferences saved.");
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Failed to save preferences",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function onReplaceAuthenticator() {
     if (!replacePassword.trim() || busy) return;
@@ -1044,87 +1411,31 @@ function SecurityPrefsForm({
           onDismiss={() => setError(null)}
         />
         <div className="plat-settings__card-head">
-          <h3 className="plat-settings__card-title">Sign-in &amp; session</h3>
-        </div>
-        <div className="plat-settings__row">
-          <div className="plat-settings__row-copy">
-            <p className="plat-settings__row-label">Require two-step verification</p>
-            <p className="plat-settings__row-hint">
-              When on, this account must finish TOTP enrollment before using the
-              portal (Owner/Admin). Settlement and xPub still need MFA when
-              enrolled.
-            </p>
-          </div>
-          <button
-            type="button"
-            className={`plat-settings__switch${mfaEnforcement ? " is-on" : ""}`}
-            role="switch"
-            aria-checked={mfaEnforcement}
-            disabled={busy}
-            onClick={() => setMfaEnforcement((v) => !v)}
-          >
-            <span className="plat-settings__switch-knob" />
-          </button>
-        </div>
-        <div className="plat-settings__row">
-          <div className="plat-settings__row-copy">
-            <p className="plat-settings__row-label">Session timeout</p>
-            <p className="plat-settings__row-hint">
-              How long your session stays active with sliding refresh.
-            </p>
-          </div>
-          <FieldControl icon="clock">
-            <select
-              className="plat-settings__select"
-              value={sessionTimeoutMin}
-              disabled={busy}
-              onChange={(e) => setSessionTimeoutMin(Number(e.target.value))}
-            >
-              {SESSION_OPTIONS.map((m) => (
-                <option key={m} value={m}>
-                  {m} min
-                </option>
-              ))}
-            </select>
-          </FieldControl>
+          <h3 className="plat-settings__card-title">Authenticator</h3>
         </div>
         <div className="plat-settings__subsection">
           <div className="plat-settings__row">
             <div className="plat-settings__row-copy">
-              <p className="plat-settings__row-label">Authenticator</p>
-              <p className="plat-settings__row-hint">
-                TOTP authenticator (Google Authenticator, 1Password, etc.). Used
-                for settlement, xPub, and step-up when enrolled.
-              </p>
               {!canEnroll ? (
                 <p className="plat-settings__card-note">
-                  Only Owner or Administrator may enroll MFA for this account.
+                  Not available for this role.
                 </p>
               ) : enrolled ? (
                 <>
-                  <p className="plat-settings__card-note">
-                    Two-step verification is enabled. You will be challenged with a
-                    6-digit code on each sign-in. The setup secret cannot be viewed
-                    after enrollment.
-                  </p>
                   {!replaceOpen ? (
                     <button
                       type="button"
-                      className="plat-settings__link"
+                      className="login-btn-secondary profile-action-btn"
                       disabled={busy}
                       onClick={() => {
                         setReplaceOpen(true);
                         setError(null);
                       }}
                     >
-                      Replace authenticator
+                      Change authenticator
                     </button>
                   ) : (
                     <div className="profile-mfa-replace">
-                      <p className="plat-settings__row-hint">
-                        Enter your password to reset MFA, then set up a new
-                        authenticator and copy the secret during setup.
-                      </p>
                       <label
                         className="plat-settings__field"
                         htmlFor="profile-mfa-replace-password"
@@ -1152,7 +1463,7 @@ function SecurityPrefsForm({
                       <div className="profile-mfa-replace__actions">
                         <button
                           type="button"
-                          className="login-btn-secondary profile-mfa-replace__cancel"
+                          className="login-btn-secondary profile-action-btn"
                           disabled={busy}
                           onClick={() => {
                             setReplaceOpen(false);
@@ -1163,39 +1474,33 @@ function SecurityPrefsForm({
                         </button>
                         <button
                           type="button"
-                          className="plat-settings__link"
+                          className="plat-settings__save profile-action-btn"
                           disabled={busy || !replacePassword.trim()}
                           onClick={() => void onReplaceAuthenticator()}
                         >
-                          {busy ? "Resetting…" : "Reset & set up again"}
+                          {busy ? "Resetting…" : "Confirm reset"}
                         </button>
                       </div>
                     </div>
                   )}
                 </>
               ) : enrollmentPending ? (
-                <>
-                  <p className="plat-settings__card-note">
-                    Setup is in progress. Reopen enrollment to view the QR code
-                    and copy the manual secret again (same code as before).
-                  </p>
-                  <button
-                    type="button"
-                    className="plat-settings__link"
-                    disabled={busy}
-                    onClick={onStartEnrollment}
-                  >
-                    Continue MFA setup
-                  </button>
-                </>
-              ) : (
                 <button
                   type="button"
-                  className="plat-settings__link"
+                  className="plat-settings__save profile-action-btn"
                   disabled={busy}
                   onClick={onStartEnrollment}
                 >
-                  Start MFA enrollment
+                  Continue setup
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="plat-settings__save profile-action-btn"
+                  disabled={busy}
+                  onClick={onStartEnrollment}
+                >
+                  Set up
                 </button>
               )}
             </div>
@@ -1218,16 +1523,6 @@ function SecurityPrefsForm({
           </div>
         </div>
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
-        <div className="profile-settings-card__actions">
-          <button
-            type="button"
-            className="plat-settings__save"
-            disabled={busy || !dirty}
-            onClick={() => void onSave()}
-          >
-            {busy ? "Saving…" : "Save preferences"}
-          </button>
-        </div>
       </section>
     );
   }
@@ -1239,67 +1534,29 @@ function SecurityPrefsForm({
         tone="error"
         onDismiss={() => setError(null)}
       />
-      <h2>Sign-in &amp; session</h2>
-      <p className="muted">Personal preferences for this account only.</p>
-      <label className="field" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <input
-          type="checkbox"
-          checked={mfaEnforcement}
-          disabled={busy}
-          onChange={(e) => setMfaEnforcement(e.target.checked)}
-        />
-        <span>Require two-step verification (Owner/Admin)</span>
-      </label>
-      <label className="field">
-        <span>Session timeout</span>
-        <select
-          className="field-control"
-          value={sessionTimeoutMin}
-          disabled={busy}
-          onChange={(e) => setSessionTimeoutMin(Number(e.target.value))}
-        >
-          {SESSION_OPTIONS.map((m) => (
-            <option key={m} value={m}>
-              {m} min
-            </option>
-          ))}
-        </select>
-      </label>
-      <hr style={{ margin: "16px 0", border: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }} />
-      <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Authenticator</h3>
-      <p className="muted">
-        TOTP authenticator (Google Authenticator, 1Password, etc.). Once enabled,
-        settlement and xPub changes need a verification code.
-      </p>
+      <h2>Authenticator</h2>
       <p className="settings-mfa-status" role="status">
         Status:{" "}
         <strong className={enrolled ? "ok" : ""}>
-          {enrolled ? "Enabled" : "Not enrolled"}
+          {enrolled
+            ? "Enabled"
+            : enrollmentPending
+              ? "Pending"
+              : "Not enrolled"}
         </strong>
       </p>
       {!canEnroll ? (
-        <p className="muted">
-          Only Owner or Administrator may enroll MFA for this account.
-        </p>
-      ) : enrolled ? (
-        <p className="muted">
-          Two-step verification is enabled. You will need your authenticator on
-          next sign-in.
-        </p>
+        <p className="muted">Not available for this role.</p>
+      ) : enrolled ? null : enrollmentPending ? (
+        <button type="button" className="btn-primary" onClick={onStartEnrollment}>
+          Continue setup
+        </button>
       ) : (
         <button type="button" className="btn-primary" onClick={onStartEnrollment}>
-          Start MFA enrollment
+          Set up authenticator
         </button>
       )}
       {ok ? <p className="banner banner-ok">{ok}</p> : null}
-      <button
-        type="button"
-        className="btn-primary"
-        disabled={busy || !dirty}
-        onClick={() => void onSave()}
-      >
-        {busy ? "Saving…" : "Save preferences"}
-      </button>
     </div>
   );
 }

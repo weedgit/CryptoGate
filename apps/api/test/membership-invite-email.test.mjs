@@ -6,6 +6,7 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createSession } from "../src/auth/sessions.mjs";
 import { createUser } from "../src/auth/users.mjs";
+import { getPool } from "../src/db/pool.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { insertOrgAccount } from "../src/orgs/org-store.mjs";
 import {
@@ -69,7 +70,8 @@ describePg("org invite — platform-wide email uniqueness", () => {
     });
 
     assert.equal(res.status, 201);
-    assert.equal(res.json.email, freshEmail);
+    assert.equal(res.json.orgId, seed.platformOrgId);
+    assert.ok(res.json.userId);
     assert.equal(res.json.role, "viewer");
   });
 
@@ -127,6 +129,20 @@ describePg("org invite — platform-wide email uniqueness", () => {
       userId: agentOwner.id,
       role: "owner",
     });
+    const pool = getPool();
+    await pool.query(
+      `UPDATE users SET first_name = 'Agent', last_name = 'Owner', timezone = 'UTC' WHERE id = $1`,
+      [agentOwner.id],
+    );
+    await pool.query(`UPDATE org_accounts SET billing_email = $2 WHERE id = $1`, [
+      agent.row.id,
+      agentOwnerEmail,
+    ]);
+    await pool.query(
+      `INSERT INTO agent_payout_addresses (org_id, asset, network, address)
+       VALUES ($1, 'USDT', 'tron', 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf')`,
+      [agent.row.id],
+    );
 
     const agentSession = await createSession({
       userId: agentOwner.id,

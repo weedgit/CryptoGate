@@ -36,6 +36,7 @@ import {
   UAT_SETTLEMENT,
 } from "./seed-nile-wallets.mjs";
 import { buildCommissionTreeSnapshot } from "./seed-commission-helpers.mjs";
+import { seedMetricsRateHistory } from "./seed-metrics-rates.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MARKER_AGENT = "Kevin Agent";
@@ -1268,6 +1269,35 @@ async function main() {
   console.log("Resyncing seed FX quotes (TRX/ETH ≠ 1 USD)…");
   const fxPatched = await resyncSeedFxQuotes(pool);
   console.log(`  Orders re-quoted: ${fxPatched}`);
+
+  // Metrics cards (ETH/ethereum, TRX/tron, USDT/tron) — newest quotes so the
+  // platform dashboard's capped order list still feeds rate sparklines.
+  const metricsMerchant = [...merchantCatalog.values()].find(
+    (m) => m.settlement && (m.ownerId || m.cashierIds?.length),
+  );
+  if (metricsMerchant) {
+    const ownerId =
+      metricsMerchant.ownerId ??
+      (
+        await pool.query(
+          `SELECT user_id FROM org_memberships
+           WHERE org_id = $1 AND role = 'owner' LIMIT 1`,
+          [metricsMerchant.id],
+        )
+      ).rows[0]?.user_id;
+    if (ownerId) {
+      console.log("Seeding Dashboard Metrics rate quotes…");
+      const metricsN = await seedMetricsRateHistory(pool, {
+        orgId: metricsMerchant.id,
+        merchantKey: metricsMerchant.key,
+        receiveAddress: metricsMerchant.settlement,
+        matchingMode: metricsMerchant.matchingMode,
+        cashierIds: metricsMerchant.cashierIds ?? [],
+        ownerId,
+      });
+      console.log(`  Metrics quote upserts: ${metricsN}`);
+    }
+  }
 
   console.log("\nKevin UAT rich seed complete.");
   console.log(`  Merchants in tree: ${merchantCatalog.size}`);

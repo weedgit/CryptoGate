@@ -11,8 +11,10 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadSeedEnv } from "./seed-env.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+loadSeedEnv();
 const steps = [
   "seed-local.mjs",
   "seed-load-orgs.mjs",

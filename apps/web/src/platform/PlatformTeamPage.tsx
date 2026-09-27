@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
@@ -20,6 +20,7 @@ import { SearchableSelect } from "../ui/SearchableSelect";
 import { sessionIsPlatformOwner } from "./org";
 import { PlatformPending } from "./ui/PlatformPending";
 import { TeamMemberEditModal } from "./TeamMemberEditModal";
+import { RoleBadge } from "../shared/RoleBadge";
 import { formatPhoneDisplay } from "../shared/phoneFormat";
 import {
   CloseIcon,
@@ -39,6 +40,7 @@ import {
   inviteEmailErrorMessage,
 } from "../shared/registeredEmails";
 import type { OrgRef } from "../shared/registeredEmails";
+import { useTeamPortal } from "./teamPortal";
 
 type Props = { session: Session };
 
@@ -55,10 +57,6 @@ const ROLE_OPTIONS = INVITE_ROLES.map((r) => ({
   id: r,
   label: roleLabel(r),
 }));
-
-function roleBadgeText(role: string): string {
-  return roleLabel(role);
-}
 
 function formatRelativeLogin(iso: string | null | undefined): string {
   if (!iso) return "Never";
@@ -80,22 +78,27 @@ type RemoveTarget = { userId: string; email: string };
 
 /** B15 — Platform team (Figma `b15-platform-team`). */
 export function PlatformTeamPage({ session }: Props) {
-  const canManage = useMemo(() => sessionIsPlatformOwner(session), [session]);
+  const portal = useTeamPortal();
+  const orgLabel = portal?.orgLabel ?? "platform";
+  const peekOrgs = portal?.peekOrgs ?? peekPlatformOrgs;
+  const canManage = useMemo(
+    () => (portal ? portal.canManage : sessionIsPlatformOwner(session)),
+    [portal, session],
+  );
   const platformOrgId = useMemo(
-    () => session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null,
-    [session],
+    () =>
+      portal
+        ? portal.orgId
+        : (session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null),
+    [portal, session],
   );
 
-  const [members, setMembers] = useState<OrgMember[]>(() => {
-    const orgId =
-      session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null;
-    return orgId ? (peekOrgUsers(orgId) ?? []) : [];
-  });
-  const [loading, setLoading] = useState(() => {
-    const orgId =
-      session.memberships.find((m) => m.orgType === "platform")?.orgId ?? null;
-    return !(orgId && peekOrgUsers(orgId));
-  });
+  const [members, setMembers] = useState<OrgMember[]>(() =>
+    platformOrgId ? (peekOrgUsers(platformOrgId) ?? []) : [],
+  );
+  const [loading, setLoading] = useState(
+    () => !(platformOrgId && peekOrgUsers(platformOrgId)),
+  );
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -108,10 +111,9 @@ export function PlatformTeamPage({ session }: Props) {
     (InviteOrgUserResult & { invitedEmail: string }) | null
   >(null);
   const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(null);
-  const [orgs, setOrgs] = useState<OrgRef[]>(() => peekPlatformOrgs() ?? []);
+  const [orgs, setOrgs] = useState<OrgRef[]>(() => peekOrgs() ?? []);
   const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
   const [editTarget, setEditTarget] = useState<OrgMember | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
   const showOk = useCallback((message: string) => {
@@ -121,38 +123,34 @@ export function PlatformTeamPage({ session }: Props) {
     setToast({ message, tone: "error" });
   }, []);
 
-  useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
-  }, []);
-
   const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!platformOrgId) {
-      setError("No platform org on this session");
+      setError(`No ${orgLabel} org on this session`);
       setLoading(false);
       return;
     }
-    if (!peekPlatformOrgs()) setLoading(true);
+    if (!peekOrgs()) setLoading(true);
     else if (!peekOrgUsers(platformOrgId)) setLoading(true);
     setError(null);
     try {
-      let resolvedOrgId = platformOrgId;
+      let nextOrgId = platformOrgId;
       try {
-        const nextOrgs = await getPlatformOrgs();
+        const nextOrgs = await (portal ? portal.getOrgs() : getPlatformOrgs());
         setOrgs(nextOrgs);
-        const platform = nextOrgs.find((o) => o.type === "platform");
-        if (platform) resolvedOrgId = platform.id;
+        const platform = portal ? null : nextOrgs.find((o) => o.type === "platform");
+        if (platform) nextOrgId = platform.id;
       } catch {
         /* keep session org */
       }
-      setResolvedOrgId(resolvedOrgId);
-      if (opts?.force) invalidateOrgUsers(resolvedOrgId);
-      setMembers(await getOrgUsers(resolvedOrgId, { force: opts?.force }));
+      setResolvedOrgId(nextOrgId);
+      if (opts?.force) invalidateOrgUsers(nextOrgId);
+      setMembers(await getOrgUsers(nextOrgId, { force: opts?.force }));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load team");
     } finally {
       setLoading(false);
     }
-  }, [platformOrgId]);
+  }, [platformOrgId, portal, peekOrgs, orgLabel]);
 
   useEffect(() => {
     void load();
@@ -194,7 +192,7 @@ export function PlatformTeamPage({ session }: Props) {
       const freshIndex = await fetchRegisteredEmailIndex(orgs, listOrgMemberEmails);
       const validationErr = validatePlatformInviteEmail(invitedEmail, freshIndex, {
         targetOrgId: orgId,
-        targetOrgType: "platform",
+        targetOrgType: portal ? portal.orgType : "platform",
         members,
       });
       if (validationErr) {
@@ -284,7 +282,7 @@ export function PlatformTeamPage({ session }: Props) {
   }
 
   return (
-    <div className="plat-team">
+    <div className="plat-team plat-bills">
       <AuthToast
         message={toast?.message ?? error}
         tone={toast?.tone ?? "error"}
@@ -294,22 +292,63 @@ export function PlatformTeamPage({ session }: Props) {
         }}
       />
 
-      {canManage && topbarActionsSlot
-        ? createPortal(
+      {portal?.header}
+
+      <div className="plat-bills__period-bar">
+        <div className="plat-bills__intro">
+          <span className="plat-bills__intro-icon" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              width="36"
+              height="36"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </span>
+          <div className="plat-bills__intro-copy">
+            <h1 className="plat-bills__intro-title">Team</h1>
+            <p className="plat-bills__intro-sub">
+              {portal
+                ? "Agent → Owner, Administrator, and Viewer memberships."
+                : "Platform → Owner, Administrator, and Viewer memberships."}
+            </p>
+          </div>
+        </div>
+        <div className="plat-bills__period-tools">
+          <button
+            type="button"
+            className="pg-dash__period-refresh"
+            onClick={() => void load({ force: true })}
+            disabled={loading || busy}
+            aria-label="Refresh team"
+            title="Refresh"
+          >
+            {loading ? "…" : "↻"}
+          </button>
+          {canManage ? (
             <button
               type="button"
-              className="plat-team__invite-cta"
+              className="btn-primary plat-bills__action-btn plat-team__invite-cta"
               onClick={openInvite}
-              disabled={busy}
+              disabled={busy || portal?.inviteLockedHint != null}
+              title={portal?.inviteLockedHint ?? undefined}
             >
               <span className="plat-team__invite-cta-plus" aria-hidden>
                 +
               </span>
               Invite Member
-            </button>,
-            topbarActionsSlot,
-          )
-        : null}
+            </button>
+          ) : null}
+        </div>
+      </div>
 
       {!canManage ? (
         <div className="plat-team__banner" role="status">
@@ -321,199 +360,206 @@ export function PlatformTeamPage({ session }: Props) {
         </div>
       ) : null}
 
-      <section className="plat-team__card">
-        <header className="plat-team__card-head">
-          <div>
-            <h2>Members</h2>
-            <p className="plat-team__card-copy">
-              Platform Owner, Administrator, and Viewer memberships.
+      <div className="plat-bills__panel plat-team__panel plat-team__panel--solo">
+        <div className="plat-bills__main">
+          {loading ? (
+            <PlatformPending
+              compact
+              title="Loading team"
+              copy={`Fetching ${orgLabel} org members.`}
+            />
+          ) : sortedMembers.length === 0 ? (
+            <p className="plat-team__empty">
+              No members returned for {orgLabel} org.
             </p>
-          </div>
-        </header>
-
-        {loading ? (
-          <PlatformPending
-            compact
-            title="Loading team"
-            copy="Fetching platform org members."
-          />
-        ) : sortedMembers.length === 0 ? (
-          <p className="plat-team__empty">No members returned for platform org.</p>
-        ) : (
-          <>
-          <div className="plat-team__table-wrap">
-            <table className="plat-team__table plat-team__table--dense">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Role</th>
-                  <th>MFA</th>
-                  <th className="plat-team__th-login">Last login</th>
-                  {canManage ? (
-                    <th className="plat-team__th-actions">Actions</th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedMembers.map((m, index) => {
-                  const isSelf = m.userId === session.userId;
-                  const status = m.status ?? "active";
-                  const paused = status === "paused";
-                  const canEditRow = canManage && m.role !== "owner";
-                  return (
-                    <tr
-                      key={`${m.userId}-${m.orgId}`}
-                      style={{
-                        animationDelay: `${Math.min(index, 24) * 40}ms`,
-                      }}
-                    >
-                      <td>
-                        <div className="plat-team__member">
-                          <span className="plat-team__avatar" aria-hidden>
-                            {m.avatarUrl ? (
-                              <img src={m.avatarUrl} alt="" />
-                            ) : (
-                              <DefaultUserAvatar className="plat-team__avatar-default" />
-                            )}
-                          </span>
-                          <span className="plat-team__name">
-                            {memberDisplayName(m)}
-                            {isSelf ? (
-                              <span className="plat-team__you">You</span>
-                            ) : null}
-                            {paused ? (
-                              <span className="plat-team__paused-tag">Paused</span>
-                            ) : null}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="plat-team__email">{m.email}</td>
-                      <td className="plat-team__phone">
-                        {m.phone?.trim() ? formatPhoneDisplay(m.phone) : "—"}
-                      </td>
-                      <td>
-                        {canManage && m.role !== "owner" && status === "active" ? (
-                          <div className="plat-team__role-picker">
-                            <SearchableSelect
-                              value={m.role}
-                              options={ROLE_OPTIONS}
-                              onChange={(role) =>
-                                void onRoleChange(m.userId, role)
-                              }
-                              disabled={busy}
-                              allowEmpty={false}
-                              placeholder="Role"
-                              ariaLabel={`Role for ${m.email}`}
-                              menuClassName="b3-team-role-menu"
-                              menuMinWidth={96}
-                            />
-                          </div>
-                        ) : (
-                          <span className="plat-team__role">
-                            {roleBadgeText(m.role)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="plat-team__td-mfa">
-                        <span
-                          className={`plat-team__mfa${
-                            m.mfaEnrolled ? " is-on" : " is-pending"
-                          }`}
-                          aria-label={
-                            m.mfaEnrolled
-                              ? "Multi-factor authentication enabled"
-                              : "Multi-factor authentication pending"
-                          }
-                        >
-                          <span className="plat-team__mfa-dot" aria-hidden />
-                          {m.mfaEnrolled ? "Enabled" : "Pending"}
-                        </span>
-                      </td>
-                      <td className="plat-team__login">
-                        {formatRelativeLogin(m.lastLoginAt)}
-                      </td>
+          ) : (
+            <>
+              <div className="plat-team__table-wrap">
+                <table className="plat-team__table plat-team__table--dense">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Role</th>
+                      <th>MFA</th>
+                      <th className="plat-team__th-login">Last login</th>
                       {canManage ? (
-                        <td className="plat-team__td-actions">
-                          {!isSelf || canEditRow ? (
-                            <div className="plat-team__actions">
-                              {canEditRow ? (
-                                <button
-                                  type="button"
-                                  className="plat-team__action plat-team__action--icon"
-                                  aria-label={`Edit ${m.email}`}
-                                  disabled={busy}
-                                  onClick={() => setEditTarget(m)}
-                                >
-                                  <PencilIcon />
-                                </button>
-                              ) : null}
-                              {!isSelf ? (
-                                <>
-                                  {paused ? (
-                                    <button
-                                      type="button"
-                                      className="plat-team__action plat-team__action--icon"
-                                      aria-label={`Resume ${m.email}`}
-                                      title="Resume"
-                                      disabled={busy}
-                                      onClick={() =>
-                                        void onSetStatus(m.userId, "active")
-                                      }
-                                    >
-                                      <PlayIcon />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      className="plat-team__action plat-team__action--icon"
-                                      aria-label={`Pause ${m.email}`}
-                                      title="Pause"
-                                      disabled={busy}
-                                      onClick={() =>
-                                        void onSetStatus(m.userId, "paused")
-                                      }
-                                    >
-                                      <PauseIcon />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="plat-team__action plat-team__action--icon is-danger"
-                                    aria-label={`Remove ${m.email}`}
-                                    title="Remove"
-                                    disabled={busy}
-                                    onClick={() =>
-                                      setRemoveTarget({
-                                        userId: m.userId,
-                                        email: m.email,
-                                      })
-                                    }
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="plat-team__actions-empty">—</span>
-                          )}
-                        </td>
+                        <th className="plat-team__th-actions">Actions</th>
                       ) : null}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="plat-team__count">
-            Showing {sortedMembers.length}{" "}
-            {sortedMembers.length === 1 ? "member" : "members"}
-          </p>
-          </>
-        )}
-      </section>
+                  </thead>
+                  <tbody>
+                    {sortedMembers.map((m, index) => {
+                      const isSelf = m.userId === session.userId;
+                      const status = m.status ?? "active";
+                      const paused = status === "paused";
+                      const canEditRow = canManage && m.role !== "owner";
+                      return (
+                        <tr
+                          key={`${m.userId}-${m.orgId}`}
+                          style={{
+                            animationDelay: `${Math.min(index, 24) * 40}ms`,
+                          }}
+                        >
+                          <td>
+                            <div className="plat-team__member">
+                              <span className="plat-team__avatar" aria-hidden>
+                                {m.avatarUrl ? (
+                                  <img src={m.avatarUrl} alt="" />
+                                ) : (
+                                  <DefaultUserAvatar className="plat-team__avatar-default" />
+                                )}
+                              </span>
+                              <span className="plat-team__name">
+                                {memberDisplayName(m)}
+                                {isSelf ? (
+                                  <span className="plat-team__you">You</span>
+                                ) : null}
+                                {paused ? (
+                                  <span className="plat-team__paused-tag">
+                                    Paused
+                                  </span>
+                                ) : null}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="plat-team__email">{m.email}</td>
+                          <td className="plat-team__phone">
+                            {m.phone?.trim()
+                              ? formatPhoneDisplay(m.phone)
+                              : "—"}
+                          </td>
+                          <td>
+                            {canManage &&
+                            m.role !== "owner" &&
+                            status === "active" ? (
+                              <div className="plat-team__role-picker">
+                                <SearchableSelect
+                                  value={m.role}
+                                  options={ROLE_OPTIONS}
+                                  onChange={(role) =>
+                                    void onRoleChange(m.userId, role)
+                                  }
+                                  disabled={busy}
+                                  allowEmpty={false}
+                                  placeholder="Role"
+                                  ariaLabel={`Role for ${m.email}`}
+                                  menuClassName="b3-team-role-menu"
+                                  menuMinWidth={96}
+                                />
+                              </div>
+                            ) : (
+                              <RoleBadge role={m.role} />
+                            )}
+                          </td>
+                          <td className="plat-team__td-mfa">
+                            <span
+                              className={`plat-team__mfa${
+                                m.mfaEnrolled ? " is-on" : " is-pending"
+                              }`}
+                              aria-label={
+                                m.mfaEnrolled
+                                  ? "Multi-factor authentication enabled"
+                                  : "Multi-factor authentication pending"
+                              }
+                            >
+                              <span className="plat-team__mfa-dot" aria-hidden />
+                              {m.mfaEnrolled ? "Enabled" : "Pending"}
+                            </span>
+                          </td>
+                          <td className="plat-team__login">
+                            {formatRelativeLogin(m.lastLoginAt)}
+                          </td>
+                          {canManage ? (
+                            <td className="plat-team__td-actions">
+                              {!isSelf || canEditRow ? (
+                                <div className="plat-team__actions">
+                                  {canEditRow ? (
+                                    <button
+                                      type="button"
+                                      className="plat-team__action plat-team__action--icon"
+                                      aria-label={`Edit ${m.email}`}
+                                      disabled={busy}
+                                      onClick={() => setEditTarget(m)}
+                                    >
+                                      <PencilIcon />
+                                    </button>
+                                  ) : null}
+                                  {!isSelf ? (
+                                    <>
+                                      {paused ? (
+                                        <button
+                                          type="button"
+                                          className="plat-team__action plat-team__action--icon"
+                                          aria-label={`Resume ${m.email}`}
+                                          title="Resume"
+                                          disabled={busy}
+                                          onClick={() =>
+                                            void onSetStatus(
+                                              m.userId,
+                                              "active",
+                                            )
+                                          }
+                                        >
+                                          <PlayIcon />
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="plat-team__action plat-team__action--icon"
+                                          aria-label={`Pause ${m.email}`}
+                                          title="Pause"
+                                          disabled={busy}
+                                          onClick={() =>
+                                            void onSetStatus(
+                                              m.userId,
+                                              "paused",
+                                            )
+                                          }
+                                        >
+                                          <PauseIcon />
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="plat-team__action plat-team__action--icon is-danger"
+                                        aria-label={`Remove ${m.email}`}
+                                        title="Remove"
+                                        disabled={busy}
+                                        onClick={() =>
+                                          setRemoveTarget({
+                                            userId: m.userId,
+                                            email: m.email,
+                                          })
+                                        }
+                                      >
+                                        <TrashIcon />
+                                      </button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="plat-team__actions-empty">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="plat-team__count">
+                Showing {sortedMembers.length}{" "}
+                {sortedMembers.length === 1 ? "member" : "members"}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
 
       {editTarget && orgId ? (
         <TeamMemberEditModal
@@ -690,7 +736,7 @@ export function PlatformTeamPage({ session }: Props) {
                     <strong className="b3-suspend-modal__name">
                       {removeTarget.email}
                     </strong>{" "}
-                    from the platform org?
+                    from the {orgLabel} org?
                   </p>
                   <p className="plat-team__remove-warn">
                     They lose portal access immediately. This cannot be undone

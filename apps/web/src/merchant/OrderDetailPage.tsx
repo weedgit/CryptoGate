@@ -136,8 +136,8 @@ export function OrderDetailPage({
   const invoiceRef = useRef<HTMLElement | null>(null);
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
   const isPlatform = variant === "platform";
-  const backTo = isPlatform ? platformRoute("support") : merchantRoute("orders");
-  const backLabel = isPlatform ? "← Back to support" : "← Back to orders";
+  const backTo = isPlatform ? platformRoute("invoices") : merchantRoute("orders");
+  const backLabel = isPlatform ? "← Back to invoices" : "← Back to invoices";
   const topbarCenterId = isPlatform
     ? "platform-topbar-center"
     : "merchant-topbar-center";
@@ -412,7 +412,7 @@ export function OrderDetailPage({
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Could not resolve anomaly",
+            : "Could not resolve — try again",
       );
     } finally {
       setResolving(false);
@@ -510,7 +510,10 @@ export function OrderDetailPage({
     status === "failed" ||
     status === "cancelled";
   const paidAt = settled ? chain?.confirmedAt ?? pay?.confirmedAt ?? null : null;
-  const createdByLabel = order?.createdByEmail?.trim() || null;
+  const createdByLabel =
+    order?.createdByName?.trim() ||
+    order?.createdByEmail?.trim() ||
+    null;
   const sellerOrgId =
     sellerOrg?.id ??
     order?.orgId ??
@@ -550,7 +553,7 @@ export function OrderDetailPage({
           <div className="order-detail-topbar no-print" aria-label="Order context">
             <div className="order-detail-topbar__lead">
               <Link className="order-detail-topbar__back" to={backTo}>
-                {isPlatform ? "← Support" : "← Orders"}
+                {isPlatform ? "← Invoice" : "← Invoice"}
               </Link>
               <span className="order-detail-topbar__divider" aria-hidden />
               <div className="order-detail-topbar__identity">
@@ -771,7 +774,7 @@ export function OrderDetailPage({
                     {settled
                       ? "Payment completed — QR no longer needed"
                       : status === "payment_anomaly"
-                        ? "Payment anomaly — do not collect again"
+                        ? "Attention — do not collect again"
                         : status === "expired"
                           ? "Order expired — a late on-chain send will not auto-complete"
                           : status === "failed" || status === "cancelled"
@@ -1132,12 +1135,12 @@ export function OrderDetailPage({
               ) : order?.orgId ? (
                 <Link
                   className="order-detail-page__cta"
-                  to={`${platformRoute(`accounts/merchants/${order.orgId}`)}?tab=compliance`}
+                  to={platformRoute(`accounts/merchants/${order.orgId}`)}
                 >
                   Open merchant
                 </Link>
               ) : (
-                <Link className="order-detail-page__cta" to={platformRoute("support")}>
+                <Link className="order-detail-page__cta" to={platformRoute("invoices")}>
                   Back to support
                 </Link>
               )}
@@ -1151,7 +1154,7 @@ export function OrderDetailPage({
               key={`anomaly-${order?.id ?? orderNumber}`}
             >
               <header className="order-detail-anomaly__head">
-                <p className="order-detail-anomaly__title">Payment needs review</p>
+                <p className="order-detail-anomaly__title">Needs Attention</p>
               </header>
 
               <div className="order-detail-anomaly__section">
@@ -1228,7 +1231,7 @@ export function OrderDetailPage({
                         disabled={resolving || !resolveNote.trim()}
                         onClick={() => void onResolveAnomaly()}
                       >
-                        {resolving ? "Resolving…" : "Resolve anomaly"}
+                        {resolving ? "Resolving…" : "Resolve"}
                       </button>
                       <p className="order-detail-anomaly__hint">
                         Closes this ticket after you reconcile. Does not mark paid.
@@ -1248,7 +1251,7 @@ export function OrderDetailPage({
           ) : order?.anomalyResolutionNote ? (
             <section className="order-detail-anomaly order-detail-anomaly--resolved no-print">
               <header className="order-detail-anomaly__head">
-                <p className="order-detail-anomaly__title">Anomaly resolved</p>
+                <p className="order-detail-anomaly__title">Attention resolved</p>
               </header>
               <p className="order-detail-anomaly__copy">
                 {reasonLabel ? `${reasonLabel}. ` : ""}

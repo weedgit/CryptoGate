@@ -122,12 +122,12 @@ fun TodayOrdersScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextButton(onClick = onSeeAllOrders) { Text("See all orders →") }
+                TextButton(onClick = onSeeAllOrders) { Text("See all invoices →") }
             }
             when {
                 loading -> CircularProgressIndicator()
                 !error.isNullOrBlank() -> Text(error, color = MaterialTheme.colorScheme.error)
-                recent.isEmpty() -> Text("No orders yet.", style = MaterialTheme.typography.bodyMedium)
+                recent.isEmpty() -> Text("No invoices yet.", style = MaterialTheme.typography.bodyMedium)
                 else ->
                     LazyColumn(
                         modifier = Modifier.weight(1f),

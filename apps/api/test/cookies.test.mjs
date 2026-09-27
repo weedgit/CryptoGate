@@ -67,15 +67,18 @@ describe("session payload", () => {
     assert.equal(session.sessionTimeoutMinutes, 120);
   });
 
-  it("accepts user security preference fields", () => {
-    const session = sessionFromUser({
-      id: "u1",
-      email: "owner@example.com",
-      mfaEnrolled: true,
-      mfaEnforcement: true,
-      sessionTimeoutMinutes: 120,
-    });
-    assert.equal(session.mfaEnforcement, true);
-    assert.equal(session.sessionTimeoutMinutes, 120);
+  it("sets mfaEnforcement from fund-bearing memberships only", () => {
+    const merchantOwner = sessionFromUser(
+      { id: "u1", email: "owner@example.com", mfaEnrolled: true },
+      [{ orgId: "m1", userId: "u1", role: "owner", orgType: "merchant" }],
+    );
+    assert.equal(merchantOwner.mfaEnforcement, true);
+    assert.equal(merchantOwner.sessionTimeoutMinutes, 120);
+
+    const agentOwner = sessionFromUser(
+      { id: "u2", email: "agent@example.com" },
+      [{ orgId: "a1", userId: "u2", role: "owner", orgType: "agent" }],
+    );
+    assert.equal(agentOwner.mfaEnforcement, false);
   });
 });

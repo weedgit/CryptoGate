@@ -66,6 +66,10 @@ export const AUDIT_ACTIONS = {
   posPinAdminClear: "pos_pin_admin_clear",
   profileUpdate: "profile_update",
   networkMaintenancePut: "network_maintenance_put",
+  networkRailSettingsPut: "network_rail_settings_put",
+  merchantNetworkRailSettingsPut: "merchant_network_rail_settings_put",
+  platformOrgRailSettingsPut: "platform_org_rail_settings_put",
+  platformSiteRailSettingsPut: "platform_site_rail_settings_put",
 };
 
 const SECRET_KEY = /secret|password|token|mnemonic|cookie|authorization|xpub/i;

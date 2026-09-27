@@ -4,7 +4,7 @@ import { agentDepthOf } from "../orgs/org-rules.mjs";
 import { DEFAULT_MAX_AGENT_DEPTH } from "../orgs/org-accounts.mjs";
 
 export const ALLOWED_SESSION_TIMEOUT_MINUTES = Object.freeze([15, 30, 60, 120]);
-export const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
+export const DEFAULT_SESSION_TIMEOUT_MINUTES = 120;
 export const DEFAULT_MFA_ENFORCEMENT = true;
 
 /**

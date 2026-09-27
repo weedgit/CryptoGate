@@ -10,6 +10,8 @@ import { createPortal } from "react-dom";
 export type ChartPoint = { x: number; y: number };
 
 export function formatChartDay(label: string): string {
+  const week = /^W(\d{4}-\d{2}-\d{2})$/.exec(label);
+  if (week) return `Week of ${formatChartDay(week[1]!)}`;
   const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
   if (hour) {
     return formatChartDay(`${hour[1]}-${hour[2]}-${hour[3]}`);
@@ -36,6 +38,8 @@ export function formatChartDay(label: string): string {
 
 /** Compact X-axis tick — day "Sep 13" or hour "14:00". */
 export function formatChartAxisDay(label: string): string {
+  const week = /^W(\d{4}-\d{2}-\d{2})$/.exec(label);
+  if (week) return formatChartAxisDay(week[1]!);
   const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
   if (hour) return `${hour[4]}:00`;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(label);
@@ -60,6 +64,7 @@ export function formatChartAxisDay(label: string): string {
 
 /** Day/hour-bucket labels → date + time for chart footers. */
 export function formatChartDateTime(label: string): string {
+  if (/^W\d{4}-\d{2}-\d{2}$/.test(label)) return formatChartDay(label);
   const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(label);
   if (hour) {
     const day = formatChartDay(`${hour[1]}-${hour[2]}-${hour[3]}`);

@@ -91,6 +91,8 @@ Portals: http://127.0.0.1:5174/{platform,agent,merchant}
 - Receive address is merchant-controlled. The platform has no spend keys.
 - Volume fee is billed on the service rail, never skimmed from the payer payment.
 - Cashiers cannot change settlement address, xPub, matching mode, or fees.
+- Settlement address and xPub: Merchant Owner or Platform Owner only (not merchant Admin, not Platform Admin).
+- Suspended merchants (and their sites) are watch-only; suspend reason is shown in portals.
 - Agent accounts do not create merchant payment orders.
 - Signed webhooks only; do not fulfill on browser redirect.
 

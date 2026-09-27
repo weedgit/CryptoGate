@@ -60,7 +60,7 @@ Roles apply **inside** an org account. **Owner**, **Administrator**, and **Viewe
 | **Viewer** | Platform, Agent, Merchant | Read-only dashboards and reports. |
 | **Cashier** | Merchant or Site | Counter staff: create and manage **own payment orders** only; no settings or team management. |
 
-**Platform-account users** operate PaymentGate globally: fee policy (automatic volume schedule and fixed rates), agent and merchant onboarding (including merchants **directly under Platform**), billing wallet, agent payout overrides, compliance override, and audit.
+**Platform-account users** operate PaymentGate globally: fee policy (automatic volume schedule and fixed rates), agent and merchant onboarding (including merchants **directly under Platform**), billing wallet, partner Suspend/Resume, agent payout overrides, and audit.
 
 **Agent-account users** may **help onboard merchants and sites** in their channel (**only after** the agent profile activity gate is clear). They view merchant volume and service bills. From the agent role they **cannot** create payment orders, change merchant receive wallets, or see merchant API secrets. Merchant/site have **no fee settings** (Automatic or Platform Fixed only). Ongoing in-org help: merchant/site may invite a **verified** Agent Owner/Administrator onto the team (not Viewer).
 
@@ -123,7 +123,7 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 **Payer.** The guest, passenger or shopper. Opens the QR or link and pays on-chain. Not a platform account in Phase 1.
 
-**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** manage global fee policy, agent onboarding, **direct merchant onboarding under Platform**, compliance override, billing wallet, agent payout overrides, and audit.
+**Platform.** PaymentGate operator. Platform **Owner**, **Administrator**, and **Viewer** manage global fee policy, agent onboarding, **direct merchant onboarding under Platform**, partner Suspend/Resume, billing wallet, agent payout overrides, and audit.
 
 **Agent account.** Optional channel partner **directly under Platform**. After profile completeness, Owner/Administrator **help onboard merchants** under the agent and **help onboard sites** under those merchants; they view merchant volume and service bills — **read-only** on merchant credentials, settlement, and merchant fee rates. Agents **do not** create payment orders and **do not** set platform fees. Agents are not required for every merchant.
 
@@ -135,8 +135,8 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 | Role | Payment orders | Service bills | Team (Administrator / Viewer) | Settings (wallet, xPub, matching mode) | Merchant platform fee | Agent commission |
 | --- | --- | --- | --- | --- | --- | --- |
-| **Platform Owner** | None | Issue/adjust service bills | **Add/remove Platform Administrator and Viewer** | Compliance override; agent payout override | Set Automatic schedule; set / approve **Fixed** rates | Set Automatic / Fixed commission |
-| **Platform Administrator** | None | Issue/adjust service bills | **Cannot** add/remove team | Compliance override (logged); agent payout override | View; operate per Owner policy | View; may apply Owner-approved Fixed changes if product allows |
+| **Platform Owner** | None | Issue/adjust service bills | **Add/remove Platform Administrator and Viewer** | Suspend/resume partners; settlement/xPub (Owner-only fund rails); agent payout override | Set Automatic schedule; set / approve **Fixed** rates | Set Automatic / Fixed commission |
+| **Platform Administrator** | None | Issue/adjust service bills | **Cannot** add/remove team | Suspend/resume partners (MFA + reason); org/ops support — **not** settlement/xPub; agent payout override | View; operate per Owner policy | View; may apply Owner-approved Fixed changes if product allows |
 | **Platform Viewer** | None | View only | None | View only | View only | View only |
 | **Owner** (merchant) | Full | View + pay own org bills | **Add/remove Administrator and Viewer**; **onboard sites** when merchant activity gate is clear | Full within org policy | View effective rate | — |
 | **Administrator** (merchant) | Full | View + pay own org bills | **Cannot** add/remove team; **onboard sites** when merchant activity gate is clear | Change per Owner policy (settlement wallet: **Owner / Platform only**) | View effective rate | — |
@@ -147,7 +147,7 @@ The fee is a **technical service fee**: monthly subscription plus **volume fee**
 
 **Audit:** All login events and privileged actions are **append-only**. No user may delete audit records.
 
-**Wallet:** Each merchant has one settlement receive address (and optional watch-only xPub for Smart address matching). **Only Merchant Owner or Platform Owner/Administrator** may change it. Cashiers, merchant Administrators, and agent-account users never change it.
+**Wallet:** Each merchant has one settlement receive address (and optional watch-only xPub for Smart address matching). **Only Merchant Owner or Platform Owner** may change it. Cashiers, merchant Administrators, Platform Administrators, and agent-account users never change it.
 
 ## Payment orders vs service bills
 
@@ -307,7 +307,7 @@ Onboard = create the org + invite Owner (minimal fields). Completing profile / a
 
 “Verified” = that user’s **email verified** and **phone verified** (Phase 1 channels). Invite is rejected until both are true for Platform/Agent O/A invitees.
 
-When a Platform/Agent O/A accepts a merchant/site membership, they act under **that org’s role** (e.g. Merchant Administrator) for in-org help. That does **not** grant agent-portal power to edit merchant settlement; settlement wallet remains **Merchant Owner** or **Platform O/A** only.
+When a Platform/Agent O/A accepts a merchant/site membership, they act under **that org’s role** (e.g. Merchant Administrator) for in-org help. That does **not** grant agent-portal power to edit merchant settlement; settlement wallet remains **Merchant Owner** or **Platform Owner** only.
 
 **Org fields after invite**
 
@@ -346,18 +346,22 @@ Until every item below is satisfied for the merchant Owner (org + person), the m
 
 **After gate clears:** normal merchant O/A permissions apply (orders, sites, settlement with MFA + cool-down, team per role rules, etc.).
 
-**Platform permissions:** Platform Owner and Platform Administrator may operate merchants (org fields, settlement wallet, fees, lifecycle, etc.) — **audit logged**. **Exception — Owner person profile:** only the **Owner** (self) or **Platform Owner** (support) may change an Owner’s first/last name, email, phone, verification status, or timezone. **Platform Administrator** and all other Administrators **cannot** change Owner person profiles.
+**Platform permissions:** Platform Owner and Platform Administrator may operate merchants (org fields, lifecycle Suspend/Resume, matching, commercial support, etc.) — **audit logged**. **Fund rails** (settlement address, xPub/HD): **Platform Owner only** among platform roles. **Exception — Owner person profile:** only the **Owner** (self) or **Platform Owner** (support) may change an Owner’s first/last name, email, phone, verification status, or timezone. **Platform Administrator** and all other Administrators **cannot** change Owner person profiles.
+
+**Sensitive platform writes (MFA step-up required):** when Platform Owner/Administrator edits a child account: **Suspend/Resume**, **fund settings** (settlement/xPub — Owner only), **matching mode**, **commercial fee locks**. Other ops writes (profile org fields, network rails, team support) are audited but do not require MFA in Phase 1.
 
 **Owner person profile rule (all orgs):** **Administrator cannot change Owner profile.** Applies to Platform, Agent, Merchant, and Site. Each user may edit **their own** self-profile. Org **Owner** may be support-edited only by **Platform Owner**.
 
 **Agent permissions on merchants (agent portal role):** From the **agent** role, agents **do not** edit merchant profile, settlement, credentials, or fees. There is **no merchant/site fee setting** to edit anyway (Automatic or Platform Fixed only). Agents **do** help **onboard** merchants and sites. For ongoing in-org help, a **verified** Agent Owner/Administrator may be **invited onto the merchant/site team** (see team invite rules above) — then they work as that merchant/site member, not via agent-role edits.
 
-**Settlement wallet (payer receive address):** may be set/changed **only** by:
+**Settlement wallet + xPub (payer receive rails):** may be set/changed **only** by:
 
 1. **Merchant Owner**, or  
-2. **Platform Owner / Platform Administrator**
+2. **Platform Owner**
 
-Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot change the settlement wallet. Changes use MFA + cool-down + audit (same safety bar as today).
+Merchant Administrator, Platform Administrator, Viewer, Cashier, and **all agent-account roles** cannot change fund rails. Changes use MFA + cool-down + audit.
+
+**Org Suspend (Active | Suspended):** everyday freeze is a single **Suspend** (API `status=paused`) with a **required reason** stored on the org. Platform Suspend/Resume requires MFA. While a **merchant** is Suspended, descendant **sites** inherit **watch-only** (no payment orders, no settings/team/API writes); portals show the suspend reason. Resume clears the reason. There is **no** separate primary “order create suspended” product control (legacy flag cleared on resume). Billing overdue pause uses the same Suspend semantics.
 
 **Verification:** email + phone SMS only; **Platform Owner** may override verification status (audit logged) — same as agent. Administrator cannot.
 
@@ -406,15 +410,18 @@ Merchant Administrator, Viewer, Cashier, and **all agent-account roles** cannot 
 | **11** | Agent payout address | Editable by **agent O/A** and by **platform O/A** (support override); MFA + cool-down + audit. |
 | **12** | Agent activity gate | Requires: **first name**, **last name**, **billing email**, **email verified**, **phone verified**, **timezone**, **wallet (payout) address**. Until then: watch-only. |
 | **13** | Person profile | **All** portal users (Platform → Agent → Merchant → **Cashier**) use **first name + last name**. |
-| **14** | Contact verification | Phase 1: **email** and **phone (SMS)** only. Verification status override: **Platform Owner** only (not Administrator). Audit logged. |
+| **14** | Contact verification | Phase 1: **email** and **phone (SMS)** only. **Change flow:** OTP to the **new** address/number; current verified value stays active until the new OTP succeeds (no old-channel OTP). **Notify old** (non-blocking): alert the previous verified email/SMS when a change is requested and again when it completes. Verification status override: **Platform Owner** only (not Administrator). Audit logged. |
 | **15** | Merchant onboard | **Parent** (read-only when preselected) + **business name** + **owner email**. Legal name auto = business name. Owner email must not be Platform/Agent O/A (see **21**). |
 | **16** | Merchant activity gate | Same as agent **plus country**: first name, last name, billing email, email verified, phone verified, timezone, **settlement wallet**, **country**. Until then: watch-only — **self-profile only** editable; all other surfaces read-only. |
-| **17** | Platform authority | Platform Owner and Administrator may change partner **org** information (wallets, billing email, country, etc.). **Owner person profile** / verification override: **Platform Owner** only — Administrators cannot. |
+| **17** | Platform authority | Platform Owner and Administrator may change partner **org** information (billing email, country, lifecycle, matching, etc.). **Fund rails** (settlement/xPub) and **Owner person profile** / verification override: **Platform Owner** only — Administrators cannot. Sensitive platform child writes require MFA (see **24**). All writes audit-logged. |
 | **18** | Agent vs merchant data | From **agent role**: no edit of merchant profile/settlement (fees N/A — no merchant fee UI). Agent **does** onboard merchants/sites. Ongoing help = invite **verified** Agent O/A onto merchant/site team. |
-| **19** | Merchant settlement wallet | Changeable **only** by **Merchant Owner** or **Platform Owner/Administrator**. Not by merchant Admin, agent role, or Cashier. MFA + cool-down + audit. |
+| **19** | Merchant fund rails | Settlement address and xPub changeable **only** by **Merchant Owner** or **Platform Owner**. Not by Platform Admin, merchant Admin, agent role, or Cashier. MFA + cool-down + audit. |
 | **20** | Onboard help matrix | Platform O/A: agents + merchants + sites. Agent O/A: merchants under self + sites under those merchants. Merchant O/A: sites under self. Gates apply. |
 | **21** | Merchant/site Owner onboard | Platform O/A and Agent O/A accounts **must not** be onboarded as the new merchant/site **Owner**. |
 | **22** | Merchant/site team invite | **May** invite **verified** Platform O/A and **verified** Agent O/A (same email OK). **Must not** invite Platform Viewer or Agent Viewer. |
+| **23** | Org Suspend | Status **Active \| Suspended** (`paused`). Suspend requires a **reason** (persisted). Platform Suspend/Resume requires **MFA**. Suspended merchant → descendant sites are **watch-only**; UI shows reason. Single everyday freeze — not a separate “order create suspended” product control. Billing overdue uses the same Suspend path. |
+| **24** | Platform MFA (sensitive) | MFA step-up when Platform O/A: Suspend/Resume, fund rails, matching mode, commercial fee locks on child accounts. |
+| **25** | Login MFA (forced) | **Required enroll + login TOTP** for **Platform** and **Merchant** Owner/Administrator only (fund-bearing portals). **Not forced** for Agent, merchant site, Cashier, or Viewer. Agent O/A may enroll optionally (payout step-up). |
 
 ## Platform revenue and cost
 

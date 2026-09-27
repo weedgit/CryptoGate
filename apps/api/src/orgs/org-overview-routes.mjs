@@ -14,7 +14,12 @@ import {
   expandPaymentOrderReadFilter,
   orgIdInPaymentOrderFilter,
 } from "../orders/order-list-scope.mjs";
-import { listPaymentOrders, toPaymentOrder } from "../orders/order-store.mjs";
+import {
+  merchantPeriodStart,
+  overviewOrderMetrics,
+  platformFeeMonthToDate,
+  utcMonthStart,
+} from "./org-overview-metrics.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { canListOrgUsers, isPlatformStaff } from "./membership-rules.mjs";
 import { listMembershipsForOrg } from "./membership-store.mjs";
@@ -32,7 +37,6 @@ import {
 } from "./role-policy.mjs";
 
 const OVERVIEW_AUDIT_LIMIT = 8;
-const OVERVIEW_ORDERS_LIMIT = 200;
 
 /**
  * GET /v1/orgs/{orgId}/overview — team, audit, orders, and type-specific fields in one round trip.
@@ -85,8 +89,11 @@ export async function handleGetOrgOverview(req, res, orgId) {
     }
   }
 
-  /** @type {Awaited<ReturnType<typeof listPaymentOrders>>} */
-  let orderRows = [];
+  /**
+   * Period-to-date totals (server aggregates — never a capped row list).
+   * @type {{ periodStart: string, ordersMtd: number, settledVolumeMtdUsd: number, openOrders: number, platformFeeMtdUsd: number | null } | null}
+   */
+  let metrics = null;
   /** @type {object | null} */
   let commercial = null;
   /** @type {object | null} */
@@ -109,16 +116,25 @@ export async function handleGetOrgOverview(req, res, orgId) {
     if (orderScope.kind !== "none") {
       const filter = await expandPaymentOrderReadFilter(orderScope);
       if (orgIdInPaymentOrderFilter(filter, orgId)) {
-        orderRows = (
-          await listPaymentOrders({
-            kind: filter.kind === "all" ? "all" : "filter",
-            treeOrgIds: filter.kind === "filter" ? filter.treeOrgIds : [],
-            cashierOrgIds: filter.kind === "filter" ? filter.cashierOrgIds : [],
-            createdBy: filter.kind === "filter" ? filter.createdBy : null,
-            orgId,
-            limit: OVERVIEW_ORDERS_LIMIT,
-          })
-        ).rows;
+        const since = merchantPeriodStart(org.created_at ?? org.createdAt);
+        const m = await overviewOrderMetrics(
+          filter.kind === "all"
+            ? { kind: "all" }
+            : {
+                kind: "filter",
+                treeOrgIds: filter.treeOrgIds,
+                cashierOrgIds: filter.cashierOrgIds,
+                createdBy: filter.createdBy,
+              },
+          { orgId, since },
+        );
+        metrics = {
+          periodStart: since.toISOString(),
+          ordersMtd: m.orders,
+          settledVolumeMtdUsd: m.settledVolumeUsd,
+          openOrders: m.open,
+          platformFeeMtdUsd: null,
+        };
       }
     }
   } else if (org.type === "agent") {
@@ -145,15 +161,20 @@ export async function handleGetOrgOverview(req, res, orgId) {
           filter.kind === "all"
             ? merchantOrgIds
             : merchantOrgIds.filter((id) => orgIdInPaymentOrderFilter(filter, id));
-        if (allowedIds.length > 0) {
-          orderRows = (
-            await listPaymentOrders({
-              kind: "filter",
-              treeOrgIds: allowedIds,
-              limit: OVERVIEW_ORDERS_LIMIT,
-            })
-          ).rows;
-        }
+        const since = utcMonthStart();
+        const [m, fee] = await Promise.all([
+          allowedIds.length > 0
+            ? overviewOrderMetrics({ kind: "filter", treeOrgIds: allowedIds }, { since })
+            : { orders: 0, settledVolumeUsd: 0, open: 0 },
+          platformFeeMonthToDate(allowedIds),
+        ]);
+        metrics = {
+          periodStart: since.toISOString(),
+          ordersMtd: m.orders,
+          settledVolumeMtdUsd: m.settledVolumeUsd,
+          openOrders: m.open,
+          platformFeeMtdUsd: fee,
+        };
       }
     }
   }
@@ -183,7 +204,7 @@ export async function handleGetOrgOverview(req, res, orgId) {
   sendJson(res, 200, {
     team,
     audit: auditRows.map(toAuditLogEntry),
-    orders: orderRows.map(toPaymentOrder),
+    metrics,
     commercial,
     payout,
     commission,

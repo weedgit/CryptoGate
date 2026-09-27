@@ -3,12 +3,12 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import {
   ApiError,
   listPlatformOrgMemberEmails,
   setOrgStatus,
   type OrgAccount,
-  type ServiceBill,
   type Session,
 } from "./api";
 import { AgentDetailCard } from "./AgentDetailCard";
@@ -24,7 +24,12 @@ import {
   refreshPlatformOrgList,
   removePlatformOrgFromList,
 } from "./platformOrgList";
-import { getPlatformServiceBills, peekPlatformServiceBills } from "./platformServiceBillsList";
+import {
+  agentPayoutFromOrgStatus,
+  getServiceBillOrgStatus,
+  peekServiceBillOrgStatus,
+  type ServiceBillOrgStatus,
+} from "../shared/serviceBillsServer";
 import { serviceBillStatusLabel } from "./serviceBillStatus";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
@@ -32,10 +37,7 @@ import { useOrgDeleteModal } from "./useOrgDeleteModal";
 import { PagePending } from "./ui/PlatformPending";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
-  DEFAULT_AGENT_COMMISSION_PERCENT,
   formatOnboardDate,
-  mergeCommissionHistory,
-  resolveAgentPayoutStatus,
   type AgentPayoutStatus,
 } from "./orgDetailSeeds";
 import {
@@ -59,6 +61,7 @@ import {
 } from "./platformOrgTree";
 import { orgOwnerEmailMapFromBulkRows } from "../shared/registeredEmails";
 import { useOrgTreeOpsExtras } from "./useOrgTreeOpsExtras";
+import { useAccountsPortal, type AccountsPortal } from "./accountsPortal";
 import { platformRoute } from "../shared/portalRouting";
 import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { GateLogoMark } from "../auth/GateLogoMark";
@@ -119,6 +122,10 @@ function payFiltersForContext(
   // Platform / sites have no commercial pay status — hide the group.
   if (type === "platform" || type === "site") return [];
   return PAY_FILTERS;
+}
+
+function portalReturnTo(portal: AccountsPortal | null, href: string): string {
+  return portal ? withReturnTo(href, portal.route("accounts")) : withReturnTo(href);
 }
 
 function isPayAllowedInContext(
@@ -354,22 +361,6 @@ type TreeRowBudgets = {
   commissionByAgentId: ReadonlyMap<string, AgentPayoutStatus | null>;
   feeByMerchantId: ReadonlyMap<string, MerchantFeeStatus | null>;
 };
-
-/** Prefer collection risk: overdue → issued → latest paid. */
-function resolveMerchantFeeStatus(
-  bills: ReadonlyArray<ServiceBill>,
-): MerchantFeeStatus | null {
-  let hasIssued = false;
-  let hasPaid = false;
-  for (const bill of bills) {
-    if (bill.status === "overdue") return "overdue";
-    if (bill.status === "issued") hasIssued = true;
-    else if (bill.status === "paid") hasPaid = true;
-  }
-  if (hasIssued) return "issued";
-  if (hasPaid) return "paid";
-  return null;
-}
 
 function commissionPayoutLabel(status: AgentPayoutStatus): string {
   if (status === "paid") return "PAID";
@@ -886,6 +877,8 @@ function OrgTreeItem({
   onDelete: (node: PlatformOrgTreeNode) => void;
 }) {
   const navigate = useNavigate();
+  const portal = useAccountsPortal();
+  const route = portal?.route ?? platformRoute;
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const hasChildren = node.children.length > 0;
@@ -894,8 +887,12 @@ function OrgTreeItem({
   const isPaused = node.status === "paused";
   const isAgent = node.type === "agent";
   const isMerchant = node.type === "merchant";
-  const canOnboard = canManage && orgCanAddChild(node.type);
-  const canLifecycle = canManage && node.type !== "platform" && node.type !== "merchant_site";
+  const canOnboard = portal
+    ? portal.canOnboardUnder(node)
+    : canManage && orgCanAddChild(node.type);
+  const canLifecycle = portal
+    ? portal.canLifecycle(node)
+    : canManage && node.type !== "platform" && node.type !== "merchant_site";
   const hasMenu = canOnboard || canLifecycle;
   const commission = isAgent
     ? (budgets.commissionByAgentId.get(node.id) ?? null)
@@ -950,14 +947,16 @@ function OrgTreeItem({
 
   const onboardHref =
     node.type === "platform"
-      ? withReturnTo(platformRoute("agents/new"))
+      ? portalReturnTo(portal, route("agents/new"))
       : isAgent
-        ? withReturnTo(
-            `${platformRoute("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
+        ? portalReturnTo(
+            portal,
+            `${route("merchants/new")}?parentId=${encodeURIComponent(node.id)}`,
           )
         : isMerchant || node.type === "merchant_site"
-          ? withReturnTo(
-              `${platformRoute("sites/new")}?parentId=${encodeURIComponent(node.id)}`,
+          ? portalReturnTo(
+              portal,
+              `${route("sites/new")}?parentId=${encodeURIComponent(node.id)}`,
             )
           : null;
   const onboardLabel =
@@ -1605,11 +1604,47 @@ const EMPTY_FILTER: OrgTreeFilter = {
   pay: "all",
 };
 
+const PLATFORM_ACCOUNT_SOURCES = {
+  getOrgs: () => getPlatformOrgs(),
+  peekOrgs: peekPlatformOrgs,
+  refreshOrgs: refreshPlatformOrgList,
+  removeOrg: removePlatformOrgFromList,
+  orgsUpdatedEvent: PLATFORM_ORGS_UPDATED_EVENT,
+  listMemberEmails: () => listPlatformOrgMemberEmails(),
+};
+
 /** Org hierarchy map with manage actions; agent/merchant open full detail cards. */
 export function AccountsPage({ session }: { session: Session }) {
   const pageRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const portal = useAccountsPortal();
+  const route = portal?.route ?? platformRoute;
+  const sources = useMemo(
+    () =>
+      portal
+        ? {
+            getOrgs: portal.orgs.get,
+            peekOrgs: portal.orgs.peek,
+            refreshOrgs: portal.orgs.refresh,
+            removeOrg: portal.orgs.remove,
+            orgsUpdatedEvent: portal.orgs.updatedEvent,
+            listMemberEmails: portal.listMemberEmails,
+          }
+        : PLATFORM_ACCOUNT_SOURCES,
+    [portal],
+  );
+  const scopeOrgs = useCallback(
+    (rows: OrgAccount[]) => (portal ? portal.scopeOrgs(rows) : rows),
+    [portal],
+  );
+  const buildForest = useCallback(
+    (rows: OrgAccount[]) =>
+      portal
+        ? buildPlatformOrgForest(rows, { expectedRootIds: portal.rootIds })
+        : buildPlatformOrgForest(rows),
+    [portal],
+  );
   const { id: routeOrgId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
   const merchantTab = searchParams.get("tab");
@@ -1619,12 +1654,12 @@ export function AccountsPage({ session }: { session: Session }) {
     onboardState.onboardedOrgId === orgId ? (onboardState.inviteCreds ?? null) : null;
 
   const accountsView = useMemo((): "tree" | "agents" | "merchants" => {
-    const base = platformRoute("accounts").replace(/\/$/, "");
+    const base = route("accounts").replace(/\/$/, "");
     const path = location.pathname.replace(/\/$/, "");
     if (path.startsWith(`${base}/agents`)) return "agents";
     if (path.startsWith(`${base}/merchants`)) return "merchants";
     return "tree";
-  }, [location.pathname]);
+  }, [location.pathname, route]);
 
   const selectedRouteId = useMemo(() => {
     if (accountsView === "tree") {
@@ -1636,16 +1671,16 @@ export function AccountsPage({ session }: { session: Session }) {
     return routeOrgId ?? null;
   }, [accountsView, routeOrgId]);
 
-  const [loading, setLoading] = useState(() => peekPlatformOrgs() == null);
+  const [loading, setLoading] = useState(() => sources.peekOrgs() == null);
   const [error, setError] = useState<string | null>(null);
   const [orgs, setOrgs] = useState<OrgAccount[]>(
-    () => peekPlatformOrgs() ?? [],
+    () => scopeOrgs(sources.peekOrgs() ?? []),
   );
-  const [bills, setBills] = useState<ServiceBill[]>(
-    () => peekPlatformServiceBills() ?? [],
+  const [billStatus, setBillStatus] = useState<Map<string, ServiceBillOrgStatus>>(
+    () => peekServiceBillOrgStatus() ?? new Map(),
   );
   const [forest, setForest] = useState(() =>
-    buildPlatformOrgForest(peekPlatformOrgs() ?? []),
+    buildForest(scopeOrgs(sources.peekOrgs() ?? [])),
   );
   const [filter, setFilter] = useState<OrgTreeFilter>(EMPTY_FILTER);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -1663,12 +1698,21 @@ export function AccountsPage({ session }: { session: Session }) {
   const [suspendTarget, setSuspendTarget] = useState<PlatformOrgTreeNode | null>(
     null,
   );
+  const [resumeTarget, setResumeTarget] = useState<PlatformOrgTreeNode | null>(
+    null,
+  );
   const [suspendError, setSuspendError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTone, setToastTone] = useState<"ok" | "error">("ok");
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
-  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
+  const canManage = useMemo(
+    () => (portal ? portal.canManageAny : sessionCanManagePlatform(session)),
+    [portal, session],
+  );
+  const readOnly = useMemo(
+    () => (portal ? portal.readOnly : sessionIsPlatformViewerOnly(session)),
+    [portal, session],
+  );
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
   const showOk = useCallback((message: string) => {
@@ -1712,19 +1756,20 @@ export function AccountsPage({ session }: { session: Session }) {
   }, []);
 
   const load = useCallback(async () => {
-    if (peekPlatformOrgs() == null) setLoading(true);
+    if (sources.peekOrgs() == null) setLoading(true);
     setError(null);
     try {
-      const [orgs, emailRows, billRows] = await Promise.all([
-        getPlatformOrgs(),
-        listPlatformOrgMemberEmails().catch(() => [] as Awaited<
+      const [allOrgs, emailRows, statusRows] = await Promise.all([
+        sources.getOrgs(),
+        sources.listMemberEmails().catch(() => [] as Awaited<
           ReturnType<typeof listPlatformOrgMemberEmails>
         >),
-        getPlatformServiceBills().catch(() => [] as ServiceBill[]),
+        getServiceBillOrgStatus().catch(() => null),
       ]);
-      const nextForest = buildPlatformOrgForest(orgs);
+      const orgs = scopeOrgs(allOrgs);
+      const nextForest = buildForest(orgs);
       setOrgs(orgs);
-      setBills(billRows);
+      if (statusRows) setBillStatus(statusRows);
       setForest(nextForest);
       setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
       setCashierCount(
@@ -1767,7 +1812,7 @@ export function AccountsPage({ session }: { session: Session }) {
     } finally {
       setLoading(false);
     }
-  }, [accountsView]);
+  }, [accountsView, sources, scopeOrgs, buildForest]);
 
   useEffect(() => {
     void load();
@@ -1775,12 +1820,13 @@ export function AccountsPage({ session }: { session: Session }) {
 
   useEffect(() => {
     const onOrgsUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<OrgAccount[]>).detail;
-      if (!Array.isArray(detail)) {
+      const raw = (event as CustomEvent<OrgAccount[]>).detail;
+      if (!Array.isArray(raw)) {
         void load();
         return;
       }
-      const nextForest = buildPlatformOrgForest(detail);
+      const detail = scopeOrgs(raw);
+      const nextForest = buildForest(detail);
       setOrgs(detail);
       setForest(nextForest);
       setLastUpdatedAt(Date.now());
@@ -1813,20 +1859,21 @@ export function AccountsPage({ session }: { session: Session }) {
         return nextForest.roots[0]?.id ?? null;
       });
     };
-    window.addEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+    window.addEventListener(sources.orgsUpdatedEvent, onOrgsUpdated);
     return () => {
-      window.removeEventListener(PLATFORM_ORGS_UPDATED_EVENT, onOrgsUpdated);
+      window.removeEventListener(sources.orgsUpdatedEvent, onOrgsUpdated);
     };
-  }, [load, accountsView]);
+  }, [load, accountsView, sources, scopeOrgs, buildForest]);
 
   const refreshForest = useCallback(async (opts?: { excludeOrgIds?: string[] }) => {
-    const [orgs, emailRows] = await Promise.all([
-      refreshPlatformOrgList({ excludeOrgIds: opts?.excludeOrgIds }),
-      listPlatformOrgMemberEmails().catch(() => [] as Awaited<
+    const [allOrgs, emailRows] = await Promise.all([
+      sources.refreshOrgs({ excludeOrgIds: opts?.excludeOrgIds }),
+      sources.listMemberEmails().catch(() => [] as Awaited<
         ReturnType<typeof listPlatformOrgMemberEmails>
       >),
     ]);
-    const nextForest = buildPlatformOrgForest(orgs);
+    const orgs = scopeOrgs(allOrgs);
+    const nextForest = buildForest(orgs);
     setOrgs(orgs);
       setForest(nextForest);
       setOwnerEmailByOrgId(orgOwnerEmailMapFromBulkRows(emailRows));
@@ -1847,7 +1894,7 @@ export function AccountsPage({ session }: { session: Session }) {
       if (parentId && nextForest.byId.has(parentId)) return parentId;
       return nextForest.roots[0]?.id ?? null;
     });
-  }, [forest]);
+  }, [forest, sources, scopeOrgs, buildForest]);
 
   const {
     deleteTarget,
@@ -1861,7 +1908,7 @@ export function AccountsPage({ session }: { session: Session }) {
   } = useOrgDeleteModal({
     canManage,
     onDeleted: async (deletedId) => {
-      removePlatformOrgFromList(deletedId);
+      sources.removeOrg(deletedId);
       await refreshForest({ excludeOrgIds: [deletedId] });
     },
     showOk,
@@ -1871,16 +1918,18 @@ export function AccountsPage({ session }: { session: Session }) {
     async (
       node: PlatformOrgTreeNode,
       status: "active" | "paused",
-      reason?: string,
+      opts?: { reason?: string; mfaCode?: string },
     ): Promise<string | null> => {
-      if (!canManage || node.type === "platform") return "Not allowed";
+      const allowed = portal
+        ? portal.canLifecycle(node)
+        : canManage && node.type !== "platform";
+      if (!allowed) return "Not allowed";
       setBusy(true);
       try {
-        await setOrgStatus(
-          node.id,
-          status,
-          reason ? { reason } : undefined,
-        );
+        await setOrgStatus(node.id, status, {
+          reason: opts?.reason,
+          mfaCode: opts?.mfaCode,
+        });
         await refreshForest();
         showOk(
           status === "paused" ? `Suspended ${node.name}.` : `Running ${node.name}.`,
@@ -1899,14 +1948,26 @@ export function AccountsPage({ session }: { session: Session }) {
         setBusy(false);
       }
     },
-    [canManage, refreshForest, showErr, showOk],
+    [portal, canManage, refreshForest, showErr, showOk],
+  );
+
+  /** Platform resumes behind MFA step-up; other portals resume directly. */
+  const requestResume = useCallback(
+    (node: PlatformOrgTreeNode) => {
+      if (portal) void onSetStatus(node, "active");
+      else setResumeTarget(node);
+    },
+    [portal, onSetStatus],
   );
 
   const confirmSuspend = useCallback(
-    async (reason: string) => {
+    async (reason: string, mfaCode?: string) => {
       if (!suspendTarget) return;
       setSuspendError(null);
-      const err = await onSetStatus(suspendTarget, "paused", reason || undefined);
+      const err = await onSetStatus(suspendTarget, "paused", {
+        reason: reason || undefined,
+        mfaCode,
+      });
       if (err) setSuspendError(err);
       else setSuspendTarget(null);
     },
@@ -1930,32 +1991,19 @@ export function AccountsPage({ session }: { session: Session }) {
   const treeBudgets = useMemo((): TreeRowBudgets => {
     const commissionByAgentId = new Map<string, AgentPayoutStatus | null>();
     const feeByMerchantId = new Map<string, MerchantFeeStatus | null>();
-    const billsByOrg = new Map<string, ServiceBill[]>();
-    for (const bill of bills) {
-      const list = billsByOrg.get(bill.orgId);
-      if (list) list.push(bill);
-      else billsByOrg.set(bill.orgId, [bill]);
-    }
     for (const org of orgs) {
       if (org.type === "agent") {
         const merchantIds = merchantOrgIdsInAgentSubtree(org.id, orgs);
-        const history = mergeCommissionHistory(
-          bills,
-          merchantIds,
+        commissionByAgentId.set(
           org.id,
-          DEFAULT_AGENT_COMMISSION_PERCENT,
-          1,
+          agentPayoutFromOrgStatus(billStatus, merchantIds),
         );
-        commissionByAgentId.set(org.id, resolveAgentPayoutStatus(history));
       } else if (org.type === "merchant") {
-        feeByMerchantId.set(
-          org.id,
-          resolveMerchantFeeStatus(billsByOrg.get(org.id) ?? []),
-        );
+        feeByMerchantId.set(org.id, billStatus.get(org.id)?.feeStatus ?? null);
       }
     }
     return { commissionByAgentId, feeByMerchantId };
-  }, [orgs, bills]);
+  }, [orgs, billStatus]);
 
   const filteredRoots = useMemo(() => {
     const scoped =
@@ -2024,10 +2072,10 @@ export function AccountsPage({ session }: { session: Session }) {
       setSelectedId(id);
       const base =
         accountsView === "agents"
-          ? platformRoute(`accounts/agents/${id}`)
+          ? route(`accounts/agents/${id}`)
           : accountsView === "merchants"
-            ? platformRoute(`accounts/merchants/${id}`)
-            : platformRoute(`accounts/${id}`);
+            ? route(`accounts/merchants/${id}`)
+            : route(`accounts/${id}`);
       const qs = searchParams.toString();
       const keepQs =
         accountsView === "merchants" || accountsView === "tree" ? qs : "";
@@ -2042,7 +2090,7 @@ export function AccountsPage({ session }: { session: Session }) {
         }
       });
     },
-    [navigate, searchParams, accountsView],
+    [navigate, searchParams, accountsView, route],
   );
 
   useEffect(() => {
@@ -2192,7 +2240,9 @@ export function AccountsPage({ session }: { session: Session }) {
                     ? "Search agents…"
                     : accountsView === "merchants"
                       ? "Search merchants…"
-                      : "Search accounts, merchants, or agents…"
+                      : portal
+                        ? "Search accounts, merchants, or sites…"
+                        : "Search accounts, merchants, or agents…"
                 }
                 value={filter.query}
                 onChange={(e) =>
@@ -2405,7 +2455,7 @@ export function AccountsPage({ session }: { session: Session }) {
                     canManage={canManage}
                     busy={busy}
                     onSuspend={(n) => setSuspendTarget(n)}
-                    onActivate={(n) => void onSetStatus(n, "active")}
+                    onActivate={(n) => requestResume(n)}
                     onDelete={(n) => openDelete(n)}
                   />
                 ))
@@ -2419,7 +2469,9 @@ export function AccountsPage({ session }: { session: Session }) {
                     ? `Showing ${visibleCount.toLocaleString()} agent${visibleCount === 1 ? "" : "s"}`
                     : accountsView === "merchants"
                       ? `Showing ${visibleCount.toLocaleString()} merchant${visibleCount === 1 ? "" : "s"}`
-                      : `Showing ${visibleCount.toLocaleString()} account${visibleCount === 1 ? "" : "s"} across ${agentFootCount.toLocaleString()} agent${agentFootCount === 1 ? "" : "s"}`}
+                      : portal
+                        ? `Showing ${visibleCount.toLocaleString()} account${visibleCount === 1 ? "" : "s"}`
+                        : `Showing ${visibleCount.toLocaleString()} account${visibleCount === 1 ? "" : "s"} across ${agentFootCount.toLocaleString()} agent${agentFootCount === 1 ? "" : "s"}`}
               </span>
               <span className="org-architecture__tree-foot-live">
                 <span className="org-architecture__live-dot" aria-hidden />
@@ -2442,14 +2494,14 @@ export function AccountsPage({ session }: { session: Session }) {
                   invitationSent={onboardState.invitationSent === true}
                   inviteCreds={inviteCredsFor(selectedNode.id)}
                   onPause={() => setSuspendTarget(selectedNode)}
-                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
                   onOrgPatched={(next) => {
                     setOrgs((prev) => {
                       const updated = prev.map((o) =>
                         o.id === next.id ? { ...o, ...next } : o,
                       );
-                      setForest(buildPlatformOrgForest(updated));
+                      setForest(buildForest(updated));
                       return updated;
                     });
                   }}
@@ -2468,19 +2520,19 @@ export function AccountsPage({ session }: { session: Session }) {
                     merchantTab === "overview" ||
                     merchantTab === "team" ||
                     merchantTab === "cashiers" ||
-                    merchantTab === "compliance"
+                    merchantTab === "networks"
                       ? merchantTab
                       : undefined
                   }
                   onPause={() => setSuspendTarget(selectedNode)}
-                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
                   onOrgPatched={(next) => {
                     setOrgs((prev) => {
                       const updated = prev.map((o) =>
                         o.id === next.id ? { ...o, ...next } : o,
                       );
-                      setForest(buildPlatformOrgForest(updated));
+                      setForest(buildForest(updated));
                       return updated;
                     });
                   }}
@@ -2503,14 +2555,14 @@ export function AccountsPage({ session }: { session: Session }) {
                       : undefined
                   }
                   onPause={() => setSuspendTarget(selectedNode)}
-                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
                   onOrgPatched={(next) => {
                     setOrgs((prev) => {
                       const updated = prev.map((o) =>
                         o.id === next.id ? { ...o, ...next } : o,
                       );
-                      setForest(buildPlatformOrgForest(updated));
+                      setForest(buildForest(updated));
                       return updated;
                     });
                   }}
@@ -2541,7 +2593,7 @@ export function AccountsPage({ session }: { session: Session }) {
                     }))
                   }
                   onSuspend={() => setSuspendTarget(selectedNode)}
-                  onRun={() => void onSetStatus(selectedNode, "active")}
+                  onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
                 />
               ) : (
@@ -2561,6 +2613,8 @@ export function AccountsPage({ session }: { session: Session }) {
       {suspendTarget ? (
         <SuspendOrgModal
           orgName={suspendTarget.name}
+          session={session}
+          requireMfa={portal == null}
           busy={busy}
           error={suspendError}
           onClose={() => {
@@ -2569,7 +2623,20 @@ export function AccountsPage({ session }: { session: Session }) {
               setSuspendError(null);
             }
           }}
-          onConfirm={(reason) => void confirmSuspend(reason)}
+          onConfirm={(reason, mfaCode) => void confirmSuspend(reason, mfaCode)}
+        />
+      ) : null}
+
+      {resumeTarget ? (
+        <MfaStepUpGate
+          session={session}
+          actionLabel="resume this account"
+          onClose={() => setResumeTarget(null)}
+          onVerify={async (mfaCode) => {
+            const err = await onSetStatus(resumeTarget, "active", { mfaCode });
+            if (err) throw new Error(err);
+            setResumeTarget(null);
+          }}
         />
       ) : null}
 

@@ -213,8 +213,8 @@ B2 Agent accounts list — search, filters, table, Onboard agent CTA
 B3 Agent detail — tabs: Overview, Merchants, Volume, Service bills, Commissions, Team, Audit
 B4 Onboard agent wizard — multi-step (type → details → commercial → owner invite → review)
 B5 Merchants list (platform-wide)
-B6 Merchant detail (platform view) — settlement READ-ONLY, compliance actions
-B7 Compliance override modal — MFA, reason required, danger styling
+B6 Merchant detail (platform view) — Suspend/Resume + fund rails Owner-only
+B7 Suspend modal — MFA, reason required (no Compliance tab; audit holds history)
 B8 Fee tiers & pricing — Small/Mid/Enterprise bands, “next billing period” banner
 B9–B10 Service bills list + detail (NEVER mix with payment orders visually — different icon color system)
 B13 Global settings — max agent depth, networks, security

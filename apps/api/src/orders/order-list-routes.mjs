@@ -1,39 +1,58 @@
 import { sendCsv, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
-import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
-import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
-import { findOrgById } from "../orgs/org-store.mjs";
 import {
   canExportPaymentOrders,
   canReadPaymentOrder,
-  isMerchantOrgType,
   paymentOrderListScope,
 } from "../orgs/role-policy.mjs";
 import { paymentOrdersToCsv } from "./order-csv.mjs";
 import { parseListOrdersQuery } from "./order-list-query.mjs";
-import {
-  expandPaymentOrderReadFilter,
-  orgIdInPaymentOrderFilter,
-} from "./order-list-scope.mjs";
+import { resolvePaymentOrderListQuery } from "./order-list-resolve.mjs";
+import { expandPaymentOrderReadFilter } from "./order-list-scope.mjs";
 import { listPaymentOrders, toPaymentOrder } from "./order-store.mjs";
 
+const EMPTY_SUMMARY = {
+  count: 0,
+  invoiceAmountUsd: null,
+  byAsset: [],
+};
+
 /**
- * @param {string} agentOrgId
- * @param {object[]} visible
+ * @param {{
+ *   rows: object[],
+ *   total: number,
+ *   limit: number,
+ *   offset: number,
+ *   summary?: typeof EMPTY_SUMMARY,
+ * }} result
+ * @param {boolean} csv
+ * @param {import("node:http").ServerResponse} res
  */
-async function merchantOrgIdsInAgentSubtree(agentOrgId, visible) {
-  const org = await findOrgById(agentOrgId);
-  if (!org || org.type !== "agent") {
-    return { ok: false, status: 400, code: "invalid_request", message: "agentOrgId must be an agent org" };
+function sendListResult(result, csv, res) {
+  if (csv) {
+    if (result.total > 5000) {
+      sendError(
+        res,
+        400,
+        "invalid_request",
+        "Too many rows to export (max 5000). Narrow period or merchant/site, or request an async export.",
+      );
+      return;
+    }
+    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
+    return;
   }
-  if (!isVisibleOrg(visible, agentOrgId)) {
-    return { ok: false, status: 403, code: "forbidden", message: "Outside merchant scope" };
-  }
-  const subtree = await listOrgsInSubtree([agentOrgId]);
-  const merchantOrgIds = subtree
-    .filter((row) => isMerchantOrgType(row.type))
-    .map((row) => row.id);
-  return { ok: true, merchantOrgIds };
+  sendJson(res, 200, {
+    items: result.rows.map(toPaymentOrder),
+    total: result.total,
+    limit: result.limit,
+    offset: result.offset,
+    summary: result.summary ?? {
+      count: result.total,
+      invoiceAmountUsd: null,
+      byAsset: [],
+    },
+  });
 }
 
 /**
@@ -53,87 +72,34 @@ export async function handleListPaymentOrders(req, res) {
     return;
   }
 
-  const scope = paymentOrderListScope(caller);
-  if (scope.kind === "none") {
-    sendError(res, 403, "forbidden", "Outside merchant scope");
-    return;
-  }
-
   if (parsed.csv && !canExportPaymentOrders(caller)) {
     sendError(res, 403, "forbidden", "Cashiers cannot export payment orders");
     return;
   }
 
-  if (parsed.agentOrgId) {
-    const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
-    const resolved = await merchantOrgIdsInAgentSubtree(parsed.agentOrgId, visible);
-    if (!resolved.ok) {
-      sendError(res, resolved.status, resolved.code, resolved.message);
-      return;
-    }
-    if (parsed.orgId && !resolved.merchantOrgIds.includes(parsed.orgId)) {
-      sendError(res, 403, "forbidden", "Outside merchant scope");
-      return;
-    }
-    const filter = await expandPaymentOrderReadFilter(scope);
-    const allowedIds =
-      filter.kind === "all"
-        ? resolved.merchantOrgIds
-        : resolved.merchantOrgIds.filter((id) =>
-            orgIdInPaymentOrderFilter(filter, id),
-          );
-    const result =
-      allowedIds.length === 0
-        ? { rows: [], total: 0, limit: parsed.limit, offset: parsed.offset }
-        : await listPaymentOrders({
-            kind: "filter",
-            treeOrgIds: allowedIds,
-            orgId: parsed.orgId,
-            status: parsed.status,
-            limit: parsed.limit,
-            offset: parsed.offset,
-          });
-    if (parsed.csv) {
-      sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
-      return;
-    }
-    sendJson(res, 200, {
-      items: result.rows.map(toPaymentOrder),
-      total: result.total,
-      limit: result.limit,
-      offset: result.offset,
-    });
+  const resolved = await resolvePaymentOrderListQuery(caller, parsed);
+  if (!resolved.ok) {
+    sendError(res, resolved.status, resolved.code, resolved.message);
     return;
   }
 
-  const filter = await expandPaymentOrderReadFilter(scope);
-  if (parsed.orgId && !orgIdInPaymentOrderFilter(filter, parsed.orgId)) {
-    sendError(res, 403, "forbidden", "Outside merchant scope");
-    return;
-  }
+  const treeEmpty =
+    resolved.query.kind === "filter" &&
+    Array.isArray(resolved.query.treeOrgIds) &&
+    resolved.query.treeOrgIds.length === 0 &&
+    !resolved.query.orgId;
 
-  const result = await listPaymentOrders({
-    kind: filter.kind === "all" ? "all" : "filter",
-    treeOrgIds: filter.kind === "filter" ? filter.treeOrgIds : [],
-    cashierOrgIds: filter.kind === "filter" ? filter.cashierOrgIds : [],
-    createdBy: filter.kind === "filter" ? filter.createdBy : null,
-    orgId: parsed.orgId,
-    status: parsed.status,
-    limit: parsed.limit,
-    offset: parsed.offset,
-  });
+  const result = treeEmpty
+    ? {
+        rows: [],
+        total: 0,
+        limit: parsed.limit,
+        offset: parsed.offset,
+        summary: EMPTY_SUMMARY,
+      }
+    : await listPaymentOrders(resolved.query);
 
-  if (parsed.csv) {
-    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
-    return;
-  }
-
-  sendJson(res, 200, {
-    items: result.rows.map(toPaymentOrder),
-    total: result.total,
-    limit: result.limit,
-    offset: result.offset,
-  });
+  sendListResult(result, parsed.csv, res);
 }
 
 /**

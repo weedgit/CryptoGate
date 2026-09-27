@@ -72,7 +72,7 @@ const OWNER_GROUPS: NavGroup[] = [
       { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
       {
         to: merchantRoute("orders"),
-        label: "Orders",
+        label: "Invoice",
         matchPrefix: merchantRoute("orders"),
         Icon: OrdersNavIcon,
       },
@@ -146,14 +146,14 @@ const CASHIER_GROUPS: NavGroup[] = [
       { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
       {
         to: merchantRoute("orders"),
-        label: "My Orders",
+        label: "Invoice",
         matchPrefix: merchantRoute("orders"),
         exclude: merchantRoute("orders/new"),
         Icon: OrdersNavIcon,
       },
       {
         to: merchantRoute("orders/new"),
-        label: "Create Order",
+        label: "Create invoice",
         Icon: OrdersNavIcon,
       },
     ],

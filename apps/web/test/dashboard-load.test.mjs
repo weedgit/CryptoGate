@@ -15,11 +15,11 @@ const platformDash = readFileSync(
 const agentDash = readFileSync(join(root, "src/agent/DashboardPage.tsx"), "utf8");
 
 describe("merchant dashboard first paint", () => {
-  it("loads orders independently from dashboard extras", () => {
-    assert.match(dash, /void getMerchantOrders\(\)/);
-    assert.match(dash, /getMerchantServiceBills/);
+  it("loads server KPIs independently from recent orders and network status", () => {
+    assert.match(dash, /getDashboardKpis\(\{ from: startDate, to: endDate/);
+    assert.match(dash, /listOrders\(\{ limit: 8 \}\)/);
     assert.match(dash, /getNetworksStatus/);
-    assert.doesNotMatch(dash, /await Promise\.all\(\[\s*ordersPromise/);
+    assert.doesNotMatch(dash, /listAllOrders|getMerchantOrders\(\)/);
   });
 
   it("does not paint unknown ingest as Down while status is loading", () => {
@@ -38,12 +38,13 @@ describe("merchant dashboard first paint", () => {
   it("keeps platform/agent date filters mounted while the range refetches", () => {
     assert.match(platformDash, /loading && !hasLoaded/);
     assert.match(platformDash, /pg-dash__period/);
+    assert.match(platformDash, /is-period-refresh/);
     assert.doesNotMatch(
       platformDash,
       /if \(loading\) \{\s*return \(\s*<PlatformPending/,
     );
-    assert.match(agentDash, /loading && !hasLoaded/);
-    assert.match(agentDash, /periodPortal/);
+    assert.match(agentDash, /PlatformDashboardPage/);
+    assert.match(agentDash, /DashboardPortalContext\.Provider/);
   });
 
   it("portals platform/agent dashboard card help so overflow cards cannot crop it", () => {
@@ -53,12 +54,12 @@ describe("merchant dashboard first paint", () => {
     );
     assert.match(help, /createPortal/);
     assert.match(platformDash, /function CardHelp[\s\S]*ChartHelpButton/);
-    assert.match(agentDash, /function CardHelp[\s\S]*ChartHelpButton/);
+    assert.match(agentDash, /PlatformDashboardPage/);
     const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
     assert.match(css, /\.chart-help__popover--portal[\s\S]*background:\s*#1e2a38/);
   });
 
-  it("labels platform money as USD figures; agent fund rail animates two decimals", () => {
+  it("labels platform money as USD figures with two decimals", () => {
     const fund = readFileSync(
       join(root, "src/shared/AnimatedFundAmount.tsx"),
       "utf8",
@@ -71,9 +72,6 @@ describe("merchant dashboard first paint", () => {
     assert.match(fund, /useAnimatedNumber/);
     assert.match(tween, /easeOutCubic/);
     assert.match(platformDash, /formatMoneyFigureFixed/);
-    assert.match(agentDash, /AnimatedFundAmount/);
-    assert.doesNotMatch(agentDash, /plat-fund-rail__currency/);
-    assert.match(agentDash, /plat-fund-rail__total[\s\S]*showUnit=\{false\}/);
   });
 
   it("formats dashboard money as USD, not $", () => {
@@ -84,30 +82,22 @@ describe("merchant dashboard first paint", () => {
     assert.doesNotMatch(axis, /prefix = money \? "\$"/);
   });
 
-  it("labels platform volume chart and status KPIs; agent observed volume rail", () => {
+  it("labels platform volume chart and status KPIs from server series", () => {
     assert.match(platformDash, /Transaction Volume/);
-    assert.match(platformDash, /seriesFromVolumeByDay/);
+    assert.match(platformDash, /getDashboardSeries/);
     assert.match(platformDash, /Overdue Invoices/);
     assert.match(platformDash, /Pending Payouts/);
     assert.match(platformDash, /Commission owed/);
     assert.match(platformDash, /Flagged for Review/);
-    assert.match(agentDash, /Observed volume/);
-    assert.match(agentDash, />Volume</);
-    assert.doesNotMatch(agentDash, /aria-label="Funds"/);
-    assert.match(agentDash, /label: "Owed"/);
-    assert.match(agentDash, /label: "Rate"/);
   });
 
-  it("paints platform overview before signup summary finishes", () => {
+  it("paints cached KPIs first, then refreshes KPIs and series from the server", () => {
     const load = platformDash.indexOf("const load = useCallback");
-    const core = platformDash.indexOf("await Promise.all([", load);
-    const summary = platformDash.indexOf("getPlatformDashboardSummary(", load);
-    assert.ok(load >= 0 && core >= 0 && summary >= 0);
-    assert.ok(summary < core);
-    assert.match(platformDash, /peekPlatformOrgs/);
-    assert.match(platformDash, /peekPlatformOrders/);
-    assert.match(platformDash, /getPlatformOrders/);
-    const allSlice = platformDash.slice(core, core + 280);
-    assert.doesNotMatch(allSlice, /listAuditLog/);
+    assert.ok(load >= 0);
+    const body = platformDash.slice(load, load + 3000);
+    assert.match(body, /peekDashboardKpis\(query\)/);
+    assert.match(body, /getDashboardKpis\(q\)/);
+    assert.match(body, /getDashboardSeries\(q, \{ metrics: TOTAL_METRICS \}\)/);
+    assert.doesNotMatch(body, /getPlatformOrders|listAllOrders|listAuditLog/);
   });
 });

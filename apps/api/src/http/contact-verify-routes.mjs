@@ -1,4 +1,13 @@
-import { findUserById, markEmailVerified, markPhoneVerified, setUserPhone } from "../auth/users.mjs";
+import {
+  findUserByEmail,
+  findUserById,
+  findUserIdByPhone,
+  markEmailVerified,
+  markPhoneVerified,
+  normalizeEmail,
+  setUserEmail,
+  setUserPhone,
+} from "../auth/users.mjs";
 import {
   consumeContactOtp,
   echoOtpInHttp,
@@ -6,8 +15,8 @@ import {
   normalizePhone,
 } from "../auth/contact-otp-store.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
-import { sendEmailOtp } from "../mail/auth-mail.mjs";
-import { sendSms } from "../sms/sms-send.mjs";
+import { sendEmailChangeNotice, sendEmailOtp } from "../mail/auth-mail.mjs";
+import { sendPhoneChangeNotice, sendSms } from "../sms/sms-send.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
@@ -24,24 +33,92 @@ function otpEcho(issued) {
   return { devCode: issued.code };
 }
 
+async function afterContactVerified(userId) {
+  try {
+    const { maybeCreateActivationAfterUserSetup } = await import(
+      "../service-bills/activation.mjs"
+    );
+    await maybeCreateActivationAfterUserSetup(userId);
+  } catch {
+    /* activation is best-effort */
+  }
+}
+
+/** Best-effort notify; never blocks the contact change. */
+async function notifyOldEmail(to, phase, newEmail) {
+  if (!to) return;
+  try {
+    await sendEmailChangeNotice({ to, phase, newEmail });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Best-effort notify; never blocks the contact change. */
+async function notifyOldPhone(to, phase, newPhone) {
+  if (!to) return;
+  try {
+    await sendPhoneChangeNotice({ to, phase, newPhone });
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * POST /v1/auth/contact/email/send
+ *
+ * Body optional `{ email }`. OTP always goes to the **destination** address.
+ * Current login email stays active until verify succeeds (Cognito-style pending).
+ * On pending change, previous verified email gets a notify-only alert.
  */
 export async function handleSendEmailOtp(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    /* empty body is fine for re-send to current email */
+  }
 
   const user = await findUserById(caller.userId);
   if (!user) {
     sendError(res, 401, "unauthenticated", "Not authenticated");
     return;
   }
-  if (user.emailVerified) {
-    sendJson(res, 200, { status: "already_verified", session: await sessionJson(user) });
+
+  const requested =
+    typeof body?.email === "string" && body.email.trim()
+      ? normalizeEmail(body.email)
+      : null;
+  const destination = requested ?? normalizeEmail(user.email);
+
+  if (!destination || !destination.includes("@") || destination.length > 254) {
+    sendError(res, 400, "invalid_email", "Enter a valid email address");
     return;
   }
 
-  const issued = await issueContactOtp(user.id, "email", user.email);
+  const currentEmail = normalizeEmail(user.email);
+  const isChange = destination !== currentEmail;
+
+  if (user.emailVerified && !isChange) {
+    sendJson(res, 200, {
+      status: "already_verified",
+      session: await sessionJson(user),
+    });
+    return;
+  }
+
+  if (isChange) {
+    const taken = await findUserByEmail(destination);
+    if (taken && taken.id !== user.id) {
+      sendError(res, 409, "email_taken", "This email is already registered");
+      return;
+    }
+  }
+
+  const issued = await issueContactOtp(user.id, "email", destination);
   if (issued.resentTooSoon) {
     res.setHeader("Retry-After", String(issued.retryAfterSec ?? 45));
     sendError(
@@ -53,20 +130,33 @@ export async function handleSendEmailOtp(req, res) {
     return;
   }
 
-  await sendEmailOtp({ to: user.email, code: issued.code });
+  await sendEmailOtp({ to: destination, code: issued.code });
+  if (isChange && user.emailVerified && currentEmail) {
+    await notifyOldEmail(currentEmail, "requested");
+  }
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.contactEmailOtpSend,
+    metadata: {
+      email: destination,
+      pendingChange: isChange,
+      notifiedOld: Boolean(isChange && user.emailVerified && currentEmail),
+    },
   });
   sendJson(res, 200, {
     status: "sent",
+    email: destination,
+    pendingChange: isChange,
     expiresAt: issued.expiresAt.toISOString(),
+    session: await sessionJson(user),
     ...otpEcho(issued),
   });
 }
 
 /**
  * POST /v1/auth/contact/email/verify
+ * Applies pending email (if any) then marks verified.
+ * On swap, previous email gets a notify-only completion alert.
  */
 export async function handleVerifyEmailOtp(req, res) {
   const caller = await requireCaller(req, res);
@@ -81,30 +171,57 @@ export async function handleVerifyEmailOtp(req, res) {
   }
   const code = typeof body?.code === "string" ? body.code : "";
   const result = await consumeContactOtp(caller.userId, "email", code);
-  if (result === "ok") {
+  if (result.status === "ok") {
+    const destination = normalizeEmail(result.destination);
+    if (!destination || !destination.includes("@")) {
+      sendError(res, 400, "otp_invalid", "Invalid verification code");
+      return;
+    }
+    let user = await findUserById(caller.userId);
+    if (!user) {
+      sendError(res, 401, "unauthenticated", "Not authenticated");
+      return;
+    }
+    const previousEmail = normalizeEmail(user.email);
+    const swapped = destination !== previousEmail;
+    if (swapped) {
+      try {
+        await setUserEmail(user.id, destination);
+      } catch (err) {
+        if (err && err.code === "email_taken") {
+          sendError(res, 409, "email_taken", err.message);
+          return;
+        }
+        if (err && err.code === "email_invalid") {
+          sendError(res, 400, "invalid_email", err.message);
+          return;
+        }
+        throw err;
+      }
+    }
     await markEmailVerified(caller.userId);
+    if (swapped && previousEmail) {
+      await notifyOldEmail(previousEmail, "completed", destination);
+    }
     await insertAuditEvent({
       actorUserId: caller.userId,
       action: AUDIT_ACTIONS.contactEmailVerified,
+      metadata: {
+        email: destination,
+        swapped,
+        notifiedOld: Boolean(swapped && previousEmail),
+      },
     });
-    const user = await findUserById(caller.userId);
-    const session = await sessionJson(user);
-    try {
-      const { maybeCreateActivationAfterUserSetup } = await import(
-        "../service-bills/activation.mjs"
-      );
-      await maybeCreateActivationAfterUserSetup(caller.userId);
-    } catch {
-      /* activation is best-effort */
-    }
-    sendJson(res, 200, session);
+    user = await findUserById(caller.userId);
+    await afterContactVerified(caller.userId);
+    sendJson(res, 200, await sessionJson(user));
     return;
   }
-  if (result === "locked") {
+  if (result.status === "locked") {
     sendError(res, 429, "otp_locked", "Too many attempts. Request a new code.");
     return;
   }
-  if (result === "expired") {
+  if (result.status === "expired") {
     sendError(res, 410, "otp_expired", "This code has expired. Request a new one.");
     return;
   }
@@ -113,6 +230,8 @@ export async function handleVerifyEmailOtp(req, res) {
 
 /**
  * POST /v1/auth/contact/phone/send
+ * OTP to the **new** number; current verified phone stays until verify.
+ * On pending change, previous verified phone gets a notify-only alert.
  */
 export async function handleSendPhoneOtp(req, res) {
   const caller = await requireCaller(req, res);
@@ -132,8 +251,9 @@ export async function handleSendPhoneOtp(req, res) {
     return;
   }
 
-  const phone = normalizePhone(body?.phone) ?? (user.phone && normalizePhone(user.phone));
-  if (!phone) {
+  const destination =
+    normalizePhone(body?.phone) ?? (user.phone && normalizePhone(user.phone));
+  if (!destination) {
     sendError(
       res,
       400,
@@ -143,22 +263,26 @@ export async function handleSendPhoneOtp(req, res) {
     return;
   }
 
-  if (user.phoneVerified && user.phone === phone) {
-    sendJson(res, 200, { status: "already_verified", session: await sessionJson(user) });
+  const current = user.phone && normalizePhone(user.phone);
+  const isChange = Boolean(current && destination !== current);
+
+  if (user.phoneVerified && current && destination === current) {
+    sendJson(res, 200, {
+      status: "already_verified",
+      session: await sessionJson(user),
+    });
     return;
   }
 
-  try {
-    await setUserPhone(user.id, phone);
-  } catch (err) {
-    if (err && err.code === "phone_taken") {
-      sendError(res, 409, "phone_taken", err.message);
+  if (!current || destination !== current) {
+    const takenId = await findUserIdByPhone(destination);
+    if (takenId && takenId !== user.id) {
+      sendError(res, 409, "phone_taken", "This phone number is already registered");
       return;
     }
-    throw err;
   }
 
-  const issued = await issueContactOtp(user.id, "phone", phone);
+  const issued = await issueContactOtp(user.id, "phone", destination);
   if (issued.resentTooSoon) {
     res.setHeader("Retry-After", String(issued.retryAfterSec ?? 45));
     sendError(res, 429, "otp_cooldown", "Wait before requesting another SMS code");
@@ -166,24 +290,35 @@ export async function handleSendPhoneOtp(req, res) {
   }
 
   await sendSms({
-    to: phone,
+    to: destination,
     text: `PaymentGate code: ${issued.code}. It expires in 10 minutes.`,
   });
+  if (isChange && user.phoneVerified && current) {
+    await notifyOldPhone(current, "requested");
+  }
   await insertAuditEvent({
     actorUserId: user.id,
     action: AUDIT_ACTIONS.contactPhoneOtpSend,
-    metadata: { phone },
+    metadata: {
+      phone: destination,
+      pendingChange: isChange,
+      notifiedOld: Boolean(isChange && user.phoneVerified && current),
+    },
   });
   sendJson(res, 200, {
     status: "sent",
-    phone,
+    phone: destination,
+    pendingChange: isChange,
     expiresAt: issued.expiresAt.toISOString(),
+    session: await sessionJson(user),
     ...otpEcho(issued),
   });
 }
 
 /**
  * POST /v1/auth/contact/phone/verify
+ * Applies pending phone then marks verified.
+ * On swap, previous phone gets a notify-only completion alert.
  */
 export async function handleVerifyPhoneOtp(req, res) {
   const caller = await requireCaller(req, res);
@@ -198,30 +333,53 @@ export async function handleVerifyPhoneOtp(req, res) {
   }
   const code = typeof body?.code === "string" ? body.code : "";
   const result = await consumeContactOtp(caller.userId, "phone", code);
-  if (result === "ok") {
+  if (result.status === "ok") {
+    const destination = normalizePhone(result.destination);
+    if (!destination) {
+      sendError(res, 400, "otp_invalid", "Invalid verification code");
+      return;
+    }
+    let user = await findUserById(caller.userId);
+    if (!user) {
+      sendError(res, 401, "unauthenticated", "Not authenticated");
+      return;
+    }
+    const current = user.phone && normalizePhone(user.phone);
+    const swapped = Boolean(current && destination !== current);
+    if (destination !== current) {
+      try {
+        await setUserPhone(user.id, destination);
+      } catch (err) {
+        if (err && err.code === "phone_taken") {
+          sendError(res, 409, "phone_taken", err.message);
+          return;
+        }
+        throw err;
+      }
+    }
     await markPhoneVerified(caller.userId);
+    if (swapped && current) {
+      await notifyOldPhone(current, "completed", destination);
+    }
     await insertAuditEvent({
       actorUserId: caller.userId,
       action: AUDIT_ACTIONS.contactPhoneVerified,
+      metadata: {
+        phone: destination,
+        swapped,
+        notifiedOld: Boolean(swapped && current),
+      },
     });
-    const user = await findUserById(caller.userId);
-    const session = await sessionJson(user);
-    try {
-      const { maybeCreateActivationAfterUserSetup } = await import(
-        "../service-bills/activation.mjs"
-      );
-      await maybeCreateActivationAfterUserSetup(caller.userId);
-    } catch {
-      /* activation is best-effort */
-    }
-    sendJson(res, 200, session);
+    user = await findUserById(caller.userId);
+    await afterContactVerified(caller.userId);
+    sendJson(res, 200, await sessionJson(user));
     return;
   }
-  if (result === "locked") {
+  if (result.status === "locked") {
     sendError(res, 429, "otp_locked", "Too many attempts. Request a new code.");
     return;
   }
-  if (result === "expired") {
+  if (result.status === "expired") {
     sendError(res, 410, "otp_expired", "This code has expired. Request a new one.");
     return;
   }

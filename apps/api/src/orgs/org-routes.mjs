@@ -17,7 +17,9 @@ import {
   deleteOrgCascade,
   summarizeOrgDeleteImpact,
 } from "./org-delete.mjs";
-import { collectAncestorOrgIds } from "./org-ancestry.mjs";
+import { collectAncestorOrgIds, denyIfOrgSuspended } from "./org-ancestry.mjs";
+import { requireMfaStepUp } from "../auth/require-mfa-step-up.mjs";
+import { setOrderCreateSuspended } from "../compliance/compliance-store.mjs";
 import { invalidatePlatformOrgListCache } from "./org-list-cache.mjs";
 import {
   agentDepthOfParent,
@@ -168,6 +170,7 @@ export async function handlePatchOrg(req, res, orgId) {
     );
     return;
   }
+  if (await denyIfOrgSuspended(res, row, sendError)) return;
 
   let body;
   try {
@@ -371,15 +374,41 @@ export async function handleSetOrgStatus(req, res, orgId) {
   const reason =
     typeof body?.reason === "string" ? body.reason.trim().slice(0, 500) : "";
 
+  if (status === "paused" && !reason) {
+    sendError(
+      res,
+      400,
+      "invalid_request",
+      "reason is required when suspending an account",
+    );
+    return;
+  }
+
   if (row.status === status) {
     sendJson(res, 200, toOrgAccount(row));
     return;
   }
 
-  const updated = await updateOrgStatus(orgId, status);
+  if (caller.platformOperator) {
+    const ok = await requireMfaStepUp(caller, body?.mfaCode, res);
+    if (!ok) return;
+  }
+
+  const updated = await updateOrgStatus(orgId, status, {
+    reason: status === "paused" ? reason : null,
+    reasonBillId: null,
+  });
   if (!updated) {
     sendError(res, 404, "not_found", "Org not found");
     return;
+  }
+
+  if (status === "active") {
+    try {
+      await setOrderCreateSuspended(orgId, false);
+    } catch {
+      /* best-effort clear legacy flag */
+    }
   }
 
   await insertAuditEvent({

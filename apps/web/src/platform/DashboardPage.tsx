@@ -19,28 +19,28 @@ import {
 import {
   ApiError,
   getBackupStatus,
-  getPlatformDashboardSummary,
   getPlatformOrgs,
-  getPlatformOrders,
-  getPlatformServiceBills,
   peekPlatformOrgs,
-  peekPlatformOrders,
-  peekPlatformServiceBills,
   type BackupStatus,
   type OrgAccount,
-  type PaymentOrder,
-  type ServiceBill,
   type Session,
 } from "./api";
 import {
-  feeAccruedFromBills,
-  feeCollectedFromBills,
-  invoiceStatsFromBills,
-} from "./dashboardBillPeriod";
-import {
-  fetchPlatformCommissionDashboardKpis,
-} from "../commercial/commissionPayoutRecords";
-import { commissionMonthKeys } from "../commercial/commissionDashboardKpis";
+  chartLabelsFor,
+  getDashboardKpis,
+  getDashboardOrgCards,
+  getDashboardRates,
+  getDashboardSeries,
+  peekDashboardKpis,
+  peekDashboardRates,
+  peekDashboardSeries,
+  type DashboardKpis,
+  type DashboardOrgCards,
+  type DashboardQuery,
+  type DashboardRates,
+  type DashboardSeries,
+  type DashboardSeriesMetric,
+} from "../shared/dashboardApi";
 import { PagePending } from "./ui/PlatformPending";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
@@ -49,7 +49,6 @@ import { VolumeFilterSelect } from "./ui/VolumeFilterSelect";
 import {
   chartFilterAsset,
   chartFilterDetail,
-  matchesVolumeFilter,
   volumeFilterFromSelection,
   type VolumeChartFilter,
   type VolumeSelection,
@@ -58,12 +57,7 @@ import {
   ChartMaximizeButton,
   ChartMaximizeOverlay,
 } from "./ui/ChartMaximize";
-import {
-  ChartHoverTip,
-  formatChartDateTime,
-  useLineChartHover,
-} from "./ui/ChartHover";
-import { formatAxisNumber, niceAxisTicks, chartScaleTop } from "./ui/chartAxis";
+import { formatAxisNumber } from "./ui/chartAxis";
 import { VolumeChart, type VolumeChartZoomApi } from "./charts/VolumeChart";
 import { OverviewTable, type OverviewChartCard, trendFromRateSeries, trendFromSeries } from "./ui/OverviewTable";
 import {
@@ -74,10 +68,11 @@ import {
   sessionIsPlatformViewerOnly,
 } from "./org";
 import { visibleRegistry, networkShortLabel } from "../shared/assetNetworks";
+import { useDashboardPortal } from "./dashboardPortal";
 
 type Props = { session: Session };
 
-type PeriodId = "today" | "7d" | "1m";
+type PeriodId = "today" | "7d" | "1m" | "3m";
 
 type AccountSlice = { total: number; active: number; pause: number };
 
@@ -107,11 +102,13 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "7d", label: "7d" },
   { id: "1m", label: "1m" },
+  { id: "3m", label: "3m" },
 ];
 
 function overviewTrendLabel(period: string): string {
   if (period === "7d") return "vs previous 7d";
   if (period === "1m") return "vs previous 1m";
+  if (period === "3m") return "vs previous 3m";
   if (period === "today") return "vs prior half";
   return "vs prior period";
 }
@@ -241,10 +238,10 @@ function normalizeOverviewIds(parsed: string[]): string[] {
   return expanded.length ? expanded : DEFAULT_OVERVIEW_IDS;
 }
 
-function loadOverviewIds(): string[] {
+function loadOverviewIds(storageKey: string = OVERVIEW_STORAGE_KEY): string[] {
   try {
-    let raw: string | null = localStorage.getItem(OVERVIEW_STORAGE_KEY);
-    if (!raw) {
+    let raw: string | null = localStorage.getItem(storageKey);
+    if (!raw && storageKey === OVERVIEW_STORAGE_KEY) {
       for (const key of OVERVIEW_STORAGE_KEY_LEGACY) {
         raw = localStorage.getItem(key);
         if (raw) break;
@@ -303,78 +300,7 @@ function parseDateInput(value: string, end = false): Date {
   return end ? endOfDay(date) : startOfDay(date);
 }
 
-function buildDayKeys(from: Date, to: Date): string[] {
-  const dayKeys: string[] = [];
-  const cursor = startOfDay(from);
-  const end = startOfDay(to);
-  while (cursor.getTime() <= end.getTime()) {
-    dayKeys.push(toDateInputValue(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return dayKeys;
-}
-
-/** UTC calendar days — matches SQL `date_trunc('day', … AT TIME ZONE 'UTC')`. */
-function buildUtcDayKeys(from: Date, to: Date): string[] {
-  const dayKeys: string[] = [];
-  const cursor = new Date(
-    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()),
-  );
-  const endMs = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
-  while (cursor.getTime() <= endMs) {
-    dayKeys.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return dayKeys;
-}
-
-/** Local hour bucket — e.g. `2026-09-20T14`. */
-function toHourKey(d: Date): string {
-  return `${toDateInputValue(d)}T${String(d.getHours()).padStart(2, "0")}`;
-}
-
-function isHourKey(key: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}$/.test(key);
-}
-
-function isSingleCalendarDay(from: Date, to: Date): boolean {
-  return toDateInputValue(from) === toDateInputValue(to);
-}
-
-/**
- * Hourly keys from 00:00 of `from` through the last elapsed hour
- * (capped by `to` and now — no empty future hours for Today).
- */
-function buildHourKeys(from: Date, to: Date, now = new Date()): string[] {
-  const keys: string[] = [];
-  const cursor = startOfDay(from);
-  cursor.setMinutes(0, 0, 0);
-  const endCap = new Date(Math.min(to.getTime(), now.getTime()));
-  const endHour = new Date(endCap);
-  endHour.setMinutes(0, 0, 0);
-  while (cursor.getTime() <= endHour.getTime()) {
-    keys.push(toHourKey(cursor));
-    cursor.setHours(cursor.getHours() + 1);
-  }
-  if (keys.length === 0) keys.push(toHourKey(startOfDay(from)));
-  return keys;
-}
-
-function buildChartKeys(from: Date, to: Date): string[] {
-  if (isSingleCalendarDay(from, to)) return buildHourKeys(from, to);
-  return buildDayKeys(from, to);
-}
-
-function normalizeVolumeDayKey(raw: string): string {
-  const s = String(raw ?? "");
-  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(s);
-  if (iso) return iso[1];
-  const t = Date.parse(s);
-  if (Number.isFinite(t)) return new Date(t).toISOString().slice(0, 10);
-  return s.slice(0, 10);
-}
-
-function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] } {
+function periodWindow(id: PeriodId): { from: Date; to: Date } {
   const now = new Date();
   let from = startOfDay(now);
   const to = endOfDay(now);
@@ -385,253 +311,12 @@ function periodWindow(id: PeriodId): { from: Date; to: Date; dayKeys: string[] }
   } else if (id === "1m") {
     from = startOfDay(now);
     from.setMonth(from.getMonth() - 1);
+  } else if (id === "3m") {
+    from = startOfDay(now);
+    from.setMonth(from.getMonth() - 3);
   }
 
-  return { from, to, dayKeys: buildChartKeys(from, to) };
-}
-
-function inWindow(iso: string | null | undefined, from: Date, to: Date): boolean {
-  if (!iso) return false;
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return false;
-  return t >= from.getTime() && t <= to.getTime();
-}
-
-/** Day or hour bucket key matching `keys` granularity. */
-function seriesBucketKey(
-  iso: string | null | undefined,
-  hourly: boolean,
-): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return null;
-  const d = new Date(t);
-  return hourly ? toHourKey(d) : toDateInputValue(d);
-}
-
-function isSettledOrder(status: string): boolean {
-  return status === "completed" || status === "confirmed";
-}
-
-function isMerchantType(type: string): boolean {
-  return type === "merchant" || type === "merchant_site";
-}
-
-function isAgentType(type: string): boolean {
-  return type === "agent";
-}
-
-function buildChildrenMap(orgs: OrgAccount[]): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  for (const o of orgs) {
-    if (!o.parentId) continue;
-    const list = map.get(o.parentId) ?? [];
-    list.push(o.id);
-    map.set(o.parentId, list);
-  }
-  return map;
-}
-
-function subtreeIds(rootId: string, children: Map<string, string[]>): Set<string> {
-  const out = new Set<string>([rootId]);
-  const stack = [rootId];
-  while (stack.length) {
-    const id = stack.pop()!;
-    for (const child of children.get(id) ?? []) {
-      if (out.has(child)) continue;
-      out.add(child);
-      stack.push(child);
-    }
-  }
-  return out;
-}
-
-/** Orgs with payment-order activity in window (order expiresAt proxy until createdAt ships). */
-function activeOrgIds(
-  orders: PaymentOrder[],
-  from: Date,
-  to: Date,
-): Set<string> {
-  const active = new Set<string>();
-  for (const o of orders) {
-    if (!o.orgId) continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    active.add(o.orgId);
-  }
-  return active;
-}
-
-function accountSlice(
-  orgs: OrgAccount[],
-  typePred: (t: string) => boolean,
-  activeLeaves: Set<string>,
-  children: Map<string, string[]>,
-  pausedOrgIds: Set<string>,
-): AccountSlice {
-  const targets = orgs.filter((o) => typePred(o.type));
-  let active = 0;
-  let pause = 0;
-  for (const org of targets) {
-    if (pausedOrgIds.has(org.id)) {
-      pause += 1;
-      continue;
-    }
-    const tree = subtreeIds(org.id, children);
-    let hit = false;
-    for (const id of tree) {
-      if (activeLeaves.has(id)) {
-        hit = true;
-        break;
-      }
-    }
-    if (hit) active += 1;
-  }
-  return { total: targets.length, active, pause };
-}
-
-/** Orgs marked paused on the org row (avoid N+1 membership fetches). */
-function pausedOrgIdsFromOrgs(orgs: OrgAccount[]): Set<string> {
-  const paused = new Set<string>();
-  for (const o of orgs) {
-    if ((isMerchantType(o.type) || isAgentType(o.type)) && o.status === "paused") {
-      paused.add(o.id);
-    }
-  }
-  return paused;
-}
-
-function orderVolumeUsd(o: PaymentOrder): number {
-  // Invoice USD only — never fall back to payable crypto amount (that mixed ETH into "USD").
-  const raw = o.invoiceAmountUsd;
-  if (raw == null || raw === "") return 0;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** Locked USD per 1 token from the order quote. */
-function orderPricingRate(o: PaymentOrder): number | null {
-  const raw = o.pricingRate ?? o.marketRate;
-  if (raw == null || raw === "") return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function orderRateTimestamp(o: PaymentOrder): string | null {
-  return o.rateFetchedAt ?? o.createdAt ?? o.expiresAt ?? null;
-}
-
-/**
- * Daily (or hourly) average locked convert rate for one asset (+ optional network).
- * Empty buckets forward-fill the last known rate (no invented quotes).
- */
-function assetRateSeries(
-  orders: PaymentOrder[],
-  days: string[],
-  asset: string,
-  network: string | null = null,
-): { series: number[]; quoteCount: number; latest: number | null } {
-  const hourly = days.length > 0 && isHourKey(days[0]!);
-  const sums = new Map(days.map((d) => [d, 0]));
-  const counts = new Map(days.map((d) => [d, 0]));
-  let quoteCount = 0;
-  let latest: number | null = null;
-  let latestTs = -Infinity;
-
-  for (const o of orders) {
-    if (o.asset !== asset) continue;
-    if (network && o.network !== network) continue;
-    const rate = orderPricingRate(o);
-    if (rate == null) continue;
-    const ts = orderRateTimestamp(o);
-    const key = seriesBucketKey(ts, hourly);
-    if (!key || !sums.has(key)) continue;
-    sums.set(key, (sums.get(key) ?? 0) + rate);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    quoteCount += 1;
-    const t = ts ? Date.parse(ts) : NaN;
-    if (Number.isFinite(t) && t >= latestTs) {
-      latestTs = t;
-      latest = rate;
-    }
-  }
-
-  const series = days.map((d) => {
-    const c = counts.get(d) ?? 0;
-    if (c <= 0) return 0;
-    return (sums.get(d) ?? 0) / c;
-  });
-
-  let last = 0;
-  for (let i = 0; i < series.length; i++) {
-    if ((series[i] ?? 0) > 0) last = series[i]!;
-    else if (last > 0) series[i] = last;
-  }
-
-  if (latest == null) {
-    for (let i = series.length - 1; i >= 0; i--) {
-      if ((series[i] ?? 0) > 0) {
-        latest = series[i]!;
-        break;
-      }
-    }
-  }
-
-  return { series, quoteCount, latest };
-}
-
-/** Native token amount settled (received) or quoted payable. */
-function orderVolumeAsset(o: PaymentOrder): number {
-  const raw = o.receivedAmount?.amount ?? o.payableAmount?.amount;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function volumeSeries(
-  orders: PaymentOrder[],
-  days: string[],
-  filter: VolumeChartFilter = { scope: "all" },
-  orgScope: Set<string> | null = null,
-  mode: "usd" | "asset" = "usd",
-): number[] {
-  const hourly = days.length > 0 && isHourKey(days[0]!);
-  const map = new Map(days.map((d) => [d, 0]));
-  const amountOf = mode === "asset" ? orderVolumeAsset : orderVolumeUsd;
-  for (const o of orders) {
-    if (!isSettledOrder(o.status)) continue;
-    if (!matchesVolumeFilter(o, filter)) continue;
-    if (orgScope && (!o.orgId || !orgScope.has(o.orgId))) continue;
-    const key = seriesBucketKey(o.expiresAt, hourly);
-    if (!key || !map.has(key)) continue;
-    const n = amountOf(o);
-    if (n) map.set(key, (map.get(key) ?? 0) + n);
-  }
-  return days.map((d) => map.get(d) ?? 0);
-}
-
-function orgFeeTotal(
-  bills: ServiceBill[],
-  from: Date,
-  to: Date,
-  orgScope: Set<string>,
-): number {
-  return feeCollectedFromBills(bills, from, to, orgScope);
-}
-
-function orgVolumeTotal(
-  orders: PaymentOrder[],
-  from: Date,
-  to: Date,
-  orgScope: Set<string>,
-): number {
-  let total = 0;
-  for (const o of orders) {
-    if (!isSettledOrder(o.status)) continue;
-    if (!o.orgId || !orgScope.has(o.orgId)) continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = orderVolumeUsd(o);
-    if (n) total += n;
-  }
-  return total;
+  return { from, to };
 }
 
 function volFeeValue(volume: number, fees: number) {
@@ -651,22 +336,12 @@ function buildOrgOverviewCard(args: {
   overviewId: string;
   kind: "merchant" | "agent";
   org: OrgAccount;
-  orders: PaymentOrder[];
-  bills: ServiceBill[];
-  from: Date;
-  to: Date;
-  keys: string[];
-  children: Map<string, string[]>;
+  card: { volumeUsd: number; feesCollected: number; series: number[] };
+  labels: string[];
   trendLabel?: string;
+  route?: (path?: string) => string;
 }): OverviewChartCard {
-  const { overviewId, kind, org, orders, bills, from, to, keys, children } = args;
-  const scope = subtreeIds(org.id, children);
-  const vol = orgVolumeTotal(orders, from, to, scope);
-  const fee = orgFeeTotal(bills, from, to, scope);
-  let buckets = volumeSeries(orders, keys, { scope: "all" }, scope);
-  const volume = vol || buckets.reduce((a, b) => a + b, 0);
-  // Never invent a fee rate — show 0 when no paid bills in scope.
-  const fees = fee;
+  const { overviewId, kind, org, card, labels } = args;
   return {
     id: overviewId,
     category: kind === "merchant" ? "Merchants" : "Agents",
@@ -675,72 +350,22 @@ function buildOrgOverviewCard(args: {
       kind === "merchant"
         ? "Settled merchant volume and paid platform fees (subscription + volume) for this merchant (and sites)."
         : "Settled merchant volume and paid platform fees (subscription + volume) for this agent subtree.",
-    value: volFeeValue(volume, fees),
+    value: volFeeValue(card.volumeUsd, card.feesCollected),
     compareLabel: kind === "merchant" ? "Merchant" : "Agent",
-    trendPercent: trendFromSeries(buckets),
+    trendPercent: trendFromSeries(card.series),
     trendLabel: args.trendLabel,
-    series: buckets,
-    seriesLabels: keys,
+    series: card.series,
+    seriesLabels: labels,
     seriesMetric: "Volume",
     formatSeriesValue: (n: number) => `${formatMoneyFigure(n)} USD`,
     chartColor: orgMetricChartColor(overviewId, kind),
     seriesStatus: "ready",
-    moreHref: platformRoute(
+    moreHref: (args.route ?? platformRoute)(
       kind === "merchant"
         ? `accounts/merchants/${org.id}`
         : `accounts/agents/${org.id}`,
     ),
   };
-}
-
-function periodVolume(orders: PaymentOrder[], from: Date, to: Date): number {
-  let total = 0;
-  for (const o of orders) {
-    if (!isSettledOrder(o.status)) continue;
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    const n = orderVolumeUsd(o);
-    if (n) total += n;
-  }
-  return total;
-}
-
-function periodSettledOrderCount(
-  orders: PaymentOrder[],
-  from: Date,
-  to: Date,
-): { settled: number; total: number } {
-  let settled = 0;
-  let total = 0;
-  for (const o of orders) {
-    if (!inWindow(o.expiresAt, from, to)) continue;
-    total += 1;
-    if (isSettledOrder(o.status)) settled += 1;
-  }
-  return { settled, total };
-}
-
-/** Daily event counts aligned to `days` (same key format as `dayKey`). */
-function dailyCountSeries(
-  timestamps: Iterable<string | null | undefined>,
-  days: string[],
-): number[] {
-  const hourly = days.length > 0 && isHourKey(days[0]!);
-  const map = new Map(days.map((d) => [d, 0]));
-  for (const ts of timestamps) {
-    const key = seriesBucketKey(ts, hourly);
-    if (!key || !map.has(key)) continue;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  return days.map((d) => map.get(d) ?? 0);
-}
-
-function seriesTrendPct(values: number[]): number | null {
-  if (values.length < 4) return null;
-  const mid = Math.floor(values.length / 2);
-  const a = values.slice(0, mid).reduce((s, n) => s + n, 0);
-  const b = values.slice(mid).reduce((s, n) => s + n, 0);
-  if (a <= 0) return b > 0 ? 100 : 0;
-  return Math.round(((b - a) / a) * 100);
 }
 
 function MiniSpark({
@@ -1014,62 +639,6 @@ function DashKpiIcon({ accent }: { accent: KpiAccent }) {
   );
 }
 
-function seriesFromVolumeByDay(
-  days: string[],
-  volumeByDay: { date: string; volume: string }[],
-): number[] {
-  const map = new Map<string, number>();
-  let rawTotal = 0;
-  for (const row of volumeByDay) {
-    const n = Number(row.volume) || 0;
-    rawTotal += n;
-    const key = normalizeVolumeDayKey(row.date);
-    map.set(key, (map.get(key) ?? 0) + n);
-  }
-  const series = days.map((d) => map.get(d) ?? 0);
-  const mapped = series.reduce((a, n) => a + n, 0);
-  // Broken/mismatched day keys: still show period volume on the last bucket.
-  if (mapped === 0 && rawTotal > 0 && days.length > 0) {
-    const out = days.map(() => 0);
-    out[out.length - 1] = Math.round(rawTotal * 100) / 100;
-    return out;
-  }
-  return series;
-}
-
-function isFlatZeroSeries(values: number[]): boolean {
-  return values.length > 0 && values.every((v) => !v);
-}
-
-/** Keep axis labels while loading — empty values so VolumeChart draws no line. */
-function pendingVolumeChart(labels: string[]): {
-  series: number[];
-  dayLabels: string[];
-} {
-  return { series: [], dayLabels: labels };
-}
-
-function sameChartWindow(
-  held: { dayLabels: string[] },
-  labels: string[],
-): boolean {
-  return (
-    held.dayLabels.length === labels.length &&
-    held.dayLabels[0] === labels[0] &&
-    held.dayLabels[held.dayLabels.length - 1] ===
-      labels[labels.length - 1]
-  );
-}
-
-/** Platform fees paid in period (subscription + volume). */
-function feeCollected(bills: ServiceBill[], from: Date, to: Date): number {
-  return feeCollectedFromBills(bills, from, to);
-}
-
-function invoiceStats(bills: ServiceBill[], from: Date, to: Date) {
-  return invoiceStatsFromBills(bills, from, to);
-}
-
 function formatMoneyFigure(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
@@ -1168,44 +737,100 @@ function MetricLines({
   );
 }
 
+const PLATFORM_DASHBOARD_SOURCES = {
+  peekOrgs: peekPlatformOrgs,
+  getOrgs: (opts?: { force?: boolean }) => getPlatformOrgs(opts),
+};
+
+/** Unfiltered series powering the Volume chart and the KPI sparklines. */
+const TOTAL_METRICS: DashboardSeriesMetric[] = [
+  "volume",
+  "settled",
+  "newMerchants",
+  "newAgents",
+];
+
+const FILTER_METRICS: DashboardSeriesMetric[] = ["volume", "volumeAsset"];
+
+function statsFromKpis(k: DashboardKpis | null): OverviewStats {
+  if (!k) return EMPTY_STATS;
+  const m = k.accounts.merchants;
+  const a = k.accounts.agents;
+  return {
+    merchants: { total: m.total, active: m.active, pause: m.paused },
+    agents: a ? { total: a.total, active: a.active, pause: a.paused } : EMPTY_STATS.agents,
+    newMerchants: m.new,
+    newAgents: a?.new ?? 0,
+    newCashiers: 0,
+    invoicesIssued: k.bills.issued,
+    invoicesPaid: k.bills.paid,
+    invoicesOverdue: k.bills.overdue,
+    volume: k.orders.volumeUsd,
+    fees: k.bills.feesBilled,
+    collected: k.bills.feesCollected,
+    anomalies: k.orders.anomalies,
+    commissionOwed: k.commissions?.owed ?? 0,
+    commissionPaid: k.commissions?.paid ?? 0,
+  };
+}
+
+function filterAssetNetwork(filter: VolumeChartFilter): {
+  asset: string | null;
+  network: string | null;
+} {
+  if (filter.scope === "asset") return { asset: filter.asset, network: null };
+  if (filter.scope === "network") return { asset: null, network: filter.network };
+  if (filter.scope === "pair") return { asset: filter.asset, network: filter.network };
+  return { asset: null, network: null };
+}
+
+function dashboardErrorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    return err.code === "rate_limited"
+      ? "Too many requests — wait a moment and retry."
+      : err.message;
+  }
+  return "Failed to load dashboard";
+}
+
 export function DashboardPage({ session }: Props) {
-  const isViewer = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
+  const portal = useDashboardPortal();
+  const route = portal?.route ?? platformRoute;
+  const sources = portal ?? PLATFORM_DASHBOARD_SOURCES;
+  const scopeOrgId = portal?.scopeOrgId ?? null;
+  const isViewer = useMemo(
+    () => (portal ? portal.readOnly : sessionIsPlatformViewerOnly(session)),
+    [portal, session],
+  );
+  const overviewStorageKey = portal?.overviewStorageKey ?? OVERVIEW_STORAGE_KEY;
+  const [commissionPercent, setCommissionPercent] = useState<string | null>(null);
 
   const [period, setPeriod] = useState<PeriodId | "custom">("7d");
   const [startDate, setStartDate] = useState(() =>
     toDateInputValue(periodWindow("7d").from),
   );
   const [endDate, setEndDate] = useState(() => toDateInputValue(periodWindow("7d").to));
-  const [loading, setLoading] = useState(
-    () => peekPlatformOrgs() == null && peekPlatformOrders() == null,
+  const query = useMemo<DashboardQuery>(
+    () => ({ from: startDate, to: endDate, orgId: scopeOrgId }),
+    [startDate, endDate, scopeOrgId],
   );
-  const [hasLoaded, setHasLoaded] = useState(
-    () => peekPlatformOrgs() != null || peekPlatformOrders() != null,
+
+  const [kpis, setKpis] = useState<DashboardKpis | null>(() => peekDashboardKpis(query));
+  const [totalSeries, setTotalSeries] = useState<DashboardSeries | null>(() =>
+    peekDashboardSeries(query, { metrics: TOTAL_METRICS }),
   );
+  const [rates, setRates] = useState<DashboardRates | null>(() => peekDashboardRates(query));
+  const [orgs, setOrgs] = useState<OrgAccount[]>(() => sources.peekOrgs() ?? []);
+  const [loading, setLoading] = useState(() => kpis == null || totalSeries == null);
+  const [hasLoaded, setHasLoaded] = useState(() => kpis != null && totalSeries != null);
   const loadGen = useRef(0);
-  const initialLoad = useRef(true);
   const lastFetchAt = useRef(0);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [pairsReloadToken, setPairsReloadToken] = useState(0);
+  const [chartReloadToken, setChartReloadToken] = useState(0);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dismissError = useCallback(() => setError(null), []);
-  const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
-  const [orders, setOrders] = useState<PaymentOrder[]>([]);
-  const [bills, setBills] = useState<ServiceBill[]>([]);
-  const [orgs, setOrgs] = useState<OrgAccount[]>([]);
-  const [periodDayKeys, setPeriodDayKeys] = useState<string[]>([]);
-  const [summaryVolumeByDay, setSummaryVolumeByDay] = useState<
-    { date: string; volume: string }[]
-  >([]);
-  /** Total-scope chart waits for SQL volumeByDay so we don't flash orders→SQL. */
-  const [sqlVolumeReady, setSqlVolumeReady] = useState(false);
-  /** Orders applied for this period — unlocks Today/hourly chart without waiting on summary/commissions. */
-  const [ordersReady, setOrdersReady] = useState(false);
-  const heldVolumeChartRef = useRef<{
-    series: number[];
-    dayLabels: string[];
-  } | null>(null);
   const [volumeSelection, setVolumeSelection] = useState<VolumeSelection | null>(
     null,
   );
@@ -1216,7 +841,9 @@ export function DashboardPage({ session }: Props) {
   const [volumeFsZoomed, setVolumeFsZoomed] = useState(false);
   const volumeZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
   const volumeFsZoomApiRef = useRef<VolumeChartZoomApi | null>(null);
-  const [overviewIds, setOverviewIds] = useState<string[]>(() => loadOverviewIds());
+  const [overviewIds, setOverviewIds] = useState<string[]>(() =>
+    loadOverviewIds(overviewStorageKey),
+  );
   const [addChartsOpen, setAddChartsOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
@@ -1241,299 +868,107 @@ export function DashboardPage({ session }: Props) {
     setStartDate((prev) => (prev && value < prev ? value : prev));
   }, []);
 
+  /** Cards (KPIs), chart series, rate cards and the org list load independently. */
   const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!startDate || !endDate) return;
     const gen = ++loadGen.current;
     const force = Boolean(opts?.force);
+    const q: DashboardQuery = { ...query, fresh: force };
     setError(null);
-    const from = parseDateInput(startDate, false);
-    const to = parseDateInput(endDate, true);
-    const dayKeys = buildChartKeys(from, to);
 
-    const applyCore = (
-      nextOrgs: OrgAccount[],
-      nextOrders: PaymentOrder[],
-      nextBills: ServiceBill[],
-    ) => {
-      const children = buildChildrenMap(nextOrgs);
-      const leaves = activeOrgIds(nextOrders, from, to);
-      const pausedOrgIds = pausedOrgIdsFromOrgs(nextOrgs);
-      const invoices = invoiceStats(nextBills, from, to);
-      setStats((prev) => ({
-        merchants: accountSlice(
-          nextOrgs,
-          isMerchantType,
-          leaves,
-          children,
-          pausedOrgIds,
-        ),
-        agents: accountSlice(
-          nextOrgs,
-          isAgentType,
-          leaves,
-          children,
-          pausedOrgIds,
-        ),
-        newMerchants: prev.newMerchants,
-        newAgents: prev.newAgents,
-        newCashiers: prev.newCashiers,
-        invoicesIssued: invoices.issued,
-        invoicesPaid: invoices.paid,
-        invoicesOverdue: invoices.overdue,
-        volume: periodVolume(nextOrders, from, to),
-        fees: feeAccruedFromBills(nextBills, from, to),
-        collected: feeCollected(nextBills, from, to),
-        anomalies: prev.anomalies,
-        commissionOwed: prev.commissionOwed,
-        commissionPaid: prev.commissionPaid,
-      }));
-      setOrders(nextOrders);
-      setBills(nextBills);
-      setOrgs(nextOrgs);
-      setPeriodDayKeys(dayKeys);
+    const cachedKpis = force ? null : peekDashboardKpis(query);
+    const cachedSeries = force ? null : peekDashboardSeries(query, { metrics: TOTAL_METRICS });
+    const cachedRates = force ? null : peekDashboardRates(query);
+    if (cachedKpis) setKpis(cachedKpis);
+    if (cachedSeries) setTotalSeries(cachedSeries);
+    if (cachedRates) setRates(cachedRates);
+    const warm = Boolean(cachedKpis && cachedSeries);
+    if (warm) setHasLoaded(true);
+    setLoading(!warm);
+
+    const current = () => gen === loadGen.current;
+    const fail = (err: unknown) => {
+      if (current()) setError(dashboardErrorText(err));
     };
 
-    // Freeze Total chart until this fetch's volume source arrives (avoids zero→real flash).
-    setSqlVolumeReady(false);
-    setOrdersReady(false);
-
-    const cachedOrgs = peekPlatformOrgs();
-    const cachedBills = peekPlatformServiceBills();
-    const cachedOrders = peekPlatformOrders();
-    const hadCache = Boolean(cachedOrgs || cachedOrders);
-    if (hadCache) {
-      applyCore(cachedOrgs ?? [], cachedOrders ?? [], cachedBills ?? []);
-      setHasLoaded(true);
-      setOrdersReady(true);
+    if (portal) {
+      void portal
+        .getCommissionPercent()
+        .catch(() => null)
+        .then((pct) => {
+          if (current()) setCommissionPercent(pct);
+        });
     }
 
-    if (initialLoad.current) {
-      if (!hadCache) setLoading(true);
-      initialLoad.current = false;
-    } else {
-      setLoading(true);
-    }
-
-    const fetchOpts = force ? { force: true as const } : undefined;
-    const orgsPromise = getPlatformOrgs(fetchOpts);
-    const ordersPromise = getPlatformOrders(fetchOpts).then((nextOrders) => {
-      if (gen !== loadGen.current) return nextOrders;
-      // Unlock hourly/Today chart as soon as orders land — don't wait on summary/commissions.
-      setOrders(nextOrders);
-      setPeriodDayKeys(dayKeys);
-      setOrdersReady(true);
-      setHasLoaded(true);
-      return nextOrders;
-    });
-    const billsPromise = getPlatformServiceBills(fetchOpts).catch(
-      () => [] as ServiceBill[],
-    );
-    const summaryPromise = getPlatformDashboardSummary(
-      from.toISOString(),
-      to.toISOString(),
-    )
-      .then((summary) => {
-        if (gen !== loadGen.current) return summary;
-        // Unlock multi-day SQL volume chart as soon as summary lands.
-        if (summary) {
-          setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
-        } else {
-          setSummaryVolumeByDay([]);
-        }
-        setSqlVolumeReady(true);
-        return summary;
-      })
-      .catch(() => {
-        if (gen === loadGen.current) {
-          setSummaryVolumeByDay([]);
-          setSqlVolumeReady(true);
-        }
-        return null;
-      });
-    const commissionsPromise = fetchPlatformCommissionDashboardKpis(
-      commissionMonthKeys(from, to),
-    ).catch(() => ({ commissionOwed: 0, commissionPaid: 0 }));
-
-    try {
-      const [nextOrgs, nextOrders, nextBills, summary, commissionKpis] =
-        await Promise.all([
-          orgsPromise,
-          ordersPromise,
-          billsPromise,
-          summaryPromise,
-          commissionsPromise,
-        ]);
-      if (gen !== loadGen.current) return;
-      applyCore(nextOrgs, nextOrders, nextBills);
-      setHasLoaded(true);
-      setOrdersReady(true);
-      setLoading(false);
-
-      const commissionOwed = commissionKpis.commissionOwed;
-      const commissionPaid = commissionKpis.commissionPaid;
-
-      if (summary) {
-        setStats((prev) => ({
-          ...prev,
-          newMerchants: summary.signups.newMerchants,
-          newAgents: summary.signups.newAgents,
-          newCashiers: summary.signups.newCashiers,
-          volume:
-            Number(summary.orders.periodVolume) ||
-            periodVolume(nextOrders, from, to),
-          anomalies: summary.orders.anomalies?.length ?? 0,
-          commissionOwed,
-          commissionPaid,
-        }));
-      } else {
-        setStats((prev) => ({
-          ...prev,
-          commissionOwed,
-          commissionPaid,
-          anomalies: nextOrders.filter((o) => o.status === "payment_anomaly")
-            .length,
-        }));
-      }
-      setSqlVolumeReady(true);
-      const now = Date.now();
-      lastFetchAt.current = now;
-      setUpdatedAt(now);
-    } catch (err) {
-      if (gen !== loadGen.current) return;
-      const text =
-        err instanceof ApiError
-          ? err.code === "rate_limited"
-            ? "Too many requests — wait a moment and retry."
-            : err.message
-          : "Failed to load dashboard";
-      setError(text);
-      setOrdersReady(true);
-      setSqlVolumeReady(true);
-    } finally {
-      if (gen === loadGen.current) {
-        setLoading(false);
-        setHasLoaded(true);
-      }
-    }
-  }, [startDate, endDate]);
+    await Promise.all([
+      getDashboardKpis(q)
+        .then((next) => {
+          if (!current()) return;
+          setKpis(next);
+          setHasLoaded(true);
+        })
+        .catch(fail),
+      getDashboardSeries(q, { metrics: TOTAL_METRICS })
+        .then((next) => {
+          if (!current()) return;
+          setTotalSeries(next);
+          setHasLoaded(true);
+        })
+        .catch(fail),
+      getDashboardRates(q)
+        .then((next) => {
+          if (current()) setRates(next);
+        })
+        .catch(() => undefined),
+      sources
+        .getOrgs(force ? { force: true } : undefined)
+        .then((next) => {
+          if (current()) setOrgs(next);
+        })
+        .catch(() => undefined),
+    ]);
+    if (!current()) return;
+    setLoading(false);
+    setHasLoaded(true);
+    const now = Date.now();
+    lastFetchAt.current = now;
+    setUpdatedAt(now);
+  }, [startDate, endDate, query, portal, sources]);
 
   const softRevalidateLiveSlices = useCallback(
     async (slices: DashboardLiveSlice[]) => {
       if (!startDate || !endDate) return;
-      const from = parseDateInput(startDate, false);
-      const to = parseDateInput(endDate, true);
-      const needVolume = slices.includes("volume");
-      const needAnomalies = slices.includes("anomalies");
-      const needBills = slices.includes("serviceBills");
-      const needOrgs = slices.includes("orgs");
-      const needCommissions = slices.includes("commissions");
-      const needNetworks = slices.includes("networks");
-
+      const q: DashboardQuery = { ...query, fresh: true };
+      const needKpis = slices.some((s) =>
+        ["volume", "anomalies", "serviceBills", "orgs", "commissions"].includes(s),
+      );
+      const needSeries = slices.includes("volume") || slices.includes("orgs");
       try {
-        if (needVolume || needAnomalies) {
-          const summary = await getPlatformDashboardSummary(
-            from.toISOString(),
-            to.toISOString(),
-          );
-          if (needVolume) {
-            setSummaryVolumeByDay(summary.orders.volumeByDay ?? []);
-            setSqlVolumeReady(true);
-          }
-          setStats((prev) => ({
-            ...prev,
-            ...(needVolume
-              ? {
-                  volume:
-                    Number(summary.orders.periodVolume) || prev.volume,
-                }
-              : {}),
-            ...(needAnomalies
-              ? {
-                  anomalies:
-                    summary.orders.anomalies?.length ?? prev.anomalies,
-                }
-              : {}),
-          }));
+        await Promise.all([
+          needKpis ? getDashboardKpis(q).then(setKpis) : null,
+          needSeries
+            ? getDashboardSeries(q, { metrics: TOTAL_METRICS }).then(setTotalSeries)
+            : null,
+          slices.includes("volume") ? getDashboardRates(q).then(setRates) : null,
+          slices.includes("orgs") ? sources.getOrgs({ force: true }).then(setOrgs) : null,
+        ]);
+        if (slices.includes("volume") || slices.includes("serviceBills")) {
+          setChartReloadToken((n) => n + 1);
         }
-
-        if (needBills) {
-          const nextBills = await getPlatformServiceBills({ force: true });
-          setBills(nextBills);
-          const invoices = invoiceStats(nextBills, from, to);
-          setStats((prev) => ({
-            ...prev,
-            invoicesIssued: invoices.issued,
-            invoicesPaid: invoices.paid,
-            invoicesOverdue: invoices.overdue,
-            fees: feeAccruedFromBills(nextBills, from, to),
-            collected: feeCollected(nextBills, from, to),
-          }));
-        }
-
-        if (needOrgs) {
-          const nextOrgs = await getPlatformOrgs({ force: true });
-          setOrgs(nextOrgs);
-          const children = buildChildrenMap(nextOrgs);
-          const leaves = activeOrgIds(orders, from, to);
-          const pausedOrgIds = pausedOrgIdsFromOrgs(nextOrgs);
-          setStats((prev) => ({
-            ...prev,
-            merchants: accountSlice(
-              nextOrgs,
-              isMerchantType,
-              leaves,
-              children,
-              pausedOrgIds,
-            ),
-            agents: accountSlice(
-              nextOrgs,
-              isAgentType,
-              leaves,
-              children,
-              pausedOrgIds,
-            ),
-          }));
-          try {
-            const summary = await getPlatformDashboardSummary(
-              from.toISOString(),
-              to.toISOString(),
-            );
-            setStats((prev) => ({
-              ...prev,
-              newMerchants: summary.signups.newMerchants,
-              newAgents: summary.signups.newAgents,
-              newCashiers: summary.signups.newCashiers,
-            }));
-          } catch {
-            // keep prior signup counts
-          }
-        }
-
-        if (needCommissions) {
-          const commissionKpis = await fetchPlatformCommissionDashboardKpis(
-            commissionMonthKeys(from, to),
-          ).catch(() => ({ commissionOwed: 0, commissionPaid: 0 }));
-          setStats((prev) => ({
-            ...prev,
-            commissionOwed: commissionKpis.commissionOwed,
-            commissionPaid: commissionKpis.commissionPaid,
-          }));
-        }
-
-        if (needNetworks) {
+        if (slices.includes("networks")) {
           setPairsReloadToken((n) => n + 1);
         }
-
         setUpdatedAt(Date.now());
       } catch {
-        // Keep last good SWR snapshot.
+        // Keep last good snapshot.
       }
     },
-    [startDate, endDate, orders],
+    [startDate, endDate, query, sources],
   );
 
   useDashboardLiveEvents({
     enabled: hasLoaded,
+    debounceMs: 5_000,
     onSlices: (slices) => {
       void softRevalidateLiveSlices(slices);
     },
@@ -1547,7 +982,7 @@ export function DashboardPage({ session }: Props) {
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       if (Date.now() - lastFetchAt.current < 30_000) return;
-      void load({ force: true });
+      void load();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
@@ -1555,10 +990,12 @@ export function DashboardPage({ session }: Props) {
 
   const refreshDashboard = useCallback(() => {
     setPairsReloadToken((n) => n + 1);
+    setChartReloadToken((n) => n + 1);
     void load({ force: true });
   }, [load]);
 
   useEffect(() => {
+    if (portal) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -1571,24 +1008,17 @@ export function DashboardPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [pairsReloadToken]);
+  }, [pairsReloadToken, portal]);
 
   const periodLabel =
     period === "custom"
       ? `${startDate} – ${endDate}`
       : (PERIOD_OPTIONS.find((p) => p.id === period)?.label ?? period);
 
-  const chartWindow = useMemo(() => {
-    const from = parseDateInput(startDate, false);
-    const to = parseDateInput(endDate, true);
-    const hourly = isSingleCalendarDay(from, to);
-    const keys = hourly
-      ? buildHourKeys(from, to)
-      : periodDayKeys.length
-        ? periodDayKeys
-        : buildDayKeys(from, to);
-    return { from, to, keys, hourly };
-  }, [startDate, endDate, periodDayKeys]);
+  const chartLabels = useMemo(
+    () => (totalSeries ? chartLabelsFor(totalSeries.keys, totalSeries.interval) : []),
+    [totalSeries],
+  );
 
   const volumeFilter: VolumeChartFilter = useMemo(
     () => volumeFilterFromSelection(volumeSelection),
@@ -1604,56 +1034,28 @@ export function DashboardPage({ session }: Props) {
     else setCompareUsdAsset(false);
   }, [selectedAsset, canCompareUsdAsset]);
 
-  /** Unfiltered platform volume — KPI sparks/trends stay stable when the chart asset changes. */
-  const { series: totalVolumeSeries, dayLabels: totalVolumeDayLabels } = useMemo(() => {
-    const { from, to, keys, hourly } = chartWindow;
-    const held = heldVolumeChartRef.current;
-
-    // Today / single-day: hour buckets from orders — SQL volumeByDay is day-only.
-    if (hourly) {
-      // Wait only for orders (not full dashboard load).
-      if (!ordersReady) {
-        if (held && sameChartWindow(held, keys) && held.series.length > 0) {
-          return held;
-        }
-        return pendingVolumeChart(keys);
-      }
-      const next = {
-        series: volumeSeries(orders, keys, { scope: "all" }),
-        dayLabels: keys,
-      };
-      heldVolumeChartRef.current = next;
-      return next;
+  /** Asset / network chart filter → its own server series (USD + native amount). */
+  const [filteredSeries, setFilteredSeries] = useState<DashboardSeries | null>(null);
+  useEffect(() => {
+    if (volumeFilter.scope === "all") {
+      setFilteredSeries(null);
+      return;
     }
-
-    if (!sqlVolumeReady) {
-      const sqlKeys = keys.length ? keys : buildUtcDayKeys(from, to);
-      if (
-        held &&
-        held.series.length > 0 &&
-        !isFlatZeroSeries(held.series) &&
-        (sameChartWindow(held, sqlKeys) || sameChartWindow(held, keys))
-      ) {
-        return held;
-      }
-      return pendingVolumeChart(sqlKeys);
-    }
-    if (summaryVolumeByDay.length > 0) {
-      const sqlKeys = buildUtcDayKeys(from, to);
-      const next = {
-        series: seriesFromVolumeByDay(sqlKeys, summaryVolumeByDay),
-        dayLabels: sqlKeys,
-      };
-      heldVolumeChartRef.current = next;
-      return next;
-    }
-    const next = {
-      series: volumeSeries(orders, keys, { scope: "all" }),
-      dayLabels: keys,
+    const { asset, network } = filterAssetNetwork(volumeFilter);
+    const opts = { metrics: FILTER_METRICS, asset, network };
+    setFilteredSeries(peekDashboardSeries(query, opts));
+    let cancelled = false;
+    getDashboardSeries(query, opts)
+      .then((next) => {
+        if (!cancelled) setFilteredSeries(next);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(dashboardErrorText(err));
+      });
+    return () => {
+      cancelled = true;
     };
-    heldVolumeChartRef.current = next;
-    return next;
-  }, [orders, chartWindow, summaryVolumeByDay, sqlVolumeReady, ordersReady]);
+  }, [query, volumeFilter, chartReloadToken]);
 
   const {
     series,
@@ -1662,84 +1064,53 @@ export function DashboardPage({ session }: Props) {
     valueUnit,
     secondaryUnit,
   } = useMemo(() => {
+    const single = {
+      secondarySeries: undefined as number[] | undefined,
+      valueUnit: "usd" as string,
+      secondaryUnit: undefined as string | undefined,
+    };
     if (volumeFilter.scope === "all") {
-      return {
-        series: totalVolumeSeries,
-        dayLabels: totalVolumeDayLabels,
-        secondarySeries: undefined as number[] | undefined,
-        valueUnit: "usd" as const,
-        secondaryUnit: undefined as string | undefined,
-      };
+      return { ...single, series: totalSeries?.series.volume ?? [], dayLabels: chartLabels };
     }
-    const { keys, hourly } = chartWindow;
-    const ready = hourly ? ordersReady : sqlVolumeReady;
-    if (!ready) {
-      const pending = pendingVolumeChart(keys);
-      return {
-        ...pending,
-        secondarySeries: undefined as number[] | undefined,
-        valueUnit: "usd" as const,
-        secondaryUnit: undefined as string | undefined,
-      };
+    if (!filteredSeries) {
+      return { ...single, series: [] as number[], dayLabels: chartLabels };
     }
-
+    const labels = chartLabelsFor(filteredSeries.keys, filteredSeries.interval);
+    const usd = filteredSeries.series.volume ?? [];
     const asset = chartFilterAsset(volumeFilter);
     if (asset) {
-      const assetSeries = volumeSeries(orders, keys, volumeFilter, null, "asset");
+      const native = filteredSeries.series.volumeAsset ?? [];
       // Asset always uses the left axis so the unit does not jump when compare toggles.
       if (compareUsdAsset) {
         return {
-          series: assetSeries,
-          dayLabels: keys,
-          secondarySeries: volumeSeries(orders, keys, volumeFilter, null, "usd"),
-          valueUnit: asset,
-          secondaryUnit: "usd",
+          series: native,
+          dayLabels: labels,
+          secondarySeries: usd,
+          valueUnit: asset as string,
+          secondaryUnit: "usd" as string | undefined,
         };
       }
-      return {
-        series: assetSeries,
-        dayLabels: keys,
-        secondarySeries: undefined as number[] | undefined,
-        valueUnit: asset,
-        secondaryUnit: undefined as string | undefined,
-      };
+      return { ...single, series: native, dayLabels: labels, valueUnit: asset as string };
     }
-
     // Network-only filter — stay in USD (mixed assets).
-    return {
-      series: volumeSeries(orders, keys, volumeFilter, null, "usd"),
-      dayLabels: keys,
-      secondarySeries: undefined as number[] | undefined,
-      valueUnit: "usd" as const,
-      secondaryUnit: undefined as string | undefined,
-    };
-  }, [
-    orders,
-    chartWindow,
-    volumeFilter,
-    totalVolumeSeries,
-    totalVolumeDayLabels,
-    ordersReady,
-    sqlVolumeReady,
-    compareUsdAsset,
-  ]);
+    return { ...single, series: usd, dayLabels: labels };
+  }, [volumeFilter, totalSeries, chartLabels, filteredSeries, compareUsdAsset]);
 
   const baseChartCatalog: OverviewChartCard[] = useMemo(() => {
-    const { keys } = chartWindow;
-    const labels = keys.length ? keys : dayLabels;
+    const labels = rates ? chartLabelsFor(rates.keys, rates.interval) : chartLabels;
     const trendLabel = overviewTrendLabel(period);
     const fmtRate = (n: number) => `${formatRateFigure(n)} USD`;
+    const byPair = new Map(
+      (rates?.pairs ?? []).map((p) => [`${p.asset}:${p.network}`, p]),
+    );
 
     return RATE_PAIRS.map((row) => {
       const asset = row.asset;
       const network = row.network;
       const netLabel = networkShortLabel(network);
-      const { series, quoteCount, latest } = assetRateSeries(
-        orders,
-        labels,
-        asset,
-        network,
-      );
+      const pair = byPair.get(`${asset}:${network}`);
+      const latest = pair?.latest ?? null;
+      const quoteCount = pair?.quoteCount ?? 0;
       const empty = latest == null;
       const money = (n: number) => (
         <span className="fund-amount">
@@ -1747,18 +1118,19 @@ export function DashboardPage({ session }: Props) {
           <span className="plat-fund-currency">USD</span>
         </span>
       );
+      const rateSeries = pair?.series ?? labels.map(() => 0);
       return {
         id: rateOverviewId(asset, network),
-        category: "Platform",
+        category: portal ? "Rates" : "Platform",
         title: `${asset} · ${netLabel}`,
         help: `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
         value: empty ? "—" : money(latest),
         compareLabel: empty
           ? `No quotes · ${periodLabel}`
           : `${quoteCount.toLocaleString()} quote${quoteCount === 1 ? "" : "s"} · ${periodLabel}`,
-        trendPercent: empty ? null : trendFromRateSeries(series),
+        trendPercent: empty ? null : trendFromRateSeries(rateSeries),
         trendLabel,
-        series: empty ? labels.map(() => 0) : series,
+        series: empty ? labels.map(() => 0) : rateSeries,
         seriesLabels: labels,
         seriesMetric: `${asset} rate`,
         formatSeriesValue: fmtRate,
@@ -1767,49 +1139,57 @@ export function DashboardPage({ session }: Props) {
         empty,
       };
     });
-  }, [chartWindow, dayLabels, orders, periodLabel, period]);
+  }, [rates, chartLabels, periodLabel, period, portal]);
 
-  const [orgChartCards, setOrgChartCards] = useState<OverviewChartCard[]>([]);
+  const orgOverviewIds = useMemo(
+    () => overviewIds.filter(isOrgOverviewId),
+    [overviewIds],
+  );
+  const [orgCardData, setOrgCardData] = useState<DashboardOrgCards | null>(null);
   useEffect(() => {
-    const orgIds = overviewIds.filter(isOrgOverviewId);
-    if (orgIds.length === 0 || orgs.length === 0) {
-      setOrgChartCards([]);
+    const orgIds = orgOverviewIds
+      .map((id) => parseOrgOverviewId(id)?.orgId)
+      .filter((id): id is string => Boolean(id));
+    if (orgIds.length === 0) {
+      setOrgCardData(null);
       return;
     }
     let cancelled = false;
-    const t = window.setTimeout(() => {
-      if (cancelled) return;
-      const { from, to, keys } = chartWindow;
-      const labels = keys.length ? keys : dayLabels;
-      const children = buildChildrenMap(orgs);
-      const cards: OverviewChartCard[] = [];
-      for (const id of orgIds) {
-        const parsed = parseOrgOverviewId(id);
-        if (!parsed) continue;
-        const org = orgs.find((o) => o.id === parsed.orgId);
-        if (!org) continue;
-        cards.push(
-          buildOrgOverviewCard({
-            overviewId: id,
-            kind: parsed.kind,
-            org,
-            orders,
-            bills,
-            from,
-            to,
-            keys: labels,
-            children,
-            trendLabel: overviewTrendLabel(period),
-          }),
-        );
-      }
-      setOrgChartCards(cards);
-    }, 0);
+    getDashboardOrgCards(query, orgIds)
+      .then((next) => {
+        if (!cancelled) setOrgCardData(next);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
-      window.clearTimeout(t);
     };
-  }, [overviewIds, orgs, orders, bills, chartWindow, dayLabels, period]);
+  }, [query, orgOverviewIds, chartReloadToken]);
+
+  const orgChartCards = useMemo((): OverviewChartCard[] => {
+    if (!orgCardData || orgs.length === 0) return [];
+    const labels = chartLabelsFor(orgCardData.keys, orgCardData.interval);
+    const byId = new Map(orgCardData.cards.map((c) => [c.orgId, c]));
+    const cards: OverviewChartCard[] = [];
+    for (const id of orgOverviewIds) {
+      const parsed = parseOrgOverviewId(id);
+      if (!parsed) continue;
+      const org = orgs.find((o) => o.id === parsed.orgId);
+      const card = byId.get(parsed.orgId);
+      if (!org || !card) continue;
+      cards.push(
+        buildOrgOverviewCard({
+          overviewId: id,
+          kind: parsed.kind,
+          org,
+          card,
+          labels,
+          trendLabel: overviewTrendLabel(period),
+          route,
+        }),
+      );
+    }
+    return cards;
+  }, [orgCardData, orgs, orgOverviewIds, period, route]);
 
   const chartCatalog = useMemo(
     () => [...baseChartCatalog, ...orgChartCards],
@@ -1823,28 +1203,24 @@ export function DashboardPage({ session }: Props) {
 
   const resolveOrgCard = useCallback(
     async (overviewId: string): Promise<OverviewChartCard> => {
-      // Yield so the pending mark paints before heavy series work.
-      await new Promise<void>((r) => setTimeout(r, 0));
       const parsed = parseOrgOverviewId(overviewId);
       if (!parsed) throw new Error("Invalid overview id");
       const org = orgs.find((o) => o.id === parsed.orgId);
       if (!org) throw new Error("Org not found");
-      const { from, to, keys } = chartWindow;
-      const labels = keys.length ? keys : dayLabels;
+      const data = await getDashboardOrgCards(query, [parsed.orgId]);
+      const card = data.cards.find((c) => c.orgId === parsed.orgId);
+      if (!card) throw new Error("Org not in dashboard scope");
       return buildOrgOverviewCard({
         overviewId,
         kind: parsed.kind,
         org,
-        orders,
-        bills,
-        from,
-        to,
-        keys: labels,
-        children: buildChildrenMap(orgs),
+        card,
+        labels: chartLabelsFor(data.keys, data.interval),
         trendLabel: overviewTrendLabel(period),
+        route,
       });
     },
-    [orgs, orders, bills, chartWindow, dayLabels, period],
+    [orgs, query, period, route],
   );
 
   const merchantPickOptions = useMemo(
@@ -1873,21 +1249,21 @@ export function DashboardPage({ session }: Props) {
   const applyOverviewIds = useCallback((ids: string[]) => {
     setOverviewIds(ids);
     try {
-      localStorage.setItem(OVERVIEW_STORAGE_KEY, JSON.stringify(ids));
+      localStorage.setItem(overviewStorageKey, JSON.stringify(ids));
     } catch {
       /* ignore quota */
     }
     setAddChartsOpen(false);
-  }, []);
+  }, [overviewStorageKey]);
 
   const persistOverviewIds = useCallback((ids: string[]) => {
     setOverviewIds(ids);
     try {
-      localStorage.setItem(OVERVIEW_STORAGE_KEY, JSON.stringify(ids));
+      localStorage.setItem(overviewStorageKey, JSON.stringify(ids));
     } catch {
       /* ignore quota */
     }
-  }, []);
+  }, [overviewStorageKey]);
 
   const removeOverviewCard = useCallback(
     (id: string) => {
@@ -1952,46 +1328,25 @@ export function DashboardPage({ session }: Props) {
     </div>
   );
 
-  const orderCounts = useMemo(
-    () =>
-      periodSettledOrderCount(orders, chartWindow.from, chartWindow.to),
-    [orders, chartWindow.from, chartWindow.to],
-  );
+  const stats = useMemo(() => statsFromKpis(kpis), [kpis]);
+  const orderCounts = {
+    settled: kpis?.orders.settled ?? 0,
+    total: kpis?.orders.total ?? 0,
+  };
 
   const kpiSparks = useMemo(() => {
-    const days = chartWindow.keys.length
-      ? chartWindow.keys
-      : totalVolumeDayLabels;
-    const merchantSpark = dailyCountSeries(
-      orgs.filter((o) => isMerchantType(o.type)).map((o) => o.createdAt),
-      days,
-    );
-    const agentSpark = dailyCountSeries(
-      orgs.filter((o) => isAgentType(o.type)).map((o) => o.createdAt),
-      days,
-    );
-    const txSpark = dailyCountSeries(
-      orders
-        .filter((o) => isSettledOrder(o.status))
-        .map((o) => o.expiresAt),
-      days,
-    );
-    const volumeSpark =
-      totalVolumeSeries.length > 1 ? totalVolumeSeries : days.map(() => 0);
+    const s = totalSeries?.series ?? {};
     return {
-      merchants: merchantSpark,
-      agents: agentSpark,
-      transactions: txSpark,
-      volume: volumeSpark,
-      txTrend: seriesTrendPct(txSpark),
-      volumeTrend: seriesTrendPct(volumeSpark),
+      merchants: s.newMerchants ?? [],
+      agents: s.newAgents ?? [],
+      transactions: s.settled ?? [],
+      volume: s.volume ?? [],
+      txTrend: kpis?.orders.settledTrend ?? null,
+      volumeTrend: kpis?.orders.volumeTrend ?? null,
     };
-  }, [orgs, orders, chartWindow.keys, totalVolumeSeries, totalVolumeDayLabels]);
+  }, [totalSeries, kpis]);
 
-  const successRate =
-    orderCounts.total > 0
-      ? Math.round((orderCounts.settled / orderCounts.total) * 1000) / 10
-      : 100;
+  const successRate = kpis?.orders.successRate ?? 100;
 
   if (loading && !hasLoaded) {
     return <PagePending />;
@@ -2015,8 +1370,12 @@ export function DashboardPage({ session }: Props) {
           <div className="pg-dash__hero-brand">
             <GateLogoMark size={140} className="pg-dash__mark" alt="" />
             <div className="pg-dash__hero-copy">
-              <p className="pg-dash__eyebrow">Platform</p>
-              <h1 className="pg-dash__welcome">PaymentGate</h1>
+              <p className="pg-dash__eyebrow">{portal ? portal.eyebrow : "Platform"}</p>
+              <h1 className="pg-dash__welcome">
+                {portal
+                  ? (orgs.find((o) => o.id === portal.titleOrgId)?.name ?? portal.title)
+                  : "PaymentGate"}
+              </h1>
               <p className="pg-dash__lede">
                 Here’s what’s happening with your payment ecosystem today.
               </p>
@@ -2171,29 +1530,48 @@ export function DashboardPage({ session }: Props) {
               : `${stats.merchants.active} active`
           }
           spark={kpiSparks.merchants}
-          href={platformRoute("accounts/merchants")}
+          href={route("accounts/merchants")}
           linkLabel="View Merchants"
         />
-        <DashKpiCard
-          accent="teal"
-          label="Total Agents"
-          value={stats.agents.total.toLocaleString()}
-          hint={
-            stats.newAgents > 0
-              ? `+${stats.newAgents} new in period`
-              : `${stats.agents.active} active`
-          }
-          spark={kpiSparks.agents}
-          href={platformRoute("accounts/agents")}
-          linkLabel="View Agents"
-        />
+        {portal ? (
+          <DashKpiCard
+            accent="teal"
+            label="Commission Earned"
+            value={
+              <span className="pg-kpi__money">
+                ${formatMoneyFigureFixed(stats.commissionOwed + stats.commissionPaid)}
+              </span>
+            }
+            hint={
+              commissionPercent
+                ? `${commissionPercent}% of platform fees`
+                : `${formatMoneyFigure(stats.commissionPaid)} paid`
+            }
+            href={route("commissions")}
+            linkLabel="View Commissions"
+          />
+        ) : (
+          <DashKpiCard
+            accent="teal"
+            label="Total Agents"
+            value={stats.agents.total.toLocaleString()}
+            hint={
+              stats.newAgents > 0
+                ? `+${stats.newAgents} new in period`
+                : `${stats.agents.active} active`
+            }
+            spark={kpiSparks.agents}
+            href={platformRoute("accounts/agents")}
+            linkLabel="View Agents"
+          />
+        )}
         <DashKpiCard
           accent="gold"
           label="Total Transactions"
           value={orderCounts.settled.toLocaleString()}
           trend={kpiSparks.txTrend}
           spark={kpiSparks.transactions}
-          href={platformRoute("support")}
+          href={portal ? undefined : platformRoute("invoices")}
           linkLabel="View Transactions"
         />
         <DashKpiCard
@@ -2206,10 +1584,13 @@ export function DashboardPage({ session }: Props) {
           }
           trend={kpiSparks.volumeTrend}
           spark={kpiSparks.volume}
-          href={platformRoute("service-bills")}
+          href={route("service-bills")}
           linkLabel="View Volume"
         />
-        <div className="pg-feature" aria-label="Platform fees collected">
+        <div
+          className="pg-feature"
+          aria-label={portal ? "Merchant fees collected" : "Platform fees collected"}
+        >
           <div className="pg-feature__top">
             <span className="pg-feature__icon" aria-hidden>
               <img
@@ -2221,7 +1602,9 @@ export function DashboardPage({ session }: Props) {
                 draggable={false}
               />
             </span>
-            <p className="pg-feature__kicker">Platform fees</p>
+            <p className="pg-feature__kicker">
+              {portal ? "Merchant fees" : "Platform fees"}
+            </p>
           </div>
           <p className="pg-feature__value">
             ${formatMoneyFigureFixed(stats.collected)}
@@ -2233,10 +1616,12 @@ export function DashboardPage({ session }: Props) {
             of ${formatMoneyFigureFixed(stats.fees)} billed
           </p>
           <Link
-            to={platformRoute("service-bills")}
+            to={route("service-bills")}
             className="pg-feature__link"
           >
-            <span className="pg-feature__link-text">View Volume</span>
+            <span className="pg-feature__link-text">
+              {portal ? "View Bills" : "View Volume"}
+            </span>
             <span className="pg-feature__link-arrow" aria-hidden>
               →
             </span>
@@ -2385,12 +1770,14 @@ export function DashboardPage({ session }: Props) {
                   Networks &amp; Assets
                 </h2>
               </div>
-              <Link
-                to={platformRoute("settings/networks")}
-                className="pg-networks-panel__more"
-              >
-                View All →
-              </Link>
+              {portal ? null : (
+                <Link
+                  to={platformRoute("settings/networks")}
+                  className="pg-networks-panel__more"
+                >
+                  View All →
+                </Link>
+              )}
             </div>
           </div>
           <div className="plat-health-pairs">
@@ -2417,7 +1804,7 @@ export function DashboardPage({ session }: Props) {
           hint={
             stats.invoicesOverdue > 0 ? "Needs attention" : "All clear"
           }
-          href={platformRoute("service-bills")}
+          href={route("service-bills")}
           linkLabel="Review"
           linkWithTitle
         />
@@ -2426,7 +1813,7 @@ export function DashboardPage({ session }: Props) {
           label="Pending Payouts"
           value={stats.commissionOwed > 0 ? formatMoneyFigure(stats.commissionOwed) : "0"}
           hint={stats.commissionOwed > 0 ? "Commission owed" : "Scheduled"}
-          href={platformRoute("commissions")}
+          href={route("commissions")}
           linkLabel="View"
           linkWithTitle
         />
@@ -2435,45 +1822,57 @@ export function DashboardPage({ session }: Props) {
           label="Flagged for Review"
           value={stats.anomalies.toLocaleString()}
           hint={
-            stats.anomalies > 0 ? "Open anomalies" : "No action required"
+            stats.anomalies > 0 ? "Open Attention" : "No action required"
           }
-          href={platformRoute("support")}
+          href={portal ? undefined : platformRoute("invoices")}
           linkLabel="Open"
           linkWithTitle
         />
-        <DashKpiCard
-          accent={
-            backupStatus == null
-              ? "slate"
-              : backupStatus.status === "ok"
-                ? "ok"
-                : backupStatus.status === "stale"
-                  ? "warn"
-                  : backupStatus.status === "failed"
-                    ? "danger"
-                    : "slate"
-          }
-          label="DB Backup"
-          value={
-            backupStatus == null
-              ? "—"
-              : backupStatus.status === "ok"
-                ? "OK"
-                : backupStatus.status === "stale"
-                  ? "Stale"
-                  : backupStatus.status === "failed"
-                    ? "Failed"
-                    : "None"
-          }
-          hint={
-            backupStatus == null
-              ? "Checking backup…"
-              : backupStatus.detail
-          }
-          href={platformRoute("settings/networks")}
-          linkLabel="View"
-          linkWithTitle
-        />
+        {portal ? (
+          <DashKpiCard
+            accent={stats.merchants.pause > 0 ? "warn" : "ok"}
+            label="Paused Merchants"
+            value={stats.merchants.pause.toLocaleString()}
+            hint={stats.merchants.pause > 0 ? "Service paused" : "All running"}
+            href={route("accounts/merchants")}
+            linkLabel="View"
+            linkWithTitle
+          />
+        ) : (
+          <DashKpiCard
+            accent={
+              backupStatus == null
+                ? "slate"
+                : backupStatus.status === "ok"
+                  ? "ok"
+                  : backupStatus.status === "stale"
+                    ? "warn"
+                    : backupStatus.status === "failed"
+                      ? "danger"
+                      : "slate"
+            }
+            label="DB Backup"
+            value={
+              backupStatus == null
+                ? "—"
+                : backupStatus.status === "ok"
+                  ? "OK"
+                  : backupStatus.status === "stale"
+                    ? "Stale"
+                    : backupStatus.status === "failed"
+                      ? "Failed"
+                      : "None"
+            }
+            hint={
+              backupStatus == null
+                ? "Checking backup…"
+                : backupStatus.detail
+            }
+            href={platformRoute("settings/networks")}
+            linkLabel="View"
+            linkWithTitle
+          />
+        )}
       </div>
 
       <ChartMaximizeOverlay
@@ -2626,7 +2025,7 @@ export function DashboardPage({ session }: Props) {
         open={addChartsOpen}
         platformCards={platformCards}
         merchants={merchantPickOptions}
-        agents={agentPickOptions}
+        agents={portal ? [] : agentPickOptions}
         selectedIds={overviewIds}
         resolveOrgCard={resolveOrgCard}
         onClose={() => setAddChartsOpen(false)}

@@ -12,7 +12,7 @@ Each person gets only the access they need. Cashiers create payment orders. Merc
 
 Org account types and user roles are defined in [Business-Model.md](Business-Model.md) Terminology.
 
-The usual risks are handled in the same spirit. Merchant Owners and Administrators must use MFA — a password alone is not enough. A wallet address change needs MFA, a second approval, an alert, a waiting period and an audit log. An order is marked **Completed** only after real blockchain confirmations; signed notifications help block fake payment messages. The payment page shows the exact network, token and address. When a mismatch is **seen**, it is flagged for review, not Completed. Detection of a wrong network is best-effort. Expiry closes the order in software; it does not stop the chain, and a late send is not auto-Completed.
+The usual risks are handled in the same spirit. **Platform and Merchant** Owners and Administrators must use MFA — a password alone is not enough for fund-bearing portals. Agent, site, and Cashier are not forced to enroll. A wallet address change needs MFA, a second approval, an alert, a waiting period and an audit log. An order is marked **Completed** only after real blockchain confirmations; signed notifications help block fake payment messages. The payment page shows the exact network, token and address. When a mismatch is **seen**, it is flagged for review, not Completed. Detection of a wrong network is best-effort. Expiry closes the order in software; it does not stop the chain, and a late send is not auto-Completed.
 
 Phase 1 defaults to a **fixed merchant settlement address**. Merchants may enable other matching modes — including **Smart address (Mode S)**, which uses watch-only xPub derivation only when same-amount collisions would otherwise occur. See Section II. PaymentGate never holds private keys and never sweeps funds on the merchant’s behalf in Phase 1.
 
@@ -69,7 +69,7 @@ Rules:
 
 Mode S keeps **one main settlement address** for quiet traffic and uses **watch-only public key / HD derivation** only when concurrent open orders would collide on the same amount. PaymentGate stores the merchant public key (xPub or equivalent public derivation material) per asset/network, derives receive addresses, and watches them. PaymentGate does **not** hold private keys, does **not** sign, and does **not** auto-sweep balances in Phase 1.
 
-**Prerequisite:** merchant Owner or Platform Owner/Administrator configures the public key (MFA, cool-down, audit — same bar as settlement address change). Without a valid public key for that network, Mode S is unavailable; fall back to Mode B behaviour.
+**Prerequisite:** merchant Owner or Platform Owner configures the public key (MFA, cool-down, audit — same bar as settlement address change). Without a valid public key for that network, Mode S is unavailable; fall back to Mode B behaviour.
 
 #### Assignment algorithm
 
@@ -112,9 +112,10 @@ Phase 2 may add **always-on** unique HD address per order (1 payment → 1 addre
 ### 2.7 Merchant UI and audit
 
 1. Setting label examples: **Standard**, **Amount fingerprint**, **Smart address** (and later **Unique address**). Mode D is not offered in Phase 1.  
-2. Only merchant Owner or Administrator may change matching mode or xPub; Cashiers cannot.  
-3. Each order stores `matching_mode`, `payable_amount`, `receive_address`, `address_source` (main | hd_pool), `hd_index` (if any), and `memo_or_tag` (if any) for reports and dispute handling.  
-4. Dangerous combinations (for example Mode C with a large underpay tolerance, or Mode S + Mode C together) are rejected by validation.
+2. Matching mode: merchant **Owner or Administrator**. Settlement address and xPub: **Merchant Owner** or **Platform Owner** only — not merchant Administrator, not Platform Administrator. Cashiers cannot change any of these.  
+3. Changes to address / xPub require MFA + cool-down + audit.  
+4. Each order stores `matching_mode`, `payable_amount`, `receive_address`, `address_source` (main | hd_pool), `hd_index` (if any), and `memo_or_tag` (if any) for reports and dispute handling.  
+5. Dangerous combinations (for example Mode C with a large underpay tolerance, or Mode S + Mode C together) are rejected by validation.
 
 ### 2.8 Milestone coverage
 
@@ -224,7 +225,7 @@ Development (Day 1–5):
 
 2. OpenAPI draft of the standardized APIs
 
-3. Login, session, password policy, MFA for agent-account and merchant-account Owners and Administrators
+3. Login, session, password policy, MFA **required** for **Platform and Merchant** Owners and Administrators (fund rails). Agent, site, and Cashier are **not** forced to enroll; agent O/A may enroll optionally for payout step-up.
 
 4. Org account types and user roles per [Business-Model.md](Business-Model.md): Platform; agent account (agent (sub) when nested); merchant account (single-location / multi-location); merchant (site) account; user roles Owner, Administrator, Viewer on all org accounts; Cashier on merchant accounts only
 

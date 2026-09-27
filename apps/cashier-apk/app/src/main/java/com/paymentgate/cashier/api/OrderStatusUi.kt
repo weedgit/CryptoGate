@@ -21,7 +21,7 @@ object OrderStatusUi {
             CONFIRMED -> "Confirmed"
             COMPLETED -> "Completed"
             EXPIRED -> "Expired"
-            ANOMALY -> "Payment Anomaly"
+            ANOMALY -> "Attention"
             FAILED -> "Failed"
             CANCELLED -> "Cancelled"
             else -> status.replace('_', ' ')

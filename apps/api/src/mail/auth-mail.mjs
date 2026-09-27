@@ -106,3 +106,28 @@ export async function sendEmailOtp(input) {
     text: `Your verification code is ${input.code}. It expires in 10 minutes.`,
   });
 }
+
+/**
+ * Notify-only alert to the previous verified email (no OTP). Best-effort.
+ * @param {{
+ *   to: string,
+ *   phase: "requested" | "completed",
+ *   newEmail?: string,
+ * }} input
+ */
+export async function sendEmailChangeNotice(input) {
+  const phase = input.phase === "completed" ? "completed" : "requested";
+  if (phase === "completed") {
+    const next = input.newEmail ? ` New login email: ${input.newEmail}.` : "";
+    return sendTransactionalEmail({
+      to: input.to,
+      subject: "PaymentGate email address changed",
+      text: `Your PaymentGate login email was changed.${next} If you did not do this, contact support immediately.`,
+    });
+  }
+  return sendTransactionalEmail({
+    to: input.to,
+    subject: "PaymentGate email change requested",
+    text: "A request was made to change your PaymentGate login email. A verification code was sent to the new address. Your current email stays active until that code is confirmed. If you did not request this, contact support immediately.",
+  });
+}

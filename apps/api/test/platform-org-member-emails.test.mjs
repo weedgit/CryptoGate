@@ -37,9 +37,7 @@ describePg("platform org member emails bulk", () => {
     const res = await apiFetch(
       base,
       "/v1/platform/org-member-emails?types=merchant",
-      {
-        headers: { Cookie: `cg_session=${seed.platformToken}` },
-      },
+      { token: seed.platformToken },
     );
     assert.equal(res.status, 200);
     assert.ok(Array.isArray(res.json.items));
@@ -55,7 +53,7 @@ describePg("platform org member emails bulk", () => {
 
   it("returns 403 for roles without bulk email access", async () => {
     const res = await apiFetch(base, "/v1/org-member-emails", {
-      headers: { Cookie: `cg_session=${seed.cashierToken}` },
+      token: seed.cashierToken,
     });
     assert.equal(res.status, 403);
   });

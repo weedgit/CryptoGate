@@ -44,11 +44,13 @@ function prefetchPlatform(sub: string) {
 
 function prefetchAgent(sub: string) {
   if (!sub) warm(() => import("../agent/DashboardPage"));
-  else if (sub === "architecture") warm(() => import("../agent/ArchitecturePage"));
-  // AgentApp redirects agents/* → merchants.
-  else if (sub.startsWith("agents"))
-    warm(() => import("../agent/AgentMerchantsRoutes"));
-  else if (sub.startsWith("merchants")) warm(() => import("../agent/MerchantsListPage"));
+  else if (
+    sub.startsWith("accounts") ||
+    sub === "architecture" ||
+    sub.startsWith("agents") ||
+    sub.startsWith("merchants")
+  )
+    warm(() => import("../agent/AgentAccountsRoutes"));
   else if (sub.startsWith("service-bills")) {
     if (sub.includes("/")) warm(() => import("../agent/ServiceBillDetailPage"));
     else warm(() => import("../agent/ServiceBillsListPage"));

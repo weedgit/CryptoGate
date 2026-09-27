@@ -85,7 +85,8 @@ erDiagram
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `audit_log` | Append-only privileged actions | `actor_user_id`, `org_id`, `action`, `metadata` — **no UPDATE/DELETE** (trigger); index `(action, created_at DESC)` from **018** |
+| `audit_log` | Hot privileged-action log | `actor_user_id`, `org_id`, `action`, `metadata` — **no app UPDATE/DELETE** (trigger); older rows archived via `archive_old_audit_log()` (**074**) |
+| `audit_log_archive` | Cold compliance retain | Same columns + `archived_at`; do not truncate |
 
 ### Schema meta
 

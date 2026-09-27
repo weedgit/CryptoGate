@@ -123,6 +123,19 @@ export async function findUserByEmail(email) {
 }
 
 /**
+ * @param {string} phone E.164
+ * @returns {Promise<string | null>} user id when taken
+ */
+export async function findUserIdByPhone(phone) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id FROM users WHERE phone = $1 LIMIT 1`,
+    [phone],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * @param {string} id
  * @returns {Promise<{ id: string, email: string, mfaEnrolled: boolean } | null>}
  */

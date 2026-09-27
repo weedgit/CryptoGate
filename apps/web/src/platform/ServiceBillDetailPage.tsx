@@ -32,6 +32,7 @@ import {
 } from "../billing/ServiceBillInvoiceFace";
 import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import { AuthToast } from "../auth/AuthToast";
+import { useServiceBillsPortal } from "./serviceBillsPortal";
 
 type Props = { session: Session };
 
@@ -174,6 +175,8 @@ function showPlatformActions(status: string): boolean {
 /** B10 — Service bill detail + Phase 1 invoice face. */
 export function ServiceBillDetailPage({ session }: Props) {
   const { id } = useParams<{ id: string }>();
+  const portal = useServiceBillsPortal();
+  const route = portal?.route ?? platformRoute;
   const invoiceRef = useRef<HTMLElement | null>(null);
   const [bill, setBill] = useState<ServiceBill | null>(() =>
     id ? peekServiceBill(id) : null,
@@ -194,8 +197,8 @@ export function ServiceBillDetailPage({ session }: Props) {
     try {
       const [row, orgs, wallet] = await Promise.all([
         getCachedServiceBill(id),
-        getPlatformOrgs(),
-        getBillingWalletSettings().catch(() => null),
+        portal ? portal.getOrgs() : getPlatformOrgs(),
+        portal ? null : getBillingWalletSettings().catch(() => null),
       ]);
       const members = await listOrgUsers(row.orgId).catch(() => []);
       primeServiceBill(id, row);
@@ -216,7 +219,7 @@ export function ServiceBillDetailPage({ session }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, portal]);
 
   useEffect(() => {
     if (!id) return;
@@ -259,7 +262,7 @@ export function ServiceBillDetailPage({ session }: Props) {
           onDismiss={() => setError(null)}
         />
         <p className="muted">Could not load this service bill.</p>
-        <Link className="plat-bill-detail__back" to={platformRoute("service-bills")}>
+        <Link className="plat-bill-detail__back" to={route("service-bills")}>
           ← Back to service bills
         </Link>
       </div>
@@ -273,7 +276,7 @@ export function ServiceBillDetailPage({ session }: Props) {
     bill.remittancePayTo?.trim() ||
     platformBillingPayToFallback() ||
     null;
-  const actionsOpen = showPlatformActions(bill.status);
+  const actionsOpen = !portal && showPlatformActions(bill.status);
 
   const invoiceProps = {
     bill,
@@ -305,7 +308,7 @@ export function ServiceBillDetailPage({ session }: Props) {
       <header className="plat-bill-detail__head no-print">
         <Link
           className="plat-bill-detail__back-link"
-          to={platformRoute("service-bills")}
+          to={route("service-bills")}
         >
           ← Back to service bills
         </Link>

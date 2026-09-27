@@ -7,7 +7,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   confirmed: "Confirmed",
   completed: "Completed",
   expired: "Expired",
-  payment_anomaly: "Payment Anomaly",
+  payment_anomaly: "Attention",
   failed: "Failed",
   cancelled: "Cancelled",
 };

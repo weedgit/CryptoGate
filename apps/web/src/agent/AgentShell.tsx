@@ -1,13 +1,17 @@
-import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import type { OrgAccount, Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import {
   ArchitectureNavIcon,
   DashboardNavIcon,
-  FeesNavIcon,
-  MerchantsNavIcon,
+  CommissionsNavIcon,
   ServiceBillsNavIcon,
   SettingsNavIcon,
   SidebarCollapseIcon,
@@ -21,6 +25,7 @@ import {
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
 import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
@@ -35,7 +40,6 @@ import {
   ensureHealthPolling,
   subscribeSharedHealth,
 } from "../shared/healthPolling";
-import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import { primaryAgentOrgId, sessionIsAgentViewerOnly } from "./org";
 import { agentRoute } from "../shared/portalRouting";
@@ -43,51 +47,64 @@ import { prefetchAgentRoute } from "./prefetchRoutes";
 
 const SIDEBAR_KEY = "paymentgate.agent.sidebarCollapsed";
 
-type NavItem = {
-  to: string;
-  label: string;
-  end?: boolean;
-  matchPrefix?: string;
-  Icon: ComponentType<{ className?: string }>;
-};
-
-const NAV: NavItem[] = [
-  { to: agentRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
+const NAV_GROUPS: PortalNavGroup[] = [
   {
-    to: agentRoute("architecture"),
-    label: "Architecture",
-    matchPrefix: agentRoute("architecture"),
-    Icon: ArchitectureNavIcon,
+    label: "Core systems",
+    items: [
+      {
+        to: agentRoute(),
+        label: "Dashboard",
+        end: true,
+        Icon: DashboardNavIcon,
+      },
+      {
+        to: agentRoute("accounts"),
+        label: "Accounts",
+        exactActive: true,
+        matchPrefixes: [
+          agentRoute("accounts"),
+          agentRoute("merchants"),
+          agentRoute("architecture"),
+        ],
+        Icon: ArchitectureNavIcon,
+        children: [
+          {
+            to: agentRoute("accounts/merchants"),
+            label: "Merchants",
+            matchPrefix: agentRoute("accounts/merchants"),
+          },
+        ],
+      },
+      {
+        to: agentRoute("service-bills"),
+        label: "Service Bills",
+        matchPrefix: agentRoute("service-bills"),
+        Icon: ServiceBillsNavIcon,
+      },
+      {
+        to: agentRoute("commissions"),
+        label: "Commissions",
+        matchPrefix: agentRoute("commissions"),
+        Icon: CommissionsNavIcon,
+      },
+    ],
   },
   {
-    to: agentRoute("merchants"),
-    label: "Merchants",
-    matchPrefix: agentRoute("merchants"),
-    Icon: MerchantsNavIcon,
-  },
-  {
-    to: agentRoute("service-bills"),
-    label: "Service Bills",
-    matchPrefix: agentRoute("service-bills"),
-    Icon: ServiceBillsNavIcon,
-  },
-  {
-    to: agentRoute("commissions"),
-    label: "Commissions",
-    matchPrefix: agentRoute("commissions"),
-    Icon: FeesNavIcon,
-  },
-  {
-    to: agentRoute("settings/team"),
-    label: "Team",
-    matchPrefix: agentRoute("settings/team"),
-    Icon: TeamNavIcon,
-  },
-  {
-    to: agentRoute("settings"),
-    label: "Settings",
-    end: true,
-    Icon: SettingsNavIcon,
+    label: "Organization",
+    items: [
+      {
+        to: agentRoute("settings/team"),
+        label: "Team",
+        matchPrefix: agentRoute("settings/team"),
+        Icon: TeamNavIcon,
+      },
+      {
+        to: agentRoute("settings"),
+        label: "Settings",
+        end: true,
+        Icon: SettingsNavIcon,
+      },
+    ],
   },
 ];
 
@@ -98,8 +115,20 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
 };
 
-function navPrefetchKey(item: NavItem): string {
-  return item.to.replace(/^\//, "");
+function AgentHealthBeacon() {
+  useEffect(() => {
+    ensureHealthPolling(true);
+    const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
+      syncPlatformHealthAlerts(next);
+    };
+    const unsub = subscribeSharedHealth(sync);
+    void fetchPlatformHealth().then(sync);
+    return () => {
+      unsub();
+      ensureHealthPolling(false);
+    };
+  }, []);
+  return null;
 }
 
 export function AgentShell({
@@ -108,7 +137,6 @@ export function AgentShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const location = useLocation();
   const readOnly = sessionIsAgentViewerOnly(session);
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -117,6 +145,8 @@ export function AgentShell({
       return false;
     }
   });
+  const mainRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
@@ -161,19 +191,6 @@ export function AgentShell({
   }, []);
 
   useEffect(() => {
-    ensureHealthPolling(true);
-    const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
-      syncPlatformHealthAlerts(next);
-    };
-    const unsub = subscribeSharedHealth(sync);
-    void fetchPlatformHealth().then(sync);
-    return () => {
-      unsub();
-      ensureHealthPolling(false);
-    };
-  }, []);
-
-  useEffect(() => {
     try {
       localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
     } catch {
@@ -181,10 +198,34 @@ export function AgentShell({
     }
   }, [collapsed]);
 
+  /** Keep sidebar chrome fixed — wheel over aside scrolls the main pane instead. */
+  const onSidebarWheel = (e: ReactWheelEvent<HTMLElement>) => {
+    const nav = navRef.current;
+    const main = mainRef.current;
+    if (!main) return;
+
+    if (nav) {
+      const canUp = nav.scrollTop > 0;
+      const canDown = nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1;
+      const scrollingDown = e.deltaY > 0;
+      const scrollingUp = e.deltaY < 0;
+      const overNav = nav.contains(e.target as Node);
+      if (overNav && ((scrollingDown && canDown) || (scrollingUp && canUp))) {
+        return;
+      }
+    }
+
+    main.scrollTop += e.deltaY;
+    e.preventDefault();
+  };
+
+  const brandName = homeOrg?.name ?? "Agent";
+
   return (
     <div
       className={`shell agent-shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
+      <AgentHealthBeacon />
       <button
         type="button"
         className="portal-nav-backdrop"
@@ -192,23 +233,28 @@ export function AgentShell({
         tabIndex={mobileNavOpen ? 0 : -1}
         onClick={closeMobileNav}
       />
-      <aside id="portal-sidebar" className="sidebar" aria-label="Agent navigation">
+      <aside
+        id="portal-sidebar"
+        className="sidebar"
+        aria-label="Agent navigation"
+        onWheel={onSidebarWheel}
+      >
         <div className="logo-row">
           <OrgBrandMark
-            name={homeOrg?.name ?? "Agent"}
+            name={brandName}
             iconKey={homeOrg?.iconKey}
-            size={32}
+            size={64}
             className="logo-mark"
           />
           {!navCollapsed ? (
             <div className="logo-copy">
-              <p className="logo-title">{homeOrg?.name ?? "Agent"}</p>
-              <span className="logo-badge">AGENT PORTAL</span>
+              <p className="logo-title">{brandName}</p>
+              <span className="logo-tagline">Agent portal</span>
             </div>
           ) : null}
           <button
             type="button"
-            className="sidebar-toggle"
+            className="sidebar-toggle sidebar-toggle--rail"
             aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!navCollapsed}
             title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -220,95 +266,65 @@ export function AgentShell({
             />
           </button>
         </div>
-        <nav className="nav-list" aria-label="Agent">
-          <div className="nav-group">
-            {!navCollapsed ? (
-              <p
-                className="nav-label"
-                style={{ ["--nav-delay" as string]: "120ms" } as CSSProperties}
-              >
-                Agent controls
-              </p>
-            ) : null}
-            {NAV.map((item, index) => {
-              const { Icon } = item;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end ?? false}
-                  title={item.label}
-                  aria-label={item.label}
-                  style={
-                    {
-                      ["--nav-delay" as string]: `${160 + index * 45}ms`,
-                    } as CSSProperties
-                  }
-                  className={({ isActive }) => {
-                    const path = location.pathname;
-                    const prefixActive =
-                      item.matchPrefix != null &&
-                      path.startsWith(item.matchPrefix);
-                    const active = isActive || prefixActive;
-                    return `nav-item${active ? " active" : ""}`;
-                  }}
-                  onMouseEnter={() => prefetchAgentRoute(navPrefetchKey(item))}
-                  onFocus={() => prefetchAgentRoute(navPrefetchKey(item))}
-                >
-                  <Icon />
-                  {!navCollapsed ? <span>{item.label}</span> : null}
-                </NavLink>
-              );
-            })}
-          </div>
-        </nav>
-        <div className="sidebar-foot">
-          <SidebarProfileMenu
-            session={session}
-            variant="agent"
-            collapsed={navCollapsed}
-            onSignOut={onSignOut}
-            onSessionRefresh={onSessionRefresh}
-          />
-        </div>
+        <PortalNav
+          groups={NAV_GROUPS}
+          collapsed={navCollapsed}
+          ariaLabel="Agent"
+          prefetch={prefetchAgentRoute}
+          navRef={navRef}
+        />
       </aside>
       <div className="main">
-        <header className="topbar">
+        <header className="topbar topbar--chrome">
           <div className="topbar-left">
             <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
-            <ServerConnectionStatus />
+            <div className="topbar-leading" id="platform-topbar-leading" />
           </div>
-          <div className="topbar-center" id="agent-topbar-center" />
+          <div className="topbar-center">
+            <TopbarSearch placeholder="Search merchants, sites, accounts..." />
+            <div className="topbar-center-slot" id="platform-topbar-center" />
+          </div>
           <div className="topbar-right">
-            <TopbarSearch placeholder="Search merchants…" />
-            <div className="topbar-actions" id="agent-topbar-actions" />
-            <ThemeToggleButton />
-            <AlertsBellButton
-              open={alertsOpen}
-              unreadCount={unreadAlerts}
-              onOpen={() => setAlertsOpen(true)}
+            <div className="topbar-actions" id="platform-topbar-actions" />
+            <div className="topbar-utils" role="group" aria-label="Utilities">
+              <AlertsBellButton
+                open={alertsOpen}
+                unreadCount={unreadAlerts}
+                onOpen={() => setAlertsOpen(true)}
+              />
+              <ThemeToggleButton />
+            </div>
+            <span className="topbar-divider" aria-hidden />
+            <SidebarProfileMenu
+              session={session}
+              variant="agent"
+              placement="topbar"
+              onSignOut={onSignOut}
+              onSessionRefresh={onSessionRefresh}
             />
           </div>
         </header>
-        <UnresolvedAlertsBanner
-          source={platformAlertsSource}
-          onOpenAlerts={() => setAlertsOpen(true)}
-        />
-        <div className="body">
-          {onSessionRefresh ? (
-            <VerifyContactBanner
-              session={session}
-              onSession={onSessionRefresh}
-              portal="agent"
-            />
-          ) : null}
-          {readOnly ? (
-            <div className="banner banner-warn" style={{ marginBottom: 16 }}>
-              Read-only mode — Viewer accounts cannot onboard merchants or change
-              rates.
-            </div>
-          ) : null}
-          {children}
+        <div className="main__scroll" ref={mainRef}>
+          <UnresolvedAlertsBanner
+            source={platformAlertsSource}
+            onOpenAlerts={() => setAlertsOpen(true)}
+          />
+          <div className="body">
+            {onSessionRefresh ? (
+              <VerifyContactBanner
+                session={session}
+                onSession={onSessionRefresh}
+                portal="agent"
+              />
+            ) : null}
+            {readOnly ? (
+              <div className="banner banner-warn" style={{ marginBottom: 16 }}>
+                Read-only mode — Viewer accounts cannot onboard merchants or change
+                settings.
+              </div>
+            ) : null}
+            {children}
+          </div>
         </div>
       </div>
 

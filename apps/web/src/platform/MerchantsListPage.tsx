@@ -10,20 +10,18 @@ import {
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import {
   ApiError,
   getPlatformOrgs,
-  getPlatformServiceBills,
   invalidatePlatformOrgList,
   listPlatformOrgMemberEmails,
   peekPlatformOrgs,
-  peekPlatformServiceBills,
   PLATFORM_ORGS_UPDATED_EVENT,
   refreshPlatformOrgList,
   removePlatformOrgFromList,
   setOrgStatus,
   type OrgAccount,
-  type ServiceBill,
   type Session,
 } from "./api";
 import { MerchantDetailCard } from "./MerchantDetailCard";
@@ -33,10 +31,12 @@ import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
 import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
+import { serviceBillStatusLabel } from "./serviceBillStatus";
 import {
-  isOpenActivationServiceBill,
-  serviceBillStatusLabel,
-} from "./serviceBillStatus";
+  getServiceBillOrgStatus,
+  peekServiceBillOrgStatus,
+  type ServiceBillOrgStatus,
+} from "../shared/serviceBillsServer";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -69,27 +69,6 @@ const BILL_SORT_RANK: Record<MerchantBillStatus, number> = {
 function billSortRank(status: MerchantBillStatus | null): number {
   if (!status) return 4;
   return BILL_SORT_RANK[status];
-}
-
-/**
- * Prefer collection risk: overdue → open activation → issued → paid.
- */
-function resolveMerchantBillStatus(
-  bills: ServiceBill[],
-): MerchantBillStatus | null {
-  let hasIssued = false;
-  let hasPaid = false;
-  let hasOpenActivation = false;
-  for (const bill of bills) {
-    if (bill.status === "overdue") return "overdue";
-    if (isOpenActivationServiceBill(bill)) hasOpenActivation = true;
-    else if (bill.status === "issued" || bill.status === "draft") hasIssued = true;
-    else if (bill.status === "paid") hasPaid = true;
-  }
-  if (hasOpenActivation) return "activation";
-  if (hasIssued) return "issued";
-  if (hasPaid) return "paid";
-  return null;
 }
 
 function ArrangeIcon({ dir }: { dir: SortDir | null }) {
@@ -345,8 +324,8 @@ export function MerchantsListPage({ session }: Props) {
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
-  const [bills, setBills] = useState<ServiceBill[]>(
-    () => peekPlatformServiceBills() ?? [],
+  const [billStatus, setBillStatus] = useState<Map<string, ServiceBillOrgStatus>>(
+    () => peekServiceBillOrgStatus() ?? new Map(),
   );
   const [orgEmailsByOrgId, setOrgEmailsByOrgId] = useState<Map<string, string[]>>(
     () => new Map(),
@@ -407,6 +386,7 @@ export function MerchantsListPage({ session }: Props) {
   const tableRef = useRef<HTMLDivElement | null>(null);
   const prevPathRef = useRef(location.pathname);
   const [suspendTarget, setSuspendTarget] = useState<OrgAccount | null>(null);
+  const [resumeTarget, setResumeTarget] = useState<OrgAccount | null>(null);
   const [suspendError, setSuspendError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
@@ -450,10 +430,8 @@ export function MerchantsListPage({ session }: Props) {
       const orgRows = await getPlatformOrgs({ force: opts?.force });
       setOrgs(orgRows);
       if (!opts?.silent) setLoading(false);
-      const billRows = await getPlatformServiceBills().catch(
-        () => [] as ServiceBill[],
-      );
-      setBills(billRows);
+      const statusRows = await getServiceBillOrgStatus().catch(() => null);
+      if (statusRows) setBillStatus(statusRows);
     } catch (err) {
       const text =
         err instanceof ApiError
@@ -505,18 +483,12 @@ export function MerchantsListPage({ session }: Props) {
   );
 
   const billStatusByMerchantId = useMemo(() => {
-    const byOrg = new Map<string, ServiceBill[]>();
-    for (const bill of bills) {
-      const list = byOrg.get(bill.orgId);
-      if (list) list.push(bill);
-      else byOrg.set(bill.orgId, [bill]);
-    }
     const map = new Map<string, MerchantBillStatus | null>();
     for (const m of merchants) {
-      map.set(m.id, resolveMerchantBillStatus(byOrg.get(m.id) ?? []));
+      map.set(m.id, billStatus.get(m.id)?.billStatus ?? null);
     }
     return map;
-  }, [bills, merchants]);
+  }, [billStatus, merchants]);
 
   const merchantIdsKey = useMemo(
     () => merchants.map((m) => m.id).sort().join("|"),
@@ -662,24 +634,31 @@ export function MerchantsListPage({ session }: Props) {
   async function onSetStatus(
     row: OrgAccount,
     status: "active" | "paused",
-    reason?: string,
+    opts?: { reason?: string; mfaCode?: string },
   ): Promise<string | null> {
     if (!canManage) return "Not allowed";
     setBusyId(row.id);
     setMsg(null);
     setError(null);
     try {
-      await setOrgStatus(
-        row.id,
-        status,
-        reason ? { reason } : undefined,
-      );
+      await setOrgStatus(row.id, status, {
+        reason: opts?.reason,
+        mfaCode: opts?.mfaCode,
+      });
       invalidatePlatformOrgList();
       setOrgs((prev) =>
-        prev.map((o) => (o.id === row.id ? { ...o, status } : o)),
+        prev.map((o) =>
+          o.id === row.id
+            ? {
+                ...o,
+                status,
+                statusReason: status === "paused" ? opts?.reason ?? null : null,
+              }
+            : o,
+        ),
       );
       showOk(
-        status === "paused" ? `Paused ${row.name}.` : `Resumed ${row.name}.`,
+        status === "paused" ? `Suspended ${row.name}.` : `Resumed ${row.name}.`,
       );
       return null;
     } catch (err) {
@@ -696,10 +675,13 @@ export function MerchantsListPage({ session }: Props) {
     }
   }
 
-  async function confirmSuspend(reason: string) {
+  async function confirmSuspend(reason: string, mfaCode?: string) {
     if (!suspendTarget) return;
     setSuspendError(null);
-    const err = await onSetStatus(suspendTarget, "paused", reason || undefined);
+    const err = await onSetStatus(suspendTarget, "paused", {
+      reason: reason || undefined,
+      mfaCode,
+    });
     if (err) setSuspendError(err);
     else setSuspendTarget(null);
   }
@@ -970,12 +952,12 @@ export function MerchantsListPage({ session }: Props) {
                 detailTab === "overview" ||
                 detailTab === "team" ||
                 detailTab === "cashiers" ||
-                detailTab === "compliance"
+                detailTab === "networks"
                   ? detailTab
                   : undefined
               }
               onPause={() => setSuspendTarget(selected)}
-              onRun={() => void onSetStatus(selected, "active")}
+              onRun={() => setResumeTarget(selected)}
               onDelete={() => openDelete(selected)}
               onOrgPatched={(next) => {
                 setOrgs((prev) =>
@@ -1014,6 +996,7 @@ export function MerchantsListPage({ session }: Props) {
       {suspendTarget ? (
         <SuspendOrgModal
           orgName={suspendTarget.name}
+          session={session}
           busy={busyId === suspendTarget.id}
           error={suspendError}
           onClose={() => {
@@ -1022,7 +1005,20 @@ export function MerchantsListPage({ session }: Props) {
               setSuspendError(null);
             }
           }}
-          onConfirm={(reason) => void confirmSuspend(reason)}
+          onConfirm={(reason, mfaCode) => void confirmSuspend(reason, mfaCode)}
+        />
+      ) : null}
+
+      {resumeTarget ? (
+        <MfaStepUpGate
+          session={session}
+          actionLabel="resume this account"
+          onClose={() => setResumeTarget(null)}
+          onVerify={async (mfaCode) => {
+            const err = await onSetStatus(resumeTarget, "active", { mfaCode });
+            if (err) throw new Error(err);
+            setResumeTarget(null);
+          }}
         />
       ) : null}
 

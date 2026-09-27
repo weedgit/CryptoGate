@@ -3,7 +3,7 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import {
-  canChangeSettlementSettings,
+  canManageMerchantOrgOps,
   canViewSettlementSettings,
 } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
@@ -71,7 +71,7 @@ export async function handlePutRetention(req, res, orgId) {
   const loaded = await loadVisibleMerchantOrg(req, res, orgId);
   if (!loaded) return;
 
-  if (!canChangeSettlementSettings(loaded.caller, loaded.org)) {
+  if (!canManageMerchantOrgOps(loaded.caller, loaded.org)) {
     sendError(res, 403, "forbidden", "Not allowed to change order retention");
     return;
   }
