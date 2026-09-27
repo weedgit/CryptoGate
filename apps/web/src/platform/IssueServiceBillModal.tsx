@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { OnboardWizardBrandHead } from "../shared/onboardMerchantUi";
 import {
   ApiError,
   getBillingCalendarSettings,
@@ -11,6 +12,14 @@ import {
 import { invalidateServiceBillsServer } from "../shared/serviceBillsServer";
 import { platformRoute } from "../shared/portalRouting";
 
+/** Sum of two USD inputs in cents; null while either is not a valid amount. */
+function addUsdStrings(a: string, b: string): string | null {
+  const re = /^\d+(\.\d{1,2})?$/;
+  if (!re.test(a.trim()) || !re.test(b.trim())) return null;
+  const cents = Math.round(Number(a) * 100) + Math.round(Number(b) * 100);
+  return (cents / 100).toFixed(2);
+}
+
 function monthBounds(): { start: string; end: string } {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -19,12 +28,27 @@ function monthBounds(): { start: string; end: string } {
   return { start: fmt(start), end: fmt(end) };
 }
 
+function ChargeIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3v18M7 8.5h7.5a2.5 2.5 0 0 1 0 5H9.5a2.5 2.5 0 0 0 0 5H17"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
   onIssued?: () => void;
 };
 
+/** Service Bills → More → Charge: one-off bill for a custom period and amount. */
 export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
   const navigate = useNavigate();
   const bounds = useMemo(() => monthBounds(), []);
@@ -102,176 +126,171 @@ export function IssueServiceBillModal({ open, onClose, onIssued }: Props) {
 
   if (!open) return null;
 
+  const total = addUsdStrings(subscriptionAmount, volumeFeeAmount);
+  const dueLabel =
+    payWithinDays != null
+      ? `${payWithinDays} day${payWithinDays === 1 ? "" : "s"} after issue`
+      : "Pay within (Fees → Billing calendar)";
+
   return createPortal(
     <>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <div
-        className="b3-commission-modal-backdrop plat-issue-bill-modal-backdrop"
+        className="b4-wizard-portal"
         role="presentation"
         onClick={() => {
           if (!loading) onClose();
         }}
       >
         <div
-          className="b3-commission-modal plat-issue-bill-modal"
+          className="plat-issue-pop"
           role="dialog"
           aria-modal="true"
           aria-labelledby="issue-bill-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="b3-commission-modal__head plat-issue-bill-modal__head">
-            <div className="plat-issue-bill-modal__titles">
-              <p className="plat-issue-bill-modal__eyebrow">Platform billing</p>
-              <h3 id="issue-bill-title">One-off service bill</h3>
-            </div>
-            <button
-              type="button"
-              className="b3-commission-modal__close"
-              aria-label="Close"
-              disabled={loading}
-              onClick={onClose}
-            >
-              ×
-            </button>
-          </header>
+          <OnboardWizardBrandHead
+            titleId="issue-bill-title"
+            title="One-off service bill"
+            subtitle="Charge a merchant for a custom period and amount."
+            onClose={onClose}
+            closeDisabled={loading}
+            icon={<ChargeIcon />}
+          />
 
           {booting ? (
-            <div className="plat-issue-bill-modal__pending" aria-busy="true">
-              <span
-                className="cg-spinner cg-spinner--sm plat-issue-bill-modal__spinner"
-                aria-hidden
-              />
-              <p className="muted">Loading merchants…</p>
+            <div className="plat-issue-pop__pending" aria-busy="true">
+              <span className="cg-spinner cg-spinner--sm" aria-hidden />
+              <p>Loading merchants…</p>
             </div>
           ) : (
-            <form
-              className="plat-issue-bill__form plat-issue-bill__form--modal"
-              onSubmit={onSubmit}
-            >
-              <section className="plat-issue-bill__section">
-                <h2 className="plat-issue-bill__section-title">Merchant</h2>
-                <div className="field">
-                  <label htmlFor="bill-org">Merchant organization</label>
-                  <select
-                    id="bill-org"
-                    className="field-control"
-                    required
-                    autoFocus
-                    value={orgId}
-                    disabled={loading}
-                    onChange={(e) => setOrgId(e.target.value)}
-                  >
-                    <option value="">Select merchant…</option>
-                    {merchants.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </section>
-
-              <section className="plat-issue-bill__section">
-                <h2 className="plat-issue-bill__section-title">Billing period</h2>
-                <div className="plat-issue-bill__grid">
-                  <div className="field">
-                    <label htmlFor="period-start">Period start</label>
-                    <input
-                      id="period-start"
+            <form className="plat-issue-pop__form" onSubmit={onSubmit}>
+              <div className="plat-issue-pop__body">
+                <section className="plat-issue-pop__card">
+                  <h4 className="plat-issue-pop__card-title">Merchant</h4>
+                  <label className="plat-missed-modal__field">
+                    <span>Merchant organization</span>
+                    <select
                       className="field-control"
-                      type="date"
                       required
+                      autoFocus
+                      value={orgId}
                       disabled={loading}
-                      value={periodStart}
-                      onChange={(e) => setPeriodStart(e.target.value)}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="period-end">Period end</label>
-                    <input
-                      id="period-end"
-                      className="field-control"
-                      type="date"
-                      required
-                      disabled={loading}
-                      value={periodEnd}
-                      onChange={(e) => setPeriodEnd(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <p
-                  className="muted"
-                  style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}
-                >
-                  Due = issue time +{" "}
-                  <strong>
-                    {payWithinDays != null
-                      ? `${payWithinDays} day${payWithinDays === 1 ? "" : "s"}`
-                      : "Pay within (days)"}
-                  </strong>{" "}
-                  (Fees → Billing calendar).
-                </p>
-              </section>
+                      onChange={(e) => setOrgId(e.target.value)}
+                    >
+                      <option value="">Select merchant…</option>
+                      {merchants.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </section>
 
-              <section className="plat-issue-bill__section">
-                <h2 className="plat-issue-bill__section-title">Amounts (USD)</h2>
-                <div className="plat-issue-bill__grid">
-                  <div className="field">
-                    <label htmlFor="sub-amt">Subscription</label>
-                    <div className="plat-issue-bill__money">
-                      <span className="plat-issue-bill__affix" aria-hidden>
-                        $
-                      </span>
+                <section className="plat-issue-pop__card">
+                  <h4 className="plat-issue-pop__card-title">Billing period</h4>
+                  <div className="plat-issue-pop__range">
+                    <label className="plat-missed-modal__field">
+                      <span>Period start</span>
                       <input
-                        id="sub-amt"
                         className="field-control"
-                        inputMode="decimal"
+                        type="date"
                         required
                         disabled={loading}
-                        value={subscriptionAmount}
-                        onChange={(e) => setSubscriptionAmount(e.target.value)}
+                        value={periodStart}
+                        max={periodEnd || undefined}
+                        onChange={(e) => setPeriodStart(e.target.value)}
                       />
-                    </div>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="vol-amt">Volume fee</label>
-                    <div className="plat-issue-bill__money">
-                      <span className="plat-issue-bill__affix" aria-hidden>
-                        $
-                      </span>
+                    </label>
+                    <span className="plat-missed-modal__range-sep" aria-hidden>
+                      →
+                    </span>
+                    <label className="plat-missed-modal__field">
+                      <span>Period end</span>
                       <input
-                        id="vol-amt"
                         className="field-control"
-                        inputMode="decimal"
+                        type="date"
                         required
                         disabled={loading}
-                        value={volumeFeeAmount}
-                        onChange={(e) => setVolumeFeeAmount(e.target.value)}
+                        value={periodEnd}
+                        min={periodStart || undefined}
+                        onChange={(e) => setPeriodEnd(e.target.value)}
                       />
-                    </div>
+                    </label>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              <div className="plat-issue-bill__actions">
+                <section className="plat-issue-pop__card">
+                  <h4 className="plat-issue-pop__card-title">Amounts (USD)</h4>
+                  <div className="plat-issue-pop__grid">
+                    <label className="plat-missed-modal__field">
+                      <span>Subscription</span>
+                      <span className="plat-issue-pop__money">
+                        <span aria-hidden>$</span>
+                        <input
+                          className="field-control"
+                          inputMode="decimal"
+                          required
+                          disabled={loading}
+                          value={subscriptionAmount}
+                          onChange={(e) => setSubscriptionAmount(e.target.value)}
+                        />
+                      </span>
+                    </label>
+                    <label className="plat-missed-modal__field">
+                      <span>Volume fee</span>
+                      <span className="plat-issue-pop__money">
+                        <span aria-hidden>$</span>
+                        <input
+                          className="field-control"
+                          inputMode="decimal"
+                          required
+                          disabled={loading}
+                          value={volumeFeeAmount}
+                          onChange={(e) => setVolumeFeeAmount(e.target.value)}
+                        />
+                      </span>
+                    </label>
+                  </div>
+                </section>
+
+                <div className="plat-issue-pop__summary" role="status">
+                  <span>
+                    <span className="plat-issue-pop__summary-label">Total</span>
+                    <strong>{total != null ? `$${total}` : "—"}</strong>
+                  </span>
+                  <span>
+                    <span className="plat-issue-pop__summary-label">Due</span>
+                    {dueLabel}
+                  </span>
+                </div>
+              </div>
+
+              <footer className="b4-wizard__foot">
                 <button
-                  className="btn-primary"
+                  type="button"
+                  className="b4-wizard__cancel"
+                  disabled={loading}
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
                   type="submit"
+                  className="b4-wizard__continue b4-wizard__continue--gold"
                   disabled={loading || !orgId}
                 >
                   {loading ? (
                     <>
-                      <span
-                        className="cg-spinner cg-spinner--xs plat-issue-bill-modal__btn-spin"
-                        aria-hidden
-                      />
+                      <span className="cg-spinner cg-spinner--xs" aria-hidden />
                       Issuing…
                     </>
                   ) : (
                     "Issue bill"
                   )}
                 </button>
-              </div>
+              </footer>
             </form>
           )}
         </div>

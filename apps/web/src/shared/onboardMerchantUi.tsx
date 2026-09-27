@@ -202,12 +202,29 @@ export function OnboardWizardBrandHead({
   title,
   subtitle,
   closeTo,
+  onClose,
+  closeDisabled = false,
+  icon,
 }: {
   titleId: string;
   title: string;
   subtitle: ReactNode;
-  closeTo: string;
+  /** Link target for the close button; use `onClose` for popups instead. */
+  closeTo?: string;
+  onClose?: () => void;
+  closeDisabled?: boolean;
+  icon?: ReactNode;
 }) {
+  const closeIcon = (
+    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path
+        d="M5 5l10 10M15 5L5 15"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
   return (
     <header className="b4-wizard__head b4-wizard__head--brand">
       <div className="b4-wizard__head-aura" aria-hidden>
@@ -264,7 +281,7 @@ export function OnboardWizardBrandHead({
       </div>
       <div className="b4-wizard__brand">
         <span className="b4-wizard__brand-icon" aria-hidden>
-          <OnboardBrandIcon />
+          {icon ?? <OnboardBrandIcon />}
         </span>
         <div className="b4-wizard__brand-copy">
           <h2 id={titleId} className="b4-wizard__title">
@@ -273,16 +290,21 @@ export function OnboardWizardBrandHead({
           <p className="b4-wizard__subtitle">{subtitle}</p>
         </div>
       </div>
-      <Link className="b4-wizard__close" to={closeTo} aria-label="Cancel and return">
-        <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
-          <path
-            d="M5 5l10 10M15 5L5 15"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-          />
-        </svg>
-      </Link>
+      {onClose ? (
+        <button
+          type="button"
+          className="b4-wizard__close"
+          aria-label="Close"
+          disabled={closeDisabled}
+          onClick={onClose}
+        >
+          {closeIcon}
+        </button>
+      ) : (
+        <Link className="b4-wizard__close" to={closeTo ?? ".."} aria-label="Cancel and return">
+          {closeIcon}
+        </Link>
+      )}
     </header>
   );
 }

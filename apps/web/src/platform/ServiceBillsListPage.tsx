@@ -1182,6 +1182,7 @@ export function ServiceBillsListPage({ session }: Props) {
                   </svg>
                   Charge
                 </button>
+                <div className="plat-bills__more-sep" role="separator" />
                 <button
                   type="button"
                   role="menuitem"
@@ -1713,6 +1714,7 @@ export function ServiceBillsListPage({ session }: Props) {
           open={missedOpen}
           onClose={() => setMissedOpen(false)}
           onCreated={() => void load()}
+          merchantIcons={orgIcons}
         />
       ) : null}
     </div>
