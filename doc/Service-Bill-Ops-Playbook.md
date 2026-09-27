@@ -88,7 +88,28 @@ Merchants under one agent may have different onboard / activation dates; day **C
 | Free activation | Service Bills → **Waive activation** list |
 | Credit after paid | Grant next-period credit |
 | One-off merchant bill | Create Bill |
+| Missed merchant invoice | Service Bills → More → **Find missed invoice** |
 | Missed day-C job | Catch-up while still in remittance window; or Owner **Generate (ops override)** on Commissions |
+
+## Find missed invoice
+
+Service Bills → More → **Find missed invoice** (Owner, Administrator). Run it every 2–3 days to review the daily job.
+
+1. Pick a start and end date (UTC). The end date cannot be after today — later invoices are created automatically. At most 92 days per search.
+2. The search lists every invoice a merchant's payment-date schedule expected in that range that does not exist. Any existing monthly bill — draft, issued, overdue, paid or waived — counts as created and is never listed.
+3. Review each row (merchant, bill date, period, estimated amount) and click **Create**. The server checks again first, so a bill the daily job made in the meantime is never duplicated.
+
+| Row | Meaning |
+|-----|---------|
+| Plain | The merchant's schedule is stuck on this bill (the daily job only moves the next bill date after a bill exists). Create uses the daily job's rules — waiver, credit, auto-send — and moves the next bill date forward to the usual day (a 17 Jun bill → next bill 17 Jul). |
+
+Pay within (default 7 days) for a missed invoice counts from the day it is created, not the day it was missed, so the merchant always gets the full period. Sending a draft later restarts it from the send day. Paying on time never moves the next bill date; only paying after the bill went overdue re-anchors the schedule to the payment day.
+| **Previously cancelled** | The period's only bill was cancelled. Create it only if money is still owed; the schedule is not changed. |
+| **Will be waived** | Merchant is on the Waive platform fee list; the bill is saved as Waived and uses one month. |
+| Create *date* first | Later month of a multi-month gap; create the earlier one first. |
+| Merchant is suspended / no commercial settings | Fix the merchant first, then search again. |
+
+The owner-only `POST /v1/service-bills/generate` calendar-month backfill remains for seed and smoke tooling only; it is not in the UI.
 
 ## Waive vs cancel
 
@@ -112,8 +133,8 @@ Merchant detail shows the billing schedule read-only: `Activated YYYY-MM-DD · N
 
 ## Roles
 
-- **Owner**: billing calendar, commercial flags, all bill / commission actions; service-bill **Backfill month**; commission **Generate (ops override)**  
-- **Administrator**: send / waive / cancel / adjust / mark paid / grant credit; commission remittance (note + optional txRef); one-off Create Bill  
+- **Owner**: billing calendar, commercial flags, all bill / commission actions; commission **Generate (ops override)**  
+- **Administrator**: send / waive / cancel / adjust / mark paid / grant credit; **Find missed invoice**; commission remittance (note + optional txRef); one-off Create Bill  
 - **Viewer**: read-only  
 
 ## Jobs

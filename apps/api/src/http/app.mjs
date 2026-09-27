@@ -120,6 +120,10 @@ import {
 } from "../service-bills/service-bill-routes.mjs";
 import { handleGenerateServiceBills } from "../service-bills/generate-routes.mjs";
 import {
+  handleCreateMissedInvoice,
+  handleFindMissedInvoices,
+} from "../service-bills/missed-invoice-routes.mjs";
+import {
   handleDeleteActivationWaiver,
   handleDeleteFeeWaiver,
   handleListBillingWaivers,
@@ -757,6 +761,16 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/service-bills/generate" && method === "POST") {
     await handleGenerateServiceBills(req, res);
+    return;
+  }
+
+  if (path === "/v1/service-bills/missed" && method === "GET") {
+    await handleFindMissedInvoices(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/service-bills/missed" && method === "POST") {
+    await handleCreateMissedInvoice(req, res);
     return;
   }
 

@@ -3196,6 +3196,119 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /service-bills/missed:
+    get:
+      tags: [service-bills]
+      operationId: findMissedInvoices
+      summary: Find missed invoices in a UTC date range
+      description: >
+        Platform Owner or Administrator. Lists invoices each merchant's
+        payment-date schedule expected with a bill date in [from, to] that do not
+        exist. Any non-cancelled monthly bill (draft, issued, overdue, paid,
+        waived) counts as created. A period whose only bill was cancelled is
+        listed with previouslyCancelled. `to` cannot be after today; at most 92
+        days per search.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Missed invoices, oldest bill date first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [from, to, today, missed]
+                properties:
+                  from:
+                    type: string
+                    format: date
+                  to:
+                    type: string
+                    format: date
+                  today:
+                    type: string
+                    format: date
+                  missed:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MissedInvoice"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Invalid range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [service-bills]
+      operationId: createMissedInvoice
+      summary: Create one reviewed missed invoice
+      description: >
+        Platform Owner or Administrator. Rechecks the invoice is still missed
+        (409 not_missed if a bill now exists), then creates it with the daily
+        job's rules (fee waiver, credit, auto-send). Creating the merchant's
+        current scheduled bill advances their next bill date; a previously
+        cancelled period does not. Audited as service_bill_issue.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orgId, periodStart]
+              additionalProperties: false
+              properties:
+                orgId:
+                  type: string
+                  format: uuid
+                periodStart:
+                  type: string
+                  format: date
+      responses:
+        "201":
+          description: Created bill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceBill"
+        "403":
+          description: Not a platform operator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: not_missed — already created or not due
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Blocked (paused, no_commercial, earlier_first)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /billing-waivers:
     get:
       tags: [service-bills]
@@ -6038,6 +6151,61 @@ components:
         activationWaived:
           type: boolean
           description: Merchant is on the waive-activation list
+    MissedInvoice:
+      type: object
+      required:
+        - orgId
+        - orgName
+        - periodStart
+        - periodEnd
+        - invoiceOn
+        - previouslyCancelled
+        - blocker
+        - willBeWaived
+      properties:
+        orgId:
+          type: string
+          format: uuid
+        orgName:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        invoiceOn:
+          type: string
+          format: date
+          description: Day the bill should have been created (UTC)
+        previouslyCancelled:
+          type: boolean
+        blocker:
+          type: string
+          nullable: true
+          enum: [paused, no_commercial, earlier_first]
+        blockerMessage:
+          type: string
+          nullable: true
+        earlierInvoiceOn:
+          type: string
+          format: date
+          nullable: true
+        willBeWaived:
+          type: boolean
+        estimate:
+          type: object
+          nullable: true
+          description: Amounts before credits and waivers
+          properties:
+            subscriptionAmount:
+              type: string
+            volumeFeeAmount:
+              type: string
+            totalAmount:
+              type: string
+            billedVolumeUsd:
+              type: string
     FeeWaiver:
       type: object
       required: [orgId, orgName, monthsLeft, monthsGranted, monthsUsed, reason]

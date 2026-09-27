@@ -507,34 +507,65 @@ export async function issueServiceBill(input: {
   return (await res.json()) as ServiceBill;
 }
 
-export type GenerateServiceBillsSkip = {
-  orgId: string;
-  reason: string;
-};
+export type MissedInvoiceBlocker = "paused" | "no_commercial" | "earlier_first";
 
-export type GenerateServiceBillsResult = {
+/** A bill the merchant's payment-date schedule expects but that does not exist. */
+export type MissedInvoice = {
+  orgId: string;
+  orgName: string;
   periodStart: string;
   periodEnd: string;
-  issued: ServiceBill[];
-  skipped: GenerateServiceBillsSkip[];
+  /** Day the bill should have been created (UTC). */
+  invoiceOn: string;
+  /** The period's only bill was cancelled. */
+  previouslyCancelled: boolean;
+  blocker: MissedInvoiceBlocker | null;
+  blockerMessage: string | null;
+  earlierInvoiceOn: string | null;
+  willBeWaived: boolean;
+  estimate: {
+    subscriptionAmount: string;
+    volumeFeeAmount: string;
+    totalAmount: string;
+    billedVolumeUsd: string;
+  } | null;
 };
 
-/** Platform O/A — batch issue from completed volume + fee tiers (X-02). */
-export async function generateServiceBills(input?: {
-  periodStart?: string;
-  periodEnd?: string;
-}): Promise<GenerateServiceBillsResult> {
-  const res = await apiFetch(`${API_BASE}/service-bills/generate`, {
+/** Platform O/A — Find missed invoice: search a UTC date range (end ≤ today). */
+export async function findMissedInvoices(
+  from: string,
+  to: string,
+): Promise<{ from: string; to: string; today: string; missed: MissedInvoice[] }> {
+  const q = new URLSearchParams({ from, to });
+  const res = await apiFetch(`${API_BASE}/service-bills/missed?${q}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as {
+    from: string;
+    to: string;
+    today: string;
+    missed: MissedInvoice[];
+  };
+}
+
+/** Create one reviewed missed invoice (same rules as the daily job). */
+export async function createMissedInvoice(
+  orgId: string,
+  periodStart: string,
+): Promise<ServiceBill> {
+  const res = await apiFetch(`${API_BASE}/service-bills/missed`, {
     method: "POST",
     credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(input ?? {}),
+    body: JSON.stringify({ orgId, periodStart }),
   });
   if (!res.ok) await parseError(res);
-  return (await res.json()) as GenerateServiceBillsResult;
+  return (await res.json()) as ServiceBill;
 }
 
 export async function createOrg(body: {

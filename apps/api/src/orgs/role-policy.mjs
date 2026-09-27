@@ -564,6 +564,14 @@ export function canManageBillingWaivers(caller) {
   return caller.platformOperator === true;
 }
 
+/**
+ * Service Bills → Find missed invoice: search and create — Platform Owner/Admin.
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canFindMissedInvoices(caller) {
+  return caller.platformOperator === true;
+}
+
 /** Waive lists are platform-internal: platform staff read, merchants/agents never. */
 export function canReadBillingWaivers(caller) {
   return platformHasGlobalRead(caller);

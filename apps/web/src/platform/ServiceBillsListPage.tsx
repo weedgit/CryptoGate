@@ -24,12 +24,11 @@ import {
 import { AssetIcon } from "./cryptoIcons";
 import {
   sessionCanIssueServiceBill,
-  sessionIsPlatformOwner,
 } from "./org";
 import { BillingWaiverModal } from "./BillingWaiverModal";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
-import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
+import { FindMissedInvoicesModal } from "./FindMissedInvoicesModal";
 import { IssueServiceBillModal } from "./IssueServiceBillModal";
 import {
   formatBillId,
@@ -655,14 +654,10 @@ export function ServiceBillsListPage({ session }: Props) {
     () => (portal ? false : sessionCanIssueServiceBill(session)),
     [portal, session],
   );
-  const isPlatformOwner = useMemo(
-    () => (portal ? false : sessionIsPlatformOwner(session)),
-    [portal, session],
-  );
   const [issueOpen, setIssueOpen] = useState(
     () => canIssue && searchParams.get("issue") === "1",
   );
-  const [generateOpen, setGenerateOpen] = useState(false);
+  const [missedOpen, setMissedOpen] = useState(false);
   const [waiverModal, setWaiverModal] = useState<"fee" | "activation" | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialWindow = useMemo(() => periodWindow("1m"), []);
@@ -1120,45 +1115,43 @@ export function ServiceBillsListPage({ session }: Props) {
                 </svg>
               </summary>
               <div className="plat-bills__more-menu" role="menu">
-                {isPlatformOwner ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="plat-bills__more-item"
-                    onClick={(e) => {
-                      const root = (e.currentTarget as HTMLElement).closest(
-                        "details",
-                      );
-                      if (root instanceof HTMLDetailsElement) root.open = false;
-                      setGenerateOpen(true);
-                    }}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="plat-bills__more-item"
+                  onClick={(e) => {
+                    const root = (e.currentTarget as HTMLElement).closest(
+                      "details",
+                    );
+                    if (root instanceof HTMLDetailsElement) root.open = false;
+                    setMissedOpen(true);
+                  }}
+                >
+                  <svg
+                    className="plat-bills__more-item-icon"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    aria-hidden
                   >
-                    <svg
-                      className="plat-bills__more-item-icon"
-                      viewBox="0 0 24 24"
-                      width="16"
-                      height="16"
-                      aria-hidden
-                    >
-                      <path
-                        d="M3 12a9 9 0 1 0 3-6.7"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M3 4v5h5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    Backfill
-                  </button>
-                ) : null}
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="6.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    />
+                    <path
+                      d="M20 20l-4.2-4.2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  Find missed invoice
+                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -1715,13 +1708,11 @@ export function ServiceBillsListPage({ session }: Props) {
           onBillsChanged={() => void load()}
         />
       ) : null}
-      {isPlatformOwner ? (
-        <GenerateServiceBillsModal
-          open={generateOpen}
-          orgNames={orgNames}
-          merchants={billMerchants}
-          onClose={() => setGenerateOpen(false)}
-          onGenerated={() => void load()}
+      {canIssue ? (
+        <FindMissedInvoicesModal
+          open={missedOpen}
+          onClose={() => setMissedOpen(false)}
+          onCreated={() => void load()}
         />
       ) : null}
     </div>

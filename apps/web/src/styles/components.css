@@ -364,7 +364,6 @@
   .org-architecture__select,
   .org-architecture__select--topbar,
   .plat-issue-bill__form--modal select.field-control,
-  .plat-generate-bills-modal__field select.field-control,
   .b7-override-modal__field select,
   .create-order-page__form select.field-control
 ) {

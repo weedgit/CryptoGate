@@ -24,9 +24,128 @@ import { findFeeWaiver } from "./billing-waiver-store.mjs";
 import { closeMonthlyBillAsWaived } from "./billing-waivers.mjs";
 
 /**
+ * Amounts a recurring bill for [periodStart, invoiceOn) would have, before
+ * credits and waivers. Null when the merchant has no commercial settings.
+ * @param {string} orgId
+ * @param {string} periodStart YYYY-MM-DD
+ * @param {string} invoiceOn YYYY-MM-DD
+ */
+export async function estimateRecurringBill(orgId, periodStart, invoiceOn) {
+  const { inclusiveStartIso, exclusiveEndIso, displayPeriodEnd } =
+    recurringVolumeWindow(periodStart, invoiceOn);
+  const subtree = await listOrgsInSubtree([orgId]);
+  const volumeOrgIds = subtree
+    .filter((r) => r.type === "merchant" || r.type === "merchant_site")
+    .map((r) => r.id);
+  const volumeRaw = await sumCompletedPayableVolume(
+    volumeOrgIds,
+    inclusiveStartIso,
+    exclusiveEndIso,
+  );
+  const billedVolumeUsd = roundUsd(volumeRaw);
+  const resolved = await resolveMerchantRatesForBilling(
+    orgId,
+    Number(billedVolumeUsd),
+  );
+  if (!resolved) return null;
+  const volumeFeeAmount = volumeFeeUsd(billedVolumeUsd, resolved.volumeFeePercent);
+  const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
+  return {
+    periodEnd: displayPeriodEnd,
+    billedVolumeUsd,
+    subscriptionAmount,
+    volumeFeeAmount,
+    totalAmount: addUsdAmounts(subscriptionAmount, volumeFeeAmount),
+    tier: resolved.tier,
+    volumeFeePercent: String(resolved.volumeFeePercent),
+  };
+}
+
+/**
+ * Insert the recurring bill for [periodStart, invoiceOn): waiver, credit and
+ * auto-send follow the daily job. Does not move the merchant's schedule.
+ * @param {string} orgId
+ * @param {string} periodStart
+ * @param {string} invoiceOn
+ * @param {{ autoSend?: boolean, payDays?: number, dueFrom?: Date }} [opts]
+ *   dueFrom: start of the pay-within period (default: the invoice day).
+ */
+export async function createRecurringBillForWindow(orgId, periodStart, invoiceOn, opts = {}) {
+  const estimate = await estimateRecurringBill(orgId, periodStart, invoiceOn);
+  if (!estimate) {
+    return { ok: false, reason: "no_commercial" };
+  }
+  const { subscriptionAmount, volumeFeeAmount } = estimate;
+  let totalAmount = estimate.totalAmount;
+
+  const waiver = await findFeeWaiver(orgId);
+  let creditAppliedUsd = null;
+  if (!waiver) {
+    const credit = await consumeMerchantServiceBillCredit(orgId, totalAmount);
+    totalAmount = credit.newTotal;
+    creditAppliedUsd = credit.creditApplied !== "0.00" ? credit.creditApplied : null;
+  }
+
+  const calendar = await getBillingCalendarSettings();
+  const autoSend = !waiver && (opts.autoSend ?? calendar.autoSendInvoices);
+  const payDays = opts.payDays ?? calendar.activationPayDays;
+  // Daily-job catch-up keeps due_at on invoiceOn + payDays; a missed invoice an
+  // admin creates later passes dueFrom so the merchant still gets the full period.
+  const dueAt = merchantInvoiceDueAt(
+    payDays,
+    opts.dueFrom ?? new Date(`${invoiceOn}T00:00:00.000Z`),
+  );
+
+  let row = await insertServiceBill({
+    orgId,
+    periodStart,
+    periodEnd: estimate.periodEnd,
+    subscriptionAmount,
+    volumeFeeAmount,
+    totalAmount,
+    dueAt,
+    status: autoSend ? ServiceBillStatus.Issued : ServiceBillStatus.Draft,
+    tier: estimate.tier,
+    volumeFeePercent: estimate.volumeFeePercent,
+    billedVolumeUsd: estimate.billedVolumeUsd,
+    billKind: ServiceBillKind.Monthly,
+    sentAt: autoSend ? new Date().toISOString() : null,
+  });
+
+  if (waiver) {
+    row = await closeMonthlyBillAsWaived(row, waiver);
+    return { ok: true, bill: row, waived: true };
+  }
+
+  if (creditAppliedUsd) {
+    row =
+      (await adjustServiceBillLines(row.id, {
+        subscriptionAmount,
+        volumeFeeAmount,
+        totalAmount,
+        reason: "Applied merchant service-bill credit",
+        adjustmentAmount: `-${creditAppliedUsd}`,
+        creditAppliedUsd,
+      })) ?? row;
+  }
+
+  if (autoSend && row.status === ServiceBillStatus.Draft) {
+    row = (await sendServiceBill(row.id, dueAt)) ?? row;
+  }
+
+  emitDashboardLive({
+    type: autoSend ? "service_bill.issued" : "service_bill.draft",
+    slices: ["serviceBills"],
+    orgId,
+  });
+
+  return { ok: true, bill: row };
+}
+
+/**
  * Create one recurring (sub + volume) invoice for a merchant whose next_invoice_on is due.
  * @param {object} commercialRow
- * @param {{ today?: string, autoSend?: boolean, payDays?: number }} [opts]
+ * @param {{ today?: string, autoSend?: boolean, payDays?: number, dueFrom?: Date }} [opts]
  */
 export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}) {
   const orgId = commercialRow.org_id;
@@ -50,110 +169,15 @@ export async function createRecurringInvoiceForMerchant(commercialRow, opts = {}
     return { ok: false, reason: "no_period_start" };
   }
 
-  const { inclusiveStartIso, exclusiveEndIso, displayPeriodEnd } =
-    recurringVolumeWindow(periodStart, invoiceOn);
-
   const existing = await findActiveServiceBillForPeriod(orgId, periodStart);
   if (existing && existing.bill_kind !== "activation") {
     await advanceNextInvoiceOn(orgId, invoiceOn);
     return { ok: false, reason: "already_issued", advanced: true };
   }
 
-  const subtree = await listOrgsInSubtree([orgId]);
-  const volumeOrgIds = subtree
-    .filter((r) => r.type === "merchant" || r.type === "merchant_site")
-    .map((r) => r.id);
-  const volumeRaw = await sumCompletedPayableVolume(
-    volumeOrgIds,
-    inclusiveStartIso,
-    exclusiveEndIso,
-  );
-  const billedVolumeUsd = roundUsd(volumeRaw);
-
-  const resolved = await resolveMerchantRatesForBilling(
-    orgId,
-    Number(billedVolumeUsd),
-  );
-  if (!resolved) {
-    return { ok: false, reason: "no_commercial" };
-  }
-
-  const volumeFeeAmount = volumeFeeUsd(
-    billedVolumeUsd,
-    resolved.volumeFeePercent,
-  );
-  const subscriptionAmount = roundUsd(resolved.subscriptionAmountUsd);
-  let totalAmount = addUsdAmounts(subscriptionAmount, volumeFeeAmount);
-
-  const waiver = await findFeeWaiver(orgId);
-  let creditAppliedUsd = null;
-  if (!waiver) {
-    const credit = await consumeMerchantServiceBillCredit(orgId, totalAmount);
-    totalAmount = credit.newTotal;
-    creditAppliedUsd = credit.creditApplied !== "0.00" ? credit.creditApplied : null;
-  }
-
-  const calendar = await getBillingCalendarSettings();
-  const autoSend = !waiver && (opts.autoSend ?? calendar.autoSendInvoices);
-  const payDays = opts.payDays ?? calendar.activationPayDays;
-  // Pay-within runs from the invoice day (next_invoice_on), not wall-clock now —
-  // catch-up runs must still land due_at on invoiceOn + payDays.
-  const dueAt = merchantInvoiceDueAt(
-    payDays,
-    new Date(`${invoiceOn}T00:00:00.000Z`),
-  );
-
-  const initialStatus = autoSend
-    ? ServiceBillStatus.Issued
-    : ServiceBillStatus.Draft;
-
-  let row = await insertServiceBill({
-    orgId,
-    periodStart,
-    periodEnd: displayPeriodEnd,
-    subscriptionAmount,
-    volumeFeeAmount,
-    totalAmount,
-    dueAt,
-    status: initialStatus,
-    tier: resolved.tier,
-    volumeFeePercent: String(resolved.volumeFeePercent),
-    billedVolumeUsd,
-    billKind: ServiceBillKind.Monthly,
-    sentAt: autoSend ? new Date().toISOString() : null,
-  });
-
-  if (waiver) {
-    row = await closeMonthlyBillAsWaived(row, waiver);
-    await advanceNextInvoiceOn(orgId, invoiceOn);
-    return { ok: true, bill: row, waived: true };
-  }
-
-  if (creditAppliedUsd) {
-    row =
-      (await adjustServiceBillLines(row.id, {
-        subscriptionAmount,
-        volumeFeeAmount,
-        totalAmount,
-        reason: "Applied merchant service-bill credit",
-        adjustmentAmount: `-${creditAppliedUsd}`,
-        creditAppliedUsd,
-      })) ?? row;
-  }
-
-  if (autoSend && row.status === ServiceBillStatus.Draft) {
-    row = (await sendServiceBill(row.id, dueAt)) ?? row;
-  }
-
-  await advanceNextInvoiceOn(orgId, invoiceOn);
-
-  emitDashboardLive({
-    type: autoSend ? "service_bill.issued" : "service_bill.draft",
-    slices: ["serviceBills"],
-    orgId,
-  });
-
-  return { ok: true, bill: row };
+  const result = await createRecurringBillForWindow(orgId, periodStart, invoiceOn, opts);
+  if (result.ok) await advanceNextInvoiceOn(orgId, invoiceOn);
+  return result;
 }
 
 /**

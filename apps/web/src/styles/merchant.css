@@ -33273,42 +33273,53 @@ html[data-theme="light"] .plat-waivers__btn.is-danger {
   }
 }
 
-/* Generate period bills modal (portaled to body — unscoped) */
-.plat-generate-bills-modal {
+/* Find missed invoice modal (portaled to body — unscoped) */
+.plat-missed-modal {
   box-sizing: border-box;
-  width: min(480px, 100%);
+  width: min(820px, 100%);
   max-width: calc(100vw - 32px);
-  height: auto;
-  max-height: min(90vh, 720px);
+  max-height: min(90vh, 760px);
   flex: 0 0 auto;
   align-self: center;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
-.plat-generate-bills-modal__body {
+.plat-missed-modal__body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 20px 20px;
+  gap: 12px;
+  padding: 16px 20px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.plat-generate-bills-modal__lede {
+.plat-missed-modal__lede {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
   color: #94a3b8;
 }
 
-.plat-generate-bills-modal__lede strong {
-  color: #e2e8f0;
-  font-weight: 600;
+.plat-missed-modal__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
 }
 
-.plat-generate-bills-modal__field {
+@media (max-width: 560px) {
+  .plat-missed-modal__search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.plat-missed-modal__field {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -33317,7 +33328,7 @@ html[data-theme="light"] .plat-waivers__btn.is-danger {
   color: #94a3b8;
 }
 
-.plat-generate-bills-modal__field .field-control {
+.plat-missed-modal__field .field-control {
   box-sizing: border-box;
   width: 100%;
   min-height: 40px;
@@ -33327,105 +33338,18 @@ html[data-theme="light"] .plat-waivers__btn.is-danger {
   background: #0b0f14;
   color: #f8fafc;
   font-size: 14px;
+  color-scheme: dark;
 }
 
-.plat-generate-bills-modal__field .field-control:focus {
+.plat-missed-modal__field .field-control:focus {
   outline: none;
   border-color: rgba(251, 191, 36, 0.55);
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
 }
 
-.plat-generate-bills-modal__period {
-  margin: 0;
-  font-size: 12px;
-  color: #64748b;
-  font-variant-numeric: tabular-nums;
-}
-
-.plat-generate-bills-modal__warn {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.08);
-  font-size: 13px;
-  color: #fde68a;
-}
-
-.plat-generate-bills-modal__warn strong {
-  color: #fef3c7;
-  font-weight: 600;
-}
-
-.plat-generate-bills-modal__warn-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  color: rgba(253, 230, 138, 0.92);
-  font-size: 12px;
-}
-
-.plat-generate-bills-modal__result {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.plat-generate-bills-modal__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.plat-generate-bills-modal__stat-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #94a3b8;
-  margin-bottom: 4px;
-}
-
-.plat-generate-bills-modal__stats strong {
-  font-size: 22px;
-  font-weight: 700;
-  color: #f8fafc;
-  font-variant-numeric: tabular-nums;
-}
-
-.plat-generate-bills-modal__skips {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  color: #cbd5e1;
-  line-height: 1.45;
-}
-
-.plat-generate-bills-modal__skip-detail {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 12px;
-  color: #94a3b8;
-  line-height: 1.4;
-}
-
-.plat-generate-bills-modal__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.plat-generate-bills-modal__actions .btn-primary {
+.plat-missed-modal__search-btn.btn-primary {
   width: auto;
-  min-width: 132px;
+  min-width: 110px;
   min-height: 40px;
   padding: 0 18px;
   border-radius: 10px;
@@ -33436,31 +33360,218 @@ html[data-theme="light"] .plat-waivers__btn.is-danger {
   box-shadow: none;
 }
 
-.plat-generate-bills-modal__actions .btn-primary:hover:not(:disabled) {
+.plat-missed-modal__search-btn.btn-primary:hover:not(:disabled) {
   filter: none;
   background: var(--btn-primary-bg-hover, rgba(240, 180, 41, 0.18));
   border-color: var(--btn-primary-border-hover, rgba(240, 180, 41, 0.5));
   color: var(--btn-primary-fg-hover, #fef3c7);
 }
 
-.plat-generate-bills-modal__actions .btn-primary:disabled {
+.plat-missed-modal__search-btn.btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.plat-generate-bills-modal__actions .btn-secondary {
+.plat-missed-modal__hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.plat-missed-modal__created {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+  font-size: 13px;
+  color: #a7f3d0;
+}
+
+.plat-missed-modal__created a {
+  color: #6ee7b7;
+  font-weight: 600;
+}
+
+.plat-missed-modal__empty {
+  margin: 0;
+  padding: 18px 12px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.plat-missed-modal__results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plat-missed-modal__summary {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fde68a;
+}
+
+.plat-missed-modal__table-wrap {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.35);
+  overflow-x: auto;
+}
+
+.plat-missed-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.plat-missed-modal__table th,
+.plat-missed-modal__table td {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-missed-modal__table th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.plat-missed-modal__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.plat-missed-modal__table .is-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+}
+
+.plat-missed-modal__name {
+  display: block;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.plat-missed-modal__tag {
+  display: inline-block;
+  margin: 3px 6px 0 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.plat-missed-modal__tag.is-warn {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.plat-missed-modal__date {
+  white-space: nowrap;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.plat-missed-modal__action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.plat-missed-modal__create.btn-secondary {
   width: auto;
-  min-height: 40px;
-  padding: 0 16px;
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 180, 41, 0.4);
+  background: rgba(240, 180, 41, 0.08);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plat-missed-modal__create.btn-secondary:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.16);
+}
+
+.plat-missed-modal__blocked {
+  font-size: 12px;
+  color: #f87171;
+}
+
+.plat-missed-modal__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 6px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.plat-missed-modal__pager-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plat-missed-modal__pager-controls button {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.plat-missed-modal__pager-controls button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.plat-missed-modal__pager-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.plat-missed-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-missed-modal__foot .btn-secondary {
+  width: auto;
+  min-height: 38px;
+  padding: 0 18px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: #f8fafc;
 }
 
-.plat-generate-bills-modal__actions .btn-secondary:hover:not(:disabled) {
+.plat-missed-modal__foot .btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
 }
 
 /* B10 — Service bill detail (Figma b10-service-bill-detail) */
