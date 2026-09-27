@@ -22,6 +22,8 @@ type Props = {
   canEdit: boolean;
   /** Called after a change that may have created or waived bills. */
   onBillsChanged?: () => void;
+  /** Total entries across both lists, after each load. */
+  onCountChange?: (count: number) => void;
 };
 
 type Draft = { orgId: string; months: string; reason: string };
@@ -265,7 +267,12 @@ function WaiverCard({
 }
 
 /** Service Bills: waive platform fee (N months) and waive activation lists. */
-export function BillingWaiversPanel({ merchants, canEdit, onBillsChanged }: Props) {
+export function BillingWaiversPanel({
+  merchants,
+  canEdit,
+  onBillsChanged,
+  onCountChange,
+}: Props) {
   const [fee, setFee] = useState<FeeWaiver[]>([]);
   const [activation, setActivation] = useState<ActivationWaiver[]>([]);
   const [busy, setBusy] = useState<Kind | null>(null);
@@ -277,10 +284,11 @@ export function BillingWaiversPanel({ merchants, canEdit, onBillsChanged }: Prop
       const next = await listBillingWaivers();
       setFee(next.fee);
       setActivation(next.activation);
+      onCountChange?.(next.fee.length + next.activation.length);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not load waivers");
     }
-  }, []);
+  }, [onCountChange]);
 
   useEffect(() => {
     void load();

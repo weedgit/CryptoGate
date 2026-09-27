@@ -664,6 +664,11 @@ export function ServiceBillsListPage({ session }: Props) {
     () => (portal ? false : sessionIsPlatformStaff(session)),
     [portal, session],
   );
+  const [view, setView] = useState<"bills" | "waivers">(() =>
+    searchParams.get("view") === "waivers" ? "waivers" : "bills",
+  );
+  const isWaiversView = showWaivers && view === "waivers";
+  const [waiverCount, setWaiverCount] = useState<number | null>(null);
   const [issueOpen, setIssueOpen] = useState(
     () => canIssue && searchParams.get("issue") === "1",
   );
@@ -717,10 +722,18 @@ export function ServiceBillsListPage({ session }: Props) {
     set("merchant", merchantScope);
     set("periodFrom", billingPeriod?.from);
     set("periodTo", billingPeriod?.to);
+    set("view", isWaiversView ? "waivers" : null);
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [agentScope, merchantScope, billingPeriod, searchParams, setSearchParams]);
+  }, [
+    agentScope,
+    merchantScope,
+    billingPeriod,
+    isWaiversView,
+    searchParams,
+    setSearchParams,
+  ]);
   const [sort, setSort] = useState<SortState<SortKey>>({
     key: "dueDate",
     dir: "desc",
@@ -1035,6 +1048,7 @@ export function ServiceBillsListPage({ session }: Props) {
             </p>
           </div>
         </div>
+        {isWaiversView ? null : (
         <div className="plat-bills__period-tools">
           <div
             className="pg-dash__period"
@@ -1197,10 +1211,50 @@ export function ServiceBillsListPage({ session }: Props) {
             </details>
           ) : null}
         </div>
+        )}
       </div>
 
       {portal?.header ?? null}
 
+      {showWaivers ? (
+        <div className="b3-agent-detail__tabs plat-bills__tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            className={`b3-agent-detail__tab${isWaiversView ? "" : " is-active"}`}
+            aria-selected={!isWaiversView}
+            onClick={() => setView("bills")}
+          >
+            Bills
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`b3-agent-detail__tab${isWaiversView ? " is-active" : ""}`}
+            aria-selected={isWaiversView}
+            onClick={() => setView("waivers")}
+          >
+            Waive lists
+            {waiverCount ? (
+              <span className="plat-bills__tab-count">{waiverCount}</span>
+            ) : null}
+          </button>
+        </div>
+      ) : null}
+
+      {showWaivers ? (
+        <div className="plat-bills__waivers-view" hidden={!isWaiversView}>
+          <BillingWaiversPanel
+            merchants={billMerchants}
+            canEdit={canIssue}
+            onBillsChanged={() => void load()}
+            onCountChange={setWaiverCount}
+          />
+        </div>
+      ) : null}
+
+      {isWaiversView ? null : (
+        <>
       <BillKpiCarousel>
         <BillKpiCard
           accent="warn"
@@ -1273,6 +1327,8 @@ export function ServiceBillsListPage({ session }: Props) {
           onView={onViewStatus}
         />
       </BillKpiCarousel>
+        </>
+      )}
 
       {topbarLeadingSlot
         ? createPortal(
@@ -1283,7 +1339,7 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
-      {topbarSlot
+      {topbarSlot && !isWaiversView
         ? createPortal(
             <label className="topbar-search" htmlFor={searchInputId}>
               <svg
@@ -1319,6 +1375,8 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
+      {isWaiversView ? null : (
+        <>
       {agentScope || merchantScope || billingPeriod ? (
         <div className="plat-bills__scope" role="status" aria-label="Review filters">
           <span className="plat-bills__scope-lead">Reviewing</span>
@@ -1632,14 +1690,6 @@ export function ServiceBillsListPage({ session }: Props) {
         </div>
       </div>
 
-      {showWaivers ? (
-        <BillingWaiversPanel
-          merchants={billMerchants}
-          canEdit={canIssue}
-          onBillsChanged={() => void load()}
-        />
-      ) : null}
-
       <div className="plat-bills__foot">
         <p className="muted plat-bills__schedule-note" role="note">
           Prepared daily at <strong>{utcMidnightLabel()}</strong>.{" "}
@@ -1650,6 +1700,8 @@ export function ServiceBillsListPage({ session }: Props) {
           )}
         </p>
       </div>
+        </>
+      )}
 
       {canIssue ? (
         <IssueServiceBillModal
