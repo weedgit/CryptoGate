@@ -98,7 +98,7 @@ Never merge these rails on one page or checkout.
 **States**
 
 - Token expired / invalid error + link to A2
-- Success → redirect to A1 with success banner
+- Success → redirect to A1 with a success toast (“Password updated…”)
 
 ---
 
@@ -192,7 +192,8 @@ Never merge these rails on one page or checkout.
 
 - Org switcher (A6)
 - **Notifications** bell icon + unread count badge → A9
-- User menu: profile name, role, link to personal security settings, sign out
+- User menu (top bar, all portals): avatar, name, email, link to personal security settings, sign out
+- **Role & permissions card** (bottom of the left sidebar, all portals): role badge + one-line summary; click opens “You can” / “Owner only” (or “Hidden for Viewers / Cashiers”) lists. This replaces per-page role banners — actions a role cannot take stay **hidden**, and the card explains why
 - Optional: **Help** / documentation link
 
 ---
@@ -223,6 +224,22 @@ Never merge these rails on one page or checkout.
 | Enterprise rate pending | Platform O | “Enterprise rate request from Agent **X** — review.” |
 | API key expiring | O, A | “API key **…abc** expires in 7 days.” |
 | Network maintenance | All merchants | “USDT (Tron) deposits paused until **time**.” |
+| Finish account setup (watch-only) | Agent / merchant, all roles | “Watch-only until setup is complete… finish **phone, settlement wallet** to unlock live actions.” → **Finish setup** opens the setup modal (`?setup=1`) |
+| Activation fee | Merchant, all roles (pay: O, A) | “Pay activation fee” (issued / overdue) or “Activation fee being prepared” (draft, waiting) |
+| Account suspended | Merchant, all roles | “**reason**. New orders are blocked — pay the bill to restore the account.” |
+| Payout wallet change pending | Agent O, A, V | “New commission payout wallet activates in **23h**.” (waiting) |
+| Commissions awaiting confirm 7+ days | Agent O, A (confirm); Platform O, A, V (follow up) | “**N** paid commission invoices have awaited your confirmation for 7+ days.” |
+
+**Where messages appear (all portals)**
+
+| Kind | Surface | Lifetime |
+| --- | --- | --- |
+| Open condition someone must clear or wait out (setup, activation, suspension, bills, cool-downs, maintenance, Attention, webhook failures, stuck commissions, Enterprise review) | **Alert** — bell drawer + bottom-right **dock** (“N alerts need your attention” / “Owner or Admin must clear N alerts” / “N alerts waiting to clear”) | Until the condition clears (marking read only clears the badge) |
+| One-time result of the user’s own action (saved, invitation sent, password updated, validation / permission errors) | **Toast** — single app-wide slot, bottom centre, ~6 s; a new toast replaces the old one | Auto-dismiss or × |
+| Who the user is and what they may do | **Role & permissions card** (sidebar, A8) | Always visible |
+| Context that belongs to one form or panel (MFA gate, site-inherits note, invite credentials, next-invoice hint, $0 commission note, compact cool-down chip on Settlement) | **Inline note** in that page | While the page is open |
+
+No page renders top-of-page role or status banners.
 
 **Drawer content**
 
@@ -303,10 +320,11 @@ Platform users: **O**, **A**, **V**. Platform users do **not** create payment or
 - **Recent audit events** (last 10) + link to B14
 - **Quick actions** (O, A): Onboard agent (B4), Issue service bill (B10), View overdue bills (B9)
 
-**Banners**
+**Alerts (dock + drawer)**
 
-- Read-only mode banner for **V**
-- “Enterprise rate approval queue: **N** pending” (O)
+- Enterprise rate request pending — one alert per request (O only)
+- Paid commissions awaiting agent confirm 7+ days (O, A, V)
+- Viewer: no banner — role card (A8) shows Read-only; action buttons stay hidden
 
 ---
 
@@ -495,7 +513,7 @@ Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) rema
 **Actions (O, A)**
 
 - Edit merchant org fields; settlement / xPub: **Platform Owner only** among platform roles (MFA + cool-down + audit). Platform Administrator cannot change fund rails
-- **Suspend / Resume** (header): required reason + MFA for platform; cascades watch-only to descendant sites; reason shown on portals (header banner + status badge)
+- **Suspend / Resume** (header): required reason + MFA for platform; cascades watch-only to descendant sites; reason shown on portals (merchant dock alert “Account suspended” + status badge)
 - Fee Automatic/Fixed (Owner for Fixed) — **no fee editor on merchant portal**
 - Agents never edit merchant profile/settlement from agent portal; **verified** Agent O/A may be invited onto merchant/site **team** (Viewers cannot). Platform/Agent O/A must not be the **Owner** email at merchant/site onboard
 
@@ -517,7 +535,7 @@ Spec backlog tabs (Sites, Volume & orders, Service bills as dedicated tabs) rema
 
 **Notifications**
 
-- Merchant sees Suspend reason banner when paused
+- Merchant sees an “Account suspended” dock alert with the reason while paused
 - Audit event immutable
 
 ---
@@ -537,7 +555,7 @@ Single scroll page (no tabs):
 2. **Fee wallet** (B11-lite) — invoice seller name + contact email; crypto wallet merchants use to pay platform fees (`payTo`); rotation audited as `billing_wallet_put`. Deep link `/platform/settings/fee-tiers?tab=remittance` (alias `?tab=billing`) scrolls to this section; legacy `/platform/settings/billing-wallet` redirects.
 3. **Billing calendar** — agent remittance window and activation invoice timing
 
-**Banners**
+**Inline notes**
 
 - “Changes apply to **next billing period** only” (pricing / bands)
 - Unsaved changes warning on navigate away (bands + fee wallet)
@@ -649,7 +667,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 **Alerts**
 
 - Changing max agent depth: confirmation modal + audit warning
-- Network maintenance toggle: “Merchants will see deposit pause banner”
+- Network maintenance toggle: “Merchants will see a deposit-pause alert”
 
 ---
 
@@ -684,7 +702,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 - **Remove** member — confirm dialog
 - **Transfer ownership** (O only) — separate dangerous-action flow with MFA
 
-**Banner for A:** “Only the Owner can add or remove team members.”
+**Administrator:** Invite / Remove / role changes are hidden; the sidebar role card lists “Add or remove team members” under **Owner only**.
 
 ---
 
@@ -702,7 +720,7 @@ Phase 1 does **not** require a full multi-asset wallet catalog; one crypto recei
 - Status chip: maintenance badge when paused for ops; catalog ACTIVE/CATALOGUED remain secondary
 - **Catalog status** — `enabled/total` asset pairs on that network (registry completeness). Not a fake health %.
 - **Ingest** — watcher heartbeat when present (`Live` / `Stub` / `Down` + real health %). Empty RPC → stub; open orders will not complete until `*_RPC_URL` is set.
-- **Maintenance mode** — Platform O/A toggle; persisted; blocks `POST /orders` (`422 network_maintenance`); merchant dashboard banner via `GET /network-maintenance`; lamp → Paused
+- **Maintenance mode** — Platform O/A toggle; persisted; blocks `POST /orders` (`422 network_maintenance`); merchant dock alert via `GET /network-maintenance`; lamp → Paused
 - Contract addresses from `@paymentgate/domain` (explorer-linked in UI)
 - Watcher line shows lag / rpc mode from heartbeats (not fake `WATCHER_NN` labels)
 - Compact lamps also on merchant Networks via `GET /v1/networks/status`
@@ -891,7 +909,7 @@ Same pattern as B15 for agent org users.
 | **Route** | `/agent/settings` |
 | **Access** | O ✓ · A partial · V R |
 
-**Sections:** Org profile (**business name**, optional **legal name** for invoices — defaults to business name), optional country, **billing email**, payout wallet, branding (avatar). Person profile (**first name**, **last name**, phone, timezone, email/phone verification). Incomplete **activity gate** → banner: watch-only until complete. Commission mode/% is **view-only** (Platform sets Automatic/Fixed).
+**Sections:** Org profile (**business name**, optional **legal name** for invoices — defaults to business name), optional country, **billing email**, payout wallet, branding (avatar). Person profile (**first name**, **last name**, phone, timezone, email/phone verification). Incomplete **activity gate** → “Finish account setup” dock alert (watch-only until complete); **Finish setup** opens the setup modal. Commission mode/% is **view-only** (Platform sets Automatic/Fixed).
 
 ---
 
@@ -929,7 +947,7 @@ Cashier nav: Dashboard (own invoices), **Invoice**, **Create invoice**, Sign out
 **Content**
 
 - Period controls (topbar): **Today / 7d / MTD** + custom date range — filters volume / fee / sites widgets
-- **Alerts banner** (priority): settlement cool-down, xPub cool-down, network maintenance, overdue service bills (O/A/V), open Attention
+- No alerts box on the dashboard — settlement / xPub cool-down, network maintenance, overdue service bills, and open Attention are dock alerts (A9)
 - **KPIs**
   - O / A / V: **Completed volume**, **Platform fee** (est. from effective volume fee %), **Tier** + fee %, **Open orders** (pending + verifying), **Attention**
   - C: Completed volume, Open orders, Attention (own scope) — no fee / tier
@@ -1053,7 +1071,7 @@ Invoice (# + reference) · Merchant & Cashier (site-only label for cashier varia
 - **Pay** → D6 checkout (separate from payment order)
 - Download PDF
 
-**Banner:** “Service bills pay for PaymentGate software. Customer payments go to your wallet separately.”
+**Inline note:** “Service bills pay for PaymentGate software. Customer payments go to your wallet separately.” Activation fee state is a dock alert (no callout on this page).
 
 ---
 
@@ -1150,7 +1168,8 @@ Invoice (# + reference) · Merchant & Cashier (site-only label for cashier varia
   - **Second approval** (O must approve if initiator is A — or dual control per policy)
   - Cool-down period countdown displayed prominently
   - **Alert email** to all Owners on request
-- During cool-down: banner on all pages — “New address activates **date/time**.”
+- During cool-down: dock alert on all pages (“waiting”) — “New address activates in **23h**.” On Settlement itself, a compact chip shows the pending address and countdown
+- Administrator: address / xPub / matching-mode save controls are hidden (Owner only; see role card)
 - Cashier: **page hidden**; direct URL → 403
 
 #### D11b. Matching mode
@@ -1273,7 +1292,7 @@ Invoice (# + reference) · Merchant & Cashier (site-only label for cashier varia
 - Members: name, email, role (Administrator, Viewer, Cashier), site assignment (for Cashier), MFA status, status
 - **Invite** — role, site if Cashier
 - **Remove** / **Change role** — confirm
-- Banner for A if they visit: “Only the Owner manages team members.”
+- Administrator: management actions hidden; role card explains **Owner only**
 
 ---
 
@@ -1550,7 +1569,7 @@ Use consistently across portals.
 
 ---
 
-## Part I — Empty, loading, and system-wide banners
+## Part I — Empty, loading, and system-wide messages
 
 ### Loading
 
@@ -1561,15 +1580,21 @@ Use consistently across portals.
 
 - Every list page: illustration + one-line copy + primary CTA where role permits
 
-### System banners (top of shell)
+### System-wide messages
 
-| Banner | Who sees |
-| --- | --- |
-| Network maintenance | Merchants, cashiers, payment page E1 |
-| Service bill overdue | Merchant O, A |
-| Address cool-down pending | Merchant O, A, V |
-| Compliance override active | Merchant O, A |
-| Test environment | All (amber) |
+Portals do not stack banners at the top of the shell. Rules (see A9 “Where messages appear”):
+
+| Message | Surface | Who sees |
+| --- | --- | --- |
+| Finish account setup (watch-only) | Dock alert | Agent / merchant, all roles |
+| Activation fee | Dock alert | Merchant, all roles |
+| Account suspended (reason) | Dock alert | Merchant, all roles |
+| Network maintenance | Dock alert (portal); inline on payment page E1 | Merchants, cashiers, E1 payers |
+| Service bill issued / overdue | Dock alert | Merchant O, A, V |
+| Address / xPub / payout wallet cool-down | Dock alert (“waiting”) | Merchant O, A, V; Agent O, A, V |
+| Role & permissions | Sidebar role card | Everyone |
+| Result of an action | Toast | The acting user |
+| Test environment | Top-of-shell strip (amber) | All |
 
 ---
 
@@ -1610,6 +1635,7 @@ Use: **Invoice** (guest payment order), **payment order** (API/domain), **servic
 
 | Date | Change |
 | --- | --- |
+| 2026-09-26 | Messages: banners removed — open conditions → dock alerts, results → single toast, role → sidebar role & permissions card, profile → top bar (all portals) |
 | 2026-09-25 | UI: payment_anomaly shown as **Attention** (API status unchanged) |
 | 2026-09-25 | Invoice scale: platform-wide All ≤7d; Completed/Closed ≤31d; large-set hint; ops default period 30d |
 | 2026-09-25 | Invoice v1.2: APK Invoice copy; platform Compliance deep-link badges; glossary Invoice vs Service Bill vs Commission |

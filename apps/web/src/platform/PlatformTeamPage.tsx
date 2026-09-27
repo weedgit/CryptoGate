@@ -350,16 +350,6 @@ export function PlatformTeamPage({ session }: Props) {
         </div>
       </div>
 
-      {!canManage ? (
-        <div className="plat-team__banner" role="status">
-          <span className="plat-team__banner-label">Owner only</span>
-          <p>
-            Only the Owner can add or remove team members. Administrators and
-            Viewers can review the roster below.
-          </p>
-        </div>
-      ) : null}
-
       <div className="plat-bills__panel plat-team__panel plat-team__panel--solo">
         <div className="plat-bills__main">
           {loading ? (

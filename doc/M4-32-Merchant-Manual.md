@@ -95,7 +95,7 @@ Changing where funds land is high risk. PaymentGate requires:
 1. **MFA** step-up for **Owner** (merchant) or **Platform Owner** (support)  
 2. **Cool-down** before the new address / xPub becomes active (default **24 hours**, `SETTLEMENT_COOLDOWN_MS`)  
 3. **Audit log** entry  
-4. Banner while pending: new address activates at the shown time  
+4. While pending: a “waiting” dock alert on every page and a compact countdown chip on Settlement show when the new address activates  
 
 During cool-down, existing open orders keep the address they already showed. Cashiers never see these settings.
 

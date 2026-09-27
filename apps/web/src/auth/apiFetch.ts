@@ -1,3 +1,5 @@
+import { showToast } from "../shared/toast";
+
 type SessionAuthHandlers = {
   onSessionExpired?: () => void;
   onMfaRequired?: () => void;
@@ -51,7 +53,31 @@ async function handle401(res: Response) {
   }
 }
 
-/** Cookie-aware fetch that signs the portal out on expired sessions. */
+function requestMethod(input: RequestInfo | URL, init?: RequestInit): string {
+  if (init?.method) return init.method.toUpperCase();
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.method.toUpperCase();
+  }
+  return "GET";
+}
+
+/** Permission denials on writes always surface the server's reason. */
+async function handle403(res: Response) {
+  if (!sessionActive) return;
+  let message = "";
+  try {
+    const json = (await res.clone().json()) as { message?: string };
+    message = json.message?.trim() ?? "";
+  } catch {
+    /* non-JSON body */
+  }
+  showToast(message || "You don't have permission to do this.");
+}
+
+/**
+ * Cookie-aware fetch that signs the portal out on expired sessions and
+ * toasts the reason when a write is refused (403).
+ */
 export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -59,6 +85,9 @@ export async function apiFetch(
   const res = await fetch(input, init);
   if (res.status === 401) {
     void handle401(res);
+  } else if (res.status === 403) {
+    const method = requestMethod(input, init);
+    if (method !== "GET" && method !== "HEAD") void handle403(res);
   }
   return res;
 }

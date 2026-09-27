@@ -368,16 +368,6 @@ export function IntegrationsPage({ session }: Props) {
 
       <SetupChecklistCard session={session} portal="merchant" />
 
-      {!canManage ? (
-        <p className="plat-int__chip plat-int__chip--muted" style={{ marginBottom: 12 }}>
-          Viewer · read-only
-        </p>
-      ) : !liveUnlocked ? (
-        <p className="plat-settings__notice" role="status">
-          {setupLockHint}
-        </p>
-      ) : null}
-
       {secretOnce ? (
         <SecretOnceModal
           title={secretOnce.title}

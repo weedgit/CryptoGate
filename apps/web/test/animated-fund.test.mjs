@@ -36,6 +36,7 @@ describe("funds count tween", () => {
       "utf8",
     );
     assert.match(dash, /AnimatedMetric/);
-    assert.match(dash, /merchant-dash__kpi-index/);
+    assert.match(dash, /DashKpiCard/);
+    assert.match(dash, /pg-dash__status-row/);
   });
 });

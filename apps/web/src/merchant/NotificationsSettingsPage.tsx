@@ -154,11 +154,6 @@ export function NotificationsSettingsPage({ session }: Props) {
         <div className="plat-alerts__hero-main">
           <div className="plat-alerts__title-row">
             <h1 className="plat-alerts__name">Alerts</h1>
-            {!canEdit ? (
-              <span className="plat-alerts__chip plat-alerts__chip--muted">
-                Viewer · read-only
-              </span>
-            ) : null}
           </div>
         </div>
       </header>

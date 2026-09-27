@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { dismissToast, showToast } from "../shared/toast";
 
 type Props = {
   message: string | null;
@@ -7,31 +8,39 @@ type Props = {
   durationMs?: number;
 };
 
-/** Fixed toast for auth alarms (login / forgot / reset). */
+/**
+ * Page-level hook into the single app-wide toast (rendered by ToastHost).
+ * Setting `message` shows it; `onDismiss` runs when it times out, is closed,
+ * or is replaced by another toast.
+ */
 export function AuthToast({
   message,
   tone = "error",
   onDismiss,
   durationMs = 6000,
 }: Props) {
+  const idRef = useRef(0);
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+
   useEffect(() => {
-    if (!message) return;
-    const t = window.setTimeout(onDismiss, durationMs);
-    return () => window.clearTimeout(t);
-  }, [message, durationMs, onDismiss]);
+    if (!message) {
+      if (idRef.current) {
+        const id = idRef.current;
+        idRef.current = 0;
+        dismissToast(id);
+      }
+      return;
+    }
+    idRef.current = showToast(message, {
+      tone,
+      durationMs,
+      onDismiss: () => {
+        idRef.current = 0;
+        dismissRef.current();
+      },
+    });
+  }, [message, tone, durationMs]);
 
-  if (!message) return null;
-
-  return (
-    <div
-      className={`auth-toast auth-toast--${tone}`}
-      role="alert"
-      aria-live="assertive"
-    >
-      <span className="auth-toast__msg">{message}</span>
-      <button type="button" className="auth-toast__close" onClick={onDismiss} aria-label="Dismiss">
-        ×
-      </button>
-    </div>
-  );
+  return null;
 }

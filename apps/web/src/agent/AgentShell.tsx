@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { OrgAccount, Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { SidebarRoleCard } from "../shared/SidebarRoleCard";
 import {
   ArchitectureNavIcon,
   DashboardNavIcon,
@@ -29,7 +30,9 @@ import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
 import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
-import { VerifyContactBanner } from "../auth/VerifyContactBanner";
+import { useConditionAlerts } from "../shared/conditionAlerts";
+import { clearAgentAlerts, refreshAgentAlerts } from "./agentAlerts";
+import { OrgSetupModalHost } from "../auth/OrgSetupModalHost";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { setViewerTimeZone } from "../shared/dateTime";
 import {
@@ -41,7 +44,7 @@ import {
   subscribeSharedHealth,
 } from "../shared/healthPolling";
 import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
-import { primaryAgentOrgId, sessionIsAgentViewerOnly } from "./org";
+import { primaryAgentOrgId } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 import { prefetchAgentRoute } from "./prefetchRoutes";
 
@@ -137,7 +140,6 @@ export function AgentShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const readOnly = sessionIsAgentViewerOnly(session);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -150,6 +152,7 @@ export function AgentShell({
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  useConditionAlerts(session, refreshAgentAlerts, clearAgentAlerts, alertsOpen);
   const agentOrgId = useMemo(() => primaryAgentOrgId(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekAgentOrgs());
   const homeOrg = useMemo(
@@ -273,6 +276,9 @@ export function AgentShell({
           prefetch={prefetchAgentRoute}
           navRef={navRef}
         />
+        <div className="sidebar-foot">
+          <SidebarRoleCard session={session} portal="agent" collapsed={navCollapsed} />
+        </div>
       </aside>
       <div className="main">
         <header className="topbar topbar--chrome">
@@ -311,17 +317,11 @@ export function AgentShell({
           />
           <div className="body">
             {onSessionRefresh ? (
-              <VerifyContactBanner
+              <OrgSetupModalHost
                 session={session}
                 onSession={onSessionRefresh}
                 portal="agent"
               />
-            ) : null}
-            {readOnly ? (
-              <div className="banner banner-warn" style={{ marginBottom: 16 }}>
-                Read-only mode — Viewer accounts cannot onboard merchants or change
-                settings.
-              </div>
             ) : null}
             {children}
           </div>

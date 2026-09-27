@@ -1254,6 +1254,31 @@ export type MerchantCommercialSettings = {
   nextInvoiceOn?: string | null;
 };
 
+export type EnterpriseRateApproval = {
+  id: string;
+  orgId: string;
+  merchantName: string | null;
+  requestedTier: string;
+  requestedVolumeFeePercent: string;
+  status: "pending" | "approved" | "denied";
+  createdAt: string;
+};
+
+export async function listEnterpriseRateApprovals(
+  status: "pending" | "approved" | "denied" = "pending",
+): Promise<EnterpriseRateApproval[]> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/enterprise-rate-approvals?status=${status}&limit=50`,
+    {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    },
+  );
+  if (!res.ok) await parseError(res);
+  const data = (await res.json()) as { items?: EnterpriseRateApproval[] };
+  return data.items ?? [];
+}
+
 export async function getMerchantCommercial(
   orgId: string,
 ): Promise<MerchantCommercialSettings> {

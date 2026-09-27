@@ -1,4 +1,5 @@
 import type { CommissionStatementRow } from "./commissionStatements";
+import { apiFetch } from "../auth/apiFetch";
 import {
   agentRoute,
   platformRoute,
@@ -92,7 +93,7 @@ export async function listCommissionPayouts(filter?: {
   if (filter?.limit != null) q.set("limit", String(filter.limit));
   if (filter?.offset != null) q.set("offset", String(filter.offset));
   const suffix = q.toString() ? `?${q}` : "";
-  const res = await fetch(`${API_BASE}/commission-payouts${suffix}`, {
+  const res = await apiFetch(`${API_BASE}/commission-payouts${suffix}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -125,7 +126,7 @@ export async function generateCommissionInvoices(periodKey?: string): Promise<{
   created: CommissionPayoutRecord[];
   skipped: { payeeOrgId: string; payeeName: string; reason: string }[];
 }> {
-  const res = await fetch(`${API_BASE}/commission-payouts/generate`, {
+  const res = await apiFetch(`${API_BASE}/commission-payouts/generate`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -146,7 +147,7 @@ export async function generateCommissionInvoices(periodKey?: string): Promise<{
 export async function getCommissionPayout(
   id: string,
 ): Promise<CommissionPayoutRecord | null> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/commission-payouts/${encodeURIComponent(id)}`,
     {
       credentials: "include",
@@ -162,7 +163,7 @@ export async function markCommissionPayoutPaid(
   id: string,
   opts?: { txRef?: string | null; note?: string | null },
 ): Promise<CommissionPayoutRecord | null> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/commission-payouts/${encodeURIComponent(id)}/mark-paid`,
     {
       method: "POST",
@@ -189,7 +190,7 @@ export async function markCommissionPayoutsPaidBatch(
   paid: CommissionPayoutRecord[];
   failed: { id: string; code: string; message: string }[];
 }> {
-  const res = await fetch(`${API_BASE}/commission-payouts/mark-paid-batch`, {
+  const res = await apiFetch(`${API_BASE}/commission-payouts/mark-paid-batch`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -212,7 +213,7 @@ export async function markCommissionPayoutsPaidBatch(
 export async function agentConfirmCommissionPayout(
   id: string,
 ): Promise<CommissionPayoutRecord | null> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/commission-payouts/${encodeURIComponent(id)}/agent-confirm`,
     {
       method: "POST",

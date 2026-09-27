@@ -428,9 +428,6 @@ export function FeeTiersSettingsPage({ session }: Props) {
       <header className="plat-fees__head">
         <div className="plat-fees__head-main">
           <h1 className="plat-fees__title">Fees</h1>
-          {!canEdit ? (
-            <span className="plat-fees__readonly-chip">Viewer · read-only</span>
-          ) : null}
         </div>
         <p className="plat-fees__subtitle">
           Volume schedule, platform fee wallet, and billing calendar.

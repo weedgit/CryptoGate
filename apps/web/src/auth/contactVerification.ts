@@ -42,6 +42,15 @@ export function sessionNeedsContactVerification(session: Session): boolean {
   return sessionNeedsOrgSetup(session);
 }
 
+/** Query flag that opens the Finish-setup modal on any portal page. */
+export const SETUP_QUERY_PARAM = "setup";
+
+/** Link target for the "Finish setup" dock alert (portal home + flag). */
+export function setupAlertHref(portal: "agent" | "merchant"): string {
+  const home = portal === "agent" ? agentRoute() : merchantRoute();
+  return `${home}?${SETUP_QUERY_PARAM}=1`;
+}
+
 export const LIVE_ACTION_LOCKED_HINT =
   "Finish account setup (email, phone, name, org profile, and wallet) before this action";
 
@@ -84,7 +93,7 @@ function walletDone(session: Session): boolean {
   return session.walletSet !== false;
 }
 
-/** Discrete setup steps for banner / settings checklist (agent vs merchant). */
+/** Discrete setup steps for the setup modal / settings checklist (agent vs merchant). */
 export function setupChecklistItems(
   session: Session,
   portal: "agent" | "merchant",
@@ -141,7 +150,7 @@ export function setupChecklistItems(
   ];
 }
 
-/** Human-readable incomplete parts for the shell banner. */
+/** Human-readable incomplete parts for the setup dock alert. */
 export function missingSetupPartsLabel(
   session: Session,
   portal: "agent" | "merchant",

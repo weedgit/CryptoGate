@@ -4,6 +4,7 @@ import { AuthToast } from "../auth/AuthToast";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
 import { PagePending } from "../platform/ui/PlatformPending";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
+import { DashKpiCard } from "../platform/ui/DashKpiCard";
 import { displayNetworkForPair } from "../shared/assetNetworks";
 import { StatusBadge } from "../shared/StatusBadge";
 import { FieldControl } from "../ui/FieldControl";
@@ -163,8 +164,8 @@ export function ReportsPage({ session }: Props) {
   );
 
   useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
-    setTopbarCenterSlot(document.getElementById("merchant-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
+    setTopbarCenterSlot(document.getElementById("platform-topbar-center"));
   }, []);
 
   useEffect(() => {
@@ -277,7 +278,7 @@ export function ReportsPage({ session }: Props) {
   }
 
   return (
-    <div className="dash-page plat-dash reports-page merchant-reports">
+    <div className="dash-page plat-dash pg-dash reports-page merchant-reports">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       {topbarCenterSlot
@@ -352,138 +353,34 @@ export function ReportsPage({ session }: Props) {
         <PagePending />
       ) : (
         <>
-          <div className="merchant-reports__kpis">
-            <article className="merchant-reports__kpi merchant-reports__kpi--volume">
-              <span className="merchant-reports__kpi-index" aria-hidden>
-                1
-              </span>
-              <div className="merchant-reports__kpi-top">
-                <span className="merchant-reports__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
-                    <path
-                      d="M3.5 14.5 8 10l3 3 5.5-6.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M13.5 6.5H17v3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+          <div className="pg-dash__status-row merchant-dash__status-row--four">
+            <DashKpiCard
+              accent="violet"
+              label="Completed volume"
+              value={
+                <span className="pg-kpi__money">
+                  $<AnimatedMetric value={completedVolume} decimals={2} />
                 </span>
-                <span className="merchant-reports__kpi-label">
-                  Completed volume
-                </span>
-              </div>
-              <p className="merchant-reports__kpi-value merchant-reports__kpi-value--fund">
-                <AnimatedMetric
-                  value={completedVolume}
-                  decimals={2}
-                  className="merchant-reports__kpi-amount"
-                />
-                <span className="merchant-reports__kpi-unit">USD</span>
-              </p>
-            </article>
-
-            <article className="merchant-reports__kpi merchant-reports__kpi--orders">
-              <span className="merchant-reports__kpi-index" aria-hidden>
-                2
-              </span>
-              <div className="merchant-reports__kpi-top">
-                <span className="merchant-reports__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
-                    <rect
-                      x="3.5"
-                      y="4.5"
-                      width="13"
-                      height="11"
-                      rx="2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M6.5 8.5h7M6.5 11.5h4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <span className="merchant-reports__kpi-label">
-                  Orders in range
-                </span>
-              </div>
-              <p className="merchant-reports__kpi-value">
-                <AnimatedMetric value={orderCount} />
-              </p>
-            </article>
-
-            <article
-              className={`merchant-reports__kpi merchant-reports__kpi--anomaly${
-                anomalyCount > 0 ? " is-alert" : ""
-              }`}
-            >
-              <span className="merchant-reports__kpi-index" aria-hidden>
-                3
-              </span>
-              <div className="merchant-reports__kpi-top">
-                <span className="merchant-reports__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
-                    <path
-                      d="M10 3.8 17.2 16H2.8L10 3.8Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M10 8.2v3.6M10 14.2h.01"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <span className="merchant-reports__kpi-label">Attention</span>
-              </div>
-              <p className="merchant-reports__kpi-value">
-                <AnimatedMetric value={anomalyCount} />
-              </p>
-            </article>
-
-            <article className="merchant-reports__kpi merchant-reports__kpi--window">
-              <span className="merchant-reports__kpi-index" aria-hidden>
-                4
-              </span>
-              <div className="merchant-reports__kpi-top">
-                <span className="merchant-reports__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="6.5"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M10 6.5V10l2.5 1.8"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span className="merchant-reports__kpi-label">Date window</span>
-              </div>
-              <p className="merchant-reports__kpi-value">
-                {presetWindowLabel(preset)}
-              </p>
-            </article>
+              }
+              hint="Settled orders in range"
+            />
+            <DashKpiCard
+              accent="gold"
+              label="Orders in range"
+              value={<AnimatedMetric value={orderCount} />}
+              hint="All statuses"
+            />
+            <DashKpiCard
+              accent={anomalyCount > 0 ? "danger" : "ok"}
+              label="Attention"
+              value={<AnimatedMetric value={anomalyCount} />}
+              hint={anomalyCount > 0 ? "Needs review" : "All clear"}
+            />
+            <DashKpiCard
+              accent="slate"
+              label="Date window"
+              value={presetWindowLabel(preset)}
+            />
           </div>
 
           <div className="merchant-reports__grid">

@@ -17,7 +17,6 @@ import { PagePending } from "./ui/PlatformPending";
 import { SystemHealthPage, type WatcherLoadFn } from "./SystemHealthPage";
 import {
   sessionCanManagePlatform,
-  sessionIsPlatformViewerOnly,
 } from "./org";
 import { computeOrderabilityLamp } from "../shared/networkLamp";
 
@@ -94,7 +93,6 @@ function patchCatalogCard(
 /** B16 — Network rail controls + B17 watcher table (no duplicated health). */
 export function NetworkCatalogPage({ session }: Props) {
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
-  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [catalog, setCatalog] = useState<NetworkCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [watcherLoading, setWatcherLoading] = useState(false);
@@ -419,13 +417,6 @@ export function NetworkCatalogPage({ session }: Props) {
             topbarActionsSlot,
           )
         : null}
-
-      {readOnly ? (
-        <div className="banner banner-warn" style={{ marginBottom: 16 }}>
-          Viewer — rail settings and maintenance are read-only. Contact a Platform
-          Owner or Administrator to change them.
-        </div>
-      ) : null}
 
       <section className="plat-network-settings">
         <header className="plat-network-settings__head">

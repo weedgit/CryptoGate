@@ -42,33 +42,48 @@ describe("contact / org setup UI", () => {
     assert.match(integrations, /canWrite/);
   });
 
-  it("shows setup and activation banners on merchant shell", () => {
+  it("moves setup and activation to dock alerts (no shell banners)", () => {
     const merchant = readFileSync(
       join(root, "src/merchant/MerchantShell.tsx"),
       "utf8",
     );
     const agent = readFileSync(join(root, "src/agent/AgentShell.tsx"), "utf8");
-    assert.match(merchant, /VerifyContactBanner/);
-    assert.match(merchant, /ActivationPaymentBanner/);
+    assert.doesNotMatch(merchant, /VerifyContactBanner|ActivationPaymentBanner/);
+    assert.doesNotMatch(agent, /VerifyContactBanner/);
+    assert.match(merchant, /OrgSetupModalHost/);
     assert.match(merchant, /portal="merchant"/);
-    assert.match(agent, /VerifyContactBanner/);
+    assert.match(agent, /OrgSetupModalHost/);
     assert.match(agent, /portal="agent"/);
-    const banner = readFileSync(
-      join(root, "src/auth/VerifyContactBanner.tsx"),
+    const host = readFileSync(
+      join(root, "src/auth/OrgSetupModalHost.tsx"),
       "utf8",
     );
-    assert.match(banner, /Watch-only/);
+    assert.match(host, /SETUP_QUERY_PARAM/);
+    const verification = readFileSync(
+      join(root, "src/auth/contactVerification.ts"),
+      "utf8",
+    );
+    assert.match(verification, /export function setupAlertHref/);
     const checklist = readFileSync(
       join(root, "src/auth/SetupChecklistCard.tsx"),
       "utf8",
     );
     assert.match(checklist, /Watch-only/);
-    const activation = readFileSync(
-      join(root, "src/merchant/ActivationPaymentBanner.tsx"),
+    const alerts = readFileSync(
+      join(root, "src/merchant/merchantAlerts.ts"),
       "utf8",
     );
-    assert.match(activation, /Watch-only/);
-    assert.match(activation, /Pay activation/);
-    assert.match(activation, /openCheckout/);
+    assert.match(alerts, /Watch-only until setup is complete/);
+    assert.match(alerts, /Pay activation fee/);
+    assert.match(alerts, /OPEN_ACTIVATION_QUERY/);
+    assert.match(alerts, /setup:/);
+    assert.match(alerts, /activation:/);
+    const agentAlerts = readFileSync(join(root, "src/agent/agentAlerts.ts"), "utf8");
+    assert.match(agentAlerts, /setupAlertHref\("agent"\)/);
+    const bills = readFileSync(
+      join(root, "src/merchant/MerchantBillingPlanCard.tsx"),
+      "utf8",
+    );
+    assert.doesNotMatch(bills, /plat-bills__activation-callout/);
   });
 });

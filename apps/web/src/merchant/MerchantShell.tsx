@@ -1,12 +1,11 @@
 import {
-  type ComponentType,
   type ReactNode,
+  type WheelEvent as ReactWheelEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { NavLink, useLocation, useMatch } from "react-router-dom";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
@@ -14,22 +13,27 @@ import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
+import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
 import { setViewerTimeZone } from "../shared/dateTime";
-import { CashierRestrictedBanner } from "./CashierRestrictedBanner";
-import { ActivationPaymentBanner } from "./ActivationPaymentBanner";
-import { VerifyContactBanner } from "../auth/VerifyContactBanner";
+import { OrgSetupModalHost } from "../auth/OrgSetupModalHost";
+import {
+  DashboardNavIcon,
+  FeesNavIcon,
+  NetworkNavIcon,
+  ServiceBillsNavIcon,
+  SidebarCollapseIcon,
+  TeamNavIcon,
+} from "../platform/NavIcons";
 import {
   AlertsNavIcon,
-  BillsNavIcon,
-  DashboardNavIcon,
   IntegrationsNavIcon,
   OrdersNavIcon,
   ReportsNavIcon,
   SettlementNavIcon,
   SitesNavIcon,
-  TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { SidebarRoleCard } from "../shared/SidebarRoleCard";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import {
@@ -51,23 +55,11 @@ import { prefetchMerchantRoute } from "./prefetchRoutes";
 import { merchantRoute } from "../shared/portalRouting";
 import type { OrgAccount, Session } from "./api";
 
-type NavItem = {
-  to: string;
-  label: string;
-  end?: boolean;
-  matchPrefix?: string;
-  exclude?: string;
-  Icon: ComponentType<{ className?: string }>;
-};
+const SIDEBAR_KEY = "paymentgate.merchant.sidebarCollapsed";
 
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
-
-const OWNER_GROUPS: NavGroup[] = [
+const OWNER_GROUPS: PortalNavGroup[] = [
   {
-    label: "Portal controls",
+    label: "Core systems",
     items: [
       { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
       {
@@ -86,7 +78,7 @@ const OWNER_GROUPS: NavGroup[] = [
         to: merchantRoute("service-bills"),
         label: "Service Bills",
         matchPrefix: merchantRoute("service-bills"),
-        Icon: BillsNavIcon,
+        Icon: ServiceBillsNavIcon,
       },
       {
         to: merchantRoute("reports"),
@@ -94,11 +86,16 @@ const OWNER_GROUPS: NavGroup[] = [
         matchPrefix: merchantRoute("reports"),
         Icon: ReportsNavIcon,
       },
+    ],
+  },
+  {
+    label: "Organization",
+    items: [
       {
         to: merchantRoute("networks"),
         label: "Networks",
         matchPrefix: merchantRoute("networks"),
-        Icon: IntegrationsNavIcon,
+        Icon: NetworkNavIcon,
       },
       {
         to: merchantRoute("settings/settlement"),
@@ -112,11 +109,6 @@ const OWNER_GROUPS: NavGroup[] = [
         matchPrefix: merchantRoute("settings/team"),
         Icon: TeamNavIcon,
       },
-    ],
-  },
-  {
-    label: "Settings",
-    items: [
       {
         to: merchantRoute("settings/integrations"),
         label: "Integrations",
@@ -133,13 +125,13 @@ const OWNER_GROUPS: NavGroup[] = [
         to: merchantRoute("settings/pricing"),
         label: "Pricing",
         matchPrefix: merchantRoute("settings/pricing"),
-        Icon: SettlementNavIcon,
+        Icon: FeesNavIcon,
       },
     ],
   },
 ];
 
-const CASHIER_GROUPS: NavGroup[] = [
+const CASHIER_GROUPS: PortalNavGroup[] = [
   {
     label: "Cashier terminal",
     items: [
@@ -147,14 +139,15 @@ const CASHIER_GROUPS: NavGroup[] = [
       {
         to: merchantRoute("orders"),
         label: "Invoice",
-        matchPrefix: merchantRoute("orders"),
-        exclude: merchantRoute("orders/new"),
+        exactActive: true,
         Icon: OrdersNavIcon,
-      },
-      {
-        to: merchantRoute("orders/new"),
-        label: "Create invoice",
-        Icon: OrdersNavIcon,
+        children: [
+          {
+            to: merchantRoute("orders/new"),
+            label: "Create invoice",
+            matchPrefix: merchantRoute("orders/new"),
+          },
+        ],
       },
     ],
   },
@@ -167,32 +160,12 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
 };
 
-function navPrefetchKey(item: NavItem): string {
-  return item.to.replace(/^\//, "");
-}
-
-function navItemClass(
-  pathname: string,
-  item: NavItem,
-  isActive: boolean,
-): string {
-  const prefixActive =
-    item.matchPrefix != null &&
-    pathname.startsWith(item.matchPrefix) &&
-    !(item.exclude && pathname.startsWith(item.exclude));
-  const active = isActive || prefixActive;
-  return `nav-item${active ? " active" : ""}`;
-}
-
 export function MerchantShell({
   session,
   children,
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const location = useLocation();
-  const onOrdersNew = useMatch({ path: merchantRoute("orders/new"), end: true });
-  const showCashierBanner = sessionIsCashierOnly(session) && Boolean(onOrdersNew);
   const cashier = sessionIsCashierOnly(session);
   const merchantId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
@@ -216,11 +189,22 @@ export function MerchantShell({
     }
     return OWNER_GROUPS;
   }, [cashier, locationKind]);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const mainRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const { mobileNavOpen, closeMobileNav, toggleMobileNav } =
+  const { mobileNavOpen, isTabletOrBelow, closeMobileNav, toggleMobileNav } =
     usePortalMobileNav();
+  /** Drawer must show labels even if desktop preference is collapsed. */
+  const navCollapsed = collapsed && !isTabletOrBelow;
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => setShellEnter(true));
@@ -230,6 +214,35 @@ export function MerchantShell({
   useEffect(() => {
     setViewerTimeZone(session.timezone);
   }, [session.timezone]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
+
+  /** Keep sidebar chrome fixed — wheel over aside scrolls the main pane instead. */
+  const onSidebarWheel = (e: ReactWheelEvent<HTMLElement>) => {
+    const nav = navRef.current;
+    const main = mainRef.current;
+    if (!main) return;
+
+    if (nav) {
+      const canUp = nav.scrollTop > 0;
+      const canDown = nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1;
+      const scrollingDown = e.deltaY > 0;
+      const scrollingUp = e.deltaY < 0;
+      const overNav = nav.contains(e.target as Node);
+      if (overNav && ((scrollingDown && canDown) || (scrollingUp && canUp))) {
+        return;
+      }
+    }
+
+    main.scrollTop += e.deltaY;
+    e.preventDefault();
+  };
 
   useEffect(() => {
     initMerchantAlertReads(session.email);
@@ -274,9 +287,17 @@ export function MerchantShell({
     void refreshMerchantAlerts(sessionRef.current);
   }, [alertsOpen]);
 
+  const setupKey = `${session.setupReady}:${session.activationPaid}:${session.contactVerified}:${session.walletSet}:${session.personComplete}:${session.profileComplete}`;
+  useEffect(() => {
+    void refreshMerchantAlerts(sessionRef.current);
+  }, [setupKey]);
+
+  const brandName = homeOrg?.name ?? (cashier ? "Cashier" : "Merchant");
+  const tagline = cashier ? "Cashier terminal" : "Merchant portal";
+
   return (
     <div
-      className={`shell merchant-shell platform-shell${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
+      className={`shell merchant-shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
       <button
         type="button"
@@ -285,22 +306,23 @@ export function MerchantShell({
         tabIndex={mobileNavOpen ? 0 : -1}
         onClick={closeMobileNav}
       />
-      <aside id="portal-sidebar" className="sidebar" aria-label="Merchant navigation">
+      <aside
+        id="portal-sidebar"
+        className="sidebar"
+        aria-label="Merchant navigation"
+        onWheel={onSidebarWheel}
+      >
         <div className="logo-row">
           <OrgBrandMark
-            name={homeOrg?.name ?? (cashier ? "Cashier" : "Merchant")}
+            name={brandName}
             iconKey={homeOrg?.iconKey}
-            size={32}
+            size={64}
             className="logo-mark"
           />
-          <div className="logo-copy">
-            <p className="logo-title">
-              {homeOrg?.name ?? (cashier ? "Cashier" : "Merchant")}
-            </p>
-            <div className="logo-badges">
-              <span className="logo-badge">
-                {cashier ? "Cashier" : "Merchant"}
-              </span>
+          {!navCollapsed ? (
+            <div className="logo-copy">
+              <p className="logo-title">{brandName}</p>
+              <span className="logo-tagline">{tagline}</span>
               {locationKind === "site" ? (
                 <span
                   className="logo-badge logo-badge--location"
@@ -310,77 +332,78 @@ export function MerchantShell({
                 </span>
               ) : null}
             </div>
-          </div>
+          ) : null}
+          <button
+            type="button"
+            className="sidebar-toggle sidebar-toggle--rail"
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!navCollapsed}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            <SidebarCollapseIcon
+              className="sidebar-toggle-icon"
+              expanded={!navCollapsed}
+            />
+          </button>
         </div>
-        <nav className="nav-list" aria-label="Merchant">
-          {groups.map((group) => (
-            <div key={group.label} className="nav-group">
-              <p className="nav-label">{group.label}</p>
-              {group.items.map((item) => {
-                const { Icon } = item;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end ?? false}
-                    className={({ isActive }) =>
-                      navItemClass(location.pathname, item, isActive)
-                    }
-                    onMouseEnter={() =>
-                      prefetchMerchantRoute(navPrefetchKey(item))
-                    }
-                    onFocus={() => prefetchMerchantRoute(navPrefetchKey(item))}
-                  >
-                    <Icon />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <PortalNav
+          groups={groups}
+          collapsed={navCollapsed}
+          ariaLabel="Merchant"
+          prefetch={prefetchMerchantRoute}
+          navRef={navRef}
+        />
         <div className="sidebar-foot">
-          <SidebarProfileMenu
-            session={session}
-            variant="merchant"
-            onSignOut={onSignOut}
-            onSessionRefresh={onSessionRefresh}
-          />
+          <SidebarRoleCard session={session} portal="merchant" collapsed={navCollapsed} />
         </div>
       </aside>
       <div className="main">
-        <header className="topbar">
+        <header className="topbar topbar--chrome">
           <div className="topbar-left">
             <MobileNavToggle open={mobileNavOpen} onToggle={toggleMobileNav} />
-            <ServerConnectionStatus />
+            <div className="topbar-leading" id="platform-topbar-leading" />
           </div>
-          <div className="topbar-center" id="merchant-topbar-center" />
-          <div className="topbar-right">
+          <div className="topbar-center">
             <TopbarSearch placeholder="Search orders…" />
-            <div className="topbar-actions" id="merchant-topbar-actions" />
-            <ThemeToggleButton />
-            <AlertsBellButton
-              open={alertsOpen}
-              unreadCount={unreadAlerts}
-              onOpen={() => setAlertsOpen(true)}
+            <div className="topbar-center-slot" id="platform-topbar-center" />
+          </div>
+          <div className="topbar-right">
+            <div className="topbar-actions" id="platform-topbar-actions" />
+            <div className="topbar-utils" role="group" aria-label="Utilities">
+              <ServerConnectionStatus />
+              <AlertsBellButton
+                open={alertsOpen}
+                unreadCount={unreadAlerts}
+                onOpen={() => setAlertsOpen(true)}
+              />
+              <ThemeToggleButton />
+            </div>
+            <span className="topbar-divider" aria-hidden />
+            <SidebarProfileMenu
+              session={session}
+              variant="merchant"
+              placement="topbar"
+              onSignOut={onSignOut}
+              onSessionRefresh={onSessionRefresh}
             />
           </div>
         </header>
-        <UnresolvedAlertsBanner
-          source={merchantAlertsSource}
-          onOpenAlerts={() => setAlertsOpen(true)}
-        />
-        <div className="body">
-          {onSessionRefresh ? (
-            <VerifyContactBanner
-              session={session}
-              onSession={onSessionRefresh}
-              portal="merchant"
-            />
-          ) : null}
-          <ActivationPaymentBanner session={session} />
-          {cashier && showCashierBanner ? <CashierRestrictedBanner /> : null}
-          {children}
+        <div className="main__scroll" ref={mainRef}>
+          <UnresolvedAlertsBanner
+            source={merchantAlertsSource}
+            onOpenAlerts={() => setAlertsOpen(true)}
+          />
+          <div className="body">
+            {onSessionRefresh ? (
+              <OrgSetupModalHost
+                session={session}
+                onSession={onSessionRefresh}
+                portal="merchant"
+              />
+            ) : null}
+            {children}
+          </div>
         </div>
       </div>
       <AlertsDrawer

@@ -76,7 +76,9 @@ export function upsertPlatformAlert(alert: AlertItem): void {
   const next = withNormalizedHref(alert);
   const i = LIVE_ALERTS.findIndex((a) => a.id === next.id);
   if (i >= 0) {
-    LIVE_ALERTS[i] = { ...LIVE_ALERTS[i], ...next, unread: true };
+    const prev = LIVE_ALERTS[i];
+    const changed = prev.title !== next.title || prev.body !== next.body;
+    LIVE_ALERTS[i] = { ...prev, ...next, unread: changed || prev.unread !== false };
   } else {
     LIVE_ALERTS.unshift(next);
   }

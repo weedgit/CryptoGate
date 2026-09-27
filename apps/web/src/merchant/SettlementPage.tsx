@@ -427,28 +427,25 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
       />
 
       {cooldownBanner ? (
-        <aside className="plat-settlement__banner" role="status">
-          <div className="plat-settlement__banner-copy">
-            <strong>Settlement cool-down active</strong>
-            <p>
-              Pending{" "}
-              <code className="mono">
-                {truncateAddress(
-                  cooldownBanner.pendingAddress ?? cooldownBanner.address,
-                  10,
-                  8,
-                )}
-              </code>
-              . New orders still use the active address until cool-down ends.
-            </p>
-          </div>
-          <div className="plat-settlement__banner-timer" aria-label="Time remaining">
-            <span className="plat-settlement__banner-timer-label">Activates in</span>
-            <span className="plat-settlement__banner-timer-value">
-              {formatCountdown(cooldownBanner.pendingActivatesAt) ?? "waiting"}
-            </span>
-          </div>
-        </aside>
+        <p
+          className="plat-settlement__cooldown-chip"
+          role="status"
+          title="New orders still use the active address until cool-down ends."
+        >
+          <span className="plat-settlement__cooldown-dot" aria-hidden />
+          Cool-down ·{" "}
+          <code className="mono">
+            {truncateAddress(
+              cooldownBanner.pendingAddress ?? cooldownBanner.address,
+              6,
+              4,
+            )}
+          </code>{" "}
+          activates in{" "}
+          <strong>
+            {formatCountdown(cooldownBanner.pendingActivatesAt) ?? "a moment"}
+          </strong>
+        </p>
       ) : null}
 
       {readOnly || fulfillmentReadOnly ? (
@@ -459,12 +456,6 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
         </p>
       ) : null}
 
-      {!readOnly && !canEditSettlement ? (
-        <p className="plat-settings__notice" role="status">
-          Settlement wallet, matching mode, and xPub can only be changed by the
-          merchant Owner. Administrators have view access.
-        </p>
-      ) : null}
 
       <div className="plat-settlement__layout">
         <section className="plat-settings__card plat-settlement__card plat-settlement__card--addresses">
@@ -483,6 +474,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
             </div>
           </div>
           <div className="plat-settings__card-body">
+            {!writeLocked ? (
             <form className="plat-settings__payout-form plat-settlement__form" onSubmit={onSaveAddress}>
               <div className="plat-settlement__field-row">
                 <label className="plat-settings__field" htmlFor="settlement-asset">
@@ -552,6 +544,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                 </button>
               </div>
             </form>
+            ) : null}
 
             <div className="plat-settlement__address-table">
               <h3 className="plat-settlement__form-title">Wallet addresses</h3>
@@ -754,6 +747,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                   </div>
                 </>
               ) : null}
+              {!writeLocked ? (
               <div className="plat-settlement__form-actions">
                 <button
                   type="button"
@@ -770,6 +764,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                   Save matching mode
                 </button>
               </div>
+              ) : null}
             </form>
 
             {draftMode === "S" ? (
@@ -843,6 +838,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                   )}
                 </div>
 
+                {!writeLocked ? (
                 <form
                   className="plat-settings__payout-form plat-settlement__form plat-settlement__form--pool"
                   onSubmit={onSaveXpub}
@@ -923,6 +919,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
                     </button>
                   </div>
                 </form>
+                ) : null}
               </div>
             ) : null}
           </div>

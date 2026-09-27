@@ -4,6 +4,7 @@ import { PortalShellBoot } from "./auth/PortalShellBoot";
 import "./styles/loading.css";
 import { lazyNamed } from "./shared/lazyNamed";
 import { RouteErrorBoundary } from "./shared/RouteErrorBoundary";
+import { ToastHost } from "./shared/ToastHost";
 import { merchantRoute, portalFromHostname } from "./shared/portalRouting";
 
 const PlatformApp = lazyNamed(
@@ -50,6 +51,7 @@ export function App() {
           <LegacyPortalRoutes />
         )}
       </Suspense>
+      <ToastHost />
     </RouteErrorBoundary>
   );
 }

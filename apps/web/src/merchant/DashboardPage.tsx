@@ -7,8 +7,6 @@ import {
   getNetworksStatus,
   listActiveNetworkMaintenance,
   listOrders,
-  listSettlement,
-  listXpub,
   type ActiveNetworkMaintenance,
   type MerchantCommercialSettings,
   type NetworkOrderabilityLamp,
@@ -16,7 +14,7 @@ import {
   type PaymentOrder,
   type Session,
 } from "./api";
-import { getMerchantOrgs } from "./merchantOrgList";
+import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
 import {
   getDashboardKpis,
   peekDashboardKpis,
@@ -43,6 +41,8 @@ import { computeOrderabilityLamp, pendingOrderabilityLamp, type NetworkLamp } fr
 import { StatusBadge } from "../shared/StatusBadge";
 import { merchantRoute } from "../shared/portalRouting";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { DashKpiCard } from "../platform/ui/DashKpiCard";
 import {
   useDashboardLiveEvents,
   type DashboardLiveSlice,
@@ -98,14 +98,15 @@ export function DashboardPage({ session }: Props) {
   const [recent, setRecent] = useState<PaymentOrder[]>([]);
   const [anomalyOrders, setAnomalyOrders] = useState<PaymentOrder[]>([]);
   const [sites, setSites] = useState<OrgAccount[]>([]);
+  const [homeOrg, setHomeOrg] = useState<OrgAccount | null>(
+    () => peekMerchantOrgs()?.find((o) => o.id === orgId) ?? null,
+  );
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
   );
   const [maintenance, setMaintenance] = useState<ActiveNetworkMaintenance[]>(
     [],
   );
-  const [settlementCooldown, setSettlementCooldown] = useState(0);
-  const [xpubCooldown, setXpubCooldown] = useState(0);
   const [lampByPair, setLampByPair] = useState<Map<
     string,
     NetworkOrderabilityLamp
@@ -129,9 +130,22 @@ export function DashboardPage({ session }: Props) {
     null,
   );
 
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    void getMerchantOrgs()
+      .then((orgs) => {
+        if (!cancelled) setHomeOrg(orgs.find((o) => o.id === orgId) ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
+
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("merchant-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const onPeriodSelect = useCallback((id: DashboardPeriodId) => {
@@ -200,10 +214,8 @@ export function DashboardPage({ session }: Props) {
       void Promise.all([
         getMerchantCommercial(orgId).catch(() => null),
         getMerchantOrgs().catch(() => [] as OrgAccount[]),
-        listSettlement(orgId).catch(() => []),
-        listXpub(orgId).catch(() => []),
       ])
-        .then(([commercialSettings, orgs, settlement, xpubs]) => {
+        .then(([commercialSettings, orgs]) => {
           setCommercial(commercialSettings);
           const root = parentId ?? orgId;
           setSites(
@@ -214,19 +226,11 @@ export function DashboardPage({ session }: Props) {
                 o.id !== root,
             ),
           );
-          setSettlementCooldown(
-            settlement.filter((r) => r.status === "pending_cool_down").length,
-          );
-          setXpubCooldown(
-            xpubs.filter((r) => r.status === "pending_cool_down").length,
-          );
         })
         .catch(() => undefined);
     } else {
       setCommercial(null);
       setSites([]);
-      setSettlementCooldown(0);
-      setXpubCooldown(0);
     }
 
     void listActiveNetworkMaintenance()
@@ -357,64 +361,10 @@ export function DashboardPage({ session }: Props) {
     });
   }, [sites, dashKpis, cashierOnly]);
 
-  const alertItems = useMemo(() => {
-    const rows: Array<{ id: string; tone: "warn" | "danger"; body: string; to?: string }> =
-      [];
-    if (settlementCooldown > 0) {
-      rows.push({
-        id: "settlement-cooldown",
-        tone: "warn",
-        body: `Settlement address cool-down pending (${settlementCooldown}).`,
-        to: merchantRoute("settlement"),
-      });
-    }
-    if (xpubCooldown > 0) {
-      rows.push({
-        id: "xpub-cooldown",
-        tone: "warn",
-        body: `xPub change cool-down pending (${xpubCooldown}).`,
-        to: merchantRoute("settlement"),
-      });
-    }
-    for (const m of maintenance) {
-      rows.push({
-        id: `maint-${m.network}`,
-        tone: "warn",
-        body: `${networkShortLabel(m.network)}: ${
-          m.message?.trim() ||
-          "Deposits paused — network maintenance. New orders on this network are blocked."
-        }${m.endsAt ? ` Until ${new Date(m.endsAt).toLocaleString()}.` : ""}`,
-        to: merchantRoute("networks"),
-      });
-    }
-    if (!cashierOnly && kpis.overdueBills > 0) {
-      rows.push({
-        id: "overdue-bills",
-        tone: "danger",
-        body: `${kpis.overdueBills} overdue service bill${kpis.overdueBills === 1 ? "" : "s"} — pay platform fees promptly.`,
-        to: merchantRoute("service-bills"),
-      });
-    }
-    if (kpis.anomalies > 0) {
-      rows.push({
-        id: "anomalies",
-        tone: "danger",
-        body: `${kpis.anomalies} invoice${kpis.anomalies === 1 ? "" : "s"} need Attention — Resolve with a note (no Mark paid).`,
-        to: merchantRoute("orders"),
-      });
-    }
-    return rows;
-  }, [
-    settlementCooldown,
-    xpubCooldown,
-    maintenance,
-    cashierOnly,
-    kpis.overdueBills,
-    kpis.anomalies,
-  ]);
+  const brandName = homeOrg?.name ?? (cashierOnly ? "Cashier" : "Merchant");
 
   return (
-    <div className="dash-page plat-dash merchant-dash">
+    <div className="dash-page plat-dash pg-dash merchant-dash">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       {topbarActionsSlot
@@ -498,233 +448,100 @@ export function DashboardPage({ session }: Props) {
           )
         : null}
 
-      {alertItems.length > 0 ? (
-        <div className="merchant-dash__alerts" role="region" aria-label="Alerts">
-          {alertItems.map((a) => (
-            <div
-              key={a.id}
-              className={`merchant-dash__alert merchant-dash__alert--${a.tone}`}
-              role="status"
-            >
-              <p>{a.body}</p>
-              {a.to ? (
-                <Link className="merchant-dash__alert-link" to={a.to}>
-                  Open
-                </Link>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {loading && !hasLoaded ? (
-        <p className="muted">Loading KPIs…</p>
-      ) : (
-        <div
-          className={`merchant-dash__kpis${
-            cashierOnly ? " merchant-dash__kpis--cashier" : ""
-          }`}
-        >
-          <article className="merchant-dash__kpi merchant-dash__kpi--volume">
-            <span className="merchant-dash__kpi-index" aria-hidden>
-              1
-            </span>
-            <div className="merchant-dash__kpi-top">
-              <span className="merchant-dash__kpi-icon" aria-hidden>
-                <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
-                  <path
-                    d="M3.5 14.5 8 10l3 3 5.5-6.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M13.5 6.5H17v3.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              <span className="merchant-dash__kpi-label">Completed volume</span>
-            </div>
-            <p className="merchant-dash__kpi-value merchant-dash__kpi-value--fund">
-              <AnimatedMetric
-                value={kpis.volume}
-                decimals={2}
-                className="merchant-dash__kpi-amount"
-              />
-              <span className="merchant-dash__kpi-unit">USD</span>
-            </p>
-            <p className="merchant-dash__kpi-foot">
-              <span className="merchant-dash__kpi-pill">
-                <AnimatedMetric value={kpis.completedCount} /> settled
-              </span>
-              <span>{activePeriodLabel}</span>
-            </p>
-          </article>
-
-          {!cashierOnly ? (
-            <article className="merchant-dash__kpi merchant-dash__kpi--fee">
-              <span className="merchant-dash__kpi-index" aria-hidden>
-                2
-              </span>
-              <div className="merchant-dash__kpi-top">
-                <span className="merchant-dash__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="6.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    />
-                    <path
-                      d="M10 6.5v7M8 8.2c.5-.7 1.2-1 2-1 1.2 0 2 .6 2 1.6s-.8 1.5-2 1.5-2 .5-2 1.5.9 1.6 2 1.6c.8 0 1.5-.3 2-1"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <span className="merchant-dash__kpi-label">Platform fee</span>
-              </div>
-              <p className="merchant-dash__kpi-value merchant-dash__kpi-value--fund">
-                <AnimatedMetric
-                  value={kpis.platformFee}
-                  decimals={2}
-                  className="merchant-dash__kpi-amount"
-                />
-                <span className="merchant-dash__kpi-unit">USD</span>
+      <header className="pg-dash__hero">
+        <div className="pg-dash__hero-top">
+          <div className="pg-dash__hero-brand">
+            <OrgBrandMark
+              name={brandName}
+              iconKey={homeOrg?.iconKey}
+              size={88}
+              className="merchant-dash__hero-mark"
+            />
+            <div className="pg-dash__hero-copy">
+              <p className="pg-dash__eyebrow">
+                {cashierOnly ? "Cashier terminal" : "Merchant"}
               </p>
-              <p className="merchant-dash__kpi-foot">
-                <span className="merchant-dash__kpi-pill">
-                  {commercial?.volumeFeePercent ?? "—"}% rate
-                </span>
-                <span>Est. · {activePeriodLabel}</span>
-              </p>
-            </article>
-          ) : null}
-
-          {!cashierOnly ? (
-            <article className="merchant-dash__kpi merchant-dash__kpi--tier">
-              <span className="merchant-dash__kpi-index" aria-hidden>
-                3
-              </span>
-              <div className="merchant-dash__kpi-top">
-                <span className="merchant-dash__kpi-icon" aria-hidden>
-                  <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
-                    <path
-                      d="M4 14.5 10 4.5l6 10H4Z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M7.2 11.5h5.6"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <span className="merchant-dash__kpi-label">Tier</span>
-              </div>
-              <p className="merchant-dash__kpi-value">
-                {tierLabel(commercial?.tier)}
-              </p>
-              <p className="merchant-dash__kpi-foot">
-                <span className="merchant-dash__kpi-pill">Volume fee</span>
-                <span>{commercial?.volumeFeePercent ?? "—"}% effective</span>
-              </p>
-            </article>
-          ) : null}
-
-          <article className="merchant-dash__kpi merchant-dash__kpi--open">
-            <span className="merchant-dash__kpi-index" aria-hidden>
-              {cashierOnly ? 2 : 4}
-            </span>
-            <div className="merchant-dash__kpi-top">
-              <span className="merchant-dash__kpi-icon" aria-hidden>
-                <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r="6.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path
-                    d="M10 6.8V10l2.2 2.2"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              <span className="merchant-dash__kpi-label">Open orders</span>
-            </div>
-            <p className="merchant-dash__kpi-value">
-              <AnimatedMetric value={kpis.openWork} />
-            </p>
-            <p className="merchant-dash__kpi-foot">
-              <span className="merchant-dash__kpi-pill">Live queue</span>
-              <span>Pending + verifying</span>
-            </p>
-          </article>
-
-          <article
-            className={`merchant-dash__kpi merchant-dash__kpi--anomaly${
-              kpis.anomalies > 0 ? " is-alert" : ""
-            }`}
-          >
-            <span className="merchant-dash__kpi-index" aria-hidden>
-              {cashierOnly ? 3 : 5}
-            </span>
-            <div className="merchant-dash__kpi-top">
-              <span className="merchant-dash__kpi-icon" aria-hidden>
-                <svg viewBox="0 0 20 20" width="28" height="28" fill="none">
-                  <path
-                    d="M10 3.8 17.2 16H2.8L10 3.8Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M10 8.2v3.4M10 13.8h.01"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              <span className="merchant-dash__kpi-label">Attention</span>
-            </div>
-            <p className="merchant-dash__kpi-value">
-              <AnimatedMetric value={kpis.anomalies} />
-            </p>
-            <p className="merchant-dash__kpi-foot">
-              <span className="merchant-dash__kpi-pill">
-                {kpis.anomalies > 0 ? "Needs review" : "Clear"}
-              </span>
-              <span>
+              <h1 className="pg-dash__welcome">{brandName}</h1>
+              <p className="pg-dash__lede">
                 {cashierOnly
-                  ? kpis.expiringSoon > 0
-                    ? `${kpis.expiringSoon} expiring soon`
-                    : "Resolve with a note"
-                  : kpis.openBills > 0
-                    ? `${kpis.openBills} open service bill${
-                        kpis.openBills === 1 ? "" : "s"
-                      }`
-                    : "Resolve with a note"}
-              </span>
-            </p>
-          </article>
+                  ? "Your orders and anything that needs attention right now."
+                  : `Here’s how your payments are doing · ${activePeriodLabel}.`}
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+      </header>
+
+      <div
+        className={`pg-dash__status-row${
+          cashierOnly ? " merchant-dash__status-row--cashier" : ""
+        }`}
+        aria-busy={loading && !hasLoaded}
+      >
+        <DashKpiCard
+          accent="violet"
+          label="Completed volume"
+          value={
+            <span className="pg-kpi__money">
+              $<AnimatedMetric value={kpis.volume} decimals={2} />
+            </span>
+          }
+          hint={`${kpis.completedCount.toLocaleString()} settled · ${activePeriodLabel}`}
+          href={merchantRoute("orders")}
+          linkLabel="View"
+          linkWithTitle
+        />
+        {!cashierOnly ? (
+          <DashKpiCard
+            accent="gold"
+            label="Platform fee"
+            value={
+              <span className="pg-kpi__money">
+                $<AnimatedMetric value={kpis.platformFee} decimals={2} />
+              </span>
+            }
+            hint={`Est. · ${commercial?.volumeFeePercent ?? "—"}% rate`}
+            href={merchantRoute("service-bills")}
+            linkLabel="Bills"
+            linkWithTitle
+          />
+        ) : null}
+        {!cashierOnly ? (
+          <DashKpiCard
+            accent="slate"
+            label="Tier"
+            value={tierLabel(commercial?.tier)}
+            hint={`${commercial?.volumeFeePercent ?? "—"}% effective volume fee`}
+          />
+        ) : null}
+        <DashKpiCard
+          accent="warn"
+          label="Open orders"
+          value={<AnimatedMetric value={kpis.openWork} />}
+          hint="Pending + verifying"
+        />
+        <DashKpiCard
+          accent={kpis.anomalies > 0 ? "danger" : "ok"}
+          label="Attention"
+          value={<AnimatedMetric value={kpis.anomalies} />}
+          hint={
+            kpis.anomalies > 0
+              ? "Needs review"
+              : cashierOnly
+                ? kpis.expiringSoon > 0
+                  ? `${kpis.expiringSoon} expiring soon`
+                  : "All clear"
+                : kpis.openBills > 0
+                  ? `${kpis.openBills} open service bill${
+                      kpis.openBills === 1 ? "" : "s"
+                    }`
+                  : "All clear"
+          }
+          href={kpis.anomalies > 0 ? merchantRoute("orders") : undefined}
+          linkLabel="Review"
+          linkWithTitle
+        />
+      </div>
 
       {!cashierOnly && networkPairs.length > 0 ? (
         <section className="merchant-dash__networks" aria-label="Network status">

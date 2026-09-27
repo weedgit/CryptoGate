@@ -705,6 +705,11 @@ export function PlatformCommissionsPage({ session }: Props) {
     writeSearchParams({ status: next });
   }
 
+  const statusParam = searchParams.get("status");
+  useEffect(() => {
+    if (statusParam) setStatusFilter(parseStatusFilter(statusParam, null));
+  }, [statusParam]);
+
   useLayoutEffect(() => {
     setTopbarSlot(document.getElementById("platform-topbar-center"));
   }, []);
@@ -912,7 +917,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     paid: 0,
     settled: 0,
   };
-  const stuckPaidCount = showOpenInvoices ? (summary?.stuckPaid ?? 0) : 0;
   const viewEmpty = !loading && total === 0 && !debouncedQuery;
   const noMatches = !loading && total === 0 && Boolean(debouncedQuery);
 
@@ -1080,14 +1084,6 @@ export function PlatformCommissionsPage({ session }: Props) {
         </div>
       </div>
 
-      {isViewer ? (
-        <p className="banner banner-warn" style={{ marginBottom: 12 }}>
-          {portal
-            ? "Viewer — confirm receipt is hidden."
-            : "Viewer — generate invoices is hidden."}
-        </p>
-      ) : null}
-
       {topbarSlot
         ? createPortal(
             <label className="topbar-search" htmlFor={searchInputId}>
@@ -1119,41 +1115,6 @@ export function PlatformCommissionsPage({ session }: Props) {
             topbarSlot,
           )
         : null}
-
-      {!loading && showOpenInvoices && stuckPaidCount > 0 ? (
-        <p
-          className="banner banner-warn plat-commissions__aging-banner"
-          role="status"
-          style={{ marginBottom: 12 }}
-        >
-          {portal
-            ? stuckPaidCount === 1
-              ? "1 paid invoice has awaited your confirmation for 7+ days."
-              : `${stuckPaidCount} paid invoices have awaited your confirmation for 7+ days.`
-            : stuckPaidCount === 1
-              ? "1 paid invoice has awaited agent confirm for 7+ days."
-              : `${stuckPaidCount} paid invoices have awaited agent confirm for 7+ days.`}{" "}
-          {statusFilter !== "paid" ? (
-            <button
-              type="button"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                color: "inherit",
-                textDecoration: "underline",
-                cursor: "pointer",
-                font: "inherit",
-              }}
-              onClick={() => selectStatus("paid")}
-            >
-              Open Awaiting
-            </button>
-          ) : (
-            <span>Stuck rows are sorted to the top.</span>
-          )}
-        </p>
-      ) : null}
 
       <div className="plat-bills__panel">
         <aside className="plat-bills__status-rail" aria-label="Invoice status">

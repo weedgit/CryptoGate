@@ -1025,7 +1025,7 @@ export function ServiceBillsListPage({ session }: Props) {
           <div className="plat-bills__intro-copy">
             <h1 className="plat-bills__intro-title">Service Bills</h1>
             <p className="plat-bills__intro-sub">
-              Manage merchant invoices and activation fees.
+              {portal?.subtitle ?? "Manage merchant invoices and activation fees."}
             </p>
           </div>
         </div>
@@ -1193,6 +1193,8 @@ export function ServiceBillsListPage({ session }: Props) {
         </div>
       </div>
 
+      {portal?.header ?? null}
+
       <BillKpiCarousel>
         <BillKpiCard
           accent="warn"
@@ -1299,7 +1301,9 @@ export function ServiceBillsListPage({ session }: Props) {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search merchant, agent, or bill ID..."
+                placeholder={
+                  portal?.searchPlaceholder ?? "Search merchant, agent, or bill ID..."
+                }
                 aria-label="Search merchants or bill ID"
                 autoComplete="off"
                 spellCheck={false}
@@ -1450,6 +1454,11 @@ export function ServiceBillsListPage({ session }: Props) {
                     const href = route(`service-bills/${bill.id}`);
                     const merchantName = orgNames.get(bill.orgId) ?? bill.orgId;
                     const merchantIcon = orgIcons.get(bill.orgId) ?? null;
+                    const merchantHref = portal?.orgHref
+                      ? portal.orgHref(bill.orgId)
+                      : portal
+                        ? route(`accounts/merchants/${bill.orgId}`)
+                        : platformRoute(`merchants/${bill.orgId}`);
                     return (
                       <tr
                         key={bill.id}
@@ -1486,17 +1495,19 @@ export function ServiceBillsListPage({ session }: Props) {
                               iconKey={merchantIcon}
                             />
                             <span className="plat-bills__merchant-meta">
-                              <Link
-                                className="plat-bills__merchant-name"
-                                to={
-                                  portal
-                                    ? route(`accounts/merchants/${bill.orgId}`)
-                                    : platformRoute(`merchants/${bill.orgId}`)
-                                }
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {merchantName}
-                              </Link>
+                              {merchantHref ? (
+                                <Link
+                                  className="plat-bills__merchant-name"
+                                  to={merchantHref}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {merchantName}
+                                </Link>
+                              ) : (
+                                <span className="plat-bills__merchant-name">
+                                  {merchantName}
+                                </span>
+                              )}
                               <Link
                                 className="plat-bills__id"
                                 to={href}

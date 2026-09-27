@@ -266,15 +266,9 @@ export function InvoiceListPage({ session, variant }: Props) {
   const loadGen = useRef(0);
 
   useLayoutEffect(() => {
-    const centerId =
-      variant === "platform" ? "platform-topbar-center" : "merchant-topbar-center";
-    const actionsId =
-      variant === "platform"
-        ? "platform-topbar-actions"
-        : "merchant-topbar-actions";
-    setTopbarSlot(document.getElementById(centerId));
-    setTopbarActionsSlot(document.getElementById(actionsId));
-  }, [variant]);
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(query.trim()), 300);

@@ -38,7 +38,6 @@ import {
   orgTypeLabel,
   primaryAgentOrgId,
   sessionCanOnboardMerchant,
-  sessionIsAgentViewerOnly,
 } from "./org";
 import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 
@@ -69,10 +68,6 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
     [session],
   );
   const canEditProfile = canEditPayout;
-  const isViewer = useMemo(
-    () => sessionIsAgentViewerOnly(session),
-    [session],
-  );
   const feeNetworkLabel = useMemo(
     () => displayNetworkForPair(PLATFORM_FEE_ASSET, platformFeeNetwork()),
     [],
@@ -293,9 +288,6 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
         <section className="plat-settings__card">
           <div className="plat-settings__card-head">
             <h2 className="plat-settings__card-title">Commission payout</h2>
-            {isViewer ? (
-              <span className="plat-settings__badge">Viewer · read-only</span>
-            ) : null}
           </div>
           <div className="plat-settings__card-body">
             <p className="plat-settings__card-copy">
@@ -330,10 +322,9 @@ export function AgentSettingsPage({ session, onSessionRefresh }: Props) {
             )}
 
             {payout?.pendingActivatesAt ? (
-              <p className="plat-settings__notice" role="status">
+              <p className="muted agent-settings__pending-note" role="status">
                 Pending <code>{payout.pendingAddress ?? "—"}</code> activates{" "}
-                {new Date(payout.pendingActivatesAt).toLocaleString()}. Slips
-                use the active address until then.
+                {new Date(payout.pendingActivatesAt).toLocaleString()}.
               </p>
             ) : null}
 

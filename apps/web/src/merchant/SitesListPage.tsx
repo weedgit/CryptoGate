@@ -127,8 +127,8 @@ export function SitesListPage({ session }: Props) {
   }, [load]);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("merchant-topbar-center"));
-    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
+    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const siteIds = useMemo(() => sites.map((s) => s.id), [sites]);
@@ -244,33 +244,40 @@ export function SitesListPage({ session }: Props) {
         <div className="org-split">
           <div className="org-split__list">
             {sites.length === 0 ? (
-              <div className="merchant-sites__empty-stage merchant-sites__empty-stage--inline">
-                <section className="merchant-sites__empty merchant-sites__empty--centered">
-                  <span className="merchant-sites__empty-icon" aria-hidden>
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
-                      <path
-                        d="M12 5v14M5 12h14"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>
-                  <h2 className="merchant-sites__empty-title">No sites yet</h2>
-                  <p className="merchant-sites__empty-copy">
-                    Create a site for each location. Sites may nest under other
-                    sites. They inherit wallet, matching, fulfillment, and
-                    retention from the parent merchant — sites have no wallets.
-                  </p>
-                  {canManage ? (
+              <div className="org-agents__list-empty b3-empty" role="status">
+                <div className="b3-empty__mark" aria-hidden>
+                  <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
+                    <path
+                      d="M8 38V18l16-12 16 12v20H8Z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M20 38v-10h8v10"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                      opacity="0.55"
+                    />
+                  </svg>
+                </div>
+                <p className="b3-empty__title">No sites yet</p>
+                <p className="b3-empty__copy">
+                  Create a site for each location. Sites may nest under other
+                  sites. They inherit wallet, matching, fulfillment, and
+                  retention from the parent merchant — sites have no wallets.
+                </p>
+                {canManage ? (
+                  <div className="org-agents__list-empty-actions">
                     <Link
-                      className="btn-primary btn-inline merchant-sites__empty-action"
+                      className="btn-primary btn-inline"
                       to={merchantRoute("sites/new")}
                     >
                       Add site
                     </Link>
-                  ) : null}
-                </section>
+                  </div>
+                ) : null}
               </div>
             ) : filtered.length === 0 ? (
               <div

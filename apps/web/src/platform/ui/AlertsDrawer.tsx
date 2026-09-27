@@ -27,6 +27,11 @@ export type AlertItem = {
    * False for Viewer / wait-only cool-downs — escalate to Owner or wait.
    */
   actionable?: boolean;
+  /**
+   * Clears on its own (cool-down, maintenance window, fee being prepared).
+   * Nobody needs to act; the dock says "waiting" instead of escalating.
+   */
+  waiting?: boolean;
 };
 
 const FILTERS: { id: AlertCategory; label: string }[] = [

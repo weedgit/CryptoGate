@@ -21,8 +21,8 @@ import {
   TeamNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
+import { SidebarRoleCard } from "../shared/SidebarRoleCard";
 import { GateLogoMark } from "../auth/GateLogoMark";
-import { sessionIsPlatformViewerOnly } from "./org";
 import { AlertsDrawer, platformAlertsSource } from "./ui/AlertsDrawer";
 import {
   countUnreadPlatformAlerts,
@@ -44,6 +44,11 @@ import {
   subscribeSharedHealth,
 } from "../shared/healthPolling";
 import { platformRoute } from "../shared/portalRouting";
+import { useConditionAlerts } from "../shared/conditionAlerts";
+import {
+  clearPlatformConditionAlerts,
+  refreshPlatformConditionAlerts,
+} from "./platformConditionAlerts";
 import { prefetchPlatformRoute } from "./prefetchRoutes";
 
 function PlatformHealthBeacon() {
@@ -168,7 +173,6 @@ export function PlatformShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const readOnly = sessionIsPlatformViewerOnly(session);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -179,6 +183,12 @@ export function PlatformShell({
   const mainRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  useConditionAlerts(
+    session,
+    refreshPlatformConditionAlerts,
+    clearPlatformConditionAlerts,
+    alertsOpen,
+  );
   const [shellEnter, setShellEnter] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const { mobileNavOpen, isTabletOrBelow, closeMobileNav, toggleMobileNav } =
@@ -277,6 +287,9 @@ export function PlatformShell({
           prefetch={prefetchPlatformRoute}
           navRef={navRef}
         />
+        <div className="sidebar-foot">
+          <SidebarRoleCard session={session} portal="platform" collapsed={navCollapsed} />
+        </div>
       </aside>
       <div className="main">
         <header className="topbar topbar--chrome">
@@ -314,12 +327,6 @@ export function PlatformShell({
             onOpenAlerts={() => setAlertsOpen(true)}
           />
           <div className="body">
-            {readOnly ? (
-              <div className="banner banner-warn" style={{ marginBottom: 16 }}>
-                Read-only mode — Viewer accounts cannot issue bills or change
-                settings.
-              </div>
-            ) : null}
             {children}
           </div>
         </div>

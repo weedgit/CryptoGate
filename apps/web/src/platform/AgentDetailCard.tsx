@@ -478,12 +478,6 @@ export function AgentDetailCard({
     setToast(invitationSent === true && inviteCreds == null);
   }, [invitationSent, inviteCreds, org.id]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(false), 8000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
 
   return (
     <aside className="platform-detail b3-agent-detail" aria-label="Agent detail">
@@ -624,11 +618,11 @@ export function AgentDetailCard({
         </div>
       ) : null}
 
-      {toast ? (
-        <div className="banner banner-ok b3-agent-detail__toast">
-          Invitation sent to the new Owner.
-        </div>
-      ) : null}
+      <AuthToast
+        message={toast ? "Invitation sent to the new Owner." : null}
+        tone="ok"
+        onDismiss={() => setToast(false)}
+      />
 
       <div className="platform-detail__body b3-agent-detail__shell">
       <div className="b3-agent-detail__tabs" role="tablist">

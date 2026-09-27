@@ -32,7 +32,10 @@ import {
 } from "../billing/ServiceBillInvoiceFace";
 import { InvoicePrintButton } from "../billing/InvoicePrintButton";
 import { AuthToast } from "../auth/AuthToast";
-import { useServiceBillsPortal } from "./serviceBillsPortal";
+import {
+  useServiceBillsPortal,
+  type ServiceBillsPortalCheckout,
+} from "./serviceBillsPortal";
 
 type Props = { session: Session };
 
@@ -189,6 +192,7 @@ export function ServiceBillDetailPage({ session }: Props) {
   );
   const [loading, setLoading] = useState(() => !(id && peekServiceBill(id)));
   const [error, setError] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<ServiceBillsPortalCheckout | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -232,6 +236,28 @@ export function ServiceBillDetailPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const loadCheckout = portal?.loadCheckout;
+  const payable = bill?.status === "issued" || bill?.status === "overdue";
+  useEffect(() => {
+    if (!id || !loadCheckout || !payable) {
+      setCheckout(null);
+      return;
+    }
+    let cancelled = false;
+    loadCheckout(id)
+      .then((next) => {
+        if (!cancelled) setCheckout(next);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCheckout(null);
+        setError(err instanceof ApiError ? err.message : "Failed to load checkout");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, loadCheckout, payable]);
+
   const title = useMemo(
     () => (bill ? formatBillId(bill.id) : "Service bill"),
     [bill],
@@ -274,6 +300,7 @@ export function ServiceBillDetailPage({ session }: Props) {
     bill.rxAddress?.trim() ||
     billing?.payTo?.trim() ||
     bill.remittancePayTo?.trim() ||
+    checkout?.payTo?.trim() ||
     platformBillingPayToFallback() ||
     null;
   const actionsOpen = !portal && showPlatformActions(bill.status);
@@ -292,9 +319,11 @@ export function ServiceBillDetailPage({ session }: Props) {
       ? {
           payTo,
           instructions:
+            checkout?.instructions ??
             "Merchants settle this invoice via service-bill checkout to the platform billing destination.",
         }
       : null,
+    qrPayload: checkout?.qrPayload ?? undefined,
   } as const;
 
   return (

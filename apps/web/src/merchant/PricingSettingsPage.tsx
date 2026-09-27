@@ -173,11 +173,6 @@ export function PricingSettingsPage({ session }: Props) {
         <div className="plat-alerts__hero-main">
           <div className="plat-alerts__title-row">
             <h1 className="plat-alerts__name">Pricing</h1>
-            {!canEdit ? (
-              <span className="plat-alerts__chip plat-alerts__chip--muted">
-                Viewer · read-only
-              </span>
-            ) : null}
           </div>
           <p className="muted">
             Invoices are priced in USD. Customers pick an asset; the platform locks a

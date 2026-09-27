@@ -40,7 +40,6 @@ import {
   sessionCanEditOrgSettings,
   sessionCanManageMemberPosPin,
   sessionCanManageTeam,
-  sessionRoleOnOrg,
 } from "./org";
 import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 import {
@@ -120,10 +119,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
     () => (orgId ? sessionCanManageMemberPosPin(session, orgId) : false),
     [session, orgId],
   );
-  const myRole = useMemo(
-    () => (orgId ? sessionRoleOnOrg(session, orgId) : null),
-    [session, orgId],
-  );
 
   const [members, setMembers] = useState<OrgMember[]>(() =>
     orgId ? (peekOrgUsers(orgId) ?? []) : [],
@@ -167,7 +162,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   }, []);
 
   useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("merchant-topbar-actions"));
+    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
@@ -435,20 +430,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
             topbarActionsSlot,
           )
         : null}
-
-      {!canManage ? (
-        <div className="plat-team__banner" role="status">
-          <span className="plat-team__banner-label">Owner only</span>
-          <p>
-            Only the Owner can add or remove team members.
-            {myRole === "administrator"
-              ? " Administrators can set or reset Cashier POS PINs below."
-              : myRole === "viewer"
-                ? " Viewers can review the roster below."
-                : " Other roles can review the roster below."}
-          </p>
-        </div>
-      ) : null}
 
       {org ? (
         <header className="plat-team__org">

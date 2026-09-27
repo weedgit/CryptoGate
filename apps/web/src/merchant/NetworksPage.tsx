@@ -14,9 +14,16 @@ import {
   primaryMerchantOrgId,
   sessionCanEditOrgSettings,
 } from "./org";
-import { PagePending } from "../platform/ui/PlatformPending";
+import { PlatformPending } from "../platform/ui/PlatformPending";
+import { NumberStepper } from "../ui/NumberStepper";
 
 type Props = { session: Session };
+
+function clampConfirm(raw: string, floor: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return floor;
+  return Math.min(64, Math.max(floor, Math.round(n)));
+}
 
 /** Merchant view: orderability + stricter confirmation overrides (platform floor). */
 export function NetworksPage({ session }: Props) {
@@ -136,141 +143,204 @@ export function NetworksPage({ session }: Props) {
 
   if (!orgId) {
     return (
-      <div className="merchant-networks">
-        <p className="muted">No merchant organization on this session.</p>
+      <div className="org-network-rail-panel org-network-rail-panel--table">
+        <p className="org-network-rail-panel__empty-copy">
+          No merchant organization on this session.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="merchant-networks">
+    <div className="org-network-rail-panel org-network-rail-panel--table">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      <section className="merchant-networks__card">
-        <header className="merchant-networks__card-head">
-          <div>
-            <h2 className="merchant-networks__card-title">Networks</h2>
-            <p className="merchant-networks__lede">
-              Platform sets the confirmation floor. You may require more for new
-              orders — never less.
-            </p>
+
+      <header className="org-network-rail-panel__intro">
+        <div className="org-network-rail-panel__intro-main">
+          <div className="org-network-rail-panel__intro-title-row">
+            <h2 className="org-network-rail-panel__intro-title">Networks</h2>
+            <button
+              type="button"
+              className="org-network-rail-panel__refresh"
+              onClick={() => void load()}
+              disabled={loading}
+              aria-label="Refresh network rails"
+              title="Refresh"
+            >
+              {loading ? "…" : "↻"}
+            </button>
           </div>
-          <span className="merchant-networks__card-pill">
-            {items.length} network{items.length === 1 ? "" : "s"}
-          </span>
-        </header>
+          <p className="org-network-rail-panel__intro-sub">
+            Platform sets the confirmation floor. You may require more for new
+            orders — never less.
+          </p>
+        </div>
+        <span className="org-network-rail-panel__count">
+          {loading
+            ? "…"
+            : `${items.length} network${items.length === 1 ? "" : "s"}`}
+        </span>
+      </header>
 
-        {loading ? <PagePending /> : null}
+      {loading ? (
+        <div className="org-network-rail-panel__pending">
+          <PlatformPending
+            compact
+            title="Loading rails"
+            copy="Fetching network settings for your account."
+          />
+        </div>
+      ) : null}
 
-        {!loading && items.length === 0 ? (
-          <p className="muted">No networks available for this environment.</p>
-        ) : null}
+      {!loading && items.length === 0 ? (
+        <div className="org-network-rail-panel__empty" role="status">
+          <p className="org-network-rail-panel__empty-title">No networks available</p>
+          <p className="org-network-rail-panel__empty-copy">
+            PaymentGate has not enabled any networks for this environment yet.
+          </p>
+        </div>
+      ) : null}
 
-        {!loading && items.length > 0 ? (
-          <div className="merchant-networks__rails">
-            {items.map((row) => {
+      {!loading && items.length > 0 ? (
+        <div className="org-network-rail-panel__table-shell">
+          <div className="org-network-rail-panel__cols" aria-hidden="true">
+            <span>Network</span>
+            <span>Confirmations</span>
+            <span>Min amounts</span>
+            <span />
+          </div>
+
+          <div className="org-network-rail-panel__table">
+            {items.map((row, index) => {
+              const floor = row.platformFloorConfirmations;
+              const confirmsVal = clampConfirm(
+                draft[row.network] ?? String(floor),
+                floor,
+              );
               const dirty =
                 (draft[row.network] ?? "") !==
                 String(row.effectiveConfirmations);
+              const title = row.title || networkShortLabel(row.network);
+              const span = Math.max(1, 64 - floor);
+              const sliderPct = `${((confirmsVal - floor) / span) * 100}%`;
+
               return (
-                <article key={row.network} className="merchant-networks__rail">
-                  <div className="merchant-networks__rail-head">
-                    <div className="merchant-networks__rail-id">
+                <article
+                  key={row.network}
+                  className="org-network-rail-panel__row"
+                  style={{ animationDelay: `${index * 40}ms` }}
+                >
+                  <div className="org-network-rail-panel__cell org-network-rail-panel__cell--net">
+                    <span className="org-network-rail-panel__rail-icon">
                       <NetworkIcon network={row.network} />
-                      <div>
-                        <h3>{row.title || networkShortLabel(row.network)}</h3>
-                        <div className="merchant-networks__rail-assets">
-                          {row.pairs.map((p) => (
-                            <span key={p.asset}>
-                              <AssetIcon asset={p.asset} />
-                              {p.asset}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                    </span>
+                    <div className="org-network-rail-panel__net-text">
+                      <span className="org-network-rail-panel__rail-name">
+                        {title}
+                      </span>
+                      <NetworkStatusLamp lamp={row.lamp} />
                     </div>
-                    <NetworkStatusLamp lamp={row.lamp} />
                   </div>
 
-                  <div className="merchant-networks__rail-meta">
-                    <div>
-                      <span className="merchant-networks__rail-label">
-                        Platform floor
-                      </span>
-                      <strong>{row.platformFloorConfirmations}</strong>
-                    </div>
-                    <div>
-                      <span className="merchant-networks__rail-label">
-                        Min amount
-                      </span>
-                      <strong>
-                        {row.minAmount != null && row.primaryAsset
-                          ? `${row.minAmount} ${row.primaryAsset}`
-                          : "—"}
-                      </strong>
-                    </div>
-                    <label className="merchant-networks__rail-field">
-                      <span className="merchant-networks__rail-label merchant-networks__rail-label--row">
-                        Your confirmations
-                        <strong className="merchant-networks__rail-confirm-value">
-                          {draft[row.network] || "—"}
-                        </strong>
-                      </span>
-                      <input
-                        type="range"
-                        min={row.platformFloorConfirmations}
+                  <div className="org-network-rail-panel__cell org-network-rail-panel__cell--confirm">
+                    <div className="org-network-rail-panel__confirm-controls">
+                      <NumberStepper
+                        className="org-network-rail-panel__num-stepper"
+                        inputClassName="org-network-rail-panel__num-input"
+                        min={floor}
                         max={64}
                         step={1}
-                        className="merchant-networks__rail-slider"
-                        value={Number(draft[row.network]) || row.platformFloorConfirmations}
+                        value={draft[row.network] ?? ""}
                         disabled={!canEdit}
-                        aria-label={`${row.title} confirmations`}
-                        style={
-                          {
-                            "--plat-slider-pct": (() => {
-                              const lo = row.platformFloorConfirmations;
-                              const hi = 64;
-                              const cur = Math.min(
-                                hi,
-                                Math.max(lo, Number(draft[row.network]) || lo),
-                              );
-                              const span = Math.max(1, hi - lo);
-                              return `${((cur - lo) / span) * 100}%`;
-                            })(),
-                          } as CSSProperties
+                        title={`Platform floor ${floor} · max 64`}
+                        aria-label={`${title} confirmations`}
+                        onChange={(raw) =>
+                          setDraft((d) => ({ ...d, [row.network]: raw }))
                         }
-                        onChange={(e) =>
+                        onBlur={() =>
                           setDraft((d) => ({
                             ...d,
-                            [row.network]: e.target.value,
+                            [row.network]: String(
+                              clampConfirm(d[row.network] ?? "", floor),
+                            ),
                           }))
                         }
                       />
-                      <div className="merchant-networks__rail-slider-ends" aria-hidden="true">
-                        <span>{row.platformFloorConfirmations}</span>
-                        <span>64</span>
+                      {row.merchantConfirmations != null ? (
+                        <span className="org-network-rail-panel__badge is-override">
+                          Override
+                        </span>
+                      ) : null}
+                      <div className="org-network-rail-panel__slider-wrap">
+                        <input
+                          type="range"
+                          min={floor}
+                          max={64}
+                          step={1}
+                          className="org-network-rail-panel__slider"
+                          value={confirmsVal}
+                          disabled={!canEdit}
+                          aria-label={`${title} confirmations slider`}
+                          style={
+                            {
+                              "--plat-slider-pct": sliderPct,
+                            } as CSSProperties
+                          }
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              [row.network]: e.target.value,
+                            }))
+                          }
+                        />
                       </div>
-                    </label>
+                    </div>
                   </div>
 
-                  {canEdit && dirty ? (
-                    <div className="merchant-networks__rail-actions">
+                  <div className="org-network-rail-panel__cell org-network-rail-panel__cell--mins">
+                    <div className="org-network-rail-panel__min-grid">
+                      {row.pairs.map((pair) => (
+                        <label
+                          key={pair.asset}
+                          className="org-network-rail-panel__min"
+                          title="Set by PaymentGate platform"
+                        >
+                          <span className="org-network-rail-panel__min-asset">
+                            <AssetIcon asset={pair.asset} />
+                            {pair.asset}
+                          </span>
+                          <input
+                            type="text"
+                            className="org-network-rail-panel__min-input"
+                            value={pair.minAmount}
+                            readOnly
+                            disabled
+                            aria-label={`${pair.asset} min amount`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="org-network-rail-panel__cell org-network-rail-panel__cell--save">
+                    {canEdit ? (
                       <button
                         type="button"
-                        className="btn-secondary"
-                        disabled={saving === row.network}
+                        className="org-network-rail-panel__save"
+                        disabled={saving === row.network || !dirty}
+                        title="Applies to new orders only"
                         onClick={() => void onSave(row.network)}
                       >
-                        {saving === row.network ? "Saving…" : "Save"}
+                        {saving === row.network ? "…" : "Save"}
                       </button>
-                      <span className="muted">Applies to new orders only</span>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </article>
               );
             })}
           </div>
-        ) : null}
-      </section>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -524,8 +524,8 @@ function ProfileContactVerify({
     <>
       <label className="field">{emailBlock}</label>
       <label className="field">{phoneBlock}</label>
-      {error ? <p className="banner banner-error">{error}</p> : null}
-      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
       {otpDialog}
     </>
   );
@@ -802,7 +802,7 @@ function ProfileForm({
           ))}
         </select>
       </label>
-      {ok ? <p className="banner banner-ok" role="status">{ok}</p> : null}
+      <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
       <button type="submit" className="btn-primary" disabled={saving || !dirty}>
         {busy ? "Saving…" : "Save profile"}
       </button>
@@ -1080,7 +1080,7 @@ function ChangePasswordForm({
           />
         </FieldControl>
       </label>
-      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
       <button type="submit" className="btn-primary" disabled={busy || !canSubmit}>
         {busy ? "Saving…" : "Change password"}
       </button>
@@ -1198,7 +1198,7 @@ export function SecuritySettingsPage({
         onSessionRefresh={onSessionRefresh}
       />
       {variant === "merchant" ? <PosPinForm variant={variant} /> : null}
-      {message ? <p className="banner banner-ok">{message}</p> : null}
+      <AuthToast message={message} tone="ok" onDismiss={() => setMessage(null)} />
     </div>
   );
 }
@@ -1331,8 +1331,8 @@ function PosPinForm({
           />
         </FieldControl>
       </label>
-      {error ? <p className="banner banner-error">{error}</p> : null}
-      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+      <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
       <div className="profile-settings-card__actions">
         <button type="submit" className="btn-primary" disabled={busy}>
           {busy ? "Saving…" : configured ? "Replace POS PIN" : "Set POS PIN"}
@@ -1556,7 +1556,7 @@ function SecurityPrefsForm({
           Set up authenticator
         </button>
       )}
-      {ok ? <p className="banner banner-ok">{ok}</p> : null}
+      <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
     </div>
   );
 }

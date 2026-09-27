@@ -32,9 +32,15 @@ describe("@paymentgate/web commission ops hardening", () => {
     assert.match(page, /formatCommissionPaidAgingHint/);
     assert.match(page, /agingFirst: true/);
     assert.match(page, /getCommissionPayoutsSummary/);
-    assert.match(page, /summary\?\.stuckPaid/);
-    assert.match(page, /stuckPaidCount/);
-    assert.match(page, /plat-commissions__aging-banner/);
+    assert.doesNotMatch(page, /plat-commissions__aging-banner/);
+    const agentAlerts = readFileSync(join(root, "src/agent/agentAlerts.ts"), "utf8");
+    assert.match(agentAlerts, /summary\.stuckPaid/);
+    assert.match(agentAlerts, /7\+ days/);
+    const platformAlerts = readFileSync(
+      join(root, "src/platform/platformConditionAlerts.ts"),
+      "utf8",
+    );
+    assert.match(platformAlerts, /summary\.stuckPaid/);
     assert.match(page, /commission_payout_auto/);
     assert.match(page, /formatLastAutoRunBanner/);
     assert.match(page, /skipped_zero/);

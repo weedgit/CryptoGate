@@ -33,7 +33,7 @@ import { scrollOrgSplitPaneIntoView } from "../shared/scrollOrgSplitPane";
 import type { OnboardNavigateState } from "../shared/onboardInviteState";
 import { useAutoSelectOrgListRow } from "../shared/useAutoSelectOrgListRow";
 import { handleOrgTableKeyDown } from "./orgTableKeyboard";
-import { sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
+import { sessionCanManagePlatform } from "./org";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
 import { useOrgDeleteModal } from "./useOrgDeleteModal";
@@ -293,7 +293,6 @@ export function AgentsListPage({ session }: Props) {
   const location = useLocation();
   const inviteState = (location.state ?? {}) as OnboardNavigateState;
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
-  const readOnly = useMemo(() => sessionIsPlatformViewerOnly(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[]>(() => peekPlatformOrgs() ?? []);
   const [billStatus, setBillStatus] = useState<Map<string, ServiceBillOrgStatus>>(
     () => peekServiceBillOrgStatus() ?? new Map(),
@@ -685,12 +684,6 @@ export function AgentsListPage({ session }: Props) {
         tone={toastTone}
         onDismiss={dismissToast}
       />
-
-      {readOnly ? (
-        <div className="banner banner-warn" style={{ marginBottom: 12 }}>
-          Viewer — onboard, pause, and delete actions are hidden.
-        </div>
-      ) : null}
 
       {topbarSlot
         ? createPortal(

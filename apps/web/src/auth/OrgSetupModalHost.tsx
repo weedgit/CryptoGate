@@ -1,13 +1,9 @@
-import { FormEvent, useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthField } from "./AuthField";
 import { AuthToast } from "./AuthToast";
 import { MfaCodeInput } from "./MfaCodeInput";
-import {
-  sessionNeedsOrgSetup,
-  sessionLiveActionsUnlocked,
-  missingSetupPartsLabel,
-} from "./contactVerification";
+import { SETUP_QUERY_PARAM, sessionNeedsOrgSetup } from "./contactVerification";
 import {
   ApiError,
   getSession,
@@ -25,9 +21,30 @@ type Props = {
   portal: "agent" | "merchant";
 };
 
-export function VerifyContactBanner({ session, onSession, portal }: Props) {
+/**
+ * Opens the Finish-setup modal when the URL carries `?setup=1`
+ * (from the Watch-only dock alert). Renders nothing otherwise.
+ */
+export function OrgSetupModalHost({ session, onSession, portal }: Props) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const requested =
+    new URLSearchParams(location.search).get(SETUP_QUERY_PARAM) === "1";
   const [open, setOpen] = useState(false);
-  if (!sessionNeedsOrgSetup(session)) return null;
+
+  useEffect(() => {
+    if (!requested) return;
+    const params = new URLSearchParams(location.search);
+    params.delete(SETUP_QUERY_PARAM);
+    const search = params.toString();
+    navigate(
+      { pathname: location.pathname, search: search ? `?${search}` : "" },
+      { replace: true },
+    );
+    if (sessionNeedsOrgSetup(session)) setOpen(true);
+  }, [requested, location.pathname, location.search, navigate, session]);
+
+  if (!open) return null;
 
   const profilePath =
     portal === "agent" ? agentRoute("settings") : merchantRoute("settings/team");
@@ -41,35 +58,18 @@ export function VerifyContactBanner({ session, onSession, portal }: Props) {
       : merchantRoute("settings/settlement");
 
   return (
-    <>
-      <div className="verify-contact-banner" role="status">
-        <span className="cashier-lock" aria-hidden>
-          ✉
-        </span>
-        <p>
-          <strong>Watch-only</strong> until setup is complete. You can look
-          around; finish {missingSetupPartsLabel(session, portal)} to unlock
-          live actions.
-        </p>
-        <button type="button" className="btn-primary btn-inline" onClick={() => setOpen(true)}>
-          Finish setup
-        </button>
-      </div>
-      {open ? (
-        <OrgSetupModal
-          session={session}
-          portal={portal}
-          profilePath={profilePath}
-          personPath={personPath}
-          walletPath={walletPath}
-          onSession={(next) => {
-            onSession(next);
-            if (sessionLiveActionsUnlocked(next)) setOpen(false);
-          }}
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
-    </>
+    <OrgSetupModal
+      session={session}
+      portal={portal}
+      profilePath={profilePath}
+      personPath={personPath}
+      walletPath={walletPath}
+      onSession={(next) => {
+        onSession(next);
+        if (!sessionNeedsOrgSetup(next)) setOpen(false);
+      }}
+      onClose={() => setOpen(false)}
+    />
   );
 }
 

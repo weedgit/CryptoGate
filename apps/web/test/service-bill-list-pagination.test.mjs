@@ -32,9 +32,7 @@ describe("@paymentgate/web service bill list pagination", () => {
 
   it("merchant list is server paged too", () => {
     const merchantPage = read("src/merchant/ServiceBillsListPage.tsx");
-    assert.match(merchantPage, /listServiceBillsServer/);
-    assert.match(merchantPage, /OrgListPagination/);
+    assert.match(merchantPage, /PlatformServiceBillsListPage/);
     assert.doesNotMatch(merchantPage, /Load more/);
-    assert.doesNotMatch(merchantPage, /hasMoreServer/);
   });
 });

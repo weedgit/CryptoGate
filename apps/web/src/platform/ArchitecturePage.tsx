@@ -15,7 +15,7 @@ import { AgentDetailCard } from "./AgentDetailCard";
 import { MerchantDetailCard } from "./MerchantDetailCard";
 import { SiteDetailCard } from "./SiteDetailCard";
 import { merchantOrgIdsInAgentSubtree } from "./agentSubtree";
-import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformViewerOnly } from "./org";
+import { orgTypeLabel, sessionCanManagePlatform } from "./org";
 import { withReturnTo } from "./platformNav";
 import {
   getPlatformOrgs,
@@ -1709,10 +1709,6 @@ export function AccountsPage({ session }: { session: Session }) {
     () => (portal ? portal.canManageAny : sessionCanManagePlatform(session)),
     [portal, session],
   );
-  const readOnly = useMemo(
-    () => (portal ? portal.readOnly : sessionIsPlatformViewerOnly(session)),
-    [portal, session],
-  );
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
   const showOk = useCallback((message: string) => {
@@ -2207,12 +2203,6 @@ export function AccountsPage({ session }: { session: Session }) {
           setError(null);
         }}
       />
-
-      {readOnly ? (
-        <div className="banner banner-warn" style={{ marginBottom: 12 }}>
-          Viewer — add, pause, run, and delete actions are hidden on this map.
-        </div>
-      ) : null}
 
       {topbarSlot
         ? createPortal(

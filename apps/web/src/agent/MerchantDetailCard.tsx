@@ -770,9 +770,6 @@ export function MerchantDetailCard({
                   <p className="b3-card__value">{openOrders}</p>
                 </div>
               </div>
-              <p className="b3-settlement__notice">
-                Detailed volume charts ship with reporting API follow-up.
-              </p>
             </>
           )
         ) : null}

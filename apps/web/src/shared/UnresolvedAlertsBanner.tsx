@@ -21,15 +21,25 @@ function bannerTone(
 
 function bannerMessage(items: AlertItem[]): string {
   const n = items.length;
-  const actionable = items.filter((a) => a.actionable !== false).length;
-  if (actionable === 0) {
+  const actionable = items.filter(
+    (a) => a.actionable !== false && !a.waiting,
+  ).length;
+  if (actionable > 0) {
     return n === 1
-      ? "Owner or Admin must clear 1 alert"
-      : `Owner or Admin must clear ${n} alerts`;
+      ? "1 alert needs your attention"
+      : `${n} alerts need your attention`;
   }
-  return n === 1
-    ? "1 alert needs your attention"
-    : `${n} alerts need your attention`;
+  const escalate = items.filter((a) => !a.waiting).length;
+  if (escalate > 0) {
+    return escalate === 1
+      ? "Owner or Admin must clear 1 alert"
+      : `Owner or Admin must clear ${escalate} alerts`;
+  }
+  return n === 1 ? "1 alert waiting to clear" : `${n} alerts waiting to clear`;
+}
+
+function bannerLabel(items: AlertItem[]): string {
+  return items.every((a) => a.waiting) ? "In progress" : "Action required";
 }
 
 /**
@@ -62,7 +72,7 @@ export function UnresolvedAlertsBanner({ source, onOpenAlerts }: Props) {
           </span>
         </div>
         <div className="unresolved-alerts-dock__copy">
-          <p className="unresolved-alerts-dock__label">Action required</p>
+          <p className="unresolved-alerts-dock__label">{bannerLabel(open)}</p>
           <p className="unresolved-alerts-dock__text">{bannerMessage(open)}</p>
         </div>
         <button

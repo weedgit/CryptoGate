@@ -140,7 +140,7 @@ export function OrderDetailPage({
   const backLabel = isPlatform ? "← Back to invoices" : "← Back to invoices";
   const topbarCenterId = isPlatform
     ? "platform-topbar-center"
-    : "merchant-topbar-center";
+    : "platform-topbar-center";
 
   const [order, setOrder] = useState<PaymentOrder | null>(() =>
     id ? peekMerchantOrder(id) : null,

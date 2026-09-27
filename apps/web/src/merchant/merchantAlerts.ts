@@ -4,14 +4,29 @@ import type { Session } from "./api";
 import {
   getNotificationPreferences,
   getOrderSummary,
+  listActiveNetworkMaintenance,
   listSettlement,
   listWebhookDeliveries,
   listWebhooks,
   listXpub,
+  type ActiveNetworkMaintenance,
+  type OrgAccount,
   type PaymentOrder,
   type ServiceBill,
 } from "./api";
-import { listServiceBillsServer } from "../shared/serviceBillsServer";
+import {
+  OPEN_ACTIVATION_QUERY,
+  listServiceBillsServer,
+} from "../shared/serviceBillsServer";
+import {
+  missingSetupPartsLabel,
+  sessionNeedsActivationPayment,
+  sessionNeedsOrgSetup,
+  setupAlertHref,
+} from "../auth/contactVerification";
+import { networkShortLabel } from "../shared/assetNetworks";
+import { getMerchantOrgs } from "./merchantOrgList";
+import { isActivationServiceBill } from "./serviceBillStatus";
 import { anomalyAmountLine, anomalyExplain, formatShortTime } from "./orderStatus";
 import {
   formatCountdown,
@@ -144,6 +159,7 @@ function settlementCooldownAlert(
     unresolved: true,
     /** Cool-down clears itself; no role can skip it. */
     actionable: false,
+    waiting: true,
   };
 }
 
@@ -158,6 +174,7 @@ function xpubCooldownAlert(
     id: `xpub:cooldown:${orgId}:${asset}:${network}`,
     category: "security",
     title: "xPub change pending",
+    waiting: true,
     body: remaining
       ? `Mode S watch-only xPub for ${asset} (${network}) activates in ${remaining}. New HD addresses wait until then.`
       : `Mode S watch-only xPub for ${asset} (${network}) activates ${formatShortTime(activatesAt)}.`,
@@ -192,6 +209,120 @@ function serviceBillAlert(bill: ServiceBill, canPay: boolean): AlertItem {
     urgent: true,
     unresolved: true,
     actionable: canPay,
+  };
+}
+
+function setupAlert(orgId: string, session: Session): AlertItem {
+  return {
+    id: `setup:${orgId}`,
+    category: "security",
+    title: "Finish account setup",
+    body: `Watch-only until setup is complete. You can look around; finish ${missingSetupPartsLabel(session, "merchant")} to unlock live actions.`,
+    at: "Now",
+    href: setupAlertHref("merchant"),
+    hrefLabel: "Finish setup",
+    tone: "warn",
+    urgent: true,
+    unresolved: true,
+    actionable: true,
+  };
+}
+
+function activationAlert(
+  orgId: string,
+  bill: ServiceBill | null,
+  canPay: boolean,
+): AlertItem {
+  const base = {
+    id: `activation:${orgId}`,
+    category: "billing" as const,
+    tone: "warn" as const,
+    urgent: true,
+    unresolved: true,
+  };
+  if (bill && bill.status === "draft") {
+    return {
+      ...base,
+      title: "Activation fee being prepared",
+      body: "Setup is complete. The platform is preparing your one-time activation fee; live actions unlock once it is paid.",
+      at: formatShortTime(bill.createdAt ?? bill.dueAt),
+      href: merchantRoute(`service-bills/${bill.id}`),
+      hrefLabel: "View bill",
+      actionable: false,
+      waiting: true,
+    };
+  }
+  if (bill) {
+    return {
+      ...base,
+      title: "Pay activation fee",
+      body: canPay
+        ? `Setup is complete — pay the one-time activation fee (${bill.totalAmount} ${bill.currency}) to unlock live actions.`
+        : `Setup is complete — an Owner or Administrator must pay the one-time activation fee (${bill.totalAmount} ${bill.currency}) to unlock live actions.`,
+      at: formatShortTime(bill.dueAt),
+      href: merchantRoute(`service-bills/${bill.id}`),
+      hrefLabel: canPay ? "Pay activation fee" : "View bill",
+      actionable: canPay,
+    };
+  }
+  return {
+    ...base,
+    title: "Pay activation fee",
+    body: canPay
+      ? "Setup is complete — pay the one-time activation fee on Service bills to unlock live actions."
+      : "Setup is complete — an Owner or Administrator must pay the one-time activation fee to unlock live actions.",
+    at: "Now",
+    ...(canPay
+      ? { href: merchantRoute("service-bills"), hrefLabel: "Service bills" }
+      : {}),
+    actionable: canPay,
+  };
+}
+
+function maintenanceAlert(m: ActiveNetworkMaintenance): AlertItem {
+  const label = networkShortLabel(m.network);
+  return {
+    id: `maintenance:${m.network}`,
+    category: "system",
+    title: `${label} under maintenance`,
+    body: `${
+      m.message?.trim() ||
+      "Deposits paused — new orders on this network are blocked."
+    }${m.endsAt ? ` Expected back ${formatShortTime(m.endsAt)}.` : ""}`,
+    at: formatShortTime(m.startedAt ?? m.endsAt),
+    href: merchantRoute("networks"),
+    hrefLabel: "Networks",
+    tone: "warn",
+    urgent: false,
+    unresolved: true,
+    actionable: false,
+    waiting: true,
+  };
+}
+
+function suspendedAlert(org: OrgAccount, canPay: boolean): AlertItem {
+  const reason = org.statusReason?.trim() || "Account is suspended";
+  const billId = org.statusReasonBillId;
+  return {
+    id: `suspended:${org.id}`,
+    category: "billing",
+    title: "Account suspended",
+    body: billId
+      ? canPay
+        ? `${reason}. New orders are blocked — pay the bill to restore the account.`
+        : `${reason}. New orders are blocked — an Owner or Administrator must pay the bill.`
+      : `${reason}. New orders are blocked — contact your agent or the platform.`,
+    at: "Now",
+    ...(billId
+      ? {
+          href: merchantRoute(`service-bills/${billId}`),
+          hrefLabel: canPay ? "Pay bill" : "View bill",
+        }
+      : {}),
+    tone: "anomaly",
+    urgent: true,
+    unresolved: true,
+    actionable: Boolean(billId) && canPay,
   };
 }
 
@@ -321,10 +452,53 @@ async function loadBillingAlerts(
       offset: 0,
     });
     for (const bill of page.items.filter(
-      (b) => b.status === "overdue" || b.status === "issued",
+      (b) =>
+        (b.status === "overdue" || b.status === "issued") &&
+        !isActivationServiceBill(b),
     )) {
       next.push(serviceBillAlert(bill, canPay));
     }
+  } catch {
+    /* ignore */
+  }
+}
+
+async function loadActivationAlert(
+  orgId: string,
+  next: AlertItem[],
+  canPay: boolean,
+  canListBills: boolean,
+): Promise<void> {
+  let bill: ServiceBill | null = null;
+  if (canListBills) {
+    try {
+      const page = await listServiceBillsServer<ServiceBill>(OPEN_ACTIVATION_QUERY);
+      bill = page.items[0] ?? null;
+    } catch {
+      /* fall back to the generic activation alert */
+    }
+  }
+  next.push(activationAlert(orgId, bill, canPay));
+}
+
+async function loadMaintenanceAlerts(next: AlertItem[]): Promise<void> {
+  try {
+    for (const m of await listActiveNetworkMaintenance()) {
+      next.push(maintenanceAlert(m));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+async function loadSuspendedAlert(
+  orgId: string,
+  next: AlertItem[],
+  canPay: boolean,
+): Promise<void> {
+  try {
+    const org = (await getMerchantOrgs()).find((o) => o.id === orgId);
+    if (org?.status === "paused") next.push(suspendedAlert(org, canPay));
   } catch {
     /* ignore */
   }
@@ -383,14 +557,25 @@ export async function refreshMerchantAlerts(
   );
   const next: AlertItem[] = [];
 
-  if (orgId && !cashierOnly) {
-    await Promise.all([
-      loadSettlementAlerts(orgId, next),
-      loadXpubAlerts(orgId, next),
-      loadBillingAlerts(next, canPay),
-      canManageHooks ? loadWebhookFailureAlerts(orgId, next) : Promise.resolve(),
-    ]);
+  if (orgId && sessionNeedsOrgSetup(session)) {
+    next.push(setupAlert(orgId, session));
   }
+
+  await Promise.all([
+    orgId && sessionNeedsActivationPayment(session)
+      ? loadActivationAlert(orgId, next, canPay, !cashierOnly)
+      : Promise.resolve(),
+    orgId ? loadSuspendedAlert(orgId, next, canPay) : Promise.resolve(),
+    loadMaintenanceAlerts(next),
+    ...(orgId && !cashierOnly
+      ? [
+          loadSettlementAlerts(orgId, next),
+          loadXpubAlerts(orgId, next),
+          loadBillingAlerts(next, canPay),
+          canManageHooks ? loadWebhookFailureAlerts(orgId, next) : Promise.resolve(),
+        ]
+      : []),
+  ]);
 
   try {
     const summary = await ordersPromise;
@@ -431,7 +616,16 @@ export async function refreshMerchantAlerts(
   };
 }
 
+/** Account-state alerts (setup, activation, suspension, maintenance) ignore in-app toggles. */
 function alertEventType(alert: AlertItem): string | null {
+  if (
+    alert.id.startsWith("setup:") ||
+    alert.id.startsWith("activation:") ||
+    alert.id.startsWith("suspended:") ||
+    alert.id.startsWith("maintenance:")
+  ) {
+    return null;
+  }
   if (alert.id.startsWith("settlement:")) return "settlement_address";
   if (alert.id.startsWith("xpub:")) return "xpub_change";
   if (alert.id.startsWith("webhook:")) return "webhook_failures";

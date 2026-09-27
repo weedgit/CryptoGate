@@ -133,7 +133,8 @@ describe("@paymentgate/web merchant D17 cashier shell", () => {
     assert.match(shell, /Cashier/);
     assert.match(shell, /Cashier terminal/);
     assert.match(shell, /CASHIER_GROUPS/);
-    assert.match(shell, /showCashierBanner/);
+    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner/);
+    assert.match(shell, /SidebarRoleCard/);
     const cashierNav =
       shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
     assert.match(cashierNav, /label: "Invoice"/);
@@ -148,14 +149,10 @@ describe("@paymentgate/web merchant D17 cashier shell", () => {
     assert.match(org, /sessionIsCashierOnly/);
   });
 
-  it("shows restricted banner without Figma pink sticky", () => {
-    const banner = readFileSync(
-      join(root, "src/merchant/CashierRestrictedBanner.tsx"),
-      "utf8",
-    );
-    assert.match(banner, /Cashier/);
-    assert.match(banner, /strictly restricted/);
-    assert.doesNotMatch(banner, /sparkles|fade-in 400ms/i);
+  it("shows cashier limits in the sidebar role card", () => {
+    const perms = readFileSync(join(root, "src/shared/rolePermissions.ts"), "utf8");
+    assert.match(perms, /Own orders only/);
+    assert.match(perms, /Hidden for Cashiers/);
   });
 });
 
@@ -181,16 +178,30 @@ describe("@paymentgate/web merchant D5-D6 service bills", () => {
       join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
-    assert.match(list, /Platform SaaS invoices/);
-    assert.match(list, /listServiceBillsServer/);
+    assert.match(list, /PlatformServiceBillsListPage/);
+    assert.match(list, /ServiceBillsPortalContext/);
     assert.doesNotMatch(list, /createOrder|listOrders/);
     const detail = readFileSync(
       join(root, "src/merchant/ServiceBillDetailPage.tsx"),
       "utf8",
     );
-    assert.match(detail, /ServiceBillInvoiceFace/);
-    assert.match(detail, /platform billing/);
-    assert.match(detail, /getServiceBillCheckout/);
+    assert.match(detail, /PlatformServiceBillDetailPage/);
+    assert.match(detail, /ServiceBillsPortalContext/);
+    const portal = readFileSync(
+      join(root, "src/merchant/useMerchantServiceBillsPortal.tsx"),
+      "utf8",
+    );
+    assert.match(portal, /kind: "merchant"/);
+    assert.match(portal, /getServiceBillCheckout/);
+    assert.match(portal, /sessionCanCheckoutServiceBill/);
+    assert.match(portal, /MerchantBillingPlanCard/);
+    const shared = readFileSync(
+      join(root, "src/platform/ServiceBillDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(shared, /ServiceBillInvoiceFace/);
+    assert.match(shared, /portal\?\.loadCheckout/);
+    assert.match(shared, /qrPayload: checkout\?\.qrPayload/);
   });
 });
 
@@ -262,7 +273,9 @@ describe("@paymentgate/web merchant D12-D16 settings", () => {
     assert.match(api, /inviteOrgUser/);
     assert.match(api, /assignOrgUserRole/);
     const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
-    assert.match(team, /Only the Owner can add or remove team members/i);
+    assert.match(team, /sessionCanManageTeam/);
+    const perms = readFileSync(join(root, "src/shared/rolePermissions.ts"), "utf8");
+    assert.match(perms, /Add or remove team members/);
     assert.match(team, /inviteOrgUser/);
     assert.match(team, /inviteRoleOptions/);
     const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
@@ -270,7 +283,7 @@ describe("@paymentgate/web merchant D12-D16 settings", () => {
     assert.doesNotMatch(org, /orgType == null/);
     assert.match(team, /plat-team__org/);
     const bills = readFileSync(
-      join(root, "src/merchant/ServiceBillsListPage.tsx"),
+      join(root, "src/merchant/MerchantBillingPlanCard.tsx"),
       "utf8",
     );
     assert.match(bills, /not deducted from payer on-chain/i);

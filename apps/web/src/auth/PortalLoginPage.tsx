@@ -78,6 +78,9 @@ export function PortalLoginPage({
 
   const passwordPolicy = evaluatePasswordPolicy(newPassword);
   const resetSuccess = searchParams.get("reset") === "success";
+  const [okToast, setOkToast] = useState<string | null>(() =>
+    resetSuccess ? "Password updated. You can sign in with your new password." : null,
+  );
 
   const clearToastDelay = useCallback(() => {
     if (toastDelayRef.current != null) {
@@ -209,6 +212,7 @@ export function PortalLoginPage({
     try {
       await requestPasswordReset(forgotEmail.trim());
       setForgotSent(true);
+      setOkToast("If an account exists, we sent a reset link.");
     } catch (err) {
       showAlarm(err instanceof ApiError ? err.message : "Request failed");
     } finally {
@@ -274,7 +278,12 @@ export function PortalLoginPage({
     navigate("forgot-password");
   }
 
-  const alarm = <AuthToast message={toast} onDismiss={dismissToast} />;
+  const alarm = (
+    <>
+      <AuthToast message={toast} onDismiss={dismissToast} />
+      <AuthToast message={okToast} tone="ok" onDismiss={() => setOkToast(null)} />
+    </>
+  );
 
   if (view === "reset") {
     return (
@@ -363,14 +372,14 @@ export function PortalLoginPage({
         <form className="login-card" onSubmit={onForgotSubmit}>
           <div className="login-card-head">
             <h1>Forgot password</h1>
-            <p>If an account exists, we will send a reset link.</p>
+            <p>
+              {forgotSent
+                ? "Check your inbox for the reset link."
+                : "If an account exists, we will send a reset link."}
+            </p>
           </div>
 
-          {forgotSent ? (
-            <div className="banner banner-ok">
-              If an account exists, we sent a reset link.
-            </div>
-          ) : (
+          {forgotSent ? null : (
             <AuthField
               id="forgot-email"
               label="Email Address"
@@ -475,12 +484,6 @@ export function PortalLoginPage({
           <h1>Welcome</h1>
           <p>Sign in to your PaymentGate account.</p>
         </div>
-
-        {resetSuccess ? (
-          <div className="banner banner-ok">
-            Password updated. You can sign in with your new password.
-          </div>
-        ) : null}
 
         <div className="login-fields">
           <AuthField

@@ -294,9 +294,6 @@ export function RatesPricingSettingsPage({ session }: Props) {
       <header className="plat-rates__head">
         <div className="plat-rates__head-main">
           <h1 className="plat-rates__title">Rates &amp; pricing</h1>
-          {!canEdit ? (
-            <span className="plat-rates__readonly-chip">Viewer · read-only</span>
-          ) : null}
         </div>
         <p className="plat-rates__subtitle">
           Platform rate feed, venues, and merchant pricing modes.
