@@ -25,9 +25,8 @@ import { AssetIcon } from "./cryptoIcons";
 import {
   sessionCanIssueServiceBill,
   sessionIsPlatformOwner,
-  sessionIsPlatformStaff,
 } from "./org";
-import { BillingWaiversPanel } from "./BillingWaiversPanel";
+import { BillingWaiverModal } from "./BillingWaiverModal";
 import { FundAmount } from "./FundAmount";
 import type { Session } from "./api";
 import { GenerateServiceBillsModal } from "./GenerateServiceBillsModal";
@@ -660,19 +659,11 @@ export function ServiceBillsListPage({ session }: Props) {
     () => (portal ? false : sessionIsPlatformOwner(session)),
     [portal, session],
   );
-  const showWaivers = useMemo(
-    () => (portal ? false : sessionIsPlatformStaff(session)),
-    [portal, session],
-  );
-  const [view, setView] = useState<"bills" | "waivers">(() =>
-    searchParams.get("view") === "waivers" ? "waivers" : "bills",
-  );
-  const isWaiversView = showWaivers && view === "waivers";
-  const [waiverCount, setWaiverCount] = useState<number | null>(null);
   const [issueOpen, setIssueOpen] = useState(
     () => canIssue && searchParams.get("issue") === "1",
   );
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [waiverModal, setWaiverModal] = useState<"fee" | "activation" | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialWindow = useMemo(() => periodWindow("1m"), []);
   const [period, setPeriod] = useState<PeriodId | "custom">("1m");
@@ -722,18 +713,10 @@ export function ServiceBillsListPage({ session }: Props) {
     set("merchant", merchantScope);
     set("periodFrom", billingPeriod?.from);
     set("periodTo", billingPeriod?.to);
-    set("view", isWaiversView ? "waivers" : null);
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [
-    agentScope,
-    merchantScope,
-    billingPeriod,
-    isWaiversView,
-    searchParams,
-    setSearchParams,
-  ]);
+  }, [agentScope, merchantScope, billingPeriod, searchParams, setSearchParams]);
   const [sort, setSort] = useState<SortState<SortKey>>({
     key: "dueDate",
     dir: "desc",
@@ -1048,7 +1031,6 @@ export function ServiceBillsListPage({ session }: Props) {
             </p>
           </div>
         </div>
-        {isWaiversView ? null : (
         <div className="plat-bills__period-tools">
           <div
             className="pg-dash__period"
@@ -1207,54 +1189,74 @@ export function ServiceBillsListPage({ session }: Props) {
                   </svg>
                   Charge
                 </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="plat-bills__more-item"
+                  onClick={(e) => {
+                    const root = (e.currentTarget as HTMLElement).closest(
+                      "details",
+                    );
+                    if (root instanceof HTMLDetailsElement) root.open = false;
+                    setWaiverModal("fee");
+                  }}
+                >
+                  <svg
+                    className="plat-bills__more-item-icon"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    aria-hidden
+                  >
+                    <path
+                      d="M19 5 5 19M7.5 9.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm9 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Waive platform fee
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="plat-bills__more-item"
+                  onClick={(e) => {
+                    const root = (e.currentTarget as HTMLElement).closest(
+                      "details",
+                    );
+                    if (root instanceof HTMLDetailsElement) root.open = false;
+                    setWaiverModal("activation");
+                  }}
+                >
+                  <svg
+                    className="plat-bills__more-item-icon"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    aria-hidden
+                  >
+                    <path
+                      d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Waive activation
+                </button>
               </div>
             </details>
           ) : null}
         </div>
-        )}
       </div>
 
       {portal?.header ?? null}
 
-      {showWaivers ? (
-        <div className="b3-agent-detail__tabs plat-bills__tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            className={`b3-agent-detail__tab${isWaiversView ? "" : " is-active"}`}
-            aria-selected={!isWaiversView}
-            onClick={() => setView("bills")}
-          >
-            Bills
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`b3-agent-detail__tab${isWaiversView ? " is-active" : ""}`}
-            aria-selected={isWaiversView}
-            onClick={() => setView("waivers")}
-          >
-            Waive lists
-            {waiverCount ? (
-              <span className="plat-bills__tab-count">{waiverCount}</span>
-            ) : null}
-          </button>
-        </div>
-      ) : null}
-
-      {showWaivers ? (
-        <div className="plat-bills__waivers-view" hidden={!isWaiversView}>
-          <BillingWaiversPanel
-            merchants={billMerchants}
-            canEdit={canIssue}
-            onBillsChanged={() => void load()}
-            onCountChange={setWaiverCount}
-          />
-        </div>
-      ) : null}
-
-      {isWaiversView ? null : (
-        <>
       <BillKpiCarousel>
         <BillKpiCard
           accent="warn"
@@ -1327,8 +1329,6 @@ export function ServiceBillsListPage({ session }: Props) {
           onView={onViewStatus}
         />
       </BillKpiCarousel>
-        </>
-      )}
 
       {topbarLeadingSlot
         ? createPortal(
@@ -1339,7 +1339,7 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
-      {topbarSlot && !isWaiversView
+      {topbarSlot
         ? createPortal(
             <label className="topbar-search" htmlFor={searchInputId}>
               <svg
@@ -1375,8 +1375,6 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
-      {isWaiversView ? null : (
-        <>
       {agentScope || merchantScope || billingPeriod ? (
         <div className="plat-bills__scope" role="status" aria-label="Review filters">
           <span className="plat-bills__scope-lead">Reviewing</span>
@@ -1700,14 +1698,21 @@ export function ServiceBillsListPage({ session }: Props) {
           )}
         </p>
       </div>
-        </>
-      )}
 
       {canIssue ? (
         <IssueServiceBillModal
           open={issueOpen}
           onClose={closeIssueModal}
           onIssued={() => void load()}
+        />
+      ) : null}
+      {canIssue && waiverModal ? (
+        <BillingWaiverModal
+          kind={waiverModal}
+          merchants={billMerchants}
+          canEdit={canIssue}
+          onClose={() => setWaiverModal(null)}
+          onBillsChanged={() => void load()}
         />
       ) : null}
       {isPlatformOwner ? (

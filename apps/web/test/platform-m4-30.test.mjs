@@ -100,7 +100,9 @@ describe("@paymentgate/web platform B10 B14 v0.3.2", () => {
     assert.match(list, /plat-bills__badge/);
     assert.match(list, /GenerateServiceBillsModal/);
     assert.match(list, /IssueServiceBillModal/);
-    assert.match(list, /BillingWaiversPanel/);
+    assert.match(list, /BillingWaiverModal/);
+    assert.match(list, /Waive platform fee/);
+    assert.match(list, /Waive activation/);
     assert.match(list, /Backfill/);
     assert.match(list, /Recurring invoices appear automatically/);
     assert.match(list, /service-bills\/\$\{/);
