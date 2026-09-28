@@ -1,3 +1,4 @@
+import { getViewerTimeZone } from "./dateTime";
 import type { AuditLogEntry } from "../platform/api";
 import {
   getServerBlob,
@@ -61,5 +62,5 @@ export async function downloadAuditLogCsv(
   p: Omit<AuditListParams, "limit" | "offset">,
 ): Promise<Blob> {
   const { limit: _limit, offset: _offset, ...filters } = params({ ...p, limit: 0, offset: 0 });
-  return getServerBlob(`${PATH}/export`, filters);
+  return getServerBlob(`${PATH}/export`, { ...filters, tz: getViewerTimeZone() });
 }

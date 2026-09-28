@@ -37,6 +37,24 @@ describe("matching mode rules", () => {
     assert.equal(d.code, "mode_d_unavailable_phase1");
   });
 
+  it("underpay tolerance is retired: only zero is accepted and settings report 0", () => {
+    for (const underpayTolerance of [undefined, "0", "0.00", 0]) {
+      const r = validateMatchingModeBody({ matchingMode: "B", underpayTolerance });
+      assert.equal(r.ok, true);
+      assert.equal(r.parsed.underpayTolerance, "0");
+    }
+    for (const underpayTolerance of ["0.01", "1", -1]) {
+      const r = validateMatchingModeBody({ matchingMode: "B", underpayTolerance });
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "underpay_tolerance_unsupported");
+    }
+    const legacy = toMatchingModeSettings(
+      { org_id: "org-1", matching_mode: "B", underpay_tolerance: "0.5" },
+      "org-1",
+    );
+    assert.equal(legacy.underpayTolerance, "0");
+  });
+
   it("rejects unknown modes", () => {
     const r = validateMatchingModeBody({ matchingMode: "A" });
     assert.equal(r.ok, false);

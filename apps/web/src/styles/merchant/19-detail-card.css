@@ -1332,6 +1332,71 @@ button.nav-item--action {
   text-transform: uppercase;
 }
 
+.platform-shell .b3-settlement__asset-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  background: rgba(240, 180, 41, 0.08);
+  color: #f5c542;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.platform-shell .b3-settlement__pending-addr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.platform-shell .b3-settlement__pending-addr .chain-value__link {
+  color: #fcd34d;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html[data-theme="light"] .platform-shell .b3-settlement__asset-badge {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.platform-shell .b3-settlement__network-cell {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.platform-shell .b3-settlement__mixed-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fbbf24;
+}
+
+html[data-theme="light"] .platform-shell .b3-settlement__mixed-note {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .b3-settlement__pending-addr,
+html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-value__link {
+  color: #b45309;
+}
+
+.platform-shell .plat-settlement .plat-settlement__wallets.b3-agent-detail {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
 .platform-shell .b3-settlement__empty-addr {
   font-size: 13px;
   font-weight: 500;

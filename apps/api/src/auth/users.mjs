@@ -2,6 +2,7 @@ import { getPool } from "../db/pool.mjs";
 import { hashPassword, verifyPassword } from "./password-hash.mjs";
 import { validatePassword } from "./password-policy.mjs";
 import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 
 /** @type {boolean | null} */
 let usersHaveFirstLastName = null;
@@ -30,12 +31,12 @@ async function hasUserFirstLastNameColumns() {
 }
 
 const USER_ROW_BASE = `id, email, mfa_enrolled_at, mfa_pending_secret, display_name,
-            locale, timezone,
+            locale, timezone, timezone_confirmed_at,
             mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
             email_verified_at, phone, phone_verified_at`;
 
 const USER_ROW_WITH_NAMES = `id, email, mfa_enrolled_at, mfa_pending_secret, display_name, first_name, last_name,
-            locale, timezone,
+            locale, timezone, timezone_confirmed_at,
             mfa_enforcement, session_timeout_minutes, must_change_password, avatar_url,
             email_verified_at, phone, phone_verified_at`;
 
@@ -65,15 +66,19 @@ export async function createUser(input) {
     throw err;
   }
   const invited = input.invited === true;
+  const timezone =
+    typeof input.timezone === "string" && isValidTimeZone(input.timezone)
+      ? input.timezone
+      : "UTC";
   const passwordHash = await hashPassword(input.password);
   const pool = getPool();
   try {
     const { rows } = await pool.query(
       `INSERT INTO users (
          email, password_hash, session_timeout_minutes,
-         email_verified_at, phone_verified_at, must_change_password
+         email_verified_at, phone_verified_at, must_change_password, timezone
        )
-       VALUES ($1, $2, $3, $4, $5, $6)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, email`,
       [
         email,
@@ -82,6 +87,7 @@ export async function createUser(input) {
         invited ? null : new Date().toISOString(),
         invited ? null : new Date().toISOString(),
         invited,
+        timezone,
       ],
     );
     return { id: rows[0].id, email: rows[0].email };
@@ -184,6 +190,7 @@ function mapUserRow(row) {
         : null,
     locale: row.locale || "en",
     timezone: row.timezone || "UTC",
+    timezoneConfirmed: Boolean(row.timezone_confirmed_at),
     mfaEnforcement: Boolean(row.mfa_enforcement),
     sessionTimeoutMinutes: normalizeSessionTimeoutMinutes(
       row.session_timeout_minutes,
@@ -225,6 +232,7 @@ export function isUserAvatarValue(value) {
  *   avatarUrl?: string | null,
  *   locale?: string,
  *   timezone?: string,
+ *   timezoneConfirmed?: boolean,
  *   mfaEnforcement?: boolean,
  *   sessionTimeoutMinutes?: number,
  * }} input
@@ -274,6 +282,7 @@ export async function updateUserProfile(userId, input) {
     typeof input.timezone === "string" && input.timezone.trim()
       ? input.timezone.trim().slice(0, 64)
       : current.timezone;
+  const confirmTimezone = input.timezoneConfirmed === true;
   const mfaEnforcement =
     typeof input.mfaEnforcement === "boolean"
       ? input.mfaEnforcement
@@ -297,6 +306,7 @@ export async function updateUserProfile(userId, input) {
            timezone = $7,
            mfa_enforcement = $8,
            session_timeout_minutes = $9,
+           timezone_confirmed_at = CASE WHEN $10::boolean THEN now() ELSE timezone_confirmed_at END,
            updated_at = now()
        WHERE id = $1
        RETURNING ${USER_ROW_WITH_NAMES}`,
@@ -310,6 +320,7 @@ export async function updateUserProfile(userId, input) {
         timezone,
         mfaEnforcement,
         sessionTimeoutMinutes,
+        confirmTimezone,
       ],
     ));
   } else {
@@ -321,6 +332,7 @@ export async function updateUserProfile(userId, input) {
            timezone = $5,
            mfa_enforcement = $6,
            session_timeout_minutes = $7,
+           timezone_confirmed_at = CASE WHEN $8::boolean THEN now() ELSE timezone_confirmed_at END,
            updated_at = now()
        WHERE id = $1
        RETURNING ${USER_ROW_BASE}`,
@@ -332,6 +344,7 @@ export async function updateUserProfile(userId, input) {
         timezone,
         mfaEnforcement,
         sessionTimeoutMinutes,
+        confirmTimezone,
       ],
     ));
   }

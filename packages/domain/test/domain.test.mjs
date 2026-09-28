@@ -133,14 +133,13 @@ describe("@paymentgate/domain", () => {
     assert.ok(getAssetNetworkConfig(AssetCode.ETH, NetworkId.Ethereum, "mainnet"));
     assert.ok(getAssetNetworkConfig(AssetCode.USDC, NetworkId.Ethereum, "mainnet"));
     assert.ok(getAssetNetworkConfig(AssetCode.USDC, NetworkId.Solana, "mainnet"));
-    assert.equal(
-      getAssetNetworkConfig(AssetCode.BTC, NetworkId.Bitcoin, "mainnet"),
-      undefined,
+    assert.deepEqual(
+      [...new Set(ASSET_NETWORK_REGISTRY.map((r) => r.network))].sort(),
+      ["ethereum", "solana", "tron", "tron_nile"],
     );
-    assert.equal(
-      getAssetNetworkConfig(AssetCode.USDT, NetworkId.Polygon, "mainnet"),
-      undefined,
-    );
+    assert.deepEqual(Object.values(NetworkId).sort(), ["ethereum", "solana", "tron", "tron_nile"]);
+    assert.equal(getAssetNetworkConfig(AssetCode.USDT, "polygon", "mainnet"), undefined);
+    assert.equal("BTC" in AssetCode, false);
     assert.equal(ASSET_NETWORK_REGISTRY[0], USDT_TRON);
     assert.equal(ASSET_NETWORK_REGISTRY[1], USDT_TRON_NILE);
     assert.equal(USDT_TRON_NILE.chainEnv, ChainEnvironment.Testnet);
@@ -231,8 +230,8 @@ describe("@paymentgate/domain", () => {
     assert.equal(resolveHdDerivationFamily(NetworkId.TronNile), HdDerivationFamily.Tron);
     assert.equal(resolveHdDerivationFamily(NetworkId.Ethereum), HdDerivationFamily.Evm);
     assert.equal(resolveHdDerivationFamily(NetworkId.Solana), HdDerivationFamily.Solana);
-    assert.equal(resolveHdDerivationFamily(NetworkId.Bitcoin), HdDerivationFamily.Bitcoin);
-    assert.equal(resolveHdDerivationFamily(NetworkId.Polygon), HdDerivationFamily.Evm);
+    assert.equal(resolveHdDerivationFamily("polygon"), null);
+    assert.equal(resolveHdDerivationFamily("bitcoin"), null);
     assert.equal(supportsModeSHdDerivation(NetworkId.Tron), true);
     assert.equal(supportsModeSHdDerivation("unknown"), false);
     assert.equal(hdDerivationPathTemplate(NetworkId.Ethereum), "0/{index}");

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { businessTimezoneField } from "../shared/businessTimezone";
 import { Link } from "react-router-dom";
 import { ordersReviewQuery, volumeReviewQuery } from "./accountReviewLinks";
 import { AuthToast } from "../auth/AuthToast";
@@ -330,6 +331,7 @@ export function SiteDetailCard({
         country={org.country}
         legalName={org.legalName}
         billingEmail={org.billingEmail}
+        businessTimezone={businessTimezoneField(org, orgs)}
         requireCountry={false}
         typeLabel={orgTypeLabel(org.type)}
         busy={profileEditBusy}

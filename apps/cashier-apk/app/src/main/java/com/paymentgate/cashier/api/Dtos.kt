@@ -28,6 +28,9 @@ data class Session(
     val userId: String,
     val email: String,
     val memberships: List<OrgMembership>,
+    /** Profile IANA zone; only trusted once [timezoneConfirmed] (else it is the UTC default). */
+    val timezone: String? = null,
+    val timezoneConfirmed: Boolean = false,
 )
 
 data class LoginResult(
@@ -76,6 +79,8 @@ data class PaymentDetails(
     val requiredConfirmations: Int = 1,
     /** Bound chain tx when watcher has matched (M5-05). */
     val txHash: String? = null,
+    /** Merchant/site zone for customer receipts; null when not set. */
+    val businessTimezone: String? = null,
 )
 
 object OrderDefaults {

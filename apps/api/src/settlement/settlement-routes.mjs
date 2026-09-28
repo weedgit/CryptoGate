@@ -16,7 +16,7 @@ import {
 } from "./settlement-rules.mjs";
 import {
   listSettlementAddresses,
-  upsertSettlementAddress,
+  upsertNetworkSettlementAddress,
 } from "./settlement-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { NotificationEventType, notifyMerchantOrg } from "../notifications/notify.mjs";
@@ -117,13 +117,19 @@ export async function handlePutSettlement(req, res, orgId) {
     return;
   }
 
-  const result = await upsertSettlementAddress({
+  const result = await upsertNetworkSettlementAddress({
     orgId,
-    asset: validated.parsed.asset,
     network: validated.parsed.network,
+    assets: validated.parsed.assets,
     address: validated.parsed.address,
     cooldownMs: settlementCooldownMs(),
   });
+  const primary =
+    result.rows.find((row) => row.asset === validated.parsed.asset) ?? result.rows[0];
+  const pendingRow = result.rows.find((row) => row.pending_activates_at);
+  const activatesAt = pendingRow?.pending_activates_at
+    ? new Date(pendingRow.pending_activates_at).toISOString()
+    : null;
 
   await insertAuditEvent({
     actorUserId: loaded.caller.userId,
@@ -131,21 +137,17 @@ export async function handlePutSettlement(req, res, orgId) {
     action: AUDIT_ACTIONS.settlementPut,
     metadata: {
       asset: validated.parsed.asset,
+      assets: validated.parsed.assets,
       network: validated.parsed.network,
       address: validated.parsed.address,
       kind: result.kind,
-      pendingActivatesAt: result.row.pending_activates_at
-        ? new Date(result.row.pending_activates_at).toISOString()
-        : null,
+      pendingActivatesAt: activatesAt,
     },
   });
   await grantSiteOverrideAfterPlatformWrite(loaded.org, "settlement", loaded.caller);
 
   if (result.kind !== "unchanged") {
-    const rail = `${validated.parsed.asset} on ${validated.parsed.network}`;
-    const activatesAt = result.row.pending_activates_at
-      ? new Date(result.row.pending_activates_at).toISOString()
-      : null;
+    const rail = `${validated.parsed.network} wallet (${validated.parsed.assets.join(", ")})`;
     notifyMerchantOrg(orgId, NotificationEventType.SettlementAddress, {
       subject: `Settlement address ${result.kind === "pending" ? "change pending" : "set"} — ${rail}`,
       lines: [
@@ -170,5 +172,8 @@ export async function handlePutSettlement(req, res, orgId) {
     }
   }
 
-  sendJson(res, 200, toSettlementAddress(result.row));
+  sendJson(res, 200, {
+    ...toSettlementAddress(primary),
+    items: result.rows.map(toSettlementAddress),
+  });
 }

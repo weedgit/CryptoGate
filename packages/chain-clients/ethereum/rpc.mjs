@@ -129,6 +129,58 @@ function toHexBlock(n) {
   return `0x${n.toString(16)}`;
 }
 
+/** Recent blocks re-read every cycle so a late-indexed or reorged transfer is still seen. */
+export const ERC20_RESCAN_BLOCKS = 12;
+/** Watched addresses per eth_getLogs call (topic OR-list). */
+export const ERC20_ADDRESS_CHUNK = 50;
+/** Full blocks fetched per cycle for native ETH; a backlog is caught up over later cycles. */
+export const DEFAULT_NATIVE_MAX_BLOCKS_PER_TICK = 5;
+
+/** Last block fully scanned, per RPC + network + asset. In-memory: a restart re-scans blockLookback. */
+const scanCursors = new Map();
+
+export function resetEthScanCursors() {
+  scanCursors.clear();
+}
+
+/**
+ * @param {{ rpcUrl: string, network: string, asset: string }} cfg
+ * @param {string} kind
+ */
+function cursorKey(cfg, kind) {
+  return `${cfg.rpcUrl}|${cfg.network}|${cfg.asset}|${kind}`;
+}
+
+/**
+ * Block range for this cycle: new blocks since the cursor plus `overlap` recent
+ * blocks, never older than `lookback`, at most `maxSpan` blocks.
+ * @param {number | undefined} cursor
+ * @param {number} latest
+ * @param {{ lookback: number, overlap: number, maxSpan: number }} opts
+ */
+export function scanRange(cursor, latest, opts) {
+  const floor = Math.max(0, latest - opts.lookback);
+  const start = Math.max(floor, cursor == null ? floor : cursor + 1 - opts.overlap);
+  const end = Math.min(latest, start + Math.max(1, opts.maxSpan) - 1);
+  return { fromBlock: start, toBlock: end };
+}
+
+async function latestBlock(cfg, input) {
+  const latestHex = await withEthRetry(
+    () =>
+      jsonRpcCall(cfg.rpcUrl, "eth_blockNumber", [], {
+        fetchImpl: input.fetchImpl,
+        apiKey: cfg.apiKey,
+      }),
+    { sleepImpl: input.sleepImpl },
+  );
+  const latest = Number.parseInt(String(latestHex), 16);
+  if (!Number.isFinite(latest) || latest < 0) {
+    throw new Error("eth_blockNumber returned invalid block");
+  }
+  return latest;
+}
+
 /**
  * @param {{
  *   watchedAddresses: string[],
@@ -150,27 +202,19 @@ export async function fetchErc20TransfersForAddresses(input) {
     return { transfers: [], mode: pollMode, watchedAddressCount: 0 };
   }
 
-  const latestHex = await withEthRetry(
-    () =>
-      jsonRpcCall(cfg.rpcUrl, "eth_blockNumber", [], {
-        fetchImpl: input.fetchImpl,
-        apiKey: cfg.apiKey,
-      }),
-    { sleepImpl: input.sleepImpl },
-  );
-  const latest = Number.parseInt(String(latestHex), 16);
-  if (!Number.isFinite(latest) || latest < 0) {
-    throw new Error("eth_blockNumber returned invalid block");
-  }
-
-  const fromBlock = Math.max(0, latest - cfg.blockLookback);
+  const latest = await latestBlock(cfg, input);
+  const key = cursorKey(cfg, "erc20");
+  const { fromBlock, toBlock } = scanRange(scanCursors.get(key), latest, {
+    lookback: cfg.blockLookback,
+    overlap: ERC20_RESCAN_BLOCKS,
+    maxSpan: cfg.blockLookback + 1,
+  });
+  const toTopics = [...new Set(watched.map(padAddressTopic).filter(Boolean))];
   /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string, memoOrTag?: string }>} */
   const transfers = [];
 
-  for (const address of watched) {
-    const toTopic = padAddressTopic(address);
-    if (!toTopic) continue;
-
+  for (let i = 0; i < toTopics.length; i += ERC20_ADDRESS_CHUNK) {
+    const chunk = toTopics.slice(i, i + ERC20_ADDRESS_CHUNK);
     const logs = await withEthRetry(
       () =>
         jsonRpcCall(
@@ -180,8 +224,8 @@ export async function fetchErc20TransfersForAddresses(input) {
             {
               address: cfg.usdtContractAddress,
               fromBlock: toHexBlock(fromBlock),
-              toBlock: "latest",
-              topics: [ERC20_TRANSFER_TOPIC, null, toTopic],
+              toBlock: toHexBlock(toBlock),
+              topics: [ERC20_TRANSFER_TOPIC, null, chunk.length === 1 ? chunk[0] : chunk],
             },
           ],
           { fetchImpl: input.fetchImpl, apiKey: cfg.apiKey },
@@ -200,6 +244,7 @@ export async function fetchErc20TransfersForAddresses(input) {
       if (mapped) transfers.push(mapped);
     }
   }
+  scanCursors.set(key, toBlock);
 
   return {
     transfers,
@@ -209,7 +254,7 @@ export async function fetchErc20TransfersForAddresses(input) {
 }
 
 /**
- * Scan recent blocks for native ETH transfers to watched addresses.
+ * Scan new blocks for native ETH transfers to watched addresses.
  * @param {{
  *   watchedAddresses: string[],
  *   fetchImpl?: typeof fetch,
@@ -232,24 +277,17 @@ export async function fetchNativeEthTransfersForAddresses(input) {
     return { transfers: [], mode: pollMode, watchedAddressCount: 0 };
   }
 
-  const latestHex = await withEthRetry(
-    () =>
-      jsonRpcCall(cfg.rpcUrl, "eth_blockNumber", [], {
-        fetchImpl: input.fetchImpl,
-        apiKey: cfg.apiKey,
-      }),
-    { sleepImpl: input.sleepImpl },
-  );
-  const latest = Number.parseInt(String(latestHex), 16);
-  if (!Number.isFinite(latest) || latest < 0) {
-    throw new Error("eth_blockNumber returned invalid block");
-  }
-
-  const fromBlock = Math.max(0, latest - cfg.blockLookback);
+  const latest = await latestBlock(cfg, input);
+  const key = cursorKey(cfg, "native");
+  const { fromBlock, toBlock } = scanRange(scanCursors.get(key), latest, {
+    lookback: cfg.blockLookback,
+    overlap: 1,
+    maxSpan: cfg.nativeMaxBlocksPerTick ?? DEFAULT_NATIVE_MAX_BLOCKS_PER_TICK,
+  });
   /** @type {Array<{ toAddress: string, amount: string, txHash: string, asset?: string, network?: string }>} */
   const transfers = [];
 
-  for (let blockNum = fromBlock; blockNum <= latest; blockNum += 1) {
+  for (let blockNum = fromBlock; blockNum <= toBlock; blockNum += 1) {
     const block = await withEthRetry(
       () =>
         jsonRpcCall(cfg.rpcUrl, "eth_getBlockByNumber", [toHexBlock(blockNum), true], {
@@ -279,6 +317,7 @@ export async function fetchNativeEthTransfersForAddresses(input) {
         network: cfg.network,
       });
     }
+    scanCursors.set(key, blockNum);
   }
 
   return { transfers, mode: pollMode, watchedAddressCount: watchedSet.size };

@@ -109,6 +109,8 @@ export function InvoiceListPage({ session, variant }: Props) {
           setAssetFilter={list.setAssetFilter}
           networkFilter={list.networkFilter}
           setNetworkFilter={list.setNetworkFilter}
+          channelFilter={list.channelFilter}
+          setChannelFilter={list.setChannelFilter}
           resetFilters={list.resetFilters}
         />
 

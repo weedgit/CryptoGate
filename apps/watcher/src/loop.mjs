@@ -1,12 +1,6 @@
 import { extraWatcherBackoffMs as tronExtraBackoff } from "@paymentgate/chain-clients/tron";
 import { extraWatcherBackoffMs as ethExtraBackoff } from "@paymentgate/chain-clients/ethereum";
-import { extraWatcherBackoffMs as bscExtraBackoff } from "@paymentgate/chain-clients/bnb_smart_chain";
-import { extraWatcherBackoffMs as polygonExtraBackoff } from "@paymentgate/chain-clients/polygon";
-import { extraWatcherBackoffMs as arbitrumExtraBackoff } from "@paymentgate/chain-clients/arbitrum_one";
-import { extraWatcherBackoffMs as baseExtraBackoff } from "@paymentgate/chain-clients/base";
 import { extraWatcherBackoffMs as solanaExtraBackoff } from "@paymentgate/chain-clients/solana";
-import { extraWatcherBackoffMs as tonExtraBackoff } from "@paymentgate/chain-clients/ton";
-import { extraWatcherBackoffMs as bitcoinExtraBackoff } from "@paymentgate/chain-clients/bitcoin";
 import { loadWatcherConfig } from "./config.mjs";
 import { runTick } from "./tick.mjs";
 
@@ -52,13 +46,7 @@ export async function runWatcherLoop(options = {}) {
     const extraMs = Math.max(
       tronExtraBackoff(payload, config.pollIntervalMs),
       ethExtraBackoff(payload, config.pollIntervalMs),
-      bscExtraBackoff(payload, config.pollIntervalMs),
-      polygonExtraBackoff(payload, config.pollIntervalMs),
-      arbitrumExtraBackoff(payload, config.pollIntervalMs),
-      baseExtraBackoff(payload, config.pollIntervalMs),
       solanaExtraBackoff(payload, config.pollIntervalMs),
-      tonExtraBackoff(payload, config.pollIntervalMs),
-      bitcoinExtraBackoff(payload, config.pollIntervalMs),
     );
     if (extraMs > 0) {
       console.log(

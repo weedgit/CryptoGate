@@ -1,10 +1,6 @@
-/** Active user IANA timezone from session profile (A10). */
-let userTimezone: string | undefined;
+import { getViewerTimeZone } from "./dateTime";
 
-export function setUserTimezone(tz: string | null | undefined): void {
-  userTimezone = typeof tz === "string" && tz.trim() ? tz.trim() : undefined;
-}
-
-export function getUserTimezone(): string | undefined {
-  return userTimezone;
+/** Active viewer zone — same source as `shared/dateTime` (profile once confirmed, else browser). */
+export function getUserTimezone(): string {
+  return getViewerTimeZone();
 }

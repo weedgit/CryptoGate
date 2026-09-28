@@ -8,6 +8,7 @@ import {
   sessionCanEditSettlement,
   sessionCanManageSettlementOps,
 } from "./org";
+import { CashierChannelCard } from "./settlement/CashierChannelCard";
 import { FulfillmentPolicyCard } from "./settlement/FulfillmentPolicyCard";
 import { HdPoolPanel } from "./settlement/HdPoolPanel";
 import { MatchingModeCard } from "./settlement/MatchingModeCard";
@@ -92,13 +93,7 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
     <div className="plat-settings plat-settings--merchant plat-settlement">
       {toast}
 
-      <SettlementHero
-        addresses={data.addresses}
-        xpubs={data.xpubs}
-        matchingMode={data.matchingMode}
-        fulfillmentPolicy={data.fulfillmentPolicy}
-        lockChip={lockChip}
-      />
+      <SettlementHero addresses={data.addresses} lockChip={lockChip} />
 
       {matchingInherited || fulfillmentInherited ? (
         <p className="plat-settings__notice" role="status">
@@ -108,52 +103,52 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
         </p>
       ) : null}
 
-      <div className="plat-settlement__layout">
-        <SettlementAddressesCard
-          orgId={orgId}
-          session={session}
-          addresses={data.addresses}
-          locked={walletsLocked}
-          notify={notify}
-          reloadAddresses={reloadAddresses}
-          onSessionRefresh={onSessionRefresh}
-        />
+      <div className="plat-settlement__layout plat-settlement__layout--cols">
+        <div className="plat-settlement__col">
+          <SettlementAddressesCard
+            orgId={orgId}
+            session={session}
+            addresses={data.addresses}
+            locked={walletsLocked}
+            notify={notify}
+            reloadAddresses={reloadAddresses}
+            onSessionRefresh={onSessionRefresh}
+          />
 
-        <MatchingModeCard
-          orgId={orgId}
-          mode={data.matchingMode}
-          underpayTolerance={data.underpayTolerance}
-          locked={matchingLocked}
-          notify={notify}
-          onSaved={(saved) =>
-            patch({
-              matchingMode: saved.matchingMode,
-              underpayTolerance: saved.underpayTolerance,
-            })
-          }
-          hdPool={
-            <HdPoolPanel
-              orgId={orgId}
-              session={session}
-              xpubs={data.xpubs}
-              pool={data.pool}
-              derivePath={data.derivePath}
-              locked={walletsLocked}
-              notify={notify}
-              reloadXpubAndPool={reloadXpubAndPool}
-            />
-          }
-        />
+          <FulfillmentPolicyCard
+            orgId={orgId}
+            policy={data.fulfillmentPolicy}
+            locked={fulfillmentLocked}
+            notify={notify}
+            onSaved={(policy) => patch({ fulfillmentPolicy: policy })}
+          />
 
-        <FulfillmentPolicyCard
-          orgId={orgId}
-          policy={data.fulfillmentPolicy}
-          locked={fulfillmentLocked}
-          notify={notify}
-          onSaved={(policy) => patch({ fulfillmentPolicy: policy })}
-        />
+          <CashierChannelCard orgId={orgId} canManage={canManageOps} notify={notify} />
+        </div>
 
-        <PricingSettingsPage session={session} />
+        <div className="plat-settlement__col">
+          <PricingSettingsPage session={session} />
+
+          <MatchingModeCard
+            orgId={orgId}
+            mode={data.matchingMode}
+            locked={matchingLocked}
+            notify={notify}
+            onSaved={(saved) => patch({ matchingMode: saved.matchingMode })}
+            hdPool={
+              <HdPoolPanel
+                orgId={orgId}
+                session={session}
+                xpubs={data.xpubs}
+                pool={data.pool}
+                derivePath={data.derivePath}
+                locked={walletsLocked}
+                notify={notify}
+                reloadXpubAndPool={reloadXpubAndPool}
+              />
+            }
+          />
+        </div>
       </div>
     </div>
   );

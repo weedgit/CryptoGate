@@ -11,10 +11,6 @@ const FEEDS = {
     address: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
     decimals: 8,
   },
-  BTC: {
-    address: "0xF4030086522a5bEEa06167b7dafF27ABcC0D4aD3",
-    decimals: 8,
-  },
   USDC: {
     address: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576414f",
     decimals: 8,

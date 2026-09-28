@@ -137,7 +137,7 @@ Platform fee remittance is already locked to **USDT on TRON (TRC-20)**.
 - Test / UAT: **USDT · TRON Nile**
 - One platform billing wallet address is enough for Phase 1. There is no multi-asset fee catalog.
 - Agent commission payouts use the **same** pair (Confirm & pay is USDT · TRON; explorers open Tronscan).
-- Merchant **payment orders** may still collect on other catalogued pairs (USDT on Ethereum, BSC, and so on). Those coins go to the merchant wallet. They are not the rail used to pay the platform.
+- Merchant **payment orders** may still collect on other catalogued pairs (USDT/USDC on Ethereum or Solana, native ETH/TRX). Those coins go to the merchant wallet. They are not the rail used to pay the platform.
 
 ## Recommendation: keep USDT on TRON (TRC-20)
 

@@ -18,11 +18,6 @@ html[data-theme="light"] .org-edit__waves svg,
 html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__aura-svg,
 html[data-theme="light"] :is(.platform-shell, .b4-wizard-portal) .b4-wizard__head-aura-svg,
 html[data-theme="light"] .plat-alerts__waves svg,
-html[data-theme="light"] .stl-hero__waves svg {
-  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.2));
-  opacity: 0.9;
-}
-
 html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__aura-svg {
   filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.18));
   opacity: 0.9;

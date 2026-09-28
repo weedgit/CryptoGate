@@ -160,7 +160,9 @@ export async function listServiceBills(query) {
  * Scope + status + date-window filters shared by list and summary.
  * `period` keeps bills whose billing period overlaps [from, to] — the same rule
  * as the org overview platform-fee MTD, so Review links add up to the card.
- * @param {{ kind: "all" | "filter", orgIds?: string[], orgId?: string | null, status?: string | null, window?: { from: string, to: string, tz: string } | null, period?: { from: string, to: string } | null }} query
+ * `paidMonth` keeps paid monthly bills with paid_at in that UTC month — the
+ * platform → agent commission fee base.
+ * @param {{ kind: "all" | "filter", orgIds?: string[], orgId?: string | null, status?: string | null, window?: { from: string, to: string, tz: string } | null, period?: { from: string, to: string } | null, paidMonth?: { startIso: string, endIso: string } | null }} query
  * @returns {{ params: unknown[], where: string[] } | null} null = scope is empty
  */
 function buildServiceBillWhere(query) {
@@ -185,6 +187,13 @@ function buildServiceBillWhere(query) {
     params.push(query.period.from, query.period.to);
     where.push(
       `(period_start <= $${params.length}::date AND period_end >= $${params.length - 1}::date)`,
+    );
+  }
+  if (query.paidMonth) {
+    params.push(query.paidMonth.startIso, query.paidMonth.endIso);
+    where.push(
+      `(status = 'paid' AND COALESCE(bill_kind, 'monthly') = 'monthly'
+        AND paid_at >= $${params.length - 1}::timestamptz AND paid_at < $${params.length}::timestamptz)`,
     );
   }
   if (query.window) {

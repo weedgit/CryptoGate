@@ -11,7 +11,15 @@ import { Link } from "react-router-dom";
 import { AuditAction } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
-import { formatViewerDateTime } from "../shared/dateTime";
+import {
+  addDaysYmd,
+  formatViewerDateTime,
+  zonedEndOfDay,
+  zonedStartOfDay,
+  zoneAbbrev,
+  zonedYmd,
+} from "../shared/dateTime";
+import { useViewerTimeZone } from "../shared/useViewerTimeZone";
 import {
   ApiError,
   getPlatformOrgs,
@@ -59,6 +67,7 @@ const ACTION_LABEL: Record<string, string> = {
   settlement_put: "Settlement address updated",
   matching_mode_put: "Matching mode updated",
   fulfillment_policy_put: "Fulfillment policy updated",
+  pos_settings_put: "POS settings updated",
   xpub_put: "xPub updated",
   webhook_register: "Webhook registered",
   webhook_delete: "Webhook deleted",
@@ -180,10 +189,7 @@ function metadataResource(
 }
 
 function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return zonedYmd(d);
 }
 
 function orgDetailPath(orgId: string, orgs: OrgAccount[]): string {
@@ -195,24 +201,19 @@ function orgDetailPath(orgId: string, orgs: OrgAccount[]): string {
 }
 
 function fromDateStart(isoDate: string): string | undefined {
-  if (!isoDate) return undefined;
-  const d = new Date(`${isoDate}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return undefined;
+  return zonedStartOfDay(isoDate).toISOString();
 }
 
 function toDateEnd(isoDate: string): string | undefined {
-  if (!isoDate) return undefined;
-  const d = new Date(`${isoDate}T23:59:59.999`);
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return undefined;
+  return zonedEndOfDay(isoDate).toISOString();
 }
 
 /** B14 — Append-only platform audit log. */
 export function AuditLogPage() {
-  const defaultFrom = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return toDateInputValue(d);
-  }, []);
+  const viewerTz = useViewerTimeZone();
+  const defaultFrom = useMemo(() => addDaysYmd(zonedYmd(), -30), []);
 
   const [orgNames, setOrgNames] = useState<Map<string, string>>(() => {
     const cached = peekPlatformOrgs();
@@ -255,7 +256,8 @@ export function AuditLogPage() {
       q: debouncedQuery || undefined,
       qActions: actionsMatchingLabel(debouncedQuery),
     }),
-    [action, orgId, fromDate, toDate, debouncedQuery],
+    // viewerTz: day bounds are computed in the viewer's zone
+    [action, orgId, fromDate, toDate, debouncedQuery, viewerTz],
   );
   const listParams = useMemo<AuditListParams>(
     () => ({ ...filterParams, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
@@ -466,7 +468,7 @@ export function AuditLogPage() {
 
       <div className="plat-audit__filters" aria-label="Audit filters">
         <label className="plat-audit__field">
-          <span>From</span>
+          <span>From ({zoneAbbrev(viewerTz)})</span>
           <span className="plat-audit__date-wrap">
             <input
               className="plat-audit__input plat-audit__input--date"
@@ -496,7 +498,7 @@ export function AuditLogPage() {
           </span>
         </label>
         <label className="plat-audit__field">
-          <span>To</span>
+          <span>To ({zoneAbbrev(viewerTz)})</span>
           <span className="plat-audit__date-wrap">
             <input
               className="plat-audit__input plat-audit__input--date"

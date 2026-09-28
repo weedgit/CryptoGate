@@ -168,33 +168,6 @@ export async function markCommissionPayoutPaid(
   return (await res.json()) as CommissionPayoutRecord;
 }
 
-export async function markCommissionPayoutsPaidBatch(
-  ids: string[],
-  opts: { note: string; txRef?: string | null },
-): Promise<{
-  paid: CommissionPayoutRecord[];
-  failed: { id: string; code: string; message: string }[];
-}> {
-  const res = await apiFetch(`${API_BASE}/commission-payouts/mark-paid-batch`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      ids,
-      note: opts.note.trim(),
-      txRef: opts.txRef?.trim() || null,
-    }),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    paid: CommissionPayoutRecord[];
-    failed: { id: string; code: string; message: string }[];
-  };
-}
-
 export async function agentConfirmCommissionPayout(
   id: string,
 ): Promise<CommissionPayoutRecord | null> {

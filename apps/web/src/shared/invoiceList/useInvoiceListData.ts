@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useViewerTimeZone } from "../useViewerTimeZone";
 import { useSearchParams } from "react-router-dom";
 import {
   ApiError,
@@ -30,6 +31,7 @@ import {
 } from "../../merchant/org";
 import { merchantRoute, platformRoute } from "../portalRouting";
 import { serverNow } from "../serverClock";
+import { parseOrderChannelFilter, type OrderChannelFilter } from "../orderChannel";
 import {
   INVOICE_PAGE_SIZE,
   INVOICE_PERIOD_OPTIONS,
@@ -125,6 +127,9 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
   const [networkFilter, setNetworkFilter] = useState(
     () => searchParams.get("network") ?? "",
   );
+  const [channelFilter, setChannelFilter] = useState<OrderChannelFilter>(
+    () => parseOrderChannelFilter(searchParams.get("via")),
+  );
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [debouncedQ, setDebouncedQ] = useState(query);
   const [page, setPage] = useState(() => {
@@ -189,6 +194,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     if (cashierFilter) next.set("cashier", cashierFilter);
     if (assetFilter) next.set("asset", assetFilter);
     if (networkFilter) next.set("network", networkFilter);
+    if (channelFilter) next.set("via", channelFilter);
     if (debouncedQ) next.set("q", debouncedQ);
     if (page > 1) next.set("page", String(page));
     setSearchParams(next, { replace: true });
@@ -204,6 +210,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     cashierFilter,
     assetFilter,
     networkFilter,
+    channelFilter,
     debouncedQ,
     page,
     setSearchParams,
@@ -308,9 +315,10 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     };
   }, [cashierOrgId, cashierOnly]);
 
+  const viewerTz = useViewerTimeZone();
   const range = useMemo(
     () => periodToRange(period, customFrom, customTo, utcDays),
-    [period, customFrom, customTo, utcDays],
+    [period, customFrom, customTo, utcDays, viewerTz],
   );
 
   const needsScopeGate = useMemo(() => {
@@ -376,6 +384,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
         q: debouncedQ || undefined,
         asset: assetFilter || undefined,
         network: networkFilter || undefined,
+        createdVia: channelFilter || undefined,
         limit: INVOICE_PAGE_SIZE,
         offset: (page - 1) * INVOICE_PAGE_SIZE,
       });
@@ -412,6 +421,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     cashierFilter,
     assetFilter,
     networkFilter,
+    channelFilter,
     range.createdFrom,
     range.createdTo,
     debouncedQ,
@@ -447,6 +457,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     cashierFilter,
     assetFilter,
     networkFilter,
+    channelFilter,
     debouncedQ,
   ]);
 
@@ -477,6 +488,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
       q: debouncedQ || undefined,
       asset: assetFilter || undefined,
       network: networkFilter || undefined,
+      createdVia: channelFilter || undefined,
     }),
     [
       statusFilter,
@@ -489,6 +501,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
       debouncedQ,
       assetFilter,
       networkFilter,
+      channelFilter,
     ],
   );
 
@@ -581,6 +594,7 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     setCashierFilter("");
     setAssetFilter("");
     setNetworkFilter("");
+    setChannelFilter("");
     setPeriod(defaults.period);
     const dates = periodToDateInputs(defaults.period);
     setCustomFrom(dates.from);
@@ -630,6 +644,8 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
     setAssetFilter,
     networkFilter,
     setNetworkFilter,
+    channelFilter,
+    setChannelFilter,
     query,
     setQuery,
     setDebouncedQ,

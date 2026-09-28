@@ -70,6 +70,7 @@ export function toPaymentDetails(row) {
     orderNumber: row.order_number,
     status: row.status,
     merchantName: row.org_name,
+    businessTimezone: row.business_timezone ?? null,
     matchingMode: row.matching_mode,
     paymentPageUrl,
     qrPayload: qrPayloadForOrder({ paymentPageUrl }),
@@ -187,9 +188,13 @@ export function toPaymentOrder(row) {
       ? expiresAtIso(row.anomaly_resolved_at)
       : null,
     fulfillmentPolicy: row.fulfillment_policy ?? "on_completed",
+    createdVia: row.created_via ?? null,
   };
   if (row.created_by) {
     order.createdBy = row.created_by;
+  }
+  if (row.business_timezone) {
+    order.businessTimezone = row.business_timezone;
   }
   if (row.org_name) {
     order.orgName = row.org_name;

@@ -61,6 +61,22 @@ Merchants may sit under an **agent**, or **directly under Platform** (no agent r
 
 Each merchant has cashiers **a–e** (`cashier.{merchant-key}.{a|b|c|d|e}@paymentgate.io`).
 
+---
+
+## Kevin Multi sites (site portal + cashier terminal)
+
+Seeded by `node scripts/seed-kevin-multi-sites.mjs` (included in `seed-uat.mjs`). Cashier POS PIN: **`1234`**. Orders are stamped *today* — re-run on a later day for fresh site-home data.
+
+| Role | Email | Org |
+|------|-------|-----|
+| **Casablanca site owner** | `own.multi-casa@paymentgate.io` | Kevin Multi · Casablanca |
+| Casablanca site admin | `admin.multi-casa@paymentgate.io` | Kevin Multi · Casablanca |
+| **Casablanca cashier A** (PIN set) | `cashier.multi-casa.a@paymentgate.io` | Kevin Multi · Casablanca |
+| Casablanca cashier B (no PIN) | `cashier.multi-casa.b@paymentgate.io` | Kevin Multi · Casablanca |
+| **Marrakech site owner** | `own.multi-rak@paymentgate.io` | Kevin Multi · Marrakech |
+| Marrakech cashier A (PIN set) | `cashier.multi-rak.a@paymentgate.io` | Kevin Multi · Marrakech |
+| **Mixed role** (workspace switcher) | `mixed.multi@paymentgate.io` | Marrakech admin + Casablanca cashier |
+
 **URL:** Merchant portal `https://merchant-cg.boostbunny.io/`
 
 ---

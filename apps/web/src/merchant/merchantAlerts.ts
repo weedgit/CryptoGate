@@ -36,6 +36,7 @@ import {
   sessionIsCashierOnly,
   sessionRoleOnOrg,
 } from "./org";
+import { experienceShowsServiceBills, resolveMerchantExperience } from "./experience";
 
 type Listener = (items: AlertItem[]) => void;
 
@@ -140,17 +141,17 @@ function anomalyAlert(order: PaymentOrder, actionable: boolean): AlertItem {
 function settlementCooldownAlert(
   orgId: string,
   activatesAt: string,
-  asset: string,
   network: string,
 ): AlertItem {
   const remaining = formatCountdown(activatesAt);
+  const wallet = `${networkShortLabel(network)} wallet`;
   return {
-    id: `settlement:cooldown:${orgId}:${asset}:${network}`,
+    id: `settlement:cooldown:${orgId}:${network}`,
     category: "security",
     title: "Settlement address change pending",
     body: remaining
-      ? `New ${asset} (${network}) receive address activates in ${remaining}. Until then, open orders still use the current address.`
-      : `New ${asset} (${network}) receive address activates ${formatShortTime(activatesAt)}. Until then, open orders still use the current address.`,
+      ? `New ${wallet} address activates in ${remaining}. Until then, open orders still use the current address.`
+      : `New ${wallet} address activates ${formatShortTime(activatesAt)}. Until then, open orders still use the current address.`,
     at: formatShortTime(activatesAt),
     href: merchantRoute("settings/settlement"),
     hrefLabel: "Settlement",
@@ -300,9 +301,14 @@ function maintenanceAlert(m: ActiveNetworkMaintenance): AlertItem {
   };
 }
 
-function suspendedAlert(org: OrgAccount, canPay: boolean): AlertItem {
+function suspendedAlert(
+  org: OrgAccount,
+  canPay: boolean,
+  billsVisible: boolean,
+): AlertItem {
   const reason = org.statusReason?.trim() || "Account is suspended";
   const billId = org.statusReasonBillId;
+  const billHref = billId && billsVisible;
   return {
     id: `suspended:${org.id}`,
     category: "billing",
@@ -313,7 +319,7 @@ function suspendedAlert(org: OrgAccount, canPay: boolean): AlertItem {
         : `${reason}. New orders are blocked — an Owner or Administrator must pay the bill.`
       : `${reason}. New orders are blocked — contact your agent or the platform.`,
     at: "Now",
-    ...(billId
+    ...(billHref
       ? {
           href: merchantRoute(`service-bills/${billId}`),
           hrefLabel: canPay ? "Pay bill" : "View bill",
@@ -409,16 +415,12 @@ export function countUnresolvedMerchantAlerts(): number {
 async function loadSettlementAlerts(orgId: string, next: AlertItem[]): Promise<void> {
   try {
     const settlement = await listSettlement(orgId);
+    const seenNetworks = new Set<string>();
     for (const row of settlement) {
       if (row.status !== "pending_cool_down" || !row.pendingActivatesAt) continue;
-      next.push(
-        settlementCooldownAlert(
-          orgId,
-          row.pendingActivatesAt,
-          row.asset,
-          row.network,
-        ),
-      );
+      if (seenNetworks.has(row.network)) continue;
+      seenNetworks.add(row.network);
+      next.push(settlementCooldownAlert(orgId, row.pendingActivatesAt, row.network));
     }
   } catch {
     /* ignore */
@@ -495,10 +497,11 @@ async function loadSuspendedAlert(
   orgId: string,
   next: AlertItem[],
   canPay: boolean,
+  billsVisible: boolean,
 ): Promise<void> {
   try {
     const org = (await getMerchantOrgs()).find((o) => o.id === orgId);
-    if (org?.status === "paused") next.push(suspendedAlert(org, canPay));
+    if (org?.status === "paused") next.push(suspendedAlert(org, canPay, billsVisible));
   } catch {
     /* ignore */
   }
@@ -549,7 +552,8 @@ export async function refreshMerchantAlerts(
 ): Promise<MerchantAlertsRefreshResult> {
   const orgId = primaryMerchantOrgId(session);
   const cashierOnly = sessionIsCashierOnly(session);
-  const canPay = sessionCanCheckoutServiceBill(session);
+  const showBills = experienceShowsServiceBills(resolveMerchantExperience(session));
+  const canPay = showBills && sessionCanCheckoutServiceBill(session);
   const canManageHooks = sessionCanManageIntegrations(session);
   const ordersPromise = getOrderSummary(
     new Date(0).toISOString(),
@@ -563,15 +567,15 @@ export async function refreshMerchantAlerts(
 
   await Promise.all([
     orgId && sessionNeedsActivationPayment(session)
-      ? loadActivationAlert(orgId, next, canPay, !cashierOnly)
+      ? loadActivationAlert(orgId, next, canPay, showBills)
       : Promise.resolve(),
-    orgId ? loadSuspendedAlert(orgId, next, canPay) : Promise.resolve(),
+    orgId ? loadSuspendedAlert(orgId, next, canPay, showBills) : Promise.resolve(),
     loadMaintenanceAlerts(next),
     ...(orgId && !cashierOnly
       ? [
           loadSettlementAlerts(orgId, next),
           loadXpubAlerts(orgId, next),
-          loadBillingAlerts(next, canPay),
+          showBills ? loadBillingAlerts(next, canPay) : Promise.resolve(),
           canManageHooks ? loadWebhookFailureAlerts(orgId, next) : Promise.resolve(),
         ]
       : []),

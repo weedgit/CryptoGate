@@ -148,14 +148,10 @@ export function displayNetworkForPair(asset: string, network: string): string {
 /** Merchant-facing hint for watch-only key material on Mode S xPub registration. */
 export function xpubMaterialHint(network: string): string {
   switch (resolveHdDerivationFamily(network)) {
-    case "ton":
-      return "32-byte ed25519 public key (64-char hex or base58). Each pool index is a TON v4 subwallet id.";
     case "solana":
       return "Solana extended public key (128-char hex) or master public key (base58). Uses SLIP-0010 path 0/{index}.";
-    case "bitcoin":
-      return "Watch-only BIP32 xPub (xpub for legacy, zpub for native segwit bc1). Path 0/{index}.";
     case "evm":
-      return "Watch-only BIP32 xPub at your EVM account level (coin type 60). Path 0/{index} → 0x address.";
+      return "Watch-only BIP32 xPub at your Ethereum account level (coin type 60). Path 0/{index} → 0x address.";
     case "tron":
       return "Watch-only BIP32 xPub at your Tron account level (coin type 195). Path 0/{index} → T… address.";
     default:

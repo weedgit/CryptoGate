@@ -8,11 +8,8 @@ import {
   listSettlement,
   listXpub,
 } from "../merchant/api";
-import {
-  parentMerchantOrgId,
-  primaryMerchantOrgId,
-  sessionIsCashierOnly,
-} from "../merchant/org";
+import { parentMerchantOrgId, primaryMerchantOrgId } from "../merchant/org";
+import { resolveMerchantExperience } from "../merchant/experience";
 import { getPlatformOrgs } from "../platform/platformOrgList";
 import { periodWindow, toDateInputValue } from "./dashboardPeriod";
 import { getDashboardKpis, prefetchDashboard } from "./dashboardApi";
@@ -71,13 +68,14 @@ export function prefetchPortalDashboardData(): void {
 
   void getMerchantOrgs();
   if (onDashboard) {
-    const mtd = periodWindow("mtd");
-    void getDashboardKpis({
-      from: toDateInputValue(mtd.from),
-      to: toDateInputValue(mtd.to),
-    }).catch(() => undefined);
     const session = readCachedSession();
-    if (session && !sessionIsCashierOnly(session)) {
+    const experience = session ? resolveMerchantExperience(session) : "merchant";
+    const home = periodWindow(experience === "site" ? "today" : "mtd");
+    void getDashboardKpis({
+      from: toDateInputValue(home.from),
+      to: toDateInputValue(home.to),
+    }).catch(() => undefined);
+    if (session && experience !== "cashier") {
       const orgId = primaryMerchantOrgId(session);
       if (orgId) {
         void getMerchantCommercial(orgId).catch(() => undefined);

@@ -12,7 +12,6 @@ describe("@paymentgate/watcher ethereum ingest smoke (M3-32)", () => {
     const tick = JSON.parse(stdout.trim().split("\n")[1]);
     assert.equal(tick.target.network, "tron");
     assert.equal(tick.chain.ethereum.mode, "stub");
-    assert.equal(tick.chain.bnb_smart_chain.mode, "stub");
     assert.equal(tick.chain.tron.mode, "stub");
   });
 

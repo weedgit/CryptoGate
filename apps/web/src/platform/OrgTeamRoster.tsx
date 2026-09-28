@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import { InviteMemberModal } from "../shared/InviteMemberModal";
 import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
@@ -89,52 +89,6 @@ function loadingCopy(type: string, variant: "all" | "team" | "cashiers"): string
   if (type === "merchant") return "Fetching members for this merchant org.";
   if (type === "merchant_site") return "Fetching members for this site.";
   return "Fetching members for this agent org.";
-}
-
-function InviteMarkIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="10" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M4.2 18.2c.7-2.7 2.8-4.1 5.8-4.1s5.1 1.4 5.8 4.1"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <path d="M18.2 8.2v5.2M15.6 10.8h5.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M4.5 7.5 12 13l7.5-5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PersonIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M5.5 18.5c.8-2.8 3-4.2 6.5-4.2s5.7 1.4 6.5 4.2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
 }
 
 function TeamHeadIcon() {
@@ -468,125 +422,21 @@ export function OrgTeamRoster({
         />
       ) : null}
 
-      {inviteOpen
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!busy) setInviteOpen(false);
-              }}
-            >
-              <div
-                className="b3-commission-modal b3-invite-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="org-team-invite-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-invite-modal__head">
-                  <span className="b3-invite-modal__mark" aria-hidden>
-                    <InviteMarkIcon />
-                  </span>
-                  <h3 id="org-team-invite-title">
-                    {isCashiers ? "Invite cashier" : "Invite member"}
-                  </h3>
-                  <button
-                    type="button"
-                    className="b3-invite-modal__close"
-                    aria-label="Close"
-                    disabled={busy}
-                    onClick={() => setInviteOpen(false)}
-                  >
-                    <CloseIcon />
-                  </button>
-                </header>
-                <form className="b3-invite-modal__body" onSubmit={(e) => void onInvite(e)}>
-                  <label className="b3-invite-modal__field">
-                    <span className="b3-invite-modal__label">Email</span>
-                    <span className="b3-invite-modal__control">
-                      <span className="b3-invite-modal__glyph">
-                        <MailIcon />
-                      </span>
-                      <input
-                        className="b3-invite-modal__input"
-                        type="email"
-                        value={inviteEmail}
-                        disabled={busy}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="name@company.com"
-                        autoFocus
-                        required
-                      />
-                    </span>
-                  </label>
-                  <label className="b3-invite-modal__field">
-                    <span className="b3-invite-modal__label">Role</span>
-                    <span className="b3-invite-modal__control b3-invite-modal__role">
-                      <span className="b3-invite-modal__glyph">
-                        <PersonIcon />
-                      </span>
-                      <SearchableSelect
-                        value={inviteRole}
-                        options={roleOptions}
-                        disabled={busy}
-                        allowEmpty={false}
-                        ariaLabel="Invite role"
-                        menuClassName="b3-team-role-menu"
-                        menuMinWidth={96}
-                        onChange={setInviteRole}
-                      />
-                    </span>
-                  </label>
-                  {inviteCreds ? (
-                    <InviteCredentialsPanel
-                      email={inviteCreds.invitedEmail}
-                      temporaryPassword={inviteCreds.temporaryPassword}
-                      inviteUrl={inviteCreds.inviteUrl}
-                      invitePath={inviteCreds.invitePath}
-                      emailDeliveryStatus={inviteCreds.emailDelivery?.status}
-                    />
-                  ) : null}
-                  <footer className="b3-invite-modal__foot">
-                    {inviteCreds ? (
-                      <button
-                        type="button"
-                        className="b3-invite-modal__submit"
-                        disabled={busy}
-                        onClick={() => setInviteOpen(false)}
-                      >
-                        Done
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="b3-invite-modal__cancel"
-                          disabled={busy}
-                          onClick={() => setInviteOpen(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="b3-invite-modal__submit"
-                          disabled={busy || !inviteEmail.trim()}
-                        >
-                          {busy
-                            ? "Inviting…"
-                            : isCashiers
-                              ? "Invite cashier"
-                              : "Invite"}
-                        </button>
-                      </>
-                    )}
-                  </footer>
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {inviteOpen ? (
+        <InviteMemberModal
+          title={isCashiers ? "Invite cashier" : "Invite member"}
+          submitLabel={isCashiers ? "Invite cashier" : "Invite"}
+          email={inviteEmail}
+          onEmailChange={setInviteEmail}
+          role={inviteRole}
+          roleOptions={roleOptions}
+          onRoleChange={setInviteRole}
+          busy={busy}
+          creds={inviteCreds}
+          onSubmit={(e) => void onInvite(e)}
+          onClose={() => setInviteOpen(false)}
+        />
+      ) : null}
 
       {removeTarget
         ? createPortal(

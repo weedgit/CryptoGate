@@ -7,6 +7,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { addDaysYmd, addMonthsYmd, formatInZone, zonedYmd } from "../shared/dateTime";
+import { useViewerTimeZone } from "../shared/useViewerTimeZone";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { GateLogoMark } from "../auth/GateLogoMark";
@@ -28,10 +30,12 @@ import {
 } from "./api";
 import {
   chartLabelsFor,
+  getCommissionPreview,
   getDashboardKpis,
   getDashboardOrgCards,
   getDashboardRates,
   getDashboardSeries,
+  peekCommissionPreview,
   peekDashboardKpis,
   peekDashboardRates,
   peekDashboardSeries,
@@ -41,7 +45,10 @@ import {
   type DashboardRates,
   type DashboardSeries,
   type DashboardSeriesMetric,
+  type CommissionPreview,
 } from "../shared/dashboardApi";
+import { CommissionByMerchantPanel } from "./ui/CommissionByMerchantPanel";
+import { formatUtcDay } from "./ui/commissionPreviewModel";
 import { PagePending } from "./ui/PlatformPending";
 import { DashKpiCard } from "./ui/DashKpiCard";
 import { DashHeroAura, DashHeroHighlights, DashPeriodControls } from "./ui/DashHero";
@@ -74,7 +81,7 @@ import { useDashboardPortal } from "./dashboardPortal";
 
 type Props = { session: Session };
 
-type PeriodId = "today" | "7d" | "1m" | "3m";
+type PeriodId = "today" | "7d" | "1m" | "mtd" | "3m";
 
 type AccountSlice = { total: number; active: number; pause: number };
 
@@ -107,9 +114,18 @@ const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "3m", label: "3m" },
 ];
 
+/** Agents default to month-to-date in their own zone; commission months stay UTC (labelled). */
+const AGENT_PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "7d", label: "7d" },
+  { id: "mtd", label: "MTD" },
+  { id: "3m", label: "3m" },
+];
+
 function overviewTrendLabel(period: string): string {
   if (period === "7d") return "vs previous 7d";
   if (period === "1m") return "vs previous 1m";
+  if (period === "mtd") return "vs prior period";
   if (period === "3m") return "vs previous 3m";
   if (period === "today") return "vs prior half";
   return "vs prior period";
@@ -277,48 +293,14 @@ const EMPTY_STATS: OverviewStats = {
   commissionPaid: 0,
 };
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
-
-function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function parseDateInput(value: string, end = false): Date {
-  const [y, m, d] = value.split("-").map(Number);
-  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
-  return end ? endOfDay(date) : startOfDay(date);
-}
-
-function periodWindow(id: PeriodId): { from: Date; to: Date } {
-  const now = new Date();
-  let from = startOfDay(now);
-  const to = endOfDay(now);
-
-  if (id === "7d") {
-    from = startOfDay(now);
-    from.setDate(from.getDate() - 6);
-  } else if (id === "1m") {
-    from = startOfDay(now);
-    from.setMonth(from.getMonth() - 1);
-  } else if (id === "3m") {
-    from = startOfDay(now);
-    from.setMonth(from.getMonth() - 3);
-  }
-
-  return { from, to };
+/** Preset → date inputs in the viewer's profile zone (MTD = 1st of this month there). */
+function periodDateInputs(id: PeriodId): { from: string; to: string } {
+  const today = zonedYmd();
+  if (id === "mtd") return { from: `${today.slice(0, 8)}01`, to: today };
+  if (id === "7d") return { from: addDaysYmd(today, -6), to: today };
+  if (id === "1m") return { from: addMonthsYmd(today, -1), to: today };
+  if (id === "3m") return { from: addMonthsYmd(today, -3), to: today };
+  return { from: today, to: today };
 }
 
 function volFeeValue(volume: number, fees: number) {
@@ -407,10 +389,7 @@ function formatUsd(n: number): string {
 }
 
 function formatUpdatedClock(ts: number): string {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatInZone(new Date(ts), { hour: "numeric", minute: "2-digit" });
 }
 
 function formatAxisUsd(n: number): string {
@@ -531,14 +510,20 @@ export function DashboardPage({ session }: Props) {
   const scopeOrgId = portal?.scopeOrgId ?? null;
   const overviewStorageKey = portal?.overviewStorageKey ?? OVERVIEW_STORAGE_KEY;
   const [commissionPercent, setCommissionPercent] = useState<string | null>(null);
-  const [period, setPeriod] = useState<PeriodId | "custom">("7d");
-  const [startDate, setStartDate] = useState(() =>
-    toDateInputValue(periodWindow("7d").from),
+  const isAgent = portal?.kind === "agent";
+  const defaultPeriod: PeriodId = isAgent ? "mtd" : "7d";
+  const [period, setPeriod] = useState<PeriodId | "custom">(defaultPeriod);
+  const [startDate, setStartDate] = useState(() => periodDateInputs(defaultPeriod).from);
+  const [endDate, setEndDate] = useState(() => periodDateInputs(defaultPeriod).to);
+  const commissionOrgId = isAgent ? scopeOrgId : null;
+  const [commissionPreview, setCommissionPreview] = useState<CommissionPreview | null>(() =>
+    commissionOrgId ? peekCommissionPreview(commissionOrgId) : null,
   );
-  const [endDate, setEndDate] = useState(() => toDateInputValue(periodWindow("7d").to));
+  const periodOptions = isAgent ? AGENT_PERIOD_OPTIONS : PERIOD_OPTIONS;
+  const viewerTz = useViewerTimeZone();
   const query = useMemo<DashboardQuery>(
-    () => ({ from: startDate, to: endDate, orgId: scopeOrgId }),
-    [startDate, endDate, scopeOrgId],
+    () => ({ from: startDate, to: endDate, orgId: scopeOrgId, tz: viewerTz }),
+    [startDate, endDate, scopeOrgId, viewerTz],
   );
 
   const [kpis, setKpis] = useState<DashboardKpis | null>(() => peekDashboardKpis(query));
@@ -574,10 +559,10 @@ export function DashboardPage({ session }: Props) {
   const [editMode, setEditMode] = useState(false);
 
   const onPeriodSelect = useCallback((id: PeriodId) => {
-    const { from, to } = periodWindow(id);
+    const { from, to } = periodDateInputs(id);
     setPeriod(id);
-    setStartDate(toDateInputValue(from));
-    setEndDate(toDateInputValue(to));
+    setStartDate(from);
+    setEndDate(to);
   }, []);
 
   const onStartDateChange = useCallback((value: string) => {
@@ -616,6 +601,14 @@ export function DashboardPage({ session }: Props) {
     const fail = (err: unknown) => {
       if (current()) setError(dashboardErrorText(err));
     };
+
+    if (commissionOrgId) {
+      void getCommissionPreview(commissionOrgId, force)
+        .then((next) => {
+          if (current()) setCommissionPreview(next);
+        })
+        .catch(() => undefined);
+    }
 
     if (portal) {
       void portal
@@ -659,7 +652,7 @@ export function DashboardPage({ session }: Props) {
     const now = Date.now();
     lastFetchAt.current = now;
     setUpdatedAt(now);
-  }, [startDate, endDate, query, portal, sources]);
+  }, [startDate, endDate, query, portal, sources, commissionOrgId]);
 
   const softRevalidateLiveSlices = useCallback(
     async (slices: DashboardLiveSlice[]) => {
@@ -677,6 +670,10 @@ export function DashboardPage({ session }: Props) {
             : null,
           slices.includes("volume") ? getDashboardRates(q).then(setRates) : null,
           slices.includes("orgs") ? sources.getOrgs({ force: true }).then(setOrgs) : null,
+          commissionOrgId &&
+          slices.some((s) => ["volume", "serviceBills", "commissions", "orgs"].includes(s))
+            ? getCommissionPreview(commissionOrgId, true).then(setCommissionPreview)
+            : null,
         ]);
         if (slices.includes("volume") || slices.includes("serviceBills")) {
           setChartReloadToken((n) => n + 1);
@@ -689,7 +686,7 @@ export function DashboardPage({ session }: Props) {
         // Keep last good snapshot.
       }
     },
-    [startDate, endDate, query, sources],
+    [startDate, endDate, query, sources, commissionOrgId],
   );
 
   useDashboardLiveEvents({
@@ -739,7 +736,7 @@ export function DashboardPage({ session }: Props) {
   const periodLabel =
     period === "custom"
       ? `${startDate} – ${endDate}`
-      : (PERIOD_OPTIONS.find((p) => p.id === period)?.label ?? period);
+      : (periodOptions.find((p) => p.id === period)?.label ?? period);
 
   const chartLabels = useMemo(
     () => (totalSeries ? chartLabelsFor(totalSeries.keys, totalSeries.interval) : []),
@@ -1005,7 +1002,7 @@ export function DashboardPage({ session }: Props) {
 
   const periodControls = (
     <DashPeriodControls
-      options={PERIOD_OPTIONS}
+      options={periodOptions}
       period={period}
       startDate={startDate}
       endDate={endDate}
@@ -1098,30 +1095,7 @@ export function DashboardPage({ session }: Props) {
           href={route("accounts/merchants")}
           linkLabel="View Merchants"
         />
-        {portal ? (
-          <DashKpiCard
-            accent="teal"
-            icon={
-              <img
-                className="pg-kpi__icon-img"
-                src="/brand/wallet-icon.png"
-                alt=""
-                width={36}
-                height={36}
-                draggable={false}
-              />
-            }
-            label="Merchant Fees"
-            value={
-              <span className="pg-kpi__money">
-                <AnimatedText text={"$" + formatMoneyFigureFixed(stats.collected)} />
-              </span>
-            }
-            hint={`of $${formatMoneyFigureFixed(stats.fees)} billed · ${periodLabel}`}
-            href={route("service-bills")}
-            linkLabel="View Bills"
-          />
-        ) : (
+        {portal ? null : (
           <DashKpiCard
             accent="teal"
             label="Total Agents"
@@ -1158,6 +1132,21 @@ export function DashboardPage({ session }: Props) {
           href={route("service-bills")}
           linkLabel="View Volume"
         />
+        {portal ? (
+          <DashKpiCard
+            accent="teal"
+            icon={<MerchantFeesIcon />}
+            label="Merchant Fees"
+            value={
+              <span className="pg-kpi__money">
+                <AnimatedText text={"$" + formatMoneyFigureFixed(stats.collected)} />
+              </span>
+            }
+            hint={`paid of $${formatMoneyFigureFixed(stats.fees)} billed · ${periodLabel}`}
+            href={route("service-bills")}
+            linkLabel="View Bills"
+          />
+        ) : null}
         <div
           className="pg-feature"
           aria-label={portal ? "Commission earned" : "Platform fees collected"}
@@ -1177,7 +1166,24 @@ export function DashboardPage({ session }: Props) {
               {portal ? "Commission earned" : "Platform fees"}
             </p>
           </div>
-          {portal ? (
+          {portal && period === "mtd" && commissionPreview?.eligible ? (
+            <>
+              <p className="pg-feature__value">
+                ${formatMoneyFigureFixed(commissionPreview.totals.commissionUsd)}
+              </p>
+              <p className="pg-feature__label">
+                Estimated · {commissionPreview.commissionPercent}% of $
+                {formatMoneyFigureFixed(commissionPreview.totals.baseUsd)} paid fees ·{" "}
+                {commissionPreview.periodLabel} (UTC)
+              </p>
+              <p className="pg-feature__sub">
+                Invoiced {formatUtcDay(commissionPreview.invoiceDate)}
+                {commissionPreview.totals.openBills > 0
+                  ? ` · $${formatMoneyFigureFixed(commissionPreview.totals.openBillsUsd)} unpaid not counted`
+                  : ""}
+              </p>
+            </>
+          ) : portal ? (
             <>
               <p className="pg-feature__value">
                 ${formatMoneyFigureFixed(stats.commissionOwed + stats.commissionPaid)}
@@ -1455,6 +1461,14 @@ export function DashboardPage({ session }: Props) {
       </div>
       )}
 
+      {isAgent ? (
+        <CommissionByMerchantPanel
+          preview={commissionPreview}
+          route={route}
+          canOnboard={!portal?.readOnly}
+        />
+      ) : null}
+
       <ChartMaximizeOverlay
         open={volumeMaximized}
         title={
@@ -1612,5 +1626,25 @@ export function DashboardPage({ session }: Props) {
         onApply={applyOverviewIds}
       />
     </div>
+  );
+}
+
+/** Paid merchant bills — receipt with a dollar mark (Commission keeps the wallet). */
+function MerchantFeesIcon() {
+  return (
+    <svg
+      width={36}
+      height={36}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 3.5h14v17l-2.35-1.5-2.3 1.5-2.35-1.5-2.35 1.5-2.3-1.5L5 20.5v-17Z" />
+      <path d="M14.2 8.4c-.4-.7-1.2-1.1-2.2-1.1-1.3 0-2.2.6-2.2 1.6s.9 1.4 2.2 1.7c1.3.3 2.2.8 2.2 1.8s-1 1.6-2.2 1.6c-1 0-1.9-.4-2.3-1.1M12 6.2v1.1M12 13.9v1.1" />
+    </svg>
   );
 }

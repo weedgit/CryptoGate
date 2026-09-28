@@ -37,20 +37,12 @@ export async function getEffectiveMatchingMode(orgId, client) {
 }
 
 /**
- * @param {string} orgId
- * @param {import("pg").Pool | import("pg").PoolClient} [client]
- */
-export async function getEffectiveUnderpayTolerance(orgId, client) {
-  const row = await findMatchingModeSettings(orgId, client);
-  return row?.underpay_tolerance ?? DEFAULT_UNDERPAY_TOLERANCE;
-}
-
-/**
- * @param {{ orgId: string, matchingMode: string, underpayTolerance?: string }} input
+ * Saving a mode always resets the retired underpay tolerance to 0.
+ * @param {{ orgId: string, matchingMode: string }} input
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
 export async function upsertMatchingModeSettings(input, client) {
-  const tol = input.underpayTolerance ?? DEFAULT_UNDERPAY_TOLERANCE;
+  const tol = DEFAULT_UNDERPAY_TOLERANCE;
   const { rows } = await db(client).query(
     `INSERT INTO merchant_matching_settings (org_id, matching_mode, underpay_tolerance)
      VALUES ($1, $2, $3)

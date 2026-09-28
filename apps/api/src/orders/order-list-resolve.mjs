@@ -72,6 +72,7 @@ export function listQueryFromParsed(parsed, extra = {}) {
     q: parsed.q,
     asset: parsed.asset,
     network: parsed.network,
+    createdVia: parsed.createdVia ?? null,
     limit: parsed.limit,
     offset: parsed.offset,
   };

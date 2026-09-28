@@ -6,7 +6,7 @@ import {
   MODE_D_RESERVED_STATUSES,
   MODE_S_CONFLICT_STATUSES,
 } from "@paymentgate/matching";
-import { findSettlementAddress } from "../settlement/settlement-store.mjs";
+import { findNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { hasActiveXpub } from "../xpub/xpub-store.mjs";
 import { claimHdPoolAddress } from "../mode-s/hd-pool-store.mjs";
 import { mapAssignError } from "./order-assign.mjs";
@@ -82,7 +82,7 @@ export async function assignOnOrderCreate(input) {
   const xpubOrgId = input.xpubOrgId ?? input.orgId;
   const walletGroupOrgIds = input.walletGroupOrgIds ?? [settlementOrgId];
 
-  const settlement = await findSettlementAddress(
+  const settlement = await findNetworkSettlementAddress(
     settlementOrgId,
     input.asset,
     input.network,

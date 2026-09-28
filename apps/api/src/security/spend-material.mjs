@@ -83,9 +83,6 @@ export function isWatchOnlyXpubForNetwork(material, network) {
       isWatchOnlyEd25519MasterPubkey(material)
     );
   }
-  if (family === "ton") {
-    return isWatchOnlyEd25519MasterPubkey(material);
-  }
   return isWatchOnlyXpub(material);
 }
 

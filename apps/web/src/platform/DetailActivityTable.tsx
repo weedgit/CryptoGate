@@ -1,17 +1,16 @@
 import type { ReactNode } from "react";
 import type { ActivityFeedItem } from "./orgDetailSeeds";
+import { formatInZone, getViewerTimeZone } from "../shared/dateTime";
 
 function activityWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = d.toLocaleString("en-US", { month: "short" });
-  const time = d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return `${day}-${month}-${d.getFullYear()} ${time}`;
+  const tz = getViewerTimeZone();
+  const day = formatInZone(d, { day: "2-digit" }, tz);
+  const month = formatInZone(d, { month: "short" }, tz);
+  const year = formatInZone(d, { year: "numeric" }, tz);
+  const time = formatInZone(d, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, tz);
+  return `${day}-${month}-${year} ${time}`;
 }
 
 function activityTone(title: string): "ok" | "info" {

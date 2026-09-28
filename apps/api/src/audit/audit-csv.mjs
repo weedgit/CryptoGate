@@ -1,4 +1,4 @@
-import { csvCell } from "../orders/order-csv.mjs";
+import { csvCell, localDateTime } from "../orders/order-csv.mjs";
 
 export const AUDIT_CSV_HEADERS = [
   "createdAt",
@@ -48,8 +48,9 @@ function iso(value) {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
-export function auditCsvHeaderLine() {
-  return `${AUDIT_CSV_HEADERS.map(csvCell).join(",")}\n`;
+/** @param {string} [timeZone] zone for the trailing local-time column */
+export function auditCsvHeaderLine(timeZone = "UTC") {
+  return `${[...AUDIT_CSV_HEADERS, `createdAtLocal (${timeZone})`].map(csvCell).join(",")}\n`;
 }
 
 /**
@@ -62,8 +63,9 @@ export function auditCsvHeaderLine() {
  *   org_name?: string | null,
  *   metadata?: unknown,
  * }} row enriched audit row
+ * @param {string} [timeZone]
  */
-export function auditCsvLine(row) {
+export function auditCsvLine(row, timeZone = "UTC") {
   const metadata =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? /** @type {Record<string, unknown>} */ (row.metadata)
@@ -79,6 +81,7 @@ export function auditCsvLine(row) {
     firstText(metadata, ["ip", "ipAddress", "clientIp", "remoteAddr"]),
     resourceLabel(metadata),
     JSON.stringify(metadata),
+    localDateTime(row.created_at, timeZone),
   ]
     .map(csvCell)
     .join(",")}\n`;

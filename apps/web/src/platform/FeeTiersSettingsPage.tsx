@@ -1,3 +1,4 @@
+import { formatViewerDateTime } from "../shared/dateTime";
 import {
   FormEvent,
   useCallback,
@@ -602,7 +603,7 @@ export function FeeTiersSettingsPage({ session }: Props) {
                 <div className="plat-fees__schedule-actions">
                   <p className="plat-fees__meta">
                     {updatedAt
-                      ? `Last saved ${new Date(updatedAt).toLocaleString()}`
+                      ? `Last saved ${formatViewerDateTime(updatedAt)}`
                       : null}
                   </p>
                   <button

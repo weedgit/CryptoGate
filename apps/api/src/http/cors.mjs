@@ -34,7 +34,7 @@ export function applyCorsHeaders(req, res) {
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Idempotency-Key",
+    "Content-Type, Idempotency-Key, X-PaymentGate-Client",
   );
   res.setHeader("Access-Control-Expose-Headers", "X-Server-Time");
   return true;

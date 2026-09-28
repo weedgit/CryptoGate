@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPortalCss } from "./portal-css.mjs";
@@ -12,10 +12,13 @@ const platformShell = readFileSync(
   "utf8",
 );
 const agentShell = readFileSync(join(root, "src/agent/AgentShell.tsx"), "utf8");
-const merchantDash = readFileSync(
-  join(root, "src/merchant/DashboardPage.tsx"),
-  "utf8",
-);
+const merchantDashDir = join(root, "src/merchant/dashboard");
+const merchantDash = [
+  readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8"),
+  ...readdirSync(merchantDashDir).map((f) =>
+    readFileSync(join(merchantDashDir, f), "utf8"),
+  ),
+].join("\n");
 
 describe("responsive UI smoke selectors", () => {
   it("shells force expanded nav chrome on tablet", () => {

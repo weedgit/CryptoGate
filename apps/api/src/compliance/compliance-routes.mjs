@@ -10,7 +10,7 @@ import { canComplianceOverride } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
-import { forceSettlementAddress } from "../settlement/settlement-store.mjs";
+import { forceNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { toSettlementAddress } from "../settlement/settlement-rules.mjs";
 import { upsertMatchingModeSettings } from "../matching-mode/matching-mode-store.mjs";
 import { toMatchingModeSettings } from "../matching-mode/matching-mode-rules.mjs";
@@ -147,16 +147,20 @@ export async function handleApplyComplianceOverride(req, res, orgId) {
     resultPayload = { matchingMode: toMatchingModeSettings(row, orgId) };
   } else if (parsed.overrideType === "settlement_address") {
     const s = parsed.settlement;
-    const forced = await forceSettlementAddress({
+    const forced = await forceNetworkSettlementAddress({
       orgId,
-      asset: s.asset,
       network: s.network,
+      assets: s.assets,
       address: s.address,
     });
     effectMeta.asset = s.asset;
+    effectMeta.assets = s.assets;
     effectMeta.network = s.network;
     effectMeta.addressPreview = `${s.address.slice(0, 8)}…`;
-    resultPayload = { settlement: toSettlementAddress(forced) };
+    resultPayload = {
+      settlement: toSettlementAddress(forced[0]),
+      settlements: forced.map(toSettlementAddress),
+    };
   }
 
   let overrideRow;

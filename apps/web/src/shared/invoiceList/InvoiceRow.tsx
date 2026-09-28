@@ -6,13 +6,17 @@ import { getMerchantOrderPayment } from "../../merchant/merchantOrderPaymentDeta
 import { orderStatusLabel, orderStatusTone } from "../../merchant/orderStatus";
 import { FundAmount } from "../../platform/FundAmount";
 import { displayNetworkForPair } from "../assetNetworks";
+import { AssetIcon, NetworkIcon } from "../../platform/cryptoIcons";
 import {
   formatInvoiceCreatedDate,
   formatInvoiceCreatedTime,
+  invoiceConversion,
   type InvoiceListVariant,
 } from "../invoiceListModel";
+import { OrderChannelTag } from "../OrderChannelTag";
 import { OrgBrandMark } from "../OrgBrandMark";
 import { platformRoute } from "../portalRouting";
+import { EvidenceChip } from "./EvidenceChip";
 import { ExpiryLeft } from "./ExpiryLeft";
 
 function merchantIdForOrg(
@@ -76,6 +80,7 @@ export function InvoiceRow({
       ? userAvatarById.get(order.createdBy)
       : undefined) ||
     null;
+  const conversion = invoiceConversion(order);
 
   return (
     <tr
@@ -96,6 +101,7 @@ export function InvoiceRow({
         >
           {order.orderNumber}
         </Link>
+        <OrderChannelTag via={order.createdVia} className="invoice-list__channel" />
         <span className="invoice-list__invoice-ref">
           Ref : {refLabel}
         </span>
@@ -184,12 +190,45 @@ export function InvoiceRow({
           }
         />
       </td>
-      <td className="invoice-list__asset-net">
-        <span className="invoice-list__asset-net-asset">
-          {order.asset}
+      <td className="invoice-list__crypto">
+        <span className="invoice-list__crypto-amount">
+          {conversion.cryptoLabel}{" "}
+          <span className="invoice-list__crypto-unit">{conversion.unit}</span>
         </span>
-        <span className="invoice-list__asset-net-network">
-          {displayNetworkForPair(order.asset, order.network)}
+        {conversion.formula ? (
+          <span className="invoice-list__crypto-formula">
+            {conversion.formula}/{order.asset}
+          </span>
+        ) : null}
+      </td>
+      <td className="invoice-list__rate">
+        {conversion.rateLabel ? (
+          <span className="invoice-list__rate-value">
+            {conversion.rateLabel}{" "}
+            <span className="invoice-list__rate-unit">/ {order.asset}</span>
+          </span>
+        ) : (
+          <span className="invoice-list__rate-value is-none">—</span>
+        )}
+        <EvidenceChip evidence={conversion.evidence} />
+        <span className="invoice-list__rate-meta">{conversion.evidence.meta}</span>
+      </td>
+      <td className="invoice-list__asset-net">
+        <span className="invoice-list__asset-net-cell">
+          <span className="invoice-list__asset-net-icons" aria-hidden>
+            <AssetIcon asset={order.asset} />
+            <span className="invoice-list__asset-net-badge">
+              <NetworkIcon network={order.network} />
+            </span>
+          </span>
+          <span className="invoice-list__asset-net-text">
+            <span className="invoice-list__asset-net-asset">
+              {order.asset}
+            </span>
+            <span className="invoice-list__asset-net-network">
+              {displayNetworkForPair(order.asset, order.network)}
+            </span>
+          </span>
         </span>
       </td>
       <td>

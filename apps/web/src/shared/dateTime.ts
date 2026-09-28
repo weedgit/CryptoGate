@@ -1,13 +1,16 @@
 /**
  * Timezone policy:
- * - Viewer-facing timestamps → current user's timezone (profile, else browser).
+ * - Viewer-facing timestamps, date filters and "today" → the signed-in user's profile
+ *   zone (browser zone until the user confirms one).
  * - Platform Owner/Admin schedules & billing calendar days → UTC (labeled in UI).
  * - Date-only billing anchors (YYYY-MM-DD) → UTC calendar day.
+ * - Customer documents → the merchant's business zone (see `formatInZone`).
  */
 
 let viewerTimeZone: string | null = null;
+const listeners = new Set<() => void>();
 
-function browserTimeZone(): string {
+export function browserTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
@@ -15,10 +18,39 @@ function browserTimeZone(): string {
   }
 }
 
-/** Call from portal shells when session loads / changes. */
-export function setViewerTimeZone(tz: string | null | undefined): void {
-  const next = tz?.trim();
-  viewerTimeZone = next || null;
+export function isValidTimeZone(tz: string | null | undefined): tz is string {
+  if (!tz?.trim()) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz.trim() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Call when the session loads / changes. An unconfirmed profile zone is the untouched
+ * UTC default, so the browser zone is used until the user confirms.
+ */
+export function setViewerTimeZone(
+  tz: string | null | undefined,
+  confirmed = true,
+): void {
+  const trimmed = tz?.trim();
+  const next = confirmed && isValidTimeZone(trimmed) ? trimmed! : null;
+  if (next === viewerTimeZone) return;
+  viewerTimeZone = next;
+  // Callers may run during render; subscribers re-render afterwards.
+  queueMicrotask(() => {
+    for (const fn of listeners) fn();
+  });
+}
+
+export function subscribeViewerTimeZone(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 export function getViewerTimeZone(): string {
@@ -97,4 +129,129 @@ export function formatUtcDateOnly(iso: string | null | undefined): string {
 /** Short label for platform schedule copy. */
 export function utcMidnightLabel(): string {
   return "00:00 UTC";
+}
+
+type ZonedParts = { y: number; m: number; d: number; h: number; mi: number; s: number };
+
+function zonedParts(date: Date, timeZone: string): ZonedParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const n = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { y: n("year"), m: n("month"), d: n("day"), h: n("hour"), mi: n("minute"), s: n("second") };
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Calendar day `YYYY-MM-DD` of an instant in a zone (viewer zone by default). */
+export function zonedYmd(date: Date = new Date(), timeZone?: string | null): string {
+  const p = zonedParts(date, resolveViewerTimeZone(timeZone));
+  return `${p.y}-${pad2(p.m)}-${pad2(p.d)}`;
+}
+
+/** UTC offset of a zone in minutes at an instant (e.g. 540 for Asia/Seoul). */
+export function zoneOffsetMinutes(timeZone: string, at: Date = new Date()): number {
+  return Math.round(zoneOffsetMs(at, timeZone) / 60_000);
+}
+
+function zoneOffsetMs(date: Date, timeZone: string): number {
+  const p = zonedParts(date, timeZone);
+  const asUtc = Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s);
+  return asUtc - Math.floor(date.getTime() / 1000) * 1000;
+}
+
+/** Instant for a wall-clock time in a zone (handles DST gaps by shifting forward). */
+export function zonedWallTime(
+  ymd: string,
+  time: { h?: number; mi?: number; s?: number; ms?: number } = {},
+  timeZone?: string | null,
+): Date {
+  const tz = resolveViewerTimeZone(timeZone);
+  const [y, m, d] = ymd.split("-").map(Number);
+  const guess = Date.UTC(y, (m ?? 1) - 1, d ?? 1, time.h ?? 0, time.mi ?? 0, time.s ?? 0, time.ms ?? 0);
+  const first = guess - zoneOffsetMs(new Date(guess), tz);
+  const second = guess - zoneOffsetMs(new Date(first), tz);
+  return new Date(second);
+}
+
+export function zonedStartOfDay(ymd: string, timeZone?: string | null): Date {
+  return zonedWallTime(ymd, {}, timeZone);
+}
+
+export function zonedEndOfDay(ymd: string, timeZone?: string | null): Date {
+  return new Date(zonedStartOfDay(addDaysYmd(ymd, 1), timeZone).getTime() - 1);
+}
+
+/** Calendar arithmetic on `YYYY-MM-DD` (zone-free). */
+export function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const t = new Date(Date.UTC(y, (m ?? 1) - 1, (d ?? 1) + days));
+  return t.toISOString().slice(0, 10);
+}
+
+/** Same day-of-month `months` later/earlier, clamped to the month's last day. */
+export function addMonthsYmd(ymd: string, months: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const first = new Date(Date.UTC(y, (m ?? 1) - 1 + months, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d ?? 1, last));
+  return first.toISOString().slice(0, 10);
+}
+
+/** Short zone name at an instant, e.g. "KST", "PDT", "GMT+7"; "UTC" for UTC. */
+export function zoneAbbrev(timeZone?: string | null, at: Date = new Date()): string {
+  const tz = resolveViewerTimeZone(timeZone);
+  if (tz === "UTC" || tz === "Etc/UTC") return "UTC";
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value;
+    return part || tz;
+  } catch {
+    return tz;
+  }
+}
+
+/**
+ * Customer-document timestamp: the merchant's business zone when set, else the viewer's,
+ * always with the zone abbreviation so the reader knows which clock it is.
+ */
+export function formatDocumentDateTime(
+  iso: string | Date | null | undefined,
+  businessTimeZone?: string | null,
+): string {
+  return formatInZone(
+    iso,
+    { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" },
+    isValidTimeZone(businessTimeZone) ? businessTimeZone : undefined,
+    true,
+  );
+}
+
+/** Format an instant in a given zone (defaults to viewer zone); `withZone` appends the abbreviation. */
+export function formatInZone(
+  iso: string | Date | null | undefined,
+  opts: Intl.DateTimeFormatOptions,
+  timeZone?: string | null,
+  withZone = false,
+): string {
+  const d = iso instanceof Date ? iso : parseInstant(iso ?? null);
+  if (!d || Number.isNaN(d.getTime())) return "—";
+  const tz = resolveViewerTimeZone(timeZone);
+  try {
+    const text = d.toLocaleString(undefined, { ...opts, timeZone: tz });
+    return withZone ? `${text} ${zoneAbbrev(tz, d)}` : text;
+  } catch {
+    return d.toLocaleString(undefined, opts);
+  }
 }

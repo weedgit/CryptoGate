@@ -188,8 +188,38 @@ html[data-theme="light"] .invoice-list__party-name {
 html[data-theme="light"] .invoice-list__cashier-name,
 html[data-theme="light"] .invoice-list__party-cashier,
 html[data-theme="light"] .invoice-list__asset-net-network,
+html[data-theme="light"] .invoice-list__crypto-unit,
+html[data-theme="light"] .invoice-list__crypto-formula,
 html[data-theme="light"] .invoice-list__created-time {
   color: #64748b;
+}
+
+html[data-theme="light"] .invoice-list__asset-net-badge {
+  background: #ffffff;
+}
+
+html[data-theme="light"] .invoice-list__evidence-chip {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .invoice-list__evidence-chip.is-peg {
+  color: #047857;
+}
+
+html[data-theme="light"] .invoice-list__evidence-chip.is-derived {
+  color: #475569;
+}
+
+html[data-theme="light"] .invoice-list__rate-unit,
+html[data-theme="light"] .invoice-list__rate-meta {
+  color: #64748b;
+}
+
+html[data-theme="light"] .invoice-list__evidence-tip {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
 }
 
 html[data-theme="light"] .invoice-list__btn {

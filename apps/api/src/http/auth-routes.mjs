@@ -475,6 +475,7 @@ export async function handlePatchProfile(req, res) {
       return;
     }
     patch.timezone = body.timezone;
+    patch.timezoneConfirmed = true;
   }
   if (body?.mfaEnforcement !== undefined) {
     sendError(

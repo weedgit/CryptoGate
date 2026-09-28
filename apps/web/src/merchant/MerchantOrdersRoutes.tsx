@@ -5,6 +5,7 @@ import { CreateOrderModal } from "./CreateOrderModal";
 import { sessionLiveActionsUnlocked } from "../auth/contactVerification";
 import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersListPage } from "./OrdersListPage";
+import { primaryMerchantOrgId } from "./org";
 
 type Props = {
   session: Session;
@@ -34,6 +35,7 @@ export function MerchantOrdersRoutes({ session }: Props) {
       {createMatch ? (
         <CreateOrderModal
           locked={!sessionLiveActionsUnlocked(session)}
+          orgId={primaryMerchantOrgId(session)}
           onClose={() => navigate(merchantRoute("orders"))}
         />
       ) : null}

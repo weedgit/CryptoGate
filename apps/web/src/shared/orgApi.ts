@@ -15,6 +15,8 @@ export type OrgAccount = {
   legalName?: string | null;
   billingEmail?: string | null;
   iconKey?: string | null;
+  /** Own setting only; empty on sites that inherit from the merchant. */
+  businessTimezone?: string | null;
   createdAt?: string;
 };
 
@@ -136,6 +138,7 @@ export async function patchOrgProfile(
     country?: string;
     legalName?: string | null;
     billingEmail?: string | null;
+    businessTimezone?: string | null;
   },
 ): Promise<OrgAccount> {
   const payload: Record<string, unknown> = {
@@ -145,6 +148,7 @@ export async function patchOrgProfile(
   if (body.country !== undefined) payload.country = body.country;
   if (body.legalName !== undefined) payload.legalName = body.legalName;
   if (body.billingEmail !== undefined) payload.billingEmail = body.billingEmail;
+  if (body.businessTimezone !== undefined) payload.businessTimezone = body.businessTimezone;
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
     method: "PATCH",
     credentials: "include",

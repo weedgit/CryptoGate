@@ -181,6 +181,7 @@ export function assertListOrdersBounds(parsed, ctx) {
  *   q: string | null,
  *   asset: string | null,
  *   network: string | null,
+ *   createdVia: "web" | "pos" | "api" | "unknown" | null,
  *   limit: number,
  *   offset: number,
  * } | { ok: false, status: number, code: string, message: string }}
@@ -302,6 +303,17 @@ export function parseListOrdersQuery(searchParams, acceptHeader) {
   const networkRaw = searchParams.get("network");
   const network = networkRaw && networkRaw.trim() ? networkRaw.trim() : null;
 
+  const viaRaw = searchParams.get("createdVia");
+  const createdVia = viaRaw && viaRaw.trim() ? viaRaw.trim().toLowerCase() : null;
+  if (createdVia && !["web", "pos", "api", "unknown"].includes(createdVia)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_request",
+      message: "createdVia must be web, pos, api, or unknown",
+    };
+  }
+
   const max = csv ? CSV_MAX_LIMIT : JSON_MAX_LIMIT;
   const fallback = csv ? CSV_DEFAULT_LIMIT : JSON_DEFAULT_LIMIT;
   const limit = parseLimit(searchParams.get("limit"), fallback, max);
@@ -342,6 +354,7 @@ export function parseListOrdersQuery(searchParams, acceptHeader) {
     q,
     asset,
     network,
+    createdVia,
     limit,
     offset,
   };

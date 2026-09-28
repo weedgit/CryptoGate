@@ -148,7 +148,7 @@ Follow [M3-32-Ethereum-Go-Live.md](M3-32-Ethereum-Go-Live.md).
 | X-02 | Service bill **generation** automation (not just manual issue) | Wave 2 — **Done 2026-08-27** `POST /v1/service-bills/generate` + migration **029** |
 | X-03 | Agent commission statements (read-only) | Wave 1 — **Done 2026-08-27** `/agent/commissions` from subtree bills |
 | X-04 | Merchant (site) inherit + Owner approval for overrides | Wave 2 — **Done 2026-08-27** `setting-overrides` + inherit GET |
-| X-06 | Next network (BSC USDT) | Wave 4 — **Client live-capable** (`bnb_smart_chain/`, registry `enabled: true`; smoke with `BSC_RPC_URL`) |
+| X-06 | Solana rail (USDT / USDC SPL) | Wave 4 — **Client live-capable** (`solana/`, registry `enabled: true`; smoke with `SOLANA_RPC_URL`). Phase 1 rails: Ethereum, Tron, Solana only |
 | X-07 | E2E: signed order create + webhook listener tier | Wave 5 — **Done 2026-08-27** `e2e-live-machine.mjs` + mint helper |
 
 ---
@@ -185,7 +185,7 @@ Blocked on [M5-01-Reference-Device.md](M5-01-Reference-Device.md) sign-off.
 | Item | Blocker |
 | --- | --- |
 | Wave 4 — enable `USDT_ETHEREUM` | Staging `ETH_RPC_URL` smoke ([M3-32](M3-32-Ethereum-Go-Live.md)) |
-| X-06 — enable `USDT_BNB_SMART_CHAIN` | After Ethereum live |
+| X-06 — enable `USDT_SOLANA` / `USDC_SOLANA` | After Ethereum live |
 | Wave 5 — Company A hostnames / TLS | [M3-T09](M3-T09-Company-A-Handoff.md) §3 |
 | Wave 5 — Pilot merchant | M4-40 |
 | Wave 7 — OEM printer / second screen | [M5-01](M5-01-Reference-Device.md); until then **M5-T05** generic APK + on-screen QR is accepted |

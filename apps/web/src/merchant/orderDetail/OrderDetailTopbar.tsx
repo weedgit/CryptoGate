@@ -6,6 +6,7 @@ import {
   orderStatusLabel,
   orderStatusTone,
 } from "../orderStatus";
+import { OrderChannelTag } from "../../shared/OrderChannelTag";
 import { StatusBadge } from "../../shared/StatusBadge";
 import { AssetIcon, NetworkIcon } from "../../platform/cryptoIcons";
 import type { OrderDetailView } from "./orderDetailView";
@@ -53,7 +54,12 @@ export function OrderDetailTopbar({
         <span className="order-detail-topbar__divider" aria-hidden />
         <div className="order-detail-topbar__identity">
           <span className="order-detail-topbar__kicker">Payment order</span>
-          <span className="order-detail-topbar__title">{orderNumber}</span>
+          <span className="order-detail-topbar__title">
+            {orderNumber}
+            {order ? (
+              <OrderChannelTag via={order.createdVia} className="order-detail-topbar__channel" />
+            ) : null}
+          </span>
         </div>
       </div>
       <div className="order-detail-topbar__meta">

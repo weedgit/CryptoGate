@@ -78,10 +78,10 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
       join(root, "app/src/main/java/com/paymentgate/cashier/api/AssetNetworkCatalog.kt"),
       "utf8",
     );
-    assert.match(catalog, /bnb_smart_chain/);
     assert.match(catalog, /tron_nile/);
-    assert.match(catalog, /AssetNetworkPair\("USDC", "base"/);
-    assert.match(catalog, /AssetNetworkPair\("BTC", "bitcoin"/);
+    assert.match(catalog, /AssetNetworkPair\("USDC", "solana"/);
+    assert.match(catalog, /AssetNetworkPair\("ETH", "ethereum"/);
+    assert.doesNotMatch(catalog, /polygon|bnb_smart_chain|arbitrum_one|"base"|"ton"|bitcoin|"BTC"/);
   });
 
   it("scaffolds M5-02/M5-03 SmartPos hardware dual source sets", () => {

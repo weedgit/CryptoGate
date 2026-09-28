@@ -44,6 +44,8 @@ export type ServiceBillWindow = {
   /** Billing period overlaps [periodFrom, periodTo] (YYYY-MM-DD); replaces from/to. */
   periodFrom?: string | null;
   periodTo?: string | null;
+  /** Paid monthly bills with paid_at in this UTC month (YYYY-MM) — commission fee base. */
+  paidMonth?: string | null;
 };
 
 export type ServiceBillsListParams = ServiceBillWindow & {
@@ -67,20 +69,28 @@ export function utcDateKey(d: Date): string {
 }
 
 /** Platform / Agent list opens on the last month of UTC days (daily invoice job calendar). */
-export function defaultServiceBillsWindow(now = new Date()): {
+/** Opening window: a rolling month on the platform, month to date for agents. */
+export function defaultServiceBillsWindow(
+  now = new Date(),
+  mode: "1m" | "mtd" = "1m",
+): {
   from: string;
   to: string;
   tz: string;
 } {
-  const from = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate()),
-  );
+  const from =
+    mode === "mtd"
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate()));
   return { from: utcDateKey(from), to: utcDateKey(now), tz: "UTC" };
 }
 
-export function defaultServiceBillsListParams(now = new Date()): ServiceBillsListParams {
+export function defaultServiceBillsListParams(
+  now = new Date(),
+  mode: "1m" | "mtd" = "1m",
+): ServiceBillsListParams {
   return {
-    ...defaultServiceBillsWindow(now),
+    ...defaultServiceBillsWindow(now, mode),
     bucket: "all",
     q: "",
     sort: "dueDate",
@@ -115,8 +125,11 @@ export function prefetchServiceBillsList(portal: "platform" | "agent" | "merchan
     void getServiceBillsSummary({}).catch(() => undefined);
     return;
   }
-  const window = defaultServiceBillsWindow();
-  void listServiceBillsServer(defaultServiceBillsListParams()).catch(() => undefined);
+  const mode = portal === "agent" ? "mtd" : "1m";
+  const window = defaultServiceBillsWindow(new Date(), mode);
+  void listServiceBillsServer(defaultServiceBillsListParams(new Date(), mode)).catch(
+    () => undefined,
+  );
   void getServiceBillsSummary(window).catch(() => undefined);
 }
 
@@ -130,6 +143,7 @@ function listParams(p: ServiceBillsListParams): ServerParams {
     agentOrgId: p.agentOrgId,
     periodFrom: p.periodFrom,
     periodTo: p.periodTo,
+    paidMonth: p.paidMonth,
     q: p.q?.trim() || null,
     sort: p.sort,
     dir: p.dir,
@@ -147,6 +161,7 @@ function windowParams(p: ServiceBillWindow): ServerParams {
     agentOrgId: p.agentOrgId,
     periodFrom: p.periodFrom,
     periodTo: p.periodTo,
+    paidMonth: p.paidMonth,
   };
 }
 
@@ -169,6 +184,47 @@ export function peekServiceBillsServer<B>(
 
 export function getServiceBillsSummary(p: ServiceBillWindow): Promise<ServiceBillsSummary> {
   return getServerJson<ServiceBillsSummary>("/service-bills/summary", windowParams(p));
+}
+
+/** Estimated next monthly bill for an activated merchant (volume so far). */
+export type UpcomingServiceBill = {
+  orgId: string;
+  orgName: string;
+  iconKey: string | null;
+  paused: boolean;
+  periodStart: string;
+  periodEnd: string;
+  /** YYYY-MM-DD the daily job issues it. */
+  invoiceOn: string;
+  /** Bill date already passed without a bill (see Find missed invoices). */
+  late: boolean;
+  billedVolumeUsd: string;
+  subscriptionAmount: string;
+  volumeFeeAmount: string;
+  totalAmount: string;
+  creditAppliedUsd: string;
+  payableAmount: string;
+  waived: boolean;
+  tier: string;
+  volumeFeePercent: string;
+};
+
+type UpcomingParams = { orgId?: string | null; agentOrgId?: string | null };
+
+export async function listUpcomingServiceBills(p: UpcomingParams): Promise<UpcomingServiceBill[]> {
+  const data = await getServerJson<{ items?: UpcomingServiceBill[] }>(
+    "/service-bills/upcoming",
+    { orgId: p.orgId, agentOrgId: p.agentOrgId },
+  );
+  return data.items ?? [];
+}
+
+export function peekUpcomingServiceBills(p: UpcomingParams): UpcomingServiceBill[] | null {
+  const data = peekServerJson<{ items?: UpcomingServiceBill[] }>("/service-bills/upcoming", {
+    orgId: p.orgId,
+    agentOrgId: p.agentOrgId,
+  });
+  return data ? (data.items ?? []) : null;
 }
 
 export type ServiceBillOrgStatus = {

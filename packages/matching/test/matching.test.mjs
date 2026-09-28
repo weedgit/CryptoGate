@@ -157,9 +157,9 @@ describe("@paymentgate/matching Mode D assign (M2-42)", () => {
   it("assignModeDForConfig assigns memo when memoSupported", async () => {
     const config = {
       asset: "USDT",
-      network: "ton",
+      network: "memo_fixture",
       enabled: true,
-      displayNetwork: "TON",
+      displayNetwork: "Memo fixture",
       contractAddress: null,
       decimals: 6,
       minAmount: "0.01",
@@ -171,7 +171,7 @@ describe("@paymentgate/matching Mode D assign (M2-42)", () => {
       {
         ...baseAssign,
         mode: "D",
-        network: "ton",
+        network: "memo_fixture",
         memoSeed: "idem-abc",
         listReservedMemoOrTags: async () => ["CG-other"],
       },
@@ -187,9 +187,9 @@ describe("@paymentgate/matching Mode D assign (M2-42)", () => {
   it("assignModeDForConfig requires memoSeed and reservation port", async () => {
     const config = {
       asset: "USDT",
-      network: "ton",
+      network: "memo_fixture",
       enabled: true,
-      displayNetwork: "TON",
+      displayNetwork: "Memo fixture",
       contractAddress: null,
       decimals: 6,
       minAmount: "0.01",
@@ -591,9 +591,9 @@ describe("@paymentgate/matching Mode S match (M3-63)", () => {
 describe("@paymentgate/matching Mode D match (M3-62)", () => {
   const memoConfig = {
     asset: "USDT",
-    network: "ton",
+    network: "memo_fixture",
     enabled: true,
-    displayNetwork: "TON",
+    displayNetwork: "Memo fixture",
     contractAddress: null,
     decimals: 6,
     minAmount: "0.01",
@@ -607,7 +607,7 @@ describe("@paymentgate/matching Mode D match (M3-62)", () => {
     payableAmount: "50.00",
     receiveAddress: "EQMainAddressExample",
     asset: "USDT",
-    network: "ton",
+    network: "memo_fixture",
     memoOrTag: "CG-idem-1",
   };
 
@@ -616,7 +616,7 @@ describe("@paymentgate/matching Mode D match (M3-62)", () => {
     toAddress: "EQMainAddressExample",
     amount: "50.00",
     asset: "USDT",
-    network: "ton",
+    network: "memo_fixture",
     memoOrTag: "CG-idem-1",
     txHash: "0xdmemo",
   };

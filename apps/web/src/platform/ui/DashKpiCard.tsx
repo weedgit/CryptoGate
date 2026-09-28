@@ -112,6 +112,7 @@ export function DashKpiCard({
   linkLabel,
   linkWithTitle = false,
   icon,
+  footer,
 }: {
   accent: KpiAccent;
   /** Replaces the accent's default icon. */
@@ -125,6 +126,8 @@ export function DashKpiCard({
   linkLabel?: string;
   /** Put the action link on the title row (status cards). */
   linkWithTitle?: boolean;
+  /** Bottom-right content beside the link (e.g. bill status). */
+  footer?: ReactNode;
 }) {
   const meta =
     trend != null ? (
@@ -167,7 +170,14 @@ export function DashKpiCard({
           <MiniSpark values={spark!} />
         </div>
       ) : null}
-      {!linkWithTitle ? link : null}
+      {footer ? (
+        <div className="pg-kpi__bottom">
+          {!linkWithTitle ? link : null}
+          <div className="pg-kpi__footer">{footer}</div>
+        </div>
+      ) : !linkWithTitle ? (
+        link
+      ) : null}
     </div>
   );
 }

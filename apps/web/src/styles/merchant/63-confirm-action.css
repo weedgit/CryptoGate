@@ -1,0 +1,209 @@
+/* ── Shared confirm pop-up (replaces window.confirm) ── */
+.confirm-action-backdrop {
+  z-index: 1100;
+  backdrop-filter: blur(2px);
+  animation: confirm-action-fade 140ms ease-out;
+}
+
+.b3-commission-modal-backdrop .b3-commission-modal.confirm-action-modal {
+  --ca-accent: #f87171;
+  --ca-accent-soft: rgba(248, 113, 113, 0.12);
+  --ca-accent-line: rgba(248, 113, 113, 0.4);
+  --ca-on-accent: #ffffff;
+  width: min(440px, calc(100vw - 32px));
+  border-radius: 14px;
+  border: 1px solid rgba(120, 160, 190, 0.2);
+  background: #04182b;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: confirm-action-pop 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.b3-commission-modal-backdrop .b3-commission-modal.confirm-action-modal.is-warn {
+  --ca-accent: #f5c542;
+  --ca-accent-soft: rgba(245, 197, 66, 0.12);
+  --ca-accent-line: rgba(245, 197, 66, 0.42);
+  --ca-on-accent: #0b0f14;
+}
+
+.confirm-action-modal__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 22px 18px;
+}
+
+.confirm-action-modal__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--ca-accent);
+  background: var(--ca-accent-soft);
+  border: 1px solid var(--ca-accent-line);
+}
+
+.confirm-action-modal__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.confirm-action-modal__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.confirm-action-modal__copy h3 {
+  margin: 2px 0 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+}
+
+.confirm-action-modal__subject {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(120, 160, 190, 0.24);
+  background: #071525;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.confirm-action-modal__copy p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.confirm-action-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid rgba(120, 160, 190, 0.14);
+  background: rgba(2, 12, 24, 0.35);
+}
+
+.confirm-action-modal__cancel,
+.confirm-action-modal__confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, filter 140ms ease;
+}
+
+.confirm-action-modal__cancel {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.confirm-action-modal__cancel:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.confirm-action-modal__confirm {
+  border: 0;
+  background: var(--ca-accent);
+  color: var(--ca-on-accent);
+  box-shadow: 0 8px 20px var(--ca-accent-soft);
+}
+
+.confirm-action-modal.is-danger .confirm-action-modal__confirm {
+  background: #dc2626;
+}
+
+.confirm-action-modal__confirm:hover {
+  filter: brightness(1.08);
+}
+
+.confirm-action-modal__cancel:focus-visible,
+.confirm-action-modal__confirm:focus-visible {
+  outline: 2px solid var(--ca-accent-line);
+  outline-offset: 2px;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-commission-modal.confirm-action-modal {
+  --ca-accent: #dc2626;
+  --ca-accent-soft: #fef2f2;
+  --ca-accent-line: rgba(220, 38, 38, 0.35);
+  border-color: #d8dee8;
+  background: #ffffff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+  color-scheme: light;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-commission-modal.confirm-action-modal.is-warn {
+  --ca-accent: #f59e0b;
+  --ca-accent-soft: #fffbeb;
+  --ca-accent-line: rgba(217, 119, 6, 0.4);
+}
+
+html[data-theme="light"] .confirm-action-modal.is-warn .confirm-action-modal__icon {
+  color: #b45309;
+}
+
+html[data-theme="light"] .confirm-action-modal__copy h3 {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .confirm-action-modal__subject {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+html[data-theme="light"] .confirm-action-modal__copy p {
+  color: #64748b;
+}
+
+html[data-theme="light"] .confirm-action-modal__foot {
+  border-top-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .confirm-action-modal__cancel {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+}
+
+@keyframes confirm-action-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes confirm-action-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-action-backdrop,
+  .b3-commission-modal-backdrop .b3-commission-modal.confirm-action-modal {
+    animation: none;
+  }
+}

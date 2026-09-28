@@ -26,11 +26,11 @@ describe("resolveWatchScopes", () => {
   it("multi mode unions open scopes with DEFAULT fallback", () => {
     const scopes = resolveWatchScopes(baseConfig(), [
       { asset: "USDT", network: "ethereum" },
-      { asset: "USDC", network: "base" },
+      { asset: "USDC", network: "solana" },
     ]);
     assert.deepEqual(scopes, [
-      { asset: "USDC", network: "base" },
       { asset: "USDT", network: "ethereum" },
+      { asset: "USDC", network: "solana" },
       { asset: "USDT", network: "tron" },
     ]);
   });
@@ -38,12 +38,12 @@ describe("resolveWatchScopes", () => {
   it("respects WATCHER_NETWORKS / WATCHER_ASSETS allow-lists", () => {
     const scopes = resolveWatchScopes(
       baseConfig({
-        networkAllowList: ["ethereum", "base"],
+        networkAllowList: ["ethereum", "solana"],
         assetAllowList: ["USDT"],
       }),
       [
         { asset: "USDT", network: "ethereum" },
-        { asset: "USDC", network: "base" },
+        { asset: "USDC", network: "solana" },
         { asset: "USDT", network: "tron" },
       ],
     );

@@ -1,3 +1,12 @@
+import {
+  addDaysYmd,
+  addMonthsYmd,
+  zonedEndOfDay,
+  zonedStartOfDay,
+  zonedYmd,
+} from "./dateTime";
+
+/** Periods, day keys and date inputs all follow the viewer's profile zone. */
 export type DashboardPeriodId = "today" | "7d" | "1m" | "mtd" | "3m";
 
 export const DASHBOARD_PERIOD_OPTIONS: {
@@ -11,65 +20,44 @@ export const DASHBOARD_PERIOD_OPTIONS: {
 ];
 
 export function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  return zonedStartOfDay(zonedYmd(d));
 }
 
 export function endOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+  return zonedEndOfDay(zonedYmd(d));
 }
 
 export function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return zonedYmd(d);
 }
 
 export function parseDateInput(value: string, end = false): Date {
-  const [y, m, d] = value.split("-").map(Number);
-  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
-  return end ? endOfDay(date) : startOfDay(date);
+  return end ? zonedEndOfDay(value) : zonedStartOfDay(value);
 }
 
 export function periodWindow(id: DashboardPeriodId): { from: Date; to: Date } {
-  const now = new Date();
-  const to = endOfDay(now);
-  if (id === "today") return { from: startOfDay(now), to };
-  if (id === "mtd") {
-    const from = startOfDay(now);
-    from.setDate(1);
-    return { from, to };
-  }
-  if (id === "3m") {
-    const from = startOfDay(now);
-    from.setMonth(from.getMonth() - 3);
-    return { from, to };
-  }
-  const from = startOfDay(now);
+  const today = zonedYmd();
+  const to = zonedEndOfDay(today);
+  if (id === "today") return { from: zonedStartOfDay(today), to };
+  if (id === "mtd") return { from: zonedStartOfDay(`${today.slice(0, 8)}01`), to };
+  if (id === "3m") return { from: zonedStartOfDay(addMonthsYmd(today, -3)), to };
   const days = id === "7d" ? 6 : 29;
-  from.setDate(from.getDate() - days);
-  return { from, to };
+  return { from: zonedStartOfDay(addDaysYmd(today, -days)), to };
 }
 
 export function buildDayKeys(from: Date, to: Date): string[] {
   const keys: string[] = [];
-  const cur = startOfDay(from);
-  const end = startOfDay(to);
-  while (cur <= end) {
-    keys.push(toDateInputValue(cur));
-    cur.setDate(cur.getDate() + 1);
+  const end = zonedYmd(to);
+  for (let cur = zonedYmd(from); cur <= end && keys.length < 1000; cur = addDaysYmd(cur, 1)) {
+    keys.push(cur);
   }
-  return keys.length ? keys : [toDateInputValue(from)];
+  return keys.length ? keys : [zonedYmd(from)];
 }
 
 export function dayKeyFromIso(iso: string): string | null {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return null;
-  return toDateInputValue(new Date(t));
+  return zonedYmd(new Date(t));
 }
 
 export function inWindow(iso: string, from: Date, to: Date): boolean {

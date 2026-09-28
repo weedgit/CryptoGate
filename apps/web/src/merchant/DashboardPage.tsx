@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useViewerTimeZone } from "../shared/useViewerTimeZone";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ApiError,
   getMerchantCommercial,
-  getNetworksStatus,
-  listActiveNetworkMaintenance,
-  listOrders,
-  type ActiveNetworkMaintenance,
   type MerchantCommercialSettings,
-  type NetworkOrderabilityLamp,
   type OrgAccount,
-  type PaymentOrder,
   type Session,
 } from "./api";
 import {
@@ -25,27 +20,23 @@ import {
   peekDashboardKpis,
   peekDashboardReports,
   type DashboardKpis,
+  type DashboardQuery,
   type DashboardReports,
 } from "../shared/dashboardApi";
-import { matchingModeLabel } from "./matchingLabels";
-import {
-  anomalyExplain,
-  formatShortTime,
-  orderStatusLabel,
-  orderStatusTone,
-} from "./orderStatus";
 import {
   parentMerchantOrgId,
   primaryMerchantOrgId,
-  sessionIsCashierOnly,
-  truncateAddress,
+  sitesInMerchantSubtree,
 } from "./org";
+import { CashiersTable } from "./dashboard/CashiersTable";
+import { mergeCashierRows } from "./dashboard/cashierRows";
+import { useCashierMembers } from "./dashboard/useCashierMembers";
+import { useWorkspaceScopeOrgId } from "./workspace";
+import { NetworksAssetsPanel } from "./dashboard/NetworksAssetsPanel";
+import { TransactionVolumePanel } from "./dashboard/TransactionVolumePanel";
+import { platformFeeStatus } from "./dashboard/platformFeeStatus";
+import { SitesTable, type SiteRow } from "./dashboard/SitesTable";
 import { AuthToast } from "../auth/AuthToast";
-import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
-import { networkShortLabel, visibleRegistry } from "../shared/assetNetworks";
-import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
-import { computeOrderabilityLamp, pendingOrderabilityLamp, type NetworkLamp } from "../shared/networkLamp";
-import { StatusBadge } from "../shared/StatusBadge";
 import { merchantRoute } from "../shared/portalRouting";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
@@ -65,29 +56,6 @@ import {
 
 type Props = { session: Session };
 
-type SiteRow = {
-  id: string;
-  name: string;
-  orders: number;
-  volume: number;
-  anomalies: number;
-};
-
-function orderTime(o: PaymentOrder): string {
-  return o.createdAt || o.expiresAt;
-}
-
-function formatUsdAmount(n: number): string {
-  return n.toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  });
-}
-
-function formatUsd(n: number): string {
-  return `${formatUsdAmount(n)} USD`;
-}
-
 function tierLabel(tier: string | undefined): string {
   if (!tier) return "—";
   if (tier === "small") return "Small";
@@ -96,15 +64,11 @@ function tierLabel(tier: string | undefined): string {
   return tier;
 }
 
-/** D1 — Merchant dashboard (ops board). Cashier sees scoped KPIs + own orders. */
+/** D1 — Merchant home (HQ ops board). Sites use SiteHomePage; cashiers use the pay pad. */
 export function DashboardPage({ session }: Props) {
-  const navigate = useNavigate();
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
-  const cashierOnly = useMemo(() => sessionIsCashierOnly(session), [session]);
-
-  const [recent, setRecent] = useState<PaymentOrder[]>([]);
-  const [anomalyOrders, setAnomalyOrders] = useState<PaymentOrder[]>([]);
+  const scopeOrgId = useWorkspaceScopeOrgId(orgId);
   const [sites, setSites] = useState<OrgAccount[]>([]);
   const [homeOrg, setHomeOrg] = useState<OrgAccount | null>(
     () => peekMerchantOrgs()?.find((o) => o.id === orgId) ?? null,
@@ -112,14 +76,10 @@ export function DashboardPage({ session }: Props) {
   const [commercial, setCommercial] = useState<MerchantCommercialSettings | null>(
     null,
   );
-  const [maintenance, setMaintenance] = useState<ActiveNetworkMaintenance[]>(
-    [],
-  );
-  const [lampByPair, setLampByPair] = useState<Map<
-    string,
-    NetworkOrderabilityLamp
-  > | null>(null);
+  const [chartReloadToken, setChartReloadToken] = useState(0);
+  const [pairsReloadToken, setPairsReloadToken] = useState(0);
 
+  const tz = useViewerTimeZone();
   const [period, setPeriod] = useState<DashboardPeriodId | "custom">("mtd");
   const [startDate, setStartDate] = useState(() =>
     toDateInputValue(periodWindow("mtd").from),
@@ -128,7 +88,7 @@ export function DashboardPage({ session }: Props) {
     toDateInputValue(periodWindow("mtd").to),
   );
   const [dashKpis, setDashKpis] = useState<DashboardKpis | null>(() =>
-    peekDashboardKpis({ from: startDate, to: endDate }),
+    peekDashboardKpis({ from: startDate, to: endDate, orgId: scopeOrgId, tz }),
   );
   const [loading, setLoading] = useState(() => dashKpis == null);
   const [hasLoaded, setHasLoaded] = useState(() => dashKpis != null);
@@ -187,7 +147,9 @@ export function DashboardPage({ session }: Props) {
   const loadKpis = useCallback(
     async (fresh = false) => {
       if (!startDate || !endDate) return;
-      const cached = fresh ? null : peekDashboardKpis({ from: startDate, to: endDate });
+      const cached = fresh
+        ? null
+        : peekDashboardKpis({ from: startDate, to: endDate, orgId: scopeOrgId, tz });
       if (cached) {
         setDashKpis(cached);
         setHasLoaded(true);
@@ -196,7 +158,9 @@ export function DashboardPage({ session }: Props) {
       }
       setError(null);
       try {
-        setDashKpis(await getDashboardKpis({ from: startDate, to: endDate, fresh }));
+        setDashKpis(
+          await getDashboardKpis({ from: startDate, to: endDate, orgId: scopeOrgId, tz, fresh }),
+        );
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Failed to load dashboard");
       } finally {
@@ -204,7 +168,7 @@ export function DashboardPage({ session }: Props) {
         setHasLoaded(true);
       }
     },
-    [startDate, endDate],
+    [startDate, endDate, scopeOrgId, tz],
   );
 
   useEffect(() => {
@@ -213,8 +177,8 @@ export function DashboardPage({ session }: Props) {
 
   const [reports, setReports] = useState<DashboardReports | null>(null);
   useEffect(() => {
-    if (cashierOnly || !startDate || !endDate) return;
-    const q = { from: startDate, to: endDate };
+    if (!startDate || !endDate) return;
+    const q = { from: startDate, to: endDate, orgId: scopeOrgId, tz };
     setReports(peekDashboardReports(q));
     let cancelled = false;
     void getDashboardReports(q)
@@ -225,64 +189,24 @@ export function DashboardPage({ session }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [cashierOnly, startDate, endDate]);
-
-  /** Latest rows only — the lists show 8 each. */
-  const loadRecentOrders = useCallback(async () => {
-    const [latest, attention] = await Promise.all([
-      listOrders({ limit: 8 }).catch(() => null),
-      listOrders({ status: "payment_anomaly", limit: 8 }).catch(() => null),
-    ]);
-    if (latest) setRecent(latest);
-    if (attention) setAnomalyOrders(attention);
-  }, []);
+  }, [startDate, endDate, scopeOrgId, tz]);
 
   const load = useCallback(async () => {
-    void loadRecentOrders();
-
-    if (orgId && !cashierOnly) {
+    if (orgId) {
       void Promise.all([
         getMerchantCommercial(orgId).catch(() => null),
         getMerchantOrgs().catch(() => [] as OrgAccount[]),
       ])
         .then(([commercialSettings, orgs]) => {
           setCommercial(commercialSettings);
-          const root = parentId ?? orgId;
-          setSites(
-            orgs.filter(
-              (o) =>
-                o.type === "merchant" &&
-                o.parentId === root &&
-                o.id !== root,
-            ),
-          );
+          setSites(sitesInMerchantSubtree(orgs, parentId ?? orgId));
         })
         .catch(() => undefined);
     } else {
       setCommercial(null);
       setSites([]);
     }
-
-    void listActiveNetworkMaintenance()
-      .then((r) => setMaintenance(r.items ?? []))
-      .catch(() => {
-        setMaintenance([]);
-      });
-
-    void getNetworksStatus()
-      .then((status) => {
-        const byPair = new Map<string, NetworkOrderabilityLamp>();
-        for (const net of status.items) {
-          for (const pair of net.pairs) {
-            byPair.set(`${pair.asset}:${net.network}`, pair.lamp);
-          }
-        }
-        setLampByPair(byPair);
-      })
-      .catch(() => {
-        setLampByPair(new Map());
-      });
-  }, [orgId, parentId, cashierOnly, loadRecentOrders]);
+  }, [orgId, parentId]);
 
   useEffect(() => {
     void load();
@@ -291,6 +215,8 @@ export function DashboardPage({ session }: Props) {
   const refreshDashboard = useCallback(() => {
     void loadKpis(true);
     void load();
+    setChartReloadToken((n) => n + 1);
+    setPairsReloadToken((n) => n + 1);
   }, [loadKpis, load]);
 
   const softRevalidateLiveSlices = useCallback(
@@ -301,31 +227,15 @@ export function DashboardPage({ session }: Props) {
           slices.includes("anomalies") ||
           slices.includes("serviceBills")
         ) {
-          await Promise.all([loadKpis(true), loadRecentOrders()]);
+          await loadKpis(true);
         }
-        if (slices.includes("networks")) {
-          await Promise.all([
-            listActiveNetworkMaintenance()
-              .then((r) => setMaintenance(r.items ?? []))
-              .catch(() => undefined),
-            getNetworksStatus()
-              .then((status) => {
-                const byPair = new Map<string, NetworkOrderabilityLamp>();
-                for (const net of status.items) {
-                  for (const pair of net.pairs) {
-                    byPair.set(`${pair.asset}:${net.network}`, pair.lamp);
-                  }
-                }
-                setLampByPair(byPair);
-              })
-              .catch(() => undefined),
-          ]);
-        }
+        if (slices.includes("volume")) setChartReloadToken((n) => n + 1);
+        if (slices.includes("networks")) setPairsReloadToken((n) => n + 1);
       } catch {
         // Keep last good SWR snapshot.
       }
     },
-    [loadKpis, loadRecentOrders],
+    [loadKpis],
   );
 
   useDashboardLiveEvents({
@@ -337,6 +247,10 @@ export function DashboardPage({ session }: Props) {
   });
 
   const activePeriodLabel = periodLabel(period, startDate, endDate);
+  const chartQuery = useMemo<DashboardQuery>(
+    () => ({ from: startDate, to: endDate, orgId: scopeOrgId, tz }),
+    [startDate, endDate, scopeOrgId, tz],
+  );
 
   const kpis = useMemo(() => {
     const volume = dashKpis?.orders.volumeUsd ?? 0;
@@ -352,57 +266,46 @@ export function DashboardPage({ session }: Props) {
       openBills: dashKpis?.bills.open ?? 0,
       overdueBills: dashKpis?.bills.overdueOpen ?? 0,
       completedCount: dashKpis?.orders.settled ?? 0,
+      settledTrend: dashKpis?.orders.settledTrend ?? null,
     };
   }, [dashKpis, commercial]);
 
-  const networkPairs = useMemo(() => {
-    return [...visibleRegistry()]
-      .filter((p) => p.enabled)
-      .sort((a, b) =>
-        networkShortLabel(a.network).localeCompare(networkShortLabel(b.network)),
-      );
-  }, []);
-
-  const siteNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const s of sites) map.set(s.id, s.name);
-    return map;
-  }, [sites]);
-
-  const orderWhere = useCallback(
-    (o: PaymentOrder): string => {
-      const named = o.orgName?.trim();
-      if (named) return named;
-      if (o.orgId && siteNameById.has(o.orgId)) {
-        return siteNameById.get(o.orgId)!;
-      }
-      return "Merchant";
-    },
-    [siteNameById],
+  const feeStatus = useMemo(
+    () =>
+      platformFeeStatus({
+        billingAnchorAt: commercial?.billingAnchorAt,
+        nextInvoiceOn: commercial?.nextInvoiceOn,
+        waivedMonthsLeft: commercial?.waivedMonthsLeft,
+        openBills: kpis.openBills,
+        overdueBills: kpis.overdueBills,
+      }),
+    [commercial, kpis.openBills, kpis.overdueBills],
   );
 
   const siteRows = useMemo((): SiteRow[] => {
-    if (cashierOnly || sites.length === 0) return [];
+    if (sites.length === 0) return [];
     const byOrg = new Map((dashKpis?.byOrg ?? []).map((r) => [r.orgId, r]));
     return sites.map((site) => {
       const row = byOrg.get(site.id);
       return {
         id: site.id,
         name: site.name,
+        iconKey: site.iconKey ?? null,
         orders: row?.orders ?? 0,
         volume: row?.volumeUsd ?? 0,
         anomalies: row?.anomalies ?? 0,
       };
     });
-  }, [sites, dashKpis, cashierOnly]);
+  }, [sites, dashKpis]);
 
+  const cashierOrgIds = useMemo(
+    () => (orgId ? [orgId, ...sites.map((s) => s.id)] : []),
+    [orgId, sites],
+  );
+  const cashierMembers = useCashierMembers(cashierOrgIds);
   const cashierRows = useMemo(
-    () =>
-      (reports?.byCreator ?? [])
-        .filter((r) => r.userId || r.email)
-        .slice()
-        .sort((a, b) => b.volumeUsd - a.volumeUsd),
-    [reports],
+    () => mergeCashierRows(reports?.byCreator ?? [], cashierMembers),
+    [reports, cashierMembers],
   );
 
   const cashierInvoicesHref = (userId: string) => {
@@ -416,7 +319,7 @@ export function DashboardPage({ session }: Props) {
     return `${merchantRoute("orders")}?${q.toString()}`;
   };
 
-  const brandName = homeOrg?.name ?? (cashierOnly ? "Cashier" : "Merchant");
+  const brandName = homeOrg?.name ?? "Merchant";
 
   return (
     <div className="dash-page plat-dash pg-dash merchant-dash">
@@ -428,20 +331,14 @@ export function DashboardPage({ session }: Props) {
               className="org-agents__actions plat-orders-topbar__actions"
               aria-label="Dashboard actions"
             >
-              {!cashierOnly ? (
-                <Link
-                  className="btn-ghost btn-inline"
-                  to={merchantRoute("service-bills")}
-                >
-                  Service Bills
-                </Link>
-              ) : (
-                <Link className="btn-ghost btn-inline" to={merchantRoute("orders")}>
-                  My orders
-                </Link>
-              )}
+              <Link
+                className="btn-ghost btn-inline"
+                to={merchantRoute("service-bills")}
+              >
+                Service Bills
+              </Link>
               <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
-                + {cashierOnly ? "Create Order" : "Create Payment Order"}
+                + Create Payment Order
               </Link>
             </div>,
             topbarActionsSlot,
@@ -458,14 +355,10 @@ export function DashboardPage({ session }: Props) {
               className="merchant-dash__hero-mark"
             />
             <div className="pg-dash__hero-copy">
-              <p className="pg-dash__eyebrow">
-                {cashierOnly ? "Cashier terminal" : "Merchant"}
-              </p>
+              <p className="pg-dash__eyebrow">Merchant</p>
               <h1 className="pg-dash__welcome">{brandName}</h1>
               <p className="pg-dash__lede">
-                {cashierOnly
-                  ? "Your orders and anything that needs attention right now."
-                  : `Here’s how your payments are doing · ${activePeriodLabel}.`}
+                {`Here’s how your payments are doing · ${activePeriodLabel}.`}
               </p>
             </div>
           </div>
@@ -490,312 +383,177 @@ export function DashboardPage({ session }: Props) {
         <DashHeroAura />
       </header>
 
-      <div
-        className={`pg-dash__status-row${
-          cashierOnly ? " merchant-dash__status-row--cashier" : ""
-        }`}
-        aria-busy={loading && !hasLoaded}
-      >
+      <div className="pg-dash__kpi-row merchant-dash__kpi-row" aria-busy={loading && !hasLoaded}>
         <DashKpiCard
-          accent="violet"
-          label="Completed volume"
-          value={
-            <span className="pg-kpi__money">
-              $<AnimatedMetric value={kpis.volume} decimals={2} />
-            </span>
-          }
-          hint={`${kpis.completedCount.toLocaleString()} settled · ${activePeriodLabel}`}
+          accent="teal"
+          icon={<TransactionsReceiptIcon />}
+          label="Total Transactions"
+          value={<AnimatedMetric value={kpis.completedCount} />}
+          trend={kpis.settledTrend}
+          hint={`Settled · ${activePeriodLabel}`}
           href={merchantRoute("orders")}
-          linkLabel="View"
-          linkWithTitle
+          linkLabel="View Transactions"
         />
-        {!cashierOnly ? (
-          <DashKpiCard
-            accent="gold"
-            label="Platform fee"
-            value={
-              <span className="pg-kpi__money">
-                $<AnimatedMetric value={kpis.platformFee} decimals={2} />
-              </span>
-            }
-            hint={`Est. · ${commercial?.volumeFeePercent ?? "—"}% rate`}
-            href={merchantRoute("service-bills")}
-            linkLabel="Bills"
-            linkWithTitle
-          />
-        ) : null}
-        {!cashierOnly ? (
-          <DashKpiCard
-            accent="slate"
-            label="Tier"
-            value={tierLabel(commercial?.tier)}
-            hint={`${commercial?.volumeFeePercent ?? "—"}% effective volume fee`}
-          />
-        ) : null}
         <DashKpiCard
           accent="warn"
-          label="Open orders"
+          icon={<OpenOrdersIcon />}
+          label="Open Orders"
           value={<AnimatedMetric value={kpis.openWork} />}
-          hint="Pending + verifying"
+          hint={
+            kpis.expiringSoon > 0
+              ? `Pending + verifying · ${kpis.expiringSoon} expiring soon`
+              : "Pending + verifying"
+          }
+          href={merchantRoute("orders")}
+          linkLabel="View Orders"
         />
         <DashKpiCard
           accent={kpis.anomalies > 0 ? "danger" : "ok"}
+          icon={kpis.anomalies > 0 ? undefined : <AllClearIcon />}
           label="Attention"
           value={<AnimatedMetric value={kpis.anomalies} />}
           hint={
             kpis.anomalies > 0
               ? "Needs review"
-              : cashierOnly
-                ? kpis.expiringSoon > 0
-                  ? `${kpis.expiringSoon} expiring soon`
-                  : "All clear"
-                : kpis.openBills > 0
-                  ? `${kpis.openBills} open service bill${
-                      kpis.openBills === 1 ? "" : "s"
-                    }`
-                  : "All clear"
+              : kpis.openBills > 0
+                ? `${kpis.openBills} open service bill${kpis.openBills === 1 ? "" : "s"}`
+                : "All clear"
           }
-          href={kpis.anomalies > 0 ? merchantRoute("orders") : undefined}
-          linkLabel="Review"
-          linkWithTitle
+          href={
+            kpis.anomalies > 0
+              ? merchantRoute("orders")
+              : kpis.openBills > 0
+                ? merchantRoute("service-bills")
+                : undefined
+          }
+          linkLabel={kpis.anomalies > 0 ? "Review" : "View Bills"}
+        />
+        <DashKpiCard
+          accent="gold"
+          label="Platform Fee"
+          value={
+            <span className="pg-kpi__money">
+              $<AnimatedMetric value={kpis.platformFee} decimals={2} />
+            </span>
+          }
+          hint={`Est. ${commercial?.volumeFeePercent ?? "—"}% of volume · ${tierLabel(commercial?.tier)} tier`}
+          footer={
+            commercial ? (
+              <span className="merchant-dash__fee-status">
+                <span className={`merchant-dash__fee-badge is-${feeStatus.tone}`}>
+                  {feeStatus.label}
+                </span>
+                <span className="merchant-dash__fee-schedule">{feeStatus.schedule}</span>
+              </span>
+            ) : null
+          }
+          href={merchantRoute("service-bills")}
+          linkLabel="View Bills"
+        />
+        <div className="pg-feature" aria-label="Total volume">
+          <div className="pg-feature__top">
+            <span className="pg-feature__icon" aria-hidden>
+              <img
+                className="pg-feature__icon-img"
+                src="/brand/wallet-icon.png"
+                alt=""
+                width={40}
+                height={40}
+                draggable={false}
+              />
+            </span>
+            <p className="pg-feature__kicker">Total volume</p>
+          </div>
+          <p className="pg-feature__value">
+            <AnimatedMetric value={kpis.volume} decimals={2} prefix="$" />
+          </p>
+          <p className="pg-feature__label">
+            {`Completed · ${kpis.completedCount.toLocaleString()} settled · ${activePeriodLabel}`}
+          </p>
+          <Link to={merchantRoute("orders")} className="pg-feature__link">
+            <span className="pg-feature__link-text">View Volume</span>
+            <span className="pg-feature__link-arrow" aria-hidden>
+              →
+            </span>
+          </Link>
+          <img
+            className="pg-feature__globe"
+            src="/brand/growth-chart.png"
+            alt=""
+            width={168}
+            height={168}
+            draggable={false}
+          />
+        </div>
+      </div>
+
+      <div className="dash-split pg-dash__split merchant-dash__chart-split">
+        <TransactionVolumePanel query={chartQuery} reloadToken={chartReloadToken} />
+        <NetworksAssetsPanel reloadToken={pairsReloadToken} />
+      </div>
+
+      <div
+        className={`merchant-dash__split merchant-dash__lists${
+          siteRows.length === 0 || cashierRows.length === 0 ? " merchant-dash__split--single" : ""
+        }`}
+      >
+        <SitesTable rows={siteRows} periodLabel={activePeriodLabel} />
+        <CashiersTable
+          rows={cashierRows}
+          periodLabel={activePeriodLabel}
+          invoicesHref={cashierInvoicesHref}
         />
       </div>
-
-      {!cashierOnly && networkPairs.length > 0 ? (
-        <section className="merchant-dash__networks" aria-label="Network status">
-          <div className="plat-dash-merchants__head">
-            <h2>Network status</h2>
-            <Link className="plat-dash-merchants__all" to={merchantRoute("networks")}>
-              View networks
-            </Link>
-          </div>
-          <div className="merchant-dash__net-strip">
-            {networkPairs.map((pair) => {
-              const lamp: NetworkLamp = lampByPair
-                ? ((lampByPair.get(`${pair.asset}:${pair.network}`) ??
-                    computeOrderabilityLamp({
-                      enabled: pair.enabled,
-                      maintenanceActive: maintenance.some(
-                        (m) => m.network === pair.network,
-                      ),
-                      ingestStatus: "unknown",
-                    })) as NetworkLamp)
-                : pendingOrderabilityLamp(pair.enabled);
-              return (
-                <div
-                  key={`${pair.asset}:${pair.network}`}
-                  className="merchant-dash__net-chip"
-                >
-                  <span className="merchant-dash__net-chip-icons">
-                    <AssetIcon asset={pair.asset} />
-                    <NetworkIcon network={pair.network} />
-                  </span>
-                  <span className="merchant-dash__net-chip-text">
-                    <span className="merchant-dash__net-chip-title">
-                      {pair.asset} · {networkShortLabel(pair.network)}
-                    </span>
-                    <NetworkStatusLamp lamp={lamp} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="merchant-dash__split">
-        <section className="merchant-dash-orders">
-          <div className="plat-dash-merchants__head">
-            <h2>Recent payment orders</h2>
-            <Link className="plat-dash-merchants__all" to={merchantRoute("orders")}>
-              View all
-            </Link>
-          </div>
-          {loading && !hasLoaded ? (
-            <p className="muted plat-dash-merchants__empty">Loading orders…</p>
-          ) : recent.length === 0 ? (
-            <p className="muted plat-dash-merchants__empty">
-              {cashierOnly
-                ? "No orders yet. Create one to issue a QR."
-                : "No payment orders yet."}
-            </p>
-          ) : (
-            <div className="merchant-dash-orders__scroll">
-              <div className="orders-table merchant-dash-orders__table" role="table">
-              <div className="orders-head" role="row">
-                <span>ORDER</span>
-                <span>DATE</span>
-                <span>WHERE</span>
-                <span>AMOUNT</span>
-                <span>NETWORK</span>
-                <span>MODE</span>
-                <span>STATUS</span>
-              </div>
-              {recent.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  className="orders-row"
-                  role="row"
-                  onClick={() => navigate(merchantRoute(`orders/${o.id}`))}
-                >
-                  <span className="mono">{o.orderNumber}</span>
-                  <span className="muted">
-                    {formatShortTime(orderTime(o))}
-                  </span>
-                  <span className="merchant-dash__where" title={orderWhere(o)}>
-                    {orderWhere(o)}
-                  </span>
-                  <span>
-                    {o.payableAmount.amount} {o.asset}
-                  </span>
-                  <span className="merchant-dash__order-net">
-                    <NetworkIcon network={o.network} />
-                    <span>{networkShortLabel(o.network)}</span>
-                  </span>
-                  <span className="muted">{matchingModeLabel(o.matchingMode)}</span>
-                  <span>
-                    <StatusBadge
-                      tone={orderStatusTone(o.status, o)}
-                      live={o.status === "verifying"}
-                      alarm={o.status === "payment_anomaly"}
-                    >
-                      {orderStatusLabel(o.status, o)}
-                    </StatusBadge>
-                  </span>
-                </button>
-              ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="merchant-dash-anomalies">
-          <div className="plat-dash-merchants__head">
-            <h2>Open Attention</h2>
-            <Link
-              className="plat-dash-merchants__all"
-              to={merchantRoute("orders")}
-            >
-              View all
-            </Link>
-          </div>
-          {loading && !hasLoaded ? (
-            <p className="muted plat-dash-merchants__empty">Loading…</p>
-          ) : anomalyOrders.length === 0 ? (
-            <p className="muted plat-dash-merchants__empty">
-              No open invoices need Attention.
-            </p>
-          ) : (
-            <ul className="merchant-dash-anomalies__list">
-              {anomalyOrders.map((o) => {
-                const explain = anomalyExplain({
-                  reason: o.anomalyReason,
-                  matchingMode: o.matchingMode,
-                  payableAmount: o.payableAmount?.amount,
-                  receivedAmount: o.receivedAmount?.amount,
-                  hasTx: Boolean(o.receivedAmount?.amount),
-                });
-                return (
-                  <li key={o.id}>
-                    <button
-                      type="button"
-                      className="merchant-dash-anomalies__row"
-                      onClick={() => navigate(merchantRoute(`orders/${o.id}`))}
-                    >
-                      <div className="merchant-dash-anomalies__top">
-                        <span className="mono">#{o.orderNumber}</span>
-                        <span className="muted">
-                          {formatShortTime(orderTime(o))}
-                        </span>
-                      </div>
-                      <p className="merchant-dash-anomalies__title">
-                        {explain.title}
-                      </p>
-                      <p className="merchant-dash-anomalies__meta muted">
-                        {o.payableAmount.amount} {o.asset} ·{" "}
-                        {networkShortLabel(o.network)}
-                        {o.receiveAddress
-                          ? ` · ${truncateAddress(o.receiveAddress)}`
-                          : ""}
-                      </p>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      {!cashierOnly && siteRows.length > 0 ? (
-        <section className="merchant-dash-sites">
-          <div className="plat-dash-merchants__head">
-            <h2>Sites</h2>
-            <Link className="plat-dash-merchants__all" to={merchantRoute("sites")}>
-              View sites
-            </Link>
-          </div>
-          <div className="merchant-dash-orders__scroll">
-            <div className="orders-table merchant-dash-orders__table" role="table">
-            <div className="orders-head merchant-dash-sites__head" role="row">
-              <span>SITE</span>
-              <span>ORDERS</span>
-              <span>VOLUME</span>
-              <span>ANOMALIES</span>
-            </div>
-            {siteRows.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className="orders-row merchant-dash-sites__row"
-                role="row"
-                onClick={() => navigate(merchantRoute(`sites/${s.id}`))}
-              >
-                <span>{s.name}</span>
-                <span className="mono">{s.orders}</span>
-                <span className="mono">{formatUsd(s.volume)}</span>
-                <span className="mono">{s.anomalies}</span>
-              </button>
-            ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {!cashierOnly && cashierRows.length > 0 ? (
-        <section className="merchant-dash-sites merchant-dash-cashiers">
-          <div className="plat-dash-merchants__head">
-            <h2>Cashiers</h2>
-            <span className="muted merchant-dash-cashiers__period">{activePeriodLabel}</span>
-          </div>
-          <div className="merchant-dash-orders__scroll">
-            <div className="orders-table merchant-dash-orders__table" role="table">
-              <div className="orders-head merchant-dash-cashiers__head" role="row">
-                <span>CASHIER</span>
-                <span>ORDERS</span>
-                <span>VOLUME</span>
-              </div>
-              {cashierRows.map((c) => (
-                <button
-                  key={c.userId ?? c.email ?? ""}
-                  type="button"
-                  className="orders-row merchant-dash-cashiers__row"
-                  role="row"
-                  disabled={!c.userId}
-                  onClick={() => {
-                    if (c.userId) navigate(cashierInvoicesHref(c.userId));
-                  }}
-                >
-                  <span title={c.email ?? undefined}>{c.email ?? "—"}</span>
-                  <span className="mono">{c.count}</span>
-                  <span className="mono">{formatUsd(c.volumeUsd)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
     </div>
+  );
+}
+
+function TransactionsReceiptIcon() {
+  return (
+    <svg
+      width={36}
+      height={36}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 3.5h14v17l-2.35-1.5-2.3 1.5-2.35-1.5-2.35 1.5-2.3-1.5L5 20.5v-17Z" />
+      <path d="M14.2 8.4c-.4-.7-1.2-1.1-2.2-1.1-1.3 0-2.2.6-2.2 1.6s.9 1.4 2.2 1.7c1.3.3 2.2.8 2.2 1.8s-1 1.6-2.2 1.6c-1 0-1.9-.4-2.3-1.1M12 6.2v1.1M12 13.9v1.1" />
+    </svg>
+  );
+}
+
+const OUTLINE_ICON = {
+  width: 36,
+  height: 36,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+/** Pending + verifying orders: waiting on payment. */
+function OpenOrdersIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function AllClearIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.3 2.3 4.7-5" />
+    </svg>
   );
 }

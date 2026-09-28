@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { browserTimeZone } from "../shared/dateTime";
+import { allTimeZones } from "../shared/timeZoneOptions";
 import {
   ApiError,
   changePassword,
@@ -38,22 +40,11 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
 };
 
-const TIMEZONE_OPTIONS = [
-  "UTC",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Taipei",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Bangkok",
-  "Asia/Jakarta",
-  "Asia/Manila",
-  "Australia/Sydney",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-] as const;
+/** Unconfirmed profiles still hold the UTC default; start from the device zone instead. */
+function profileTimeZoneDefault(session: Session): string {
+  if (session.timezoneConfirmed === true && session.timezone) return session.timezone;
+  return browserTimeZone();
+}
 
 function formatTimezoneLabel(tz: string): string {
   if (tz === "UTC") return "UTC — Coordinated Universal Time";
@@ -546,7 +537,7 @@ function ProfileForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
-  const [timezone, setTimezone] = useState(session.timezone || "UTC");
+  const [timezone, setTimezone] = useState(() => profileTimeZoneDefault(session));
   const [busy, setBusy] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -558,8 +549,8 @@ function ProfileForm({
     setAvatarUrl(
       sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
     );
-    setTimezone(session.timezone || "UTC");
-  }, [session.firstName, session.lastName, session.avatarUrl, session.timezone]);
+    setTimezone(profileTimeZoneDefault(session));
+  }, [session.firstName, session.lastName, session.avatarUrl, session.timezone, session.timezoneConfirmed]);
 
   const savedAvatar = sessionHasAvatar(session)
     ? (session.avatarUrl ?? null)
@@ -570,14 +561,14 @@ function ProfileForm({
       firstName.trim() !== (session.firstName ?? "").trim() ||
       lastName.trim() !== (session.lastName ?? "").trim() ||
       avatarUrl !== savedAvatar ||
-      timezone !== (session.timezone || "UTC")
+      timezone !== (session.timezone || "UTC") ||
+      session.timezoneConfirmed !== true
     );
   }, [firstName, lastName, avatarUrl, timezone, session, savedAvatar]);
 
   const timezoneChoices = useMemo(() => {
-    const set = new Set<string>(TIMEZONE_OPTIONS);
-    if (timezone) set.add(timezone);
-    return [...set];
+    const zones = allTimeZones();
+    return timezone && !zones.includes(timezone) ? [timezone, ...zones] : zones;
   }, [timezone]);
 
   async function onPickFile(file: File | undefined) {

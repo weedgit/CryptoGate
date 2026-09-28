@@ -66,64 +66,26 @@
   cursor: not-allowed;
 }
 
-.create-order-modal.b3-commission-modal,
-.b3-commission-modal-backdrop .create-order-modal.b3-commission-modal {
-  width: min(960px, calc(100vw - 32px));
+.b4-wizard-portal .b4-wizard.create-order-modal {
+  width: min(960px, 100%);
   max-width: calc(100vw - 32px);
-  height: auto;
-  max-height: min(90vh, 860px);
-  flex: 0 0 auto;
-  align-self: center;
-  display: flex;
-  flex-direction: column;
+  max-height: min(92vh, 900px);
 }
 
-.create-order-modal .create-order-modal__close.b3-commission-modal__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  max-width: 44px;
-  max-height: 44px;
-  padding: 0;
-  font-size: 28px;
-  line-height: 1;
-  border-radius: 8px;
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.create-order-modal .create-order-modal__close.b3-commission-modal__close:hover:not(:disabled) {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.create-order-modal .b3-commission-modal__head {
-  position: relative;
-  justify-content: center;
-  padding-left: 56px;
-  padding-right: 56px;
-}
-
-.create-order-modal .b3-commission-modal__head h3 {
-  flex: 0 1 auto;
-  text-align: center;
-  letter-spacing: 0.06em;
-  font-size: 16px;
+.b4-wizard-portal .b4-wizard.create-order-modal--locked {
+  width: min(600px, 100%);
 }
 
 .create-order-modal__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 28px 20px 20px;
+  padding: 20px 24px;
+  background: #131a24;
+}
+
+html[data-theme="light"] .create-order-modal__body {
+  background: transparent;
 }
 
 .create-order-modal__layout {
@@ -159,30 +121,6 @@
   margin-top: 0;
 }
 
-.create-order-modal__form .profile-settings-card__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  margin-top: auto;
-  padding-top: 8px;
-  width: 100%;
-}
-
-.create-order-modal__form .create-order-modal__submit.plat-settings__save {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 14px 18px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-align: center;
-  min-width: 0;
-}
-
 .field-shell--amount-suffix .create-order-amount__input {
   flex: 1 1 auto;
   width: auto;
@@ -212,8 +150,120 @@
   pointer-events: none;
 }
 
+.create-order-charge {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.create-order-charge__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 160, 190, 0.22);
+  background: rgba(8, 20, 34, 0.9);
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.create-order-charge__btn:hover:not(:disabled):not(.is-active) {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #f8fafc;
+}
+
+.create-order-charge__btn.is-active {
+  border-color: var(--plat-gold-bright, #fbbf24);
+  background: rgba(251, 191, 36, 0.1);
+  color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35);
+}
+
+.create-order-charge__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.create-order-charge__symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.16);
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.create-order-charge__btn.is-active .create-order-charge__symbol {
+  background: var(--plat-gold-bright, #fbbf24);
+  color: #1a1405;
+}
+
+.create-order-charge__symbol .plat-crypto-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.create-order-charge__btn.is-active .create-order-charge__symbol:has(.plat-crypto-icon) {
+  background: transparent;
+}
+
+.create-order-amount__symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  color: var(--plat-gold-bright, #fbbf24);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.create-order-amount__payhint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+html[data-theme="light"] .create-order-charge__btn {
+  background: #ffffff;
+  border-color: #d8dee8;
+  color: #334155;
+}
+
+html[data-theme="light"] .create-order-charge__btn.is-active {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #0f172a;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+
+html[data-theme="light"] .create-order-charge__symbol {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .create-order-amount__symbol {
+  color: #b45309;
+}
+
+html[data-theme="light"] .create-order-amount__payhint {
+  color: #64748b;
+}
+
 .create-order-modal__layout .create-order-page__preview {
-  width: 300px;
+  width: 320px;
 }
 
 @media (max-width: 900px) {

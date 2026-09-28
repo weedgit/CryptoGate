@@ -91,6 +91,7 @@ export function OrderInvoice({
             createdAt: order?.createdAt,
             paidAt,
             siteName: order?.orgName ?? null,
+            businessTimezone: order?.businessTimezone ?? pay?.businessTimezone ?? null,
             createdByLabel,
             merchantReference: order?.merchantReference ?? null,
             anomalyReason: order?.anomalyReason,

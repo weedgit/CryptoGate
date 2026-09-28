@@ -4,6 +4,7 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { auditListScope } from "../orgs/role-policy.mjs";
 import { auditCsvHeaderLine, auditCsvLine } from "./audit-csv.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import {
   parseAuditActionFilter,
   parseAuditLimit,
@@ -175,11 +176,13 @@ export async function handleExportAuditLog(req, res, url) {
   });
 
   try {
-    res.write(auditCsvHeaderLine());
+    const tzParam = url.searchParams.get("tz");
+    const timeZone = tzParam && isValidTimeZone(tzParam) ? tzParam : "UTC";
+    res.write(auditCsvHeaderLine(timeZone));
     for await (const batch of iterateAuditLogBatches(filter)) {
       if (closed) return;
       const rows = await enrichAuditLogRows(batch);
-      if (!res.write(rows.map(auditCsvLine).join(""))) await drainOrClose(res);
+      if (!res.write(rows.map((row) => auditCsvLine(row, timeZone)).join(""))) await drainOrClose(res);
     }
     res.end();
   } catch (err) {

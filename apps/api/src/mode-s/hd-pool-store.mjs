@@ -1,5 +1,5 @@
 import { getPool } from "../db/pool.mjs";
-import { findSettlementAddress } from "../settlement/settlement-store.mjs";
+import { findNetworkSettlementAddress } from "../settlement/settlement-store.mjs";
 import { getActiveXpub } from "../xpub/xpub-store.mjs";
 import {
   deriveReceiveAddressFromXpub,
@@ -57,7 +57,7 @@ export async function claimHdPoolAddress(client, query) {
 
   let main = query.mainSettlementAddress?.trim() ?? "";
   if (!main) {
-    const settlement = await findSettlementAddress(
+    const settlement = await findNetworkSettlementAddress(
       query.merchantId,
       query.asset,
       query.network,

@@ -33,13 +33,11 @@ const SEED_USD_PER_TOKEN = {
   USDC: 1,
   TRX: 0.14,
   ETH: 3200,
-  BTC: 95_000,
   SOL: 145,
-  BNB: 580,
 };
 
 function formatSeedTokenAmount(asset, n) {
-  if (asset === "ETH" || asset === "BTC") return n.toFixed(6);
+  if (asset === "ETH") return n.toFixed(6);
   if (asset === "SOL") return n.toFixed(4);
   return n.toFixed(2);
 }

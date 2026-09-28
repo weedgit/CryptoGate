@@ -8,10 +8,13 @@ import { collectAncestorOrgIds, findBillingMerchantOrg } from "../orgs/org-ances
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
+  cashierWebOrderBlocked,
   extraCreateOrderKeys,
   idempotencyBodyHashPayload,
+  resolveOrderChannel,
   validateCreateOrderBody,
 } from "./order-rules.mjs";
+import { getEffectiveCashierWebOrders } from "../pos-settings/pos-settings-store.mjs";
 import { assignOnOrderCreate } from "./order-matching.mjs";
 import {
   cancelPendingPaymentOrder,
@@ -25,11 +28,10 @@ import {
 import { toOnChainDetails, toPaymentDetails } from "./order-map.mjs";
 import {
   getEffectiveMatchingMode,
-  getEffectiveUnderpayTolerance,
 } from "../matching-mode/matching-mode-store.mjs";
 import { getEffectiveFulfillmentPolicy } from "../fulfillment-policy/fulfillment-policy-store.mjs";
 import { bindHdPoolOrder } from "../mode-s/hd-pool-store.mjs";
-import { resolveSiteInherit } from "../sites/site-inherit.mjs";
+import { resolveSiteInherit, settingsLookupOrgId } from "../sites/site-inherit.mjs";
 import { getEffectiveNetworkMaintenance } from "../platform-settings/network-maintenance-store.mjs";
 import { resolveEffectiveAssetNetworkConfig } from "../platform-settings/network-rail-resolve.mjs";
 import { resolveOrderQuote } from "../rates/resolve-order-quote.mjs";
@@ -154,6 +156,26 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
+  const createdVia = resolveOrderChannel({
+    apiKey: Boolean(caller.apiKeyScopes),
+    clientHeader: req.headers["x-paymentgate-client"],
+  });
+  const roleOnOrg =
+    caller.memberships.find((m) => m.orgId === scope.orgId)?.role ?? null;
+  if (roleOnOrg === "cashier" && createdVia === "web") {
+    const posLookup = await settingsLookupOrgId(merchantOrg, "pos_settings");
+    const cashierWebOrders = await getEffectiveCashierWebOrders(posLookup.orgId);
+    if (cashierWebOrderBlocked({ role: roleOnOrg, channel: createdVia, cashierWebOrders })) {
+      sendError(
+        res,
+        403,
+        "cashier_web_orders_disabled",
+        "This merchant takes cashier payments in the POS app only",
+      );
+      return;
+    }
+  }
+
   // Overlay platform + merchant/site rail policy (new orders only; snapshotted below).
   const billingMerchant =
     merchantOrg.type === "merchant_site"
@@ -261,10 +283,7 @@ export async function handleCreatePaymentOrder(req, res) {
           inherit.fulfillmentOrgId,
           client,
         );
-        const underpayTolerance =
-          matchingMode === "B"
-            ? await getEffectiveUnderpayTolerance(inherit.matchingOrgId, client)
-            : "0";
+        const underpayTolerance = "0";
         const assigned = await assignOnOrderCreate({
           client,
           orgId: scope.orgId,
@@ -298,6 +317,7 @@ export async function handleCreatePaymentOrder(req, res) {
           {
             orgId: scope.orgId,
             createdBy: caller.userId,
+            createdVia,
             status: OrderStatus.PendingPayment,
             matchingMode: assigned.assign.matchingMode,
             payableAmount: assigned.assign.payableAmount.amount,

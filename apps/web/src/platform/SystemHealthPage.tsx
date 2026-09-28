@@ -1,3 +1,4 @@
+import { formatInZone } from "../shared/dateTime";
 import {
   useCallback,
   useEffect,
@@ -197,7 +198,7 @@ export function SystemHealthPage({
               </div>
               <span className="plat-ops-health__meta">
                 {checkedAt
-                  ? `Checked ${new Date(checkedAt).toLocaleTimeString()}`
+                  ? `Checked ${formatInZone(checkedAt, { hour: "numeric", minute: "2-digit", second: "2-digit" })}`
                   : "Awaiting status"}
               </span>
             </div>
@@ -296,7 +297,7 @@ export function SystemHealthPage({
                           </td>
                           <td className="plat-ops-health__cell-muted">
                             {hb
-                              ? new Date(hb.tickAt).toLocaleTimeString()
+                              ? formatInZone(hb.tickAt, { hour: "numeric", minute: "2-digit", second: "2-digit" })
                               : "—"}
                           </td>
                         </tr>

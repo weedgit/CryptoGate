@@ -90,7 +90,7 @@ Quiet traffic uses the main settlement address. On same-amount conflict, assign 
 | Avoid | Use |
 | --- | --- |
 | Fires the order / publish on-chain | Creates the **payment order**; guest page gets amount, network, address, QR |
-| Pick Tron, Polygon, or Arbitrum (as if all live) | Phase 1 live pair is **USDT on Tron** (Nile in test). Other networks appear when orderable (**Open**) |
+| Pick a network that is not offered | Phase 1 rails are **Ethereum, Tron and Solana** (Nile in test). Only networks shown as **Open** can take orders |
 | Fee and speed differ per rail (implies platform fee) | Network gas / confirmation time differ; **platform volume fee is not taken from the payer** |
 
 ### 8. Anomalies callout

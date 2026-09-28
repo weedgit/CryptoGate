@@ -28,6 +28,8 @@ function paramsFromBody(body) {
     "q",
     "asset",
     "network",
+    "createdVia",
+    "tz",
   ]) {
     const v = body[key];
     if (v == null || v === "") continue;

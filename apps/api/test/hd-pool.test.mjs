@@ -8,9 +8,7 @@ import {
   deriveReceiveAddressFromXpub,
   deriveTronAddressFromXpub,
   deriveEvmAddressFromXpub,
-  deriveBitcoinAddressFromXpub,
   deriveSolanaAddressFromXpub,
-  deriveTonAddressFromMasterPubkey,
   tronAddressFromPublicKey,
   xpubFingerprint,
 } from "../src/mode-s/hd-derive.mjs";
@@ -53,27 +51,13 @@ describe("hd derive (watch-only)", () => {
     assert.notEqual(a0, deriveEvmAddressFromXpub(VECTOR_XPUB, 1));
   });
 
-  it("derives Bitcoin P2PKH from xpub", () => {
-    const a0 = deriveBitcoinAddressFromXpub(VECTOR_XPUB, 0);
-    assert.match(a0, /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/);
-  });
-
   it("routes deriveReceiveAddressFromXpub by network family", () => {
     const tron = deriveReceiveAddressFromXpub("tron", VECTOR_XPUB, 0);
     const nile = deriveReceiveAddressFromXpub("tron_nile", VECTOR_XPUB, 0);
     const eth = deriveReceiveAddressFromXpub("ethereum", VECTOR_XPUB, 0);
-    const bsc = deriveReceiveAddressFromXpub("bnb_smart_chain", VECTOR_XPUB, 0);
-    const polygon = deriveReceiveAddressFromXpub("polygon", VECTOR_XPUB, 0);
-    const arb = deriveReceiveAddressFromXpub("arbitrum_one", VECTOR_XPUB, 0);
-    const base = deriveReceiveAddressFromXpub("base", VECTOR_XPUB, 0);
-    const btc = deriveReceiveAddressFromXpub("bitcoin", VECTOR_XPUB, 0);
     assert.equal(tron, nile);
     assert.match(eth, /^0x/);
-    assert.match(bsc, /^0x/);
-    assert.match(polygon, /^0x/);
-    assert.match(arb, /^0x/);
-    assert.match(base, /^0x/);
-    assert.match(btc, /^[13]/);
+    assert.throws(() => deriveReceiveAddressFromXpub("not_a_network", VECTOR_XPUB, 0), /not available/);
   });
 
   it("derives Solana addresses from ed25519 extended pubkey", () => {
@@ -87,19 +71,6 @@ describe("hd derive (watch-only)", () => {
     assert.notEqual(a0, a1);
     assert.match(a0, /^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
     const routed = deriveReceiveAddressFromXpub("solana", extended, 0);
-    assert.equal(routed, a0);
-  });
-
-  it("derives TON v4 subwallet addresses from ed25519 master pubkey", () => {
-    const scalar = Uint8Array.from(
-      Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "hex"),
-    ).slice(0, 32);
-    const pubHex = Buffer.from(ed25519.getPublicKey(scalar)).toString("hex");
-    const a0 = deriveTonAddressFromMasterPubkey(pubHex, 0);
-    const a1 = deriveTonAddressFromMasterPubkey(pubHex, 1);
-    assert.notEqual(a0, a1);
-    assert.match(a0, /^UQ/);
-    const routed = deriveReceiveAddressFromXpub("ton", pubHex, 0);
     assert.equal(routed, a0);
   });
 
@@ -145,8 +116,7 @@ describe("hd pool rules", () => {
     );
     assert.equal(list.derivationPath, "0/{index}");
     assert.equal(list.items[0].status, "IN_USE");
-    const tonList = toHdPoolList([], { network: "ton" });
-    assert.equal(tonList.derivationPath, "subwallet/{index}");
+    assert.equal(toHdPoolList([], { network: "solana" }).derivationPath, "0/{index}");
     const mapped = toHdPoolAddress({
       id: "p1",
       org_id: "o1",

@@ -46,7 +46,7 @@ export const DEFAULT_MAX_AGENT_DEPTH = 1;
  * @param {{ id: string, type: string, name: string, parent_id: string | null, status?: string, country?: string | null, legal_name?: string | null, icon_key?: string | null, created_at?: Date | string }} row
  */
 export function toOrgAccount(row) {
-  /** @type {{ id: string, type: string, name: string, parentId: string | null, status: string, country?: string, legalName?: string, billingEmail?: string | null, iconKey?: string, createdAt?: string }} */
+  /** @type {{ id: string, type: string, name: string, parentId: string | null, status: string, country?: string, legalName?: string, billingEmail?: string | null, iconKey?: string, businessTimezone?: string, createdAt?: string }} */
   const account = {
     id: row.id,
     type: row.type,
@@ -65,6 +65,9 @@ export function toOrgAccount(row) {
   }
   if (row.icon_key && isOrgIconValue(row.icon_key)) {
     account.iconKey = row.icon_key;
+  }
+  if (typeof row.business_timezone === "string" && row.business_timezone) {
+    account.businessTimezone = row.business_timezone;
   }
   if (row.created_at) {
     account.createdAt =

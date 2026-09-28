@@ -66,7 +66,7 @@ For concurrent same-amount cashiers, prefer **Amount fingerprint** or **Smart ad
 
 ### Amount fingerprint (C)
 
-Each new open order gets a **unique payable amount** (e.g. 245.00 → 245.01, 245.02). The payment page and QR show that exact amount with an **exact-pay** warning. Matching uses that fingerprint. Underpay tolerance is effectively zero so fingerprints stay unique.
+Each new open order gets a **unique payable amount** (e.g. 245.00 → 245.01, 245.02). The payment page and QR show that exact amount with an **exact-pay** warning. Matching uses that fingerprint. As in every mode, the guest must pay the exact amount — a short payment goes to Attention.
 
 ### Smart address (S)
 

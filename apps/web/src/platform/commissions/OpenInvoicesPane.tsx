@@ -1,5 +1,4 @@
 import { PagePending } from "../ui/PlatformPending";
-import { CommissionsBulkBar } from "./CommissionsBulkBar";
 import { OpenInvoicesTable } from "./OpenInvoicesTable";
 import type { CommissionsData } from "./useCommissionsData";
 
@@ -11,11 +10,6 @@ export function OpenInvoicesPane({ data }: { data: CommissionsData }) {
     statusFilter,
     debouncedQuery,
     query,
-    canBulkPay,
-    selectedIds,
-    clearSelection,
-    setBulkError,
-    setBulkOpen,
     rows,
   } = data;
   return (
@@ -56,24 +50,9 @@ export function OpenInvoicesPane({ data }: { data: CommissionsData }) {
         </div>
       ) : null}
 
-      {canBulkPay && selectedIds.size > 0 ? (
-        <CommissionsBulkBar
-          count={selectedIds.size}
-          onClear={clearSelection}
-          onConfirmPay={() => {
-            setBulkError(null);
-            setBulkOpen(true);
-          }}
-        />
-      ) : null}
-
       {!loading && rows.length > 0 ? (
         <OpenInvoicesTable
           rows={rows}
-          canBulkPay={canBulkPay}
-          issuedOnPage={data.issuedOnPage}
-          selectedIds={selectedIds}
-          toggleSelected={data.toggleSelected}
           invoiceSort={data.invoiceSort}
           onInvoiceSort={data.onInvoiceSort}
           portal={data.portal}

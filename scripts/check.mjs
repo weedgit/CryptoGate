@@ -49,14 +49,13 @@ run("node", [
   "--test",
   "packages/chain-clients/test/tron.test.mjs",
   "packages/chain-clients/test/ethereum.test.mjs",
-  "packages/chain-clients/test/bnb_smart_chain.test.mjs",
+  "packages/chain-clients/test/solana.test.mjs",
 ]);
 run("node", [
   "--test",
   "apps/watcher/test/watcher.test.mjs",
   "apps/watcher/test/health-score.test.mjs",
   "apps/watcher/test/ethereum-tick.test.mjs",
-  "apps/watcher/test/bnb-smart-chain-tick.test.mjs",
   "apps/watcher/test/inbound-match.test.mjs",
   "apps/watcher/test/confirmations.test.mjs",
   "apps/watcher/test/restart-safety.test.mjs",

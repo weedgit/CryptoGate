@@ -6,6 +6,8 @@ import {
   paymentOrderListScope,
 } from "../orgs/role-policy.mjs";
 import { paymentOrdersToCsv } from "./order-csv.mjs";
+import { findUserById } from "../auth/users.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import { parseListOrdersQuery } from "./order-list-query.mjs";
 import { resolvePaymentOrderListQuery } from "./order-list-resolve.mjs";
 import { expandPaymentOrderReadFilter } from "./order-list-scope.mjs";
@@ -27,8 +29,9 @@ const EMPTY_SUMMARY = {
  * }} result
  * @param {boolean} csv
  * @param {import("node:http").ServerResponse} res
+ * @param {string} [timeZone]
  */
-function sendListResult(result, csv, res) {
+function sendListResult(result, csv, res, timeZone = "UTC") {
   if (csv) {
     if (result.total > 5000) {
       sendError(
@@ -39,7 +42,7 @@ function sendListResult(result, csv, res) {
       );
       return;
     }
-    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows));
+    sendCsv(res, 200, "payment-orders.csv", paymentOrdersToCsv(result.rows, timeZone));
     return;
   }
   sendJson(res, 200, {
@@ -99,7 +102,21 @@ export async function handleListPaymentOrders(req, res) {
       }
     : await listPaymentOrders(resolved.query);
 
-  sendListResult(result, parsed.csv, res);
+  const timeZone = parsed.csv ? await csvTimeZone(url, caller) : "UTC";
+  sendListResult(result, parsed.csv, res, timeZone);
+}
+
+/**
+ * `tz` query param, else the caller's profile zone.
+ * @param {URL} url
+ * @param {{ userId?: string | null }} caller
+ */
+async function csvTimeZone(url, caller) {
+  const tz = url.searchParams.get("tz");
+  if (tz && isValidTimeZone(tz)) return tz;
+  if (!caller.userId) return "UTC";
+  const user = await findUserById(caller.userId).catch(() => null);
+  return user?.timezone && isValidTimeZone(user.timezone) ? user.timezone : "UTC";
 }
 
 /**

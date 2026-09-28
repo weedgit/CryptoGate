@@ -14,7 +14,7 @@ export const MATCHING_MODE_CARDS = [
   {
     mode: "B",
     label: MATCHING_LABELS.B,
-    blurb: "One open ticket per amount on the main address; second create is blocked until the first clears.",
+    blurb: "Customers pay to your main wallet. Only one open order per amount at a time.",
   },
   {
     mode: "C",
@@ -46,10 +46,6 @@ export function matchingModeDisabledReason(mode: string): string | undefined {
 export const MATCHING_CONCURRENT_HELP =
   "Helping multiple cashiers at once: Standard mode allows only one open order per amount on your main receive address. If a second cashier needs the same amount while the first ticket is still open, they must wait until it is completed or cancelled. For busier desks, Amount fingerprint or Smart address handle this better — Smart address also needs a public key configured on this page.";
 
-/** Tooltip — Mode B underpay tolerance (merchant settlement). */
-export const MATCHING_UNDERPAY_TOLERANCE_HELP =
-  "How much less than the order amount you will still accept as paid. Example: 0.01 means a guest may be up to 0.01 short and the order can still complete. Use 0 to require the exact amount. If two open orders share the same amount, staff must review that case separately — this setting does not auto-choose between them.";
-
 export function matchingModeLabel(mode: string | null | undefined): string {
   if (!mode) return MATCHING_LABELS.B;
   if (mode === "D") return "Memo tag (removed)";
@@ -72,7 +68,7 @@ export function matchingModeHint(mode: string | null | undefined): string {
     case "S":
       return "Uses the main settlement address unless a same-amount conflict requires an HD pool address.";
     default:
-      return "Only one open order per amount on the main address. A second create is blocked until the first finishes or is cancelled; residual match collisions still need Attention — never auto-completed.";
+      return "Need the same amount again? Wait until the first order is paid, expires, or is cancelled.";
   }
 }
 
@@ -92,18 +88,6 @@ export function matchingModeTooltip(mode: string | null | undefined): string {
       return `${intro} Smart address: normally uses the merchant’s main receive address; if two open orders would collide on the same amount, PaymentGate assigns a temporary HD address from the merchant’s watch-only public key.`;
     default:
       return `${intro} Standard (default): guests pay the merchant’s fixed receive address for the exact order amount. Only one open order per amount on that address — if two share the same amount, staff see Attention instead of PaymentGate guessing which order was paid.`;
-  }
-}
-
-/** Short scope line for platform merchant settlement readout. */
-export function matchingModeScope(mode: string | null | undefined): string {
-  switch (mode) {
-    case "C":
-      return "Merchant receive · unique payable amounts among open orders";
-    case "S":
-      return "Merchant receive · main address, HD pool on same-amount conflict";
-    default:
-      return "Merchant receive · fixed settlement address only";
   }
 }
 

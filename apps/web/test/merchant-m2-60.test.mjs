@@ -11,6 +11,7 @@ function readSettlementSources() {
   const dir = join(root, "src/merchant/settlement");
   return [
     readFileSync(join(root, "src/merchant/SettlementPage.tsx"), "utf8"),
+    readFileSync(join(root, "src/platform/MerchantSettlementPanel.tsx"), "utf8"),
     ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
   ].join("\n");
 }
@@ -44,7 +45,9 @@ describe("@paymentgate/web merchant M2-60", () => {
       join(root, "src/merchant/CreateOrderModal.tsx"),
       "utf8",
     );
-    assert.match(modal, /CREATE PAYMENT ORDER/);
+    assert.match(modal, /Create payment order/);
+    assert.match(modal, /OnboardWizardBrandHead/);
+    assert.match(modal, /b4-wizard__foot/);
     assert.match(modal, /createOrder/);
     assert.doesNotMatch(modal, /Mark paid/i);
   });
@@ -139,16 +142,16 @@ describe("@paymentgate/web merchant D1-D3 orders shell", () => {
 describe("@paymentgate/web merchant D17 cashier shell", () => {
   it("limits nav and guards owner-only routes for cashiers", () => {
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
-    assert.match(shell, /Cashier/);
-    assert.match(shell, /Cashier terminal/);
-    assert.match(shell, /CASHIER_GROUPS/);
-    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner/);
+    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner|CASHIER_GROUPS/);
     assert.match(shell, /SidebarRoleCard/);
-    const cashierNav =
-      shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
-    assert.match(cashierNav, /label: "Invoice"/);
-    assert.match(cashierNav, /label: "Create invoice"/);
-    assert.doesNotMatch(cashierNav, /service-bills/i);
+    const cashierShell = readFileSync(
+      join(root, "src/merchant/cashier/CashierShell.tsx"),
+      "utf8",
+    );
+    assert.match(cashierShell, /Cashier terminal/);
+    assert.match(cashierShell, /label: "Charge"/);
+    assert.match(cashierShell, /label: "My shift"/);
+    assert.doesNotMatch(cashierShell, /service-bills|settlement|xpub/i);
 
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /RequireOwnerPortal/);
@@ -334,16 +337,16 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
     assert.match(create, /inherit/i);
     assert.match(create, /b3-commission-modal/);
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
-    assert.match(shell, /Cashier/);
-    assert.match(shell, /Cashier terminal/);
-    assert.match(shell, /CASHIER_GROUPS/);
-    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner/);
+    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner|CASHIER_GROUPS/);
     assert.match(shell, /SidebarRoleCard/);
-    const cashierNav =
-      shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
-    assert.match(cashierNav, /label: "Invoice"/);
-    assert.match(cashierNav, /label: "Create invoice"/);
-    assert.doesNotMatch(cashierNav, /service-bills/i);
+    const cashierShell = readFileSync(
+      join(root, "src/merchant/cashier/CashierShell.tsx"),
+      "utf8",
+    );
+    assert.match(cashierShell, /Cashier terminal/);
+    assert.match(cashierShell, /label: "Charge"/);
+    assert.match(cashierShell, /label: "My shift"/);
+    assert.doesNotMatch(cashierShell, /service-bills|settlement|xpub/i);
 
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /RequireOwnerPortal/);
@@ -542,5 +545,30 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
     );
     assert.match(createHint, /inherit from the\s+parent merchant/);
     assert.doesNotMatch(createHint, /approves a site override/);
+  });
+});
+
+describe("Create payment order form", () => {
+  it("charges in $ USD, € EUR, or the pay-with token via one toggle", () => {
+    const src = readFileSync(join(root, "src/merchant/CreateOrderModal.tsx"), "utf8");
+    assert.doesNotMatch(src, /<select\b/);
+    assert.doesNotMatch(src, /Invoice type|Convert token amount to USD|Fiat \(USD \/ EUR\)/);
+    assert.match(src, /<span id="create-charge-label">Charge in<\/span>/);
+    assert.match(src, /role="radiogroup"/);
+    assert.match(src, /\{ id: "USD", symbol: FIAT_SYMBOL\.USD/);
+    assert.match(src, /\{ id: "TOKEN", symbol: <AssetIcon asset=\{asset\} \/>, label: asset \}/);
+    assert.match(src, /Customer pays exactly \$\{typedAmount\} \$\{asset\}/);
+    assert.match(src, /at the live rate, locked for \$\{lockMinutes\} min/);
+    const assetAt = src.indexOf('htmlFor="create-asset"');
+    const chargeAt = src.indexOf("create-charge-label");
+    const amountAt = src.indexOf('htmlFor="create-amount"');
+    assert.ok(assetAt > 0 && assetAt < chargeAt && chargeAt < amountAt, "asset, then charge, then amount");
+  });
+
+  it("explains Standard matching in plain words", () => {
+    const labels = readFileSync(join(root, "src/merchant/matchingLabels.ts"), "utf8");
+    assert.match(labels, /Customers pay to your main wallet\. Only one open order per amount at a time\./);
+    assert.match(labels, /Need the same amount again\? Wait until the first order is paid, expires, or is cancelled\./);
+    assert.doesNotMatch(labels, /residual match collisions|second create is blocked/);
   });
 });

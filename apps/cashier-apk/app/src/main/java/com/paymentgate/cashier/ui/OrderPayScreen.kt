@@ -24,13 +24,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -56,6 +59,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,11 +71,14 @@ import com.paymentgate.cashier.api.PaymentDetails
 import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.qr.QrBitmaps
+import com.paymentgate.cashier.qr.QrMode
+import com.paymentgate.cashier.qr.qrPayloadFor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun OrderPayScreen(
@@ -83,12 +90,16 @@ fun OrderPayScreen(
     onPrintReceipt: (suspend () -> PrintOutcome)? = null,
     onViewReceipt: (() -> Unit)? = null,
     onRetryPayment: (() -> Unit)? = null,
+    qrMode: QrMode = QrMode.WithAmount,
+    onQrModeChange: (QrMode) -> Unit = {},
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val qr = remember(details.qrPayload) {
-        runCatching { QrBitmaps.encode(details.qrPayload) }.getOrElse {
+    val addressOnly = qrMode == QrMode.AddressOnly && details.receiveAddress.isNotBlank()
+    val qrPayload = details.qrPayloadFor(qrMode)
+    val qr = remember(qrPayload, details.network) {
+        runCatching { QrBitmaps.encodeWithNetworkMark(qrPayload, details.network) }.getOrElse {
             QrBitmaps.encode(details.paymentPageUrl.ifBlank { details.receiveAddress })
         }
     }
@@ -257,6 +268,13 @@ fun OrderPayScreen(
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
+            if (pending && details.receiveAddress.isNotBlank()) {
+                QrModeToggle(
+                    mode = if (addressOnly) QrMode.AddressOnly else QrMode.WithAmount,
+                    onChange = onQrModeChange,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
@@ -265,8 +283,23 @@ fun OrderPayScreen(
             ) {
                 Image(
                     bitmap = qr.asImageBitmap(),
-                    contentDescription = "Payment QR",
+                    contentDescription = if (addressOnly) "Receive address QR" else "Payment QR",
                     modifier = Modifier.size(qrSize),
+                )
+            }
+            if (pending) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text =
+                        if (addressOnly) {
+                            "Address only — customer enters exactly " +
+                                "${details.payableAmount.amount} ${details.asset} in their wallet"
+                        } else {
+                            "Scan with phone camera or wallet app"
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -431,6 +464,47 @@ fun OrderPayScreen(
     }
 }
 
+/** Same two options as the guest pay page: With amount / Address only. */
+@Composable
+private fun QrModeToggle(mode: QrMode, onChange: (QrMode) -> Unit) {
+    Row(
+        modifier = Modifier
+            .width(280.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        QrModeOption("With amount", mode == QrMode.WithAmount) { onChange(QrMode.WithAmount) }
+        QrModeOption("Address only", mode == QrMode.AddressOnly) { onChange(QrMode.AddressOnly) }
+    }
+}
+
+@Composable
+private fun RowScope.QrModeOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg by animateColorAsState(
+        targetValue = if (selected) Color.White else Color.Transparent,
+        animationSpec = tween(PosMotion.Fast),
+        label = "qr-mode-bg",
+    )
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) Color(0xFF0B0F14) else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 fun printFailureMessage(outcome: PrintOutcome.Failed): String =
     when (outcome.reason) {
         PrinterHwStatus.OutOfPaper -> "Out of paper — load 80 mm roll and retry"
@@ -441,7 +515,7 @@ fun printFailureMessage(outcome: PrintOutcome.Failed): String =
     }
 
 fun formatReceiptPrintedAt(zone: ZoneId = ZoneId.systemDefault()): String =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z", Locale.ENGLISH)
         .withZone(zone)
         .format(Instant.now())
 

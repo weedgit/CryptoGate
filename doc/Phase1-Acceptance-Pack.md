@@ -52,7 +52,7 @@ The payer sends crypto to the **merchant’s own wallet**. CryptoGate **watches,
 
 **Proposed Phase 1 commercial focus** (pending client lock): **TRON, Solana, Ethereum**.
 
-The technical catalog already has more pairs (USDT/USDC on several EVM nets, TON, BTC, native TRX/ETH). Extra pairs are **enablement**, not a promise that every pair is UAT-complete. Default create-order pair: **USDT on TRON**.
+The catalog covers Ethereum, Tron and Solana only (USDT/USDC, native TRX/ETH). Extra pairs are **enablement**, not a promise that every pair is UAT-complete. Default create-order pair: **USDT on TRON**.
 
 **Org tree (locked):** **Platform → Agent → Merchant → Cashier**, with optional **Merchant (site)** under merchants. **No** agent (sub) — type purged from product/API/DB.
 

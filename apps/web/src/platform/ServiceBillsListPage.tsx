@@ -52,11 +52,15 @@ import {
   toggleSortState,
   type SortState,
 } from "./ui/TableArrange";
+import { UpcomingBillsTable } from "./ui/UpcomingBillsTable";
 import {
   getServiceBillsSummary,
   listServiceBillsServer,
+  listUpcomingServiceBills,
   peekServiceBillsServer,
   peekServiceBillsSummary,
+  peekUpcomingServiceBills,
+  type UpcomingServiceBill,
   type ServiceBillBucket,
   type ServiceBillSortKey,
   type ServiceBillsListParams,
@@ -85,23 +89,37 @@ type SortKey = ServiceBillSortKey;
 
 const PAGE_SIZE = 10;
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const PAID_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function formatPaidMonth(key: string): string {
+  const d = new Date(`${key}-01T00:00:00.000Z`);
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
 /** Ops filters use UTC calendar days (matches the daily invoice job). */
 const BILLS_TZ = "UTC";
 
 function statusNavContains(
   item: StatusNavItem,
-  filter: StatusFilter,
+  filter: StatusFilter | null,
 ): boolean {
   if (item.id === filter) return true;
   return Boolean(item.children?.some((child) => statusNavContains(child, filter)));
 }
 
-type PeriodId = "today" | "7d" | "1m" | "all";
+type PeriodId = "today" | "7d" | "1m" | "mtd" | "all";
 
 const PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "7d", label: "7d" },
   { id: "1m", label: "1m" },
+  { id: "all", label: "All" },
+];
+
+/** Agents are paid per calendar month, so they get month-to-date instead of a rolling month. */
+const AGENT_PERIOD_OPTIONS: { id: PeriodId; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "7d", label: "7d" },
+  { id: "mtd", label: "MTD" },
   { id: "all", label: "All" },
 ];
 
@@ -143,6 +161,8 @@ function periodWindow(id: PeriodId): { from: Date; to: Date } {
   } else if (id === "1m") {
     from = startOfUtcDay(now);
     from.setUTCMonth(from.getUTCMonth() - 1);
+  } else if (id === "mtd") {
+    from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   }
   return { from, to };
 }
@@ -162,6 +182,106 @@ const STATUS_NAV: StatusNavItem[] = [
     ],
   },
 ];
+
+function formatRangeDay(value: string): string {
+  const d = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(d.getTime())) return value;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function BillsEmptyState({
+  query,
+  statusLabel,
+  noBillsAtAll,
+  startDate,
+  endDate,
+  onClearSearch,
+  onAllStatuses,
+  onAllTime,
+}: {
+  query: string;
+  statusLabel: string | null;
+  noBillsAtAll: boolean;
+  startDate: string;
+  endDate: string;
+  onClearSearch: () => void;
+  onAllStatuses: () => void;
+  onAllTime: (() => void) | null;
+}) {
+  const range =
+    startDate && endDate
+      ? `${formatRangeDay(startDate)} – ${formatRangeDay(endDate)} (UTC)`
+      : "All time";
+
+  let title: string;
+  let body: string;
+  if (query) {
+    title = "No matching bills";
+    body = `Nothing matches “${query}”. Search by bill ID, merchant, agent, Tx hash, or Rx address.`;
+  } else if (noBillsAtAll) {
+    title = "No service bills yet";
+    body =
+      "Recurring invoices appear automatically after merchants activate and each billing cycle runs.";
+  } else if (statusLabel) {
+    title = `No ${statusLabel.toLowerCase()} bills`;
+    body = "No bills with this status in the selected period. Try another status or a wider date range.";
+  } else {
+    title = "No bills in this period";
+    body = "Try a wider date range to see older bills.";
+  }
+
+  return (
+    <div className="plat-bills__empty" role="status">
+      <span className="plat-bills__empty-icon" aria-hidden>
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 3h9l3 3v8" />
+          <path d="M18 21H6V3" />
+          <path d="M9 8h6M9 12h4" />
+          <circle cx="16.5" cy="17.5" r="2.5" />
+          <path d="m18.4 19.4 1.8 1.8" />
+        </svg>
+      </span>
+      <h3 className="plat-bills__empty-title">{title}</h3>
+      <p className="plat-bills__empty-body">{body}</p>
+      {!noBillsAtAll || query ? (
+        <div className="plat-bills__empty-meta">
+          {statusLabel ? (
+            <span className="plat-bills__empty-chip">
+              Status <strong>{statusLabel}</strong>
+            </span>
+          ) : null}
+          <span className="plat-bills__empty-chip">
+            Period <strong>{range}</strong>
+          </span>
+        </div>
+      ) : null}
+      {query || statusLabel || onAllTime ? (
+        <div className="plat-bills__empty-actions">
+          {query ? (
+            <button type="button" className="plat-bills__empty-btn" onClick={onClearSearch}>
+              Clear search
+            </button>
+          ) : null}
+          {statusLabel ? (
+            <button type="button" className="plat-bills__empty-btn is-primary" onClick={onAllStatuses}>
+              Show all statuses
+            </button>
+          ) : null}
+          {onAllTime && !noBillsAtAll ? (
+            <button type="button" className="plat-bills__empty-btn" onClick={onAllTime}>
+              Show all time
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function orgNameMap(orgs: { id: string; name: string }[]): Map<string, string> {
   return new Map(orgs.map((o) => [o.id, o.name]));
@@ -274,7 +394,8 @@ function StatusNavNodes({
   depth: number;
   /** Continuing vertical rails for ancestor levels (length === max(0, depth - 1)). */
   ancestors?: boolean[];
-  statusFilter: StatusFilter;
+  /** Null while another view (Upcoming) is selected. */
+  statusFilter: StatusFilter | null;
   statusCounts: Record<StatusFilter, number>;
   onSelect: (id: StatusFilter) => void;
 }) {
@@ -573,8 +694,14 @@ export function ServiceBillsListPage({ session }: Props) {
   const [missedOpen, setMissedOpen] = useState(false);
   const [waiverModal, setWaiverModal] = useState<"fee" | "activation" | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const initialWindow = useMemo(() => periodWindow("1m"), []);
-  const [period, setPeriod] = useState<PeriodId | "custom">("1m");
+  const [view, setView] = useState<"bills" | "upcoming">(() =>
+    searchParams.get("view") === "upcoming" ? "upcoming" : "bills",
+  );
+  const isAgentPortal = portal?.kind === "agent";
+  const periodOptions = isAgentPortal ? AGENT_PERIOD_OPTIONS : PERIOD_OPTIONS;
+  const defaultPeriod: PeriodId = isAgentPortal ? "mtd" : "1m";
+  const initialWindow = useMemo(() => periodWindow(defaultPeriod), [defaultPeriod]);
+  const [period, setPeriod] = useState<PeriodId | "custom">(defaultPeriod);
   const [startDate, setStartDate] = useState(() =>
     toUtcDateInputValue(initialWindow.from),
   );
@@ -610,6 +737,10 @@ export function ServiceBillsListPage({ session }: Props) {
       return DATE_KEY_RE.test(from) && DATE_KEY_RE.test(to) ? { from, to } : null;
     },
   );
+  const [paidMonth, setPaidMonth] = useState<string | null>(() => {
+    const raw = searchParams.get("paidMonth") ?? "";
+    return PAID_MONTH_RE.test(raw) ? raw : null;
+  });
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -621,16 +752,45 @@ export function ServiceBillsListPage({ session }: Props) {
     set("merchant", merchantScope);
     set("periodFrom", billingPeriod?.from);
     set("periodTo", billingPeriod?.to);
+    set("paidMonth", paidMonth);
+    set("view", view === "upcoming" ? "upcoming" : null);
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [agentScope, merchantScope, billingPeriod, searchParams, setSearchParams]);
+  }, [agentScope, merchantScope, billingPeriod, paidMonth, view, searchParams, setSearchParams]);
+
+  const upcomingParams = useMemo(
+    () => ({ agentOrgId: agentScope || null, orgId: merchantScope || null }),
+    [agentScope, merchantScope],
+  );
+  const [upcoming, setUpcoming] = useState<UpcomingServiceBill[] | null>(() =>
+    peekUpcomingServiceBills(upcomingParams),
+  );
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setUpcoming(peekUpcomingServiceBills(upcomingParams));
+    setUpcomingLoading(true);
+    listUpcomingServiceBills(upcomingParams)
+      .then((items) => {
+        if (alive) setUpcoming(items);
+      })
+      .catch(() => {
+        if (alive) setUpcoming((prev) => prev ?? []);
+      })
+      .finally(() => {
+        if (alive) setUpcomingLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [upcomingParams]);
   const [sort, setSort] = useState<SortState<SortKey>>({
     key: "dueDate",
     dir: "desc",
   });
   /** Page resets to 1 whenever a filter changes (no extra request for the stale page). */
-  const scopeKey = `${agentScope}|${merchantScope}|${billingPeriod?.from ?? ""}|${billingPeriod?.to ?? ""}`;
+  const scopeKey = `${agentScope}|${merchantScope}|${billingPeriod?.from ?? ""}|${billingPeriod?.to ?? ""}|${paidMonth ?? ""}`;
   const filterKey = `${statusFilter}|${startDate}|${endDate}|${debouncedQuery}|${sort.key}|${sort.dir}|${scopeKey}`;
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const page = pageState.key === filterKey ? pageState.page : 1;
@@ -640,7 +800,9 @@ export function ServiceBillsListPage({ session }: Props) {
   );
   const scopeParams = useMemo(
     () =>
-      billingPeriod
+      paidMonth
+        ? { paidMonth, agentOrgId: agentScope || null, orgId: merchantScope || null }
+        : billingPeriod
         ? {
             periodFrom: billingPeriod.from,
             periodTo: billingPeriod.to,
@@ -654,7 +816,7 @@ export function ServiceBillsListPage({ session }: Props) {
             agentOrgId: agentScope || null,
             orgId: merchantScope || null,
           },
-    [billingPeriod, agentScope, merchantScope, startDate, endDate],
+    [paidMonth, billingPeriod, agentScope, merchantScope, startDate, endDate],
   );
   const listParams = useMemo<ServiceBillsListParams>(
     () => ({
@@ -831,6 +993,7 @@ export function ServiceBillsListPage({ session }: Props) {
 
   const onPeriodSelect = useCallback((id: PeriodId) => {
     setBillingPeriod(null);
+    setPaidMonth(null);
     setPeriod(id);
     if (id === "all") {
       setStartDate("");
@@ -845,6 +1008,7 @@ export function ServiceBillsListPage({ session }: Props) {
   const onStartDateChange = useCallback((value: string) => {
     if (!value) return;
     setBillingPeriod(null);
+    setPaidMonth(null);
     setPeriod("custom");
     setStartDate(value);
     setEndDate((prev) => {
@@ -859,6 +1023,7 @@ export function ServiceBillsListPage({ session }: Props) {
   const onEndDateChange = useCallback((value: string) => {
     if (!value) return;
     setBillingPeriod(null);
+    setPaidMonth(null);
     setPeriod("custom");
     setEndDate(value);
     setStartDate((prev) => (!prev || value < prev ? value : prev));
@@ -897,8 +1062,19 @@ export function ServiceBillsListPage({ session }: Props) {
   const paidUsd = Number(summary?.amounts.paidUsd ?? 0);
 
   const onViewStatus = useCallback((filter: StatusFilter) => {
+    setView("bills");
     setStatusFilter(filter);
   }, []);
+
+  const merchantHrefFor = useCallback(
+    (orgId: string): string | null =>
+      portal?.orgHref
+        ? portal.orgHref(orgId)
+        : portal
+          ? route(`accounts/merchants/${orgId}`)
+          : platformRoute(`merchants/${orgId}`),
+    [portal, route],
+  );
 
   const statusCounts = useMemo(
     () =>
@@ -963,7 +1139,7 @@ export function ServiceBillsListPage({ session }: Props) {
               role="group"
               aria-label="Quick periods (UTC)"
             >
-              {PERIOD_OPTIONS.map((opt) => (
+              {periodOptions.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -975,7 +1151,9 @@ export function ServiceBillsListPage({ session }: Props) {
                       ? `UTC calendar day — matches daily invoice job at ${utcMidnightLabel()}`
                       : opt.id === "all"
                         ? "Every bill, any date"
-                        : `${opt.label} in UTC`
+                        : opt.id === "mtd"
+                          ? "Month to date — from the 1st of this month (UTC)"
+                          : `${opt.label} in UTC`
                   }
                   onClick={() => onPeriodSelect(opt.id)}
                 >
@@ -1295,7 +1473,7 @@ export function ServiceBillsListPage({ session }: Props) {
           )
         : null}
 
-      {agentScope || merchantScope || billingPeriod ? (
+      {agentScope || merchantScope || billingPeriod || paidMonth ? (
         <div className="plat-bills__scope" role="status" aria-label="Review filters">
           <span className="plat-bills__scope-lead">Reviewing</span>
           {agentScope ? (
@@ -1317,6 +1495,18 @@ export function ServiceBillsListPage({ session }: Props) {
                 type="button"
                 aria-label="Remove merchant filter"
                 onClick={() => setMerchantScope("")}
+              >
+                ×
+              </button>
+            </span>
+          ) : null}
+          {paidMonth ? (
+            <span className="plat-bills__scope-chip">
+              Paid in {formatPaidMonth(paidMonth)} (UTC) · commission base
+              <button
+                type="button"
+                aria-label="Remove paid month filter"
+                onClick={() => setPaidMonth(null)}
               >
                 ×
               </button>
@@ -1349,11 +1539,49 @@ export function ServiceBillsListPage({ session }: Props) {
             <StatusNavNodes
               items={STATUS_NAV}
               depth={0}
-              statusFilter={statusFilter}
+              statusFilter={view === "bills" ? statusFilter : null}
               statusCounts={statusCounts}
-              onSelect={setStatusFilter}
+              onSelect={(id) => {
+                setView("bills");
+                setStatusFilter(id);
+              }}
             />
           </nav>
+          <p className="plat-bills__status-rail-title plat-bills__status-rail-title--sub">
+            Forecast
+          </p>
+          <button
+            type="button"
+            className={`b3-accounts__row plat-bills__status-row plat-bills__upcoming-row${
+              view === "upcoming" ? " is-selected" : ""
+            }`}
+            aria-pressed={view === "upcoming"}
+            onClick={() => setView("upcoming")}
+          >
+            <span className="b3-accounts__chevron b3-accounts__chevron--spacer" aria-hidden />
+            <span className="plat-bills__status-badge" aria-hidden>
+              <svg
+                className="plat-bills__status-icon is-teal"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                <path d="M3.5 10h17M8 3v4M16 3v4" />
+              </svg>
+            </span>
+            <span className="b3-accounts__name">
+              <span className="b3-accounts__name-text">Upcoming</span>
+            </span>
+            <span className="plat-bills__status-item-count">
+              {upcoming ? upcoming.length : "…"}
+            </span>
+          </button>
           <AutoScheduleCard
             schedule={`Daily · ${utcMidnightLabel()}`}
             lastRun={portal ? undefined : lastAutoRun}
@@ -1363,19 +1591,36 @@ export function ServiceBillsListPage({ session }: Props) {
         <div className="plat-bills__main">
           <div className="plat-bills__table-wrap">
             <div className="plat-bills__table-scroll">
-            {loading ? <PagePending /> : null}
-            {!loading && paged.length === 0 ? (
-              <p className="plat-bills__empty">
-                {query.trim()
-                  ? "No service bills match that bill ID, merchant, agent, Tx hash, or Rx address."
-                  : (counts?.all ?? 0) === 0 && statusFilter === "all"
-                    ? "No service bills yet. Recurring invoices appear automatically after merchants activate and each billing cycle runs."
-                    : statusFilter !== "all"
-                      ? "No service bills for the selected status in this date range."
-                      : "No service bills in this date range."}
-              </p>
+            {view === "upcoming" ? (
+              <>
+                {upcomingLoading && !upcoming ? <PagePending /> : null}
+                <UpcomingBillsTable
+                  items={upcoming ?? []}
+                  loading={upcomingLoading}
+                  query={query}
+                  merchantHref={merchantHrefFor}
+                />
+              </>
             ) : null}
-            {!loading && paged.length > 0 ? (
+            {view === "bills" && loading ? <PagePending /> : null}
+            {view === "bills" && !loading && paged.length === 0 ? (
+              <BillsEmptyState
+                query={query.trim()}
+                statusLabel={
+                  statusFilter === "all"
+                    ? null
+                    : (STATUS_NAV[0].children?.find((c) => c.id === statusFilter)?.label ??
+                      statusFilter)
+                }
+                noBillsAtAll={(counts?.all ?? 0) === 0 && statusFilter === "all"}
+                startDate={startDate}
+                endDate={endDate}
+                onClearSearch={() => setQuery("")}
+                onAllStatuses={() => setStatusFilter("all")}
+                onAllTime={period === "all" ? null : () => onPeriodSelect("all")}
+              />
+            ) : null}
+            {view === "bills" && !loading && paged.length > 0 ? (
               <table className="plat-bills__table">
                 <thead>
                   <tr>
@@ -1440,11 +1685,7 @@ export function ServiceBillsListPage({ session }: Props) {
                     const href = route(`service-bills/${bill.id}`);
                     const merchantName = orgNames.get(bill.orgId) ?? bill.orgId;
                     const merchantIcon = orgIcons.get(bill.orgId) ?? null;
-                    const merchantHref = portal?.orgHref
-                      ? portal.orgHref(bill.orgId)
-                      : portal
-                        ? route(`accounts/merchants/${bill.orgId}`)
-                        : platformRoute(`merchants/${bill.orgId}`);
+                    const merchantHref = merchantHrefFor(bill.orgId);
                     return (
                       <tr
                         key={bill.id}
@@ -1599,7 +1840,7 @@ export function ServiceBillsListPage({ session }: Props) {
               </table>
             ) : null}
             </div>
-            {!loading && total > 0 ? (
+            {view === "bills" && !loading && total > 0 ? (
               <OrgListPagination
                 page={page}
                 pageCount={pageCount}

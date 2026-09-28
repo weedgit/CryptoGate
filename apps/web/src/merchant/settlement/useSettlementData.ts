@@ -20,7 +20,6 @@ export type SettlementNotify = {
 export type SettlementData = {
   matchingMode: string;
   matchingSource: string;
-  underpayTolerance: string;
   fulfillmentPolicy: string;
   fulfillmentSource: string;
   addresses: SettlementAddress[];
@@ -34,7 +33,6 @@ const DEFAULT_DERIVE_PATH = "0/{index}";
 const EMPTY: SettlementData = {
   matchingMode: "B",
   matchingSource: "merchant",
-  underpayTolerance: "0",
   fulfillmentPolicy: "on_completed",
   fulfillmentSource: "merchant",
   addresses: [],
@@ -71,7 +69,6 @@ export function useSettlementData(orgId: string | null, notify: SettlementNotify
       setData({
         matchingMode: m.matchingMode,
         matchingSource: m.source ?? "merchant",
-        underpayTolerance: m.underpayTolerance ?? "0",
         fulfillmentPolicy: f.fulfillmentPolicy,
         fulfillmentSource: f.source ?? "merchant",
         addresses: s,

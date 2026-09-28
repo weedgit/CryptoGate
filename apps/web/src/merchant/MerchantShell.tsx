@@ -14,7 +14,6 @@ import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
-import { setViewerTimeZone } from "../shared/dateTime";
 import { OrgSetupModalHost } from "../auth/OrgSetupModalHost";
 import {
   DashboardNavIcon,
@@ -31,6 +30,7 @@ import {
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { SidebarRoleCard } from "../shared/SidebarRoleCard";
+import { WorkspaceMenuSection } from "./WorkspaceMenuSection";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
   countUnreadMerchantAlerts,
@@ -43,9 +43,9 @@ import {
   locationKindLabel,
   locationKindTitle,
   primaryMerchantOrgId,
-  sessionIsCashierOnly,
   sessionLocationKind,
 } from "./org";
+import type { MerchantExperience } from "./experience";
 import {
   MERCHANT_ORGS_UPDATED_EVENT,
   getMerchantOrgs,
@@ -113,48 +113,31 @@ const OWNER_GROUPS: PortalNavGroup[] = [
   },
 ];
 
-const CASHIER_GROUPS: PortalNavGroup[] = [
-  {
-    label: "Cashier terminal",
-    items: [
-      { to: merchantRoute(), label: "Dashboard", end: true, Icon: DashboardNavIcon },
-      {
-        to: merchantRoute("orders"),
-        label: "Invoice",
-        exactActive: true,
-        Icon: OrdersNavIcon,
-        children: [
-          {
-            to: merchantRoute("orders/new"),
-            label: "Create invoice",
-            matchPrefix: merchantRoute("orders/new"),
-          },
-        ],
-      },
-      {
-        to: merchantRoute("settings/notifications"),
-        label: "Alerts",
-        matchPrefix: merchantRoute("settings/notifications"),
-        Icon: AlertsNavIcon,
-      },
-    ],
-  },
-];
-
+/** Back-office chrome for merchant and site; cashiers get `CashierShell`. */
 type Props = {
   session: Session;
+  experience: Exclude<MerchantExperience, "cashier">;
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
 };
 
+/** Sites stays routable for child sites but is not a tab; bills are merchant-only. */
+function siteNavGroups(): PortalNavGroup[] {
+  const hidden = new Set([merchantRoute("sites"), merchantRoute("service-bills")]);
+  return OWNER_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => !hidden.has(item.to)),
+  }));
+}
+
 export function MerchantShell({
   session,
+  experience,
   children,
   onSignOut,
   onSessionRefresh,
 }: Props) {
-  const cashier = sessionIsCashierOnly(session);
   const merchantId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -167,16 +150,10 @@ export function MerchantShell({
     () => sessionLocationKind(session),
     [session],
   );
-  const groups = useMemo(() => {
-    if (cashier) return CASHIER_GROUPS;
-    if (locationKind === "site") {
-      return OWNER_GROUPS.map((g) => ({
-        ...g,
-        items: g.items.filter((item) => item.to !== merchantRoute("sites")),
-      }));
-    }
-    return OWNER_GROUPS;
-  }, [cashier, locationKind]);
+  const groups = useMemo(
+    () => (experience === "site" ? siteNavGroups() : OWNER_GROUPS),
+    [experience],
+  );
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -199,9 +176,6 @@ export function MerchantShell({
     return () => window.cancelAnimationFrame(id);
   }, []);
 
-  useEffect(() => {
-    setViewerTimeZone(session.timezone);
-  }, [session.timezone]);
 
   useEffect(() => {
     try {
@@ -274,7 +248,7 @@ export function MerchantShell({
     void run();
     const interval = window.setInterval(() => void run(), 60_000);
     return () => window.clearInterval(interval);
-  }, [cashier, merchantId, session.userId]);
+  }, [merchantId, session.userId]);
 
   useEffect(() => {
     if (!alertsOpen) return;
@@ -286,8 +260,8 @@ export function MerchantShell({
     void refreshMerchantAlerts(sessionRef.current);
   }, [setupKey]);
 
-  const brandName = homeOrg?.name ?? (cashier ? "Cashier" : "Merchant");
-  const tagline = cashier ? "Cashier terminal" : "Merchant portal";
+  const brandName = homeOrg?.name ?? (experience === "site" ? "Site" : "Merchant");
+  const tagline = experience === "site" ? "Site portal" : "Merchant portal";
 
   return (
     <div
@@ -379,6 +353,7 @@ export function MerchantShell({
               placement="topbar"
               onSignOut={onSignOut}
               onSessionRefresh={onSessionRefresh}
+              menuExtra={(close) => <WorkspaceMenuSection onDone={close} />}
             />
           </div>
         </header>

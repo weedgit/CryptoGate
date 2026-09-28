@@ -6,6 +6,7 @@ const ALLOWED_MODES = new Set(Object.values(MatchingMode));
 
 /** Phase 1 default when the merchant has not set a mode. */
 export const DEFAULT_MATCHING_MODE = MatchingMode.B;
+/** Underpay tolerance is retired: payments must match the exact amount. */
 export const DEFAULT_UNDERPAY_TOLERANCE = "0";
 
 /**
@@ -22,12 +23,9 @@ export function matchingModeAllowedOnOrgType(orgType) {
 export function validateMatchingModeBody(body) {
   const matchingMode =
     typeof body?.matchingMode === "string" ? body.matchingMode.trim() : "";
+  const rawTolerance = body?.underpayTolerance;
   const underpayTolerance =
-    typeof body?.underpayTolerance === "string"
-      ? body.underpayTolerance.trim()
-      : body?.underpayTolerance == null
-        ? DEFAULT_UNDERPAY_TOLERANCE
-        : "";
+    rawTolerance == null ? DEFAULT_UNDERPAY_TOLERANCE : String(rawTolerance).trim();
 
   if (!matchingMode) {
     return {
@@ -45,19 +43,19 @@ export function validateMatchingModeBody(body) {
       message: "matchingMode must be one of B, C, S",
     };
   }
-  if (!underpayTolerance && underpayTolerance !== "0") {
+  if (!/^0+(\.0+)?$/.test(underpayTolerance)) {
     return {
       ok: false,
       status: 400,
-      code: "invalid_underpay_tolerance",
-      message: "underpayTolerance must be a non-negative major-unit decimal string",
+      code: "underpay_tolerance_unsupported",
+      message: "Underpay tolerance is not supported — payments must match the exact amount",
     };
   }
 
   const cfg = getAssetNetworkConfig(AssetCode.USDT, NetworkId.Tron);
   const policy = validateMatchingSettings({
     mode: matchingMode,
-    underpayTolerance,
+    underpayTolerance: DEFAULT_UNDERPAY_TOLERANCE,
     amountStep: cfg?.amountStep,
     decimals: cfg?.decimals,
   });
@@ -70,7 +68,10 @@ export function validateMatchingModeBody(body) {
     };
   }
 
-  return { ok: true, parsed: { matchingMode, underpayTolerance } };
+  return {
+    ok: true,
+    parsed: { matchingMode, underpayTolerance: DEFAULT_UNDERPAY_TOLERANCE },
+  };
 }
 
 /**
@@ -81,8 +82,7 @@ export function toMatchingModeSettings(row, orgId, lookup = {}) {
   return {
     orgId,
     matchingMode: row?.matching_mode ?? DEFAULT_MATCHING_MODE,
-    underpayTolerance:
-      row?.underpay_tolerance ?? DEFAULT_UNDERPAY_TOLERANCE,
+    underpayTolerance: DEFAULT_UNDERPAY_TOLERANCE,
     source: lookup.source ?? "merchant",
     parentOrgId: lookup.parentOrgId ?? null,
     effectiveOrgId: lookup.orgId ?? orgId,

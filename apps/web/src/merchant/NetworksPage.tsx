@@ -166,10 +166,27 @@ function NetworkRailsPanel({ session }: Props) {
     <div className="org-network-rail-panel org-network-rail-panel--table">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
-      <header className="org-network-rail-panel__intro">
+      <header className="org-network-rail-panel__intro org-network-rail-panel__intro--page">
+        <span className="org-network-rail-panel__intro-icon" aria-hidden>
+          <svg
+            viewBox="0 0 24 24"
+            width="36"
+            height="36"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="5" r="2.5" />
+            <circle cx="5" cy="18" r="2.5" />
+            <circle cx="19" cy="18" r="2.5" />
+            <path d="M10.8 7.2 6.2 15.8M13.2 7.2l4.6 8.6M7.5 18h9" />
+          </svg>
+        </span>
         <div className="org-network-rail-panel__intro-main">
           <div className="org-network-rail-panel__intro-title-row">
-            <h2 className="org-network-rail-panel__intro-title">Networks</h2>
+            <h1 className="org-network-rail-panel__intro-title">Networks</h1>
             <button
               type="button"
               className="org-network-rail-panel__refresh"

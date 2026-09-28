@@ -72,7 +72,7 @@ export function validateXpubBody(body) {
       code: "invalid_xpub",
       message:
         supportsModeSHdDerivation(network)
-          ? "Watch-only key material is invalid for this network (BIP32 xPub for Tron/EVM/Bitcoin; ed25519 public key for TON/Solana)"
+          ? "Watch-only key material is invalid for this network (BIP32 xPub for Tron/Ethereum; ed25519 public key for Solana)"
           : "Watch-only xPub required — private keys and mnemonics are rejected",
     };
   }

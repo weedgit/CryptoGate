@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { zoneAbbrev } from "../dateTime";
+import { useViewerTimeZone } from "../useViewerTimeZone";
 import type { OrgAccount } from "../../merchant/api";
 import { AssetIcon, NetworkIcon } from "../../platform/cryptoIcons";
 import {
@@ -7,6 +9,12 @@ import {
 } from "../../ui/SearchableSelect";
 import { enabledRegistry, NETWORK_SHORT_LABEL } from "../assetNetworks";
 import type { InvoiceListVariant, InvoicePeriodId } from "../invoiceListModel";
+import {
+  ORDER_CHANNEL_FILTERS,
+  orderChannelFilterLabel,
+  parseOrderChannelFilter,
+  type OrderChannelFilter,
+} from "../orderChannel";
 
 type Props = {
   variant: InvoiceListVariant;
@@ -36,6 +44,8 @@ type Props = {
   setAssetFilter: (id: string) => void;
   networkFilter: string;
   setNetworkFilter: (id: string) => void;
+  channelFilter: OrderChannelFilter;
+  setChannelFilter: (value: OrderChannelFilter) => void;
   resetFilters: () => void;
 };
 
@@ -67,8 +77,12 @@ export function InvoiceFiltersPanel({
   setAssetFilter,
   networkFilter,
   setNetworkFilter,
+  channelFilter,
+  setChannelFilter,
   resetFilters,
 }: Props) {
+  const viewerTz = useViewerTimeZone();
+  const zoneTag = utcDays ? "UTC" : zoneAbbrev(viewerTz);
   const assetSelectOptions = useMemo((): SearchableSelectOption[] => {
     const assets = [
       ...new Set(enabledRegistry().map((r) => r.asset)),
@@ -123,7 +137,7 @@ export function InvoiceFiltersPanel({
         />
       </label>
       <label className="invoice-list__field">
-        <span>From{utcDays ? " (UTC)" : ""}</span>
+        <span>From ({zoneTag})</span>
         <span className="invoice-list__date-wrap">
           <input
             className="invoice-list__select invoice-list__date"
@@ -156,7 +170,7 @@ export function InvoiceFiltersPanel({
         </span>
       </label>
       <label className="invoice-list__field">
-        <span>To{utcDays ? " (UTC)" : ""}</span>
+        <span>To ({zoneTag})</span>
         <span className="invoice-list__date-wrap">
           <input
             className="invoice-list__select invoice-list__date"
@@ -307,6 +321,21 @@ export function InvoiceFiltersPanel({
           menuMinWidth={220}
           menuClassName="invoice-list__select-menu"
           onChange={(id) => setNetworkFilter(id)}
+        />
+      </label>
+      <label className="invoice-list__field">
+        <span>Channel</span>
+        <SearchableSelect
+          value={channelFilter}
+          options={ORDER_CHANNEL_FILTERS.map((v) => ({
+            id: v,
+            label: orderChannelFilterLabel(v),
+          }))}
+          allowEmpty={false}
+          ariaLabel="Channel"
+          menuMinWidth={180}
+          menuClassName="invoice-list__select-menu"
+          onChange={(id) => setChannelFilter(parseOrderChannelFilter(id))}
         />
       </label>
     </aside>

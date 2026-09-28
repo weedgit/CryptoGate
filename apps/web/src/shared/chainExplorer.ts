@@ -24,40 +24,10 @@ const EXPLORERS: Record<
     address: (a) => `https://etherscan.io/address/${encodeURIComponent(a)}`,
     tx: (h) => `https://etherscan.io/tx/${encodeURIComponent(h)}`,
   },
-  bnb_smart_chain: {
-    name: "BscScan",
-    address: (a) => `https://bscscan.com/address/${encodeURIComponent(a)}`,
-    tx: (h) => `https://bscscan.com/tx/${encodeURIComponent(h)}`,
-  },
-  polygon: {
-    name: "Polygonscan",
-    address: (a) => `https://polygonscan.com/address/${encodeURIComponent(a)}`,
-    tx: (h) => `https://polygonscan.com/tx/${encodeURIComponent(h)}`,
-  },
-  arbitrum_one: {
-    name: "Arbiscan",
-    address: (a) => `https://arbiscan.io/address/${encodeURIComponent(a)}`,
-    tx: (h) => `https://arbiscan.io/tx/${encodeURIComponent(h)}`,
-  },
-  base: {
-    name: "Basescan",
-    address: (a) => `https://basescan.org/address/${encodeURIComponent(a)}`,
-    tx: (h) => `https://basescan.org/tx/${encodeURIComponent(h)}`,
-  },
   solana: {
     name: "Solscan",
     address: (a) => `https://solscan.io/account/${encodeURIComponent(a)}`,
     tx: (h) => `https://solscan.io/tx/${encodeURIComponent(h)}`,
-  },
-  ton: {
-    name: "TON Viewer",
-    address: (a) => `https://tonviewer.com/${encodeURIComponent(a)}`,
-    tx: (h) => `https://tonviewer.com/transaction/${encodeURIComponent(h)}`,
-  },
-  bitcoin: {
-    name: "Mempool",
-    address: (a) => `https://mempool.space/address/${encodeURIComponent(a)}`,
-    tx: (h) => `https://mempool.space/tx/${encodeURIComponent(h)}`,
   },
 };
 

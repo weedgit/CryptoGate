@@ -15,7 +15,7 @@ const ORDER_SELECT = `
   pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
   pay_amount_base_units, asset_decimals,
   rate_sources, reference_rate, reference_source, rate_warning,
-  invoice_amount, invoice_denomination,
+  invoice_amount, invoice_denomination, created_via,
   created_at, updated_at
 `;
 
@@ -95,6 +95,7 @@ export async function findOrderByIdempotency(orgId, idempotencyKey, client) {
  *   q?: string | null,
  *   asset?: string | null,
  *   network?: string | null,
+ *   createdVia?: "web" | "pos" | "api" | "unknown" | null,
  *   limit: number,
  *   offset?: number,
  * }} query
@@ -164,6 +165,12 @@ export async function listPaymentOrders(query) {
     params.push(query.network);
     where.push(`o.network = $${params.length}`);
   }
+  if (query.createdVia === "unknown") {
+    where.push(`o.created_via IS NULL`);
+  } else if (query.createdVia) {
+    params.push(query.createdVia);
+    where.push(`o.created_via = $${params.length}`);
+  }
   if (query.q) {
     const q = query.q.trim();
     if (
@@ -219,6 +226,7 @@ export async function listPaymentOrders(query) {
   const { rows } = await db().query(
     `SELECT ${ORDER_SELECT_O},
             org.name AS org_name,
+            COALESCE(org.business_timezone, parent_org.business_timezone) AS business_timezone,
             creator.email AS creator_email,
             nullif(
               btrim(concat_ws(' ', creator.first_name, creator.last_name)),
@@ -227,6 +235,8 @@ export async function listPaymentOrders(query) {
             creator.avatar_url AS creator_avatar_url
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
+     LEFT JOIN org_accounts parent_org
+       ON parent_org.id = org.parent_id AND org.type = 'merchant_site'
      LEFT JOIN users creator ON creator.id = o.created_by
      ${whereSql}
      ORDER BY o.created_at DESC
@@ -253,6 +263,7 @@ export async function findOrderById(id) {
   const { rows } = await db().query(
     `SELECT ${ORDER_SELECT_O},
             org.name AS org_name,
+            COALESCE(org.business_timezone, parent_org.business_timezone) AS business_timezone,
             creator.email AS creator_email,
             nullif(
               btrim(concat_ws(' ', creator.first_name, creator.last_name)),
@@ -261,6 +272,8 @@ export async function findOrderById(id) {
             creator.avatar_url AS creator_avatar_url
      FROM payment_orders o
      JOIN org_accounts org ON org.id = o.org_id
+     LEFT JOIN org_accounts parent_org
+       ON parent_org.id = org.parent_id AND org.type = 'merchant_site'
      LEFT JOIN users creator ON creator.id = o.created_by
      WHERE o.id = $1`,
     [id],
@@ -453,6 +466,7 @@ export async function hasModeSSameAmountConflict(client, query) {
  *   merchantMetadata: unknown,
  *   underpayTolerance?: string,
  *   fulfillmentPolicy?: string,
+ *   createdVia?: "web" | "pos" | "api" | null,
  * }} input
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
@@ -469,14 +483,14 @@ export async function insertPaymentOrder(input, client) {
          pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
          pay_amount_base_units, asset_decimals,
          rate_sources, reference_rate, reference_source, rate_warning,
-         invoice_amount, invoice_denomination
+         invoice_amount, invoice_denomination, created_via
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
          $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
          $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-         $29::jsonb, $30, $31, $32, $33, $34
+         $29::jsonb, $30, $31, $32, $33, $34, $35
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -514,6 +528,7 @@ export async function insertPaymentOrder(input, client) {
         input.rateWarning ?? null,
         input.invoiceAmount ?? input.invoiceAmountUsd ?? input.payableAmount,
         input.invoiceDenomination ?? "fiat",
+        input.createdVia ?? null,
       ],
     );
     return { ok: true, row: rows[0] };

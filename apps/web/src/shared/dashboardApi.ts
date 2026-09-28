@@ -1,3 +1,4 @@
+import { getViewerTimeZone } from "./dateTime";
 import { apiFetch } from "../auth/apiFetch";
 import { API_BASE, parseError } from "./apiCore";
 
@@ -11,6 +12,8 @@ export type DashboardQuery = {
   orgId?: string | null;
   /** Skip the server's short cache (refresh button, live events). */
   fresh?: boolean;
+  /** Read from / to in this zone instead of the viewer's (MTD uses UTC, like commission months). */
+  tz?: string;
 };
 
 export type DashboardAccountSlice = {
@@ -101,18 +104,14 @@ export type DashboardOrgCards = {
 };
 
 export function viewerTimeZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
+  return getViewerTimeZone();
 }
 
 const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, { at: number; value: unknown }>();
 
 function buildUrl(path: string, q: DashboardQuery, extra: Record<string, string> = {}) {
-  const params = new URLSearchParams({ from: q.from, to: q.to, tz: viewerTimeZone() });
+  const params = new URLSearchParams({ from: q.from, to: q.to, tz: q.tz || viewerTimeZone() });
   if (q.orgId) params.set("orgId", q.orgId);
   for (const [k, v] of Object.entries(extra)) {
     if (v) params.set(k, v);
@@ -200,6 +199,8 @@ export type DashboardReports = {
   byDay: (DashboardReportStat & { day: string })[];
   byCreator: (DashboardReportStat & { userId: string | null; email: string | null })[];
   byMode: { mode: string; count: number }[];
+  /** Absent from cached payloads before the channel column shipped. */
+  byChannel?: (DashboardReportStat & { channel: "web" | "pos" | "api" | null })[];
 };
 
 /** from / to omitted = all time. */
@@ -208,10 +209,11 @@ export type DashboardReportsQuery = {
   to?: string | null;
   orgId?: string | null;
   fresh?: boolean;
+  tz?: string;
 };
 
 function reportsUrl(q: DashboardReportsQuery): string {
-  const params = new URLSearchParams({ tz: viewerTimeZone() });
+  const params = new URLSearchParams({ tz: q.tz || viewerTimeZone() });
   if (q.from && q.to) {
     params.set("from", q.from);
     params.set("to", q.to);
@@ -239,4 +241,64 @@ export function prefetchDashboard(q: DashboardQuery): void {
 /** Week-bucket keys render as "Week of …" in chart labels. */
 export function chartLabelsFor(keys: string[], interval: DashboardInterval): string[] {
   return interval === "week" ? keys.map((k) => `W${k}`) : keys;
+}
+
+export type CommissionPreviewMerchant = {
+  orgId: string;
+  name: string;
+  iconKey?: string | null;
+  /** YYYY-MM-DD; null until the activation fee is paid. */
+  billingAnchorAt?: string | null;
+  /** YYYY-MM-DD of the next monthly bill. */
+  nextInvoiceOn?: string | null;
+  status: "active" | "idle" | "paused";
+  siteCount: number;
+  transactions: number;
+  volumeUsd: number;
+  subscriptionUsd: number;
+  volumeFeeUsd: number;
+  baseUsd: number;
+  commissionUsd: number;
+  paidBillId: string | null;
+  openBill: {
+    id: string;
+    status: "issued" | "overdue";
+    dueAt: string | null;
+    count: number;
+    amountUsd: number;
+  } | null;
+};
+
+/** Current UTC month commission by merchant; invoiced on `invoiceDate` (day C). */
+export type CommissionPreview =
+  | { eligible: false }
+  | {
+      eligible: true;
+      periodKey: string;
+      periodLabel: string;
+      periodStart: string;
+      invoiceDate: string;
+      commissionPercent: string;
+      totals: {
+        merchants: number;
+        transactions: number;
+        volumeUsd: number;
+        baseUsd: number;
+        commissionUsd: number;
+        openBills: number;
+        openBillsUsd: number;
+      };
+      merchants: CommissionPreviewMerchant[];
+    };
+
+function commissionPreviewUrl(agentOrgId: string): string {
+  return `${API_BASE}/dashboard/commission-preview?${new URLSearchParams({ orgId: agentOrgId })}`;
+}
+
+export function getCommissionPreview(agentOrgId: string, fresh?: boolean): Promise<CommissionPreview> {
+  return fetchCached(commissionPreviewUrl(agentOrgId), fresh);
+}
+
+export function peekCommissionPreview(agentOrgId: string): CommissionPreview | null {
+  return peek(commissionPreviewUrl(agentOrgId));
 }

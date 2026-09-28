@@ -40,8 +40,6 @@ export const STATUS_NAV: StatusNavItem[] = [
 ];
 
 export const PAGE_SIZE = 10;
-/** Server cap for POST /commission-payouts/mark-paid-batch. */
-export const BATCH_MARK_PAID_MAX = 50;
 export const PERIOD_KEY_RE = /^\d{4}-\d{2}$/;
 
 export function statusNavContains(

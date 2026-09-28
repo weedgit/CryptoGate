@@ -1,66 +1,86 @@
 import { useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  ChainEnvironment,
-  isTronReceiveAddress,
-  resolveChainEnvironment,
-} from "@paymentgate/domain";
+import { ChainEnvironment, isTronReceiveAddress } from "@paymentgate/domain";
 import { ApiError, type SettlementAddress } from "./api";
 import { putSettlement, type Session } from "../merchant/api";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
 import { CopyGlyph } from "../shared/CopyGlyph";
-import { webChainEnvOverride } from "../shared/assetNetworks";
+import { enabledRegistry, networkShortLabel } from "../shared/assetNetworks";
 import { FieldControl } from "../ui/FieldControl";
 import { NetworkIcon } from "./cryptoIcons";
 
-export type SettlementWalletNetwork = "tron" | "tron_nile" | "ethereum" | "solana";
-
-type WalletRowDef = {
-  network: SettlementWalletNetwork;
+/** One settlement wallet per network; it receives every listed asset. */
+export type SettlementNetworkRow = {
+  network: string;
   label: string;
   placeholder: string;
-  testnetOnly?: boolean;
+  assets: string[];
   testnetBadge?: boolean;
 };
 
-const WALLET_ROW_DEFS: WalletRowDef[] = [
-  {
-    network: "tron",
-    label: "Tron",
-    placeholder: "Tron address (starts with T)",
-  },
-  {
-    network: "tron_nile",
-    label: "Tron Nile",
-    placeholder: "Tron Nile address (starts with T)",
-    testnetOnly: true,
-    testnetBadge: true,
-  },
-  {
-    network: "ethereum",
-    label: "Ethereum",
-    placeholder: "Ethereum address (starts with 0x)",
-  },
-  {
-    network: "solana",
-    label: "Solana",
-    placeholder: "Solana address",
-  },
-];
+const NETWORK_PLACEHOLDER: Record<string, string> = {
+  tron: "Tron address (starts with T)",
+  tron_nile: "Tron Nile address (starts with T)",
+  ethereum: "Ethereum address (starts with 0x)",
+  solana: "Solana address",
+};
 
-function isTestnetChainEnv(): boolean {
-  return (
-    resolveChainEnvironment(webChainEnvOverride()) === ChainEnvironment.Testnet
+/** Native coin first, then tokens A–Z (ETH · USDC · USDT). */
+const NATIVE_ASSETS = new Set(["ETH", "TRX", "SOL"]);
+
+function compareAssets(a: string, b: string): number {
+  const na = NATIVE_ASSETS.has(a) ? 0 : 1;
+  const nb = NATIVE_ASSETS.has(b) ? 0 : 1;
+  return na - nb || a.localeCompare(b);
+}
+
+/** Live networks (4 on testnet with Tron Nile, 3 on mainnet), each with its assets. */
+export function settlementNetworkRows(): SettlementNetworkRow[] {
+  const byNetwork = new Map<string, SettlementNetworkRow>();
+  for (const row of enabledRegistry()) {
+    const existing = byNetwork.get(row.network);
+    if (existing) {
+      if (!existing.assets.includes(row.asset)) existing.assets.push(row.asset);
+      continue;
+    }
+    byNetwork.set(row.network, {
+      network: row.network,
+      label: networkShortLabel(row.network).replace(/\s*\(testnet\)$/i, ""),
+      placeholder: NETWORK_PLACEHOLDER[row.network] ?? "Wallet address",
+      assets: [row.asset],
+      testnetBadge: row.chainEnv === ChainEnvironment.Testnet,
+    });
+  }
+  return [...byNetwork.values()].map((row) => ({
+    ...row,
+    assets: [...row.assets].sort(compareAssets),
+  }));
+}
+
+type NetworkWallet = {
+  address: string;
+  pendingAddress: string;
+  pending: boolean;
+  mixed: boolean;
+};
+
+/** Collapses the per-asset rows of one network into its single wallet. */
+function networkWallet(settlement: SettlementAddress[], network: string): NetworkWallet {
+  const entries = settlement.filter((row) => row.network === network);
+  const active = [...new Set(entries.map((row) => row.address?.trim() ?? "").filter(Boolean))];
+  const pendingEntry = entries.find(
+    (row) => row.status === "pending_cool_down" && row.pendingAddress?.trim(),
   );
+  return {
+    address: active[0] ?? "",
+    pendingAddress: pendingEntry?.pendingAddress?.trim() ?? "",
+    pending: Boolean(pendingEntry),
+    mixed: active.length > 1,
+  };
 }
 
-export function settlementWalletRows(): WalletRowDef[] {
-  const testnet = isTestnetChainEnv();
-  return WALLET_ROW_DEFS.filter((row) => !row.testnetOnly || testnet);
-}
-
-function walletAddressOk(network: SettlementWalletNetwork, value: string): boolean {
+function walletAddressOk(network: string, value: string): boolean {
   const address = value.trim();
   if (!address) return false;
   if (network === "tron" || network === "tron_nile") {
@@ -194,7 +214,7 @@ function ModalCloseIcon() {
 }
 
 type EditTarget = {
-  network: SettlementWalletNetwork;
+  network: string;
   address: string;
   mode: "configure" | "edit";
 };
@@ -206,6 +226,7 @@ type Props = {
   settlement: SettlementAddress[];
   loading: boolean;
   onSettlementChange: (rows: SettlementAddress[]) => void;
+  onSaved?: (saved: SettlementAddress) => void;
 };
 
 export function MerchantSettlementPanel({
@@ -215,8 +236,9 @@ export function MerchantSettlementPanel({
   settlement,
   loading,
   onSettlementChange,
+  onSaved,
 }: Props) {
-  const rows = useMemo(() => settlementWalletRows(), []);
+  const rows = useMemo(() => settlementNetworkRows(), []);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [draftAddress, setDraftAddress] = useState("");
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -224,39 +246,21 @@ export function MerchantSettlementPanel({
   const [saving, setSaving] = useState(false);
   const titleId = useId();
 
-  const addressByNetwork = useMemo(() => {
-    const map = new Map<string, SettlementAddress>();
-    for (const row of settlement) {
-      if (row.asset !== "USDT") continue;
-      map.set(row.network, row);
-    }
+  const walletByNetwork = useMemo(() => {
+    const map = new Map<string, NetworkWallet>();
+    for (const row of rows) map.set(row.network, networkWallet(settlement, row.network));
     return map;
-  }, [settlement]);
+  }, [rows, settlement]);
 
   const configuredCount = rows.filter((row) =>
-    Boolean(addressByNetwork.get(row.network)?.address?.trim()),
+    Boolean(walletByNetwork.get(row.network)?.address),
   ).length;
 
-  function openEditor(
-    network: SettlementWalletNetwork,
-    mode: EditTarget["mode"],
-  ) {
-    const current = addressByNetwork.get(network)?.address?.trim() ?? "";
-    setEditTarget({ network, address: current, mode });
+  function openEditor(row: SettlementNetworkRow, mode: EditTarget["mode"]) {
+    const current = walletByNetwork.get(row.network)?.address ?? "";
+    setEditTarget({ network: row.network, address: current, mode });
     setDraftAddress(current);
     setDraftError(null);
-  }
-
-  function openAddAddress() {
-    const empty = rows.find(
-      (row) => !addressByNetwork.get(row.network)?.address?.trim(),
-    );
-    if (empty) {
-      openEditor(empty.network, "configure");
-      return;
-    }
-    const first = rows[0];
-    if (first) openEditor(first.network, "edit");
   }
 
   function requestSave() {
@@ -267,7 +271,7 @@ export function MerchantSettlementPanel({
       return;
     }
     const prev = editTarget.address.trim();
-    if (next === prev) {
+    if (next === prev && !walletByNetwork.get(editTarget.network)?.mixed) {
       setEditTarget(null);
       return;
     }
@@ -281,20 +285,19 @@ export function MerchantSettlementPanel({
     setSaving(true);
     setDraftError(null);
     try {
-      const saved = await putSettlement(orgId, {
-        asset: "USDT",
+      const { items, ...saved } = await putSettlement(orgId, {
         network: pendingSave.network,
         address: pendingSave.address.trim(),
         mfaCode,
       });
+      const savedRows = items?.length ? items : [saved];
+      const savedKeys = new Set(savedRows.map((row) => `${row.asset}:${row.network}`));
       onSettlementChange([
-        ...settlement.filter(
-          (row) =>
-            !(row.asset === "USDT" && row.network === pendingSave.network),
-        ),
-        saved,
+        ...settlement.filter((row) => !savedKeys.has(`${row.asset}:${row.network}`)),
+        ...savedRows,
       ]);
       setPendingSave(null);
+      onSaved?.(saved);
     } catch (err) {
       setDraftError(
         err instanceof ApiError ? err.message : "Failed to save wallet address",
@@ -340,15 +343,6 @@ export function MerchantSettlementPanel({
             <span className="b3-settlement__configured-cap">
               {configuredCount} configured
             </span>
-            {canManage ? (
-              <button
-                type="button"
-                className="b3-agent-detail__onboard b3-settlement__configure b3-settlement__add"
-                onClick={openAddAddress}
-              >
-                + Add address
-              </button>
-            ) : null}
           </div>
         </div>
 
@@ -363,10 +357,11 @@ export function MerchantSettlementPanel({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const entry = addressByNetwork.get(row.network);
-              const address = entry?.address?.trim() ?? "";
+              const wallet = walletByNetwork.get(row.network);
+              const address = wallet?.address ?? "";
               const configured = address.length > 0;
-              const status = entry?.status ?? null;
+              const pending = wallet?.pending ?? false;
+              const pendingAddress = wallet?.pendingAddress ?? "";
               return (
                 <tr key={row.network}>
                   <td>
@@ -375,6 +370,11 @@ export function MerchantSettlementPanel({
                       <span className="b3-settlement__network-name">
                         {row.label}
                       </span>
+                      {row.assets.map((asset) => (
+                        <span key={asset} className="b3-settlement__asset-badge">
+                          {asset}
+                        </span>
+                      ))}
                       {row.testnetBadge ? (
                         <span className="b3-settlement__testnet-badge">
                           Testnet
@@ -395,19 +395,32 @@ export function MerchantSettlementPanel({
                         Not configured
                       </span>
                     )}
+                    {pendingAddress ? (
+                      <span className="b3-settlement__pending-addr">
+                        Pending
+                        <CopyableChainValue
+                          className="b3-settlement__addr-value"
+                          value={pendingAddress}
+                          network={row.network}
+                          kind="address"
+                        />
+                      </span>
+                    ) : null}
+                    {wallet?.mixed ? (
+                      <span className="b3-settlement__mixed-note">
+                        Assets on this network use different addresses. Save once to
+                        use one wallet for all.
+                      </span>
+                    ) : null}
                   </td>
                   <td>
                     {configured ? (
                       <span
                         className={`status-badge b3-settlement__status-badge ${
-                          status === "pending_cool_down"
-                            ? "tone-warn"
-                            : "tone-ok"
+                          pending || wallet?.mixed ? "tone-warn" : "tone-ok"
                         }`}
                       >
-                        {status === "pending_cool_down"
-                          ? "COOL-DOWN"
-                          : "ACTIVE"}
+                        {pending ? "COOL-DOWN" : wallet?.mixed ? "MIXED" : "ACTIVE"}
                       </span>
                     ) : (
                       <span className="b3-settlement__status-dash">—</span>
@@ -422,9 +435,9 @@ export function MerchantSettlementPanel({
                             <button
                               type="button"
                               className="b3-settlement__icon-btn"
-                              aria-label={`Edit ${row.label} address`}
+                              aria-label={`Edit ${row.label} wallet address`}
                               title="Edit"
-                              onClick={() => openEditor(row.network, "edit")}
+                              onClick={() => openEditor(row, "edit")}
                             >
                               <EditGlyph />
                             </button>
@@ -434,7 +447,7 @@ export function MerchantSettlementPanel({
                         <button
                           type="button"
                           className="b3-agent-detail__onboard b3-settlement__configure"
-                          onClick={() => openEditor(row.network, "configure")}
+                          onClick={() => openEditor(row, "configure")}
                         >
                           <ConfigureGlyph />
                           Configure
@@ -478,8 +491,9 @@ export function MerchantSettlementPanel({
                         : "Configure wallet address"}
                     </h3>
                     <p>
-                      USDT receive address on {editDef.label}
-                      {editDef.testnetBadge ? " (testnet)" : ""}.
+                      One {editDef.label}
+                      {editDef.testnetBadge ? " (testnet)" : ""} wallet receives{" "}
+                      {editDef.assets.join(", ")}.
                     </p>
                   </div>
                   <button
@@ -502,11 +516,9 @@ export function MerchantSettlementPanel({
                     >
                       <input
                         className="field-control"
-                        value={
-                          editDef.testnetBadge
-                            ? `${editDef.label} · Testnet`
-                            : editDef.label
-                        }
+                        value={`${editDef.label}${
+                          editDef.testnetBadge ? " · Testnet" : ""
+                        } · ${editDef.assets.join(" · ")}`}
                         readOnly
                         tabIndex={-1}
                         aria-readonly="true"

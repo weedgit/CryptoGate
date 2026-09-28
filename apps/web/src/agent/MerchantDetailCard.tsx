@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { zonedYmd } from "../shared/dateTime";
 import { Link } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
@@ -249,10 +250,6 @@ type Props = {
 /** Merchant detail card — platform b3 chrome, agent-scoped (no settlement keys). */
 const OPEN_ORDER_STATUSES = new Set(["pending_payment", "verifying", "payment_anomaly"]);
 
-function localYmd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export function MerchantDetailCard({
   org,
   orgs,
@@ -350,8 +347,8 @@ export function MerchantDetailCard({
       getMerchantCommercial(org.id).catch(() => null),
       getDashboardReports({
         orgId: org.id,
-        from: localYmd(new Date(periodStart)),
-        to: localYmd(new Date()),
+        from: zonedYmd(new Date(periodStart)),
+        to: zonedYmd(),
       }).catch(() => null),
       getDashboardReports({ orgId: org.id }).catch(() => null),
       listAuditLog({ orgId: org.id, limit: 20 }).catch(

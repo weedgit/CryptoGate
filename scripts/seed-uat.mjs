@@ -15,6 +15,7 @@ const steps = [
   "seed-kevin-uat.mjs",
   "seed-kevin-uat-rich.mjs",
   "seed-kevin-uat-client-demo.mjs",
+  "seed-kevin-multi-sites.mjs",
 ];
 
 for (const script of steps) {

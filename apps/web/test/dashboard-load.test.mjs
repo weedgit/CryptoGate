@@ -1,12 +1,17 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPortalCss } from "./portal-css.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dash = readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8");
+/** DashboardPage plus its split-out sections under src/merchant/dashboard/. */
+const dashDir = join(root, "src/merchant/dashboard");
+const dash = [
+  readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8"),
+  ...readdirSync(dashDir).map((f) => readFileSync(join(dashDir, f), "utf8")),
+].join("\n");
 const alerts = readFileSync(join(root, "src/merchant/merchantAlerts.ts"), "utf8");
 const lamps = readFileSync(join(root, "src/shared/networkLamp.ts"), "utf8");
 const platformDash = readFileSync(
@@ -16,9 +21,9 @@ const platformDash = readFileSync(
 const agentDash = readFileSync(join(root, "src/agent/DashboardPage.tsx"), "utf8");
 
 describe("merchant dashboard first paint", () => {
-  it("loads server KPIs independently from recent orders and network status", () => {
+  it("loads server KPIs without order-list fetches; network status separately", () => {
     assert.match(dash, /getDashboardKpis\(\{ from: startDate, to: endDate/);
-    assert.match(dash, /listOrders\(\{ limit: 8 \}\)/);
+    assert.doesNotMatch(readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8"), /listOrders\(/);
     assert.match(dash, /getNetworksStatus/);
     assert.doesNotMatch(dash, /listAllOrders|getMerchantOrders\(\)/);
   });

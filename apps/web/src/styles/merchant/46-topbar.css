@@ -506,3 +506,71 @@ html[data-theme="light"] .platform-shell .topbar--chrome .topbar-divider {
   background: #e2e8f0;
 }
 
+
+/* Profile menu — workspace switcher (users with several merchant/site roles). */
+.workspace-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-menu__label {
+  margin: 4px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.sidebar-profile__menu-item.workspace-menu__item {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.workspace-menu__item.is-active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.workspace-menu__check {
+  flex: 0 0 14px;
+  color: var(--accent, #2dd4bf);
+  font-weight: 700;
+}
+
+.workspace-menu__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.workspace-menu__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-menu__meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.workspace-menu__sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="light"] .workspace-menu__item.is-active {
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .workspace-menu__label,
+html[data-theme="light"] .workspace-menu__meta {
+  color: #64748b;
+}
+
+html[data-theme="light"] .workspace-menu__sep {
+  background: #e2e8f0;
+}

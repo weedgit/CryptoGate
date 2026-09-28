@@ -357,14 +357,12 @@ html[data-theme="light"] .plat-settlement__cooldown-chip strong {
   width: 100%;
 }
 
-.platform-shell .plat-settlement__underpay-help .plat-card-help__btn,
 .platform-shell .plat-settlement__xpub-help .plat-card-help__btn {
   width: 16px;
   height: 16px;
   font-size: 10px;
 }
 
-.platform-shell .plat-settlement__underpay-help .plat-card-help__tip,
 .platform-shell .plat-settlement__xpub-help .plat-card-help__tip {
   right: 0;
   left: auto;

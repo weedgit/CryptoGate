@@ -123,7 +123,6 @@ export type HdPoolState = (typeof HdPoolState)[keyof typeof HdPoolState];
 export const AssetCode = {
   USDT: "USDT",
   USDC: "USDC",
-  BTC: "BTC",
   ETH: "ETH",
   TRX: "TRX",
 } as const;
@@ -221,13 +220,7 @@ export const NetworkId = {
   Tron: "tron",
   /** Local/staging only — filtered out when PAYMENTGATE_CHAIN_ENV=mainnet */
   TronNile: "tron_nile",
-  BnbSmartChain: "bnb_smart_chain",
-  Polygon: "polygon",
-  ArbitrumOne: "arbitrum_one",
   Solana: "solana",
-  Ton: "ton",
-  Base: "base",
-  Bitcoin: "bitcoin",
 } as const;
 
 export type NetworkId = (typeof NetworkId)[keyof typeof NetworkId];
@@ -295,9 +288,8 @@ export type AssetNetwork = {
  * Per asset+network catalog. Confirmations, decimals, and Mode D support
  * come from here — not magic numbers in API, watcher, or payment-page.
  *
- * Product access list: only Ethereum / Tron / Solana pairs are in
- * `ASSET_NETWORK_REGISTRY` with `enabled: true` (create-order + UI).
- * Other §VI constants remain exported but disabled and unlisted.
+ * Product access list: Ethereum / Tron / Solana pairs only
+ * (`ASSET_NETWORK_REGISTRY`, create-order + UI).
  * Rows with `chainEnv: testnet` are visible only when resolveChainEnvironment()
  * is testnet — never in production product builds.
  */
@@ -374,49 +366,6 @@ export const USDT_ETHEREUM: AssetNetworkConfig = {
   memoSupported: false,
 };
 
-export const USDT_BNB_SMART_CHAIN: AssetNetworkConfig = {
-  asset: AssetCode.USDT,
-  network: NetworkId.BnbSmartChain,
-  /** Not a product rail — Ethereum / Tron / Solana only. */
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "BNB Smart Chain BEP-20",
-  contractAddress: "0x55d398326f99059fF775485246999027B3197955",
-  decimals: 18,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 15,
-  memoSupported: false,
-};
-
-export const USDT_POLYGON: AssetNetworkConfig = {
-  asset: AssetCode.USDT,
-  network: NetworkId.Polygon,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Polygon PoS",
-  contractAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 64,
-  memoSupported: false,
-};
-
-export const USDT_ARBITRUM_ONE: AssetNetworkConfig = {
-  asset: AssetCode.USDT,
-  network: NetworkId.ArbitrumOne,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Arbitrum One",
-  contractAddress: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 12,
-  memoSupported: false,
-};
-
 export const USDT_SOLANA: AssetNetworkConfig = {
   asset: AssetCode.USDT,
   network: NetworkId.Solana,
@@ -431,20 +380,6 @@ export const USDT_SOLANA: AssetNetworkConfig = {
   memoSupported: false,
 };
 
-export const USDT_TON: AssetNetworkConfig = {
-  asset: AssetCode.USDT,
-  network: NetworkId.Ton,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "TON",
-  contractAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 5,
-  memoSupported: false,
-};
-
 export const USDC_ETHEREUM: AssetNetworkConfig = {
   asset: AssetCode.USDC,
   network: NetworkId.Ethereum,
@@ -452,48 +387,6 @@ export const USDC_ETHEREUM: AssetNetworkConfig = {
   chainEnv: ChainEnvironment.Mainnet,
   displayNetwork: "Ethereum ERC-20",
   contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 12,
-  memoSupported: false,
-};
-
-export const USDC_POLYGON: AssetNetworkConfig = {
-  asset: AssetCode.USDC,
-  network: NetworkId.Polygon,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Polygon PoS",
-  contractAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 64,
-  memoSupported: false,
-};
-
-export const USDC_ARBITRUM_ONE: AssetNetworkConfig = {
-  asset: AssetCode.USDC,
-  network: NetworkId.ArbitrumOne,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Arbitrum One",
-  contractAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-  decimals: 6,
-  minAmount: "0.01",
-  amountStep: "0.01",
-  requiredConfirmations: 12,
-  memoSupported: false,
-};
-
-export const USDC_BASE: AssetNetworkConfig = {
-  asset: AssetCode.USDC,
-  network: NetworkId.Base,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Base",
-  contractAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   decimals: 6,
   minAmount: "0.01",
   amountStep: "0.01",
@@ -512,20 +405,6 @@ export const USDC_SOLANA: AssetNetworkConfig = {
   minAmount: "0.01",
   amountStep: "0.01",
   requiredConfirmations: 32,
-  memoSupported: false,
-};
-
-export const BTC_BITCOIN: AssetNetworkConfig = {
-  asset: AssetCode.BTC,
-  network: NetworkId.Bitcoin,
-  enabled: false,
-  chainEnv: ChainEnvironment.Mainnet,
-  displayNetwork: "Bitcoin",
-  contractAddress: null,
-  decimals: 8,
-  minAmount: "0.0001",
-  amountStep: "0.0001",
-  requiredConfirmations: 3,
   memoSupported: false,
 };
 
@@ -558,10 +437,7 @@ export const TRX_TRON: AssetNetworkConfig = {
   memoSupported: false,
 };
 
-/**
- * Product rails: Ethereum / Tron / Solana only (+ Tron Nile when testnet).
- * Other §VI pair constants stay exported for clients but are not listed here.
- */
+/** Product rails: Ethereum / Tron / Solana only (+ Tron Nile when testnet). */
 export const ASSET_NETWORK_REGISTRY: readonly AssetNetworkConfig[] = [
   USDT_TRON,
   USDT_TRON_NILE,
@@ -626,21 +502,13 @@ export function isTronFamilyNetwork(network: string): boolean {
 export const HdDerivationFamily = {
   Tron: "tron",
   Evm: "evm",
-  Bitcoin: "bitcoin",
   Solana: "solana",
-  Ton: "ton",
 } as const;
 
 export type HdDerivationFamily =
   (typeof HdDerivationFamily)[keyof typeof HdDerivationFamily];
 
-const EVM_NETWORKS: ReadonlySet<string> = new Set([
-  NetworkId.Ethereum,
-  NetworkId.BnbSmartChain,
-  NetworkId.Polygon,
-  NetworkId.ArbitrumOne,
-  NetworkId.Base,
-]);
+const EVM_NETWORKS: ReadonlySet<string> = new Set([NetworkId.Ethereum]);
 
 /** Mode S HD address derivation family for a catalog network id. */
 export function resolveHdDerivationFamily(
@@ -648,9 +516,7 @@ export function resolveHdDerivationFamily(
 ): HdDerivationFamily | null {
   if (isTronFamilyNetwork(network)) return HdDerivationFamily.Tron;
   if (EVM_NETWORKS.has(network)) return HdDerivationFamily.Evm;
-  if (network === NetworkId.Bitcoin) return HdDerivationFamily.Bitcoin;
   if (network === NetworkId.Solana) return HdDerivationFamily.Solana;
-  if (network === NetworkId.Ton) return HdDerivationFamily.Ton;
   return null;
 }
 
@@ -660,10 +526,7 @@ export function supportsModeSHdDerivation(network: string): boolean {
 }
 
 /** Merchant-facing derivation path template for pool addresses. */
-export function hdDerivationPathTemplate(network: string): string {
-  if (resolveHdDerivationFamily(network) === HdDerivationFamily.Ton) {
-    return "subwallet/{index}";
-  }
+export function hdDerivationPathTemplate(_network: string): string {
   return "0/{index}";
 }
 

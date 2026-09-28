@@ -80,16 +80,6 @@ def main() -> int:
     }
     text = ENV_PATH.read_text(encoding="utf-8")
     values = parse_env(text)
-    infura = ""
-    eth = values.get("ETH_RPC_URL", "")
-    m = re.search(r"/v3/([0-9a-fA-F]+)", eth)
-    if m:
-        infura = m.group(1)
-    polygon_mainnet = (
-        f"https://polygon-mainnet.infura.io/v3/{infura}"
-        if infura
-        else "https://polygon-rpc.com"
-    )
     db_url = f"postgres://paymentgate:{secrets['PG_PASSWORD']}@127.0.0.1:5433/paymentgate"
 
     updates = {
@@ -120,7 +110,6 @@ def main() -> int:
         "PAYMENTGATE_CHAIN_ENV": "testnet",
         "VITE_PAYMENTGATE_CHAIN_ENV": "testnet",
         "VITE_API_BASE": "/v1",
-        "POLYGON_RPC_URL": polygon_mainnet,
         "WATCHER_MULTI_NETWORK": "true",
         "WATCHER_POLL_INTERVAL_MS": "8000",
         "WATCHER_CONFIRM_CONCURRENCY": "8",

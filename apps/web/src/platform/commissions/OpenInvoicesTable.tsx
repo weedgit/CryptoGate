@@ -15,7 +15,6 @@ import { truncateAddress } from "../orgDetailSeeds";
 import { SortHeader, type SortState } from "../ui/TableArrange";
 import { AgentOrgAvatar, RowMoreIcon } from "./CommissionRowParts";
 import {
-  BATCH_MARK_PAID_MAX,
   commissionBadgeTone,
   commissionStatusLabel,
   type InvoiceSortKey,
@@ -23,10 +22,6 @@ import {
 
 export function OpenInvoicesTable({
   rows,
-  canBulkPay,
-  issuedOnPage,
-  selectedIds,
-  toggleSelected,
   invoiceSort,
   onInvoiceSort,
   portal,
@@ -35,10 +30,6 @@ export function OpenInvoicesTable({
   openInvoice,
 }: {
   rows: CommissionPayoutRecord[];
-  canBulkPay: boolean;
-  issuedOnPage: string[];
-  selectedIds: Set<string>;
-  toggleSelected: (ids: string[], on: boolean) => void;
   invoiceSort: SortState<InvoiceSortKey>;
   onInvoiceSort: (key: InvoiceSortKey) => void;
   portal: CommissionsPortal | null;
@@ -49,7 +40,6 @@ export function OpenInvoicesTable({
   return (
     <table className="plat-bills__table plat-commissions__table">
       <colgroup>
-        {canBulkPay ? <col className="plat-commissions__col-select" /> : null}
         <col className="plat-commissions__col-agent" />
         <col className="plat-commissions__col-period" />
         <col className="plat-commissions__col-num" />
@@ -61,20 +51,6 @@ export function OpenInvoicesTable({
       </colgroup>
       <thead>
         <tr>
-          {canBulkPay ? (
-            <th className="plat-commissions__th-select">
-              <input
-                type="checkbox"
-                aria-label="Select issued invoices on this page"
-                disabled={issuedOnPage.length === 0}
-                checked={
-                  issuedOnPage.length > 0 &&
-                  issuedOnPage.every((id) => selectedIds.has(id))
-                }
-                onChange={(e) => toggleSelected(issuedOnPage, e.target.checked)}
-              />
-            </th>
-          ) : null}
           <th>
             <SortHeader
               label="Agent"
@@ -149,6 +125,12 @@ export function OpenInvoicesTable({
               ? formatCommissionPaidAgingHint(row.paidAt)
               : null;
           const href = route(`commissions/${row.id}`);
+          const reviewHref = route(
+            `service-bills?${new URLSearchParams({
+              agent: row.payeeOrgId,
+              paidMonth: row.periodKey,
+            }).toString()}`,
+          );
           return (
             <tr
               key={row.id}
@@ -172,25 +154,6 @@ export function OpenInvoicesTable({
               tabIndex={0}
               aria-label={`Open ${formatCommissionPeriodLabel(row.periodKey)} invoice for ${row.payeeName}`}
             >
-              {canBulkPay ? (
-                <td
-                  className="plat-commissions__td-select"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {row.payoutStatus === "issued" ? (
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${row.payeeName} ${formatCommissionPeriodLabel(row.periodKey)}`}
-                      checked={selectedIds.has(row.id)}
-                      disabled={
-                        !selectedIds.has(row.id) &&
-                        selectedIds.size >= BATCH_MARK_PAID_MAX
-                      }
-                      onChange={(e) => toggleSelected([row.id], e.target.checked)}
-                    />
-                  ) : null}
-                </td>
-              ) : null}
               <td
                 className="plat-bills__merchant"
                 onClick={(e) => e.stopPropagation()}
@@ -287,6 +250,15 @@ export function OpenInvoicesTable({
                 />
               </td>
               <td className="plat-bills__td-actions">
+                <Link
+                  className="plat-bills__review"
+                  to={reviewHref}
+                  title="Merchant bills paid this month — the fee base"
+                  aria-label={`Review fee base for ${row.payeeName} ${formatCommissionPeriodLabel(row.periodKey)}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Review →
+                </Link>
                 <Link
                   className="plat-bills__row-more"
                   to={href}

@@ -1,3 +1,4 @@
+import { formatInZone, formatViewerDateTime } from "../shared/dateTime";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
@@ -13,7 +14,7 @@ import {
   type Session,
 } from "./api";
 import { getPlatformOrgs, peekPlatformOrgs } from "./platformOrgList";
-import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
+import { InviteMemberModal } from "../shared/InviteMemberModal";
 import { AuthToast } from "../auth/AuthToast";
 import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
 import { SearchableSelect } from "../ui/SearchableSelect";
@@ -23,14 +24,10 @@ import { TeamMemberEditModal } from "./TeamMemberEditModal";
 import { RoleBadge } from "../shared/RoleBadge";
 import { formatPhoneDisplay } from "../shared/phoneFormat";
 import {
-  CloseIcon,
-  InviteMarkIcon,
   isLoadSeedTeamEmail,
-  MailIcon,
   memberDisplayName,
   PauseIcon,
   PencilIcon,
-  PersonIcon,
   PlayIcon,
   TrashIcon,
 } from "../shared/teamRosterChrome";
@@ -63,7 +60,7 @@ function formatRelativeLogin(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const diffMs = Date.now() - d.getTime();
-  if (diffMs < 0) return d.toLocaleString();
+  if (diffMs < 0) return formatViewerDateTime(iso);
   const mins = Math.floor(diffMs / 60_000);
   if (mins < 1) return "Just now";
   if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
@@ -71,7 +68,7 @@ function formatRelativeLogin(iso: string | null | undefined): string {
   if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.floor(hours / 24);
   if (days < 14) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return d.toLocaleDateString();
+  return formatInZone(d, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 type RemoveTarget = { userId: string; email: string };
@@ -568,128 +565,20 @@ export function PlatformTeamPage({ session }: Props) {
         />
       ) : null}
 
-      {inviteOpen
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!busy) setInviteOpen(false);
-              }}
-            >
-              <div
-                className="b3-commission-modal b3-invite-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="plat-team-invite-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-invite-modal__head">
-                  <span className="b3-invite-modal__mark" aria-hidden>
-                    <InviteMarkIcon />
-                  </span>
-                  <h3 id="plat-team-invite-title">
-                    {inviteCreds ? "Member invited" : "Invite member"}
-                  </h3>
-                  <button
-                    type="button"
-                    className="b3-invite-modal__close"
-                    aria-label="Close"
-                    disabled={busy}
-                    onClick={() => setInviteOpen(false)}
-                  >
-                    <CloseIcon />
-                  </button>
-                </header>
-                <form
-                  className="b3-invite-modal__body"
-                  onSubmit={onInvite}
-                  noValidate
-                >
-                  <label className="b3-invite-modal__field">
-                    <span className="b3-invite-modal__label">Email</span>
-                    <span className="b3-invite-modal__control">
-                      <span className="b3-invite-modal__glyph">
-                        <MailIcon />
-                      </span>
-                      <input
-                        className="b3-invite-modal__input"
-                        type="email"
-                        required
-                        autoComplete="off"
-                        autoFocus
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        disabled={busy || Boolean(inviteCreds)}
-                        placeholder="name@company.com"
-                      />
-                    </span>
-                  </label>
-                  <label className="b3-invite-modal__field">
-                    <span className="b3-invite-modal__label">Role</span>
-                    <span className="b3-invite-modal__control b3-invite-modal__role">
-                      <span className="b3-invite-modal__glyph">
-                        <PersonIcon />
-                      </span>
-                      <SearchableSelect
-                        id="plat-team-invite-role"
-                        value={inviteRole}
-                        options={ROLE_OPTIONS}
-                        onChange={setInviteRole}
-                        disabled={busy || Boolean(inviteCreds)}
-                        allowEmpty={false}
-                        placeholder="Select role"
-                        ariaLabel="Invite role"
-                        menuClassName="b3-team-role-menu"
-                        menuMinWidth={96}
-                      />
-                    </span>
-                  </label>
-                  {inviteCreds ? (
-                    <InviteCredentialsPanel
-                      email={inviteCreds.invitedEmail}
-                      temporaryPassword={inviteCreds.temporaryPassword}
-                      inviteUrl={inviteCreds.inviteUrl}
-                      invitePath={inviteCreds.invitePath}
-                      emailDeliveryStatus={inviteCreds.emailDelivery?.status}
-                    />
-                  ) : null}
-                  <footer className="b3-invite-modal__foot">
-                    {inviteCreds ? (
-                      <button
-                        type="button"
-                        className="b3-invite-modal__submit"
-                        disabled={busy}
-                        onClick={() => setInviteOpen(false)}
-                      >
-                        Done
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="b3-invite-modal__cancel"
-                          disabled={busy}
-                          onClick={() => setInviteOpen(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="b3-invite-modal__submit"
-                          disabled={busy || !inviteEmail.trim()}
-                        >
-                          {busy ? "Inviting…" : "Invite"}
-                        </button>
-                      </>
-                    )}
-                  </footer>
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {inviteOpen ? (
+        <InviteMemberModal
+          title={"Invite member"}
+          email={inviteEmail}
+          onEmailChange={setInviteEmail}
+          role={inviteRole}
+          roleOptions={ROLE_OPTIONS}
+          onRoleChange={setInviteRole}
+          busy={busy}
+          creds={inviteCreds}
+          onSubmit={onInvite}
+          onClose={() => setInviteOpen(false)}
+        />
+      ) : null}
 
       {removeTarget
         ? createPortal(

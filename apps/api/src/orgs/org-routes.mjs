@@ -1,4 +1,5 @@
 import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import { requireCaller } from "../http/require-caller.mjs";
 import { DEFAULT_MAX_AGENT_DEPTH, isOrgIconValue, ORG_STATUSES, toOrgAccount } from "./org-accounts.mjs";
 import { validateCreateOrg } from "./org-rules.mjs";
@@ -263,6 +264,22 @@ export async function handlePatchOrg(req, res, orgId) {
     }
   }
 
+  /** @type {string | null | undefined} */
+  let businessTimezone;
+  if (body?.businessTimezone !== undefined) {
+    if (body.businessTimezone === null || body.businessTimezone === "") {
+      businessTimezone = null;
+    } else if (
+      typeof body.businessTimezone === "string" &&
+      isValidTimeZone(body.businessTimezone.trim())
+    ) {
+      businessTimezone = body.businessTimezone.trim();
+    } else {
+      sendError(res, 400, "invalid_request", "businessTimezone must be a valid IANA timezone or null");
+      return;
+    }
+  }
+
   if (row.parent_id) {
     const clash = await findSiblingByNormalizedNameExcluding(
       row.parent_id,
@@ -286,6 +303,7 @@ export async function handlePatchOrg(req, res, orgId) {
     country,
     legalName,
     billingEmail,
+    businessTimezone,
   });
   if (!updated) {
     sendError(res, 404, "not_found", "Org not found");
@@ -302,6 +320,7 @@ export async function handlePatchOrg(req, res, orgId) {
       country: country ?? undefined,
       legalName: legalName === undefined ? undefined : legalName,
       billingEmail: billingEmail === undefined ? undefined : billingEmail,
+      businessTimezone: businessTimezone === undefined ? undefined : businessTimezone,
       iconKey: iconKey?.startsWith("data:") ? "custom_image" : iconKey,
     },
   }).catch(() => {});

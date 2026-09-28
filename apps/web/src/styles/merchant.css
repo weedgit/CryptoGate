@@ -63,3 +63,6 @@
 @import "./merchant/58-alerts-settings.css";
 @import "./merchant/59-settlement.css";
 @import "./merchant/60-light-mode-extras.css";
+@import "./merchant/61-cashier-terminal.css";
+@import "./merchant/62-integrations.css";
+@import "./merchant/63-confirm-action.css";

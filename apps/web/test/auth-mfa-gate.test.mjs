@@ -27,7 +27,7 @@ describe("MFA step-up gate", () => {
 
   it("wires MfaStepUpGate on privileged save flows", () => {
     for (const file of [
-      "src/merchant/settlement/SettlementAddressesCard.tsx",
+      "src/platform/MerchantSettlementPanel.tsx",
       "src/merchant/settlement/HdPoolPanel.tsx",
       "src/agent/AgentOrgEditHost.tsx",
       "src/platform/ComplianceOverrideModal.tsx",

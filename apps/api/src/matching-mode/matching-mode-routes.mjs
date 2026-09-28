@@ -107,7 +107,6 @@ export async function handlePutMatchingMode(req, res, orgId) {
   const row = await upsertMatchingModeSettings({
     orgId,
     matchingMode: validated.parsed.matchingMode,
-    underpayTolerance: validated.parsed.underpayTolerance,
   });
   await grantSiteOverrideAfterPlatformWrite(
     loaded.org,
@@ -120,7 +119,6 @@ export async function handlePutMatchingMode(req, res, orgId) {
     action: AUDIT_ACTIONS.matchingModePut,
     metadata: {
       matchingMode: validated.parsed.matchingMode,
-      underpayTolerance: validated.parsed.underpayTolerance,
     },
   });
   const lookup = await settingsLookupOrgId(loaded.org, "matching_mode");

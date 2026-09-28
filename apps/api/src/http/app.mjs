@@ -65,6 +65,7 @@ import {
   handleGetDashboardReports,
   handleGetDashboardRates,
   handleGetDashboardSeries,
+  handleGetDashboardCommissionPreview,
 } from "../dashboard/dashboard-routes.mjs";
 import { handleGetDashboardEvents } from "../events/dashboard-events-routes.mjs";
 import {
@@ -79,6 +80,10 @@ import {
   handleGetFulfillmentPolicy,
   handlePutFulfillmentPolicy,
 } from "../fulfillment-policy/fulfillment-policy-routes.mjs";
+import {
+  handleGetPosSettings,
+  handlePutPosSettings,
+} from "../pos-settings/pos-settings-routes.mjs";
 import { handleGetXpub, handlePutXpub } from "../xpub/xpub-routes.mjs";
 import { handleGetHdPool } from "../mode-s/hd-pool-routes.mjs";
 import {
@@ -115,6 +120,7 @@ import {
   handleIssueServiceBill,
   handleListServiceBills,
   handleServiceBillSummary,
+  handleUpcomingServiceBills,
   handleServiceBillOrgStatus,
   handleUpdateServiceBill,
 } from "../service-bills/service-bill-routes.mjs";
@@ -403,7 +409,11 @@ export async function handleRequest(req, res) {
   if (path === "/v1/dashboard/org-cards" && method === "GET") {
     await handleGetDashboardOrgCards(req, res, url);
     return;
+  }  if (path === "/v1/dashboard/commission-preview" && method === "GET") {
+    await handleGetDashboardCommissionPreview(req, res, url);
+    return;
   }
+
 
   if (path === "/v1/platform/dashboard-summary" && method === "GET") {
     await handleGetPlatformDashboardSummary(req, res, url);
@@ -528,6 +538,19 @@ export async function handleRequest(req, res) {
     }
     if (method === "PUT") {
       await handlePutFulfillmentPolicy(req, res, orgId);
+      return;
+    }
+  }
+
+  const posSettingsMatch = path.match(/^\/v1\/orgs\/([^/]+)\/pos-settings$/);
+  if (posSettingsMatch) {
+    const orgId = decodeURIComponent(posSettingsMatch[1]);
+    if (method === "GET") {
+      await handleGetPosSettings(req, res, orgId);
+      return;
+    }
+    if (method === "PUT") {
+      await handlePutPosSettings(req, res, orgId);
       return;
     }
   }
@@ -814,6 +837,11 @@ export async function handleRequest(req, res) {
 
   if (path === "/v1/service-bills/summary" && method === "GET") {
     await handleServiceBillSummary(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/service-bills/upcoming" && method === "GET") {
+    await handleUpcomingServiceBills(req, res, url);
     return;
   }
 

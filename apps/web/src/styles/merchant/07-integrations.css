@@ -36,38 +36,170 @@
   z-index: 1100;
 }
 
-.plat-int-secret-modal {
-  width: min(640px, 100%);
-  max-width: calc(100vw - 32px);
+.b3-commission-modal-backdrop .b3-owner-edit.plat-int-secret-modal {
+  width: min(540px, calc(100vw - 32px));
   height: auto;
   flex: 0 0 auto;
   align-self: center;
-  border-color: rgba(251, 191, 36, 0.32);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, transparent 45%),
-    #12161c;
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(251, 191, 36, 0.08);
 }
 
-.plat-int-secret-modal__head {
-  border-bottom-color: rgba(251, 191, 36, 0.18);
+.plat-int-secret-modal .org-edit__head {
+  padding-right: 24px;
 }
 
-.plat-int-secret-modal__body {
-  gap: 12px;
+.plat-int-secret-modal__badge {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
-.plat-int-secret-modal__foot {
-  justify-content: stretch;
-  border-top-color: rgba(251, 191, 36, 0.18);
-  background: rgba(8, 11, 16, 0.35);
+.plat-int-secret-modal .plat-int-secret-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 20px 8px;
 }
 
-.plat-int-secret-modal__confirm {
-  width: 100%;
+.plat-int-secret-modal__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.26);
+  border-left: 3px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.07);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.plat-int-secret-modal__warn-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #fbbf24;
+}
+
+.plat-int-secret-modal__warn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.plat-int-secret-modal__secret {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0b1624;
+  overflow: hidden;
+}
+
+.plat-int-secret-modal__secret code {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+  word-break: break-all;
+  user-select: all;
+}
+
+.plat-int-secret-modal__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 86px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 193, 69, 0.06);
+  color: #f5c542;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.plat-int-secret-modal__copy svg {
+  width: 14px;
+  height: 14px;
+}
+
+.plat-int-secret-modal__copy:hover {
+  background: rgba(255, 193, 69, 0.14);
+  color: #ffd06a;
+}
+
+.plat-int-secret-modal__copy.is-copied {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.plat-int-secret-modal__foot-note {
+  align-self: center;
+  font-size: 12px;
+  color: #8b9bb0;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__badge {
+  border-color: rgba(180, 83, 9, 0.4);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__warn {
+  border-color: rgba(217, 119, 6, 0.3);
+  border-left-color: #d97706;
+  background: #fffbeb;
+  color: #334155;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__warn-icon {
+  color: #b45309;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__secret {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__secret code {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__copy {
+  border-left-color: #cbd5e1;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__copy.is-copied {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+html[data-theme="light"] .plat-int-secret-modal__foot-note {
+  color: #64748b;
 }
 
 .plat-int__secret-copy {

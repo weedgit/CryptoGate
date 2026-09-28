@@ -87,6 +87,7 @@ export async function listMembershipsForOrg(orgId) {
     `SELECT m.org_id, m.user_id, m.role, m.status AS membership_status, o.type AS org_type,
             u.email, u.mfa_enrolled_at, u.first_name, u.last_name, u.phone,
             u.email_verified_at, u.phone_verified_at, u.avatar_url, u.timezone,
+            u.pos_pin_hash IS NOT NULL AS pos_pin_configured,
             login.last_login_at
      FROM org_memberships m
      JOIN org_accounts o ON o.id = m.org_id
@@ -126,6 +127,7 @@ export async function listMembershipsForOrg(orgId) {
         : null,
     timezone: typeof row.timezone === "string" && row.timezone.trim() ? row.timezone : "UTC",
     mfaEnrolled: row.mfa_enrolled_at != null,
+    posPinConfigured: row.pos_pin_configured === true,
     lastLoginAt:
       row.last_login_at instanceof Date
         ? row.last_login_at.toISOString()
@@ -261,8 +263,9 @@ export async function deleteMembership(orgId, userId) {
 /**
  * Invite attaches an existing user, or creates one with a temporary password.
  * @param {string} email
+ * @param {{ timezone?: string | null }} [defaults] starting profile values for a new user
  */
-export async function provisionUserForInvite(email) {
+export async function provisionUserForInvite(email, defaults = {}) {
   const existing = await findUserByEmail(email);
   if (existing) {
     return {
@@ -278,6 +281,7 @@ export async function provisionUserForInvite(email) {
       email,
       password: temporaryPassword,
       invited: true,
+      timezone: defaults.timezone ?? undefined,
     });
     return {
       id: user.id,

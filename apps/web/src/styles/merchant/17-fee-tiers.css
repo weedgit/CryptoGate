@@ -181,24 +181,30 @@
   gap: 14px;
 }
 
-.platform-shell .plat-fee-billing__shell--textarea {
+.platform-shell .plat-fee-billing__shell--address {
   align-items: stretch;
-  min-height: 96px;
+  overflow: hidden;
 }
 
-.platform-shell .plat-fee-billing__shell--textarea .field-shell__icon {
-  align-self: stretch;
-}
-
-.platform-shell .plat-fee-billing__shell--textarea .plat-fee-billing__textarea,
-.platform-shell .plat-fee-billing__shell--textarea .b4-field__control {
-  min-height: 96px;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  resize: vertical;
+.platform-shell .plat-fee-billing__shell--address .plat-fee-billing__address {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+
+.platform-shell .plat-fee-billing__shell--address .field-shell__copy-btn {
+  border-left-color: rgba(148, 163, 184, 0.28);
+  color: #f5c542;
+}
+
+.platform-shell .plat-fee-billing__shell--address .field-shell__copy-btn:hover:not(:disabled) {
+  color: #ffd06a;
+  background: rgba(245, 197, 66, 0.08);
+}
+
+html[data-theme="light"] .platform-shell .plat-fee-billing__shell--address .field-shell__copy-btn {
+  border-left-color: #cbd5e1;
+  color: #b45309;
 }
 
 .platform-shell .plat-fee-billing__bills-link {

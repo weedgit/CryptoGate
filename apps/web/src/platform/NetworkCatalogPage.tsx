@@ -1,3 +1,4 @@
+import { formatViewerDateTime } from "../shared/dateTime";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
@@ -637,7 +638,7 @@ export function NetworkCatalogPage({ session }: Props) {
                             ? "No enabled pairs on this network"
                             : isMaint
                               ? card.maintenance.endsAt
-                                ? `Maintenance on until ${new Date(card.maintenance.endsAt).toLocaleString()} — click to clear`
+                                ? `Maintenance on until ${formatViewerDateTime(card.maintenance.endsAt)} — click to clear`
                                 : "Clear maintenance — create-order will resume"
                               : "Pause deposits — create-order returns 422; merchants see a banner"
                         }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSession, loadPortalSession, type Session } from "../merchant/api";
-import { setUserTimezone } from "../shared/userTimezone";
+import { setViewerTimeZone } from "../shared/dateTime";
 import { prefetchCurrentPortalRoute } from "../shared/prefetchCurrentRoute";
 import { prefetchPortalDashboardData } from "../shared/prefetchPortalDashboardData";
 import { invalidateAllPortalDataCaches } from "../shared/portalDataCaches";
@@ -121,9 +121,8 @@ export function usePortalBoot() {
 
   useSessionKeepAlive(session, setSession);
 
-  useEffect(() => {
-    setUserTimezone(session?.timezone);
-  }, [session?.timezone]);
+  // Before children render so their first date math and fetches use the profile zone.
+  setViewerTimeZone(session?.timezone, session?.timezoneConfirmed === true);
 
   function completeSignIn() {
     setMfaPending(false);

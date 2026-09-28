@@ -31,48 +31,13 @@ const ASSET_NETWORK_UI = {
     memoSupported: false,
     requiredConfirmations: 12,
   },
-  "USDT:bnb_smart_chain": {
-    displayNetwork: "BNB Smart Chain BEP-20",
-    memoSupported: false,
-    requiredConfirmations: 15,
-  },
-  "USDT:polygon": {
-    displayNetwork: "Polygon PoS",
-    memoSupported: false,
-    requiredConfirmations: 64,
-  },
-  "USDT:arbitrum_one": {
-    displayNetwork: "Arbitrum One",
-    memoSupported: false,
-    requiredConfirmations: 12,
-  },
   "USDT:solana": {
     displayNetwork: "Solana",
     memoSupported: false,
     requiredConfirmations: 32,
   },
-  "USDT:ton": {
-    displayNetwork: "TON",
-    memoSupported: false,
-    requiredConfirmations: 5,
-  },
   "USDC:ethereum": {
     displayNetwork: "Ethereum ERC-20",
-    memoSupported: false,
-    requiredConfirmations: 12,
-  },
-  "USDC:polygon": {
-    displayNetwork: "Polygon PoS",
-    memoSupported: false,
-    requiredConfirmations: 64,
-  },
-  "USDC:arbitrum_one": {
-    displayNetwork: "Arbitrum One",
-    memoSupported: false,
-    requiredConfirmations: 12,
-  },
-  "USDC:base": {
-    displayNetwork: "Base",
     memoSupported: false,
     requiredConfirmations: 12,
   },
@@ -80,11 +45,6 @@ const ASSET_NETWORK_UI = {
     displayNetwork: "Solana",
     memoSupported: false,
     requiredConfirmations: 32,
-  },
-  "BTC:bitcoin": {
-    displayNetwork: "Bitcoin",
-    memoSupported: false,
-    requiredConfirmations: 3,
   },
   "ETH:ethereum": {
     displayNetwork: "Ethereum",
@@ -250,7 +210,6 @@ function networkLabelFor(asset, network) {
   if (row) return row.displayNetwork;
   if (network === "tron") return "TRON TRC-20";
   if (network === "ethereum") return "Ethereum ERC-20";
-  if (network === "bnb_smart_chain") return "BNB Smart Chain BEP-20";
   return String(network).toUpperCase();
 }
 
@@ -491,11 +450,6 @@ const CRYPTO_MARK = {
     title: "Ethereum",
     svg: `<svg viewBox="4 4 24 24" fill="none" aria-hidden="true"><g fill="#fff" fill-rule="nonzero"><path fill-opacity=".602" d="M16.498 4v8.87l7.497 3.35z"/><path d="M16.498 4 9 16.22l7.498-3.35z"/><path fill-opacity=".602" d="M16.498 21.968v6.027L24 17.616z"/><path d="M16.498 27.995v-6.028L9 17.616z"/><path fill-opacity=".2" d="m16.498 20.573 7.497-4.353-7.497-3.348z"/><path fill-opacity=".602" d="m9 16.22 7.498 4.353v-7.701z"/></g></svg>`,
   },
-  bnb_smart_chain: {
-    bg: "#f3ba2f",
-    title: "BNB Smart Chain",
-    svg: `<svg viewBox="4 4 24 24" fill="none" aria-hidden="true"><path fill="#fff" d="M12.116 14.404 16 10.52l3.886 3.886 2.26-2.26L16 6l-6.144 6.144 2.26 2.26zM6 16l2.26-2.26L10.52 16l-2.26 2.26L6 16zm6.116 1.596L16 21.48l3.886-3.886 2.26 2.259L16 26l-6.144-6.144-.003-.003 2.263-2.257zM21.48 16l2.26-2.26L26 16l-2.26 2.26L21.48 16zm-3.188-.002h.002V16L16 18.294l-2.291-2.29-.004-.004.004-.003.401-.402.195-.195L16 13.706l2.293 2.293z"/></svg>`,
-  },
   usdt: {
     bg: "#26a17b",
     title: "USDT",
@@ -642,10 +596,9 @@ function confirmationEtaLabel(network, total) {
       ? `~${secs}s on TRON`
       : `~${Math.ceil(secs / 60)} min on TRON`;
   }
-  if (n === "ethereum" || n === "arbitrum_one" || n === "base") {
-    return `~${Math.max(1, Math.ceil((total * 12) / 60))} min on ${n === "ethereum" ? "Ethereum" : "EVM"}`;
+  if (n === "ethereum") {
+    return `~${Math.max(1, Math.ceil((total * 12) / 60))} min on Ethereum`;
   }
-  if (n === "bitcoin") return `~${total * 10} min on Bitcoin`;
   return "network confirmations in progress";
 }
 

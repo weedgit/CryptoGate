@@ -2,13 +2,6 @@ export function fulfillmentPolicyLabel(policy: string | null | undefined): strin
   return policy === "on_verifying" ? "Counter (release on verifying)" : "Standard (release on completed)";
 }
 
-export function fulfillmentPolicyScope(policy: string | null | undefined): string {
-  if (policy === "on_verifying") {
-    return "Staff may hand over goods when the order shows Verifying (tx detected). Chain status and webhooks stay honest — Completed still means confirmations met.";
-  }
-  return "Release goods only when the order is Completed (required blockchain confirmations met).";
-}
-
 export const FULFILLMENT_POLICY_CARDS = [
   {
     policy: "on_completed",

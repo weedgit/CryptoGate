@@ -411,6 +411,16 @@
   align-items: center;
 }
 
+.platform-shell .pg-dash__period-zone {
+  padding: 0 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .platform-shell .pg-dash__period-date input[type="date"] {
   appearance: none;
   box-sizing: border-box;
@@ -1060,10 +1070,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Animated figures render in a span; keep them full size and colour (agent / merchant / platform alike). */
 .platform-shell .pg-feature__value span {
-  margin-top: 4px;
-  font-size: 0.62em;
-  color: #fbbf24;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
 }
 
 .platform-shell .pg-feature__label {
@@ -1600,4 +1611,315 @@ html[data-theme="light"] .platform-shell .pg-chart-panel__heading h2,
 html[data-theme="light"] .platform-shell .pg-networks-panel__head h2 {
   color: #0f172a;
 }
+
+/* Agent dashboard — commission this month, per merchant */
+.platform-shell .pg-commission-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.platform-shell .pg-commission-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 24px;
+  padding-top: 4px;
+}
+
+.platform-shell .pg-commission-panel__sum {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.platform-shell .pg-commission-panel__figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 12px;
+}
+
+.platform-shell .pg-commission-panel__figure .pg-commission-panel__label {
+  align-self: center;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.platform-shell .pg-commission-panel__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.platform-shell .pg-commission-panel__figure strong {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--plat-gold-bright);
+}
+
+.platform-shell .pg-commission-panel__formula {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.platform-shell .pg-commission-panel__more {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--teal);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.platform-shell .pg-commission-panel__more:hover,
+.platform-shell .pg-commission-panel__more:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.platform-shell .pg-commission-panel__help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.platform-shell .pg-commission-panel__help .plat-card-help__tip {
+  width: min(320px, 80vw);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+}
+
+.platform-shell .pg-commission-panel__alert,
+.platform-shell .pg-commission-panel__empty {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.platform-shell .pg-commission-panel__alert {
+  background: var(--warn-dim);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+
+.platform-shell .pg-commission-panel__alert a,
+.platform-shell .pg-commission-panel__empty a {
+  color: var(--teal);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.platform-shell .pg-commission-panel__scroll {
+  overflow-x: auto;
+  border-radius: 12px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.platform-shell .pg-commission-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.platform-shell .pg-commission-table th {
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+  background: rgba(148, 163, 184, 0.05);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.platform-shell .pg-commission-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  transition: background 120ms ease;
+}
+
+.platform-shell .pg-commission-table tbody tr:hover td {
+  background: rgba(120, 160, 190, 0.05);
+}
+
+.platform-shell .pg-commission-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-shell .pg-commission-table tfoot td {
+  border-bottom: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.04);
+  font-weight: 700;
+}
+
+.platform-shell .pg-commission-table__merchant-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .pg-commission-table__avatar {
+  flex-shrink: 0;
+  border-radius: 9px;
+}
+
+.platform-shell .pg-commission-table__merchant-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.platform-shell .pg-commission-table__merchant {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .pg-commission-table__merchant:hover {
+  color: var(--teal);
+}
+
+.platform-shell .pg-commission-table__schedule {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.platform-shell .pg-commission-table__schedule.is-pending {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.platform-shell .pg-commission-table__note {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-sans, inherit);
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.platform-shell .pg-commission-table__commission {
+  font-weight: 700;
+  color: var(--plat-gold-bright);
+}
+
+.platform-shell .pg-commission-status,
+.platform-shell .pg-commission-bill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: var(--muted);
+}
+
+.platform-shell .pg-commission-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.platform-shell .pg-commission-status.is-active,
+.platform-shell .pg-commission-bill.is-ok {
+  background: var(--ok-dim);
+  border-color: color-mix(in srgb, var(--ok) 30%, transparent);
+  color: var(--ok);
+}
+
+.platform-shell .pg-commission-status.is-paused,
+.platform-shell .pg-commission-bill.is-danger {
+  background: var(--anomaly-dim);
+  border-color: color-mix(in srgb, var(--anomaly) 30%, transparent);
+  color: var(--anomaly);
+}
+
+.platform-shell .pg-commission-bill.is-warn {
+  background: var(--warn-dim);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+  color: var(--warn);
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-panel__scroll {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-table th {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-table td {
+  border-bottom-color: #eef2f7;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-table tfoot td {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-panel__more {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-panel__figure strong,
+html[data-theme="light"] .platform-shell .pg-commission-table__commission {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-status.is-active,
+html[data-theme="light"] .platform-shell .pg-commission-bill.is-ok {
+  color: #047857;
+}
+
+html[data-theme="light"] .platform-shell .pg-commission-bill.is-warn {
+  color: #b45309;
+}
+
 

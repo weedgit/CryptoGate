@@ -4,7 +4,6 @@ import { ApiError, putFulfillmentPolicy } from "../api";
 import {
   FULFILLMENT_POLICY_CARDS,
   fulfillmentPolicyLabel,
-  fulfillmentPolicyScope,
   fulfillmentPolicyTooltip,
 } from "../fulfillmentLabels";
 import { ConfirmChangeDialog } from "./ConfirmChangeDialog";
@@ -69,7 +68,6 @@ export function FulfillmentPolicyCard({ orgId, policy, locked, notify, onSaved }
         ) : null}
       </SettlementSectionHead>
       <div className="plat-settings__card-body">
-        <p className="plat-settings__card-copy">{fulfillmentPolicyScope(policy)}</p>
         <SettlementOptionGroup
           ariaLabel="Fulfillment policy"
           options={POLICY_OPTIONS}

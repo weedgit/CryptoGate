@@ -93,7 +93,12 @@ object CustomerPayBitmap {
             val stripH = (height * 0.12f).toInt()
             val qrBudget = (height - y - pad - stripH).toInt().coerceAtLeast(width / 3)
             val qrSize = qrBudget.coerceAtMost(width - pad * 2)
-            val qr = QrBitmaps.encode(content.qrPayload, qrSize)
+            val qr =
+                if (content.network.isNotBlank()) {
+                    QrBitmaps.encodeWithNetworkMark(content.qrPayload, content.network, qrSize)
+                } else {
+                    QrBitmaps.encode(content.qrPayload, qrSize)
+                }
             val qrLeft = (width - qrSize) / 2
             canvas.drawBitmap(qr, qrLeft.toFloat(), y.toFloat(), null)
             qr.recycle()

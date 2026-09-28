@@ -36,7 +36,7 @@ describe("order CSV export", () => {
       },
     ]);
     const header = csv.split("\r\n")[0];
-    assert.equal(header, ORDER_CSV_HEADERS.join(","));
+    assert.equal(header, [...ORDER_CSV_HEADERS, "created_at_local (UTC)"].join(","));
     assert.match(header, /matching_mode/);
     assert.match(header, /payable_amount/);
     assert.match(header, /receive_address/);
@@ -45,5 +45,16 @@ describe("order CSV export", () => {
     assert.match(header, /memo_or_tag/);
     assert.match(csv, /CG-2026-0001/);
     assert.match(csv, /2026-08-24T12:00:00.000Z/);
+    assert.match(csv, /2026-08-24 11:00:00\r\n$/);
+  });
+
+  it("adds a created-at column in the exporter's zone", () => {
+    const csv = paymentOrdersToCsv(
+      [{ id: "o2", created_at: new Date("2026-08-24T23:30:00.000Z") }],
+      "Asia/Seoul",
+    );
+    const [header, line] = csv.split("\r\n");
+    assert.match(header, /,created_at_local \(Asia\/Seoul\)$/);
+    assert.match(line, /,2026-08-25 08:30:00$/);
   });
 });

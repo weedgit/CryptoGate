@@ -49,32 +49,12 @@
 }
 
 .platform-shell .plat-commissions__col-actions {
-  width: 2.75rem;
+  width: 7.5rem;
 }
 
-.platform-shell .plat-commissions__col-select {
-  width: 2.25rem;
-}
-
-.platform-shell .plat-commissions__th-select,
-.platform-shell .plat-commissions__td-select {
-  text-align: center;
-}
-
-.platform-shell .plat-commissions__bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent, #6366f1) 10%, transparent);
-  font-size: 0.875rem;
-}
-
-.platform-shell .plat-commissions__bulk-bar > span {
-  margin-right: auto;
+.platform-shell .plat-commissions__table .plat-bills__td-actions {
+  white-space: nowrap;
+  text-align: right;
 }
 
 .platform-shell .plat-commissions__table .plat-bills__merchant {

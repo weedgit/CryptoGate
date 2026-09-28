@@ -25,6 +25,7 @@ export async function dashboardReports(scope, window, tz) {
     byDay: [],
     byCreator: [],
     byMode: [],
+    byChannel: [],
   };
   const pool = getPool();
   const params = [SETTLED, tz];
@@ -39,7 +40,7 @@ export async function dashboardReports(scope, window, tz) {
 
   const { rows } = await pool.query(
     `WITH f AS (
-       SELECT o.status, o.asset, o.network, o.org_id, o.created_by, o.matching_mode,
+       SELECT o.status, o.asset, o.network, o.org_id, o.created_by, o.matching_mode, o.created_via,
               to_char((o.created_at AT TIME ZONE $2::text)::date, 'YYYY-MM-DD') AS day,
               CASE WHEN o.status = ANY($1::text[]) THEN ${ORDER_USD} ELSE 0 END AS vol
        FROM payment_orders o
@@ -51,13 +52,15 @@ export async function dashboardReports(scope, window, tz) {
             GROUPING(f.created_by) AS g_creator,
             GROUPING(f.matching_mode) AS g_mode,
             GROUPING(f.day) AS g_day,
+            GROUPING(f.created_via) AS g_via,
             f.status, f.asset, f.network, f.org_id, f.created_by, f.matching_mode, f.day,
+            f.created_via,
             count(*) AS n,
             COALESCE(sum(f.vol), 0) AS vol
      FROM f
      GROUP BY GROUPING SETS (
        (f.status), (f.asset, f.network), (f.org_id), (f.created_by),
-       (f.matching_mode), (f.day), ()
+       (f.matching_mode), (f.day), (f.created_via), ()
      )`,
     params,
   );
@@ -72,6 +75,7 @@ export async function dashboardReports(scope, window, tz) {
     else if (r.g_creator === 0) out.byCreator.push({ userId: r.created_by, email: null, count, volumeUsd });
     else if (r.g_mode === 0) out.byMode.push({ mode: r.matching_mode, count });
     else if (r.g_day === 0) out.byDay.push({ day: r.day, count, volumeUsd });
+    else if (r.g_via === 0) out.byChannel.push({ channel: r.created_via ?? null, count, volumeUsd });
     else {
       out.totals.orders = count;
       out.totals.settledVolumeUsd = volumeUsd;
@@ -99,6 +103,7 @@ export async function dashboardReports(scope, window, tz) {
   out.byOrg.sort((a, b) => b.volumeUsd - a.volumeUsd);
   out.byCreator.sort((a, b) => b.count - a.count);
   out.byMode.sort((a, b) => String(a.mode).localeCompare(String(b.mode)));
+  out.byChannel.sort((a, b) => b.count - a.count);
   out.byDay.sort((a, b) => b.day.localeCompare(a.day));
   out.byDay = out.byDay.slice(0, DAY_ROWS);
   return out;

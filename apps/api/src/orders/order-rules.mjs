@@ -26,6 +26,31 @@ const PRIVILEGED_KEYS = new Set([
   "fee",
 ]);
 
+export const ORDER_CHANNELS = Object.freeze(["web", "pos", "api"]);
+
+/**
+ * API keys are always `api` (server-known). Sessions declare `web` / `pos` via
+ * X-PaymentGate-Client; missing/unknown → null (e.g. POS builds before the header).
+ * @param {{ apiKey: boolean, clientHeader: unknown }} p
+ * @returns {"web" | "pos" | "api" | null}
+ */
+export function resolveOrderChannel(p) {
+  if (p.apiKey) return "api";
+  const raw = Array.isArray(p.clientHeader) ? p.clientHeader[0] : p.clientHeader;
+  const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  return value === "web" || value === "pos" ? value : null;
+}
+
+/**
+ * Merchant policy "cashiers may create orders on the web". Only an explicit
+ * `web` channel is blocked so older POS builds (no header) keep working.
+ * Client-declared → a policy guard, not a security boundary.
+ * @param {{ role: string | null, channel: string | null, cashierWebOrders: boolean }} p
+ */
+export function cashierWebOrderBlocked(p) {
+  return p.role === "cashier" && p.channel === "web" && !p.cashierWebOrders;
+}
+
 /** Not a live wallet. Replaced by assignOnCreate (M2-12) + merchant settlement address. */
 export const STUB_RECEIVE_ADDRESS = "TPaymentGateStubReceiveAddress00001";
 

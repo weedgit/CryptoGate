@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { businessTimezoneField } from "../shared/businessTimezone";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { platformRoute } from "../shared/portalRouting";
@@ -679,6 +680,7 @@ export function MerchantDetailCard({
         country={org.country}
         legalName={org.legalName}
         billingEmail={org.billingEmail}
+        businessTimezone={businessTimezoneField(org, [])}
         requireCountry={true}
         typeLabel={orgTypeLabel(org.type)}
         busy={profileEditBusy}

@@ -94,10 +94,11 @@ describe("@paymentgate/web agent C10 commissions", () => {
     assert.match(app, /commissions/);
     assert.match(app, /CommissionsPage/);
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
-    assert.match(page, /PlatformCommissionsPage/);
-    assert.match(page, /CommissionsPortalContext\.Provider/);
-    assert.match(page, /useAgentCommissionsPortal/);
-    assert.doesNotMatch(page, /issueServiceBill|createOrder/);
+    assert.match(page, /plat-bills__panel--solo/);
+    assert.match(page, /getCommissionPreview/);
+    assert.match(page, /"Upcoming"/);
+    assert.match(page, /canConfirm && toConfirm\[0\]/);
+    assert.doesNotMatch(page, /issueServiceBill|createOrder|markCommissionPayoutsPaid/);
     const portal = readFileSync(
       join(root, "src/agent/useAgentCommissionsPortal.ts"),
       "utf8",

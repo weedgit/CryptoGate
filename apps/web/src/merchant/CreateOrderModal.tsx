@@ -1,4 +1,11 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
@@ -29,7 +36,32 @@ import {
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { AssetIcon, NetworkIcon } from "../platform/cryptoIcons";
+import { OnboardWizardBrandHead } from "../shared/onboardMerchantUi";
+import { ClockIcon, LockIcon, TagIcon } from "../auth/LoginIcons";
 import { formatShortTime, orderStatusLabel } from "./orderStatus";
+
+const CREATE_ORDER_TITLE = "Create payment order";
+const CREATE_ORDER_SUBTITLE =
+  "Set the amount and network — the customer pays from the order page.";
+
+function InvoiceIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 2.75h12a1 1 0 0 1 1 1V21l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V3.75a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 8h6M9 11.5h6M9 15h3.5"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 type Props = {
   onClose: () => void;
@@ -37,9 +69,11 @@ type Props = {
   matchingMode?: string;
   /** Contact verification still pending — do not create. */
   locked?: boolean;
+  /** Active workspace org the order is created for. */
+  orgId?: string | null;
 };
 
-type BlockingOrderInfo = {
+export type BlockingOrderInfo = {
   id: string;
   orderNumber: string;
   status: string;
@@ -51,17 +85,28 @@ type BlockingOrderInfo = {
   createdByLabel: string;
 };
 
+type ChargeId = "USD" | "EUR" | "TOKEN";
+
+const FIAT_SYMBOL: Record<"USD" | "EUR", string> = { USD: "$", EUR: "€" };
+
+/** Currency symbol for the pay-with token (₮ USDT, Ξ ETH, …). */
+export function tokenSymbol(asset: string): string {
+  switch (asset) {
+    case "USDT":
+      return "₮";
+    case "ETH":
+      return "Ξ";
+    default:
+      return asset.slice(0, 1);
+  }
+}
+
 const MODE_B_BLOCK_CLEAR_STATUSES = new Set([
   "completed",
   "expired",
   "failed",
   "cancelled",
 ]);
-
-function formatPreviewTimer(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:00`;
-}
 
 function formatPreviewAmount(raw: string): string {
   const trimmed = raw.trim();
@@ -84,7 +129,7 @@ function sanitizeAmountInput(raw: string): string {
   );
 }
 
-function parseBlockingOrder(details: unknown): BlockingOrderInfo | null {
+export function parseBlockingOrder(details: unknown): BlockingOrderInfo | null {
   if (!details || typeof details !== "object") return null;
   const blocking = (details as { blockingOrder?: Record<string, unknown> })
     .blockingOrder;
@@ -116,7 +161,12 @@ function parseBlockingOrder(details: unknown): BlockingOrderInfo | null {
   };
 }
 
-export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }: Props) {
+export function CreateOrderModal({
+  onClose,
+  matchingMode = "B",
+  locked = false,
+  orgId,
+}: Props) {
   const navigate = useNavigate();
   const initial = defaultLivePair();
   const [amount, setAmount] = useState("");
@@ -181,6 +231,35 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
     [],
   );
   const guestLabel = displayNetworkForPair(asset, network);
+
+  const charge: ChargeId = denomination === "crypto" ? "TOKEN" : invoiceCurrency;
+  const chargeOptions: { id: ChargeId; symbol: ReactNode; label: string }[] = [
+    { id: "USD", symbol: FIAT_SYMBOL.USD, label: "USD" },
+    { id: "EUR", symbol: FIAT_SYMBOL.EUR, label: "EUR" },
+    { id: "TOKEN", symbol: <AssetIcon asset={asset} />, label: asset },
+  ];
+  const chargeCode = charge === "TOKEN" ? asset : invoiceCurrency;
+  const chargeSymbol =
+    charge === "TOKEN" ? tokenSymbol(asset) : FIAT_SYMBOL[invoiceCurrency];
+  const lockMinutes = Math.round(validitySeconds / 60);
+  const typedAmount = amount.trim() ? formatPreviewAmount(amount) : null;
+  const payHint =
+    charge === "TOKEN"
+      ? typedAmount
+        ? `Customer pays exactly ${typedAmount} ${asset}.`
+        : `Customer pays exactly this ${asset} amount.`
+      : typedAmount
+        ? `Customer pays ${chargeSymbol}${typedAmount} worth of ${asset} at the live rate, locked for ${lockMinutes} min.`
+        : `Customer pays the ${asset} equivalent at the live rate, locked for ${lockMinutes} min.`;
+
+  function selectCharge(id: ChargeId) {
+    if (id === "TOKEN") {
+      setDenomination("crypto");
+      return;
+    }
+    setDenomination("fiat");
+    setInvoiceCurrency(id);
+  }
 
   const modeLabel = matchingModeLabel(matchingMode);
   const modeSummary = matchingModeCreateSummary(matchingMode);
@@ -287,6 +366,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
         network,
         validitySeconds,
         merchantReference: merchantReference.trim() || undefined,
+        orgId,
       });
       invalidateMerchantOrdersList();
       primeMerchantOrder(order.id, order);
@@ -332,40 +412,40 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
     await submitCreate();
   }
 
-  const previewAmount = formatPreviewAmount(amount);
   const previewReference = merchantReference.trim();
   const formLocked = Boolean(amountLock && !amountLock.cleared);
   if (locked) {
     return createPortal(
       <div
-        className="b3-commission-modal-backdrop create-order-modal-backdrop"
+        className="b4-wizard-portal create-order-modal-backdrop"
         role="presentation"
         onClick={onClose}
       >
         <div
-          className="b3-commission-modal create-order-modal"
+          className="b4-wizard create-order-modal create-order-modal--locked"
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-order-modal-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="b3-commission-modal__head">
-            <h3 id="create-order-modal-title">CREATE PAYMENT ORDER</h3>
-            <button
-              type="button"
-              className="b3-commission-modal__close create-order-modal__close"
-              aria-label="Close"
-              onClick={onClose}
-            >
-              ×
-            </button>
-          </header>
-          <div className="b3-commission-modal__body">
-            <p>
+          <OnboardWizardBrandHead
+            titleId="create-order-modal-title"
+            title={CREATE_ORDER_TITLE}
+            subtitle={CREATE_ORDER_SUBTITLE}
+            onClose={onClose}
+            icon={<InvoiceIcon />}
+          />
+          <div className="b4-wizard__body">
+            <p className="muted">
               Verify email and phone before creating an order. Use the banner at
               the top of the page.
             </p>
           </div>
+          <footer className="b4-wizard__foot">
+            <button type="button" className="b4-wizard__cancel" onClick={onClose}>
+              Close
+            </button>
+          </footer>
         </div>
       </div>,
       document.body,
@@ -379,33 +459,30 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
         onDismiss={() => setError(null)}
       />
       <div
-      className="b3-commission-modal-backdrop create-order-modal-backdrop"
+      className="b4-wizard-portal create-order-modal-backdrop"
       role="presentation"
       onClick={requestClose}
     >
       <div
-        className="b3-commission-modal create-order-modal"
+        className="b4-wizard create-order-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-order-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="b3-commission-modal__head">
-          <h3 id="create-order-modal-title">CREATE PAYMENT ORDER</h3>
-          <button
-            type="button"
-            className="b3-commission-modal__close create-order-modal__close"
-            aria-label="Close"
-            disabled={loading}
-            onClick={requestClose}
-          >
-            ×
-          </button>
-        </header>
+        <OnboardWizardBrandHead
+          titleId="create-order-modal-title"
+          title={CREATE_ORDER_TITLE}
+          subtitle={CREATE_ORDER_SUBTITLE}
+          onClose={requestClose}
+          closeDisabled={loading}
+          icon={<InvoiceIcon />}
+        />
 
-        <div className="b3-commission-modal__body create-order-modal__body">
+        <div className="create-order-modal__body">
           <div className="create-order-modal__layout">
             <form
+              id="create-order-form"
               className="plat-settings plat-settings--merchant create-order-modal__form"
               onSubmit={onSubmit}
               noValidate
@@ -489,85 +566,8 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
               ) : null}
 
               <div className="profile-settings-card__grid">
-                <label className="plat-settings__field" htmlFor="create-denom">
-                  <span>Invoice type</span>
-                  <select
-                    id="create-denom"
-                    className="plat-settings__input"
-                    value={denomination}
-                    disabled={loading || formLocked}
-                    onChange={(e) =>
-                      setDenomination(e.target.value as "fiat" | "crypto")
-                    }
-                  >
-                    <option value="fiat">Fiat (USD / EUR)</option>
-                    <option value="crypto">Convert token amount to USD</option>
-                  </select>
-                </label>
-                {denomination === "fiat" ? (
-                  <label className="plat-settings__field" htmlFor="create-ccy">
-                    <span>Currency</span>
-                    <select
-                      id="create-ccy"
-                      className="plat-settings__input"
-                      value={invoiceCurrency}
-                      disabled={loading || formLocked}
-                      onChange={(e) =>
-                        setInvoiceCurrency(e.target.value as "USD" | "EUR")
-                      }
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                  </label>
-                ) : (
-                  <p className="muted" style={{ alignSelf: "end" }}>
-                    Customer pays exactly this {asset} amount.
-                  </p>
-                )}
-              </div>
-
-              <label className="plat-settings__field" htmlFor="create-amount">
-                <span>
-                  {denomination === "crypto"
-                    ? `Amount (${asset})`
-                    : `Invoice amount (${invoiceCurrency})`}
-                </span>
-                <FieldControl
-                  icon="coins"
-                  invalid={!!amountError}
-                  shellClassName="field-shell--amount-suffix"
-                >
-                  <input
-                    id="create-amount"
-                    className="plat-settings__input create-order-amount__input fund-amount"
-                    value={amount}
-                    onChange={(e) => {
-                      setAmount(sanitizeAmountInput(e.target.value));
-                      if (amountError) setAmountError(null);
-                      if (amountLock) setAmountLock(null);
-                    }}
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    disabled={loading || formLocked}
-                    autoComplete="off"
-                    aria-invalid={amountError ? true : undefined}
-                    aria-describedby={amountError ? "create-amount-error" : undefined}
-                  />
-                  <span className="create-order-amount__asset" aria-hidden="true">
-                    {denomination === "crypto" ? asset : invoiceCurrency}
-                  </span>
-                </FieldControl>
-                {amountError ? (
-                  <p className="field-error" id="create-amount-error">
-                    {amountError}
-                  </p>
-                ) : null}
-              </label>
-
-              <div className="profile-settings-card__grid">
                 <label className="plat-settings__field" htmlFor="create-asset">
-                  <span>Asset</span>
+                  <span>Customer pays with</span>
                   <FieldControl leading={<AssetIcon asset={asset} />}>
                     <SearchableSelect
                       id="create-asset"
@@ -576,7 +576,7 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
                       onChange={onAssetChange}
                       allowEmpty={false}
                       disabled={loading}
-                      ariaLabel="Asset"
+                      ariaLabel="Customer pays with"
                       hideTriggerIcon
                     />
                   </FieldControl>
@@ -597,6 +597,76 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
                   </FieldControl>
                 </label>
               </div>
+
+              <div className="plat-settings__field">
+                <span id="create-charge-label">Charge in</span>
+                <div
+                  className="create-order-charge"
+                  role="radiogroup"
+                  aria-labelledby="create-charge-label"
+                >
+                  {chargeOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={charge === opt.id}
+                      className={`create-order-charge__btn${charge === opt.id ? " is-active" : ""}`}
+                      disabled={loading || formLocked}
+                      onClick={() => selectCharge(opt.id)}
+                    >
+                      <span className="create-order-charge__symbol" aria-hidden="true">
+                        {opt.symbol}
+                      </span>
+                      <span className="create-order-charge__code">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="plat-settings__field" htmlFor="create-amount">
+                <span>Amount</span>
+                <FieldControl
+                  leading={
+                    <span className="create-order-amount__symbol" aria-hidden="true">
+                      {chargeSymbol}
+                    </span>
+                  }
+                  invalid={!!amountError}
+                  shellClassName="field-shell--amount-suffix"
+                >
+                  <input
+                    id="create-amount"
+                    className="plat-settings__input create-order-amount__input fund-amount"
+                    value={amount}
+                    onChange={(e) => {
+                      setAmount(sanitizeAmountInput(e.target.value));
+                      if (amountError) setAmountError(null);
+                      if (amountLock) setAmountLock(null);
+                    }}
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    disabled={loading || formLocked}
+                    autoComplete="off"
+                    aria-invalid={amountError ? true : undefined}
+                    aria-describedby={
+                      amountError ? "create-amount-error" : "create-amount-payhint"
+                    }
+                  />
+                  <span className="create-order-amount__asset" aria-hidden="true">
+                    {chargeCode}
+                  </span>
+                </FieldControl>
+                {amountError ? (
+                  <p className="field-error" id="create-amount-error">
+                    {amountError}
+                  </p>
+                ) : (
+                  <p className="create-order-amount__payhint" id="create-amount-payhint">
+                    {payHint}
+                  </p>
+                )}
+              </label>
 
               <label className="plat-settings__field" htmlFor="create-reference">
                 <span>Merchant reference (optional)</span>
@@ -650,92 +720,118 @@ export function CreateOrderModal({ onClose, matchingMode = "B", locked = false }
                   Change in settlement settings
                 </Link>
               </div>
-
-              <div className="profile-settings-card__actions">
-                <button
-                  type="submit"
-                  className="plat-settings__save create-order-modal__submit"
-                  disabled={loading || !amount.trim() || formLocked}
-                >
-                  {loading
-                    ? "CREATING…"
-                    : formLocked
-                      ? "WAITING ON FIRST ORDER"
-                      : "CREATE PAYMENT ORDER"}
-                </button>
-              </div>
             </form>
 
-            <aside className="create-order-page__preview" aria-label="Preview">
-              <h2 className="create-order-page__preview-title">Preview</h2>
-              <div className="create-order-preview-card">
-                <div className="create-order-preview-card__bar">
-                  <span className="create-order-preview-card__brand">PaymentGate</span>
-                  <span className="create-order-preview-card__timer">
-                    {formatPreviewTimer(validitySeconds)}
-                  </span>
-                </div>
-                <div className="create-order-preview-card__amount">
-                  <p className="create-order-preview-card__amount-label">
-                    Invoice
-                  </p>
-                  <p className="create-order-preview-card__amount-value fund-amount">
-                    {previewAmount}{" "}
-                    <span className="create-order-preview-card__amount-unit">
-                      {denomination === "crypto" ? asset : invoiceCurrency}
-                    </span>
-                  </p>
-                  <p className="create-order-preview-card__amount-label">
-                    {denomination === "crypto"
-                      ? "Token amount converted to USD"
-                      : `Pay with ${asset}`}
-                  </p>
-                </div>
-                <p className="create-order-preview-card__network">
-                  {asset} · {guestLabel}
-                </p>
-                <div className="create-order-preview-card__qr" aria-hidden="true">
-                  <svg
-                    className="create-order-preview-card__qr-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+            <aside
+              className="create-order-page__preview create-order-confirm"
+              aria-label="Confirm order"
+            >
+              <h2 className="create-order-page__preview-title">Confirm</h2>
+              <div className="create-order-confirm__card">
+                <div className="create-order-confirm__hero">
+                  <p className="create-order-confirm__eyebrow">Customer is charged</p>
+                  <p
+                    className={`create-order-confirm__amount fund-amount${
+                      typedAmount ? "" : " is-empty"
+                    }`}
                   >
-                    <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-                    <rect x="14" y="14" width="3" height="3" fill="currentColor" />
-                    <rect x="18" y="14" width="3" height="3" fill="currentColor" />
-                    <rect x="14" y="18" width="3" height="3" fill="currentColor" />
-                    <rect x="18" y="18" width="3" height="3" fill="currentColor" />
-                  </svg>
-                  <span>QR code appears on the order page</span>
-                </div>
-                <div className="create-order-preview-card__address">
-                  <p className="create-order-preview-card__address-label">
-                    Payment address
+                    <span className="create-order-confirm__symbol">{chargeSymbol}</span>
+                    {typedAmount ?? "0.00"}
                   </p>
-                  <p className="create-order-preview-card__address-value">
-                    Assigned when the order is created
+                  <p className="create-order-confirm__code">{chargeCode}</p>
+                  <p className="create-order-confirm__pays">
+                    <AssetIcon asset={asset} />
+                    {charge === "TOKEN"
+                      ? `Exact ${asset} amount`
+                      : `Paid in ${asset} at live rate`}
                   </p>
                 </div>
-              </div>
-              {previewReference ? (
-                <p className="create-order-page__ref-note">
-                  <span className="create-order-page__ref-note-label">
-                    Merchant reference
-                  </span>
-                  <span className="create-order-page__ref-note-value">
-                    {previewReference}
-                  </span>
-                  <span className="create-order-page__ref-note-hint">
-                    Cashier & order detail only — not on payer page
-                  </span>
+
+                <dl className="create-order-confirm__rows">
+                  <div className="create-order-confirm__row">
+                    <dt>
+                      <span className="create-order-confirm__icon">
+                        <NetworkIcon network={network} />
+                      </span>
+                      Network
+                    </dt>
+                    <dd>{guestLabel}</dd>
+                  </div>
+                  <div className="create-order-confirm__row">
+                    <dt>
+                      <span className="create-order-confirm__icon">
+                        <ClockIcon />
+                      </span>
+                      Valid for
+                    </dt>
+                    <dd>{lockMinutes} min</dd>
+                  </div>
+                  <div className="create-order-confirm__row">
+                    <dt>
+                      <span className="create-order-confirm__icon">
+                        <LockIcon />
+                      </span>
+                      Matching
+                    </dt>
+                    <dd>{modeLabel}</dd>
+                  </div>
+                  {previewReference ? (
+                    <div className="create-order-confirm__row">
+                      <dt>
+                        <span className="create-order-confirm__icon">
+                          <TagIcon />
+                        </span>
+                        Reference
+                      </dt>
+                      <dd className="create-order-confirm__ref">{previewReference}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                <p className="create-order-confirm__note">
+                  Payment address and QR code are generated when you create the
+                  order.
+                  {previewReference
+                    ? " Reference is for staff only — not shown to the customer."
+                    : null}
                 </p>
-              ) : null}
+              </div>
             </aside>
           </div>
         </div>
+
+        <footer className="b4-wizard__foot">
+          <div className="b4-wizard__foot-left">
+            <button
+              type="button"
+              className="b4-wizard__cancel"
+              disabled={loading}
+              onClick={requestClose}
+            >
+              Cancel
+            </button>
+          </div>
+          <button
+            type="submit"
+            form="create-order-form"
+            className="b4-wizard__continue b4-wizard__continue--gold"
+            disabled={loading || !amount.trim() || formLocked}
+          >
+            {loading ? (
+              <>
+                <span className="cg-spinner cg-spinner--xs" aria-hidden />
+                Creating…
+              </>
+            ) : formLocked ? (
+              "Waiting on first order"
+            ) : (
+              <>
+                Create payment order
+                <span aria-hidden>→</span>
+              </>
+            )}
+          </button>
+        </footer>
       </div>
     </div>
     </>,

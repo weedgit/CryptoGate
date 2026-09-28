@@ -17,6 +17,7 @@ export const AUDIT_ACTIONS = {
   settlementPut: "settlement_put",
   matchingModePut: "matching_mode_put",
   fulfillmentPolicyPut: "fulfillment_policy_put",
+  posSettingsPut: "pos_settings_put",
   xpubPut: "xpub_put",
   webhookRegister: "webhook_register",
   webhookDelete: "webhook_delete",

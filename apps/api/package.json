@@ -16,13 +16,12 @@
     "start": "node ./src/server.mjs"
   },
   "dependencies": {
-    "@paymentgate/domain": "workspace:*",
-    "@paymentgate/matching": "workspace:*",
     "@noble/curves": "^2.3.0",
     "@noble/hashes": "^2.3.0",
+    "@paymentgate/domain": "workspace:*",
+    "@paymentgate/matching": "workspace:*",
     "@scure/base": "^2.3.0",
     "@scure/bip32": "^2.3.0",
-    "@ton/ton": "^15.2.1",
     "nodemailer": "^6.10.1",
     "pg": "^8.13.1"
   }

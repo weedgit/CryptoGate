@@ -126,9 +126,9 @@ describe("@paymentgate/matching mode-b assign (M1-32 / M2-40)", () => {
           ...baseAssign,
           mode: "B",
           asset: "USDT",
-          network: "bitcoin",
+          network: "not_a_network",
         }),
-      /not enabled in registry/,
+      /unsupported network|not enabled in registry/,
     );
   });
 

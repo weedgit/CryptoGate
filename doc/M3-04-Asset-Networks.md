@@ -17,7 +17,7 @@ Watcher, API, and payment page must take confirmations, decimals, min amount, Mo
 
 | Need | Required? | Notes |
 | --- | --- | --- |
-| **RPC / provider URL** per live network | **Yes** for real ingest | e.g. TronGrid, Infura, Alchemy, public BSC/Polygon endpoints, Blockstream Esplora, TonAPI |
+| **RPC / provider URL** per live network | **Yes** for real ingest | e.g. TronGrid, Infura, Alchemy, Solana RPC providers |
 | **Provider API key** | Often yes (free tier OK) | Rate limits — TronGrid / Infura / Alchemy keys. Still **not** a wallet key |
 | **Merchant settlement / payout private keys** | **Never** | Platform is watch-only; merchants (or their wallets) hold spend keys |
 | **Platform billing / commission treasury keys** | Outside watcher | Ops send rebills/commissions from their own wallets; slip UI shows destination only |
@@ -30,7 +30,7 @@ Empty `*_RPC_URL` → chain client stays in **stub** mode (health OK, no live tr
 
 ## Phase 1 access list — Tron / Ethereum / Solana enabled
 
-Registry still lists all Plan §VI pairs. **Create-order accepts only `enabled: true` rows.** Merchant **Networks** UI lists Phase 1 live pairs only (`enabledRegistry`). Phase 1 (V3 handoff) enables:
+The registry lists only Phase 1 rails. **Create-order accepts only `enabled: true` rows.** Merchant **Networks** UI lists Phase 1 live pairs only (`enabledRegistry`). Phase 1 (V3 handoff) enables:
 
 | Asset | Network id | Guest label | Registry | Env URL |
 | --- | --- | --- | --- | --- |
@@ -43,11 +43,9 @@ Registry still lists all Plan §VI pairs. **Create-order accepts only `enabled: 
 | USDT | `solana` | Solana | `USDT_SOLANA` | `SOLANA_RPC_URL` |
 | USDC | `solana` | Solana | `USDC_SOLANA` | `SOLANA_RPC_URL` |
 
-**`enabled: false` in Phase 1 (still in registry for later):** USDT on BSC / Polygon / Arbitrum / TON; USDC on Polygon / Arbitrum / Base; BTC.
-
 Local/staging only: `USDT` + `tron_nile` when `PAYMENTGATE_CHAIN_ENV=testnet` (never on product mainnet builds).
 
-Native `TRX` / `ETH` / `BTC` are **not** interchangeable with USDT/USDC on the same chain.
+Native `TRX` / `ETH` are **not** interchangeable with USDT/USDC on the same chain.
 
 **Default create-order pair:** `DEFAULT_ASSET_NETWORK` = USDT · `tron`.
 
@@ -59,10 +57,10 @@ Native `TRX` / `ETH` / `BTC` are **not** interchangeable with USDT/USDC on the s
 | --- | --- | --- | --- |
 | USDT Tron (mainnet) / TRX | 6 | 19 | Off |
 | USDT Nile (testnet) | 6 | 19 (same as mainnet Tron) | Off |
-| USDT Ethereum / Polygon / Arbitrum / Solana / TON | 6 | 12–64 | Off |
-| USDT BSC | **18** | 15 | Off |
-| USDC (all) | 6 | 12–64 | Off |
-| BTC | 8 | 3 | Off |
+| USDT Ethereum | 6 | 12 | Off |
+| USDT Solana | 6 | 32 | Off |
+| USDC Ethereum | 6 | 12 | Off |
+| USDC Solana | 6 | 32 | Off |
 | ETH | 18 | 12 | Off |
 | TRX | 6 | 19 | Off |
 
@@ -91,7 +89,7 @@ Guest copy must name the exact asset+network for the order. USDT on Ethereum aga
 
 ## Go-live checklist (per network)
 
-1. Registry row already enabled (all §VI pairs are).
+1. Registry row already enabled (all Phase 1 rails are).
 2. Set `*_RPC_URL` (+ API key if the provider requires it) in the watcher/API host env.
 3. Smoke: create a small order on that pair, send a test transfer, confirm watcher tick shows `chainPollMode` live (not `stub`) and order advances after required confirmations.
 4. Monitor `watcher_heartbeats` / platform Network catalog for `rpcConfigured`.

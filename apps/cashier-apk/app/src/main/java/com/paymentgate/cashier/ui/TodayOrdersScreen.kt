@@ -29,6 +29,7 @@ import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentOrder
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -39,6 +40,7 @@ fun TodayOrdersScreen(
     loading: Boolean,
     error: String?,
     cashierName: String? = null,
+    zone: ZoneId = ZoneId.systemDefault(),
     onSelect: (PaymentOrder) -> Unit,
     onSeeAllOrders: () -> Unit,
     onBack: () -> Unit = {},
@@ -52,8 +54,8 @@ fun TodayOrdersScreen(
             }
         }
     val dateLabel =
-        remember {
-            LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH))
+        remember(zone) {
+            LocalDate.now(zone).format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH))
         }
     val recent = remember(orders) { orders.take(8) }
 

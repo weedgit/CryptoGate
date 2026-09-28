@@ -8,8 +8,8 @@ import {
 
 describe("network maintenance rules", () => {
   it("accepts known network ids", () => {
-    assert.equal(isKnownNetworkId("arbitrum_one"), true);
     assert.equal(isKnownNetworkId("tron"), true);
+    assert.equal(isKnownNetworkId("solana"), true);
     assert.equal(isKnownNetworkId("nope"), false);
   });
 

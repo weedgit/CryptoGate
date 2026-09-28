@@ -10,10 +10,7 @@ class AssetNetworkCatalogTest {
     fun mainnetPhase1RailsOnly() {
         val pairs = AssetNetworkCatalog.visible("mainnet")
         assertFalse(pairs.any { it.network == "tron_nile" })
-        assertFalse(pairs.any { it.network == "bitcoin" })
-        assertFalse(pairs.any { it.network == "bnb_smart_chain" })
-        assertFalse(pairs.any { it.network == "polygon" })
-        assertFalse(pairs.any { it.network == "ton" })
+        assertEquals(setOf("tron", "ethereum", "solana"), pairs.map { it.network }.toSet())
         assertTrue(pairs.any { it.asset == "USDT" && it.network == "tron" })
         assertTrue(pairs.any { it.asset == "TRX" && it.network == "tron" })
         assertTrue(pairs.any { it.asset == "USDT" && it.network == "ethereum" })

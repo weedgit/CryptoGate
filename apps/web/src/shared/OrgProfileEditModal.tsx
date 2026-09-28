@@ -9,6 +9,7 @@ import { platformFeeAsset } from "./platformFeePair";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { CopyGlyph } from "./CopyGlyph";
+import { timeZoneSelectOptions } from "./timeZoneOptions";
 
 type Props = {
   open: boolean;
@@ -63,6 +64,11 @@ type Props = {
   readOnly?: boolean;
   /** Shown under the payout address, e.g. a pending change and when it activates. */
   payoutNote?: ReactNode;
+  /**
+   * Merchant / site time zone for customer documents. Omit to hide the field.
+   * `inheritLabel` names the fallback when the value is empty (e.g. the parent merchant's zone).
+   */
+  businessTimezone?: { value: string | null; inheritLabel: string } | null;
   onClose: () => void;
   onSave: (next: {
     name: string;
@@ -70,6 +76,7 @@ type Props = {
     country: string;
     legalName: string;
     billingEmail: string;
+    businessTimezone?: string | null;
     commission?: {
       rateMode: "automatic" | "fixed";
       commissionPercent: string;
@@ -204,6 +211,15 @@ function GlobeIcon() {
   );
 }
 
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ModeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -291,6 +307,7 @@ export function OrgProfileEditModal({
   canLockFixedRates = true,
   readOnly = false,
   payoutNote = null,
+  businessTimezone = null,
   onClose,
   onSave,
 }: Props) {
@@ -320,6 +337,7 @@ export function OrgProfileEditModal({
   const [draftPublicKey, setDraftPublicKey] = useState(
     merchant?.publicKey?.trim() ?? "",
   );
+  const [draftTimezone, setDraftTimezone] = useState(businessTimezone?.value ?? "");
   const [fileError, setFileError] = useState<string | null>(null);
   const [readingFile, setReadingFile] = useState(false);
 
@@ -350,6 +368,7 @@ export function OrgProfileEditModal({
     setDraftMatching(normalizeMatchingMode(merchant?.matchingMode));
     setDraftPricing(merchant?.pricingMode ?? "pegged_1to1");
     setDraftPublicKey(merchant?.publicKey?.trim() ?? "");
+    setDraftTimezone(businessTimezone?.value ?? "");
     setFileError(null);
     setReadingFile(false);
   }, [
@@ -368,6 +387,7 @@ export function OrgProfileEditModal({
     merchant?.matchingMode,
     merchant?.pricingMode,
     merchant?.publicKey,
+    businessTimezone?.value,
   ]);
 
   const matchedFixedTier =
@@ -634,6 +654,28 @@ export function OrgProfileEditModal({
                 </FieldControl>
               </div>
 
+              {businessTimezone ? (
+                <div className="org-edit__field org-edit__field--wide org-edit__field--gap">
+                  <span className="org-edit__field-head">
+                    <FieldLabel>Business time zone</FieldLabel>
+                    <span className="org-edit__aside-note">
+                      Customer invoices, receipts and the pay page
+                    </span>
+                  </span>
+                  <FieldControl leading={<ClockIcon />}>
+                    <SearchableSelect
+                      id={`${titleId}-business-tz`}
+                      value={draftTimezone}
+                      options={timeZoneSelectOptions(draftTimezone || null)}
+                      placeholder={businessTimezone.inheritLabel}
+                      emptyLabel={businessTimezone.inheritLabel}
+                      disabled={locked}
+                      onChange={setDraftTimezone}
+                    />
+                  </FieldControl>
+                </div>
+              ) : null}
+
               {merchant ? (
                 <div className="org-edit__field org-edit__field--gap">
                   <FieldLabel>Commercial tier</FieldLabel>
@@ -898,6 +940,7 @@ export function OrgProfileEditModal({
                 country: draftCountry.trim(),
                 legalName: draftLegal.trim() || draftName.trim(),
                 billingEmail: draftBilling.trim(),
+                ...(businessTimezone ? { businessTimezone: draftTimezone || null } : {}),
                 ...(commission
                   ? {
                       commission: {

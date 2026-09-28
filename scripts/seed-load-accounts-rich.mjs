@@ -43,7 +43,7 @@ const STATUSES = [
 const ASSETS = [
   { asset: "USDT", network: "tron" },
   { asset: "USDT", network: "ethereum" },
-  { asset: "USDC", network: "polygon" },
+  { asset: "USDC", network: "solana" },
 ];
 const TIERS = ["small", "mid", "enterprise"];
 const FEE_BY_TIER = { small: "1.8", mid: "1.2", enterprise: "0.9" };

@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   settlementAllowedOnOrgType,
+  settlementAssetsForNetwork,
   toSettlementAddress,
   validateSettlementBody,
 } from "../src/settlement/settlement-rules.mjs";
@@ -50,8 +51,8 @@ describe("settlement rules", () => {
   it("rejects unknown asset/network with 422", () => {
     const r = validateSettlementBody({
       asset: "USDT",
-      network: "bitcoin",
-      address: "bc1qexample",
+      network: "not_a_network",
+      address: "0xabc1234567890123456789012345678901234",
       mfaCode: "123456",
     });
     assert.equal(r.ok, false);
@@ -69,14 +70,27 @@ describe("settlement rules", () => {
     assert.equal(r.ok, true);
   });
 
-  it("rejects USDC on Polygon settlement while the rail is disabled", () => {
-    const r = validateSettlementBody({
-      asset: "USDC",
-      network: "polygon",
+  it("one wallet per network: asset is optional and covers every live asset", () => {
+    const tron = validateSettlementBody({
+      network: "tron",
+      address: "TPaymentGateStubReceiveAddress00001",
+      mfaCode: "123456",
+    });
+    assert.equal(tron.ok, true);
+    assert.deepEqual([...tron.parsed.assets].sort(), ["TRX", "USDT"]);
+
+    const eth = validateSettlementBody({
+      asset: "USDT",
+      network: "ethereum",
       address: "0xabc1234567890123456789012345678901234",
       mfaCode: "123456",
     });
-    assert.equal(r.ok, false);
+    assert.equal(eth.ok, true);
+    assert.deepEqual([...eth.parsed.assets].sort(), ["ETH", "USDC", "USDT"]);
+    assert.equal(eth.parsed.asset, "USDT");
+
+    assert.deepEqual([...settlementAssetsForNetwork("solana")].sort(), ["USDC", "USDT"]);
+    assert.deepEqual(settlementAssetsForNetwork("not_a_network"), []);
   });
 
   it("maps pending cool-down onto the API shape", () => {

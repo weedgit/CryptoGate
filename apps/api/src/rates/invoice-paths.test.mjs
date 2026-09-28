@@ -108,19 +108,19 @@ describe("volume USD math", () => {
   });
 });
 
-describe("BTC rate symbol", () => {
-  it("fetches BTC median from mocked venues", async () => {
+describe("TRX rate symbol", () => {
+  it("fetches TRX median from mocked venues", async () => {
     clearUsdPriceCache();
     const fetchImpl = async (url) => {
       const u = String(url);
       if (u.includes("binance")) {
-        return { ok: true, status: 200, json: async () => ({ price: "100000" }) };
+        return { ok: true, status: 200, json: async () => ({ price: "0.2500" }) };
       }
       if (u.includes("coingecko")) {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ bitcoin: { usd: 100200 } }),
+          json: async () => ({ tron: { usd: 0.2502 } }),
         };
       }
       if (u.includes("kraken")) {
@@ -128,18 +128,18 @@ describe("BTC rate symbol", () => {
           ok: true,
           status: 200,
           json: async () => ({
-            result: { XXBTZUSD: { c: ["100100", "1"] } },
+            result: { TRXUSD: { c: ["0.2501", "1"] } },
             error: [],
           }),
         };
       }
       throw new Error(u);
     };
-    const q = await getUsdPrice("BTC", {
+    const q = await getUsdPrice("TRX", {
       fetchImpl,
       bypassCache: true,
       minSources: 2,
     });
-    assert.equal(q.rate, "100100");
+    assert.equal(q.rate, "0.2501");
   });
 });

@@ -49,10 +49,10 @@ describe("@paymentgate/web commission list pagination", () => {
     assert.doesNotMatch(page, /Load more|hasMoreServer|FETCH_PAGE|countStuckPaidAcrossPages/);
   });
 
-  it("agent commissions reuse the platform page scoped to the agent payee", () => {
+  it("agent commissions list one invoice per month scoped to the agent payee", () => {
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
-    assert.match(page, /PlatformCommissionsPage/);
-    assert.match(page, /useAgentCommissionsPortal/);
+    assert.doesNotMatch(page, /PlatformCommissionsPage/);
+    assert.match(page, /payeeOrgId: agentId, sort: "period", dir: "desc", limit: LIST_LIMIT/);
     const platform = readCommissionsSources();
     assert.match(platform, /payeeOrgId: portal\.payeeOrgId/);
   });

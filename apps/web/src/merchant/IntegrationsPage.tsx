@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   getMerchantIntegrations,
@@ -31,7 +31,14 @@ import {
   sessionLiveActionsUnlocked,
 } from "../auth/contactVerification";
 import { SetupChecklistCard } from "../auth/SetupChecklistCard";
+import { GoldWaves } from "../shared/GoldWaves";
+import { ConfirmActionModal, type ConfirmRequest } from "../shared/ConfirmActionModal";
 import { formatShortTime } from "./orderStatus";
+import {
+  SETTLEMENT_ICONS,
+  SettlementSectionHead,
+  type SettlementIconKind,
+} from "./SettlementSectionHead";
 import {
   primaryMerchantOrgId,
   sessionCanManageIntegrations,
@@ -82,6 +89,134 @@ const MAX_WEBHOOKS = 5;
 
 type Props = { session: Session };
 
+function CardHelp({ text }: { text: string }) {
+  return (
+    <span className="plat-card-help plat-int__card-help">
+      <button type="button" className="plat-card-help__btn" aria-label={text}>
+        ?
+      </button>
+      <span className="plat-card-help__tip" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function Budget({
+  used,
+  max,
+  loading,
+  title,
+}: {
+  used: number;
+  max: number;
+  loading: boolean;
+  title: string;
+}) {
+  return (
+    <span
+      className={`plat-int__budget${used >= max ? " is-full" : ""}`}
+      title={title}
+    >
+      <strong>{loading ? "…" : used}</strong>
+      <span aria-hidden="true">/</span>
+      <span>{max}</span>
+    </span>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  copy,
+}: {
+  icon: SettlementIconKind;
+  title: string;
+  copy: string;
+}) {
+  return (
+    <div className="plat-int__empty">
+      <span className="plat-int__empty-icon" aria-hidden>
+        {SETTLEMENT_ICONS[icon]}
+      </span>
+      <strong className="plat-int__empty-title">{title}</strong>
+      <span className="plat-int__empty-copy">{copy}</span>
+    </div>
+  );
+}
+
+const EXPIRES_SOON_MS = 7 * 24 * 60 * 60 * 1000;
+
+function KeyStateBadge({ expiresAt }: { expiresAt?: string | null }) {
+  const left = expiresAt ? new Date(expiresAt).getTime() - Date.now() : Infinity;
+  const [tone, label] =
+    left <= 0 ? ["expired", "Expired"] : left <= EXPIRES_SOON_MS ? ["soon", "Expires soon"] : ["active", "Active"];
+  return <span className={`plat-int__state is-${tone}`}>{label}</span>;
+}
+
+function KeyIdCopy({ keyId }: { keyId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  return (
+    <span className="plat-int__key-id">
+      <code className="mono">{keyId}</code>
+      <button
+        type="button"
+        className={`plat-int__copy${copied ? " is-copied" : ""}`}
+        aria-label={copied ? "Key ID copied" : "Copy key ID"}
+        title={copied ? "Copied" : "Copy key ID"}
+        onClick={() => {
+          void navigator.clipboard.writeText(keyId).then(
+            () => setCopied(true),
+            () => undefined,
+          );
+        }}
+      >
+        {copied ? (
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="m3.5 8.5 3 3 6-7"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+            <rect x="5" y="5" width="8.5" height="8.5" rx="1.8" stroke="currentColor" strokeWidth="1.4" />
+            <path
+              d="M10.5 3.2A1.7 1.7 0 0 0 9 2.5H4.2A1.7 1.7 0 0 0 2.5 4.2V9a1.7 1.7 0 0 0 .7 1.5"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </button>
+    </span>
+  );
+}
+
+function PlusGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 3.5v9M3.5 8h9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function SecretOnceModal({
   title,
   secret,
@@ -94,6 +229,8 @@ function SecretOnceModal({
   onDismiss: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const titleId = useId();
+  const hintId = useId();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -118,36 +255,71 @@ function SecretOnceModal({
   return createPortal(
     <div className="b3-commission-modal-backdrop plat-int-secret-backdrop" role="presentation">
       <div
-        className="b3-commission-modal plat-int-secret-modal"
+        className="b3-commission-modal b3-owner-edit org-profile-edit-modal plat-int-secret-modal"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="plat-int-secret-title"
+        aria-labelledby={titleId}
+        aria-describedby={hintId}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="b3-commission-modal__head plat-int-secret-modal__head">
-          <h3 id="plat-int-secret-title" className="plat-int__secret-title">
-            {title}
-          </h3>
-          <span className="plat-int__chip plat-int__chip--warn">{SECRET_ONCE_BADGE}</span>
-        </header>
-        <div className="b3-commission-modal__body plat-int-secret-modal__body">
-          <p className="plat-int__secret-copy">{hint}</p>
-          <div className="plat-int__secret-box">
-            <code className="mono">{secret}</code>
-            <button type="button" className="btn-ghost btn-tiny" onClick={() => void copy()}>
-              {copied ? "Copied" : "Copy to clipboard"}
-            </button>
+        <header className="org-edit__head">
+          <span className="org-edit__head-icon" aria-hidden>
+            {SETTLEMENT_ICONS.key}
+          </span>
+          <div className="org-edit__head-copy">
+            <h3 id={titleId}>{title}</h3>
+            <p>Shown once — store it before closing.</p>
           </div>
+          <GoldWaves id={`${titleId.replace(/:/g, "")}-wave`} className="org-edit__waves" />
+          <span className="plat-int-secret-modal__badge">{SECRET_ONCE_BADGE}</span>
+        </header>
+        <div className="owner-acct">
+          <div className="owner-acct__form plat-int-secret-modal__form">
+            <p className="plat-int-secret-modal__warn" id={hintId}>
+              <span className="plat-int-secret-modal__warn-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3.5 21.5 20h-19L12 3.5Z" />
+                  <path d="M12 10v4.5M12 17.5h.01" />
+                </svg>
+              </span>
+              <span>{hint}</span>
+            </p>
+            <div className="owner-acct__field owner-acct__field--wide">
+              <span className="owner-acct__label">Secret</span>
+              <div className="plat-int-secret-modal__secret">
+                <code className="mono">{secret}</code>
+                <button
+                  type="button"
+                  className={`plat-int-secret-modal__copy${copied ? " is-copied" : ""}`}
+                  onClick={() => void copy()}
+                >
+                  {copied ? (
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path d="m3.5 8.5 3 3 6-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <rect x="5" y="5" width="8.5" height="8.5" rx="1.8" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M10.5 3.2A1.7 1.7 0 0 0 9 2.5H4.2A1.7 1.7 0 0 0 2.5 4.2V9a1.7 1.7 0 0 0 .7 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            </div>
+          </div>
+          <footer className="owner-acct__foot">
+            <span className="plat-int-secret-modal__foot-note">
+              {copied ? "Copied to clipboard." : "It cannot be retrieved later."}
+            </span>
+            <button type="button" className="owner-acct__save" onClick={onDismiss}>
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="m3.5 8.5 3 3 6-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {SECRET_ONCE_CONFIRM}
+            </button>
+          </footer>
         </div>
-        <footer className="b3-commission-modal__foot plat-int-secret-modal__foot">
-          <button
-            type="button"
-            className="btn-primary plat-settings__submit plat-int-secret-modal__confirm"
-            onClick={onDismiss}
-          >
-            {SECRET_ONCE_CONFIRM}
-          </button>
-        </footer>
       </div>
     </div>,
     document.body,
@@ -208,6 +380,21 @@ export function IntegrationsPage({ session }: Props) {
   const [keyExpiresAt, setKeyExpiresAt] = useState("");
   const [hookUrl, setHookUrl] = useState("https://");
   const [hookEvents, setHookEvents] = useState<string[]>([...WEBHOOK_EVENTS]);
+  const [confirmReq, setConfirmReq] = useState<
+    (ConfirmRequest & { resolve: (ok: boolean) => void }) | null
+  >(null);
+  const askConfirm = useCallback(
+    (req: ConfirmRequest) =>
+      new Promise<boolean>((resolve) => setConfirmReq({ ...req, resolve })),
+    [],
+  );
+  const settleConfirm = useCallback((ok: boolean) => {
+    setConfirmReq((current) => {
+      current?.resolve(ok);
+      return null;
+    });
+  }, []);
+  const cancelConfirm = useCallback(() => settleConfirm(false), [settleConfirm]);
   const [secretOnce, setSecretOnce] = useState<{
     title: string;
     secret: string;
@@ -368,6 +555,18 @@ export function IntegrationsPage({ session }: Props) {
 
       <SetupChecklistCard session={session} portal="merchant" />
 
+      {confirmReq ? (
+        <ConfirmActionModal
+          title={confirmReq.title}
+          message={confirmReq.message}
+          subject={confirmReq.subject}
+          confirmLabel={confirmReq.confirmLabel}
+          tone={confirmReq.tone}
+          onConfirm={() => settleConfirm(true)}
+          onCancel={cancelConfirm}
+        />
+      ) : null}
+
       {secretOnce ? (
         <SecretOnceModal
           title={secretOnce.title}
@@ -385,31 +584,19 @@ export function IntegrationsPage({ session }: Props) {
 
       <div className="plat-int__grid">
         <section className="plat-settings__card plat-int__card">
-          <div className="plat-settings__card-head">
-            <h2 className="plat-settings__card-title">API keys</h2>
-            <div className="plat-int__card-meta">
-              <span
-                className={`plat-int__budget${keysAtLimit ? " is-full" : ""}`}
-                title={`Maximum ${MAX_API_KEYS} active API keys`}
-              >
-                <strong>{loading ? "…" : keys.length}</strong>
-                <span aria-hidden="true">/</span>
-                <span>{MAX_API_KEYS}</span>
-              </span>
-              <span className="plat-card-help plat-int__card-help">
-                <button
-                  type="button"
-                  className="plat-card-help__btn"
-                  aria-label={API_KEYS_HELP}
-                >
-                  ?
-                </button>
-                <span className="plat-card-help__tip" role="tooltip">
-                  {API_KEYS_HELP}
-                </span>
-              </span>
-            </div>
-          </div>
+          <SettlementSectionHead
+            icon="key"
+            title="API keys"
+            subtitle="Signed credentials for server-to-server requests."
+            help={<CardHelp text={API_KEYS_HELP} />}
+          >
+            <Budget
+              used={keys.length}
+              max={MAX_API_KEYS}
+              loading={loading}
+              title={`Maximum ${MAX_API_KEYS} active API keys`}
+            />
+          </SettlementSectionHead>
           <div className="plat-settings__card-body">
             {canWrite ? (
               keysAtLimit ? (
@@ -419,8 +606,14 @@ export function IntegrationsPage({ session }: Props) {
                 </p>
               ) : (
               <div className="plat-int__form-panel">
-                <h3 className="plat-int__section-title">Create API key</h3>
-                <form className="plat-int__form" onSubmit={onCreateKey}>
+                <h3 className="plat-int__section-title">
+                  <span className="stl-subhead__icon" aria-hidden>
+                    <PlusGlyph />
+                  </span>
+                  Create API key
+                </h3>
+                <form className="plat-int__form plat-int__form--cols" onSubmit={onCreateKey}>
+                <div className="plat-int__form-col">
                 <label className="plat-settings__field" htmlFor="key-label">
                   <span>Label</span>
                   <input
@@ -435,6 +628,29 @@ export function IntegrationsPage({ session }: Props) {
                   />
                 </label>
 
+                <label
+                  className="plat-settings__field plat-int__ip-field"
+                  htmlFor="key-ip-allowlist"
+                >
+                  <span>Allowed IP addresses</span>
+                  <textarea
+                    id="key-ip-allowlist"
+                    className="plat-settings__input mono"
+                    value={keyIpAllowlist}
+                    onChange={(e) => setKeyIpAllowlist(e.target.value)}
+                    disabled={busy}
+                    rows={4}
+                    spellCheck={false}
+                    data-gramm="false"
+                    placeholder={"203.0.113.10\n198.51.100.0/24"}
+                  />
+                  <span className="plat-int__field-hint">
+                    Optional. One IP address or CIDR range per line.
+                  </span>
+                </label>
+                </div>
+
+                <div className="plat-int__form-col">
                 <fieldset className="plat-settings__field plat-int__fieldset">
                   <legend className="plat-int__field-label">Permissions</legend>
                   <div className="plat-int__option-group plat-int__option-group--choices">
@@ -457,23 +673,6 @@ export function IntegrationsPage({ session }: Props) {
                   ) : null}
                 </fieldset>
 
-                <label className="plat-settings__field" htmlFor="key-ip-allowlist">
-                  <span>Allowed IP addresses</span>
-                  <textarea
-                    id="key-ip-allowlist"
-                    className="plat-settings__input mono"
-                    value={keyIpAllowlist}
-                    onChange={(e) => setKeyIpAllowlist(e.target.value)}
-                    disabled={busy}
-                    rows={3}
-                    placeholder={"203.0.113.10\n198.51.100.0/24"}
-                  />
-                  <span className="plat-int__field-hint">
-                    Optional. One IP address or CIDR range per line.
-                  </span>
-                </label>
-
-                <div className="plat-int__expiry-row">
                   <label
                     className="plat-settings__field plat-int__expiry-field"
                     htmlFor="key-expires"
@@ -508,18 +707,19 @@ export function IntegrationsPage({ session }: Props) {
                         </svg>
                       </span>
                     </span>
+                    <span className="plat-int__field-hint">
+                      Optional. Leave empty for a key that never expires.
+                    </span>
                   </label>
                   <button
                     className="btn-primary plat-settings__submit plat-int__generate-btn"
                     type="submit"
                     disabled={busy || !keyLabel.trim() || keyScopes.length === 0}
                   >
+                    {SETTLEMENT_ICONS.key}
                     Generate API key
                   </button>
                 </div>
-                <span className="plat-int__field-hint plat-int__expiry-hint">
-                  Optional.
-                </span>
                 </form>
               </div>
               )
@@ -533,17 +733,29 @@ export function IntegrationsPage({ session }: Props) {
             {loading && !hasLoaded ? (
               <p className="muted">Loading API keys…</p>
             ) : keys.length === 0 ? (
-              <p className="plat-int__empty">No API keys have been created yet.</p>
+              <EmptyState
+                icon="key"
+                title="No API keys yet"
+                copy="Create a key to start calling the PaymentGate API from your server."
+              />
             ) : (
               <div className="plat-int__list-section">
                 <h3 className="plat-int__section-title">Active keys</h3>
                 <ul className="plat-int__list">
                 {keys.map((k) => (
-                  <li key={k.id} className="plat-int__item">
+                  <li key={k.id} className="plat-int__item plat-int__item--key">
                     <div className="plat-int__item-main">
                       <div className="plat-int__item-head">
-                        <strong>{k.label}</strong>
-                        <code className="mono plat-int__item-key">{k.keyId}</code>
+                        <span className="plat-int__item-icon" aria-hidden>
+                          {SETTLEMENT_ICONS.key}
+                        </span>
+                        <div className="plat-int__item-title">
+                          <span className="plat-int__item-name">
+                            <strong>{k.label}</strong>
+                            <KeyStateBadge expiresAt={k.expiresAt} />
+                          </span>
+                          <KeyIdCopy keyId={k.keyId} />
+                        </div>
                         {canWrite ? (
                           <div className="plat-int__actions">
                             <button
@@ -553,9 +765,14 @@ export function IntegrationsPage({ session }: Props) {
                               onClick={async () => {
                                 if (
                                   !orgId ||
-                                  !window.confirm(
-                                    `Rotate the API key “${k.label}”? The current secret will stop working immediately.`,
-                                  )
+                                  !(await askConfirm({
+                                    title: "Rotate API key?",
+                                    subject: k.label,
+                                    message:
+                                      "A new secret is issued and the current one stops working immediately. Update your server before rotating.",
+                                    confirmLabel: "Rotate key",
+                                    tone: "warn",
+                                  }))
                                 )
                                   return;
                                 setBusy(true);
@@ -585,9 +802,13 @@ export function IntegrationsPage({ session }: Props) {
                               onClick={async () => {
                                 if (
                                   !orgId ||
-                                  !window.confirm(
-                                    `Revoke the API key “${k.label}”? This action cannot be undone.`,
-                                  )
+                                  !(await askConfirm({
+                                    title: "Revoke API key?",
+                                    subject: k.label,
+                                    message:
+                                      "Requests signed with this key will be rejected right away. This action cannot be undone.",
+                                    confirmLabel: "Revoke key",
+                                  }))
                                 )
                                   return;
                                 setBusy(true);
@@ -615,41 +836,50 @@ export function IntegrationsPage({ session }: Props) {
                         </div>
                         <div className="plat-int__detail">
                           <dt>Last used</dt>
-                          <dd>
+                          <dd className={k.lastUsedAt ? undefined : "is-muted"}>
                             {k.lastUsedAt
                               ? formatShortTime(k.lastUsedAt)
                               : "Not used yet"}
                           </dd>
                         </div>
                         <div className="plat-int__detail">
-                          <dt>Permissions</dt>
-                          <dd>
-                            {k.scopes && k.scopes.length > 0
-                              ? k.scopes
-                                  .map((scope) =>
-                                    scope in KEY_SCOPE_LABELS
-                                      ? KEY_SCOPE_LABELS[
-                                          scope as (typeof KEY_SCOPES)[number]
-                                        ]
-                                      : scope,
-                                  )
-                                  .join(", ")
-                              : "—"}
+                          <dt>Expires</dt>
+                          <dd className={k.expiresAt ? undefined : "is-muted"}>
+                            {k.expiresAt ? formatShortTime(k.expiresAt) : "Never"}
                           </dd>
                         </div>
                         <div className="plat-int__detail">
                           <dt>Allowed IPs</dt>
-                          <dd>
+                          <dd
+                            className={`mono${
+                              k.ipAllowlist && k.ipAllowlist.length > 0 ? "" : " is-muted"
+                            }`}
+                            title={k.ipAllowlist?.join("\n")}
+                          >
                             {k.ipAllowlist && k.ipAllowlist.length > 0
-                              ? k.ipAllowlist.join(", ")
-                              : "Any"}
+                              ? k.ipAllowlist.length > 2
+                                ? `${k.ipAllowlist.slice(0, 2).join(", ")} +${
+                                    k.ipAllowlist.length - 2
+                                  }`
+                                : k.ipAllowlist.join(", ")
+                              : "Any IP"}
                           </dd>
                         </div>
-                        <div className="plat-int__detail">
-                          <dt>Expiration</dt>
-                          <dd>{k.expiresAt ? formatShortTime(k.expiresAt) : "None"}</dd>
-                        </div>
                       </dl>
+                      <div className="plat-int__scopes" aria-label="Permissions">
+                        <span className="plat-int__scopes-label">Permissions</span>
+                        {k.scopes && k.scopes.length > 0 ? (
+                          k.scopes.map((scope) => (
+                            <span key={scope} className="plat-int__scope">
+                              {scope in KEY_SCOPE_LABELS
+                                ? KEY_SCOPE_LABELS[scope as (typeof KEY_SCOPES)[number]]
+                                : scope}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="plat-int__scopes-none">None</span>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -660,31 +890,19 @@ export function IntegrationsPage({ session }: Props) {
         </section>
 
         <section className="plat-settings__card plat-int__card">
-          <div className="plat-settings__card-head">
-            <h2 className="plat-settings__card-title">Webhooks</h2>
-            <div className="plat-int__card-meta">
-              <span
-                className={`plat-int__budget${hooksAtLimit ? " is-full" : ""}`}
-                title={`Maximum ${MAX_WEBHOOKS} webhook endpoints`}
-              >
-                <strong>{loading ? "…" : hooks.length}</strong>
-                <span aria-hidden="true">/</span>
-                <span>{MAX_WEBHOOKS}</span>
-              </span>
-              <span className="plat-card-help plat-int__card-help">
-                <button
-                  type="button"
-                  className="plat-card-help__btn"
-                  aria-label={WEBHOOKS_HELP}
-                >
-                  ?
-                </button>
-                <span className="plat-card-help__tip" role="tooltip">
-                  {WEBHOOKS_HELP}
-                </span>
-              </span>
-            </div>
-          </div>
+          <SettlementSectionHead
+            icon="webhook"
+            title="Webhooks"
+            subtitle="Signed order status notifications to your HTTPS endpoint."
+            help={<CardHelp text={WEBHOOKS_HELP} />}
+          >
+            <Budget
+              used={hooks.length}
+              max={MAX_WEBHOOKS}
+              loading={loading}
+              title={`Maximum ${MAX_WEBHOOKS} webhook endpoints`}
+            />
+          </SettlementSectionHead>
           <div className="plat-settings__card-body">
             {canWrite ? (
               hooksAtLimit ? (
@@ -694,23 +912,43 @@ export function IntegrationsPage({ session }: Props) {
                 </p>
               ) : (
               <div className="plat-int__form-panel">
-                <h3 className="plat-int__section-title">Add webhook</h3>
+                <h3 className="plat-int__section-title">
+                  <span className="stl-subhead__icon" aria-hidden>
+                    <PlusGlyph />
+                  </span>
+                  Add webhook
+                </h3>
                 <form className="plat-int__form" onSubmit={onRegisterHook}>
-                <label className="plat-settings__field" htmlFor="hook-url">
-                  <span>Endpoint URL</span>
-                  <input
-                    id="hook-url"
-                    className="plat-settings__input mono"
-                    value={hookUrl}
-                    onChange={(e) => setHookUrl(e.target.value)}
-                    required
-                    disabled={busy}
-                    placeholder="https://example.com/webhooks/paymentgate"
-                  />
+                <div className="plat-settings__field">
+                  <label className="plat-int__field-label" htmlFor="hook-url">
+                    Endpoint URL
+                  </label>
+                  <div className="plat-int__url-row">
+                    <input
+                      id="hook-url"
+                      className="plat-settings__input mono"
+                      value={hookUrl}
+                      onChange={(e) => setHookUrl(e.target.value)}
+                      required
+                      disabled={busy}
+                      spellCheck={false}
+                      autoComplete="off"
+                      data-gramm="false"
+                      placeholder="https://example.com/webhooks/paymentgate"
+                    />
+                    <button
+                      className="btn-primary plat-settings__submit plat-int__add-hook-btn"
+                      type="submit"
+                      disabled={busy || hookEvents.length === 0}
+                    >
+                      {SETTLEMENT_ICONS.webhook}
+                      Add webhook
+                    </button>
+                  </div>
                   <span className="plat-int__field-hint">
                     HTTPS required. Signed event notifications are posted to this URL.
                   </span>
-                </label>
+                </div>
 
                 <fieldset className="plat-settings__field plat-int__fieldset">
                   <legend className="plat-int__field-label">Notify on</legend>
@@ -733,14 +971,6 @@ export function IntegrationsPage({ session }: Props) {
                     </span>
                   ) : null}
                 </fieldset>
-
-                <button
-                  className="btn-primary plat-settings__submit"
-                  type="submit"
-                  disabled={busy || hookEvents.length === 0}
-                >
-                  Add webhook
-                </button>
                 </form>
               </div>
               )
@@ -749,7 +979,11 @@ export function IntegrationsPage({ session }: Props) {
             {loading && !hasLoaded ? (
               <p className="muted">Loading webhooks…</p>
             ) : hooks.length === 0 ? (
-              <p className="plat-int__empty">No webhooks have been added yet.</p>
+              <EmptyState
+                icon="webhook"
+                title="No webhooks yet"
+                copy="Add an endpoint to receive payment order updates as they happen."
+              />
             ) : (
               <div className="plat-int__list-section">
                 <h3 className="plat-int__section-title">Active endpoints</h3>
@@ -812,9 +1046,14 @@ export function IntegrationsPage({ session }: Props) {
                                 onClick={async () => {
                                   if (
                                     !orgId ||
-                                    !window.confirm(
-                                      "Rotate the signing secret for this webhook? The current secret will stop working immediately.",
-                                    )
+                                    !(await askConfirm({
+                                      title: "Rotate signing secret?",
+                                      subject: h.url,
+                                      message:
+                                        "A new secret is issued and the current one stops working immediately. Update your signature verification after rotating.",
+                                      confirmLabel: "Rotate secret",
+                                      tone: "warn",
+                                    }))
                                   )
                                     return;
                                   setBusy(true);
@@ -846,9 +1085,13 @@ export function IntegrationsPage({ session }: Props) {
                                 onClick={async () => {
                                   if (
                                     !orgId ||
-                                    !window.confirm(
-                                      "Delete this webhook? Delivery history will no longer be available for this endpoint.",
-                                    )
+                                    !(await askConfirm({
+                                      title: "Delete webhook?",
+                                      subject: h.url,
+                                      message:
+                                        "Notifications stop immediately and delivery history for this endpoint will no longer be available.",
+                                      confirmLabel: "Delete webhook",
+                                    }))
                                   )
                                     return;
                                   setBusy(true);
@@ -899,11 +1142,11 @@ export function IntegrationsPage({ session }: Props) {
 
       {selectedHook ? (
         <section className="plat-settings__card plat-int__card plat-int__card--log">
-          <div className="plat-settings__card-head">
-            <div>
-              <h2 className="plat-settings__card-title">Delivery history</h2>
-              <p className="plat-int__log-sub mono">{selectedHookUrl}</p>
-            </div>
+          <SettlementSectionHead
+            icon="history"
+            title="Delivery history"
+            subtitle={<span className="mono plat-int__log-sub">{selectedHookUrl}</span>}
+          >
             <button
               type="button"
               className="btn-ghost btn-tiny"
@@ -914,10 +1157,14 @@ export function IntegrationsPage({ session }: Props) {
             >
               Close
             </button>
-          </div>
+          </SettlementSectionHead>
           <div className="plat-settings__card-body">
             {deliveries.length === 0 ? (
-              <p className="plat-int__empty">No deliveries recorded for this webhook yet.</p>
+              <EmptyState
+                icon="history"
+                title="No deliveries yet"
+                copy="Deliveries for this endpoint will appear here. Use Send test to try it."
+              />
             ) : (
               <div className="plat-int__table-wrap">
                 <table className="plat-int__table">

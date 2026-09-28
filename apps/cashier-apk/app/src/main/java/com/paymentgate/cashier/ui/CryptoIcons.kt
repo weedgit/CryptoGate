@@ -22,14 +22,8 @@ import androidx.compose.ui.unit.dp
 
 private val Usdt = Color(0xFF26A17B)
 private val Usdc = Color(0xFF2775CA)
-private val Btc = Color(0xFFF7931A)
 private val Eth = Color(0xFF627EEA)
 private val Tron = Color(0xFFEF0027)
-private val Bnb = Color(0xFFF3BA2F)
-private val Polygon = Color(0xFF8247E5)
-private val Arb = Color(0xFF12AAFF)
-private val Ton = Color(0xFF0098EA)
-private val Base = Color(0xFF0052FF)
 private val Slate = Color(0xFF64748B)
 private val White = Color.White
 
@@ -38,7 +32,6 @@ fun AssetIcon(asset: String, size: Dp = 22.dp, modifier: Modifier = Modifier) {
     when (asset.uppercase()) {
         "USDT" -> BrandDisk(Usdt, size, modifier) { tetherMark() }
         "USDC" -> BrandDisk(Usdc, size, modifier) { letterMark("C") }
-        "BTC" -> BrandDisk(Btc, size, modifier) { letterMark("B") }
         "ETH" -> BrandDisk(Eth, size, modifier) { ethMark() }
         "TRX" -> BrandDisk(Tron, size, modifier) { tronMark() }
         else -> BrandDisk(Slate, size, modifier) { letterMark(asset.take(1).uppercase()) }
@@ -50,18 +43,12 @@ fun NetworkIcon(network: String, size: Dp = 22.dp, modifier: Modifier = Modifier
     when (network) {
         "tron", "tron_nile" -> BrandDisk(Tron, size, modifier) { tronMark() }
         "ethereum" -> BrandDisk(Eth, size, modifier) { ethMark() }
-        "bnb_smart_chain" -> BrandDisk(Bnb, size, modifier) { bnbMark() }
-        "polygon" -> BrandDisk(Polygon, size, modifier) { letterMark("P") }
-        "arbitrum_one" -> BrandDisk(Arb, size, modifier) { letterMark("A") }
         "solana" ->
             BrandDisk(
                 brush = Brush.linearGradient(listOf(Color(0xFF9945FF), Color(0xFF14F195))),
                 size = size,
                 modifier = modifier,
             ) { solMark() }
-        "ton" -> BrandDisk(Ton, size, modifier) { tonMark() }
-        "base" -> BrandDisk(Base, size, modifier) { baseMark() }
-        "bitcoin" -> BrandDisk(Btc, size, modifier) { letterMark("B") }
         else -> BrandDisk(Slate, size, modifier) { letterMark(network.take(1).uppercase()) }
     }
 }
@@ -146,21 +133,6 @@ private fun DrawScope.tronMark() {
     drawPath(path, White)
 }
 
-private fun DrawScope.bnbMark() {
-    val w = size.minDimension
-    val cx = size.width / 2f
-    val cy = size.height / 2f
-    val r = w * 0.30f
-    val path = Path().apply {
-        moveTo(cx, cy - r)
-        lineTo(cx + r, cy)
-        lineTo(cx, cy + r)
-        lineTo(cx - r, cy)
-        close()
-    }
-    drawPath(path, White)
-}
-
 private fun DrawScope.solMark() {
     val w = size.minDimension
     val h = w * 0.12f
@@ -183,23 +155,6 @@ private fun DrawScope.solMark() {
         size = Size(w * 0.60f, h),
         cornerRadius = radius,
     )
-}
-
-private fun DrawScope.tonMark() {
-    val w = size.minDimension
-    val path = Path().apply {
-        moveTo(w * 0.50f, w * 0.16f)
-        lineTo(w * 0.82f, w * 0.78f)
-        lineTo(w * 0.18f, w * 0.78f)
-        close()
-    }
-    drawPath(path, White)
-}
-
-private fun DrawScope.baseMark() {
-    val w = size.minDimension
-    drawCircle(White, radius = w * 0.28f)
-    drawCircle(Base, radius = w * 0.14f)
 }
 
 private fun DrawScope.letterMark(letter: String) {

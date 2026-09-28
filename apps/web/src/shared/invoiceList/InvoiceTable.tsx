@@ -31,6 +31,12 @@ export function InvoiceTable({
           <th>Invoice</th>
           <th className="invoice-list__th-merchant">{partyColumnLabel}</th>
           <th className="invoice-list__th-amount">Amount (USD)</th>
+          <th className="invoice-list__th-crypto" title="Crypto amount = invoice USD ÷ fund rate (USD per 1 unit of the asset)">
+            Crypto amount
+          </th>
+          <th className="invoice-list__th-rate" title="Fund rate (USD per 1 unit of the asset) and what backs it. Hover the evidence for details.">
+            Rate &amp; evidence
+          </th>
           <th>Asset &amp; Network</th>
           <th>Status</th>
           <th>Created</th>

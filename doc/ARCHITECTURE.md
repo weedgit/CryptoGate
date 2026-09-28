@@ -34,7 +34,7 @@ Do **not** add a max-lines linter. Do **not** split a 120-line function into fiv
 
 **Matching:** `mode-b`, `mode-c`, `mode-d`, `mode-s` (pool states in `mode-s`, not in create-order). A small router selects the mode stored on the order. Never a 800-line `switch`.
 
-**Chains:** one client per network (start with the confirmed USDT network). No `watcher` file that switches on Tron / ETH / BTC.
+**Chains:** one client per network (start with the confirmed USDT network). No `watcher` file that switches on Tron / ETH / Solana.
 
 **Orgs:** Platform → agent → merchant → merchant (site) → cashier lives under `apps/api/src/orgs`, not in `users`.
 

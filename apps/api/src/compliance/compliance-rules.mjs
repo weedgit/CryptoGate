@@ -1,3 +1,5 @@
+import { settlementAssetsForNetwork } from "../settlement/settlement-rules.mjs";
+
 export const COMPLIANCE_OVERRIDE_TYPES = [
   "settlement_address",
   "matching_mode",
@@ -23,7 +25,7 @@ export const COMPLIANCE_REASON_CODES = [
  *     ticketId: string | null,
  *     mfaCode: string,
  *     matchingMode: string | null,
- *     settlement: { asset: string, network: string, address: string } | null,
+ *     settlement: { asset: string, assets: string[], network: string, address: string } | null,
  *   }
  * } | { ok: false, status: number, code: string, message: string }}
  */
@@ -89,17 +91,21 @@ export function validateComplianceOverrideBody(body) {
     const asset = typeof s.asset === "string" ? s.asset.trim() : "";
     const network = typeof s.network === "string" ? s.network.trim() : "";
     const address = typeof s.address === "string" ? s.address.trim() : "";
-    if (!asset || !network || !address) {
+    if (!network || !address) {
       return fail(
         400,
         "invalid_request",
-        "settlement.asset, settlement.network, and settlement.address are required",
+        "settlement.network and settlement.address are required",
       );
     }
     if (address.length < 8 || address.length > 256) {
       return fail(400, "invalid_request", "settlement.address length is invalid");
     }
-    settlement = { asset, network, address };
+    const assets = settlementAssetsForNetwork(network);
+    if (assets.length === 0 || (asset && !assets.includes(asset))) {
+      return fail(422, "asset_network_disabled", "Asset and network are not enabled");
+    }
+    settlement = { asset: asset || assets[0], assets, network, address };
   }
 
   return {

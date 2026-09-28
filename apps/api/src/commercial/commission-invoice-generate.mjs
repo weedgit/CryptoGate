@@ -165,7 +165,7 @@ function periodPaidBounds(periodKey) {
 /**
  * @param {import("pg").QueryResultRow[]} orgs
  */
-function isTopLevelAgent(org, byId) {
+export function isTopLevelAgent(org, byId) {
   if (org.type !== "agent") return false;
   if (!org.parent_id) return true;
   const parent = byId.get(org.parent_id);
@@ -179,7 +179,7 @@ function isTopLevelAgent(org, byId) {
  * @param {string} commissionPercent
  * @param {{ address: string, asset: string, network: string } | null} payout
  */
-async function buildInvoiceForAgent(
+export async function buildInvoiceForAgent(
   agentId,
   agentName,
   periodKey,

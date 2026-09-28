@@ -35,7 +35,6 @@ import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
 import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
-import { setViewerTimeZone } from "../shared/dateTime";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
@@ -242,9 +241,6 @@ export function PlatformShell({
     return () => window.cancelAnimationFrame(id);
   }, []);
 
-  useEffect(() => {
-    setViewerTimeZone(session.timezone);
-  }, [session.timezone]);
 
   useEffect(() => {
     const sync = () => setUnreadAlerts(countUnreadPlatformAlerts());

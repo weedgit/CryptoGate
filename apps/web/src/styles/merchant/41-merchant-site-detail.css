@@ -88,6 +88,52 @@
   white-space: nowrap;
 }
 
+/* Merchant Networks page — Service Bills title style */
+.platform-shell .org-network-rail-panel__intro--page {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--nr-divider);
+}
+
+.platform-shell .org-network-rail-panel__intro--page .org-network-rail-panel__intro-main {
+  flex: 1 1 auto;
+}
+
+.platform-shell .org-network-rail-panel__intro-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  color: var(--nr-gold);
+}
+
+.platform-shell .org-network-rail-panel__intro-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+.platform-shell .org-network-rail-panel__intro--page .org-network-rail-panel__intro-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.platform-shell .org-network-rail-panel__intro--page .org-network-rail-panel__intro-sub {
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .platform-shell .org-network-rail-panel__intro--page {
+    flex-wrap: wrap;
+  }
+}
+
 .platform-shell .org-network-rail-panel__pending {
   padding: 8px 0;
 }

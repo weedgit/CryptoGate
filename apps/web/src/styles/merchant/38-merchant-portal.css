@@ -26,10 +26,48 @@
   margin: 4px;
 }
 
-@media (min-width: 721px) {
-  .merchant-shell.platform-shell .pg-dash__status-row.merchant-dash__status-row--cashier {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (min-width: 1281px) {
+  .merchant-shell.platform-shell .pg-dash__status-row.merchant-dash__status-row--site {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
+
+/* Site home — inherited settlement wallet notice */
+.platform-shell .site-dash__settlement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.06);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.platform-shell .site-dash__settlement > span:nth-child(2) {
+  flex: 1 1 280px;
+}
+
+.platform-shell .site-dash__settlement-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+  flex-shrink: 0;
+}
+
+.platform-shell .site-dash__settlement-link {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+html[data-theme="light"] .platform-shell .site-dash__settlement {
+  border-color: rgba(5, 150, 105, 0.25);
+  background: rgba(16, 185, 129, 0.07);
 }
 
 .merchant-shell.platform-shell .cg-empty {
@@ -326,32 +364,31 @@
   height: 10px;
 }
 
-.platform-shell .merchant-dash-sites {
-  margin-top: 22px;
+.platform-shell .merchant-dash-channels__head,
+.platform-shell .merchant-dash-channels__row {
+  grid-template-columns: minmax(0, 1.4fr) 0.7fr 1.6fr 1fr;
 }
 
-.platform-shell .merchant-dash-sites__head,
-.platform-shell .merchant-dash-sites__row {
-  grid-template-columns: minmax(0, 2fr) 0.8fr 1.2fr 0.8fr;
+.platform-shell .merchant-dash-channels__share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.platform-shell .merchant-dash-cashiers__head,
-.platform-shell .merchant-dash-cashiers__row {
-  grid-template-columns: minmax(0, 2.8fr) 0.8fr 1.2fr;
-}
-
-.platform-shell .merchant-dash-cashiers__row > span:first-child {
+.platform-shell .merchant-dash-channels__bar {
+  flex: 1 1 auto;
+  max-width: 160px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--glass);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.platform-shell .merchant-dash-cashiers__row:disabled {
-  cursor: default;
-}
-
-.platform-shell .merchant-dash-cashiers__period {
-  font-size: 12px;
+.platform-shell .merchant-dash-channels__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
 }
 
 @media (max-width: 1100px) {
@@ -368,10 +405,6 @@
 
   .platform-shell .merchant-dash-orders__table.orders-table {
     min-width: 720px;
-  }
-
-  .platform-shell .merchant-dash-sites .merchant-dash-orders__table.orders-table {
-    min-width: 480px;
   }
 }
 
@@ -452,3 +485,471 @@
   color: rgba(148, 163, 184, 0.55);
 }
 
+
+.platform-shell .merchant-dash__chart-split {
+  margin-top: 20px;
+}
+
+.platform-shell .merchant-dash__volume-error {
+  margin: auto 0;
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted, #94a3b8);
+}
+
+.platform-shell .pg-kpi__bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.platform-shell .pg-kpi__bottom .pg-kpi__link {
+  margin-top: 0;
+  padding-top: 0;
+  align-self: center;
+}
+
+.platform-shell .pg-kpi__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.platform-shell .merchant-dash__fee-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-dash__fee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.platform-shell .merchant-dash__fee-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.platform-shell .merchant-dash__fee-badge.is-ok { color: #34d399; }
+.platform-shell .merchant-dash__fee-badge.is-warn { color: #fbbf24; }
+.platform-shell .merchant-dash__fee-badge.is-danger { color: #f87171; }
+.platform-shell .merchant-dash__fee-badge.is-muted { color: #94a3b8; }
+
+.platform-shell .merchant-dash__fee-schedule {
+  padding-left: 8px;
+  border-left: 1px solid rgba(148, 163, 184, 0.22);
+  color: #94a3b8;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="light"] .platform-shell .pg-kpi__bottom {
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash__fee-schedule {
+  border-left-color: rgba(15, 23, 42, 0.14);
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash__fee-badge.is-ok { color: #047857; }
+html[data-theme="light"] .platform-shell .merchant-dash__fee-badge.is-warn { color: #b45309; }
+html[data-theme="light"] .platform-shell .merchant-dash__fee-badge.is-danger { color: #b91c1c; }
+html[data-theme="light"] .platform-shell .merchant-dash__fee-badge.is-muted { color: #64748b; }
+html[data-theme="light"] .platform-shell .merchant-dash__fee-schedule { color: #64748b; }
+
+/* Merchant KPI numbers take their card's accent colour. */
+.platform-shell .merchant-dash__kpi-row .pg-kpi__value {
+  color: var(--pg-accent);
+  text-shadow: 0 0 22px color-mix(in srgb, var(--pg-accent) 35%, transparent);
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash__kpi-row .pg-kpi__value {
+  color: color-mix(in srgb, var(--pg-accent) 78%, #0f172a);
+  text-shadow: none;
+}
+
+
+.platform-shell .merchant-dash__split--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Sites + Cashiers: flat tables (no card), section title like Metrics. */
+.platform-shell .merchant-dash__lists {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 28px;
+}
+
+.platform-shell .merchant-dash__lists.merchant-dash__split--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-shell .merchant-dash-list {
+  min-width: 0;
+  margin-top: 28px;
+}
+
+.platform-shell .merchant-dash__lists > .merchant-dash-list {
+  margin-top: 0;
+}
+
+.platform-shell .merchant-dash-list__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.platform-shell .merchant-dash-list__head .overview-charts__heading {
+  margin: 0;
+}
+
+.platform-shell .merchant-dash-list__more {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-dash-list__more:hover,
+.platform-shell .merchant-dash-list__more:focus-visible {
+  text-decoration: underline;
+}
+
+.platform-shell .merchant-dash-list__more.is-warn {
+  color: var(--warn);
+}
+
+.platform-shell .merchant-dash-list__scroll {
+  overflow-x: auto;
+}
+
+/* Framed table: navy card, header band, roomy rows. */
+.platform-shell .merchant-dash-list__frame {
+  border-radius: 12px;
+  border: 1px solid rgba(120, 160, 190, 0.16);
+  background: #04182b;
+  overflow: hidden;
+}
+
+.platform-shell .merchant-dash-list__frame .org-pager {
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(120, 160, 190, 0.12);
+  background: #0a1e34;
+}
+
+.platform-shell .merchant-dash-table {
+  width: 100%;
+  min-width: 440px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.platform-shell .merchant-dash-table th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: #8ea0b3;
+  background: #0a1e34;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.14);
+}
+
+.platform-shell .merchant-dash-table thead th:first-child {
+  border-top-left-radius: 11px;
+}
+
+.platform-shell .merchant-dash-table thead th:last-child {
+  border-top-right-radius: 11px;
+}
+
+.platform-shell .merchant-dash-table td {
+  height: 56px;
+  padding: 8px 16px;
+  vertical-align: middle;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.09);
+  transition: background 120ms ease;
+}
+
+.platform-shell .merchant-dash-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.platform-shell .merchant-dash-table tbody tr:hover td {
+  background: rgba(245, 197, 66, 0.04);
+}
+
+.platform-shell .merchant-dash-table tbody tr:hover td:first-child {
+  box-shadow: inset 2px 0 0 #f5c542;
+}
+
+.platform-shell .merchant-dash-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.platform-shell .merchant-dash-table .is-end {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.platform-shell .merchant-dash-table__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-dash-table__avatar {
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.platform-shell .merchant-dash-table__person {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0a2036;
+  box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.35);
+}
+
+.platform-shell .merchant-dash-table__person img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.platform-shell .merchant-dash-table__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .merchant-dash-table__name {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #f8fafc;
+  text-decoration: none;
+}
+
+.platform-shell a.merchant-dash-table__name:hover,
+.platform-shell a.merchant-dash-table__name:focus-visible {
+  color: #f5c542;
+}
+
+.platform-shell .merchant-dash-table__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: #8ea0b3;
+}
+
+.platform-shell .merchant-dash-table__tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.platform-shell .merchant-dash-table tr.is-paused .merchant-dash-table__name {
+  color: #8ea0b3;
+}
+
+.platform-shell .merchant-dash-table tr.is-paused .merchant-dash-table__person {
+  opacity: 0.55;
+}
+
+.platform-shell .merchant-dash-table__zero {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.platform-shell .merchant-dash-table__amount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: #f8fafc;
+  font-weight: 650;
+}
+
+.platform-shell .merchant-dash-table__amount.is-zero {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.platform-shell .merchant-dash-table__unit {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.platform-shell .merchant-dash-table__flag,
+.platform-shell .merchant-dash-table__pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #8ea0b3;
+}
+
+.platform-shell .merchant-dash-table__flag.is-danger {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.platform-shell .merchant-dash-table__flag.is-clear {
+  color: #64748b;
+  border-color: transparent;
+  background: transparent;
+}
+
+.platform-shell .merchant-dash-table__pin::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.platform-shell .merchant-dash-table__pin.is-on {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.platform-shell .merchant-dash-table__pin.is-off {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .merchant-dash__lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-list__frame {
+  background: #ffffff;
+  border-color: #d8dee8;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-list__frame .org-pager {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table th {
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table td {
+  color: #0f172a;
+  border-bottom-color: #eef2f7;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table tbody tr:hover td {
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table tbody tr:hover td:first-child {
+  box-shadow: inset 2px 0 0 #d97706;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__name,
+html[data-theme="light"] .platform-shell .merchant-dash-table__amount {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell a.merchant-dash-table__name:hover {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__sub {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__person {
+  background: #f1f5f9;
+  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.35);
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__flag.is-danger {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__pin.is-on {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+html[data-theme="light"] .platform-shell .merchant-dash-table__pin.is-off {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}

@@ -37,6 +37,7 @@ import {
 } from "./membership-store.mjs";
 import {
   findOrgById,
+  resolveBusinessTimezone,
   updateOrgBillingEmailIfEmpty,
 } from "./org-store.mjs";
 import {
@@ -200,7 +201,9 @@ export async function handleInviteOrgUser(req, res, orgId) {
 
   let provisioned;
   try {
-    provisioned = await provisionUserForInvite(email);
+    provisioned = await provisionUserForInvite(email, {
+      timezone: await inviteDefaultTimezone(org.id, caller.userId),
+    });
   } catch (err) {
     if (err && err.code === "email_invalid") {
       sendError(res, 400, "email_invalid", err.message);
@@ -723,4 +726,20 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
     metadata: { targetUserId: userId, email: targetEmail, role: existing.role },
   });
   sendJson(res, 200, { configured: false });
+}
+
+/**
+ * New invitees start in the org's business time zone, else the inviter's confirmed zone.
+ * @param {string} orgId
+ * @param {string} inviterUserId
+ */
+async function inviteDefaultTimezone(orgId, inviterUserId) {
+  try {
+    const business = await resolveBusinessTimezone(orgId);
+    if (business) return business;
+    const inviter = await findUserById(inviterUserId);
+    return inviter?.timezoneConfirmed ? inviter.timezone : null;
+  } catch {
+    return null;
+  }
 }

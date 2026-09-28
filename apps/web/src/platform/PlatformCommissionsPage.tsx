@@ -1,6 +1,5 @@
 import { Navigate } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
-import { BulkMarkPaidModal } from "./BulkMarkPaidModal";
 import type { Session } from "./api";
 import { OrgListPagination } from "./OrgListPagination";
 import { CommissionsPeriodBar } from "./commissions/CommissionsPeriodBar";
@@ -24,13 +23,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     okMessage,
     dismissToast,
     deepLinkId,
-    canBulkPay,
-    selectedIds,
-    bulkOpen,
-    setBulkOpen,
-    bulkBusy,
-    bulkError,
-    onBulkConfirm,
     showOpenInvoices,
     loading,
     total,
@@ -52,16 +44,6 @@ export function PlatformCommissionsPage({ session }: Props) {
     <div className="plat-bills plat-commissions">
       <AuthToast message={error} tone="error" onDismiss={dismissToast} />
       <AuthToast message={okMessage} tone="ok" onDismiss={dismissToast} />
-      {canBulkPay ? (
-        <BulkMarkPaidModal
-          open={bulkOpen}
-          count={selectedIds.size}
-          busy={bulkBusy}
-          error={bulkError}
-          onClose={() => setBulkOpen(false)}
-          onConfirm={(opts) => void onBulkConfirm(opts)}
-        />
-      ) : null}
 
       <CommissionsPeriodBar
         isPortal={Boolean(portal)}

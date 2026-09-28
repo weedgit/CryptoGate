@@ -1,5 +1,6 @@
 import { apiFetch, setLoginInProgress } from "../auth/apiFetch";
 import { API_BASE, ApiError, parseError } from "../shared/apiCore";
+import { getViewerTimeZone } from "../shared/dateTime";
 import {
   listActiveNetworkMaintenance,
   getNetworksStatus,
@@ -78,6 +79,8 @@ export type Session = {
   locale?: string;
   /** IANA timezone (A10). */
   timezone?: string;
+  /** False while `timezone` is still the untouched UTC default. */
+  timezoneConfirmed?: boolean;
   mustChangePassword?: boolean;
   /** True after invite-reset token use or email OTP. */
   emailVerified?: boolean;
@@ -121,6 +124,8 @@ export type PaymentOrder = {
   id: string;
   orgId?: string;
   orgName?: string | null;
+  /** Merchant/site business zone for customer documents; absent when not set. */
+  businessTimezone?: string | null;
   orderNumber: string;
   status: string;
   matchingMode: string;
@@ -162,7 +167,11 @@ export type PaymentOrder = {
   anomalyResolutionNote?: string | null;
   anomalyResolvedAt?: string | null;
   fulfillmentPolicy?: string;
+  /** Channel that created the order; null = unknown (older POS builds). */
+  createdVia?: OrderChannel | null;
 };
+
+export type OrderChannel = "web" | "pos" | "api";
 
 export type OnChainDetails = {
   txHash?: string | null;
@@ -176,6 +185,8 @@ export type OnChainDetails = {
 export type PaymentDetails = {
   orderNumber: string;
   status: string;
+  /** Merchant/site business zone for customer documents; null when not set. */
+  businessTimezone?: string | null;
   matchingMode: string;
   paymentPageUrl: string;
   qrPayload: string;
@@ -350,6 +361,8 @@ export async function createOrder(input: {
   network: string;
   validitySeconds: number;
   merchantReference?: string;
+  /** Required by the API when the user has several merchant/site memberships. */
+  orgId?: string | null;
 }): Promise<PaymentOrder> {
   const res = await apiFetch(`${API_BASE}/orders`, {
     method: "POST",
@@ -358,6 +371,7 @@ export async function createOrder(input: {
       Accept: "application/json",
       "Content-Type": "application/json",
       "Idempotency-Key": `web-${crypto.randomUUID()}`,
+      "X-PaymentGate-Client": "web",
     },
     body: JSON.stringify({
       ...(input.invoiceDenomination === "crypto" || input.amountCrypto
@@ -374,6 +388,7 @@ export async function createOrder(input: {
       asset: input.asset,
       network: input.network,
       validitySeconds: input.validitySeconds,
+      ...(input.orgId ? { orgId: input.orgId } : {}),
       ...(input.merchantReference?.trim()
         ? {
             merchantMetadata: {
@@ -424,6 +439,7 @@ export async function listOrdersPage(opts?: {
   q?: string;
   asset?: string;
   network?: string;
+  createdVia?: OrderChannel | "unknown";
 }): Promise<PaymentOrderListPage> {
   const q = new URLSearchParams();
   if (opts?.status) q.set("status", opts.status);
@@ -438,6 +454,7 @@ export async function listOrdersPage(opts?: {
   if (opts?.q) q.set("q", opts.q);
   if (opts?.asset) q.set("asset", opts.asset);
   if (opts?.network) q.set("network", opts.network);
+  if (opts?.createdVia) q.set("createdVia", opts.createdVia);
   const suffix = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${API_BASE}/orders${suffix}`, {
     credentials: "include",
@@ -479,6 +496,7 @@ export async function listOrders(opts?: {
   q?: string;
   asset?: string;
   network?: string;
+  createdVia?: OrderChannel | "unknown";
 }): Promise<PaymentOrder[]> {
   const key = JSON.stringify({
     status: opts?.status ?? "",
@@ -493,6 +511,7 @@ export async function listOrders(opts?: {
     q: opts?.q ?? "",
     asset: opts?.asset ?? "",
     network: opts?.network ?? "",
+    createdVia: opts?.createdVia ?? "",
   });
   const hit = inflightOrderLists.get(key);
   if (hit) return hit;
@@ -599,6 +618,7 @@ export function ordersCsvUrl(opts?: {
   q?: string;
   asset?: string;
   network?: string;
+  createdVia?: OrderChannel | "unknown";
   limit?: number;
 }): string {
   const q = new URLSearchParams({ format: "csv" });
@@ -611,7 +631,9 @@ export function ordersCsvUrl(opts?: {
   if (opts?.q) q.set("q", opts.q);
   if (opts?.asset) q.set("asset", opts.asset);
   if (opts?.network) q.set("network", opts.network);
+  if (opts?.createdVia) q.set("createdVia", opts.createdVia);
   if (opts?.limit != null) q.set("limit", String(opts.limit));
+  q.set("tz", getViewerTimeZone());
   return `${API_BASE}/orders?${q}`;
 }
 
@@ -635,6 +657,7 @@ export type InvoiceExportFilters = {
   q?: string;
   asset?: string;
   network?: string;
+  createdVia?: OrderChannel | "unknown";
 };
 
 export async function createInvoiceExport(
@@ -647,7 +670,7 @@ export async function createInvoiceExport(
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(filters),
+    body: JSON.stringify({ ...filters, tz: getViewerTimeZone() }),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as InvoiceExportJob;
@@ -749,14 +772,8 @@ export async function getMatchingMode(orgId: string): Promise<MatchingModeSettin
 export async function putMatchingMode(
   orgId: string,
   matchingMode: string,
-  opts?: { underpayTolerance?: string },
 ): Promise<MatchingModeSettings> {
-  const body: { matchingMode: string; underpayTolerance?: string } = {
-    matchingMode,
-  };
-  if (opts?.underpayTolerance != null) {
-    body.underpayTolerance = opts.underpayTolerance;
-  }
+  const body = { matchingMode };
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/matching-mode`, {
     method: "PUT",
     credentials: "include",
@@ -801,6 +818,38 @@ export async function putFulfillmentPolicy(
   return (await res.json()) as FulfillmentPolicySettings;
 }
 
+export type PosSettings = {
+  orgId: string;
+  /** Merchant policy: cashiers may create orders on the web (POS app always allowed). */
+  cashierWebOrders: boolean;
+  source: "merchant" | "inherit" | "override";
+  parentOrgId: string | null;
+  effectiveOrgId: string;
+};
+
+export async function getPosSettings(orgId: string): Promise<PosSettings> {
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/pos-settings`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PosSettings;
+}
+
+export async function putPosSettings(
+  orgId: string,
+  cashierWebOrders: boolean,
+): Promise<PosSettings> {
+  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/pos-settings`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ cashierWebOrders }),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PosSettings;
+}
+
 export async function listSettlement(orgId: string): Promise<SettlementAddress[]> {
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/settlement`, {
     credentials: "include",
@@ -811,10 +860,11 @@ export async function listSettlement(orgId: string): Promise<SettlementAddress[]
   return data.items ?? [];
 }
 
+/** One wallet per network: the address is saved for every asset on `network`. */
 export async function putSettlement(
   orgId: string,
-  body: { asset: string; network: string; address: string; mfaCode: string },
-): Promise<SettlementAddress> {
+  body: { network: string; address: string; mfaCode: string; asset?: string },
+): Promise<SettlementAddress & { items?: SettlementAddress[] }> {
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/settlement`, {
     method: "PUT",
     credentials: "include",
@@ -825,7 +875,7 @@ export async function putSettlement(
     body: JSON.stringify(body),
   });
   if (!res.ok) await parseError(res);
-  return (await res.json()) as SettlementAddress;
+  return (await res.json()) as SettlementAddress & { items?: SettlementAddress[] };
 }
 
 export async function listXpub(orgId: string): Promise<XpubSettings[]> {
@@ -1179,6 +1229,8 @@ export type OrgMember = OrgMembership & {
   timezone?: string | null;
   /** Present on org user list (B15 / C11 / D16). */
   mfaEnrolled?: boolean;
+  /** Cashier POS unlock PIN set (org user list). */
+  posPinConfigured?: boolean;
   lastLoginAt?: string | null;
 };
 

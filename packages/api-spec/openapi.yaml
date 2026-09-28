@@ -4325,8 +4325,8 @@ components:
         underpayTolerance:
           type: string
           description: >
-            Non-negative major-unit decimal string. Mode B underpay allowance;
-            same-amount collisions still become Payment Anomaly.
+            Retired — always "0". Payments must match the exact amount; any
+            underpay becomes Payment Anomaly.
           example: "0"
         source:
           $ref: "#/components/schemas/SettingsSource"
@@ -4459,7 +4459,9 @@ components:
           $ref: "#/components/schemas/MatchingMode"
         underpayTolerance:
           type: string
-          description: Non-negative major-unit decimal string (Mode B)
+          description: >
+            Retired. Optional; only "0" is accepted (anything else returns
+            400 underpay_tolerance_unsupported).
     SettlementAddress:
       type: object
       required: [orgId, asset, network, address, status]
@@ -4792,22 +4794,17 @@ components:
       enum: [main, hd_pool]
     AssetCode:
       type: string
-      enum: [USDT, USDC, BTC, ETH, TRX]
+      enum: [USDT, USDC, ETH, TRX]
     NetworkId:
       type: string
       enum:
         - ethereum
         - tron
         - tron_nile
-        - bnb_smart_chain
-        - polygon
-        - arbitrum_one
         - solana
-        - ton
-        - base
-        - bitcoin
       description: >
-        Network id for payment orders. `tron_nile` is local/staging testnet only
+        Network id for payment orders. Phase 1 rails are Ethereum, Tron and Solana.
+        `tron_nile` is local/staging testnet only
         (PAYMENTGATE_CHAIN_ENV=testnet); never expose in production product builds.
     Money:
       type: object

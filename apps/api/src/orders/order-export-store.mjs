@@ -1,8 +1,10 @@
 import { mkdir, unlink, writeFile, access } from "node:fs/promises";
+import { findUserById } from "../auth/users.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import path from "node:path";
 import { getPool } from "../db/pool.mjs";
 import {
-  ORDER_CSV_HEADERS,
+  orderCsvHeaders,
   csvCell,
   paymentOrderCsvFields,
 } from "./order-csv.mjs";
@@ -170,13 +172,18 @@ export async function processInvoiceExportJob(job) {
       return;
     }
 
-    const lines = [ORDER_CSV_HEADERS.map(csvCell).join(",")];
+    const requestedTz = job.filters?.tz;
+    const timeZone =
+      typeof requestedTz === "string" && isValidTimeZone(requestedTz)
+        ? requestedTz
+        : await exportTimeZone(job.requested_by);
+    const lines = [orderCsvHeaders(timeZone).map(csvCell).join(",")];
     let offset = 0;
     let written = 0;
     let page = first;
     for (;;) {
       for (const row of page.rows) {
-        lines.push(paymentOrderCsvFields(row).map(csvCell).join(","));
+        lines.push(paymentOrderCsvFields(row, timeZone).map(csvCell).join(","));
         written += 1;
       }
       offset += page.rows.length;
@@ -245,4 +252,17 @@ export function toInvoiceExportJob(row) {
         ? row.expires_at.toISOString()
         : row.expires_at,
   };
+}
+
+/**
+ * @param {string | null | undefined} userId
+ */
+async function exportTimeZone(userId) {
+  if (!userId) return "UTC";
+  try {
+    const user = await findUserById(userId);
+    return user?.timezone && isValidTimeZone(user.timezone) ? user.timezone : "UTC";
+  } catch {
+    return "UTC";
+  }
 }

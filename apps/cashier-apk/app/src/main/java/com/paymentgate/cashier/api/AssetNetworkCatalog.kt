@@ -79,10 +79,6 @@ object AssetNetworkCatalog {
                 "tron_nile" -> "TRON · Nile"
                 "ethereum" -> "Ethereum · ERC-20"
                 "solana" -> "Solana"
-                "bitcoin" -> "Bitcoin"
-                "bnb_smart_chain" -> "BNB Smart Chain"
-                "polygon" -> "Polygon"
-                "ton" -> "TON"
                 else -> network.replace('_', ' ')
             }
 

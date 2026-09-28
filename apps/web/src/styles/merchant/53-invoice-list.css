@@ -871,6 +871,195 @@
   min-width: 0;
 }
 
+.invoice-list__asset-net-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.invoice-list__asset-net-icons {
+  position: relative;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+}
+
+.invoice-list__asset-net-icons > .plat-crypto-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.invoice-list__asset-net-icons > .plat-crypto-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.invoice-list__asset-net-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  padding: 1.5px;
+  border-radius: 999px;
+  background: var(--surface, #0b1220);
+}
+
+.invoice-list__asset-net-badge .plat-crypto-icon {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.invoice-list__asset-net-badge .plat-crypto-icon svg {
+  width: 9px;
+  height: 9px;
+}
+
+.invoice-list__asset-net-text {
+  min-width: 0;
+}
+
+.invoice-list__th-crypto,
+.invoice-list__crypto {
+  white-space: nowrap;
+}
+
+.invoice-list__crypto-amount {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-list__crypto-unit {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--muted, #94a3b8);
+}
+
+.invoice-list__crypto-formula {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #94a3b8);
+}
+
+.invoice-list__th-rate,
+.invoice-list__rate {
+  white-space: nowrap;
+}
+
+.invoice-list__rate-value {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-list__rate-value.is-none,
+.invoice-list__rate-unit {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--muted, #94a3b8);
+}
+
+.invoice-list__rate-meta {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--muted, #94a3b8);
+}
+
+.invoice-list__evidence-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: help;
+  color: #5eead4;
+  text-decoration: underline dotted rgba(148, 163, 184, 0.5);
+  text-underline-offset: 3px;
+}
+
+.invoice-list__evidence-chip.is-peg {
+  color: #86efac;
+}
+
+.invoice-list__evidence-chip.is-derived {
+  color: #cbd5e1;
+}
+
+.invoice-list__evidence-chip:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.5);
+  outline-offset: 1px;
+}
+
+.invoice-list__evidence-tip {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 212, 200, 0.38);
+  background: #1e2a38;
+  color: #e8eef8;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 16px 36px rgba(0, 0, 0, 0.55);
+  animation: invoice-evidence-in 120ms ease both;
+}
+
+.invoice-list__evidence-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.invoice-list__evidence-line:first-of-type {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes invoice-evidence-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .invoice-list__asset-net-asset {
   display: block;
   font-weight: 600;

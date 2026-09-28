@@ -65,6 +65,152 @@ export async function findSettlementAddress(orgId, asset, network, client) {
 }
 
 /**
+ * Receive address for an order. Wallets are per network, so an asset without its
+ * own row uses the active address of another asset on the same network.
+ * @param {string} orgId
+ * @param {string} asset
+ * @param {string} network
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ */
+export async function findNetworkSettlementAddress(orgId, asset, network, client) {
+  const exact = await findSettlementAddress(orgId, asset, network, client);
+  if (exact?.address?.trim()) return exact;
+  const { rows } = await db(client).query(
+    `SELECT ${SETTLEMENT_SELECT}
+     FROM settlement_addresses
+     WHERE org_id = $1 AND network = $2 AND btrim(address) <> ''
+     ORDER BY updated_at DESC, asset ASC
+     LIMIT 1`,
+    [orgId, network],
+  );
+  return rows[0] ?? exact ?? null;
+}
+
+/**
+ * @template T
+ * @param {(client: import("pg").PoolClient) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function inTransaction(work) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * One wallet per network: writes `address` to every asset in `assets`.
+ * The first address on a network activates immediately; any change (including
+ * assets added later while another address is active) waits for the cool-down.
+ * @param {{
+ *   orgId: string,
+ *   network: string,
+ *   assets: string[],
+ *   address: string,
+ *   cooldownMs: number,
+ * }} input
+ * @returns {Promise<{ rows: any[], kind: "activated" | "pending" | "unchanged" }>}
+ */
+export async function upsertNetworkSettlementAddress(input) {
+  return inTransaction(async (client) => {
+    await activateDuePendingSettlements(client);
+    const { rows: existingRows } = await client.query(
+      `SELECT ${SETTLEMENT_SELECT}
+       FROM settlement_addresses
+       WHERE org_id = $1 AND network = $2
+       ORDER BY updated_at DESC
+       FOR UPDATE`,
+      [input.orgId, input.network],
+    );
+    const byAsset = new Map(existingRows.map((row) => [row.asset, row]));
+    const networkActive =
+      existingRows.find((row) => typeof row.address === "string" && row.address.trim())
+        ?.address ?? null;
+    const activatesAt = new Date(Date.now() + input.cooldownMs).toISOString();
+
+    let anyPending = false;
+    let anyActivated = false;
+    const rows = [];
+    for (const asset of input.assets) {
+      const existing = byAsset.get(asset);
+      const key = [input.orgId, asset, input.network];
+      if (!existing) {
+        if (!networkActive || networkActive === input.address) {
+          const { rows: inserted } = await client.query(
+            `INSERT INTO settlement_addresses (org_id, asset, network, address)
+             VALUES ($1, $2, $3, $4)
+             RETURNING ${SETTLEMENT_SELECT}`,
+            [...key, input.address],
+          );
+          if (!networkActive) anyActivated = true;
+          rows.push(inserted[0]);
+        } else {
+          const { rows: inserted } = await client.query(
+            `INSERT INTO settlement_addresses
+               (org_id, asset, network, address, pending_address, pending_activates_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING ${SETTLEMENT_SELECT}`,
+            [...key, networkActive, input.address, activatesAt],
+          );
+          anyPending = true;
+          rows.push(inserted[0]);
+        }
+        continue;
+      }
+      if (existing.address === input.address) {
+        const { rows: updated } = await client.query(
+          `UPDATE settlement_addresses
+           SET pending_address = NULL, pending_activates_at = NULL, updated_at = now()
+           WHERE org_id = $1 AND asset = $2 AND network = $3
+           RETURNING ${SETTLEMENT_SELECT}`,
+          key,
+        );
+        rows.push(updated[0]);
+        continue;
+      }
+      const { rows: updated } = await client.query(
+        `UPDATE settlement_addresses
+         SET pending_address = $4, pending_activates_at = $5, updated_at = now()
+         WHERE org_id = $1 AND asset = $2 AND network = $3
+         RETURNING ${SETTLEMENT_SELECT}`,
+        [...key, input.address, activatesAt],
+      );
+      anyPending = true;
+      rows.push(updated[0]);
+    }
+    const kind = anyPending ? "pending" : anyActivated ? "activated" : "unchanged";
+    return { rows, kind };
+  });
+}
+
+/**
+ * B7 compliance: force the network wallet for every asset in `assets` (no cool-down).
+ * @param {{ orgId: string, network: string, assets: string[], address: string }} input
+ */
+export async function forceNetworkSettlementAddress(input) {
+  return inTransaction(async (client) => {
+    const rows = [];
+    for (const asset of input.assets) {
+      rows.push(
+        await forceSettlementAddress(
+          { orgId: input.orgId, asset, network: input.network, address: input.address },
+          client,
+        ),
+      );
+    }
+    return rows;
+  });
+}
+
+/**
  * First set activates immediately. Changes go to pending until cool-down ends.
  * @param {{
  *   orgId: string,

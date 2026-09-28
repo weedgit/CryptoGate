@@ -6,6 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { browserTimeZone } from "../shared/dateTime";
+import { timeZoneSelectOptions } from "../shared/timeZoneOptions";
 import { createPortal } from "react-dom";
 import {
   ApiError,
@@ -43,22 +45,12 @@ type Props = {
   startMfa?: boolean;
 };
 
-const TIMEZONES = [
-  "UTC",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Taipei",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Bangkok",
-  "Asia/Jakarta",
-  "Asia/Manila",
-  "Australia/Sydney",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-];
+
+/** Unconfirmed profiles still hold the UTC default; start from the device zone instead. */
+function profileTimeZoneDefault(session: Session): string {
+  if (session.timezoneConfirmed === true && session.timezone) return session.timezone;
+  return browserTimeZone();
+}
 
 function HeadUser() {
   return (
@@ -286,7 +278,7 @@ export function ProfileSettingsModal({
   const [lastName, setLastName] = useState(session.lastName ?? "");
   const [email, setEmail] = useState(session.email);
   const [phone, setPhone] = useState(formatPhoneInput(session.phone ?? ""));
-  const [timezone, setTimezone] = useState(session.timezone || "UTC");
+  const [timezone, setTimezone] = useState(() => profileTimeZoneDefault(session));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
@@ -316,7 +308,7 @@ export function ProfileSettingsModal({
     setLastName(session.lastName ?? "");
     setEmail(session.email);
     setPhone(formatPhoneInput(session.phone ?? ""));
-    setTimezone(session.timezone || "UTC");
+    setTimezone(profileTimeZoneDefault(session));
     setAvatarUrl(sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null);
   }, [
     session.userId,
@@ -325,6 +317,7 @@ export function ProfileSettingsModal({
     session.email,
     session.phone,
     session.timezone,
+    session.timezoneConfirmed,
     session.avatarUrl,
     session.emailVerified,
     session.phoneVerified,
@@ -342,14 +335,7 @@ export function ProfileSettingsModal({
     live.phoneVerified === true &&
     formatPhoneInput(phone) === formatPhoneInput(live.phone ?? "");
 
-  const timezoneOptions = useMemo(
-    () =>
-      [...new Set([timezone.trim() || "UTC", ...TIMEZONES])].map((id) => ({
-        id,
-        label: id,
-      })),
-    [timezone],
-  );
+  const timezoneOptions = useMemo(() => timeZoneSelectOptions(timezone.trim() || "UTC"), [timezone]);
 
   const passwordPolicy = evaluatePasswordPolicy(newPassword);
   const saving = busy || readingFile;

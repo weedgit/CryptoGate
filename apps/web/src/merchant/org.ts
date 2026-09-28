@@ -185,10 +185,9 @@ export function parentMerchantOrgId(session: Session): string | null {
  * All `merchant_site` orgs under a merchant root (BFS; unlimited nesting).
  * Sites under sites are included — there is no separate sub-site type.
  */
-export function sitesInMerchantSubtree(
-  orgs: ReadonlyArray<{ id: string; type: string; parentId?: string | null }>,
-  merchantId: string,
-): Array<{ id: string; type: string; parentId?: string | null }> {
+export function sitesInMerchantSubtree<
+  T extends { id: string; type: string; parentId?: string | null },
+>(orgs: ReadonlyArray<T>, merchantId: string): T[] {
   const children = new Map<string, string[]>();
   for (const o of orgs) {
     if (o.type !== "merchant_site" || !o.parentId) continue;
@@ -197,7 +196,7 @@ export function sitesInMerchantSubtree(
     else children.set(o.parentId, [o.id]);
   }
   const byId = new Map(orgs.map((o) => [o.id, o]));
-  const out: Array<{ id: string; type: string; parentId?: string | null }> = [];
+  const out: T[] = [];
   const queue = [...(children.get(merchantId) ?? [])];
   const seen = new Set<string>();
   while (queue.length > 0) {

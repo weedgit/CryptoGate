@@ -1,3 +1,4 @@
+import { formatViewerDateTime } from "../shared/dateTime";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PLATFORM_FEE_ASSET } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
@@ -92,7 +93,7 @@ export function AgentOrgEditHost({ session, open, onClose, onSessionRefresh }: P
         });
         setPayout(row);
         payoutMsg = row.pendingActivatesAt
-          ? `Payout wallet change pending. Activates ${new Date(row.pendingActivatesAt).toLocaleString()}.`
+          ? `Payout wallet change pending. Activates ${formatViewerDateTime(row.pendingActivatesAt)}.`
           : "Payout wallet saved.";
       }
       const updated = await patchOrgProfile(agentId, next);
@@ -112,7 +113,7 @@ export function AgentOrgEditHost({ session, open, onClose, onSessionRefresh }: P
   }
 
   const payoutNote = payout?.pendingActivatesAt
-    ? `Pending change to ${payout.pendingAddress ?? "a new wallet"} activates ${new Date(payout.pendingActivatesAt).toLocaleString()}. Payouts go to the current wallet until then.`
+    ? `Pending change to ${payout.pendingAddress ?? "a new wallet"} activates ${formatViewerDateTime(payout.pendingActivatesAt)}. Payouts go to the current wallet until then.`
     : null;
 
   return (

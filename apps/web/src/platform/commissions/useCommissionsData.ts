@@ -13,7 +13,6 @@ import {
   generateCommissionInvoices,
   defaultCommissionPeriodKey,
   findPayout,
-  markCommissionPayoutsPaidBatch,
   type CommissionPayoutRecord,
 } from "../../commercial/commissionPayoutRecords";
 import {
@@ -27,7 +26,7 @@ import {
 import { getPlatformOrgs, peekPlatformOrgs } from "../platformOrgList";
 import { platformRoute } from "../../shared/portalRouting";
 import { useCommissionsPortal } from "../commissionsPortal";
-import { sessionCanIssueServiceBill, sessionIsPlatformViewerOnly } from "../org";
+import { sessionCanIssueServiceBill } from "../org";
 import {
   getCommissionPayoutsSummary,
   listCommissionPayoutsServer,
@@ -40,7 +39,6 @@ import { invalidateServerJson, type ServerPage } from "../../shared/serverListAp
 import { useDebouncedValue } from "../../shared/useDebouncedValue";
 import { toggleSortState, type SortState } from "../ui/TableArrange";
 import {
-  BATCH_MARK_PAID_MAX,
   HISTORY_SORT_SERVER,
   PAGE_SIZE,
   PERIOD_KEY_RE,
@@ -52,7 +50,7 @@ import {
   type StatusFilter,
 } from "./commissionsShared";
 
-/** Filters, server paging, selection, bulk remittance and invoice generation for the commissions list. */
+/** Filters, server paging and invoice generation for the commissions list (remit one invoice at a time). */
 export function useCommissionsData(session: Session) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -71,11 +69,6 @@ export function useCommissionsData(session: Session) {
     () => (portal ? false : sessionCanIssueServiceBill(session)),
     [portal, session],
   );
-  const isViewer = useMemo(
-    () => (portal ? portal.readOnly : sessionIsPlatformViewerOnly(session)),
-    [portal, session],
-  );
-
   const [error, setError] = useState<string | null>(null);
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [generatePeriod, setGeneratePeriod] = useState(() =>
@@ -192,36 +185,6 @@ export function useCommissionsData(session: Session) {
     [filterKey],
   );
 
-  const canBulkPay = canPay && !isViewer && showOpenInvoices;
-  const [selection, setSelection] = useState<{ key: string; ids: Set<string> }>(
-    () => ({ key: filterKey, ids: new Set() }),
-  );
-  const selectedIds = useMemo(
-    () => (selection.key === filterKey ? selection.ids : new Set<string>()),
-    [selection, filterKey],
-  );
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkError, setBulkError] = useState<string | null>(null);
-
-  const toggleSelected = useCallback(
-    (ids: string[], on: boolean) => {
-      setSelection((prev) => {
-        const next = new Set(prev.key === filterKey ? prev.ids : []);
-        for (const id of ids) {
-          if (!on) next.delete(id);
-          else if (next.size < BATCH_MARK_PAID_MAX) next.add(id);
-        }
-        return { key: filterKey, ids: next };
-      });
-    },
-    [filterKey],
-  );
-  const clearSelection = useCallback(
-    () => setSelection({ key: filterKey, ids: new Set() }),
-    [filterKey],
-  );
-
   const listParams = useMemo<CommissionPayoutsListParams>(() => {
     const base = {
       ...payeeScope,
@@ -328,44 +291,6 @@ export function useCommissionsData(session: Session) {
     await Promise.all([loadList(listParams), loadSummary()]);
   }, [loadList, loadSummary, listParams]);
 
-  const onBulkConfirm = useCallback(
-    async ({ note, txRef }: { note: string; txRef: string }) => {
-      const ids = [...selectedIds];
-      if (ids.length === 0) return;
-      setBulkBusy(true);
-      setBulkError(null);
-      try {
-        const result = await markCommissionPayoutsPaidBatch(ids, { note, txRef });
-        setBulkOpen(false);
-        clearSelection();
-        if (result.paid.length > 0) {
-          setOkMessage(
-            result.paid.length === 1
-              ? "Marked 1 invoice paid — awaiting agent confirm."
-              : `Marked ${result.paid.length} invoices paid — awaiting agent confirm.`,
-          );
-        }
-        if (result.failed.length > 0) {
-          setError(
-            `${result.failed.length} not marked paid: ${result.failed[0].message}` +
-              (result.failed.length > 1 ? ` (and ${result.failed.length - 1} more)` : "") +
-              ".",
-          );
-        }
-        await refreshPayouts();
-      } catch (err) {
-        setBulkError(
-          err instanceof ApiError || err instanceof Error
-            ? err.message
-            : "Failed to mark invoices paid",
-        );
-      } finally {
-        setBulkBusy(false);
-      }
-    },
-    [selectedIds, clearSelection, refreshPayouts],
-  );
-
   /** Refresh button. */
   const load = useCallback(async () => {
     setError(null);
@@ -374,7 +299,6 @@ export function useCommissionsData(session: Session) {
 
   const loading = pageData == null;
   const rows = pageData?.items ?? [];
-  const issuedOnPage = rows.filter((r) => r.payoutStatus === "issued").map((r) => r.id);
   const total = pageData?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const statusCounts: Record<StatusFilter, number> = summary?.counts ?? {
@@ -491,21 +415,10 @@ export function useCommissionsData(session: Session) {
     debouncedQuery,
     page,
     setPage,
-    canBulkPay,
-    selectedIds,
-    bulkOpen,
-    setBulkOpen,
-    bulkBusy,
-    bulkError,
-    setBulkError,
-    toggleSelected,
-    clearSelection,
     fetching,
-    onBulkConfirm,
     load,
     loading,
     rows,
-    issuedOnPage,
     total,
     pageCount,
     statusCounts,

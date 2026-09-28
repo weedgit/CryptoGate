@@ -1,3 +1,6 @@
+import { zoneAbbrev } from "../../shared/dateTime";
+import { useViewerTimeZone } from "../../shared/useViewerTimeZone";
+
 type PeriodOption<Id extends string> = { id: Id; label: string };
 
 type PeriodControlsProps<Id extends string> = {
@@ -27,6 +30,7 @@ export function DashPeriodControls<Id extends string>({
   disabled,
   refreshTitle = "Refresh dashboard",
 }: PeriodControlsProps<Id>) {
+  const tz = useViewerTimeZone();
   return (
     <div className="pg-dash__period" aria-label="Period">
       <div className="pg-dash__period-pills" role="group" aria-label="Quick periods">
@@ -66,6 +70,12 @@ export function DashPeriodControls<Id extends string>({
           />
         </label>
       </div>
+      <span
+        className="pg-dash__period-zone"
+        title={`Days, "Today" and MTD follow your profile time zone (${tz}). Change it in Profile.`}
+      >
+        {zoneAbbrev(tz)}
+      </span>
       <button
         type="button"
         className="pg-dash__period-refresh"

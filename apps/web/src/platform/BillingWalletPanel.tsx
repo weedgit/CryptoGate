@@ -1,3 +1,4 @@
+import { formatViewerDateTime } from "../shared/dateTime";
 import {
   FormEvent,
   useCallback,
@@ -54,6 +55,24 @@ export function BillingWalletPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  async function onCopyPayTo() {
+    const value = payTo.trim();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+    } catch {
+      setError("Could not copy the wallet address");
+    }
+  }
 
   const dirty =
     sellerName !== savedSellerName ||
@@ -261,17 +280,30 @@ export function BillingWalletPanel({
                 </label>
                 <FieldControl
                   icon="coins"
-                  shellClassName="plat-fee-billing__shell--textarea"
+                  shellClassName="field-shell--copy plat-fee-billing__shell--address"
+                  trailing={
+                    <button
+                      type="button"
+                      className="field-shell__copy-btn"
+                      onClick={() => void onCopyPayTo()}
+                      disabled={!payTo.trim()}
+                      aria-label="Copy wallet address"
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                  }
                 >
-                  <textarea
+                  <input
                     id="billing-pay-to"
-                    className="b4-field__control plat-fee-billing__textarea"
+                    className="b4-field__control plat-fee-billing__address"
                     value={payTo}
                     disabled={!canEdit || busy}
-                    onChange={(e) => setPayTo(e.target.value)}
+                    onChange={(e) => setPayTo(e.target.value.replace(/\s+/g, ""))}
                     maxLength={500}
-                    rows={3}
                     placeholder="Tron USDT address (T…)"
+                    autoComplete="off"
+                    spellCheck={false}
+                    data-gramm="false"
                   />
                 </FieldControl>
               </div>
@@ -282,7 +314,7 @@ export function BillingWalletPanel({
         <div className="plat-fee-bands__actions">
           <p className="plat-fee-bands__actions-note">
             {updatedAt
-              ? `Last saved ${new Date(updatedAt).toLocaleString()}`
+              ? `Last saved ${formatViewerDateTime(updatedAt)}`
               : null}
             {updatedAt ? " · " : null}
             <Link className="plat-fee-billing__bills-link" to={platformRoute("service-bills")}>

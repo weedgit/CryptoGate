@@ -48,7 +48,7 @@ const STATUSES = [
 const ASSETS = [
   { asset: "USDT", network: "tron" },
   { asset: "USDT", network: "ethereum" },
-  { asset: "USDC", network: "polygon" },
+  { asset: "USDC", network: "solana" },
 ];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");

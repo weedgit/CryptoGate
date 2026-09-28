@@ -1076,7 +1076,7 @@ export type ComplianceOverrideRequest = {
   ticketId?: string;
   mfaCode: string;
   matchingMode?: "B" | "C" | "S";
-  settlement?: { asset: string; network: string; address: string };
+  settlement?: { network: string; address: string; asset?: string };
 };
 
 export async function listComplianceOverrides(

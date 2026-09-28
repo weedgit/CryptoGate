@@ -4,9 +4,7 @@ import { hmac } from "@noble/hashes/hmac.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { base58, base58check, bech32 } from "@scure/base";
-import { createHash } from "node:crypto";
-import { WalletContractV4 } from "@ton/ton";
+import { base58, base58check } from "@scure/base";
 import {
   HdDerivationFamily,
   resolveHdDerivationFamily,
@@ -19,12 +17,10 @@ import {
 
 const b58check = base58check(sha256);
 
-/** Account-level xPub; external chain + index (Tron / EVM / Bitcoin). */
+/** Account-level xPub; external chain + index (Tron / EVM). */
 export const HD_DERIVE_PATH_TEMPLATE = "0/{index}";
 
 const TRON_ADDRESS_PREFIX = 0x41;
-const BITCOIN_MAINNET_P2PKH = 0x00;
-const BITCOIN_MAINNET_P2WPKH = 0x00;
 
 export {
   hdMaterialFingerprint,
@@ -119,44 +115,6 @@ export function deriveEvmAddressFromXpub(xpub, hdIndex) {
 }
 
 /**
- * @param {Uint8Array} compressedPublicKey
- */
-function hash160(data) {
-  return createHash("ripemd160").update(createHash("sha256").update(data).digest()).digest();
-}
-
-/**
- * @param {Uint8Array} compressedPublicKey
- */
-export function bitcoinP2pkhFromPublicKey(compressedPublicKey) {
-  const payload = new Uint8Array(21);
-  payload[0] = BITCOIN_MAINNET_P2PKH;
-  payload.set(hash160(compressedPublicKey), 1);
-  return b58check.encode(payload);
-}
-
-/**
- * @param {Uint8Array} compressedPublicKey
- */
-export function bitcoinP2wpkhFromPublicKey(compressedPublicKey) {
-  const program = hash160(compressedPublicKey);
-  return bech32.encode("bc", [BITCOIN_MAINNET_P2WPKH, ...bech32.toWords(program)]);
-}
-
-/**
- * @param {string} xpub
- * @param {number} hdIndex
- */
-export function deriveBitcoinAddressFromXpub(xpub, hdIndex) {
-  const child = deriveSecp256k1ChildKey(xpub, hdIndex);
-  const prefix = String(xpub).trim().slice(0, 4).toLowerCase();
-  if (prefix === "zpub" || prefix === "vpub") {
-    return bitcoinP2wpkhFromPublicKey(child.publicKey);
-  }
-  return bitcoinP2pkhFromPublicKey(child.publicKey);
-}
-
-/**
  * SLIP-0010 CKDpub — watch-only ed25519 child at non-hardened index.
  * @param {Uint8Array} parentPub 32 bytes
  * @param {Uint8Array} parentChainCode 32 bytes
@@ -232,24 +190,6 @@ export function deriveSolanaAddressFromXpub(material, hdIndex) {
 }
 
 /**
- * TON wallet v4 — subwallet id maps to hdIndex (watch-only ed25519 master pubkey).
- * @param {string} material hex or base58 32-byte pubkey
- * @param {number} hdIndex used as walletId
- */
-export function deriveTonAddressFromMasterPubkey(material, hdIndex) {
-  if (!Number.isInteger(hdIndex) || hdIndex < 0) {
-    throw new Error("hdIndex must be a non-negative integer");
-  }
-  const master = parseEd25519MasterMaterial(material);
-  const wallet = WalletContractV4.create({
-    workchain: 0,
-    publicKey: Buffer.from(master.publicKey),
-    walletId: hdIndex,
-  });
-  return wallet.address.toString({ urlSafe: true, bounceable: false });
-}
-
-/**
  * Derive a receive address for Mode S HD pool assignment.
  * @param {string} network catalog network id
  * @param {string} xpub watch-only material (BIP32 xPub or ed25519 master pubkey)
@@ -265,12 +205,8 @@ export function deriveReceiveAddressFromXpub(network, xpub, hdIndex) {
       return deriveTronAddressFromXpub(xpub, hdIndex);
     case HdDerivationFamily.Evm:
       return deriveEvmAddressFromXpub(xpub, hdIndex);
-    case HdDerivationFamily.Bitcoin:
-      return deriveBitcoinAddressFromXpub(xpub, hdIndex);
     case HdDerivationFamily.Solana:
       return deriveSolanaAddressFromXpub(xpub, hdIndex);
-    case HdDerivationFamily.Ton:
-      return deriveTonAddressFromMasterPubkey(xpub, hdIndex);
     default:
       throw new Error(`HD pool derivation is not available for ${network}`);
   }

@@ -465,7 +465,7 @@ Shared **Invoice** workbench for guest payment orders: ops triage (**Attention**
 **Layout**
 
 1. **Header** — title + invoice count; **Total invoice value** (USD) on the right
-2. **Asset cards** — per-asset payable totals (e.g. ETH, USDT, USDC, BTC)
+2. **Asset cards** — per-asset payable totals (e.g. ETH, USDT, USDC, TRX)
 3. **Filters** sidebar (Period · Merchant · Site · Cashier · Asset · Network) + **Reset**
 4. **Main** — status chips (**All** · **Attention** · **Open** · **Completed** · **Closed**) · lean table (page size **25**, server `total`/`offset`) + pager
 5. **Top bar** — search: invoice # (exact digits), UUID, or merchant reference prefix (`q`, min 2 chars for reference); Export CSV / Request export (O/A/V) · Refresh
@@ -924,7 +924,7 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 | --- | --- | --- | --- | --- |
 | Dashboard | ✓ | ✓ | R | ✓ (limited) |
 | Payment orders / Invoice | ✓ | ✓ | R | own only |
-| Create invoice | ✓ | ✓ | — | ✓ |
+| Create payment order (C: **Charge**) | ✓ | ✓ | — | ✓ |
 | Service bills | ✓ | R | R | — |
 | Sites | ✓ parent only | ✓ | R | — |
 | Reports | ✓ | ✓ | R | — |
@@ -932,7 +932,9 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 | Team | O only | — | — | — |
 | API & webhooks | ✓ | ✓ | R | — |
 
-Cashier nav: Dashboard (own invoices), **Invoice**, **Create invoice**, Sign out — **no Settings, Team, API, Service bills.**
+Cashier terminal (no sidebar — top-bar tabs): **Charge** (amount keypad → `Charge $25.00`), **My shift** (own orders today), **Orders**, Sign out — **no Settings, Team, API, Service bills.** POS-only merchants hide **Charge**; the index shows **My shift**.
+
+**Create action naming:** Cashier terminal / APK = **Charge** (POS convention; button shows the amount). Merchant web O/A = **Create payment order** (full form + Confirm panel). Lists / detail = **Invoice**. Do not use “Create invoice” as a button or nav label.
 
 ---
 
@@ -963,7 +965,7 @@ Cashier nav: Dashboard (own invoices), **Invoice**, **Create invoice**, Sign out
 | | |
 | --- | --- |
 | **Route** | `/merchant/orders` |
-| **Nav** | **Invoice** (cashier: Invoice + Create invoice) |
+| **Nav** | **Invoice** (cashier terminal: **Orders** tab; create via **Charge**) |
 | **Access** | O, A, V (all in scope); C (own only) |
 
 **Shared with platform B5a** — same Invoice list component (`variant=merchant|cashier`).
@@ -980,7 +982,7 @@ Cashier nav: Dashboard (own invoices), **Invoice**, **Create invoice**, Sign out
 
 Invoice (# + reference) · Merchant & Cashier (site-only label for cashier variant) · Amount (USD) · Asset & Network · Status · Created
 
-**Empty state:** “No invoices”; Create invoice when permitted
+**Empty state:** “No invoices”; **Create payment order** when permitted (cashier: **Charge**)
 
 ---
 
@@ -1193,7 +1195,7 @@ Invoice (# + reference) · Merchant & Cashier (site-only label for cashier varia
 
 - Default order validity
 - Order delete / retention period
-- Underpay tolerance (Mode B; disabled or capped when Mode C active)
+- No underpay tolerance: every mode requires the exact amount; short payments go to Attention
 
 #### D11e. Fulfillment policy (Phase 2)
 
@@ -1356,7 +1358,7 @@ When logged into a **merchant (site) account**, same pages as D1–D16 with thes
 
 **Progress panel** (below warnings, above order ref) — simpler than merchant D3:
 
-- **Blockchain confirmations** — segmented bar + `n / N` count from the order’s asset/network registry (e.g. USDT Tron **19**, Ethereum **12**, BSC **15**); short status note
+- **Blockchain confirmations** — segmented bar + `n / N` count from the order’s asset/network registry (e.g. USDT Tron **19**, Ethereum **12**, Solana **32**); short status note
 - **Horizontal flow** — Created → Detected → Verifying → Confirmed (diamond nodes, chevron direction, motion while verifying)
 
 Merchant **Orders → detail** keeps the fuller vertical timeline and tx-hash panel.
@@ -1423,21 +1425,21 @@ Cashier role only. Kotlin native preferred.
 ### G2. Home / shift start
 
 - Cashier name, site name
-- **Create invoice** (primary CTA)
-- **Today’s invoices** (own only)
+- **Charge** (primary CTA)
+- **My shift** — today’s invoices (own only)
 - Connection indicator (online/offline)
 - Logout
 
 ---
 
-### G3. Create invoice
+### G3. Charge
 
 - Amount keypad
 - Asset picker (merchant-enabled list)
 - Network picker
 - Validity (merchant default or presets)
 - **Merchant reference** (optional — PO / table / check #; max 200)
-- **Create** → G4
+- **Charge $amount** (button shows the amount) → G4
 
 **Mode B same-amount create lock**
 
@@ -1634,6 +1636,7 @@ Use: **Invoice** (guest payment order), **payment order** (API/domain), **servic
 
 | Date | Change |
 | --- | --- |
+| 2026-09-28 | Create-action naming: cashier terminal / APK **Charge**; merchant web **Create payment order**; retire “Create invoice” label. Cashier nav = Charge · My shift · Orders |
 | 2026-09-26 | Messages: banners removed — open conditions → dock alerts, results → single toast, role → sidebar role & permissions card, profile → top bar (all portals) |
 | 2026-09-25 | UI: payment_anomaly shown as **Attention** (API status unchanged) |
 | 2026-09-25 | Invoice scale: platform-wide All ≤7d; Completed/Closed ≤31d; large-set hint; ops default period 30d |

@@ -7,7 +7,10 @@ export type SettlementIconKind =
   | "release"
   | "fx"
   | "shield"
-  | "key";
+  | "key"
+  | "terminal"
+  | "webhook"
+  | "history";
 
 const svg = (children: ReactNode) => (
   <svg
@@ -65,6 +68,27 @@ export const SETTLEMENT_ICONS: Record<SettlementIconKind, ReactNode> = {
     <>
       <circle cx="8" cy="15" r="3.5" />
       <path d="m10.5 12.5 8-8M16 7l2 2M14 9l1.5 1.5" />
+    </>,
+  ),
+  terminal: svg(
+    <>
+      <rect x="6" y="3.5" width="12" height="17" rx="2.5" />
+      <path d="M9 7.5h6M9 12h.1M12 12h.1M15 12h.1M9 15.5h.1M12 15.5h.1M15 15.5h.1" />
+    </>,
+  ),
+  webhook: svg(
+    <>
+      <path d="M10 5.2a3.5 3.5 0 0 1 5.3 4.4L12 15" />
+      <path d="M7.5 17.5a3.5 3.5 0 1 1 1.7-6.6" />
+      <path d="M12 15h6.5a3.5 3.5 0 1 1-2 6.4" />
+      <circle cx="12" cy="15" r="1" />
+    </>,
+  ),
+  history: svg(
+    <>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4.5v3.8h3.8" />
+      <path d="M12 8v4.2l2.8 1.8" />
     </>,
   ),
 };

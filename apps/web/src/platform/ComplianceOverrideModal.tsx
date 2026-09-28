@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { MfaStepUpGate } from "../auth/MfaStepUpGate";
@@ -10,6 +10,7 @@ import {
   type ComplianceReasonCode,
   type OrgAccount,
 } from "./api";
+import { settlementNetworkRows } from "./MerchantSettlementPanel";
 
 type Props = {
   org: OrgAccount;
@@ -41,7 +42,7 @@ type PendingOverride = {
   notes: string;
   ticketId?: string;
   matchingMode?: "B" | "C" | "S";
-  settlement?: { asset: string; network: string; address: string };
+  settlement?: { network: string; address: string };
 };
 
 /** B7 — Compliance override form (modal or inline on Compliance tab). */
@@ -60,8 +61,10 @@ export function ComplianceOverrideModal({
   const [notes, setNotes] = useState("");
   const [ticketId, setTicketId] = useState("");
   const [matchingMode, setMatchingMode] = useState<"B" | "C" | "S">("B");
-  const [settlementAsset, setSettlementAsset] = useState("USDT");
-  const [settlementNetwork, setSettlementNetwork] = useState("tron");
+  const networkRows = useMemo(() => settlementNetworkRows(), []);
+  const [settlementNetwork, setSettlementNetwork] = useState(
+    () => networkRows[0]?.network ?? "tron",
+  );
   const [settlementAddress, setSettlementAddress] = useState("");
   const [pendingMfa, setPendingMfa] = useState<PendingOverride | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,8 +85,7 @@ export function ComplianceOverrideModal({
     setNotes("");
     setTicketId("");
     setMatchingMode("B");
-    setSettlementAsset("USDT");
-    setSettlementNetwork("tron");
+    setSettlementNetwork(networkRows[0]?.network ?? "tron");
     setSettlementAddress("");
   }
 
@@ -103,7 +105,6 @@ export function ComplianceOverrideModal({
       settlement:
         overrideType === "settlement_address"
           ? {
-              asset: settlementAsset.trim(),
               network: settlementNetwork.trim(),
               address: settlementAddress.trim(),
             }
@@ -261,23 +262,21 @@ export function ComplianceOverrideModal({
 
       {overrideType === "settlement_address" ? (
         <div className="b7-override-modal__settlement">
-          <label className="b7-override-modal__field">
-            <span>Asset</span>
-            <input
-              value={settlementAsset}
-              disabled={!canApply || busy || Boolean(pendingMfa)}
-              onChange={(e) => setSettlementAsset(e.target.value)}
-              required
-            />
-          </label>
-          <label className="b7-override-modal__field">
-            <span>Network</span>
-            <input
+          <label className="b7-override-modal__field b7-override-modal__field--full">
+            <span>Network wallet</span>
+            <select
               value={settlementNetwork}
               disabled={!canApply || busy || Boolean(pendingMfa)}
               onChange={(e) => setSettlementNetwork(e.target.value)}
               required
-            />
+            >
+              {networkRows.map((row) => (
+                <option key={row.network} value={row.network}>
+                  {row.label}
+                  {row.testnetBadge ? " (testnet)" : ""} — {row.assets.join(", ")}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="b7-override-modal__field b7-override-modal__field--full">
             <span>Settlement address</span>

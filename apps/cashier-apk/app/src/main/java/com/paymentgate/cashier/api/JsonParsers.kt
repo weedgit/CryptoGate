@@ -32,6 +32,8 @@ object JsonParsers {
             userId = obj.getString("userId"),
             email = obj.getString("email"),
             memberships = memberships,
+            timezone = obj.optNullableString("timezone"),
+            timezoneConfirmed = obj.optBoolean("timezoneConfirmed", false),
         )
     }
 
@@ -142,6 +144,7 @@ object JsonParsers {
             confirmations = obj.optInt("confirmations", 0),
             requiredConfirmations = obj.optInt("requiredConfirmations", 1),
             txHash = obj.optNullableString("txHash"),
+            businessTimezone = obj.optNullableString("businessTimezone"),
         )
     }
 

@@ -2,9 +2,9 @@ import { getPool } from "../db/pool.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
-  "id, type, name, parent_id, max_agent_depth, status, status_reason, status_reason_bill_id, country, billing_email, legal_name, icon_key, created_at";
+  "id, type, name, parent_id, max_agent_depth, status, status_reason, status_reason_bill_id, country, billing_email, legal_name, icon_key, business_timezone, created_at";
 const ORG_COLS_LEGACY =
-  "id, type, name, parent_id, max_agent_depth, status, country, billing_email, legal_name, icon_key, created_at";
+  "id, type, name, parent_id, max_agent_depth, status, country, billing_email, legal_name, icon_key, business_timezone, created_at";
 
 /**
  * @param {string} sql
@@ -257,6 +257,7 @@ export async function updateOrgBillingEmailIfEmpty(orgId, email) {
  *   country?: string | null,
  *   legalName?: string | null,
  *   billingEmail?: string | null,
+ *   businessTimezone?: string | null,
  * }} profile
  */
 export async function updateOrgProfile(orgId, profile) {
@@ -284,6 +285,7 @@ export async function updateOrgProfile(orgId, profile) {
          country = COALESCE($4, country),
          legal_name = CASE WHEN $5::boolean THEN $6 ELSE legal_name END,
          billing_email = CASE WHEN $7::boolean THEN $8 ELSE billing_email END,
+         business_timezone = CASE WHEN $9::boolean THEN $10 ELSE business_timezone END,
          updated_at = now()
      WHERE id = $1
      RETURNING ${ORG_COLS}`,
@@ -296,6 +298,8 @@ export async function updateOrgProfile(orgId, profile) {
       legalName ?? null,
       billingEmail !== undefined,
       billingEmail ?? null,
+      profile.businessTimezone !== undefined,
+      profile.businessTimezone ?? null,
     ],
   );
   return rows[0] ?? null;
@@ -403,4 +407,30 @@ export async function deleteOrgAccount(orgId) {
     }
     throw err;
   }
+}
+
+/**
+ * Business time zone for customer documents: the org's own setting, else the nearest
+ * ancestor that has one (site → merchant, sub-agent → agent). Null when none is set.
+ * @param {string} orgId
+ * @returns {Promise<string | null>}
+ */
+export async function resolveBusinessTimezone(orgId) {
+  const { rows } = await getPool().query(
+    `WITH RECURSIVE chain AS (
+       SELECT id, parent_id, type, business_timezone, 0 AS depth
+       FROM org_accounts WHERE id = $1
+       UNION ALL
+       SELECT o.id, o.parent_id, o.type, o.business_timezone, c.depth + 1
+       FROM org_accounts o
+       JOIN chain c ON o.id = c.parent_id
+       WHERE c.depth < 8 AND c.type IN ('merchant_site', 'agent_sub')
+     )
+     SELECT business_timezone FROM chain
+     WHERE business_timezone IS NOT NULL
+     ORDER BY depth ASC
+     LIMIT 1`,
+    [orgId],
+  );
+  return rows[0]?.business_timezone ?? null;
 }

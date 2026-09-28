@@ -1,4 +1,4 @@
-import { getAssetNetworkConfig } from "@paymentgate/domain";
+import { getAssetNetworkConfig, listAssetNetworkRegistry } from "@paymentgate/domain";
 
 const MERCHANT_TYPES = new Set(["merchant", "merchant_site"]);
 
@@ -22,8 +22,20 @@ export function settlementCooldownMs() {
 }
 
 /**
+ * Enabled assets on a network. One settlement wallet per network receives all of them.
+ * @param {string} network
+ * @returns {string[]}
+ */
+export function settlementAssetsForNetwork(network) {
+  return listAssetNetworkRegistry()
+    .filter((row) => row.enabled && row.network === network)
+    .map((row) => row.asset);
+}
+
+/**
+ * `asset` is optional: the address always applies to every enabled asset on `network`.
  * @param {unknown} body
- * @returns {{ ok: true, parsed: { asset: string, network: string, address: string, mfaCode: string } } | { ok: false, status: number, code: string, message: string }}
+ * @returns {{ ok: true, parsed: { asset: string, assets: string[], network: string, address: string, mfaCode: string } } | { ok: false, status: number, code: string, message: string }}
  */
 export function validateSettlementBody(body) {
   const asset = typeof body?.asset === "string" ? body.asset.trim() : "";
@@ -31,12 +43,12 @@ export function validateSettlementBody(body) {
   const address = typeof body?.address === "string" ? body.address.trim() : "";
   const mfaCode = typeof body?.mfaCode === "string" ? body.mfaCode.trim() : "";
 
-  if (!asset || !network || !address) {
+  if (!network || !address) {
     return {
       ok: false,
       status: 400,
       code: "invalid_request",
-      message: "asset, network, and address are required",
+      message: "network and address are required",
     };
   }
   if (/\s/.test(address)) {
@@ -56,8 +68,8 @@ export function validateSettlementBody(body) {
     };
   }
 
-  const config = getAssetNetworkConfig(asset, network);
-  if (!config) {
+  const assets = settlementAssetsForNetwork(network);
+  if (assets.length === 0 || (asset && !getAssetNetworkConfig(asset, network))) {
     return {
       ok: false,
       status: 422,
@@ -66,7 +78,10 @@ export function validateSettlementBody(body) {
     };
   }
 
-  return { ok: true, parsed: { asset, network, address, mfaCode } };
+  return {
+    ok: true,
+    parsed: { asset: asset || assets[0], assets, network, address, mfaCode },
+  };
 }
 
 /**

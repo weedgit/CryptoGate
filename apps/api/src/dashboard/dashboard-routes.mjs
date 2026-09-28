@@ -8,6 +8,7 @@ import {
   parseOptionalDateWindow,
 } from "./dashboard-range.mjs";
 import { dashboardReports } from "./dashboard-reports.mjs";
+import { loadCommissionPreview } from "./commission-preview.mjs";
 import { isUuid, resolveDashboardScope } from "./dashboard-scope.mjs";
 import {
   dashboardKpis,
@@ -204,6 +205,35 @@ export async function handleGetDashboardReports(req, res, url) {
       { fresh: url.searchParams.get("fresh") === "1" },
     );
     sendJson(res, 200, body);
+  } catch (err) {
+    sendFailure(res, err);
+  }
+}
+
+/**
+ * GET /v1/dashboard/commission-preview?orgId=<agent> — current UTC month commission by merchant.
+ * Agent members (and platform operators) only; the invoice is issued on day C of next month.
+ */
+export async function handleGetDashboardCommissionPreview(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+  const orgId = url.searchParams.get("orgId")?.trim() ?? "";
+  if (!isUuid(orgId)) {
+    sendError(res, 400, "invalid_request", "orgId must be an agent UUID");
+    return;
+  }
+  try {
+    const scope = await scopeOrThrow(caller, orgId);
+    if (scope.kind !== "agent" || scope.commission?.payeeOrgId !== orgId) {
+      sendError(res, 403, "forbidden", "Commission is visible to agent members only");
+      return;
+    }
+    const payload = await cachedDashboard(
+      `commission-preview|${orgId}`,
+      () => loadCommissionPreview(orgId),
+      { fresh: url.searchParams.get("fresh") === "1" },
+    );
+    sendJson(res, 200, payload);
   } catch (err) {
     sendFailure(res, err);
   }

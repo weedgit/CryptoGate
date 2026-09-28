@@ -1,4 +1,11 @@
 /** Shared Invoice list model — periods, status chips, role defaults. */
+import {
+  addDaysYmd,
+  formatInZone,
+  zonedEndOfDay,
+  zonedStartOfDay,
+  zonedYmd,
+} from "./dateTime";
 
 export type InvoiceListVariant = "platform" | "merchant" | "cashier";
 
@@ -50,12 +57,9 @@ export function isOpenTriageStatus(status: InvoiceStatusFilter): boolean {
   return status === "payment_anomaly" || status === "open";
 }
 
-/** Local calendar date → `YYYY-MM-DD` for `<input type="date">`. */
+/** Calendar date in the viewer's zone → `YYYY-MM-DD` for `<input type="date">`. */
 export function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return zonedYmd(d);
 }
 
 /** Named period → From/To date-input values (empty for All / Custom). */
@@ -72,7 +76,7 @@ export function periodToDateInputs(period: InvoicePeriodId): {
 }
 
 /**
- * Browser-local period → ISO createdFrom / createdTo (inclusive end ≈ now for open-ended).
+ * Period in the viewer's zone → ISO createdFrom / createdTo (inclusive end ≈ now for open-ended).
  * `utcDays` reads custom From/To as UTC calendar days instead.
  */
 export function periodToRange(
@@ -82,36 +86,34 @@ export function periodToRange(
   utcDays = false,
 ): { createdFrom?: string; createdTo?: string } {
   const now = new Date();
-  const end = new Date(now);
   if (period === "all") return {};
   if (period === "custom") {
-    const zone = utcDays ? "Z" : "";
-    const from = customFrom?.trim()
-      ? new Date(`${customFrom}T00:00:00${zone}`)
-      : null;
-    const to = customTo?.trim() ? new Date(`${customTo}T23:59:59.999${zone}`) : null;
+    const zone = utcDays ? "UTC" : undefined;
+    const valid = (v?: string) => Boolean(v?.trim() && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()));
     return {
-      createdFrom: from && !Number.isNaN(from.getTime()) ? from.toISOString() : undefined,
-      createdTo: to && !Number.isNaN(to.getTime()) ? to.toISOString() : undefined,
+      createdFrom: valid(customFrom) ? zonedStartOfDay(customFrom!.trim(), zone).toISOString() : undefined,
+      createdTo: valid(customTo) ? zonedEndOfDay(customTo!.trim(), zone).toISOString() : undefined,
     };
   }
+  const today = zonedYmd(now);
+  const nowIso = now.toISOString();
   if (period === "today") {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    return { createdFrom: start.toISOString(), createdTo: end.toISOString() };
+    return { createdFrom: zonedStartOfDay(today).toISOString(), createdTo: nowIso };
   }
   if (period === "this_month") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { createdFrom: start.toISOString(), createdTo: end.toISOString() };
+    return { createdFrom: zonedStartOfDay(`${today.slice(0, 8)}01`).toISOString(), createdTo: nowIso };
   }
   if (period === "last_month") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const last = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-    return { createdFrom: start.toISOString(), createdTo: last.toISOString() };
+    const firstThis = `${today.slice(0, 8)}01`;
+    const lastPrev = addDaysYmd(firstThis, -1);
+    return {
+      createdFrom: zonedStartOfDay(`${lastPrev.slice(0, 8)}01`).toISOString(),
+      createdTo: zonedEndOfDay(lastPrev).toISOString(),
+    };
   }
   const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
   const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  return { createdFrom: start.toISOString(), createdTo: end.toISOString() };
+  return { createdFrom: start.toISOString(), createdTo: nowIso };
 }
 
 export type InvoiceRoleDefaults = {
@@ -147,9 +149,7 @@ export function invoiceDefaultsForSession(
 
 export function formatInvoiceWhen(iso: string | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
+  return formatInZone(iso, {
     month: "numeric",
     day: "numeric",
     year: "2-digit",
@@ -160,23 +160,149 @@ export function formatInvoiceWhen(iso: string | undefined): string {
 
 export function formatInvoiceCreatedDate(iso: string | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatInZone(iso, { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function formatInvoiceCreatedTime(iso: string | undefined): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const text = formatInZone(iso, { hour: "numeric", minute: "2-digit" });
+  return text === "—" ? "" : text;
+}
+
+/** "10.500000" → "10.50", "0.00123400" → "0.001234" — at least 2 decimals, trailing zeros trimmed. */
+export function formatCryptoAmount(raw: string | null | undefined): string {
+  const s = String(raw ?? "").trim();
+  if (!/^\d+(\.\d+)?$/.test(s)) return "—";
+  const [whole, frac = ""] = s.split(".");
+  const trimmed = frac.replace(/0+$/, "").padEnd(2, "0");
+  const grouped = whole.replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${grouped}.${trimmed}`;
+}
+
+/** USD per 1 unit of the asset: 2 decimals from $1, up to 6 significant below $1. */
+export function formatFundRate(raw: string | null | undefined): string | null {
+  const n = Number(raw);
+  if (raw == null || raw === "" || !Number.isFinite(n) || n <= 0) return null;
+  if (n >= 1) {
+    return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+  }
+  return `$${n.toLocaleString("en-US", { maximumSignificantDigits: 6 })}`;
+}
+
+/**
+ * Locked pricing rate, else market rate, else the effective rate
+ * (invoice USD ÷ crypto payable) for orders created before rates were stored.
+ */
+export function invoiceFundRate(order: {
+  pricingRate?: string | null;
+  marketRate?: string | null;
+  invoiceAmountUsd?: string | null;
+  payableAmount: { amount: string };
+}): string | null {
+  const stored = formatFundRate(order.pricingRate ?? order.marketRate);
+  if (stored) return stored;
+  const usd = Number(order.invoiceAmountUsd);
+  const crypto = Number(order.payableAmount.amount);
+  if (!Number.isFinite(usd) || !Number.isFinite(crypto) || usd <= 0 || crypto <= 0) return null;
+  return formatFundRate(String(usd / crypto));
+}
+
+const PRICING_MODE_LABEL: Record<string, string> = {
+  pegged_1to1: "Pegged 1:1",
+  market: "Market rate",
+  token_to_usd: "Token amount to USD",
+  usd_to_token: "USD to token",
+};
+
+const STABLE_ASSETS = new Set(["USDT", "USDC"]);
+
+export type InvoiceConversion = {
+  cryptoLabel: string;
+  unit: string;
+  /** "$10.00 ÷ $1.00" — invoice USD ÷ fund rate. */
+  formula: string | null;
+  /** "$1.00" — USD per 1 unit of the asset. */
+  rateLabel: string | null;
+  evidence: {
+    kind: "quote" | "peg" | "derived";
+    label: string;
+    /** Short second line: source and when, or how the rate was derived. */
+    meta: string;
+    /** Multi-line detail for the hover card. */
+    detail: string[];
+  };
+};
+
+function usd2(raw: string | null | undefined): string | null {
+  const n = Number(raw);
+  if (raw == null || raw === "" || !Number.isFinite(n)) return null;
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * How the crypto payable was reached from the invoice USD, and what backs the rate:
+ * a stored quote, a 1:1 stablecoin peg, or (older orders) USD ÷ crypto.
+ */
+export function invoiceConversion(order: {
+  asset: string;
+  pricingRate?: string | null;
+  marketRate?: string | null;
+  pricingMode?: string | null;
+  rateSource?: string | null;
+  rateFetchedAt?: string | null;
+  createdAt?: string;
+  invoiceAmountUsd?: string | null;
+  payableAmount: { amount: string; currency?: string };
+}): InvoiceConversion {
+  const unit = order.payableAmount.currency || order.asset;
+  const cryptoLabel = formatCryptoAmount(order.payableAmount.amount);
+  const rate = invoiceFundRate(order);
+  const usd = usd2(order.invoiceAmountUsd);
+  const formula = usd && rate ? `${usd} ÷ ${rate}` : null;
+  const modeLabel = order.pricingMode ? (PRICING_MODE_LABEL[order.pricingMode] ?? order.pricingMode) : null;
+  const when = formatInvoiceWhen(order.rateFetchedAt ?? order.createdAt);
+  const exact = `${usd ?? "—"} ÷ ${rate ?? "—"} per ${order.asset} = ${cryptoLabel} ${unit}`;
+  const stored = formatFundRate(order.pricingRate);
+  const market = formatFundRate(order.marketRate);
+
+  if (stored) {
+    const pegged = order.pricingMode === "pegged_1to1";
+    const source = order.rateSource?.trim() || null;
+    const label = pegged ? "Pegged 1:1" : source ? `Quote · ${source}` : "Locked at creation";
+    const detail = [exact, `Rate ${stored} per ${order.asset}${modeLabel ? ` · ${modeLabel}` : ""}`];
+    if (source) detail.push(`Source: ${source}`);
+    if (market && market !== stored) detail.push(`Market rate ${market} at quote time`);
+    detail.push(`Locked ${when}`);
+    const meta = source && !pegged ? `${source} · ${when}` : `Locked ${when}`;
+    return {
+      cryptoLabel,
+      unit,
+      formula,
+      rateLabel: rate,
+      evidence: { kind: pegged ? "peg" : "quote", label, meta, detail },
+    };
+  }
+
+  const stable = STABLE_ASSETS.has(order.asset.toUpperCase()) && rate === "$1.00";
+  return {
+    cryptoLabel,
+    unit,
+    formula,
+    rateLabel: rate,
+    evidence: stable
+      ? {
+          kind: "peg",
+          label: "Stablecoin 1:1",
+          meta: "No quote stored",
+          detail: [exact, `${order.asset} priced 1:1 to USD`, `Created ${when}`],
+        }
+      : {
+          kind: "derived",
+          label: "From invoice amount",
+          meta: "USD ÷ crypto amount",
+          detail: [exact, "No rate quote stored for this order", `Created ${when}`],
+        },
+  };
 }
 
 /** Max span for unscoped platform history (Completed / Closed). */

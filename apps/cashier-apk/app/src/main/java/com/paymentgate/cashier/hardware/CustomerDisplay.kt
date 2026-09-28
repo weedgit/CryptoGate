@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import com.paymentgate.cashier.api.AssetNetworkCatalog
 import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentDetails
+import com.paymentgate.cashier.qr.QrMode
+import com.paymentgate.cashier.qr.qrPayloadFor
 import com.paymentgate.cashier.ui.ConfirmationPhase
 import com.paymentgate.cashier.ui.confirmationProgress
 
@@ -32,6 +34,8 @@ data class CustomerPayContent(
     val networkLabel: String,
     val wrongNetworkWarning: String,
     val qrPayload: String,
+    /** Network id for the QR center mark; blank = plain QR. */
+    val network: String = "",
     /** When true, still show QR but emphasize not completed. */
     val isAnomaly: Boolean = false,
     val statusHint: String? = null,
@@ -49,7 +53,7 @@ object CustomerScreen {
     const val HEIGHT_PX = 480
 }
 
-fun PaymentDetails.toCustomerPayContent(): CustomerPayContent {
+fun PaymentDetails.toCustomerPayContent(qrMode: QrMode = QrMode.WithAmount): CustomerPayContent {
     val progress =
         confirmationProgress(
             status = status,
@@ -75,7 +79,8 @@ fun PaymentDetails.toCustomerPayContent(): CustomerPayContent {
             wrongNetworkWarning.ifBlank {
                 "Send on ${shortNet.substringBefore(" ·").ifBlank { network.uppercase() }} only"
             },
-        qrPayload = qrPayload,
+        qrPayload = qrPayloadFor(qrMode),
+        network = network,
         isAnomaly = OrderStatusUi.isAnomaly(status),
         statusHint = progress.detail.ifBlank { null },
         phaseTitle = phaseTitle,

@@ -33,7 +33,7 @@ export async function listOrgsInSubtree(rootIds) {
 export async function withOrgProfileColumns(rows) {
   if (rows.length === 0) return rows;
   const { rows: profiles } = await getPool().query(
-    `SELECT id, country, billing_email, legal_name, icon_key
+    `SELECT id, country, billing_email, legal_name, icon_key, business_timezone
      FROM org_accounts
      WHERE id = ANY($1::uuid[])`,
     [rows.map((r) => r.id)],

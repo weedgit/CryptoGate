@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import com.paymentgate.cashier.api.ApiError
 import com.paymentgate.cashier.api.AssetNetworkCatalog
 import com.paymentgate.cashier.api.BlockingOrder
+import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.CashierPosSurface
 import com.paymentgate.cashier.api.JsonParsers
 import com.paymentgate.cashier.api.NetworkReachability
@@ -35,6 +36,7 @@ import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.hardware.toCustomerPayContent
 import com.paymentgate.cashier.hardware.toReceiptJob
+import com.paymentgate.cashier.qr.QrMode
 import com.paymentgate.cashier.ui.CreateOrderScreen
 import com.paymentgate.cashier.ui.HardwareDockTab
 import com.paymentgate.cashier.ui.KeepScreenOnWhile
@@ -110,6 +112,7 @@ class MainActivity : ComponentActivity() {
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
                     var watchingOrderId by remember { mutableStateOf<String?>(null) }
+                    var qrMode by remember(watchingOrderId) { mutableStateOf(QrMode.WithAmount) }
                     var blockingOrder by remember { mutableStateOf<BlockingOrder?>(null) }
                     var todayOrders by remember { mutableStateOf<List<PaymentOrder>>(emptyList()) }
                     var todayLoading by remember { mutableStateOf(false) }
@@ -249,6 +252,7 @@ class MainActivity : ComponentActivity() {
                         payment?.confirmations,
                         payment?.qrPayload,
                         payment?.payableAmount?.amount,
+                        qrMode,
                     ) {
                         if (!app.customerDisplay.isAvailable()) return@LaunchedEffect
                         val details = payment
@@ -266,7 +270,7 @@ class MainActivity : ComponentActivity() {
                             -> {
                                 while (true) {
                                     withContext(Dispatchers.IO) {
-                                        app.customerDisplay.showPay(details.toCustomerPayContent())
+                                        app.customerDisplay.showPay(details.toCustomerPayContent(qrMode))
                                     }
                                     delay(8_000)
                                 }
@@ -590,6 +594,7 @@ class MainActivity : ComponentActivity() {
                                                         loading = todayLoading,
                                                         error = todayError,
                                                         cashierName = session?.email?.substringBefore("@"),
+                                                        zone = PosTime.staffZone(session),
                                                         onSelect = { openOrder(it.id, preferDetail = true) },
                                                         onSeeAllOrders = { selectDock(HardwareDockTab.Orders) },
                                                     )
@@ -709,7 +714,10 @@ class MainActivity : ComponentActivity() {
                                                         details.toReceiptJob(
                                                             merchantReference =
                                                                 merchantReference.trim().ifEmpty { null },
-                                                            printedAtIso = formatReceiptPrintedAt(),
+                                                            printedAtIso =
+                                                                formatReceiptPrintedAt(
+                                                                    PosTime.receiptZone(session, details.businessTimezone),
+                                                                ),
                                                         )
                                                     val outcome =
                                                         withContext(Dispatchers.IO) {
@@ -746,6 +754,8 @@ class MainActivity : ComponentActivity() {
                                                 merchantReference = merchantReference.trim().ifEmpty { null },
                                                 canCancel = details.status == OrderStatusUi.PENDING,
                                                 cancelling = cancelling,
+                                                qrMode = qrMode,
+                                                onQrModeChange = { qrMode = it },
                                                 onCancel = {
                                                     val id = watchingOrderId ?: return@OrderPayScreen
                                                     scope.launch {
@@ -765,7 +775,10 @@ class MainActivity : ComponentActivity() {
                                                         details.toReceiptJob(
                                                             merchantReference =
                                                                 merchantReference.trim().ifEmpty { null },
-                                                            printedAtIso = formatReceiptPrintedAt(),
+                                                            printedAtIso =
+                                                                formatReceiptPrintedAt(
+                                                                    PosTime.receiptZone(session, details.businessTimezone),
+                                                                ),
                                                         )
                                                     val outcome =
                                                         withContext(Dispatchers.IO) {

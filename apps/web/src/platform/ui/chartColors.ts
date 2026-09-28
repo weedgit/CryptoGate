@@ -16,7 +16,6 @@ export const METRIC_CHART_COLORS = {
 const ASSET_RATE_COLORS: Record<string, string> = {
   USDT: "#26a17b",
   USDC: "#2775ca",
-  BTC: "#f7931a",
   ETH: "#627eea",
   TRX: "#ef0027",
 };

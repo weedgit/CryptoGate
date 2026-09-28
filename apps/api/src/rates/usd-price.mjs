@@ -31,7 +31,6 @@ const cache = new Map();
 const BINANCE_SYMBOL = {
   ETH: "ETHUSDT",
   TRX: "TRXUSDT",
-  BTC: "BTCUSDT",
   USDT: "USDTUSD",
   USDC: "USDCUSDT",
 };
@@ -39,7 +38,6 @@ const BINANCE_SYMBOL = {
 const COINGECKO_ID = {
   ETH: "ethereum",
   TRX: "tron",
-  BTC: "bitcoin",
   USDT: "tether",
   USDC: "usd-coin",
 };
@@ -48,7 +46,6 @@ const COINGECKO_ID = {
 const KRAKEN_PAIR = {
   ETH: "XETHZUSD",
   TRX: "TRXUSD",
-  BTC: "XXBTZUSD",
   USDT: "USDTZUSD",
   USDC: "USDCUSD",
 };

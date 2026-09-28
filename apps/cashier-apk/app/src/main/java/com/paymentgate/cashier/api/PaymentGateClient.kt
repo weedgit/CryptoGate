@@ -170,6 +170,7 @@ class PaymentGateClient(
                 .header("Accept", "application/json")
                 .header("Cookie", cookieHeader(token))
                 .header("Idempotency-Key", idempotencyKey)
+                .header("X-PaymentGate-Client", "pos")
                 .build()
             http.newCall(req).execute().use { res ->
                 val body = res.body?.string().orEmpty()

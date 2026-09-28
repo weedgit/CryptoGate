@@ -17,6 +17,7 @@ import { RoleBadge } from "../shared/RoleBadge";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
 import { sessionDisplayLabel, sessionHasAvatar } from "./profileIdentity";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
+import { TimeZonePromptCard } from "./TimeZonePromptCard";
 import {
   MFA_SETUP_PARAM,
   PROFILE_EDIT_PARAM,
@@ -34,6 +35,8 @@ type Props = {
   onSessionRefresh?: (session: Session) => void;
   /** Extra section rendered inside the Profile window. */
   profileExtra?: ReactNode;
+  /** Extra menu items above Profile (e.g. workspace switcher); `close` dismisses the menu. */
+  menuExtra?: (close: () => void) => ReactNode;
 };
 
 function profileIdentity(
@@ -83,6 +86,7 @@ export function SidebarProfileMenu({
   onSignOut,
   onSessionRefresh,
   profileExtra,
+  menuExtra,
 }: Props) {
   const isTopbar = placement === "topbar";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -272,6 +276,7 @@ export function SidebarProfileMenu({
               aria-label="Profile"
               style={menuStyle}
             >
+              {menuExtra?.(() => setMenuOpen(false))}
               <button
                 type="button"
                 role="menuitem"
@@ -294,6 +299,14 @@ export function SidebarProfileMenu({
             document.body,
           )
         : null}
+
+      {settingsOpen ? null : (
+        <TimeZonePromptCard
+          session={session}
+          onSessionRefresh={onSessionRefresh}
+          onChooseAnother={openSettings}
+        />
+      )}
 
       {settingsOpen ? (
         <ProfileSettingsModal

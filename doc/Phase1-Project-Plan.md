@@ -382,21 +382,15 @@ Recommend: defer KYC/KYB; Phase 1 only needs to watch chain payments, and identi
 
 2. List of Access to Virtual Assets and Networks.
 
+Current phase: Ethereum, Tron and Solana only.
+
 | Virtual asset | Network |
 | --- | --- |
 | USDT | Ethereum |
 | USDT | Tron |
-| USDT | BNB Smart Chain |
-| USDT | Polygon PoS |
-| USDT | Arbitrum One |
 | USDT | Solana |
-| USDT | TON |
 | USDC | Ethereum |
-| USDC | Polygon PoS |
-| USDC | Arbitrum One |
-| USDC | Base |
 | USDC | Solana |
-| BTC | Bitcoin |
 | ETH | Ethereum |
 | TRX | Tron |
 

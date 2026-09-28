@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { CopyableChainValue } from "../shared/CopyableChainValue";
+import { formatDocumentDateTime } from "../shared/dateTime";
 
 /** Minimal payment-order shape for the finance document face. */
 export type PoInvoiceOrder = {
@@ -37,6 +38,8 @@ export type PoInvoiceOrder = {
   anomalyResolutionNote?: string | null;
   anomalyResolvedAt?: string | null;
   matchingModeLabel?: string | null;
+  /** Merchant/site business zone; timestamps fall back to the viewer's zone. */
+  businessTimezone?: string | null;
 };
 
 export type PoInvoiceSeller = {
@@ -66,17 +69,11 @@ function cryptoAmount(amount: string, asset: string): string {
   })} ${asset}`;
 }
 
-function shortDate(iso: string | null | undefined): string {
+function shortDate(iso: string | null | undefined, timeZone?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDocumentDateTime(d, timeZone);
 }
 
 function isSettled(status: string): boolean {
@@ -157,17 +154,17 @@ export function PaymentOrderInvoiceFace({
           <dl className="sb-invoice__meta-dl">
             <div>
               <dt>Created</dt>
-              <dd>{shortDate(order.createdAt)}</dd>
+              <dd>{shortDate(order.createdAt, order.businessTimezone)}</dd>
             </div>
             {settled && order.paidAt ? (
               <div>
                 <dt>Paid</dt>
-                <dd>{shortDate(order.paidAt)}</dd>
+                <dd>{shortDate(order.paidAt, order.businessTimezone)}</dd>
               </div>
             ) : (
               <div>
                 <dt>Expires</dt>
-                <dd>{shortDate(order.expiresAt)}</dd>
+                <dd>{shortDate(order.expiresAt, order.businessTimezone)}</dd>
               </div>
             )}
             {order.siteName ? (
@@ -355,7 +352,7 @@ export function PaymentOrderInvoiceFace({
             <p>
               <strong>Staff note:</strong> {order.anomalyResolutionNote}
               {order.anomalyResolvedAt
-                ? ` (${shortDate(order.anomalyResolvedAt)})`
+                ? ` (${shortDate(order.anomalyResolvedAt, order.businessTimezone)})`
                 : ""}
             </p>
           ) : null}
@@ -389,7 +386,7 @@ export function PaymentOrderInvoiceFace({
             <div>
               <dt>Confirmed</dt>
               <dd>
-                {shortDate(onChain?.confirmedAt ?? (settled ? order.paidAt : null))}
+                {shortDate(onChain?.confirmedAt ?? (settled ? order.paidAt : null), order.businessTimezone)}
               </dd>
             </div>
             <div className="sb-invoice__meta-span-2">

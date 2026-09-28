@@ -6,13 +6,7 @@
  * Multi-network: poll every open asset+network scope (WATCHER_MULTI_NETWORK=true default).
  */
 import { healthCheck as ethHealthCheck } from "@paymentgate/chain-clients/ethereum";
-import { healthCheck as bscHealthCheck } from "@paymentgate/chain-clients/bnb_smart_chain";
-import { healthCheck as polygonHealthCheck } from "@paymentgate/chain-clients/polygon";
-import { healthCheck as arbitrumHealthCheck } from "@paymentgate/chain-clients/arbitrum_one";
-import { healthCheck as baseHealthCheck } from "@paymentgate/chain-clients/base";
 import { healthCheck as solanaHealthCheck } from "@paymentgate/chain-clients/solana";
-import { healthCheck as tonHealthCheck } from "@paymentgate/chain-clients/ton";
-import { healthCheck as bitcoinHealthCheck } from "@paymentgate/chain-clients/bitcoin";
 import { healthCheck as tronHealthCheck } from "@paymentgate/chain-clients/tron";
 import { resolveWatchScopes } from "./config.mjs";
 import { loadChainClient } from "./chain-client.mjs";
@@ -287,24 +281,12 @@ export async function runTick(ctx) {
     tron,
     tronNile,
     ethereum,
-    bnbSmartChain,
-    polygon,
-    arbitrumOne,
-    base,
     solana,
-    ton,
-    bitcoin,
   ] = await Promise.all([
     tronHealthCheck({ network: "tron" }),
     tronHealthCheck({ network: "tron_nile" }),
     ethHealthCheck(),
-    bscHealthCheck(),
-    polygonHealthCheck(),
-    arbitrumHealthCheck(),
-    baseHealthCheck(),
     solanaHealthCheck(),
-    tonHealthCheck(),
-    bitcoinHealthCheck(),
   ]);
 
   /** @type {Record<string, unknown>} */
@@ -418,13 +400,7 @@ export async function runTick(ctx) {
       tron,
       tron_nile: tronNile,
       ethereum,
-      bnb_smart_chain: bnbSmartChain,
-      polygon,
-      arbitrum_one: arbitrumOne,
-      base,
       solana,
-      ton,
-      bitcoin,
     },
     ingest,
     ingestByNetwork,

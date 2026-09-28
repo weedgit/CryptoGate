@@ -1,4 +1,5 @@
 import { readJsonBody, sendError, sendJson } from "./json.mjs";
+import { isValidTimeZone } from "../dashboard/dashboard-range.mjs";
 import { requireCaller } from "./require-caller.mjs";
 import { normalizePhone } from "../auth/contact-otp-store.mjs";
 import {
@@ -91,8 +92,8 @@ export async function handlePatchOrgOwnerProfile(req, res, orgId) {
   if (body?.lastName !== undefined) patch.lastName = body.lastName;
   if (body?.avatarUrl !== undefined) patch.avatarUrl = body.avatarUrl;
   if (body?.timezone !== undefined) {
-    if (typeof body.timezone !== "string" || !body.timezone.trim()) {
-      sendError(res, 400, "invalid_request", "timezone is required");
+    if (typeof body.timezone !== "string" || !isValidTimeZone(body.timezone.trim())) {
+      sendError(res, 400, "invalid_request", "timezone must be a valid IANA timezone");
       return;
     }
     patch.timezone = body.timezone.trim();
@@ -361,8 +362,8 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
   if (body?.lastName !== undefined) patch.lastName = body.lastName;
   if (body?.avatarUrl !== undefined) patch.avatarUrl = body.avatarUrl;
   if (body?.timezone !== undefined) {
-    if (typeof body.timezone !== "string" || !body.timezone.trim()) {
-      sendError(res, 400, "invalid_request", "timezone is required");
+    if (typeof body.timezone !== "string" || !isValidTimeZone(body.timezone.trim())) {
+      sendError(res, 400, "invalid_request", "timezone must be a valid IANA timezone");
       return;
     }
     patch.timezone = body.timezone.trim();

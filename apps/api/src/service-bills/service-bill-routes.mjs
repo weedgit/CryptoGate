@@ -61,6 +61,7 @@ import {
   addMerchantServiceBillCredit,
 } from "../commercial/merchant-commercial-store.mjs";
 import { maybeCreateActivationForMerchantOrg } from "./activation.mjs";
+import { listUpcomingBills } from "./upcoming-bills.mjs";
 
 /**
  * Waived / cancelled bill that paused the merchant: resume the org.
@@ -130,6 +131,27 @@ function parseBillingPeriodOverlap(url) {
     return { ok: false, message: "periodFrom and periodTo must be YYYY-MM-DD with periodFrom <= periodTo" };
   }
   return { ok: true, period: { from, to } };
+}
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * Optional `paidMonth` (YYYY-MM): paid monthly bills with paid_at in that UTC month.
+ * @param {URL} url
+ * @returns {{ ok: true, paidMonth: { startIso: string, endIso: string } | null } | { ok: false, message: string }}
+ */
+export function parsePaidMonth(url) {
+  const raw = url.searchParams.get("paidMonth")?.trim() ?? "";
+  if (!raw) return { ok: true, paidMonth: null };
+  if (!MONTH_RE.test(raw)) return { ok: false, message: "paidMonth must be YYYY-MM" };
+  const [y, m] = raw.split("-").map(Number);
+  return {
+    ok: true,
+    paidMonth: {
+      startIso: new Date(Date.UTC(y, m - 1, 1)).toISOString(),
+      endIso: new Date(Date.UTC(y, m, 1)).toISOString(),
+    },
+  };
 }
 
 /**
@@ -210,6 +232,12 @@ export async function handleListServiceBills(req, res, url) {
     return;
   }
 
+  const paid = parsePaidMonth(url);
+  if (!paid.ok) {
+    sendError(res, 400, "invalid_request", paid.message);
+    return;
+  }
+
   const limit = parseServiceBillListLimit(url.searchParams.get("limit"));
   const result = await listServiceBills({
     kind: expanded.kind === "all" ? "all" : "filter",
@@ -217,6 +245,7 @@ export async function handleListServiceBills(req, res, url) {
     orgId,
     status: statusFilter.status,
     period: period.period,
+    paidMonth: paid.paidMonth,
     ...listQuery.query,
     limit,
     offset: offsetParsed.offset,
@@ -267,14 +296,57 @@ export async function handleServiceBillSummary(req, res, url) {
     return;
   }
 
+  const paid = parsePaidMonth(url);
+  if (!paid.ok) {
+    sendError(res, 400, "invalid_request", paid.message);
+    return;
+  }
+
   const summary = await serviceBillSummary({
     kind: expanded.kind === "all" ? "all" : "filter",
     orgIds: expanded.kind === "filter" ? expanded.orgIds : [],
     orgId,
     window: win.window,
     period: period.period,
+    paidMonth: paid.paidMonth,
   });
   sendJson(res, 200, summary);
+}
+
+/**
+ * GET /v1/service-bills/upcoming — estimated next monthly bill per activated
+ * merchant (volume so far). Same scope as the list; accepts orgId / agentOrgId.
+ * @param {import("node:http").IncomingMessage} req
+ * @param {import("node:http").ServerResponse} res
+ * @param {URL} url
+ */
+export async function handleUpcomingServiceBills(req, res, url) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return;
+
+  const scope = serviceBillListScope(caller);
+  if (scope.kind === "none") {
+    sendError(res, 403, "forbidden", "Cashiers cannot view service bills");
+    return;
+  }
+
+  const orgIdRaw = url.searchParams.get("orgId")?.trim() || null;
+  if (orgIdRaw && !UUID_RE.test(orgIdRaw)) {
+    sendError(res, 400, "invalid_request", "orgId must be a UUID");
+    return;
+  }
+  const expanded = await narrowToAgent(res, url, await expandServiceBillOrgIds(scope));
+  if (!expanded) return;
+  if (orgIdRaw && expanded.kind === "filter" && !expanded.orgIds.includes(orgIdRaw)) {
+    sendError(res, 403, "forbidden", "Outside service-bill scope");
+    return;
+  }
+
+  const items = await listUpcomingBills({
+    orgIds: expanded.kind === "all" ? null : expanded.orgIds,
+    orgId: orgIdRaw,
+  });
+  sendJson(res, 200, { items });
 }
 
 /**

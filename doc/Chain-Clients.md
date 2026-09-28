@@ -2,12 +2,12 @@
 
 Package path: `packages/chain-clients`
 
-One module per network. Do not put Tron/ETH/BTC switches in a single watcher file — `apps/watcher` only selects the package by `network` id.
+One module per network. Do not put Tron/ETH/Solana switches in a single watcher file — `apps/watcher` only selects the package by `network` id.
+
+Phase 1 rails are **Ethereum, Tron and Solana** only. No other network client exists.
 
 | Module | Network id | Status |
 | --- | --- | --- |
 | `tron/` | `tron` / `tron_nile` | Live ingest — `TRON_RPC_URL` (mainnet) + `TRON_NILE_RPC_URL` (Nile) |
-| `ethereum/` | `ethereum` | Client ready — enable after M3-32 staging smoke (`ETH_RPC_URL`) |
-| `bnb_smart_chain/` | `bnb_smart_chain` | Client ready (X-06) — stub until `BSC_RPC_URL`; create-order 422 until registry `enabled: true` |
-
-Shared EVM log polling lives in `ethereum/rpc.mjs` and accepts a parameterized `runtimeConfig` so BSC reuses Transfer-topic decode without a mega network switch. BSC USDT uses **18 decimals** and **15** confirmations from `USDT_BNB_SMART_CHAIN`.
+| `ethereum/` | `ethereum` | Live ingest — `ETH_RPC_URL` (USDT / USDC ERC-20 + native ETH) |
+| `solana/` | `solana` | Live ingest — `SOLANA_RPC_URL` (USDT / USDC SPL) |
