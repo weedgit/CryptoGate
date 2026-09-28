@@ -5,10 +5,68 @@ import {
 
 export { NOTIFICATION_EVENT_TYPES, NotificationEventType };
 
+/** Agent-portal notification events (per user + agent org). */
+export const AgentNotificationEventType = Object.freeze({
+  CommissionPaid: "commission_paid",
+  PayoutWallet: "payout_wallet",
+  MerchantOnboarded: "merchant_onboarded",
+  MerchantBillOverdue: "merchant_bill_overdue",
+  MerchantPaymentAnomaly: "merchant_payment_anomaly",
+  TeamMemberJoined: "team_member_joined",
+});
+
+export const AGENT_NOTIFICATION_EVENT_TYPES = Object.freeze(
+  Object.values(AgentNotificationEventType),
+);
+
+/** Platform-portal notification events (per user + platform org). */
+export const PlatformNotificationEventType = Object.freeze({
+  BillOverdue: "platform_bill_overdue",
+  PaymentAnomaly: "platform_payment_anomaly",
+  AccountCreated: "platform_account_created",
+  TeamMemberJoined: "platform_team_member_joined",
+  SystemHealth: "platform_system_health",
+  CommissionStuck: "platform_commission_stuck",
+});
+
+export const PLATFORM_NOTIFICATION_EVENT_TYPES = Object.freeze(
+  Object.values(PlatformNotificationEventType),
+);
+
+/** Every order completes one — email stays opt-in so inboxes are not flooded. */
+const EMAIL_OFF_BY_DEFAULT = new Set([NotificationEventType.PaymentCompleted]);
+
+/** @param {string} eventType */
+export function defaultEmailFor(eventType) {
+  return !EMAIL_OFF_BY_DEFAULT.has(eventType);
+}
+
+/** Merchant events a Cashier can act on (own orders); the rest are Owner/Admin matters. */
+export const CASHIER_NOTIFICATION_EVENT_TYPES = Object.freeze([
+  NotificationEventType.PaymentCompleted,
+  NotificationEventType.PaymentAnomaly,
+]);
+
+/**
+ * @param {string} orgType
+ * @param {string | null} [role] caller's role on the org
+ */
+export function notificationEventTypesForOrgType(orgType, role = null) {
+  if (orgType === "agent") return AGENT_NOTIFICATION_EVENT_TYPES;
+  if (orgType === "platform") return PLATFORM_NOTIFICATION_EVENT_TYPES;
+  return role === "cashier"
+    ? CASHIER_NOTIFICATION_EVENT_TYPES
+    : NOTIFICATION_EVENT_TYPES;
+}
+
 /**
  * @param {unknown} body
+ * @param {readonly string[]} [eventTypes]
  */
-export function validateNotificationPrefsBody(body) {
+export function validateNotificationPrefsBody(
+  body,
+  eventTypes = NOTIFICATION_EVENT_TYPES,
+) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { ok: false, status: 400, code: "invalid_request", message: "Invalid body" };
   }
@@ -22,7 +80,7 @@ export function validateNotificationPrefsBody(body) {
     };
   }
 
-  const allowed = new Set(NOTIFICATION_EVENT_TYPES);
+  const allowed = new Set(eventTypes);
   /** @type {Map<string, { eventType: string, email: boolean, inApp: boolean }>} */
   const byType = new Map();
 
@@ -60,14 +118,14 @@ export function validateNotificationPrefsBody(body) {
     });
   }
 
-  // Fill missing event types with prior defaults (true/true) so PUT is complete.
+  // Fill missing event types with defaults so PUT is complete.
   /** @type {{ eventType: string, email: boolean, inApp: boolean }[]} */
   const normalized = [];
-  for (const eventType of NOTIFICATION_EVENT_TYPES) {
+  for (const eventType of eventTypes) {
     normalized.push(
       byType.get(eventType) ?? {
         eventType,
-        email: true,
+        email: defaultEmailFor(eventType),
         inApp: true,
       },
     );
@@ -83,20 +141,24 @@ export function validateNotificationPrefsBody(body) {
 export function toNotificationPreference(eventType, row) {
   return {
     eventType,
-    email: row?.email ?? true,
+    email: row?.email ?? defaultEmailFor(eventType),
     inApp: row?.in_app ?? true,
   };
 }
 
 /**
  * @param {Map<string, object> | Record<string, object>} stored
+ * @param {readonly string[]} [eventTypes]
  */
-export function mergeNotificationPreferences(stored) {
+export function mergeNotificationPreferences(
+  stored,
+  eventTypes = NOTIFICATION_EVENT_TYPES,
+) {
   const map =
     stored instanceof Map
       ? stored
       : new Map(Object.entries(stored ?? {}));
-  return NOTIFICATION_EVENT_TYPES.map((eventType) =>
+  return eventTypes.map((eventType) =>
     toNotificationPreference(eventType, map.get(eventType)),
   );
 }

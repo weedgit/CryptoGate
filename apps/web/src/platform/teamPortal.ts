@@ -11,7 +11,8 @@ export type TeamPortal = {
   canManage: boolean;
   /** Why invites are locked (e.g. unverified contact); null when unlocked. */
   inviteLockedHint: string | null;
-  header?: ReactNode;
+  /** Extra toolbar buttons rendered after "Invite Member". */
+  actions?: ReactNode;
   peekOrgs: () => OrgRef[] | null;
   getOrgs: () => Promise<OrgRef[]>;
 };

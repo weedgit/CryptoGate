@@ -33,7 +33,7 @@ import {
 import { serviceBillStatusLabel } from "./serviceBillStatus";
 import { SuspendOrgModal } from "./ui/SuspendOrgModal";
 import { OrgDeleteConfirmModal } from "./ui/OrgDeleteConfirmModal";
-import { useOrgDeleteModal } from "./useOrgDeleteModal";
+import { useOrgDeleteModal } from "../shared/orgList/useOrgDeleteModal";
 import { PagePending } from "./ui/PlatformPending";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import {
@@ -360,7 +360,19 @@ type MerchantFeeStatus = "overdue" | "issued" | "paid";
 type TreeRowBudgets = {
   commissionByAgentId: ReadonlyMap<string, AgentPayoutStatus | null>;
   feeByMerchantId: ReadonlyMap<string, MerchantFeeStatus | null>;
+  /** Active cashiers directly on each merchant / site. */
+  cashierByOrgId: ReadonlyMap<string, number>;
 };
+
+function cashierCountMapFromBulkRows(
+  rows: ReadonlyArray<{ orgId: string; cashierCount?: number }>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    if (row.cashierCount && row.cashierCount > 0) out.set(row.orgId, row.cashierCount);
+  }
+  return out;
+}
 
 function commissionPayoutLabel(status: AgentPayoutStatus): string {
   if (status === "paid") return "PAID";
@@ -900,6 +912,10 @@ function OrgTreeItem({
   const feeStatus = isMerchant
     ? (budgets.feeByMerchantId.get(node.id) ?? null)
     : null;
+  const cashiers =
+    isMerchant || node.type === "merchant_site"
+      ? (budgets.cashierByOrgId.get(node.id) ?? 0)
+      : 0;
 
   const select = () => onSelect(node.id);
   const toggle = () => {
@@ -1069,6 +1085,22 @@ function OrgTreeItem({
         </span>
         <span className="b3-accounts__name org-architecture__name">
           <span className="b3-accounts__name-text">{node.name}</span>
+          {cashiers > 0 ? (
+            <span
+              className="org-architecture__cashier-count"
+              title={`${cashiers} cashier${cashiers === 1 ? "" : "s"}`}
+              aria-label={`${cashiers} cashier${cashiers === 1 ? "" : "s"}`}
+            >
+              <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden>
+                <circle cx="8" cy="5.2" r="2.7" fill="currentColor" />
+                <path
+                  d="M2.8 14c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8"
+                  fill="currentColor"
+                />
+              </svg>
+              {cashiers}
+            </span>
+          ) : null}
         </span>
         <span className="org-architecture__row-meta" aria-hidden={false}>
           <span className="org-architecture__meta-count">
@@ -1682,6 +1714,18 @@ export function AccountsPage({ session }: { session: Session }) {
   const [forest, setForest] = useState(() =>
     buildForest(scopeOrgs(sources.peekOrgs() ?? [])),
   );
+  /** Apply a saved profile locally, then refresh the shared list so the shell brand updates. */
+  const onOrgPatched = useCallback(
+    (next: OrgAccount) => {
+      setOrgs((prev) => {
+        const updated = prev.map((o) => (o.id === next.id ? { ...o, ...next } : o));
+        setForest(buildForest(updated));
+        return updated;
+      });
+      void sources.refreshOrgs().catch(() => undefined);
+    },
+    [buildForest, sources],
+  );
   const [filter, setFilter] = useState<OrgTreeFilter>(EMPTY_FILTER);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -1693,6 +1737,9 @@ export function AccountsPage({ session }: { session: Session }) {
     () => new Map(),
   );
   const [cashierCount, setCashierCount] = useState(0);
+  const [cashierByOrgId, setCashierByOrgId] = useState<Map<string, number>>(
+    () => new Map(),
+  );
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [suspendTarget, setSuspendTarget] = useState<PlatformOrgTreeNode | null>(
@@ -1771,6 +1818,7 @@ export function AccountsPage({ session }: { session: Session }) {
       setCashierCount(
         emailRows.reduce((sum, row) => sum + (row.cashierCount ?? 0), 0),
       );
+      setCashierByOrgId(cashierCountMapFromBulkRows(emailRows));
       setLastUpdatedAt(Date.now());
       // Do not reset expansion on every load — selection/nav must not collapse
       // nodes the user just opened (e.g. double-click expand).
@@ -1876,6 +1924,7 @@ export function AccountsPage({ session }: { session: Session }) {
       setCashierCount(
         emailRows.reduce((sum, row) => sum + (row.cashierCount ?? 0), 0),
       );
+      setCashierByOrgId(cashierCountMapFromBulkRows(emailRows));
       setLastUpdatedAt(Date.now());
       setExpanded((prev) => {
       const next = new Set<string>();
@@ -1998,8 +2047,8 @@ export function AccountsPage({ session }: { session: Session }) {
         feeByMerchantId.set(org.id, billStatus.get(org.id)?.feeStatus ?? null);
       }
     }
-    return { commissionByAgentId, feeByMerchantId };
-  }, [orgs, billStatus]);
+    return { commissionByAgentId, feeByMerchantId, cashierByOrgId };
+  }, [orgs, billStatus, cashierByOrgId]);
 
   const filteredRoots = useMemo(() => {
     const scoped =
@@ -2486,15 +2535,7 @@ export function AccountsPage({ session }: { session: Session }) {
                   onPause={() => setSuspendTarget(selectedNode)}
                   onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
-                  onOrgPatched={(next) => {
-                    setOrgs((prev) => {
-                      const updated = prev.map((o) =>
-                        o.id === next.id ? { ...o, ...next } : o,
-                      );
-                      setForest(buildForest(updated));
-                      return updated;
-                    });
-                  }}
+                  onOrgPatched={onOrgPatched}
                 />
               ) : selectedNode &&
                 selectedNode.type === "merchant" &&
@@ -2517,15 +2558,7 @@ export function AccountsPage({ session }: { session: Session }) {
                   onPause={() => setSuspendTarget(selectedNode)}
                   onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
-                  onOrgPatched={(next) => {
-                    setOrgs((prev) => {
-                      const updated = prev.map((o) =>
-                        o.id === next.id ? { ...o, ...next } : o,
-                      );
-                      setForest(buildForest(updated));
-                      return updated;
-                    });
-                  }}
+                  onOrgPatched={onOrgPatched}
                 />
               ) : selectedNode &&
                 selectedNode.type === "merchant_site" &&
@@ -2547,15 +2580,7 @@ export function AccountsPage({ session }: { session: Session }) {
                   onPause={() => setSuspendTarget(selectedNode)}
                   onRun={() => requestResume(selectedNode)}
                   onDelete={() => openDelete(selectedNode)}
-                  onOrgPatched={(next) => {
-                    setOrgs((prev) => {
-                      const updated = prev.map((o) =>
-                        o.id === next.id ? { ...o, ...next } : o,
-                      );
-                      setForest(buildForest(updated));
-                      return updated;
-                    });
-                  }}
+                  onOrgPatched={onOrgPatched}
                 />
               ) : selectedNode ? (
                 <OrgTreeDetail

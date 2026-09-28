@@ -1,0 +1,395 @@
+/* Page load — fill the content pane in-flow (keep shell chrome; no fixed dark void) */
+.platform-shell .page-pending {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: min(52vh, 360px);
+  padding: 48px 24px;
+  pointer-events: auto;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.platform-shell .body:has(> .page-pending) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell.platform-shell--collapsed .page-pending {
+  left: auto;
+}
+
+.page-pending--full {
+  position: fixed;
+  inset: 0;
+  left: 0 !important;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background-color: #0a1220;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 12% 0%, rgba(240, 180, 41, 0.07) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 50% at 92% 8%, rgba(56, 189, 248, 0.08) 0%, transparent 65%),
+    linear-gradient(165deg, #0d1728 0%, #0a1220 45%, #070e18 100%);
+}
+
+.platform-shell .page-pending .plat-pending.is-page,
+.platform-shell .page-pending .cg-pending.is-page {
+  border: none;
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+  pointer-events: auto;
+}
+
+@media (max-width: 900px) {
+  .platform-shell .page-pending {
+    left: auto;
+  }
+}
+
+/* Shared platform pending / skeleton — layout overrides; motion from loading.css */
+.platform-shell .plat-pending,
+.platform-shell .cg-pending.plat-pending {
+  padding: 48px 32px;
+  min-height: 240px;
+  background: transparent;
+  border: none;
+}
+
+.platform-shell .plat-pending.is-compact,
+.platform-shell .cg-pending.plat-pending.is-compact {
+  min-height: 0;
+  padding: 32px 24px 16px;
+  background: transparent;
+  border: none;
+}
+
+.platform-shell .plat-pending.is-page,
+.platform-shell .cg-pending.plat-pending.is-page {
+  background: transparent;
+  border: none;
+}
+
+.login-wrap .plat-pending,
+.login-wrap .cg-pending.plat-pending {
+  background: transparent;
+  border: none;
+  min-height: 200px;
+}
+
+.platform-shell .plat-pending__copy,
+.platform-shell .cg-pending__copy.plat-pending__copy {
+  color: var(--muted);
+}
+
+.platform-shell .plat-pending-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0 12px;
+}
+
+.platform-shell .plat-pending-skel__head,
+.platform-shell .plat-pending-skel__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+}
+
+.platform-shell .plat-pending-skel__row {
+  animation: plat-pending-skel-in 0.5s var(--cg-load-ease, ease) both;
+}
+
+.platform-shell .plat-pending-skel__cell {
+  display: block;
+  height: 11px;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.platform-shell .plat-pending-skel__cell.is-head {
+  height: 9px;
+  width: 42%;
+  opacity: 0.55;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.platform-shell .plat-pending-skel__cell.is-head::after {
+  display: none;
+}
+
+@keyframes plat-pending-skel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .plat-pending-skel__row {
+    animation: none;
+  }
+}
+
+.platform-shell .plat-bills__table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+  font-size: 14px;
+  color: var(--bills-text);
+}
+
+.platform-shell .plat-bills__amount--base {
+  color: var(--bills-muted);
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__amount--base .fund-amount,
+.platform-shell .plat-bills__fee-parts .fund-amount {
+  color: inherit;
+}
+
+.platform-shell .plat-bills__amount--total {
+  font-weight: 700;
+  color: var(--bills-gold-bright);
+}
+
+.platform-shell .plat-bills__amount--total .fund-amount {
+  color: inherit;
+}
+
+.platform-shell .plat-bills__table th,
+.platform-shell .plat-bills__table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
+  overflow: visible;
+}
+
+.platform-shell .plat-bills__table th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: left;
+  color: var(--bills-label);
+  background: var(--bills-bg-elevated);
+  border-bottom: 1px solid var(--bills-divider);
+  box-shadow: none;
+}
+
+.platform-shell .plat-bills__table th .plat-orders__sort {
+  display: inline-flex;
+  width: auto;
+  justify-content: flex-start;
+}
+
+.platform-shell .plat-bills__table tbody tr {
+  animation: plat-bills-row-in 280ms ease both;
+}
+
+.platform-shell .plat-bills__table tbody tr:nth-child(odd) td,
+.platform-shell .plat-bills__table tbody tr:nth-child(even) td {
+  background: transparent;
+}
+
+.platform-shell .plat-bills__table tbody tr.plat-bills__row {
+  cursor: pointer;
+}
+
+.platform-shell .plat-bills__table tbody tr.plat-bills__row:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.45);
+  outline-offset: -2px;
+}
+
+.platform-shell .plat-bills__table tbody tr:hover td,
+.platform-shell .plat-bills__table tbody tr.plat-bills__row:hover td {
+  background: rgba(120, 160, 190, 0.05);
+}
+
+.platform-shell .plat-bills__id {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #5eead4;
+  text-decoration: none;
+}
+
+.platform-shell .plat-bills__id:hover {
+  color: #99f6e4;
+  text-decoration: underline;
+}
+
+.platform-shell .plat-bills__merchant {
+  font-weight: 650;
+  color: var(--bills-text);
+  min-width: 12rem;
+  width: 22%;
+}
+
+.platform-shell .plat-bills__merchant-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__merchant-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bills-gold) 22%, #0a1e34);
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.platform-shell .plat-bills__merchant-avatar.org-brand-mark,
+.platform-shell .plat-bills__merchant-avatar--brand {
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 66, 0.18);
+  color: #0b0f14;
+  font-size: 0.7rem;
+}
+
+.platform-shell .plat-bills__merchant-avatar--brand.org-brand-mark--image {
+  background: #0a1e34;
+  overflow: hidden;
+  padding: 0;
+}
+
+.platform-shell .plat-bills__merchant-avatar--brand.org-brand-mark--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.platform-shell .plat-bills__merchant-avatar--brand.org-brand-mark--platform {
+  background: #0a1e34;
+  overflow: hidden;
+  padding: 4px;
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 66, 0.22);
+}
+
+.platform-shell .plat-bills__merchant-avatar--brand.org-brand-mark--platform img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+
+.platform-shell .plat-bills__merchant-meta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__merchant-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--bills-title);
+  line-height: 1.25;
+  text-decoration: none;
+  max-width: 100%;
+}
+
+.platform-shell .plat-bills__merchant-name:hover {
+  color: var(--bills-gold-bright);
+  text-decoration: underline;
+}
+
+.platform-shell .plat-bills__merchant-meta .plat-bills__id {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.platform-shell .plat-bills__amount-cell {
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__amount-cell .plat-bills__amount--total {
+  display: block;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.platform-shell .plat-bills__amount-cell .plat-bills__fee-parts {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bills-muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.platform-shell .plat-bills__fee-parts {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--bills-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__amount {
+  color: var(--bills-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__amount.plat-bills__amount--total,
+.platform-shell .plat-bills__amount-cell .plat-bills__amount--total {
+  color: var(--bills-gold-bright);
+}
+
+.platform-shell .plat-bills__amount.plat-bills__amount--total .fund-amount,
+.platform-shell .plat-bills__amount-cell .plat-bills__amount--total .fund-amount {
+  color: var(--bills-gold-bright);
+}
+
+.platform-shell .plat-bills__due {
+  color: var(--bills-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__due.is-overdue {
+  color: #fecaca;
+  font-weight: 600;
+}
+

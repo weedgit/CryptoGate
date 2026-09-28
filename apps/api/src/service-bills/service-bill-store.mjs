@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.mjs";
+import { notifyServiceBillIssued } from "../notifications/notify.mjs";
 import { safeNumericSql } from "../dashboard/dashboard-range.mjs";
 import {
   OPEN_ACTIVATION_SQL,
@@ -381,6 +382,7 @@ export async function insertServiceBill(input) {
        RETURNING ${BILL_SELECT}`,
       values,
     );
+    if (rows[0]?.status === "issued") notifyServiceBillIssued(rows[0]);
     return rows[0];
   } catch (err) {
     if (err && err.code === "42703") {
@@ -413,7 +415,9 @@ export async function sendServiceBill(id, dueAt) {
      RETURNING ${BILL_SELECT}`,
     [id, dueAt],
   );
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row) notifyServiceBillIssued(row);
+  return row;
 }
 
 /**

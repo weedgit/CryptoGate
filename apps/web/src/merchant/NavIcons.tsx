@@ -68,16 +68,6 @@ export function SitesNavIcon({ className }: IconProps) {
   );
 }
 
-export function ReportsNavIcon({ className }: IconProps) {
-  return (
-    <IconShell className={className}>
-      <path d="M12 20V10" />
-      <path d="M18 20V4" />
-      <path d="M6 20v-4" />
-    </IconShell>
-  );
-}
-
 export function SettlementNavIcon({ className }: IconProps) {
   return (
     <IconShell className={className}>
@@ -107,15 +97,6 @@ export function TeamNavIcon({ className }: IconProps) {
       <circle cx="12" cy="8" r="3.5" />
       <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
       <path d="M19 4v4M21 6h-4" />
-    </IconShell>
-  );
-}
-
-export function IntegrationsNavIcon({ className }: IconProps) {
-  return (
-    <IconShell className={className}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
     </IconShell>
   );
 }

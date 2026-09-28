@@ -120,8 +120,9 @@ describe("@paymentgate/web agent C10 commissions", () => {
 
 describe("@paymentgate/web agent C12 settings", () => {
   it("locks commission payout to USDT on Tron", () => {
+    assert.equal(existsSync(join(root, "src/agent/AgentSettingsPage.tsx")), false);
     const page = readFileSync(
-      join(root, "src/agent/AgentSettingsPage.tsx"),
+      join(root, "src/agent/AgentOrgEditHost.tsx"),
       "utf8",
     );
     assert.match(page, /PLATFORM_FEE_ASSET/);

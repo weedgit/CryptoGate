@@ -185,7 +185,7 @@ export function rolePermissionSummary(
     role: "viewer",
     label: LABELS.viewer,
     summary: "Read-only",
-    can: ["View orders, reports, bills, and settings"],
+    can: ["View orders, bills, and settings"],
     cannot: VIEWER_CANNOT,
   };
 }

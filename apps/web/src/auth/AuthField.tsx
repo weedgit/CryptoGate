@@ -17,6 +17,8 @@ type Props = {
   placeholder?: string;
   /** Optional control beside the label (e.g. Forgot password?). */
   labelAction?: ReactNode;
+  /** Custom decorative icon on the left edge (instead of the built-in `icon`). */
+  leadingIcon?: ReactNode;
 };
 
 export function AuthField({
@@ -34,6 +36,7 @@ export function AuthField({
   required,
   placeholder,
   labelAction,
+  leadingIcon,
 }: Props) {
   const inputType =
     type === "password" ? (showPassword ? "text" : "password") : type;
@@ -46,11 +49,11 @@ export function AuthField({
         {labelAction ? <div className="login-field__label-action">{labelAction}</div> : null}
       </div>
       <div
-        className={`login-input-shell${icon ? " login-input-shell--with-icon" : ""}${showToggle ? " login-input-shell--toggle" : ""}`}
+        className={`login-input-shell${icon || leadingIcon ? " login-input-shell--with-icon" : ""}${showToggle ? " login-input-shell--toggle" : ""}`}
       >
-        {LeadingIcon ? (
+        {leadingIcon || LeadingIcon ? (
           <span className="login-input-icon" aria-hidden>
-            <LeadingIcon />
+            {leadingIcon ?? (LeadingIcon ? <LeadingIcon /> : null)}
           </span>
         ) : null}
         <input

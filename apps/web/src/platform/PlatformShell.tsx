@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { Session } from "./api";
 import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
+import { AlertsNavIcon } from "../merchant/NavIcons";
 import {
   ArchitectureNavIcon,
   AuditLogNavIcon,
@@ -38,7 +39,14 @@ import { setViewerTimeZone } from "../shared/dateTime";
 import {
   fetchPlatformHealth,
   syncPlatformHealthAlerts,
+  type PlatformHealthSnapshot,
 } from "../shared/platformHealthAlerts";
+import {
+  loadPlatformNotificationPrefs,
+  platformInAppEnabled,
+  primaryPlatformOrgId,
+  subscribePlatformNotificationPrefs,
+} from "./platformNotificationPrefs";
 import {
   ensureHealthPolling,
   subscribeSharedHealth,
@@ -48,22 +56,49 @@ import { useConditionAlerts } from "../shared/conditionAlerts";
 import {
   clearPlatformConditionAlerts,
   refreshPlatformConditionAlerts,
+  rerunPlatformConditionAlerts,
 } from "./platformConditionAlerts";
 import { prefetchPlatformRoute } from "./prefetchRoutes";
 
-function PlatformHealthBeacon() {
+const HEALTHY: PlatformHealthSnapshot = { api: true, database: true, webhook: true };
+
+function PlatformHealthBeacon({ orgId }: { orgId: string | null }) {
   useEffect(() => {
+    let cancelled = false;
+    let muted = false;
+    let last: PlatformHealthSnapshot | "unreachable" | null = null;
+    const apply = () => {
+      if (last) syncPlatformHealthAlerts(muted ? HEALTHY : last);
+    };
+    const readMute = () => {
+      if (!orgId) return;
+      void loadPlatformNotificationPrefs(orgId)
+        .then((prefs) => {
+          if (cancelled) return;
+          muted = !platformInAppEnabled(prefs, "platform_system_health");
+          apply();
+        })
+        .catch(() => undefined);
+    };
     ensureHealthPolling(true);
-    const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
-      syncPlatformHealthAlerts(next);
+    const sync = (next: PlatformHealthSnapshot | "unreachable") => {
+      last = next;
+      apply();
     };
     const unsub = subscribeSharedHealth(sync);
+    const unsubPrefs = subscribePlatformNotificationPrefs(() => {
+      readMute();
+      rerunPlatformConditionAlerts();
+    });
+    readMute();
     void fetchPlatformHealth().then(sync);
     return () => {
+      cancelled = true;
       unsub();
+      unsubPrefs();
       ensureHealthPolling(false);
     };
-  }, []);
+  }, [orgId]);
   return null;
 }
 
@@ -76,6 +111,12 @@ const NAV_GROUPS: PortalNavGroup[] = [
         label: "Dashboard",
         end: true,
         Icon: DashboardNavIcon,
+      },
+      {
+        to: platformRoute("invoices"),
+        label: "Invoice",
+        matchPrefix: platformRoute("invoices"),
+        Icon: SupportNavIcon,
       },
       {
         to: platformRoute("accounts"),
@@ -113,12 +154,6 @@ const NAV_GROUPS: PortalNavGroup[] = [
         matchPrefix: platformRoute("commissions"),
         Icon: CommissionsNavIcon,
       },
-      {
-        to: platformRoute("invoices"),
-        label: "Invoice",
-        matchPrefix: platformRoute("invoices"),
-        Icon: SupportNavIcon,
-      },
     ],
   },
   {
@@ -129,12 +164,6 @@ const NAV_GROUPS: PortalNavGroup[] = [
         label: "Network",
         matchPrefix: platformRoute("settings/networks"),
         Icon: NetworkNavIcon,
-      },
-      {
-        to: platformRoute("settings/team"),
-        label: "Team",
-        matchPrefix: platformRoute("settings/team"),
-        Icon: TeamNavIcon,
       },
       {
         to: platformRoute("settings/fee-tiers"),
@@ -153,6 +182,18 @@ const NAV_GROUPS: PortalNavGroup[] = [
         label: "Audit",
         matchPrefix: platformRoute("audit"),
         Icon: AuditLogNavIcon,
+      },
+      {
+        to: platformRoute("settings/team"),
+        label: "Team",
+        matchPrefix: platformRoute("settings/team"),
+        Icon: TeamNavIcon,
+      },
+      {
+        to: platformRoute("settings/notifications"),
+        label: "Alerts",
+        matchPrefix: platformRoute("settings/notifications"),
+        Icon: AlertsNavIcon,
       },
     ],
   },
@@ -244,7 +285,7 @@ export function PlatformShell({
     <div
       className={`shell platform-shell${navCollapsed ? " platform-shell--collapsed" : ""}${shellEnter ? " is-enter" : ""}${mobileNavOpen ? " portal-shell--nav-open" : ""}`}
     >
-      <PlatformHealthBeacon />
+      <PlatformHealthBeacon orgId={primaryPlatformOrgId(session)} />
       <button
         type="button"
         className="portal-nav-backdrop"

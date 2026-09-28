@@ -10,6 +10,10 @@ export type PortalNavItem = {
   /** Exact path match only (for parent that has children). */
   exactActive?: boolean;
   Icon: ComponentType<{ className?: string }>;
+  /** Run an action (e.g. open a modal) instead of navigating to `to`. */
+  onSelect?: () => void;
+  /** Highlight for `onSelect` items (route matching does not apply). */
+  active?: boolean;
   /** Omit on nested items to show label-only (tree dot still marks the branch). */
   children?: Array<
     Omit<PortalNavItem, "children" | "Icon"> & { Icon?: PortalNavItem["Icon"] }
@@ -102,6 +106,24 @@ export function PortalNav({ groups, collapsed, ariaLabel, prefetch, navRef }: Pr
             const branchOpen = hasChildren
               ? navBranchOpen(location.pathname, item)
               : false;
+            if (item.onSelect) {
+              return (
+                <div key={item.to} className="nav-branch">
+                  <button
+                    type="button"
+                    title={item.label}
+                    aria-label={item.label}
+                    aria-haspopup="dialog"
+                    style={{ "--nav-delay": `${delayMs}ms` } as CSSProperties}
+                    className={`nav-item nav-item--action${item.active ? " active" : ""}`}
+                    onClick={item.onSelect}
+                  >
+                    <Icon />
+                    {!collapsed ? <span>{item.label}</span> : null}
+                  </button>
+                </div>
+              );
+            }
             return (
               <div
                 key={item.to}

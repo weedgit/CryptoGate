@@ -1,0 +1,472 @@
+/* B14 — Platform audit log */
+.platform-shell .plat-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.platform-shell .plat-audit.plat-bills {
+  --bills-gold: #f5c542;
+  --bills-gold-bright: #fbbf24;
+}
+
+.platform-shell .plat-audit .plat-bills__period-bar {
+  margin: 0;
+}
+
+.platform-shell .plat-audit__export-cta.plat-bills__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.75);
+  background: transparent;
+  color: #f0b429;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.platform-shell .plat-audit__export-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.platform-shell .plat-audit__export-cta-icon svg {
+  display: block;
+}
+
+.platform-shell .plat-audit__export-cta.plat-bills__action-btn:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.1);
+  color: #ffd36a;
+  border-color: rgba(240, 180, 41, 0.9);
+}
+
+.platform-shell .plat-audit__export-cta.plat-bills__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-audit__search-wrap {
+  width: min(300px, 52vw);
+}
+
+.platform-shell input.plat-audit__search {
+  border-color: rgba(240, 180, 41, 0.35);
+  background: #06192c;
+}
+
+.platform-shell input.plat-audit__search:focus {
+  border-color: rgba(240, 180, 41, 0.75);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-audit__search-wrap:focus-within .org-agents__search-icon {
+  color: #fbbf24;
+}
+
+.platform-shell .plat-audit__filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 160, 190, 0.14);
+  background: #04182b;
+}
+
+.platform-shell .plat-audit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.platform-shell .plat-audit__field--wide {
+  grid-column: span 1;
+}
+
+.platform-shell .plat-audit__field > span {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7b8798;
+}
+
+.platform-shell .plat-audit__input {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 120, 150, 0.28);
+  background: #06192c;
+  color: #f1f5f9;
+  font-size: 13px;
+}
+
+.platform-shell .plat-audit__date-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.platform-shell .plat-audit__input--date {
+  padding-right: 36px;
+  color-scheme: dark;
+}
+
+.platform-shell .plat-audit__input--date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.platform-shell .plat-audit__date-icon {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: #8b9bb0;
+  pointer-events: none;
+}
+
+.platform-shell .plat-audit__date-wrap:hover .plat-audit__date-icon {
+  color: #e2e8f0;
+}
+
+.platform-shell .plat-audit__date-wrap:focus-within .plat-audit__date-icon {
+  color: #fbbf24;
+}
+
+.platform-shell .plat-audit__input:focus {
+  outline: none;
+  border-color: rgba(240, 180, 41, 0.55);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-audit__table-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 12px;
+  background: #04182b;
+  border: 1px solid rgba(120, 160, 190, 0.14);
+  overflow: auto;
+}
+
+.platform-shell .plat-audit__table-wrap .org-pager {
+  border-top: 1px solid rgba(120, 160, 190, 0.12);
+  background: #04182b;
+  margin-top: auto;
+}
+
+.platform-shell .plat-audit__pending {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.platform-shell .plat-audit__pending .plat-pending {
+  border: none;
+  background: transparent;
+  min-height: 0;
+  padding: 28px 24px 12px;
+  flex: 0 0 auto;
+}
+
+.platform-shell .plat-audit__pending .plat-pending-skel {
+  flex: 1 1 auto;
+  border-top: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+.platform-shell .plat-audit__empty {
+  padding: 48px 24px;
+  text-align: center;
+  background: #04182b;
+}
+
+.platform-shell .plat-audit__empty-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+
+.platform-shell .plat-audit__empty-copy {
+  margin: 0 auto;
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-audit__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.platform-shell .plat-audit__table th,
+.platform-shell .plat-audit__table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+.platform-shell .plat-audit__table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #7b8798;
+  background: #0a1e34;
+  border-bottom-color: rgba(120, 160, 190, 0.12);
+}
+
+.platform-shell .plat-audit__table td {
+  color: #f1f5f9;
+  font-weight: 500;
+  background: #04182b;
+}
+
+.platform-shell .plat-audit__table tbody tr {
+  transition: background 120ms ease;
+}
+
+.platform-shell .plat-audit__table tbody tr:hover td {
+  background: #072033;
+}
+
+.platform-shell .plat-audit__table tbody tr.is-expanded td {
+  background: #072033;
+}
+
+.platform-shell .plat-audit__when {
+  font-size: 12px;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-audit__actor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .plat-audit__actor-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0a1e34;
+  border: 1px solid rgba(120, 160, 190, 0.2);
+}
+
+.platform-shell .plat-audit__actor-avatar img,
+.platform-shell .plat-audit__actor-avatar svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.platform-shell .plat-audit__actor-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .plat-audit__actor-email {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-audit__actor-id {
+  font-size: 11px;
+  color: #8b9bb0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.platform-shell .plat-audit__role {
+  font-size: 12px;
+  color: #8b9bb0;
+  text-transform: capitalize;
+}
+
+.platform-shell .plat-audit__action {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .plat-audit__resource {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .plat-audit__org {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell a.plat-audit__org:hover {
+  color: #fbbf24;
+  text-decoration: none;
+}
+
+.platform-shell .plat-audit__resource-id {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-audit__ip {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-audit__detail-toggle {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 140, 175, 0.28);
+  background: #06192c;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-audit__detail-toggle:hover,
+.platform-shell .plat-audit__detail-toggle.is-open {
+  border-color: rgba(240, 180, 41, 0.65);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .plat-audit__detail-empty {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.platform-shell .plat-audit__json-panel {
+  border-top: 1px solid rgba(120, 160, 190, 0.12);
+  background: #0a1e34;
+  padding: 14px 16px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.platform-shell .plat-audit__json-panel pre {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.platform-shell .plat-audit__detail-headline {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 650;
+  color: #f1f5f9;
+}
+
+.platform-shell .plat-audit__detail-lines {
+  margin: 0 0 10px;
+  padding-left: 1.1rem;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.platform-shell .plat-audit__detail-raw {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-audit__detail-raw summary {
+  cursor: pointer;
+  user-select: none;
+  color: #f0b429;
+  font-weight: 600;
+}
+
+.platform-shell .plat-audit__detail-raw pre {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 190, 0.14);
+  background: #04182b;
+}
+
+@media (max-width: 1200px) {
+  .platform-shell .plat-audit__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-shell .plat-audit__table {
+    table-layout: auto;
+  }
+}
+

@@ -30,9 +30,9 @@ describe("@paymentgate/web service bill list pagination", () => {
     assert.match(agentPage, /PlatformServiceBillsListPage/);
   });
 
-  it("merchant list is server paged too", () => {
+  it("merchant list is a simple monthly table", () => {
     const merchantPage = read("src/merchant/ServiceBillsListPage.tsx");
-    assert.match(merchantPage, /PlatformServiceBillsListPage/);
+    assert.match(merchantPage, /listServiceBills/);
     assert.doesNotMatch(merchantPage, /Load more/);
   });
 });

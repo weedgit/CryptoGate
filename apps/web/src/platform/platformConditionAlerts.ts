@@ -4,6 +4,11 @@ import { platformRoute } from "../shared/portalRouting";
 import type { AlertItem } from "./ui/AlertsDrawer";
 import type { Session } from "./api";
 import { sessionIsPlatformStaff } from "./org";
+import {
+  loadPlatformNotificationPrefs,
+  platformInAppEnabled,
+  primaryPlatformOrgId,
+} from "./platformNotificationPrefs";
 
 const publish = createConditionAlertGroup();
 
@@ -31,14 +36,32 @@ function stuckCommissionsAlert(count: number): AlertItem {
   };
 }
 
+let lastSession: Session | null = null;
+
 /** Recompute platform condition alerts (stuck commissions). */
 export async function refreshPlatformConditionAlerts(session: Session): Promise<void> {
+  lastSession = session;
   if (!sessionIsPlatformStaff(session)) {
     publish([]);
     return;
   }
-  const summary = await getCommissionPayoutsSummary().catch(() => null);
+  const orgId = primaryPlatformOrgId(session);
+  const [summary, prefs] = await Promise.all([
+    getCommissionPayoutsSummary().catch(() => null),
+    orgId ? loadPlatformNotificationPrefs(orgId).catch(() => null) : Promise.resolve(null),
+  ]);
   const items: AlertItem[] = [];
-  if (summary && summary.stuckPaid > 0) items.push(stuckCommissionsAlert(summary.stuckPaid));
+  if (
+    summary &&
+    summary.stuckPaid > 0 &&
+    platformInAppEnabled(prefs, "platform_commission_stuck")
+  ) {
+    items.push(stuckCommissionsAlert(summary.stuckPaid));
+  }
   publish(items);
+}
+
+/** Re-run with the last session (after Alerts settings change). */
+export function rerunPlatformConditionAlerts(): void {
+  if (lastSession) void refreshPlatformConditionAlerts(lastSession);
 }

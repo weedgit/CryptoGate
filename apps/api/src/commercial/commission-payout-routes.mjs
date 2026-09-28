@@ -5,6 +5,10 @@ import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
 import { findPlatformOrg } from "../orgs/org-store.mjs";
 import {
+  AgentNotificationEventType,
+  notifyAgentOrg,
+} from "../notifications/notify.mjs";
+import {
   canIssueServiceBill,
   canReadAllCommissionPayouts,
   canReadCommissionPayouts,
@@ -27,6 +31,22 @@ import {
   markCommissionPayoutPaidRow,
   markCommissionPayoutSettledRow,
 } from "./commission-payout-store.mjs";
+
+/** Email the payee agent that a payout was sent and needs receipt confirmation. */
+function notifyCommissionPaid(row) {
+  if (!row?.payee_org_id) return;
+  const amount = Number(row.commission_amount);
+  const asset = row.asset ? ` ${row.asset}` : "";
+  notifyAgentOrg(row.payee_org_id, AgentNotificationEventType.CommissionPaid, {
+    subject: `Commission paid — ${row.period_label ?? row.period_key}`,
+    lines: [
+      `Your commission for ${row.period_label ?? row.period_key} was paid: ${Number.isFinite(amount) ? amount.toFixed(2) : row.commission_amount}${asset}.`,
+      row.tx_ref ? `Transaction: ${row.tx_ref}` : null,
+      "Please confirm receipt in the Agent portal.",
+    ].filter(Boolean),
+    path: "commissions",
+  });
+}
 
 /**
  * Caller-scoped payout filter from query params (list + summary).
@@ -302,6 +322,7 @@ export async function handleMarkCommissionPayoutPaid(req, res, payoutId) {
     orgId: existing.payee_org_id,
     parentId: existing.payer_org_id ?? null,
   });
+  notifyCommissionPaid({ ...existing, ...row });
   sendJson(res, 200, toCommissionPayout(row));
 }
 
@@ -426,6 +447,7 @@ export async function handleMarkCommissionPayoutPaidBatch(req, res) {
       orgId: existing.payee_org_id,
       parentId: existing.payer_org_id ?? null,
     });
+    notifyCommissionPaid({ ...existing, ...row });
   }
 
   await insertAuditEvent({

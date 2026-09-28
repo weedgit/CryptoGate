@@ -60,6 +60,14 @@ async function sendTransactionalEmail(message) {
 }
 
 /**
+ * Event notification (preference-gated by the caller).
+ * @param {{ to: string, subject: string, text: string }} message
+ */
+export async function sendNotificationEmail(message) {
+  return sendTransactionalEmail(message);
+}
+
+/**
  * @param {{
  *   to: string,
  *   orgName: string,

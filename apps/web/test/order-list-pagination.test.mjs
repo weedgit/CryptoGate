@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,23 +13,25 @@ describe("@paymentgate/web order list pagination", () => {
     assert.match(api, /listOrdersPage/);
     assert.match(api, /q\.set\("offset"/);
     assert.doesNotMatch(api, /listAllOrders/);
-    const page = read("src/shared/InvoiceListPage.tsx");
+    const page = [
+      read("src/shared/InvoiceListPage.tsx"),
+      ...readdirSync(join(root, "src/shared/invoiceList")).map((f) =>
+        read(`src/shared/invoiceList/${f}`),
+      ),
+    ].join("\n");
     assert.match(page, /listOrdersPage/);
     assert.match(page, /offset: \(page - 1\) \* INVOICE_PAGE_SIZE/);
     assert.match(page, /OrgListPagination/);
     assert.doesNotMatch(page, /Load more/);
   });
 
-  it("reports and detail cards use server aggregates or pages, never full order walks", () => {
-    const reports = read("src/merchant/ReportsPage.tsx");
-    assert.match(reports, /getDashboardReports/);
-    assert.doesNotMatch(reports, /getMerchantOrders\(\)|listAllOrders/);
+  it("dashboard and detail cards use server aggregates or pages, never full order walks", () => {
+    const dashboard = read("src/merchant/DashboardPage.tsx");
+    assert.match(dashboard, /getDashboardReports/);
+    assert.doesNotMatch(dashboard, /getMerchantOrders\(\)|listAllOrders/);
     const agentDetail = read("src/agent/MerchantDetailCard.tsx");
     assert.match(agentDetail, /getDashboardReports\(/);
     assert.doesNotMatch(agentDetail, /listAllOrders/);
-    const siteDetail = read("src/merchant/SiteDetailCard.tsx");
-    assert.match(siteDetail, /listOrdersPage\(\{\s*orgId: site\.id/);
-    assert.match(siteDetail, /OrgListPagination/);
     for (const rel of [
       "src/platform/AgentDetailCard.tsx",
       "src/platform/MerchantDetailCard.tsx",

@@ -18,7 +18,6 @@ import { setViewerTimeZone } from "../shared/dateTime";
 import { OrgSetupModalHost } from "../auth/OrgSetupModalHost";
 import {
   DashboardNavIcon,
-  FeesNavIcon,
   NetworkNavIcon,
   ServiceBillsNavIcon,
   SidebarCollapseIcon,
@@ -26,16 +25,13 @@ import {
 } from "../platform/NavIcons";
 import {
   AlertsNavIcon,
-  IntegrationsNavIcon,
   OrdersNavIcon,
-  ReportsNavIcon,
   SettlementNavIcon,
   SitesNavIcon,
 } from "./NavIcons";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { SidebarRoleCard } from "../shared/SidebarRoleCard";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
-import { ServerConnectionStatus } from "../shared/ServerConnectionStatus";
 import {
   countUnreadMerchantAlerts,
   initMerchantAlertReads,
@@ -50,7 +46,11 @@ import {
   sessionIsCashierOnly,
   sessionLocationKind,
 } from "./org";
-import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import {
+  MERCHANT_ORGS_UPDATED_EVENT,
+  getMerchantOrgs,
+  peekMerchantOrgs,
+} from "./merchantOrgList";
 import { prefetchMerchantRoute } from "./prefetchRoutes";
 import { merchantRoute } from "../shared/portalRouting";
 import type { OrgAccount, Session } from "./api";
@@ -80,12 +80,6 @@ const OWNER_GROUPS: PortalNavGroup[] = [
         matchPrefix: merchantRoute("service-bills"),
         Icon: ServiceBillsNavIcon,
       },
-      {
-        to: merchantRoute("reports"),
-        label: "Reports",
-        matchPrefix: merchantRoute("reports"),
-        Icon: ReportsNavIcon,
-      },
     ],
   },
   {
@@ -110,22 +104,10 @@ const OWNER_GROUPS: PortalNavGroup[] = [
         Icon: TeamNavIcon,
       },
       {
-        to: merchantRoute("settings/integrations"),
-        label: "Integrations",
-        matchPrefix: merchantRoute("settings/integrations"),
-        Icon: IntegrationsNavIcon,
-      },
-      {
         to: merchantRoute("settings/notifications"),
         label: "Alerts",
         matchPrefix: merchantRoute("settings/notifications"),
         Icon: AlertsNavIcon,
-      },
-      {
-        to: merchantRoute("settings/pricing"),
-        label: "Pricing",
-        matchPrefix: merchantRoute("settings/pricing"),
-        Icon: FeesNavIcon,
       },
     ],
   },
@@ -148,6 +130,12 @@ const CASHIER_GROUPS: PortalNavGroup[] = [
             matchPrefix: merchantRoute("orders/new"),
           },
         ],
+      },
+      {
+        to: merchantRoute("settings/notifications"),
+        label: "Alerts",
+        matchPrefix: merchantRoute("settings/notifications"),
+        Icon: AlertsNavIcon,
       },
     ],
   },
@@ -257,8 +245,14 @@ export function MerchantShell({
       .catch(() => {
         if (!cancelled) setOrgs((prev) => prev ?? []);
       });
+    const onUpdated = (e: Event) => {
+      const rows = (e as CustomEvent<OrgAccount[]>).detail;
+      if (!cancelled && Array.isArray(rows)) setOrgs(rows);
+    };
+    window.addEventListener(MERCHANT_ORGS_UPDATED_EVENT, onUpdated);
     return () => {
       cancelled = true;
+      window.removeEventListener(MERCHANT_ORGS_UPDATED_EVENT, onUpdated);
     };
   }, [session.userId]);
 
@@ -371,7 +365,6 @@ export function MerchantShell({
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
             <div className="topbar-utils" role="group" aria-label="Utilities">
-              <ServerConnectionStatus />
               <AlertsBellButton
                 open={alertsOpen}
                 unreadCount={unreadAlerts}

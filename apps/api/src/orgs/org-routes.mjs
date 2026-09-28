@@ -12,6 +12,7 @@ import {
   canManageMerchantSiteTree,
   canManagePlatform,
   canOnboardSiteUnderParentAsync,
+  effectiveRoleOnOrg,
 } from "./role-policy.mjs";
 import {
   deleteOrgCascade,
@@ -21,6 +22,7 @@ import { collectAncestorOrgIds, denyIfOrgSuspended } from "./org-ancestry.mjs";
 import { requireMfaStepUp } from "../auth/require-mfa-step-up.mjs";
 import { setOrderCreateSuspended } from "../compliance/compliance-store.mjs";
 import { invalidatePlatformOrgListCache } from "./org-list-cache.mjs";
+import { withOrgProfileColumns } from "./org-scope.mjs";
 import {
   agentDepthOfParent,
   countChildOrgs,
@@ -36,6 +38,12 @@ import {
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { emitDashboardLive } from "../events/dashboard-events-hub.mjs";
+import {
+  AgentNotificationEventType,
+  PlatformNotificationEventType,
+  notifyAgentOfOrg,
+  notifyPlatform,
+} from "../notifications/notify.mjs";
 import { bootstrapMerchantCommercial } from "../commercial/merchant-commercial-routes.mjs";
 import { bootstrapAgentCommission } from "../commercial/agent-commission-routes.mjs";
 import {
@@ -125,7 +133,11 @@ export async function handleGetOrgDeletePreview(req, res, orgId) {
 export async function handleListOrgs(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
-  const rows = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
+  // Platform rows come from the full-column list; subtree rows need profile columns.
+  const rows = "icon_key" in (visible[0] ?? { icon_key: null })
+    ? visible
+    : await withOrgProfileColumns(visible);
   sendJson(res, 200, { items: rows.map(toOrgAccount) });
 }
 
@@ -161,7 +173,7 @@ export async function handlePatchOrg(req, res, orgId) {
     sendError(res, 404, "not_found", "Org not found");
     return;
   }
-  if (!canEditOrgProfile(caller, row)) {
+  if (!canEditOrgProfile(caller, row, await effectiveRoleOnOrg(caller, row))) {
     sendError(
       res,
       403,
@@ -723,6 +735,32 @@ export async function handleCreateOrg(req, res) {
     orgId: inserted.row.id,
     parentId: inserted.row.parent_id ?? null,
   });
+
+  if (inserted.row.type === "merchant" || inserted.row.type === "agent") {
+    const kind = inserted.row.type === "agent" ? "Agent" : "Merchant";
+    const section = inserted.row.type === "agent" ? "agents" : "merchants";
+    notifyPlatform(
+      PlatformNotificationEventType.AccountCreated,
+      {
+        subject: `New ${kind.toLowerCase()} account — ${inserted.row.name}`,
+        lines: [`${kind} account ${inserted.row.name} was created.`],
+        path: `accounts/${section}/${inserted.row.id}`,
+      },
+      { excludeUserId: caller.userId },
+    );
+  }
+
+  if (inserted.row.type === "merchant") {
+    notifyAgentOfOrg(
+      inserted.row.id,
+      AgentNotificationEventType.MerchantOnboarded,
+      (merchantName) => ({
+        subject: `Merchant onboarded — ${merchantName}`,
+        lines: [`${merchantName} was onboarded under your agent account.`],
+        path: `accounts/merchants/${inserted.row.id}`,
+      }),
+    );
+  }
 
   sendJson(res, 201, toOrgAccount(inserted.row));
 }

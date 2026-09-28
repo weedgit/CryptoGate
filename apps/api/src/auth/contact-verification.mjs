@@ -44,6 +44,7 @@ export function isSetupAllowedMutation(method, path) {
   if (verb === "PUT" && /^\/v1\/orgs\/[^/]+\/settlement$/.test(path)) return true;
   if (verb === "PUT" && /^\/v1\/orgs\/[^/]+\/agent-payout$/.test(path)) return true;
   if (verb === "PATCH" && path === "/v1/auth/profile") return true;
+  if (verb === "PUT" && /^\/v1\/orgs\/[^/]+\/notification-preferences$/.test(path)) return true;
   if (verb === "POST" && path.startsWith("/v1/auth/contact/")) return true;
   return false;
 }

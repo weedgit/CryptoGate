@@ -1,0 +1,715 @@
+/* Merchant settlement — professional settings chrome */
+.plat-settlement.plat-settings {
+  gap: 14px;
+  width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.platform-shell .main:has(.plat-settlement) .main__scroll {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+.platform-shell .body:has(.plat-settlement) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+
+.plat-settlement__layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.plat-settlement__card--addresses,
+.plat-settlement__card--matching,
+.plat-settlement__card--fulfillment {
+  grid-column: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.plat-settlement__card--addresses .plat-settlement__form {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.plat-settlement__card .plat-settings__card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.plat-settlement__card--addresses .plat-settings__card-body {
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .plat-settlement__layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plat-settlement__card--addresses {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .plat-settlement__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-shell .main:has(.plat-settlement) .main__scroll {
+    overflow-y: auto;
+  }
+
+  .platform-shell .body:has(.plat-settlement) {
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .plat-settlement.plat-settings {
+    overflow: visible;
+  }
+
+  .plat-settlement__layout {
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+
+  .plat-settlement__card--addresses,
+  .plat-settlement__card--matching,
+  .plat-settlement__card--fulfillment {
+    grid-column: 1;
+    height: auto;
+  }
+
+  .plat-settlement__card .plat-settings__card-body {
+    overflow: visible;
+  }
+
+  .plat-settlement__card--addresses .plat-settings__card-body {
+    overflow: visible;
+  }
+}
+
+.plat-settlement__cooldown-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-self: flex-start;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plat-settlement__cooldown-chip code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: #fef3c7;
+}
+
+.plat-settlement__cooldown-chip strong {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.plat-settlement__cooldown-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+html[data-theme="light"] .plat-settlement__cooldown-chip {
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(251, 191, 36, 0.12);
+  color: #92400e;
+}
+
+html[data-theme="light"] .plat-settlement__cooldown-chip code,
+html[data-theme="light"] .plat-settlement__cooldown-chip strong {
+  color: #78350f;
+}
+
+.plat-settlement__table-wrap.plat-bills__table-wrap {
+  margin: 0 0 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.38);
+  background-clip: padding-box;
+}
+
+.platform-shell .plat-settlement__table-wrap.plat-bills__table-wrap::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.plat-settlement__address-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-settlement__card--addresses .plat-settlement__table-wrap.plat-bills__table-wrap {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow: auto;
+  overflow-y: auto;
+}
+
+.plat-settlement__address-table .plat-settlement__form-title {
+  margin: 0;
+}
+
+.plat-settlement__table thead th {
+  background: rgba(0, 212, 200, 0.1);
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(0, 212, 200, 0.18);
+}
+
+.plat-settlement__table-idx {
+  width: 2.25rem;
+  min-width: 2.25rem;
+  padding-left: 12px;
+  padding-right: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+}
+
+.plat-settlement__table thead .plat-settlement__table-idx {
+  color: #64748b;
+}
+
+.plat-settlement__net {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plat-settlement__net .plat-crypto-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.plat-settlement__net span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.plat-settlement__net strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.plat-settlement__net em {
+  font-style: normal;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.plat-settlement__addr {
+  font-size: 12px;
+}
+
+.platform-shell .plat-settlement__addr-value .chain-value {
+  max-width: 100%;
+}
+
+.platform-shell .plat-settlement__addr-value .chain-value__link,
+.platform-shell .plat-settlement__addr-value > .mono {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.plat-settlement__form {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-settlement__form-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.platform-shell .plat-settlement__form-badge-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(280px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.45;
+  z-index: 8;
+}
+
+.plat-settlement .plat-settings__badge.plat-settlement__step-badge {
+  margin: 0;
+  cursor: help;
+  color: var(--plat-gold-bright, #fbbf24);
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+.plat-settlement__form-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  color: #f1f5f9;
+}
+
+.plat-settlement__form-note {
+  padding-top: 0;
+  border-top: 0;
+  margin: 0;
+}
+
+.plat-settlement__field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plat-settlement__field-row--xpub {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.plat-settlement__field--grow {
+  min-width: 0;
+}
+
+.plat-settlement__field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.platform-shell .plat-settlement__underpay-help .plat-card-help__btn,
+.platform-shell .plat-settlement__xpub-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .plat-settlement__underpay-help .plat-card-help__tip,
+.platform-shell .plat-settlement__xpub-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(300px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.5;
+  z-index: 8;
+}
+
+.plat-settlement__card--addresses .plat-settings__payout-form {
+  gap: 8px;
+}
+
+.plat-settlement__card--addresses .plat-settlement__form-actions {
+  margin-top: 0;
+}
+
+.plat-settlement__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.plat-settlement__mode-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.1);
+  border: 1px solid rgba(0, 212, 200, 0.28);
+}
+
+.plat-settlement__mode-pill.is-stale {
+  color: #64748b;
+  background: rgba(51, 65, 85, 0.35);
+  border-color: rgba(71, 85, 105, 0.4);
+}
+
+.plat-settlement__head-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  max-width: min(100%, 320px);
+}
+
+.plat-settlement__draft-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  white-space: nowrap;
+}
+
+.plat-settlement__mode-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.platform-shell .plat-settlement__mode-help .plat-card-help__btn,
+.platform-shell .plat-settlement__pool-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.platform-shell .plat-settlement__mode-help .plat-card-help__tip,
+.platform-shell .plat-settlement__pool-help .plat-card-help__tip {
+  left: 0;
+  right: auto;
+  transform: none;
+  width: min(320px, 72vw);
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.45;
+  z-index: 5;
+}
+
+.plat-settlement__pool-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.plat-settlement__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 2px 0 6px;
+}
+
+.plat-settlement__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.plat-settlement__stat-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-settlement__stat-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5eead4;
+  background: rgba(0, 212, 200, 0.12);
+  border: 1px solid rgba(0, 212, 200, 0.28);
+}
+
+.plat-settlement__stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.plat-settlement__stat-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.plat-settlement__stats--pick {
+  margin: 4px 0 8px;
+}
+
+.plat-settlement__stats--duo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plat-settlement__stat-pick {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.plat-settlement__stat-pick:not(.is-selected) {
+  opacity: 0.72;
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.plat-settlement__stat-pick:not(.is-selected) .plat-settlement__stat-value {
+  color: #cbd5e1;
+}
+
+.plat-settlement__stat-pick.is-selected {
+  border-color: rgba(0, 212, 200, 0.32);
+  background: rgba(0, 212, 200, 0.08);
+  opacity: 1;
+}
+
+.plat-settlement__stat-pick.is-selected .plat-settlement__stat-value {
+  color: #5eead4;
+}
+
+.plat-settlement__stat-pick.is-selected .plat-settlement__stat-hint {
+  color: #94a3b8;
+}
+
+.plat-settlement__stat-pick:hover:not(:disabled):not(.is-selected) {
+  opacity: 0.88;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.plat-settlement__stat-pick:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.plat-settlement__stat-pick.is-unavailable:not(.is-selected) {
+  opacity: 0.45;
+}
+
+.plat-settlement__stat-pick.is-unavailable .plat-settlement__stat-value {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.platform-shell .plat-settlement__stat-pick .plat-settlement__stat-pick-help.plat-card-help {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  z-index: 2;
+}
+
+.platform-shell .plat-settlement__stat-pick-help .plat-card-help__btn {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.platform-shell .plat-settlement__stat-pick-help .plat-card-help__tip {
+  right: 0;
+  left: auto;
+  top: calc(100% + 6px);
+  width: min(260px, 70vw);
+  z-index: 8;
+}
+
+.plat-settlement__stat-pick .plat-settlement__stat-label {
+  padding-right: 22px;
+}
+
+.plat-settlement__stat-pick .plat-settlement__stat-hint {
+  padding-right: 4px;
+}
+
+.plat-settlement__card--matching .plat-settlement__form,
+.plat-settlement__card--fulfillment .plat-settlement__form {
+  margin-top: 0;
+}
+
+.plat-settlement__pool-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plat-settlement__pool-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plat-settlement__pool-section-head .plat-settlement__pool-meta {
+  flex-shrink: 0;
+}
+
+.plat-settlement__form--pool {
+  margin-top: 2px;
+}
+
+.plat-settlement__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+
+.plat-settlement__chips-empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.plat-settlement__chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #cbd5e1;
+}
+
+.plat-settlement__chip--free {
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.plat-settlement__chip--in_use {
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.28);
+  background: rgba(94, 234, 212, 0.08);
+}
+
+.plat-settlement__chip--cooldown {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.plat-settlement__chip--more {
+  border-style: dashed;
+  color: #8b9bb0;
+}
+
+.plat-settlement__confirm {
+  width: min(440px, 100%);
+}
+
+.plat-settlement__confirm .b3-commission-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.plat-settlement .plat-settings__card-head .plat-settlement__head-badges {
+  margin-left: auto;
+}
+
+.plat-settlement .plat-settings__card-head .plat-settlement__head-badges .plat-settlement__mode-pill {
+  margin-left: 0;
+}
+

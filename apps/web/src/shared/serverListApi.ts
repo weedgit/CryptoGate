@@ -1,9 +1,5 @@
 import { apiFetch } from "../auth/apiFetch";
-import { ApiError } from "../merchant/api";
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-  "/v1";
+import { API_BASE, parseError } from "./apiCore";
 
 export type ServerPage<T> = {
   items: T[];
@@ -27,20 +23,6 @@ export function serverUrl(path: string, params: ServerParams = {}): string {
   return `${API_BASE}${path}${s ? `?${s}` : ""}`;
 }
 
-async function parseServerError(res: Response): Promise<never> {
-  let code = "http_error";
-  let message = `Request failed (${res.status})`;
-  try {
-    const json = (await res.json()) as { code?: string; message?: string };
-    if (json.code) code = json.code;
-    if (res.status >= 500) message = "Something went wrong on the server. Please try again.";
-    else if (json.message?.trim()) message = json.message.trim();
-  } catch {
-    /* non-JSON */
-  }
-  throw new ApiError(code, message, res.status);
-}
-
 /** GET JSON with a short client cache (instant back-navigation / re-render). */
 export async function getServerJson<T>(
   path: string,
@@ -51,7 +33,7 @@ export async function getServerJson<T>(
     credentials: "include",
     headers: { Accept: "application/json" },
   });
-  if (!res.ok) await parseServerError(res);
+  if (!res.ok) await parseError(res);
   const value = (await res.json()) as T;
   cache.set(url, { at: Date.now(), value });
   return value;
@@ -66,7 +48,7 @@ export async function getServerBlob(
     credentials: "include",
     headers: { Accept: "text/csv, application/json" },
   });
-  if (!res.ok) await parseServerError(res);
+  if (!res.ok) await parseError(res);
   return res.blob();
 }
 

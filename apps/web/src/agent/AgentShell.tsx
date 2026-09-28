@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,12 +10,12 @@ import {
 import type { OrgAccount, Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { SidebarRoleCard } from "../shared/SidebarRoleCard";
+import { AlertsNavIcon } from "../merchant/NavIcons";
 import {
   ArchitectureNavIcon,
   DashboardNavIcon,
   CommissionsNavIcon,
   ServiceBillsNavIcon,
-  SettingsNavIcon,
   SidebarCollapseIcon,
   TeamNavIcon,
 } from "../platform/NavIcons";
@@ -33,6 +34,8 @@ import { UnresolvedAlertsBanner } from "../shared/UnresolvedAlertsBanner";
 import { useConditionAlerts } from "../shared/conditionAlerts";
 import { clearAgentAlerts, refreshAgentAlerts } from "./agentAlerts";
 import { OrgSetupModalHost } from "../auth/OrgSetupModalHost";
+import { AgentOrgEditHost } from "./AgentOrgEditHost";
+import { ORG_EDIT_PARAM, useOpenOnEditParam } from "../shared/modalLinks";
 import { usePortalMobileNav } from "../shared/usePortalMobileNav";
 import { setViewerTimeZone } from "../shared/dateTime";
 import {
@@ -43,7 +46,7 @@ import {
   ensureHealthPolling,
   subscribeSharedHealth,
 } from "../shared/healthPolling";
-import { getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
+import { AGENT_ORGS_UPDATED_EVENT, getAgentOrgs, peekAgentOrgs } from "./agentOrgList";
 import { primaryAgentOrgId } from "./org";
 import { agentRoute } from "../shared/portalRouting";
 import { prefetchAgentRoute } from "./prefetchRoutes";
@@ -102,10 +105,10 @@ const NAV_GROUPS: PortalNavGroup[] = [
         Icon: TeamNavIcon,
       },
       {
-        to: agentRoute("settings"),
-        label: "Settings",
-        end: true,
-        Icon: SettingsNavIcon,
+        to: agentRoute("settings/notifications"),
+        label: "Alerts",
+        matchPrefix: agentRoute("settings/notifications"),
+        Icon: AlertsNavIcon,
       },
     ],
   },
@@ -152,6 +155,9 @@ export function AgentShell({
   const [shellEnter, setShellEnter] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [orgEditOpen, setOrgEditOpen] = useState(false);
+  const closeOrgEdit = useCallback(() => setOrgEditOpen(false), []);
+  useOpenOnEditParam(ORG_EDIT_PARAM, () => setOrgEditOpen(true));
   useConditionAlerts(session, refreshAgentAlerts, clearAgentAlerts, alertsOpen);
   const agentOrgId = useMemo(() => primaryAgentOrgId(session), [session]);
   const [orgs, setOrgs] = useState<OrgAccount[] | null>(() => peekAgentOrgs());
@@ -182,8 +188,14 @@ export function AgentShell({
       .catch(() => {
         if (!cancelled) setOrgs((prev) => prev ?? []);
       });
+    const onUpdated = (e: Event) => {
+      const rows = (e as CustomEvent<OrgAccount[]>).detail;
+      if (!cancelled && Array.isArray(rows)) setOrgs(rows);
+    };
+    window.addEventListener(AGENT_ORGS_UPDATED_EVENT, onUpdated);
     return () => {
       cancelled = true;
+      window.removeEventListener(AGENT_ORGS_UPDATED_EVENT, onUpdated);
     };
   }, [session.userId]);
 
@@ -327,6 +339,13 @@ export function AgentShell({
           </div>
         </div>
       </div>
+
+      <AgentOrgEditHost
+        session={session}
+        open={orgEditOpen}
+        onClose={closeOrgEdit}
+        onSessionRefresh={onSessionRefresh}
+      />
 
       <AlertsDrawer
         open={alertsOpen}

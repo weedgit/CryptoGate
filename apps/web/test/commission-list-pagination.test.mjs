@@ -1,10 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+function readCommissionsSources() {
+  const dir = join(root, "src/platform/commissions");
+  return [
+    readFileSync(join(root, "src/platform/PlatformCommissionsPage.tsx"), "utf8"),
+    ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+  ].join("\n");
+}
 
 describe("@paymentgate/web commission list pagination", () => {
   it("client listCommissionPayouts sends status/limit/offset and returns page meta", () => {
@@ -30,10 +38,7 @@ describe("@paymentgate/web commission list pagination", () => {
   });
 
   it("platform commissions page shows one server page at a time (no Load more)", () => {
-    const page = readFileSync(
-      join(root, "src/platform/PlatformCommissionsPage.tsx"),
-      "utf8",
-    );
+    const page = readCommissionsSources();
     assert.match(page, /status: listStatusForView\(statusFilter\)/);
     assert.match(page, /listCommissionPayoutsServer/);
     assert.match(page, /getCommissionPayoutsSummary/);
@@ -48,10 +53,7 @@ describe("@paymentgate/web commission list pagination", () => {
     const page = readFileSync(join(root, "src/agent/CommissionsPage.tsx"), "utf8");
     assert.match(page, /PlatformCommissionsPage/);
     assert.match(page, /useAgentCommissionsPortal/);
-    const platform = readFileSync(
-      join(root, "src/platform/PlatformCommissionsPage.tsx"),
-      "utf8",
-    );
+    const platform = readCommissionsSources();
     assert.match(platform, /payeeOrgId: portal\.payeeOrgId/);
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { API_BASE } from "./apiCore";
 
 export type DashboardLiveSlice =
   | "volume"
@@ -30,10 +31,6 @@ type Options = {
    */
   onSlices: (slices: DashboardLiveSlice[]) => void;
 };
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-  "/v1";
 
 /**
  * SSE + debounced slice invalidation for portal dashboards.

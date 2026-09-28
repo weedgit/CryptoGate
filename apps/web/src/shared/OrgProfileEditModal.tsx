@@ -59,6 +59,10 @@ type Props = {
   error?: string | null;
   /** Platform Owner only — lock Fixed merchant/agent rates. Default true when omitted. */
   canLockFixedRates?: boolean;
+  /** View-only: fields locked, no image picker or Save (e.g. Viewer role). */
+  readOnly?: boolean;
+  /** Shown under the payout address, e.g. a pending change and when it activates. */
+  payoutNote?: ReactNode;
   onClose: () => void;
   onSave: (next: {
     name: string;
@@ -285,6 +289,8 @@ export function OrgProfileEditModal({
   busy = false,
   error = null,
   canLockFixedRates = true,
+  readOnly = false,
+  payoutNote = null,
   onClose,
   onSave,
 }: Props) {
@@ -399,6 +405,7 @@ export function OrgProfileEditModal({
   };
 
   const saving = busy || readingFile;
+  const locked = saving || readOnly;
   const billingOk = draftBilling.trim().includes("@");
   const countryOk = !requireCountry || draftCountry.trim().length > 0;
   const commissionOk =
@@ -449,30 +456,34 @@ export function OrgProfileEditModal({
             <PencilIcon />
           </span>
           <div className="org-edit__head-copy">
-            <h3 id={titleId}>Edit organization</h3>
-            <p>Update your organization details and settings.</p>
+            <h3 id={titleId}>{readOnly ? "Organization" : "Edit organization"}</h3>
+            <p>
+              {readOnly
+                ? "View-only. An Owner or Administrator can change these details."
+                : "Update your organization details and settings."}
+            </p>
           </div>
           <div className="org-edit__waves" aria-hidden>
             <svg viewBox="0 0 640 96" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="org-edit-gold-a" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                  <stop offset="18%" stopColor="rgba(255,220,140,0.82)" />
-                  <stop offset="45%" stopColor="rgba(255,208,96,0.52)" />
-                  <stop offset="72%" stopColor="rgba(255,193,69,0.24)" />
-                  <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                  <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                  <stop offset="18%" style={{ stopColor: "rgb(var(--gw-hi, 255 220 140) / 0.82)" }} />
+                  <stop offset="45%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.52)" }} />
+                  <stop offset="72%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.24)" }} />
+                  <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                 </linearGradient>
                 <linearGradient id="org-edit-gold-b" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                  <stop offset="26%" stopColor="rgba(255,230,160,0.58)" />
-                  <stop offset="55%" stopColor="rgba(255,193,69,0.3)" />
-                  <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                  <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                  <stop offset="26%" style={{ stopColor: "rgb(var(--gw-hi, 255 230 160) / 0.58)" }} />
+                  <stop offset="55%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.3)" }} />
+                  <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                 </linearGradient>
                 <linearGradient id="org-edit-gold-c" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                  <stop offset="34%" stopColor="rgba(255,208,96,0.4)" />
-                  <stop offset="66%" stopColor="rgba(255,193,69,0.16)" />
-                  <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                  <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                  <stop offset="34%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.4)" }} />
+                  <stop offset="66%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.16)" }} />
+                  <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                 </linearGradient>
               </defs>
               <path
@@ -528,25 +539,29 @@ export function OrgProfileEditModal({
             />
             <p className="org-edit__name">{draftName.trim() || name}</p>
             {typeLabel ? <span className="org-edit__type">{typeLabel}</span> : null}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
-              className="sr-only"
-              disabled={saving}
-              onChange={(e) => void onPickFile(e.target.files?.[0])}
-            />
-            <button
-              type="button"
-              className="org-edit__choose"
-              disabled={saving}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <UploadIcon />
-              {readingFile ? "Reading…" : "Choose image"}
-            </button>
-            <p className="org-edit__file-hint">PNG, JPEG, WebP or GIF (max 2MB)</p>
-            {fileError ? <p className="org-edit__file-error">{fileError}</p> : null}
+            {readOnly ? null : (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
+                  className="sr-only"
+                  disabled={saving}
+                  onChange={(e) => void onPickFile(e.target.files?.[0])}
+                />
+                <button
+                  type="button"
+                  className="org-edit__choose"
+                  disabled={saving}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <UploadIcon />
+                  {readingFile ? "Reading…" : "Choose image"}
+                </button>
+                <p className="org-edit__file-hint">PNG, JPEG, WebP or GIF (max 2MB)</p>
+                {fileError ? <p className="org-edit__file-error">{fileError}</p> : null}
+              </>
+            )}
             <div className="org-edit__wordmark">
               <span>PaymentGate</span>
               <small>POWERING PAYMENTS</small>
@@ -562,7 +577,7 @@ export function OrgProfileEditModal({
                     className="field-control"
                     value={draftName}
                     maxLength={120}
-                    disabled={saving}
+                    disabled={locked}
                     onChange={(e) => setDraftName(e.target.value)}
                     autoFocus
                   />
@@ -576,7 +591,7 @@ export function OrgProfileEditModal({
                     className="field-control"
                     value={draftLegal}
                     maxLength={200}
-                    disabled={saving}
+                    disabled={locked}
                     onChange={(e) => setDraftLegal(e.target.value)}
                   />
                 </FieldControl>
@@ -595,7 +610,7 @@ export function OrgProfileEditModal({
                     type="email"
                     value={draftBilling}
                     maxLength={254}
-                    disabled={saving}
+                    disabled={locked}
                     placeholder="Enter billing email"
                     onChange={(e) => setDraftBilling(e.target.value)}
                   />
@@ -613,7 +628,7 @@ export function OrgProfileEditModal({
                     options={countryOptions}
                     placeholder="Select country"
                     emptyLabel="Select country"
-                    disabled={saving}
+                    disabled={locked}
                     onChange={setDraftCountry}
                   />
                 </FieldControl>
@@ -633,7 +648,7 @@ export function OrgProfileEditModal({
                           : []),
                       ]}
                       allowEmpty={false}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={(id) => {
                         const next =
                           id === "fixed" && canLockFixedRates
@@ -688,7 +703,7 @@ export function OrgProfileEditModal({
                       inputMode="decimal"
                       value={draftVolume}
                       maxLength={8}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={(e) => setDraftVolume(e.target.value)}
                       placeholder="2"
                       aria-describedby={
@@ -713,7 +728,7 @@ export function OrgProfileEditModal({
                       value={draftMatching}
                       options={[...MATCHING_MODE_OPTIONS]}
                       allowEmpty={false}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={setDraftMatching}
                     />
                   </FieldControl>
@@ -729,7 +744,7 @@ export function OrgProfileEditModal({
                       value={draftPricing}
                       options={[...PRICING_MODE_OPTIONS]}
                       allowEmpty={false}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={setDraftPricing}
                     />
                   </FieldControl>
@@ -754,7 +769,7 @@ export function OrgProfileEditModal({
                       className="field-control"
                       value={draftPublicKey}
                       maxLength={256}
-                      disabled={saving}
+                      disabled={locked}
                       spellCheck={false}
                       autoComplete="off"
                       placeholder="xpub… / zpub… / watch-only public key"
@@ -788,7 +803,7 @@ export function OrgProfileEditModal({
                           : []),
                       ]}
                       allowEmpty={false}
-                      disabled={saving || !canLockFixedRates}
+                      disabled={locked || !canLockFixedRates}
                       onChange={(id) =>
                         setDraftRateMode(
                           id === "fixed" && canLockFixedRates
@@ -831,7 +846,7 @@ export function OrgProfileEditModal({
                       inputMode="decimal"
                       value={draftCommission}
                       maxLength={8}
-                      disabled={saving}
+                      disabled={locked}
                       onChange={(e) => setDraftCommission(e.target.value)}
                       placeholder="15"
                     />
@@ -844,7 +859,7 @@ export function OrgProfileEditModal({
                   <span className="org-edit__field-head">
                     <FieldLabel>Payout address</FieldLabel>
                     <span className="org-edit__aside-note">
-                      A change asks for your authenticator code
+                      {readOnly ? "USDT · Tron" : "A change asks for your authenticator code"}
                     </span>
                   </span>
                   <FieldControl leading={<AssetIcon asset={platformFeeAsset()} />}>
@@ -852,13 +867,14 @@ export function OrgProfileEditModal({
                       className="field-control"
                       value={draftPayout}
                       maxLength={64}
-                      disabled={saving}
+                      disabled={locked}
                       spellCheck={false}
                       autoComplete="off"
                       placeholder="Tron address (starts with T)"
                       onChange={(e) => setDraftPayout(e.target.value)}
                     />
                   </FieldControl>
+                  {payoutNote ? <p className="org-edit__field-note">{payoutNote}</p> : null}
                 </label>
               ) : null}
             </div>
@@ -868,8 +884,9 @@ export function OrgProfileEditModal({
 
         <footer className="org-edit__foot">
           <button type="button" className="org-edit__cancel" disabled={saving} onClick={onClose}>
-            Cancel
+            {readOnly ? "Close" : "Cancel"}
           </button>
+          {readOnly ? null : (
           <button
             type="button"
             className="org-edit__save"
@@ -908,6 +925,7 @@ export function OrgProfileEditModal({
             <SaveIcon />
             {busy ? "Saving…" : "Save"}
           </button>
+          )}
         </footer>
       </div>
     </div>,

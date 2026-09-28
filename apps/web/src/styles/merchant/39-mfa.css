@@ -1,0 +1,588 @@
+/* Shared MFA step-up — reuses login-card / login-mfa styles */
+.mfa-stepup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: rgba(7, 10, 16, 0.78);
+  backdrop-filter: blur(6px);
+  /* Same tokens as .login-wrap so login-card / slots / submit match sign-in MFA */
+  --login-gold: #00d4c8;
+  --login-gold-bright: #5eead4;
+  --login-gold-dim: rgba(0, 212, 200, 0.14);
+  --login-input-bg: #12181f;
+  --login-input-border: #1e2a36;
+  --login-card-top: #12181f;
+  --login-card-bottom: #0b0f14;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --border: #1e2a36;
+  --bg: #0b0f14;
+}
+
+.mfa-stepup-card.login-card {
+  box-sizing: border-box;
+  width: min(400px, 100%);
+  max-width: calc(100vw - 32px);
+  height: auto;
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0;
+  animation: mfa-stepup-in 240ms ease both;
+}
+
+/* Two-factor setup pop-up (MfaEnrollmentWizard variant="modal") */
+.mfa-setup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgba(7, 10, 16, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.mfa-setup {
+  --mfa-setup-gold: #f5c542;
+  box-sizing: border-box;
+  position: relative;
+  width: min(460px, 100%);
+  padding: 22px 24px 20px;
+  border: 1px solid rgba(245, 197, 66, 0.6);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(245, 197, 66, 0.07), transparent 60%),
+    linear-gradient(180deg, #0f1f33 0%, #0a1626 100%);
+  box-shadow:
+    0 0 26px rgba(245, 197, 66, 0.14),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+  color: #e2e8f0;
+  animation: mfa-stepup-in 240ms ease both;
+}
+
+.mfa-setup__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mfa-setup__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid var(--mfa-setup-gold);
+  background: #0b1829;
+  color: var(--mfa-setup-gold);
+  box-shadow: 0 0 16px rgba(245, 197, 66, 0.22);
+}
+
+.mfa-setup__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mfa-setup__head-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.mfa-setup__step {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mfa-setup-gold);
+}
+
+.mfa-setup__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  color: #f8fafc;
+}
+
+.mfa-setup__close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.mfa-setup__close:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.12);
+  color: #f8fafc;
+}
+
+.mfa-setup__lead {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #9fb0c8;
+}
+
+.mfa-setup__qr {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(245, 197, 66, 0.35);
+}
+
+.mfa-setup__qr img {
+  display: block;
+  width: 180px;
+  height: 180px;
+}
+
+.mfa-setup__secret {
+  margin-top: 16px;
+}
+
+.mfa-setup__secret-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9fb0c8;
+}
+
+.mfa-setup__secret-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #081423;
+}
+
+.mfa-setup__secret-box code {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  word-break: break-all;
+  color: var(--mfa-setup-gold);
+}
+
+.mfa-setup__slots.login-mfa-slots {
+  justify-content: center;
+  margin: 4px 0 4px;
+}
+
+.mfa-setup__slots .login-mfa-slot {
+  width: 46px;
+  height: 52px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: #081423;
+  color: #f8fafc;
+}
+
+.mfa-setup__slots .login-mfa-slot:focus,
+.mfa-setup__slots .login-mfa-slot--filled {
+  border-color: var(--mfa-setup-gold);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.15);
+  outline: none;
+}
+
+.mfa-setup__actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.mfa-setup__actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.mfa-setup__primary,
+.mfa-setup__secondary {
+  min-height: 46px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mfa-setup__primary {
+  border: 1px solid rgba(255, 214, 102, 0.9);
+  background: linear-gradient(180deg, #ffd766 0%, #f5c030 100%);
+  color: #0b1220;
+  box-shadow: 0 6px 20px rgba(245, 197, 66, 0.24);
+}
+
+.mfa-setup__primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.mfa-setup__secondary {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.mfa-setup__secondary:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #f8fafc;
+}
+
+html[data-theme="light"] .mfa-setup-backdrop {
+  background: rgba(226, 232, 240, 0.6);
+}
+
+html[data-theme="light"] .mfa-setup {
+  --mfa-setup-gold: #d9971c;
+  border-color: rgba(226, 165, 38, 0.6);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(245, 197, 66, 0.09), transparent 60%),
+    #ffffff;
+  box-shadow:
+    0 0 22px rgba(245, 197, 66, 0.14),
+    0 20px 50px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-setup__icon {
+  background: #ffffff;
+}
+
+html[data-theme="light"] .mfa-setup__title {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-setup__lead,
+html[data-theme="light"] .mfa-setup__secret-label,
+html[data-theme="light"] .mfa-setup__close {
+  color: #64748b;
+}
+
+html[data-theme="light"] .mfa-setup__close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-setup__qr {
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] .mfa-setup__secret-box,
+html[data-theme="light"] .mfa-setup__slots .login-mfa-slot {
+  border-color: #d8dee8;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-setup__secret-box code {
+  color: #b45309;
+}
+
+html[data-theme="light"] .mfa-setup__secondary {
+  border-color: #d8dee8;
+  color: #334155;
+}
+
+html[data-theme="light"] .mfa-setup__secondary:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+@media (max-width: 480px) {
+  .mfa-setup {
+    padding: 18px 16px 16px;
+  }
+
+  .mfa-setup__slots .login-mfa-slot {
+    width: 40px;
+    height: 46px;
+  }
+}
+
+/* Set up two-factor auth first (doc/image/two_factor*.png) */
+.mfa-req {
+  --mfa-req-gold: #f5c542;
+  box-sizing: border-box;
+  position: relative;
+  width: min(460px, 100%);
+  max-width: calc(100vw - 32px);
+  padding: 30px 32px 22px;
+  border: 1px solid rgba(245, 197, 66, 0.75);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(245, 197, 66, 0.08), transparent 60%),
+    linear-gradient(180deg, #0f1f33 0%, #0a1626 100%);
+  box-shadow:
+    0 0 0 1px rgba(245, 197, 66, 0.08),
+    0 0 28px rgba(245, 197, 66, 0.18),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  overflow: hidden;
+  animation: mfa-stepup-in 240ms ease both;
+}
+
+.mfa-req__hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 76px;
+  margin: 0 -32px 18px;
+}
+
+.mfa-req__waves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--mfa-req-gold);
+  opacity: 0.75;
+}
+
+.mfa-req__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 1.5px solid var(--mfa-req-gold);
+  background: #0b1829;
+  color: var(--mfa-req-gold);
+  box-shadow: 0 0 22px rgba(245, 197, 66, 0.28);
+}
+
+.mfa-req__icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.mfa-req__title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+}
+
+.mfa-req__body {
+  margin: 8px 0 22px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #9fb0c8;
+}
+
+.mfa-req__primary {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(255, 214, 102, 0.9);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffd766 0%, #f5c030 100%);
+  color: #0b1220;
+  font-size: 16px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(245, 197, 66, 0.28);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.mfa-req__primary:hover {
+  filter: brightness(1.05);
+}
+
+.mfa-req__primary:active {
+  transform: translateY(1px);
+}
+
+.mfa-req__later {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: #9fb0c8;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mfa-req__later:hover {
+  color: #f8fafc;
+}
+
+/* Light theme — Two-Factor Auth code step-up (login-card chrome). */
+html[data-theme="light"] .mfa-stepup-backdrop {
+  background: rgba(226, 232, 240, 0.6);
+  --login-gold: #0d9488;
+  --login-gold-bright: #0f766e;
+  --login-gold-dim: rgba(13, 148, 136, 0.1);
+  --login-input-bg: #f8fafc;
+  --login-input-border: #d8dee8;
+  --login-card-top: #ffffff;
+  --login-card-bottom: #f8fafc;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #d8dee8;
+  --bg: #ffffff;
+}
+
+html[data-theme="light"] .mfa-stepup-card.login-card {
+  border-color: rgba(13, 148, 136, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(13, 148, 136, 0.06),
+    0 0 32px rgba(13, 148, 136, 0.1),
+    0 20px 50px rgba(15, 23, 42, 0.14);
+}
+
+html[data-theme="light"] .mfa-stepup-card.login-card::before {
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(13, 148, 136, 0.08) 0%,
+    transparent 60%
+  );
+}
+
+html[data-theme="light"] .mfa-stepup-card.login-card::after {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-mfa-icon rect {
+  fill: #ccfbf1;
+  fill-opacity: 1;
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-mfa-icon path {
+  stroke: #0f766e;
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-mfa-slot {
+  border-color: #d8dee8;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-mfa-slot:focus,
+html[data-theme="light"] .mfa-stepup-card .login-mfa-slot--filled {
+  border-color: #0d9488;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-submit {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-submit:hover:not(:disabled) {
+  background: #0f766e;
+  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.28);
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-submit:active:not(:disabled) {
+  background: #115e59;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .mfa-stepup-card .login-submit:disabled {
+  background: #99d5cf;
+  color: #ffffff;
+  opacity: 1;
+}
+
+html[data-theme="light"] .mfa-stepup-backdrop:has(.mfa-req) {
+  background: rgba(226, 232, 240, 0.6);
+}
+
+html[data-theme="light"] .mfa-req {
+  --mfa-req-gold: #e2a526;
+  border-color: rgba(226, 165, 38, 0.7);
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(245, 197, 66, 0.1), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%);
+  box-shadow:
+    0 0 24px rgba(245, 197, 66, 0.16),
+    0 20px 50px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .mfa-req__icon {
+  background: #ffffff;
+  box-shadow: 0 0 20px rgba(245, 197, 66, 0.25);
+}
+
+html[data-theme="light"] .mfa-req__title {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-req__body,
+html[data-theme="light"] .mfa-req__later {
+  color: #64748b;
+}
+
+html[data-theme="light"] .mfa-req__later:hover {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .mfa-req__primary {
+  border-color: rgba(226, 165, 38, 0.7);
+  background: linear-gradient(180deg, #ffd766 0%, #eeb230 100%);
+  box-shadow: 0 8px 24px rgba(245, 197, 66, 0.3);
+}
+
+@media (max-width: 480px) {
+  .mfa-req {
+    padding: 24px 20px 18px;
+  }
+
+  .mfa-req__hero {
+    margin: 0 -20px 14px;
+  }
+
+  .mfa-req__title {
+    font-size: 20px;
+  }
+}
+
+@keyframes mfa-stepup-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Lazy route chunk failure — layout only. Visuals live in loading.css. */
+.platform-shell .main__scroll:has(.route-load-error) {
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell .body:has(.route-load-error) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+

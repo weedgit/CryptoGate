@@ -1,8 +1,8 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ApiError, enrollMfa, verifyMfa } from "../merchant/api";
 import { AuthLayout } from "./AuthLayout";
 import { AuthToast } from "./AuthToast";
-import { GateLogoMark } from "./GateLogoMark";
 import { CopyIcon } from "./LoginIcons";
 import { MfaCodeInput } from "./MfaCodeInput";
 import { formatManualSecret } from "./passwordPolicy";
@@ -12,6 +12,12 @@ type Props = {
   onCancel: () => void;
   /** When false, hide Back / cancel (forced A5 enrollment). Default true. */
   cancelable?: boolean;
+  /** "modal" renders a pop-up over the current page instead of a full auth page. */
+  variant?: "page" | "modal";
+  /** Page variant: hero product line (matches the portal sign-in page). */
+  productLine?: string;
+  /** Page variant: message shown above the card. */
+  notice?: ReactNode;
 };
 
 type Step = "loading" | "scan" | "verify";
@@ -20,6 +26,9 @@ export function MfaEnrollmentWizard({
   onComplete,
   onCancel,
   cancelable = true,
+  variant = "page",
+  productLine,
+  notice,
 }: Props) {
   const [step, setStep] = useState<Step>("loading");
   const [secret, setSecret] = useState("");
@@ -60,6 +69,18 @@ export function MfaEnrollmentWizard({
     };
   }, []);
 
+  useEffect(() => {
+    if (variant !== "modal" || !cancelable) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onCancel();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [variant, cancelable, onCancel]);
+
   async function onVerifySubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -89,13 +110,155 @@ export function MfaEnrollmentWizard({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUrl)}`
     : "";
 
+  if (variant === "modal") {
+    return createPortal(
+      <div
+        className="mfa-setup-backdrop"
+        role="presentation"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (cancelable && !loading) onCancel();
+        }}
+      >
+        <div
+          className="mfa-setup"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mfa-setup-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+          <header className="mfa-setup__head">
+            <span className="mfa-setup__icon" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 3.2 19 6v5.6c0 4.3-2.9 7.4-7 9.2-4.1-1.8-7-4.9-7-9.2V6l7-2.8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <div className="mfa-setup__head-copy">
+              <p className="mfa-setup__step">
+                {step === "verify" ? "Step 2 of 2 · Verify code" : "Step 1 of 2 · Scan QR code"}
+              </p>
+              <h2 id="mfa-setup-title" className="mfa-setup__title">
+                {step === "verify"
+                  ? "Confirm authenticator"
+                  : resumedSetup
+                    ? "Continue two-factor setup"
+                    : "Set up two-factor auth"}
+              </h2>
+            </div>
+            {cancelable ? (
+              <button
+                type="button"
+                className="mfa-setup__close"
+                aria-label="Close"
+                disabled={loading && step === "verify"}
+                onClick={onCancel}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </button>
+            ) : null}
+          </header>
+
+          {step === "loading" ? (
+            <p className="mfa-setup__lead">
+              {loading ? "Preparing authenticator setup…" : "Unable to start setup. Close and try again."}
+            </p>
+          ) : step === "scan" ? (
+            <>
+              <p className="mfa-setup__lead">
+                Scan the QR code with Google Authenticator, 1Password or another authenticator app.
+              </p>
+              <div className="mfa-setup__qr">
+                {qrSrc ? (
+                  <img src={qrSrc} width={180} height={180} alt="Authenticator QR code" />
+                ) : null}
+              </div>
+              <div className="mfa-setup__secret">
+                <span className="mfa-setup__secret-label">Or enter code manually</span>
+                <div className="mfa-setup__secret-box">
+                  <code>{formatManualSecret(secret)}</code>
+                  <button
+                    type="button"
+                    className={`cg-copy-btn mfa-setup__copy${copied ? " is-copied" : ""}`}
+                    onClick={() => void onCopySecret()}
+                    aria-label={copied ? "Copied" : "Copy secret key"}
+                    title={copied ? "Copied" : "Copy secret key"}
+                  >
+                    <CopyIcon copied={copied} />
+                  </button>
+                </div>
+              </div>
+              <div className="mfa-setup__actions">
+                {cancelable ? (
+                  <button type="button" className="mfa-setup__secondary" onClick={onCancel}>
+                    Cancel
+                  </button>
+                ) : null}
+                <button type="button" className="mfa-setup__primary" onClick={() => setStep("verify")}>
+                  Continue
+                </button>
+              </div>
+            </>
+          ) : (
+            <form onSubmit={onVerifySubmit}>
+              <p className="mfa-setup__lead">
+                Enter the 6-digit code from your authenticator app to finish setup.
+              </p>
+              <MfaCodeInput
+                className="mfa-setup__slots"
+                value={code}
+                onChange={setCode}
+                onComplete={async (value) => {
+                  setCode(value);
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    await verifyMfa(value);
+                    onComplete();
+                  } catch (err) {
+                    setError(err instanceof ApiError ? err.message : "Verification failed");
+                    setCode("");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              />
+              <div className="mfa-setup__actions">
+                <button type="button" className="mfa-setup__secondary" onClick={() => setStep("scan")}>
+                  Back
+                </button>
+                <button
+                  className="mfa-setup__primary"
+                  type="submit"
+                  disabled={loading || code.length !== 6}
+                >
+                  {loading ? "Please wait…" : "Enable two-factor"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   return (
-    <AuthLayout wide footer={false} split={false}>
+    <AuthLayout wide footer={false} productLine={productLine}>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      <div className="login-brand login-brand--compact">
-        <GateLogoMark size={32} className="login-logo-mark-svg" />
-        <span className="login-brand-name login-brand-name--compact">PaymentGate</span>
-      </div>
+      {notice ? (
+        <div className="mfa-force-notice" role="status">
+          {notice}
+        </div>
+      ) : null}
 
       {step === "loading" ? (
         <div className="login-card login-card--enter mfa-enroll-card">

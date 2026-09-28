@@ -9,6 +9,7 @@ import {
   safeNumericSql,
 } from "./dashboard-range.mjs";
 import { childrenMap, subtreeOf } from "./dashboard-scope.mjs";
+import { cachedDashboard } from "./dashboard-cache.mjs";
 
 const SETTLED = ["completed", "confirmed"];
 const ORDER_USD = safeNumericSql("COALESCE(o.invoice_amount_usd, o.payable_amount)");
@@ -33,6 +34,7 @@ export async function windowInstants(from, to, tz) {
 }
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const MARKET_RATES_TTL_MS = 5 * 60_000;
 
 /**
  * @param {import("./dashboard-scope.mjs").DashboardScope} scope
@@ -384,15 +386,36 @@ export async function dashboardSeries(scope, range, opts) {
 
 /**
  * Average locked convert rate per asset/network per bucket; empty buckets hold the last rate.
+ * Scoped dashboards (agent / merchant) fall back to the platform-wide rate for pairs with no
+ * scoped quotes, flagged `source: "market"` with no `quoteCount` so platform volume stays hidden.
  * @param {import("./dashboard-scope.mjs").DashboardScope} scope
  * @param {import("./dashboard-range.mjs").DashboardRange} range
  */
 export async function dashboardRates(scope, range) {
   const keys = bucketKeys(range);
   const cur = await windowInstants(range.from, range.to, range.tz);
+  const scoped = await ratePairs(scope.orderFilter, range, keys, cur);
+  const pairs = scoped.map((p) => ({ ...p, source: "quotes" }));
+  if (scope.orderFilter.kind !== "all") {
+    const have = new Set(scoped.map((p) => `${p.asset}:${p.network}`));
+    // One shared entry per period for every scoped viewer; never `fresh` so refreshes stay cheap.
+    const market = await cachedDashboard(
+      `rates-market|${range.from}|${range.to}|${range.tz}`,
+      () => ratePairs({ kind: "all" }, range, keys, cur),
+      { ttlMs: MARKET_RATES_TTL_MS },
+    );
+    for (const p of market) {
+      if (have.has(`${p.asset}:${p.network}`)) continue;
+      pairs.push({ ...p, quoteCount: null, source: "market" });
+    }
+  }
+  return { interval: range.interval, keys, pairs };
+}
+
+async function ratePairs(orderFilter, range, keys, cur) {
   const params = [cur.lo, cur.hi, range.tz, range.from];
-  const sc = appendPaymentOrderScope(scope.orderFilter, params);
-  if (sc.empty) return { interval: range.interval, keys, pairs: [] };
+  const sc = appendPaymentOrderScope(orderFilter, params);
+  if (sc.empty) return [];
   const rate = safeNumericSql("COALESCE(o.pricing_rate, o.market_rate)");
   const key = bucketKeySql(range.interval, "o.created_at", 3, 4);
   const { rows } = await getPool().query(
@@ -442,7 +465,7 @@ export async function dashboardRates(scope, range) {
       series: series.map((n) => Math.round(n * 1e8) / 1e8),
     });
   }
-  return { interval: range.interval, keys, pairs };
+  return pairs;
 }
 
 /**

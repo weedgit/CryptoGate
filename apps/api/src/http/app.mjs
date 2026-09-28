@@ -198,11 +198,25 @@ import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
 import { rejectUnverifiedLiveAction } from "../auth/contact-verification.mjs";
 
 /**
+ * `X-Server-Time` = epoch ms (UTC, zone-independent) taken when headers are
+ * written, so clients can correct countdowns for device clock drift.
+ * @param {import("node:http").ServerResponse} res
+ */
+function stampServerTime(res) {
+  const writeHead = res.writeHead;
+  res.writeHead = function (...args) {
+    if (!res.headersSent) res.setHeader("X-Server-Time", String(Date.now()));
+    return writeHead.apply(this, args);
+  };
+}
+
+/**
  * HTTP router for apps/api. Auth paths match OpenAPI servers.url `/v1`.
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */
 export async function handleRequest(req, res) {
+  stampServerTime(res);
   applyCorsHeaders(req, res);
   if (handleCorsPreflight(req, res)) return;
 

@@ -19,6 +19,7 @@ import {
   upsertSettlementAddress,
 } from "./settlement-store.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
+import { NotificationEventType, notifyMerchantOrg } from "../notifications/notify.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import {
   denySiteWriteWithoutOverride,
@@ -139,6 +140,24 @@ export async function handlePutSettlement(req, res, orgId) {
     },
   });
   await grantSiteOverrideAfterPlatformWrite(loaded.org, "settlement", loaded.caller);
+
+  if (result.kind !== "unchanged") {
+    const rail = `${validated.parsed.asset} on ${validated.parsed.network}`;
+    const activatesAt = result.row.pending_activates_at
+      ? new Date(result.row.pending_activates_at).toISOString()
+      : null;
+    notifyMerchantOrg(orgId, NotificationEventType.SettlementAddress, {
+      subject: `Settlement address ${result.kind === "pending" ? "change pending" : "set"} — ${rail}`,
+      lines: [
+        result.kind === "pending"
+          ? `A new ${rail} settlement address was submitted for ${loaded.org.name}. It activates after the cool-down${activatesAt ? ` (${activatesAt})` : ""}.`
+          : `The ${rail} settlement address for ${loaded.org.name} is now active.`,
+        `Address: ${validated.parsed.address}`,
+        "If you did not make this change, contact your administrator immediately.",
+      ],
+      path: "settings/settlement",
+    });
+  }
 
   if (loaded.org.type === "merchant") {
     try {

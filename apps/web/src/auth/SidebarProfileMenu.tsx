@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import type { Session } from "../merchant/api";
@@ -16,6 +17,11 @@ import { RoleBadge } from "../shared/RoleBadge";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
 import { sessionDisplayLabel, sessionHasAvatar } from "./profileIdentity";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
+import {
+  MFA_SETUP_PARAM,
+  PROFILE_EDIT_PARAM,
+  useOpenOnEditParam,
+} from "../shared/modalLinks";
 
 type Props = {
   session: Session;
@@ -26,6 +32,8 @@ type Props = {
   placement?: "sidebar" | "topbar";
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
+  /** Extra section rendered inside the Profile window. */
+  profileExtra?: ReactNode;
 };
 
 function profileIdentity(
@@ -74,10 +82,22 @@ export function SidebarProfileMenu({
   placement = "sidebar",
   onSignOut,
   onSessionRefresh,
+  profileExtra,
 }: Props) {
   const isTopbar = placement === "topbar";
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [startMfa, setStartMfa] = useState(false);
+  const [settingsKey, setSettingsKey] = useState(0);
+  useOpenOnEditParam(PROFILE_EDIT_PARAM, () => {
+    setStartMfa(false);
+    setSettingsOpen(true);
+  });
+  useOpenOnEditParam(MFA_SETUP_PARAM, () => {
+    setStartMfa(true);
+    setSettingsKey((k) => k + 1);
+    setSettingsOpen(true);
+  });
   const [menuStyle, setMenuStyle] = useState<CSSProperties | undefined>();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -163,6 +183,7 @@ export function SidebarProfileMenu({
 
   function openSettings() {
     setMenuOpen(false);
+    setStartMfa(false);
     setSettingsOpen(true);
   }
 
@@ -213,7 +234,7 @@ export function SidebarProfileMenu({
         {isTopbar ? (
           <span className="sidebar-profile__meta sidebar-profile__meta--topbar">
             <span className="sidebar-profile__name">{identity.name}</span>
-            <span className="sidebar-profile__org">PaymentGate</span>
+            <span className="sidebar-profile__org">{identity.email}</span>
           </span>
         ) : !collapsed ? (
           <span className="sidebar-profile__meta">
@@ -276,10 +297,13 @@ export function SidebarProfileMenu({
 
       {settingsOpen ? (
         <ProfileSettingsModal
+          key={settingsKey}
           session={session}
           title="Profile"
           onClose={() => setSettingsOpen(false)}
           onSessionRefresh={onSessionRefresh}
+          extraSection={profileExtra}
+          startMfa={startMfa}
         />
       ) : null}
     </div>

@@ -21,6 +21,7 @@ import { RequireAgentPortal } from "./RequireAgentPortal";
 import { agentRoute } from "../shared/portalRouting";
 import { LazyRoute } from "../shared/LazyRoute";
 import { lazyNamed } from "../shared/lazyNamed";
+import { ORG_EDIT_PARAM, PROFILE_EDIT_PARAM, withEditParam } from "../shared/modalLinks";
 
 function AccountsMerchantRedirect() {
   const { id } = useParams<{ id: string }>();
@@ -35,10 +36,6 @@ const DashboardPage = lazyNamed(
   "DashboardPage",
 );
 
-const AgentSettingsPage = lazyNamed(
-  () => import("./AgentSettingsPage"),
-  "AgentSettingsPage",
-);
 const CommissionsPage = lazyNamed(
   () => import("./CommissionsPage"),
   "CommissionsPage",
@@ -62,6 +59,10 @@ const ServiceBillsListPage = lazyNamed(
 const TeamSettingsPage = lazyNamed(
   () => import("./TeamSettingsPage"),
   "TeamSettingsPage",
+);
+const AgentNotificationSettingsPage = lazyNamed(
+  () => import("./AgentNotificationSettings"),
+  "AgentNotificationSettingsPage",
 );
 
 function AgentShellLayout({
@@ -104,7 +105,7 @@ export function AgentApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate onChanged={setSession} />
+      <ForceChangePasswordGate portalLabel="Agent portal" onChanged={setSession} />
     );
   }
 
@@ -179,17 +180,16 @@ export function AgentApp() {
         />
         <Route
           path="settings"
-          element={
-            <AgentSettingsPage
-              session={session}
-              onSessionRefresh={setSession}
-            />
-          }
+          element={<Navigate to={withEditParam(agentRoute(), ORG_EDIT_PARAM)} replace />}
         />
         <Route path="settings/team" element={<TeamSettingsPage session={session} />} />
         <Route
+          path="settings/notifications"
+          element={<AgentNotificationSettingsPage session={session} />}
+        />
+        <Route
           path="settings/security"
-          element={<Navigate to={agentRoute("settings")} replace />}
+          element={<Navigate to={withEditParam(agentRoute(), PROFILE_EDIT_PARAM)} replace />}
         />
         <Route path="commissions" element={<CommissionsPage session={session} />} />
         <Route

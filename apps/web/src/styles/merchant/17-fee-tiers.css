@@ -1,0 +1,219 @@
+/* B8 — Fee tiers & pricing (Figma b8-fee-tiers-pricing) */
+
+@keyframes plat-fee-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes plat-fee-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.platform-shell .plat-fee-tiers__empty-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+}
+
+/* B8 — Band settings editor */
+
+.platform-shell .plat-fee-bands__readonly {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.platform-shell .plat-fee-bands__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(10, 18, 32, 0.72);
+}
+
+.platform-shell .plat-fee-bands__actions-note {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.platform-shell .plat-fee-bands__actions-buttons {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.platform-shell .plat-fee-bands__save.btn-primary {
+  width: min(100%, 280px);
+  min-height: 0;
+  padding: 7px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.2;
+  box-shadow: none;
+}
+
+/* Fees → Remittance (B11-lite pay-to + invoice seller) */
+.platform-shell .plat-fee-billing {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.platform-shell .plat-fee-billing__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.platform-shell .plat-fee-billing__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.platform-shell .plat-fee-billing__card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 18px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(165deg, rgba(20, 32, 52, 0.92), rgba(10, 16, 28, 0.96));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.platform-shell .plat-fee-billing__card--remit {
+  border-color: rgba(45, 212, 191, 0.18);
+}
+
+.platform-shell .plat-fee-billing__card-head {
+  padding-bottom: 0;
+  position: static;
+}
+
+.platform-shell .plat-fee-billing__card-head h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.platform-shell .plat-fee-billing__card-head p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.platform-shell .plat-fee-billing__card-head p strong {
+  color: #e2e8f0;
+  font-weight: 650;
+}
+
+.platform-shell .plat-fee-billing__rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.platform-shell .plat-fee-billing__rail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.platform-shell .plat-fee-billing__rail-chip .plat-crypto-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.platform-shell .plat-fee-billing__rail-chip .plat-crypto-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.platform-shell .plat-fee-billing__rail-sep {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.platform-shell .plat-fee-billing__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.platform-shell .plat-fee-billing__shell--textarea {
+  align-items: stretch;
+  min-height: 96px;
+}
+
+.platform-shell .plat-fee-billing__shell--textarea .field-shell__icon {
+  align-self: stretch;
+}
+
+.platform-shell .plat-fee-billing__shell--textarea .plat-fee-billing__textarea,
+.platform-shell .plat-fee-billing__shell--textarea .b4-field__control {
+  min-height: 96px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.platform-shell .plat-fee-billing__bills-link {
+  color: #5eead4;
+  text-decoration: none;
+  font-weight: 560;
+}
+
+.platform-shell .plat-fee-billing__bills-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .plat-fee-billing__grid {
+    grid-template-columns: 1fr;
+  }
+}
+

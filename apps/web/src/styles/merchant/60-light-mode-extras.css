@@ -1,0 +1,104 @@
+/* Light mode: gold / red wave decorations (hero + modal title bars) */
+html[data-theme="light"] {
+  --gw-hi: 245 158 11;
+  --gw-base: 217 119 6;
+  --gw-deep: 180 83 9;
+  --gw-red: 220 38 38;
+  --gw-red-soft: 239 68 68;
+  --gw-red-pale: 248 113 113;
+}
+
+html[data-theme="light"] .platform-shell .pg-dash__hero-aura-svg,
+html[data-theme="light"] .platform-shell .platform-detail__hero-aura-svg {
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.18));
+  opacity: 0.9;
+}
+
+html[data-theme="light"] .org-edit__waves svg,
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__aura-svg,
+html[data-theme="light"] :is(.platform-shell, .b4-wizard-portal) .b4-wizard__head-aura-svg,
+html[data-theme="light"] .plat-alerts__waves svg,
+html[data-theme="light"] .stl-hero__waves svg {
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.2));
+  opacity: 0.9;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__aura-svg {
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.18));
+  opacity: 0.9;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__head::before,
+html[data-theme="light"] :is(.platform-shell, .b4-wizard-portal) .b4-wizard__head--brand::before {
+  background: radial-gradient(
+    ellipse 24% 90% at 82% 45%,
+    rgba(245, 158, 11, 0.08) 0%,
+    rgba(245, 158, 11, 0.03) 45%,
+    transparent 70%
+  );
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__head::before {
+  background: radial-gradient(
+    ellipse 24% 90% at 82% 45%,
+    rgba(239, 68, 68, 0.07) 0%,
+    rgba(239, 68, 68, 0.025) 45%,
+    transparent 70%
+  );
+}
+
+/* Team role picker + menu — light mode */
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger {
+  background: #ffffff;
+  border-color: #d8dee8;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:hover {
+  background: #fffbeb;
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus,
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus-visible,
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select.is-open .searchable-select__trigger {
+  background: #fffbeb;
+  border-color: rgba(217, 119, 6, 0.6);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__caret {
+  color: #64748b;
+  border-top-color: #64748b;
+}
+
+html[data-theme="light"] .b3-team-role-menu.searchable-select__menu,
+html[data-theme="light"] .b3-team-role-menu {
+  background: #ffffff;
+  border-color: #d8dee8 !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .b3-team-role-menu .searchable-select__option {
+  color: #1e293b;
+}
+
+html[data-theme="light"] .b3-team-role-menu .searchable-select__option:hover {
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .b3-team-role-menu .searchable-select__option.is-on {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+html[data-theme="light"] .b3-team-role-menu .searchable-select__option.is-on .searchable-select__option-copy::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M2.5 7.2 5.4 10.1 11.5 3.8' stroke='%23d97706' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}

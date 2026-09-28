@@ -1,0 +1,41 @@
+/* Light theme — scrollbars + native controls (several shells force color-scheme: dark). */
+html[data-theme="light"] {
+  scrollbar-color: #c3ccd8 transparent;
+}
+
+html[data-theme="light"] :is(
+    .b3-commission-modal,
+    .b3-commission-modal-backdrop .b3-commission-modal,
+    .b4-wizard,
+    .searchable-select__menu,
+    .field-shell > select,
+    .plat-missed-modal__field .field-control,
+    .plat-int__datetime-input,
+    .platform-shell .plat-period-date input[type="date"],
+    .platform-shell .plat-audit__input--date,
+    .platform-shell .pg-dash__period-date input[type="date"]
+  ) {
+  color-scheme: light;
+}
+
+html[data-theme="light"] :is(
+    .b3-commission-modal,
+    .b4-wizard,
+    .searchable-select__list,
+    .profile-settings-modal__body,
+    .mfa-setup-backdrop,
+    .org-setup-modal
+  ) {
+  scrollbar-width: thin;
+  scrollbar-color: #c3ccd8 transparent;
+}
+
+html[data-theme="light"] :is(
+    .b3-commission-modal,
+    .b4-wizard,
+    .searchable-select__list,
+    .profile-settings-modal__body
+  ):hover {
+  scrollbar-color: #9aa6b8 transparent;
+}
+

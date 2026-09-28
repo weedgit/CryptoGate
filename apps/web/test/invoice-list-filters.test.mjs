@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -12,10 +12,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("@paymentgate/web invoice list filters", () => {
   it("always renders From and To (not Custom-only)", () => {
-    const page = readFileSync(
-      join(root, "src/shared/InvoiceListPage.tsx"),
-      "utf8",
-    );
+    const dir = join(root, "src/shared/invoiceList");
+    const page = [
+      readFileSync(join(root, "src/shared/InvoiceListPage.tsx"), "utf8"),
+      ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+    ].join("\n");
     assert.match(page, /aria-label="From date"/);
     assert.match(page, /aria-label="To date"/);
     assert.match(page, /invoice-list__date-wrap/);

@@ -1,10 +1,28 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** SettlementPage plus its split-out cards under src/merchant/settlement/. */
+function readSettlementSources() {
+  const dir = join(root, "src/merchant/settlement");
+  return [
+    readFileSync(join(root, "src/merchant/SettlementPage.tsx"), "utf8"),
+    ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+  ].join("\n");
+}
+
+/** OrderDetailPage plus its split-out sections under src/merchant/orderDetail/. */
+function readOrderDetailSources() {
+  const dir = join(root, "src/merchant/orderDetail");
+  return [
+    readFileSync(join(root, "src/merchant/OrderDetailPage.tsx"), "utf8"),
+    ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+  ].join("\n");
+}
 
 describe("@paymentgate/web merchant M2-60", () => {
   it("has create-order route and matching labels", () => {
@@ -43,10 +61,7 @@ describe("@paymentgate/web merchant M2-61/62/63 settlement", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /settings\/settlement/);
     assert.match(app, /SettlementPage/);
-    const page = readFileSync(
-      join(root, "src/merchant/SettlementPage.tsx"),
-      "utf8",
-    );
+    const page = readSettlementSources();
     assert.match(page, /new orders only/i);
     assert.match(page, /putMatchingMode/);
     assert.match(page, /putFulfillmentPolicy/);
@@ -67,10 +82,7 @@ describe("@paymentgate/web merchant M2-61/62/63 settlement", () => {
     assert.doesNotMatch(labels, /mode: "D"/);
     assert.match(labels, /matchingModeCardDisabled/);
     assert.match(labels, /MODE_D_PHASE1_UNAVAILABLE_REASON/);
-    const settlement = readFileSync(
-      join(root, "src/merchant/SettlementPage.tsx"),
-      "utf8",
-    );
+    const settlement = readSettlementSources();
     assert.match(settlement, /matchingModeCardDisabled/);
     assert.match(settlement, /is-unavailable/);
   });
@@ -114,10 +126,7 @@ describe("@paymentgate/web merchant D1-D3 orders shell", () => {
     assert.match(status, /Pending Payment/);
     assert.match(status, /Attention/);
     assert.doesNotMatch(status, /:\s*"Paid"/);
-    const detail = readFileSync(
-      join(root, "src/merchant/OrderDetailPage.tsx"),
-      "utf8",
-    );
+    const detail = readOrderDetailSources();
     assert.doesNotMatch(detail, /<button[^>]*>[^<]*Mark paid/i);
     assert.match(detail, /order-detail-anomaly/);
     assert.match(detail, /"Resolve"/);
@@ -178,8 +187,8 @@ describe("@paymentgate/web merchant D5-D6 service bills", () => {
       join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
-    assert.match(list, /PlatformServiceBillsListPage/);
-    assert.match(list, /ServiceBillsPortalContext/);
+    assert.match(list, /listServiceBills/);
+    assert.match(list, /Bills by month/);
     assert.doesNotMatch(list, /createOrder|listOrders/);
     const detail = readFileSync(
       join(root, "src/merchant/ServiceBillDetailPage.tsx"),
@@ -194,7 +203,6 @@ describe("@paymentgate/web merchant D5-D6 service bills", () => {
     assert.match(portal, /kind: "merchant"/);
     assert.match(portal, /getServiceBillCheckout/);
     assert.match(portal, /sessionCanCheckoutServiceBill/);
-    assert.match(portal, /MerchantBillingPlanCard/);
     const shared = readFileSync(
       join(root, "src/platform/ServiceBillDetailPage.tsx"),
       "utf8",
@@ -208,8 +216,9 @@ describe("@paymentgate/web merchant D5-D6 service bills", () => {
 describe("@paymentgate/web merchant D14 integrations", () => {
   it("wires integrations route and API helpers", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /IntegrationsPage/);
-    assert.match(app, /settings\/integrations/);
+    assert.match(app, /settings\/integrations"\s*element=\{<Navigate to=\{merchantRoute\("networks"\)\}/);
+    const networks = readFileSync(join(root, "src/merchant/NetworksPage.tsx"), "utf8");
+    assert.match(networks, /<IntegrationsPage session=\{session\} \/>/);
     const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
     assert.match(api, /listApiKeys/);
     assert.match(api, /registerWebhook/);
@@ -226,28 +235,27 @@ describe("@paymentgate/web merchant D14 integrations", () => {
     assert.match(page, /SecretOnceModal/);
     assert.match(page, /Cashier accounts/i);
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
-    assert.match(shell, /Integrations/);
+    assert.doesNotMatch(shell, /settings\/integrations|IntegrationsNavIcon/);
   });
 });
 
-describe("@paymentgate/web merchant D10 reports", () => {
-  it("wires reports route and CSV export helper", () => {
+describe("@paymentgate/web merchant reports folded into dashboard", () => {
+  it("redirects legacy /reports and drops the nav tab", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
-    assert.match(app, /ReportsPage/);
-    assert.match(app, /path="reports/);
+    assert.doesNotMatch(app, /ReportsPage/);
+    assert.match(app, /path="reports\/\*" element=\{<Navigate/);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.doesNotMatch(shell, /label: "Reports"/);
     const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
     assert.match(api, /ordersCsvUrl\(opts\?/);
   });
 
-  it("shows volume breakdown and separate from service bills", () => {
-    const page = readFileSync(join(root, "src/merchant/ReportsPage.tsx"), "utf8");
-    assert.match(page, /Completed volume/i);
+  it("dashboard shows per-cashier totals linked to filtered invoices", () => {
+    const page = readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8");
     assert.match(page, /getDashboardReports/);
-    assert.match(page, /byMode/);
+    assert.match(page, /byCreator/);
+    assert.match(page, /cashier: userId/);
     assert.doesNotMatch(page, /listAllOrders|volumeForOrder/);
-    assert.match(page, /ordersCsvUrl/);
-    assert.doesNotMatch(page, /Mark paid/i);
-    assert.doesNotMatch(page, /listServiceBills/);
   });
 });
 
@@ -281,9 +289,10 @@ describe("@paymentgate/web merchant D12-D16 settings", () => {
     const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
     assert.match(org, /sessionIsMerchantStaff/);
     assert.doesNotMatch(org, /orgType == null/);
-    assert.match(team, /plat-team__org/);
+    assert.match(team, /plat-team plat-bills/);
+    assert.match(team, /plat-bills__intro-title/);
     const bills = readFileSync(
-      join(root, "src/merchant/MerchantBillingPlanCard.tsx"),
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
     assert.match(bills, /not deducted from payer on-chain/i);
@@ -299,13 +308,21 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
       "utf8",
     );
     assert.match(app, /MerchantSitesRoutes/);
-    assert.match(app, /sites\/\*/);
-    assert.match(routes, /SitesListPage/);
+    assert.match(app, /path="sites\/:id"/);
     assert.match(routes, /CreateSiteModal/);
     assert.match(routes, /sites\/new/);
-    const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
-    assert.match(list, /SiteDetailCard/);
-    assert.match(list, /org-split/);
+  });
+
+  it("uses the shared Platform Accounts page scoped to the merchant", () => {
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantSitesRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(routes, /AccountsPage/);
+    assert.match(routes, /AccountsPortalContext\.Provider/);
+    assert.match(routes, /kind: "merchant"/);
+    assert.match(routes, /sitesInMerchantSubtree/);
+    assert.match(routes, /canEditAgentPayout: \(\) => false/);
   });
 
   it("creates merchant_site via org API", () => {
@@ -316,10 +333,201 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
     assert.match(create, /merchant_site/);
     assert.match(create, /inherit/i);
     assert.match(create, /b3-commission-modal/);
-    const list = readFileSync(join(root, "src/merchant/SitesListPage.tsx"), "utf8");
-    const detail = readFileSync(join(root, "src/merchant/SiteDetailCard.tsx"), "utf8");
-    assert.doesNotMatch(list, /multi_location|single_location/);
-    assert.match(list, /New site/);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.match(shell, /Cashier/);
+    assert.match(shell, /Cashier terminal/);
+    assert.match(shell, /CASHIER_GROUPS/);
+    assert.doesNotMatch(shell, /showCashierBanner|CashierRestrictedBanner/);
+    assert.match(shell, /SidebarRoleCard/);
+    const cashierNav =
+      shell.split("const CASHIER_GROUPS")[1]?.split("type Props")[0] ?? "";
+    assert.match(cashierNav, /label: "Invoice"/);
+    assert.match(cashierNav, /label: "Create invoice"/);
+    assert.doesNotMatch(cashierNav, /service-bills/i);
+
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /RequireOwnerPortal/);
+    assert.match(app, /CashierForbiddenPage/);
+
+    const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
+    assert.match(org, /sessionIsCashierOnly/);
+  });
+
+  it("shows cashier limits in the sidebar role card", () => {
+    const perms = readFileSync(join(root, "src/shared/rolePermissions.ts"), "utf8");
+    assert.match(perms, /Own orders only/);
+    assert.match(perms, /Hidden for Cashiers/);
+  });
+});
+
+describe("@paymentgate/web merchant D5-D6 service bills", () => {
+  it("wires service bill list and detail routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /ServiceBillsListPage/);
+    assert.match(app, /ServiceBillDetailPage/);
+    assert.match(app, /path="service-bills"/);
+  });
+
+  it("uses separate service bill API and status labels", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listServiceBills/);
+    assert.match(api, /getServiceBillCheckout/);
+    const labels = readFileSync(
+      join(root, "src/merchant/serviceBillStatus.ts"),
+      "utf8",
+    );
+    assert.match(labels, /overdue/);
+    assert.doesNotMatch(labels, /pending_payment/);
+    const list = readFileSync(
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
+      "utf8",
+    );
+    assert.match(list, /listServiceBills/);
+    assert.match(list, /Bills by month/);
+    assert.doesNotMatch(list, /createOrder|listOrders/);
+    const detail = readFileSync(
+      join(root, "src/merchant/ServiceBillDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(detail, /PlatformServiceBillDetailPage/);
+    assert.match(detail, /ServiceBillsPortalContext/);
+    const portal = readFileSync(
+      join(root, "src/merchant/useMerchantServiceBillsPortal.tsx"),
+      "utf8",
+    );
+    assert.match(portal, /kind: "merchant"/);
+    assert.match(portal, /getServiceBillCheckout/);
+    assert.match(portal, /sessionCanCheckoutServiceBill/);
+    const shared = readFileSync(
+      join(root, "src/platform/ServiceBillDetailPage.tsx"),
+      "utf8",
+    );
+    assert.match(shared, /ServiceBillInvoiceFace/);
+    assert.match(shared, /portal\?\.loadCheckout/);
+    assert.match(shared, /qrPayload: checkout\?\.qrPayload/);
+  });
+});
+
+describe("@paymentgate/web merchant D14 integrations", () => {
+  it("wires integrations route and API helpers", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /settings\/integrations"\s*element=\{<Navigate to=\{merchantRoute\("networks"\)\}/);
+    const networks = readFileSync(join(root, "src/merchant/NetworksPage.tsx"), "utf8");
+    assert.match(networks, /<IntegrationsPage session=\{session\} \/>/);
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listApiKeys/);
+    assert.match(api, /registerWebhook/);
+    assert.match(api, /testWebhook/);
+    assert.match(api, /listWebhookDeliveries/);
+    assert.match(api, /resendWebhookDelivery/);
+  });
+
+  it("shows secrets once and blocks cashiers via owner portal", () => {
+    const page = readFileSync(join(root, "src/merchant/IntegrationsPage.tsx"), "utf8");
+    assert.match(page, /One-time display/i);
+    assert.match(page, /cannot be retrieved/i);
+    assert.match(page, /resendWebhookDelivery/);
+    assert.match(page, /SecretOnceModal/);
+    assert.match(page, /Cashier accounts/i);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.doesNotMatch(shell, /settings\/integrations|IntegrationsNavIcon/);
+  });
+});
+
+describe("@paymentgate/web merchant reports folded into dashboard", () => {
+  it("redirects legacy /reports and drops the nav tab", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.doesNotMatch(app, /ReportsPage/);
+    assert.match(app, /path="reports\/\*" element=\{<Navigate/);
+    const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
+    assert.doesNotMatch(shell, /label: "Reports"/);
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /ordersCsvUrl\(opts\?/);
+  });
+
+  it("dashboard shows per-cashier totals linked to filtered invoices", () => {
+    const page = readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8");
+    assert.match(page, /getDashboardReports/);
+    assert.match(page, /byCreator/);
+    assert.match(page, /cashier: userId/);
+    assert.doesNotMatch(page, /listAllOrders|volumeForOrder/);
+  });
+});
+
+describe("@paymentgate/web merchant D12-D16 settings", () => {
+  it("wires team, notifications, and legacy org/billing redirects", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /NotificationsSettingsPage/);
+    assert.match(app, /TeamSettingsPage/);
+    assert.match(app, /RequireMerchantPortal/);
+    assert.match(app, /settings\/organization/);
+    assert.match(app, /settings\/billing/);
+    assert.match(app, /Navigate to=\{merchantRoute\("settings\/team"\)\}/);
+    assert.match(app, /Navigate to=\{merchantRoute\("service-bills"\)\}/);
+    assert.match(app, /settings\/notifications/);
+    assert.match(app, /settings\/team/);
+    assert.doesNotMatch(app, /OrganizationSettingsPage/);
+  });
+
+  it("uses org API helpers and owner-only team management", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /listOrgs/);
+    assert.match(api, /getOrg/);
+    assert.match(api, /inviteOrgUser/);
+    assert.match(api, /assignOrgUserRole/);
+    const team = readFileSync(join(root, "src/merchant/TeamSettingsPage.tsx"), "utf8");
+    assert.match(team, /sessionCanManageTeam/);
+    const perms = readFileSync(join(root, "src/shared/rolePermissions.ts"), "utf8");
+    assert.match(perms, /Add or remove team members/);
+    assert.match(team, /inviteOrgUser/);
+    assert.match(team, /inviteRoleOptions/);
+    const org = readFileSync(join(root, "src/merchant/org.ts"), "utf8");
+    assert.match(org, /sessionIsMerchantStaff/);
+    assert.doesNotMatch(org, /orgType == null/);
+    assert.match(team, /plat-team plat-bills/);
+    assert.match(team, /plat-bills__intro-title/);
+    const bills = readFileSync(
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
+      "utf8",
+    );
+    assert.match(bills, /not deducted from payer on-chain/i);
+    assert.match(bills, /getMerchantCommercial/);
+  });
+});
+
+describe("@paymentgate/web merchant D7-D9 sites", () => {
+  it("wires sites list, create, and detail routes", () => {
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantSitesRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(app, /MerchantSitesRoutes/);
+    assert.match(app, /path="sites\/:id"/);
+    assert.match(routes, /CreateSiteModal/);
+    assert.match(routes, /sites\/new/);
+  });
+
+  it("uses the shared Platform Accounts page scoped to the merchant", () => {
+    const routes = readFileSync(
+      join(root, "src/merchant/MerchantSitesRoutes.tsx"),
+      "utf8",
+    );
+    assert.match(routes, /AccountsPage/);
+    assert.match(routes, /AccountsPortalContext\.Provider/);
+    assert.match(routes, /kind: "merchant"/);
+    assert.match(routes, /sitesInMerchantSubtree/);
+    assert.match(routes, /canEditAgentPayout: \(\) => false/);
+  });
+
+  it("creates merchant_site via org API", () => {
+    const api = readFileSync(join(root, "src/merchant/api.ts"), "utf8");
+    assert.match(api, /createOrg/);
+    assert.match(api, /deleteOrg/);
+    const create = readFileSync(join(root, "src/merchant/CreateSiteModal.tsx"), "utf8");
+    assert.match(create, /merchant_site/);
+    assert.match(create, /inherit/i);
+    assert.match(create, /b3-commission-modal/);
     const shell = readFileSync(join(root, "src/merchant/MerchantShell.tsx"), "utf8");
     assert.match(shell, /logo-badge--location/);
     assert.match(shell, /sessionLocationKind/);
@@ -328,27 +536,6 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
     assert.match(org, /return \"Merchant\"/);
     assert.match(org, /return \"Site\"/);
     assert.doesNotMatch(org, /single_location|multi_location/);
-    assert.match(list, /contactEmail/);
-    assert.doesNotMatch(detail, /Inherit vs override/);
-    assert.match(detail, /mailto:/);
-    assert.match(detail, /siteHeaderContact/);
-    assert.match(detail, /b3-agent-detail__email/);
-    assert.doesNotMatch(detail, /truncateAddress\(site\.id/);
-    assert.doesNotMatch(detail, /Settlement \/ matching/);
-    assert.doesNotMatch(detail, /Inherit parent merchant/);
-    assert.doesNotMatch(detail, /Parent merchant/);
-    assert.doesNotMatch(detail, /Invoice count/);
-    assert.match(detail, /listOrders/);
-    assert.match(detail, /setOrgStatus/);
-    assert.match(detail, /b3-agent-detail__tabs/);
-    assert.match(detail, /Overview/);
-    assert.match(detail, /Orders/);
-    assert.doesNotMatch(detail, /id: "settings"/);
-    assert.doesNotMatch(detail, /SiteOverridesPanel/);
-    assert.match(detail, /Inherits parent merchant/);
-    assert.match(detail, /Suspend/);
-    assert.match(detail, /deleteOrg/);
-    assert.match(detail, /b3-agent-detail__delete/);
     const createHint = readFileSync(
       join(root, "src/merchant/CreateSiteModal.tsx"),
       "utf8",

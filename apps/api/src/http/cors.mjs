@@ -36,6 +36,7 @@ export function applyCorsHeaders(req, res) {
     "Access-Control-Allow-Headers",
     "Content-Type, Idempotency-Key",
   );
+  res.setHeader("Access-Control-Expose-Headers", "X-Server-Time");
   return true;
 }
 

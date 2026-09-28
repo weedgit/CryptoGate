@@ -1,10 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+function readCommissionsSources() {
+  const dir = join(root, "src/platform/commissions");
+  return [
+    readFileSync(join(root, "src/platform/PlatformCommissionsPage.tsx"), "utf8"),
+    ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+  ].join("\n");
+}
 
 describe("@paymentgate/web commission bulk remittance", () => {
   it("wires batch client helper", () => {
@@ -17,10 +25,7 @@ describe("@paymentgate/web commission bulk remittance", () => {
   });
 
   it("wires multi-select and bulk modal on platform list", () => {
-    const page = readFileSync(
-      join(root, "src/platform/PlatformCommissionsPage.tsx"),
-      "utf8",
-    );
+    const page = readCommissionsSources();
     assert.match(page, /BulkMarkPaidModal/);
     assert.match(page, /selectedIds/);
     assert.match(page, /markCommissionPayoutsPaidBatch/);

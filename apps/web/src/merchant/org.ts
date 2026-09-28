@@ -1,5 +1,6 @@
 import type { Session } from "./api";
 import { displayNetworkForPair, networkShortLabel } from "../shared/assetNetworks";
+import { serverNow } from "../shared/serverClock";
 
 /** Prefer merchant / merchant_site membership for settings org scope. */
 export function primaryMerchantOrgId(session: Session): string | null {
@@ -27,7 +28,7 @@ export function formatCountdown(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const end = Date.parse(iso);
   if (!Number.isFinite(end)) return null;
-  const ms = end - Date.now();
+  const ms = end - serverNow();
   if (ms <= 0) return "ready";
   const totalMin = Math.ceil(ms / 60_000);
   const h = Math.floor(totalMin / 60);
@@ -82,10 +83,18 @@ export function sessionIsOrgOwner(session: Session, orgId: string): boolean {
   return sessionRoleOnOrg(session, orgId) === "owner";
 }
 
-/** Merchant Owner only — settlement wallet / matching / xPub writes. */
+/** Merchant Owner only — settlement wallet / xPub writes. */
 export function sessionCanEditSettlement(session: Session): boolean {
   const orgId = primaryMerchantOrgId(session);
   return orgId ? sessionIsOrgOwner(session, orgId) : false;
+}
+
+/** Merchant Owner / Administrator — matching mode and fulfillment policy writes. */
+export function sessionCanManageSettlementOps(session: Session): boolean {
+  const orgId = primaryMerchantOrgId(session);
+  if (!orgId) return false;
+  const role = sessionRoleOnOrg(session, orgId);
+  return role === "owner" || role === "administrator";
 }
 
 /** O / A / V may view org settings. */

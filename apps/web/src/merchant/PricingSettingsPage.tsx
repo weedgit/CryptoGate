@@ -7,6 +7,8 @@ import {
   type Session,
 } from "./api";
 import { AuthToast } from "../auth/AuthToast";
+import { SettlementSectionHead } from "./SettlementSectionHead";
+import { SettlementOptionGroup } from "./settlement/SettlementOptionGroup";
 import {
   primaryMerchantOrgId,
   sessionCanEditOrgSettings,
@@ -18,23 +20,27 @@ const MODE_OPTIONS = [
   {
     id: "pegged_1to1",
     label: "Pegged 1:1",
+    value: "1:1",
     blurb:
       "Stablecoins settle at $1.00 when the market rate stays within the platform depeg band; otherwise the live rate is used.",
   },
   {
     id: "market",
     label: "Always market",
+    value: "FX",
     blurb: "Every asset uses the live USD rate from the rate feed at quote time.",
   },
   {
     id: "usd_to_token",
     label: "USD to token",
+    value: "USD",
     blurb:
       "Enter the USD amount. PaymentGate converts it to the token amount at the cached fund rate.",
   },
   {
     id: "token_to_usd",
     label: "Token amount to USD",
+    value: "USD",
     blurb:
       "Enter the token amount. PaymentGate converts it to USD at the live rate.",
   },
@@ -45,7 +51,7 @@ function lockLabel(seconds: number): string {
   return `${seconds}s`;
 }
 
-/** Merchant FX pricing mode + quote lock (Phase 1 USD invoices). */
+/** Merchant FX pricing mode + quote lock card (Settlement tab). */
 export function PricingSettingsPage({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canEdit = sessionCanEditOrgSettings(session);
@@ -107,15 +113,12 @@ export function PricingSettingsPage({ session }: Props) {
     void load();
   }, [load]);
 
+  function modeEnabled(id: string): boolean {
+    return id === "pegged_1to1" ? peggedEnabled : marketEnabled;
+  }
+
   function selectMode(next: string) {
-    if (!canEdit) return;
-    if (next === "pegged_1to1" && !peggedEnabled) return;
-    if (
-      (next === "market" || next === "token_to_usd" || next === "usd_to_token") &&
-      !marketEnabled
-    ) {
-      return;
-    }
+    if (!canEdit || !modeEnabled(next)) return;
     setPricingMode(next);
     setDirty(next !== savedMode || quoteLockSeconds !== savedLock);
     setOkMsg(null);
@@ -158,43 +161,28 @@ export function PricingSettingsPage({ session }: Props) {
     }
   }
 
-  return (
-    <div className="plat-settings plat-settings--merchant">
-      <AuthToast
-        message={error ?? okMsg}
-        tone={error ? "error" : "ok"}
-        onDismiss={() => {
-          setError(null);
-          setOkMsg(null);
-        }}
-      />
+  const toast = (
+    <AuthToast
+      message={error ?? okMsg}
+      tone={error ? "error" : "ok"}
+      onDismiss={() => {
+        setError(null);
+        setOkMsg(null);
+      }}
+    />
+  );
 
-      <header className="plat-alerts__hero">
-        <div className="plat-alerts__hero-main">
-          <div className="plat-alerts__title-row">
-            <h1 className="plat-alerts__name">Pricing</h1>
-          </div>
-          <p className="muted">
-            Invoices are priced in USD. Customers pick an asset; the platform locks a
-            token amount for the quote window you choose.
-          </p>
-        </div>
-      </header>
-
-      <section className="plat-settings__card">
-        <div className="plat-settings__card-head">
-          <h2 className="plat-settings__card-title">FX pricing mode</h2>
-          {canEdit ? (
-            <button
-              type="submit"
-              form="merchant-pricing-form"
-              className="btn-primary btn-inline btn-tiny"
-              disabled={saving || !dirty || loading}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          ) : null}
-        </div>
+  const card = (
+      <section className="plat-settings__card plat-settlement__card plat-settlement__card--pricing">
+        <SettlementSectionHead
+          icon="fx"
+          title="FX pricing mode"
+          subtitle="How invoice amounts convert between USD and tokens."
+        >
+          <span className={`plat-settlement__mode-pill${dirty ? " is-stale" : ""}`}>
+            {MODE_OPTIONS.find((o) => o.id === savedMode)?.label ?? savedMode}
+          </span>
+        </SettlementSectionHead>
         <div className="plat-settings__card-body">
           {loading ? (
             <p className="muted">Loading pricing settings…</p>
@@ -213,87 +201,70 @@ export function PricingSettingsPage({ session }: Props) {
                 </p>
               ) : null}
 
-              <div
-                className="plat-settlement__stats plat-settlement__stats--pick plat-settlement__stats--duo"
-                role="radiogroup"
-                aria-label="Pricing mode"
-              >
-                {MODE_OPTIONS.map((opt) => {
-                  const disabled =
-                    !canEdit ||
-                    (opt.id === "pegged_1to1" && !peggedEnabled) ||
-                    (opt.id === "market" && !marketEnabled) ||
-                    ((opt.id === "token_to_usd" || opt.id === "usd_to_token") &&
-                      !marketEnabled);
-                  const selected = pricingMode === opt.id;
-                  return (
+              <SettlementOptionGroup
+                ariaLabel="Pricing mode"
+                variant="radiogroup"
+                duo
+                locked={!canEdit}
+                selectedId={pricingMode}
+                onSelect={selectMode}
+                options={MODE_OPTIONS.map((opt) => {
+                  const off = !modeEnabled(opt.id);
+                  return {
+                    id: opt.id,
+                    eyebrow: opt.label,
+                    value: opt.value,
+                    hint: off ? `${opt.blurb} (disabled by platform)` : opt.blurb,
+                    disabled: off,
+                    className: off || !canEdit ? "is-disabled" : undefined,
+                  };
+                })}
+              />
+
+              <div className="stl-lock">
+                <div className="stl-lock__copy">
+                  <span className="stl-lock__label">Quote lock</span>
+                  <span className="stl-lock__hint">
+                    Rate is locked for this window when a pay method is quoted.
+                  </span>
+                </div>
+                <div className="stl-seg" role="radiogroup" aria-label="Quote lock">
+                  {allowedLocks.map((s) => (
                     <button
-                      key={opt.id}
+                      key={s}
                       type="button"
                       role="radio"
-                      aria-checked={selected}
-                      disabled={disabled}
-                      className={`plat-settlement__stat plat-settlement__stat-pick${
-                        selected ? " is-selected" : ""
-                      }${disabled ? " is-disabled" : ""}`}
-                      onClick={() => selectMode(opt.id)}
+                      aria-checked={quoteLockSeconds === s}
+                      className={`stl-seg__btn${quoteLockSeconds === s ? " is-active" : ""}`}
+                      disabled={!canEdit}
+                      onClick={() => selectLock(s)}
                     >
-                      <span className="plat-settlement__stat-label">
-                        {opt.label}
-                        {selected ? (
-                          <span className="plat-settlement__stat-selected-tag">
-                            Selected
-                          </span>
-                        ) : null}
-                      </span>
-                      <strong className="plat-settlement__stat-value">
-                        {opt.id === "pegged_1to1"
-                          ? "1:1"
-                          : opt.id === "token_to_usd" || opt.id === "usd_to_token"
-                            ? "USD"
-                            : "FX"}
-                      </strong>
-                      <span className="plat-settlement__stat-hint">
-                        {opt.blurb}
-                        {opt.id === "pegged_1to1" && !peggedEnabled
-                          ? " (disabled by platform)"
-                          : ""}
-                        {opt.id === "market" && !marketEnabled
-                          ? " (disabled by platform)"
-                          : ""}
-                        {(opt.id === "token_to_usd" || opt.id === "usd_to_token") &&
-                        !marketEnabled
-                          ? " (disabled by platform)"
-                          : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <label className="plat-settings__field" htmlFor="quote-lock">
-                <span>Quote lock</span>
-                <select
-                  id="quote-lock"
-                  className="plat-settings__input"
-                  value={quoteLockSeconds}
-                  disabled={!canEdit}
-                  onChange={(e) => selectLock(Number(e.target.value))}
-                >
-                  {allowedLocks.map((s) => (
-                    <option key={s} value={s}>
                       {lockLabel(s)}
-                    </option>
+                    </button>
                   ))}
-                </select>
-                <span className="muted">
-                  Rate is locked for this window when a pay method is quoted.
-                </span>
-              </label>
+                </div>
+              </div>
+              {canEdit ? (
+                <div className="plat-settlement__form-actions">
+                  <button
+                    type="submit"
+                    className="btn-primary plat-settings__submit"
+                    disabled={saving || !dirty || loading}
+                  >
+                    {saving ? "Saving…" : "Save pricing"}
+                  </button>
+                </div>
+              ) : null}
             </form>
           )}
         </div>
       </section>
-    </div>
+  );
+
+  return (
+    <>
+      {toast}
+      {card}
+    </>
   );
 }

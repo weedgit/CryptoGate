@@ -1,10 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   billsReviewQuery,
+  ordersReviewQuery,
   utcMonthBounds,
   volumeReviewQuery,
 } from "../src/platform/accountReviewLinks.ts";
@@ -38,6 +39,25 @@ describe("account KPI review links", () => {
       agent: AGENT,
     });
     assert.equal(query(volumeReviewQuery({ merchantId: "m-1" }, NOW)).merchant, "m-1");
+    assert.equal(query(volumeReviewQuery({ siteId: "s-1" }, NOW)).site, "s-1");
+  });
+
+  it("orders link opens every invoice this UTC month for the site", () => {
+    assert.deepEqual(query(ordersReviewQuery({ siteId: "s-1" }, NOW)), {
+      status: "all",
+      period: "custom",
+      from: "2026-02-01",
+      to: "2026-02-14",
+      utc: "1",
+      site: "s-1",
+    });
+  });
+
+  it("site card links to the portal's invoice list, none in Agent", () => {
+    const card = readFileSync(join(root, "src/platform/SiteDetailCard.tsx"), "utf8");
+    assert.match(card, /platformRoute\("invoices"\)/);
+    assert.match(card, /portal\.kind === "merchant"\s*\?\s*portal\.route\("orders"\)/);
+    assert.match(card, /ordersReviewQuery\(\{ siteId: org\.id \}\)/);
   });
 
   it("bills link filters by billing period overlapping this month", () => {
@@ -63,7 +83,11 @@ describe("account KPI review links", () => {
     const bills = readFileSync(join(root, "src/platform/ServiceBillsListPage.tsx"), "utf8");
     assert.match(bills, /searchParams\.get\("periodFrom"\)/);
     assert.match(bills, /searchParams\.get\("agent"\)/);
-    const invoices = readFileSync(join(root, "src/shared/InvoiceListPage.tsx"), "utf8");
+    const invoiceDir = join(root, "src/shared/invoiceList");
+    const invoices = [
+      readFileSync(join(root, "src/shared/InvoiceListPage.tsx"), "utf8"),
+      ...readdirSync(invoiceDir).map((f) => readFileSync(join(invoiceDir, f), "utf8")),
+    ].join("\n");
     assert.match(invoices, /searchParams\.get\("utc"\) === "1"/);
     assert.match(invoices, /searchParams\.get\("agent"\)/);
   });

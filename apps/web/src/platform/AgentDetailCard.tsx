@@ -12,6 +12,7 @@ import {
   getOrgOverview,
   putAgentCommission,
   putAgentPayout,
+  ownerContactFromTeam,
   ownerContactWithMfa,
   patchOrgProfile,
   type OrgPrimaryOwnerContact,
@@ -32,6 +33,7 @@ import { AccountsDetailHero } from "./AccountsDetailHero";
 import { merchantsInAgentSubtree, merchantOrgIdsInAgentSubtree } from "./agentSubtree";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "./org";
 import { FundAmount } from "./FundAmount";
+import { AnimatedText } from "../shared/AnimatedText";
 import {
   buildAgentAccountsForest,
   formatOnboardDate,
@@ -428,23 +430,7 @@ export function AgentDetailCard({
         if (contact) {
           setPrimaryOwner(ownerContactWithMfa(contact, data.team));
         } else {
-          const ownerRow =
-            data.team.find((m) => m.role === "owner") ?? data.team[0] ?? null;
-          setPrimaryOwner(
-            ownerRow
-              ? {
-                  userId: ownerRow.userId,
-                  email: ownerRow.email,
-                  phone: null,
-                  timezone: "",
-                  emailVerified: false,
-                  phoneVerified: false,
-                  firstName: null,
-                  lastName: null,
-                  mfaEnrolled: ownerRow.mfaEnrolled === true,
-                }
-              : null,
-          );
+          setPrimaryOwner(ownerContactFromTeam(data.team));
         }
       })
       .catch(() => {
@@ -659,7 +645,7 @@ export function AgentDetailCard({
                 </span>
                 <div className="b3-kpi__copy">
                   <p className="b3-card__label">Merchants</p>
-                  <p className="b3-card__value">{liveMerchantCount}</p>
+                  <p className="b3-card__value"><AnimatedText text={liveMerchantCount} /></p>
                 </div>
               </div>
               <div className="b3-card b3-card--kpi">
@@ -680,7 +666,7 @@ export function AgentDetailCard({
                     )}
                   </div>
                   <p className="b3-card__value b3-card__value--gold">
-                    <FundAmount amount={displayVolumeMtd} unit="code" />
+                    <FundAmount animate amount={displayVolumeMtd} unit="code" />
                   </p>
                 </div>
               </div>
@@ -702,7 +688,7 @@ export function AgentDetailCard({
                     )}
                   </div>
                   <p className="b3-card__value b3-card__value--teal">
-                    <FundAmount amount={displayCommissionMtd} unit="code" />
+                    <FundAmount animate amount={displayCommissionMtd} unit="code" />
                   </p>
                 </div>
               </div>

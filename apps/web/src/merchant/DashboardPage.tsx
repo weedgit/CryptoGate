@@ -14,11 +14,18 @@ import {
   type PaymentOrder,
   type Session,
 } from "./api";
-import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import {
+  MERCHANT_ORGS_UPDATED_EVENT,
+  getMerchantOrgs,
+  peekMerchantOrgs,
+} from "./merchantOrgList";
 import {
   getDashboardKpis,
+  getDashboardReports,
   peekDashboardKpis,
+  peekDashboardReports,
   type DashboardKpis,
+  type DashboardReports,
 } from "../shared/dashboardApi";
 import { matchingModeLabel } from "./matchingLabels";
 import {
@@ -43,6 +50,7 @@ import { merchantRoute } from "../shared/portalRouting";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { DashKpiCard } from "../platform/ui/DashKpiCard";
+import { DashHeroAura, DashHeroHighlights, DashPeriodControls } from "../platform/ui/DashHero";
 import {
   useDashboardLiveEvents,
   type DashboardLiveSlice,
@@ -125,7 +133,6 @@ export function DashboardPage({ session }: Props) {
   const [loading, setLoading] = useState(() => dashKpis == null);
   const [hasLoaded, setHasLoaded] = useState(() => dashKpis != null);
   const [error, setError] = useState<string | null>(null);
-  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
     null,
   );
@@ -138,13 +145,20 @@ export function DashboardPage({ session }: Props) {
         if (!cancelled) setHomeOrg(orgs.find((o) => o.id === orgId) ?? null);
       })
       .catch(() => {});
+    const onUpdated = (e: Event) => {
+      const rows = (e as CustomEvent<OrgAccount[]>).detail;
+      if (!cancelled && Array.isArray(rows)) {
+        setHomeOrg(rows.find((o) => o.id === orgId) ?? null);
+      }
+    };
+    window.addEventListener(MERCHANT_ORGS_UPDATED_EVENT, onUpdated);
     return () => {
       cancelled = true;
+      window.removeEventListener(MERCHANT_ORGS_UPDATED_EVENT, onUpdated);
     };
   }, [orgId]);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("platform-topbar-center"));
     setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
@@ -197,6 +211,22 @@ export function DashboardPage({ session }: Props) {
     void loadKpis();
   }, [loadKpis]);
 
+  const [reports, setReports] = useState<DashboardReports | null>(null);
+  useEffect(() => {
+    if (cashierOnly || !startDate || !endDate) return;
+    const q = { from: startDate, to: endDate };
+    setReports(peekDashboardReports(q));
+    let cancelled = false;
+    void getDashboardReports(q)
+      .then((next) => {
+        if (!cancelled) setReports(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [cashierOnly, startDate, endDate]);
+
   /** Latest rows only — the lists show 8 each. */
   const loadRecentOrders = useCallback(async () => {
     const [latest, attention] = await Promise.all([
@@ -234,7 +264,7 @@ export function DashboardPage({ session }: Props) {
     }
 
     void listActiveNetworkMaintenance()
-      .then(setMaintenance)
+      .then((r) => setMaintenance(r.items ?? []))
       .catch(() => {
         setMaintenance([]);
       });
@@ -258,6 +288,11 @@ export function DashboardPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const refreshDashboard = useCallback(() => {
+    void loadKpis(true);
+    void load();
+  }, [loadKpis, load]);
+
   const softRevalidateLiveSlices = useCallback(
     async (slices: DashboardLiveSlice[]) => {
       try {
@@ -271,7 +306,7 @@ export function DashboardPage({ session }: Props) {
         if (slices.includes("networks")) {
           await Promise.all([
             listActiveNetworkMaintenance()
-              .then(setMaintenance)
+              .then((r) => setMaintenance(r.items ?? []))
               .catch(() => undefined),
             getNetworksStatus()
               .then((status) => {
@@ -361,6 +396,26 @@ export function DashboardPage({ session }: Props) {
     });
   }, [sites, dashKpis, cashierOnly]);
 
+  const cashierRows = useMemo(
+    () =>
+      (reports?.byCreator ?? [])
+        .filter((r) => r.userId || r.email)
+        .slice()
+        .sort((a, b) => b.volumeUsd - a.volumeUsd),
+    [reports],
+  );
+
+  const cashierInvoicesHref = (userId: string) => {
+    const q = new URLSearchParams({
+      status: "all",
+      period: "custom",
+      from: startDate,
+      to: endDate,
+      cashier: userId,
+    });
+    return `${merchantRoute("orders")}?${q.toString()}`;
+  };
+
   const brandName = homeOrg?.name ?? (cashierOnly ? "Cashier" : "Merchant");
 
   return (
@@ -393,68 +448,13 @@ export function DashboardPage({ session }: Props) {
           )
         : null}
 
-      {topbarSlot
-        ? createPortal(
-            <div
-              className="plat-period-controls plat-period-controls--topbar"
-              aria-label="Period"
-            >
-              <div
-                className="plat-period-pills plat-period-pills--topbar"
-                role="group"
-                aria-label="Quick periods"
-              >
-                {DASHBOARD_PERIOD_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`plat-period-pill${period === opt.id ? " is-active" : ""}`}
-                    onClick={() => onPeriodSelect(opt.id)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div
-                className="plat-period-dates plat-period-dates--topbar"
-                aria-label="Date range"
-              >
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">Start</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={endDate || undefined}
-                    onChange={(e) => onStartDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-                <span className="plat-period-dates__sep" aria-hidden="true">
-                  –
-                </span>
-                <label className="plat-period-date">
-                  <span className="plat-period-date__label">End</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate || undefined}
-                    onChange={(e) => onEndDateChange(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                </label>
-              </div>
-            </div>,
-            topbarSlot,
-          )
-        : null}
-
       <header className="pg-dash__hero">
         <div className="pg-dash__hero-top">
           <div className="pg-dash__hero-brand">
             <OrgBrandMark
               name={brandName}
               iconKey={homeOrg?.iconKey}
-              size={88}
+              size={104}
               className="merchant-dash__hero-mark"
             />
             <div className="pg-dash__hero-copy">
@@ -469,7 +469,25 @@ export function DashboardPage({ session }: Props) {
               </p>
             </div>
           </div>
+          <div className="pg-dash__hero-aside">
+            <DashHeroHighlights />
+            <div className="pg-dash__hero-toolbar">
+              <DashPeriodControls
+                options={DASHBOARD_PERIOD_OPTIONS}
+                period={period}
+                startDate={startDate}
+                endDate={endDate}
+                onPeriodSelect={onPeriodSelect}
+                onStartDateChange={onStartDateChange}
+                onEndDateChange={onEndDateChange}
+                onRefresh={refreshDashboard}
+                refreshing={loading && hasLoaded}
+                disabled={loading}
+              />
+            </div>
+          </div>
         </div>
+        <DashHeroAura />
       </header>
 
       <div
@@ -740,6 +758,40 @@ export function DashboardPage({ session }: Props) {
                 <span className="mono">{s.anomalies}</span>
               </button>
             ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {!cashierOnly && cashierRows.length > 0 ? (
+        <section className="merchant-dash-sites merchant-dash-cashiers">
+          <div className="plat-dash-merchants__head">
+            <h2>Cashiers</h2>
+            <span className="muted merchant-dash-cashiers__period">{activePeriodLabel}</span>
+          </div>
+          <div className="merchant-dash-orders__scroll">
+            <div className="orders-table merchant-dash-orders__table" role="table">
+              <div className="orders-head merchant-dash-cashiers__head" role="row">
+                <span>CASHIER</span>
+                <span>ORDERS</span>
+                <span>VOLUME</span>
+              </div>
+              {cashierRows.map((c) => (
+                <button
+                  key={c.userId ?? c.email ?? ""}
+                  type="button"
+                  className="orders-row merchant-dash-cashiers__row"
+                  role="row"
+                  disabled={!c.userId}
+                  onClick={() => {
+                    if (c.userId) navigate(cashierInvoicesHref(c.userId));
+                  }}
+                >
+                  <span title={c.email ?? undefined}>{c.email ?? "—"}</span>
+                  <span className="mono">{c.count}</span>
+                  <span className="mono">{formatUsd(c.volumeUsd)}</span>
+                </button>
+              ))}
             </div>
           </div>
         </section>

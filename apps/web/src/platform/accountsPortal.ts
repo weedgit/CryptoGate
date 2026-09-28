@@ -8,11 +8,12 @@ export type AccountsPortalNode = {
 };
 
 /**
- * Non-platform host for the Accounts page and its detail cards (Agent portal).
- * When no provider is mounted, every consumer keeps its Platform behaviour.
+ * Non-platform host for the Accounts page and its detail cards (Agent and
+ * Merchant portals). When no provider is mounted, every consumer keeps its
+ * Platform behaviour.
  */
 export type AccountsPortal = {
-  kind: "agent";
+  kind: "agent" | "merchant";
   route: (path?: string) => string;
   /** Audit log page, or null when the portal has none (links are hidden). */
   auditHref: string | null;

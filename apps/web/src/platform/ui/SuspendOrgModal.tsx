@@ -153,23 +153,23 @@ export function SuspendOrgModal({
               >
                 <defs>
                   <linearGradient id={gA} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                    <stop offset="18%" stopColor="rgba(255,220,140,0.82)" />
-                    <stop offset="45%" stopColor="rgba(255,208,96,0.52)" />
-                    <stop offset="72%" stopColor="rgba(255,193,69,0.24)" />
-                    <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                    <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                    <stop offset="18%" style={{ stopColor: "rgb(var(--gw-hi, 255 220 140) / 0.82)" }} />
+                    <stop offset="45%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.52)" }} />
+                    <stop offset="72%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.24)" }} />
+                    <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                   </linearGradient>
                   <linearGradient id={gB} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                    <stop offset="26%" stopColor="rgba(255,230,160,0.58)" />
-                    <stop offset="55%" stopColor="rgba(255,193,69,0.3)" />
-                    <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                    <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                    <stop offset="26%" style={{ stopColor: "rgb(var(--gw-hi, 255 230 160) / 0.58)" }} />
+                    <stop offset="55%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.3)" }} />
+                    <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                   </linearGradient>
                   <linearGradient id={gC} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                    <stop offset="34%" stopColor="rgba(255,208,96,0.4)" />
-                    <stop offset="66%" stopColor="rgba(255,193,69,0.16)" />
-                    <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+                    <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+                    <stop offset="34%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.4)" }} />
+                    <stop offset="66%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.16)" }} />
+                    <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
                   </linearGradient>
                 </defs>
                 <path

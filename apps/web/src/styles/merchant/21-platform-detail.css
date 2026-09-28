@@ -1,0 +1,261 @@
+/* Platform root detail — fintech dashboard style */
+.platform-shell .platform-detail {
+  --pd-blue: #3b82f6;
+  --pd-teal: #14b8a6;
+  --pd-gold: #f0b429;
+  --pd-violet: #8b5cf6;
+  --pd-ok: #22c55e;
+  --pd-danger: #f43f5e;
+  --pd-warn: #f59e0b;
+  --pd-slate: #94a3b8;
+  container-type: inline-size;
+  container-name: platform-detail;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  box-sizing: border-box;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* —— Platform detail hero (brand + gold arcs) —— */
+.platform-shell .platform-detail__hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  /* Keep visible so hero-action backdrop-filter can sample the gold aura.
+   * Clip decorative spill on `.platform-detail__hero-aura` instead. */
+  overflow: visible;
+  /* Full-bleed within the detail pane — continuous atmosphere, no side gutters */
+  margin: 0;
+  padding: 6px 14px 10px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: rgba(18, 34, 56, 0.28);
+  background-image:
+    radial-gradient(
+      ellipse 42% 100% at 6% 50%,
+      rgba(252, 211, 77, 0.08) 0%,
+      rgba(240, 180, 41, 0.03) 45%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 48% 120% at 100% 40%,
+      rgba(253, 230, 138, 0.04) 0%,
+      rgba(240, 180, 41, 0.015) 40%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(18, 36, 62, 0.32) 0%,
+      rgba(12, 26, 46, 0.12) 70%,
+      rgba(10, 18, 32, 0) 100%
+    );
+}
+
+/* Soft bloom behind the mark — kills the hard seam between logo and arcs */
+.platform-shell .platform-detail__hero::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: min(280px, 42%);
+  height: 160px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(
+    ellipse 70% 60% at 40% 45%,
+    rgba(252, 211, 77, 0.12) 0%,
+    rgba(240, 180, 41, 0.04) 42%,
+    transparent 72%
+  );
+  filter: blur(16px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Full-width hairline under hero */
+.platform-shell .platform-detail__hero::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.12) 0%,
+    rgba(252, 211, 77, 0.42) 50%,
+    rgba(253, 230, 138, 0.24) 78%,
+    rgba(148, 163, 184, 0.16) 100%
+  );
+}
+
+.platform-shell .platform-detail__hero-aura {
+  position: absolute;
+  left: 16%;
+  right: 0;
+  top: 50%;
+  height: 140px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  background-image:
+    radial-gradient(
+      ellipse 48% 100% at 78% 28%,
+      rgba(253, 230, 138, 0.045) 0%,
+      rgba(240, 180, 41, 0.012) 42%,
+      transparent 72%
+    );
+  /* Fade arcs under the action cluster so lines don’t read through the chips. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 58%,
+    rgba(0, 0, 0, 0.35) 78%,
+    transparent 96%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 58%,
+    rgba(0, 0, 0, 0.35) 78%,
+    transparent 96%
+  );
+}
+
+.platform-shell .platform-detail__hero-aura-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 12px rgba(255, 208, 96, 0.36));
+}
+
+.platform-shell .platform-detail__hero-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .platform-detail__hero-main {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.platform-shell .platform-detail__mark {
+  display: block;
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  margin-right: 0;
+  object-fit: contain;
+  object-position: center;
+  /* Avoid blend seam against the hero wash */
+  mix-blend-mode: normal;
+  filter: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.platform-shell .platform-detail__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 0;
+}
+
+.platform-shell .platform-detail__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.platform-shell .platform-detail__title {
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 28px);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  line-height: 1.15;
+}
+
+.platform-shell .platform-detail__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .platform-detail__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.platform-shell .platform-detail__status.is-paused {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.platform-shell .platform-detail__mark-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.platform-shell .platform-detail__mark-wrap .platform-detail__mark,
+.platform-shell .platform-detail__mark-wrap .org-brand-mark,
+.platform-shell .platform-detail__mark-wrap .b3-agent-detail__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+}
+
+.platform-shell .platform-detail__subtitle {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #8a9bb0;
+}
+

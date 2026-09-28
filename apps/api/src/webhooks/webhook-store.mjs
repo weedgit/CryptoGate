@@ -221,7 +221,7 @@ export async function claimPendingWebhookDeliveries(limit = 20) {
        LIMIT $1
      )
      SELECT d.id, d.webhook_id, d.event_id, d.event_type, d.body_raw, d.attempt,
-            e.url, e.signing_secret
+            e.url, e.signing_secret, e.org_id
      FROM webhook_deliveries d
      JOIN due ON due.id = d.id
      JOIN webhook_endpoints e ON e.id = d.webhook_id`,

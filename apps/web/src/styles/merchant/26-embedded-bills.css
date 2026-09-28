@@ -1,0 +1,145 @@
+/* Embedded service-bill tables (merchant / agent detail tabs) */
+
+.platform-shell .plat-bills__created {
+  color: var(--bills-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__period {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  line-height: 1.25;
+  white-space: normal;
+  font-size: 12px;
+}
+
+.platform-shell .plat-bills__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.75rem;
+  min-width: 5.75rem;
+  max-width: 5.75rem;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.platform-shell .plat-bills__period-line,
+.platform-shell .plat-bills__period-end {
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__period-sep {
+  color: var(--bills-label);
+}
+
+.platform-shell .plat-bills__status-cell {
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__status-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-shell .plat-bills__kind-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 197, 66, 0.7);
+  background: transparent;
+  color: #f5c542;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__kind-chip.is-action {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.platform-shell .plat-bills__kind-chip.is-action:hover {
+  background: rgba(240, 180, 41, 0.1);
+  color: #ffd36a;
+  border-color: rgba(240, 180, 41, 0.95);
+}
+
+.platform-shell .plat-bills__row-more {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--bills-muted);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.platform-shell .plat-bills__row-more:hover {
+  color: var(--bills-text);
+  background: rgba(120, 160, 190, 0.12);
+}
+
+.platform-shell .plat-bills__th-actions,
+.platform-shell .plat-bills__td-actions {
+  width: 44px;
+  text-align: right;
+  padding-right: 8px;
+}
+
+.platform-shell .plat-bills__badge.tone-anomaly {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.platform-shell .plat-bills__badge.tone-warn {
+  background: rgba(251, 146, 60, 0.14);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.28);
+}
+
+.platform-shell .plat-bills__badge.tone-ok {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+.platform-shell .plat-bills__badge.tone-teal {
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.28);
+}
+
+.platform-shell .plat-bills__badge.tone-muted {
+  background: rgba(100, 116, 139, 0.18);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.platform-shell .plat-bills__badge.is-pulse {
+  animation: plat-bills-overdue-pulse 1.8s ease-in-out infinite;
+}
+

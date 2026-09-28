@@ -14,6 +14,7 @@ import {
   getFeeTierSettings,
   getMatchingMode,
   getOrgOverview,
+  ownerContactFromTeam,
   ownerContactWithMfa,
   listSettlement,
   listXpub,
@@ -37,6 +38,7 @@ import {
   type Session,
 } from "../merchant/api";
 import { FundAmount } from "./FundAmount";
+import { AnimatedText } from "../shared/AnimatedText";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
   OrgProfileEditModal,
@@ -53,7 +55,7 @@ import {
   tierLabel,
   waivedMonthsLabel,
 } from "../commercialLabels";
-import type { MerchantTier } from "../commercialLabels";
+import { tierForMonthlyVolume, type MerchantTier } from "../commercialLabels";
 import { orgTypeLabel, sessionCanManagePlatform, sessionIsPlatformOwner } from "./org";
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
@@ -84,29 +86,6 @@ const PRICING_MODE_LABEL: Record<string, string> = {
   token_to_usd: "Token amount to USD",
   usd_to_token: "USD to token",
 };
-
-/** Schedule band for settled volume this billing month. */
-function tierForMonthlyVolume(volumeUsd: number, tiers: FeeTierBand[]): string | null {
-  if (tiers.length === 0) return null;
-  const vol = Number.isFinite(volumeUsd) ? volumeUsd : 0;
-  const rank: Record<string, number> = { enterprise: 3, mid: 2, small: 1 };
-  const match = tiers
-    .map((row) => ({
-      tier: row.tier,
-      min: Number(row.volumeMinUsd ?? 0),
-      max:
-        row.volumeMaxUsd == null || row.volumeMaxUsd === ""
-          ? null
-          : Number(row.volumeMaxUsd),
-    }))
-    .filter((band) => {
-      if (!Number.isFinite(band.min) || vol < band.min) return false;
-      if (band.max != null && Number.isFinite(band.max) && vol >= band.max) return false;
-      return true;
-    })
-    .sort((a, b) => (rank[b.tier] ?? 0) - (rank[a.tier] ?? 0))[0];
-  return match?.tier ?? "small";
-}
 
 function defaultVolumeForTier(tiers: FeeTierBand[], tier: MerchantTier): string {
   const band = tiers.find((t) => t.tier === tier);
@@ -450,25 +429,7 @@ export function MerchantDetailCard({
         if (contact) {
           setPrimaryOwner(ownerContactWithMfa(contact, teamRows));
         } else {
-          const ownerRow =
-            teamRows.find((m) => m.role === "owner") ??
-            teamRows[0] ??
-            null;
-          setPrimaryOwner(
-            ownerRow
-              ? {
-                  userId: ownerRow.userId,
-                  email: ownerRow.email,
-                  phone: null,
-                  timezone: "",
-                  emailVerified: false,
-                  phoneVerified: false,
-                  firstName: null,
-                  lastName: null,
-                  mfaEnrolled: ownerRow.mfaEnrolled === true,
-                }
-              : null,
-          );
+          setPrimaryOwner(ownerContactFromTeam(teamRows));
         }
       })
       .catch(() => {
@@ -833,7 +794,7 @@ export function MerchantDetailCard({
                     </button>
                   </div>
                   <p className="b3-card__value">
-                    {teamLoading && team.length === 0 ? "…" : cashierCount}
+                    {teamLoading && team.length === 0 ? "…" : <AnimatedText text={cashierCount} />}
                   </p>
                 </div>
               </div>
@@ -855,7 +816,7 @@ export function MerchantDetailCard({
                     )}
                   </div>
                   <p className="b3-card__value b3-card__value--gold">
-                    <FundAmount amount={displayVolume} />
+                    <FundAmount animate amount={displayVolume} />
                   </p>
                 </div>
               </div>
@@ -877,7 +838,7 @@ export function MerchantDetailCard({
                     )}
                   </div>
                   <p className="b3-card__value b3-card__value--ok">
-                    <FundAmount amount={displayPlatformFeeMtd} />
+                    <FundAmount animate amount={displayPlatformFeeMtd} />
                   </p>
                 </div>
               </div>

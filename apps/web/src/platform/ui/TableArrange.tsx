@@ -36,7 +36,7 @@ export function compareDate(a: string | null | undefined, b: string | null | und
   return compareNumber(na, nb);
 }
 
-function ArrangeIcon({ dir }: { dir: SortDir | null }) {
+export function ArrangeIcon({ dir }: { dir: SortDir | null }) {
   const showUp = dir === null || dir === "asc";
   const showDown = dir === null || dir === "desc";
   return (
@@ -106,5 +106,45 @@ export function SortHeader<K extends string>({
       <span>{label}</span>
       <ArrangeIcon dir={active ? sort.dir : null} />
     </button>
+  );
+}
+
+/** Sortable `<th>` for the Agents / Merchants list tables. */
+export function SortHeaderCell<K extends string>({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+  align,
+}: {
+  label: string;
+  sortKey: K;
+  sort: SortState<K>;
+  onSort: (key: K) => void;
+  className?: string;
+  align?: "end";
+}) {
+  const active = sort.key === sortKey;
+  const ariaSort = active ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
+  return (
+    <th
+      className={[className, active ? "is-sorted" : "", align === "end" ? "is-end" : ""]
+        .filter(Boolean)
+        .join(" ")}
+      aria-sort={ariaSort}
+    >
+      <button
+        type="button"
+        className={`org-agents__sort-btn${active ? " is-active" : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSort(sortKey);
+        }}
+      >
+        <span>{label}</span>
+        <ArrangeIcon dir={active ? sort.dir : null} />
+      </button>
+    </th>
   );
 }

@@ -1104,22 +1104,19 @@ export function SecuritySettingsPage({
     ? "platform"
     : variant;
 
-  if (wizardOpen) {
-    return (
-      <div className="auth-flow-overlay">
-        <MfaEnrollmentWizard
-          onCancel={() => setWizardOpen(false)}
-          onComplete={() => {
-            void getSession().then((next) => {
-              onSessionRefresh?.(next);
-              setWizardOpen(false);
-              setMessage("Authenticator enabled.");
-            });
-          }}
-        />
-      </div>
-    );
-  }
+  const wizard = wizardOpen ? (
+    <MfaEnrollmentWizard
+      variant="modal"
+      onCancel={() => setWizardOpen(false)}
+      onComplete={() => {
+        void getSession().then((next) => {
+          onSessionRefresh?.(next);
+          setWizardOpen(false);
+          setMessage("Authenticator enabled.");
+        });
+      }}
+    />
+  ) : null;
 
   if (chrome === "platform") {
     return (
@@ -1170,6 +1167,7 @@ export function SecuritySettingsPage({
             onSessionRefresh={onSessionRefresh}
           />
         </div>
+        {wizard}
       </div>
     );
   }
@@ -1199,6 +1197,7 @@ export function SecuritySettingsPage({
       />
       {variant === "merchant" ? <PosPinForm variant={variant} /> : null}
       <AuthToast message={message} tone="ok" onDismiss={() => setMessage(null)} />
+      {wizard}
     </div>
   );
 }

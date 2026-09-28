@@ -1,0 +1,228 @@
+/* Merchant — create site modal */
+.create-site-modal.b3-commission-modal,
+.b3-commission-modal-backdrop .create-site-modal.b3-commission-modal {
+  width: min(480px, calc(100vw - 32px));
+  height: auto;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.create-site-modal__head {
+  align-items: flex-start;
+}
+
+.create-site-modal__titles {
+  min-width: 0;
+}
+
+.create-site-modal__titles h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.create-site-modal__titles p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #7b8794;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.create-site-modal__form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.create-site-modal__body {
+  padding-top: 18px;
+  gap: 16px;
+}
+
+.create-site-modal__optional {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.create-site-modal__hint {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.create-site-modal .b3-commission-modal__save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.create-order-modal.b3-commission-modal,
+.b3-commission-modal-backdrop .create-order-modal.b3-commission-modal {
+  width: min(960px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  height: auto;
+  max-height: min(90vh, 860px);
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-order-modal .create-order-modal__close.b3-commission-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 44px;
+  max-height: 44px;
+  padding: 0;
+  font-size: 28px;
+  line-height: 1;
+  border-radius: 8px;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.create-order-modal .create-order-modal__close.b3-commission-modal__close:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.create-order-modal .b3-commission-modal__head {
+  position: relative;
+  justify-content: center;
+  padding-left: 56px;
+  padding-right: 56px;
+}
+
+.create-order-modal .b3-commission-modal__head h3 {
+  flex: 0 1 auto;
+  text-align: center;
+  letter-spacing: 0.06em;
+  font-size: 16px;
+}
+
+.create-order-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 20px 20px;
+}
+
+.create-order-modal__layout {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.create-order-modal__form {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-order-modal__form.plat-settings--merchant {
+  max-width: none;
+}
+
+/* Platform field rules add margin-top: 14px — stack that with gap and the form looks sparse. */
+.create-order-modal__form .plat-settings__field,
+.create-order-modal__form .profile-settings-card__grid {
+  margin-top: 0;
+}
+
+.create-order-modal__form .plat-settings__field {
+  gap: 4px;
+}
+
+.create-order-modal__form .create-order-page__matching {
+  padding: 10px 12px;
+  margin-top: 0;
+}
+
+.create-order-modal__form .profile-settings-card__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: auto;
+  padding-top: 8px;
+  width: 100%;
+}
+
+.create-order-modal__form .create-order-modal__submit.plat-settings__save {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  min-width: 0;
+}
+
+.field-shell--amount-suffix .create-order-amount__input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 20px;
+  text-align: left;
+  color: var(--plat-gold-bright, #fbbf24);
+  font-variant-numeric: tabular-nums;
+}
+
+.field-shell--amount-suffix .create-order-amount__input::placeholder {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.field-shell--amount-suffix .create-order-amount__asset {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0 14px 0 4px;
+  color: var(--plat-gold-bright, #fbbf24);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-ui);
+  pointer-events: none;
+}
+
+.create-order-modal__layout .create-order-page__preview {
+  width: 300px;
+}
+
+@media (max-width: 900px) {
+  .create-order-modal__layout {
+    flex-direction: column;
+  }
+
+  .create-order-modal__layout .create-order-page__preview {
+    width: 100%;
+  }
+}
+

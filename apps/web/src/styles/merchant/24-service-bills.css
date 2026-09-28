@@ -1,0 +1,1016 @@
+/* Platform service bills — flat list (no glass gradient) */
+.platform-shell .plat-bills {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  flex: 1 1 auto;
+  /* Match Organization / b3-profile card palette */
+  --bills-bg: #04182b;
+  --bills-bg-elevated: #0a1e34;
+  --bills-border: rgba(120, 160, 190, 0.16);
+  --bills-divider: rgba(120, 160, 190, 0.12);
+  --bills-title: #f8fafc;
+  --bills-text: #f1f5f9;
+  --bills-muted: #8b9bb0;
+  --bills-label: #7b8798;
+  --bills-gold: #f5c542;
+  --bills-gold-bright: #fbbf24;
+  --bills-input-bg: #071525;
+}
+
+.platform-shell .plat-bills__scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.platform-shell .plat-bills__scope-lead {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bills-muted);
+}
+
+.platform-shell .plat-bills__scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--bills-border);
+  border-radius: 999px;
+  background: var(--bills-bg-elevated);
+  color: var(--bills-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.platform-shell .plat-bills__scope-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--bills-muted);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.platform-shell .plat-bills__scope-chip button:hover {
+  color: var(--bills-gold);
+  background: var(--bills-divider);
+}
+
+.platform-shell .plat-bills__panel {
+  display: grid;
+  grid-template-columns: 13.5rem minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  border-radius: 12px;
+  border: 1px solid var(--bills-border);
+  background: var(--bills-bg);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.platform-shell .plat-bills__status-rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 12px;
+  border-right: 1px solid var(--bills-divider);
+  background: var(--bills-bg-elevated);
+  border-radius: 0;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.platform-shell .plat-bills__status-rail-title {
+  margin: 0 4px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bills-label);
+}
+
+.platform-shell .plat-bills__status-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Accounts-style tree chrome inside Bill status rail */
+.platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row {
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bills-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  gap: 6px;
+  min-height: 34px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row:hover {
+  color: var(--bills-text);
+  background: rgba(120, 160, 190, 0.08);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row.is-selected,
+.platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row.is-parent-active {
+  color: #ffffff;
+  font-weight: 600;
+  border: 1px solid rgba(240, 180, 41, 0.38);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(240, 180, 41, 0.16) 0%,
+      rgba(240, 180, 41, 0.06) 55%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+  box-shadow: 0 0 14px rgba(240, 180, 41, 0.08);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row.is-selected {
+  border-color: rgba(240, 180, 41, 0.55);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__caret.is-open,
+.platform-shell .plat-bills__status-rail .b3-accounts__node.is-open > .b3-accounts__row .b3-accounts__caret {
+  color: var(--teal, #00d4c8);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children {
+  margin: 2px 0 4px 14px;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children::before {
+  display: none;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .b3-accounts__guides {
+  display: none;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .plat-bills__status-row {
+  position: relative;
+  padding-left: 10px;
+  gap: 6px;
+  border-radius: 10px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+  color: #c4cbd4;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .plat-bills__status-row::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.45);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .plat-bills__status-row.is-selected {
+  color: #ffffff;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .plat-bills__status-row.is-selected::before {
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children .b3-accounts__chevron {
+  display: none;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__status-badge {
+  flex-shrink: 0;
+  display: contents;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.platform-shell .plat-bills__status-rail .plat-bills__status-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+}
+
+.platform-shell .plat-bills__status-icon.is-warn {
+  color: var(--pg-warn, #fbbf24);
+}
+
+.platform-shell .plat-bills__status-icon.is-danger {
+  color: var(--pg-danger, #fb7185);
+}
+
+.platform-shell .plat-bills__status-icon.is-blue {
+  color: var(--pg-blue, #60a5fa);
+}
+
+.platform-shell .plat-bills__status-icon.is-violet {
+  color: var(--pg-violet, #c084fc);
+}
+
+.platform-shell .plat-bills__status-icon.is-ok {
+  color: var(--pg-ok, #4ade80);
+}
+
+.platform-shell .plat-bills__status-icon.is-teal {
+  color: var(--teal, #2dd4bf);
+}
+
+.platform-shell .plat-bills__status-icon.is-slate {
+  color: var(--pg-slate, #94a3b8);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row:hover .plat-bills__status-badge,
+.platform-shell .plat-bills__status-rail .b3-accounts__row.is-selected .plat-bills__status-badge,
+.platform-shell .plat-bills__status-rail .b3-accounts__row.is-parent-active .plat-bills__status-badge {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row:hover .plat-bills__status-icon,
+.platform-shell .plat-bills__status-rail .b3-accounts__row.is-selected .plat-bills__status-icon,
+.platform-shell .plat-bills__status-rail .b3-accounts__row.is-parent-active .plat-bills__status-icon {
+  opacity: 1;
+  filter: brightness(1.12);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__row.is-selected .plat-bills__status-item-count {
+  background: var(--bills-gold-bright);
+  color: #04182b;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--bills-muted);
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__node.is-open > .b3-accounts__row .b3-accounts__caret {
+  color: var(--bills-gold);
+}
+
+/* Continuous dotted rail (same pattern as Architecture) */
+.platform-shell .plat-bills__status-rail .b3-accounts__node.is-open > .b3-accounts__row::after {
+  content: none;
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__children::before {
+  top: -15px;
+  bottom: 15px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.62) 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__guide.is-line::before {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.62) 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
+
+.platform-shell .plat-bills__status-rail .b3-accounts__guide.is-fork::after {
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(148, 163, 184, 0.62) 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
+
+.platform-shell .plat-bills__status-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+}
+
+.platform-shell .plat-bills__status-item-count {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.35rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(120, 160, 190, 0.12);
+  color: var(--bills-muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.platform-shell .plat-bills__status-sub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 18px;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* Continuous vertical rail — Accounts sidebar style */
+.platform-shell .plat-bills__status-sub::before {
+  display: none;
+}
+
+/* Solid dots on the vertical rail (Accounts style) */
+
+.platform-shell .plat-bills__status-sub.is-nested {
+  margin-left: 12px;
+  margin-top: 0;
+  margin-bottom: 2px;
+}
+
+/* Nested rail under Issued: continuous from parent mid → Overdue elbow */
+
+/* Soft join from All / Issued into their child rail */
+
+.platform-shell .plat-bills__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  background: var(--bills-bg);
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .platform-shell .plat-bills__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-bills__status-rail {
+    position: static;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .platform-shell .plat-bills__status-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.platform-shell .plat-bills__plan-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
+}
+
+.platform-shell .plat-bills__table tbody tr.plat-bills__row.is-activation-open td {
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.platform-shell .plat-bills__action-btn {
+  width: auto;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.platform-shell .plat-bills__more {
+  position: relative;
+}
+
+.platform-shell .plat-bills__more-summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-shell .plat-bills__more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.platform-shell .plat-bills__more-chevron {
+  flex-shrink: 0;
+  opacity: 0.9;
+  transition: transform 0.15s ease;
+}
+
+.platform-shell .plat-bills__more[open] .plat-bills__more-chevron {
+  transform: rotate(180deg);
+}
+
+.platform-shell .plat-bills__more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: max-content;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #121820;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.platform-shell .plat-bills__more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  min-width: 9.5rem;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.platform-shell .plat-bills__more-item-icon {
+  flex-shrink: 0;
+  color: var(--bills-muted, #8b9bb0);
+}
+
+.platform-shell .plat-bills__more-item:hover .plat-bills__more-item-icon {
+  color: var(--bills-gold-bright, #fbbf24);
+}
+
+.platform-shell .plat-bills__more-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.platform-shell .plat-bills__more-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-summary.btn-secondary {
+  border-color: rgba(180, 83, 9, 0.4);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-summary.btn-secondary:hover,
+html[data-theme="light"] .platform-shell .plat-bills__more[open] .plat-bills__more-summary.btn-secondary {
+  border-color: rgba(180, 83, 9, 0.6);
+  background: #fef3c7;
+  color: #92400e;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-menu {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-item {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-item-icon {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-item:hover {
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-item:hover .plat-bills__more-item-icon {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__more-sep {
+  background: #e2e8f0;
+}
+
+.platform-shell .plat-bills__th-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.platform-shell .plat-bills__table-wrap {
+  border-radius: 12px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 160px;
+}
+
+.platform-shell .plat-bills__panel .plat-bills__table-wrap {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.platform-shell .plat-bills__table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.platform-shell .plat-bills__panel .plat-bills__table-wrap .org-pager,
+.platform-shell .plat-bills__panel .plat-bills__main > .org-pager {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
+  background: var(--bills-bg-elevated, #0a1e34);
+}
+
+.platform-shell .plat-bills__panel .plat-bills__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bills-bg-elevated, #0a1e34);
+  box-shadow: inset 0 -1px 0 var(--bills-divider, rgba(120, 160, 190, 0.12));
+}
+
+.platform-shell .plat-bills__panel .plat-bills__table th,
+.platform-shell .plat-bills__panel .plat-bills__table td {
+  padding-block: 12px;
+  padding-inline: 18px;
+}
+
+.platform-shell .plat-bills__empty {
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Service Bills → More → Waive platform fee / Waive activation (Find missed invoice palette) */
+.plat-waivers-pop {
+  width: min(900px, 100%);
+  height: min(calc(100vh - 48px), 720px);
+}
+
+.plat-waivers-pop__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px 20px;
+  overflow: hidden;
+}
+
+.plat-waivers__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.plat-waivers__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--bills-border);
+  background: var(--bills-bg-elevated);
+}
+
+.plat-waivers__stat.plat-missed-modal__stat {
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 14px 0 0;
+  border: 0;
+  border-right: 1px solid var(--bills-divider);
+  border-radius: 0;
+  background: transparent;
+  font-size: 11.5px;
+}
+
+.plat-waivers__hint {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--bills-muted);
+}
+
+.plat-waivers__add.b4-wizard__continue {
+  flex-shrink: 0;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .plat-waivers__toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+.plat-waivers__table td {
+  vertical-align: middle;
+}
+
+.plat-waivers__table tr.is-editing td {
+  background: rgba(245, 197, 66, 0.05);
+}
+
+.plat-waivers__table .field-control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bills-border);
+  background: var(--bills-input-bg);
+  color: var(--bills-text);
+  font-size: 13.5px;
+}
+
+.plat-waivers__table .field-control:focus {
+  outline: none;
+  border-color: rgba(245, 197, 66, 0.55);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.14);
+}
+
+.plat-waivers__table .searchable-select__trigger {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bills-border);
+  background: var(--bills-input-bg);
+  color: var(--bills-text);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.plat-waivers__table .searchable-select__trigger:hover:not(:disabled) {
+  border-color: rgba(245, 197, 66, 0.4);
+}
+
+.plat-waivers__table .searchable-select__trigger:focus-visible,
+.plat-waivers__table .searchable-select.is-open .searchable-select__trigger {
+  outline: none;
+  border-color: rgba(245, 197, 66, 0.55);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.14);
+}
+
+.plat-waivers__table .searchable-select__value.is-placeholder {
+  color: var(--bills-muted, #8b9bb0);
+  font-weight: 400;
+}
+
+.plat-waivers__table .searchable-select__caret {
+  width: 7px;
+  height: 7px;
+  margin: -3px 2px 0 0;
+  border: solid var(--bills-muted, #8b9bb0);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.plat-waivers__table .searchable-select.is-open .searchable-select__caret {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+  border-color: var(--bills-gold-bright, #f5c542);
+}
+
+.plat-waivers__th-actions {
+  width: 1%;
+}
+
+.plat-waivers__merchant {
+  min-width: 13rem;
+}
+
+.plat-waivers__merchant-name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--bills-title);
+  overflow-wrap: anywhere;
+}
+
+.plat-waivers__reason {
+  color: var(--bills-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.plat-waivers__stepper {
+  width: 7rem;
+}
+
+.plat-waivers__row-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+
+.plat-waivers__btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--bills-border);
+  background: transparent;
+  color: var(--bills-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.plat-waivers__btn:hover:not(:disabled) {
+  border-color: rgba(245, 197, 66, 0.45);
+  color: var(--bills-gold-bright);
+}
+
+.plat-waivers__btn.is-gold {
+  border-color: rgba(245, 197, 66, 0.45);
+  background: rgba(245, 197, 66, 0.1);
+  color: #fde68a;
+}
+
+.plat-waivers__btn.is-gold:hover:not(:disabled) {
+  background: var(--bills-gold);
+  border-color: var(--bills-gold);
+  color: #0b0f14;
+}
+
+.plat-waivers__btn.is-danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.plat-waivers__btn.is-danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.plat-waivers__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html[data-theme="light"] .plat-waivers__btn.is-gold {
+  border-color: rgba(180, 83, 9, 0.4);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .plat-waivers__btn.is-gold:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: rgba(180, 83, 9, 0.6);
+  color: #92400e;
+}
+
+html[data-theme="light"] .plat-waivers__btn.is-danger {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+}
+
+html[data-theme="light"] .plat-waivers__table tr.is-editing td {
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .plat-waivers__table .field-control {
+  color-scheme: light;
+}
+
+/* Auto schedule card — bottom of the Bill status / Invoice status rail */
+.platform-shell .plat-bills__schedule-card {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--bills-border, rgba(120, 160, 190, 0.16));
+  background: var(--bills-bg, #04182b);
+}
+
+.platform-shell .plat-bills__schedule-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__schedule-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  color: var(--bills-gold-bright, #fbbf24);
+  background: rgba(245, 197, 66, 0.12);
+}
+
+.platform-shell .plat-bills__schedule-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bills-label, #7b8798);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .plat-bills__schedule-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 0 100%;
+  padding-left: 26px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-bills__schedule-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.platform-shell .plat-bills__schedule-status.tone-ok {
+  color: #34d399;
+}
+
+.platform-shell .plat-bills__schedule-status.tone-ok .plat-bills__schedule-dot {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18);
+}
+
+.platform-shell .plat-bills__schedule-status.tone-warn {
+  color: #fbbf24;
+}
+
+.platform-shell .plat-bills__schedule-status.tone-muted {
+  color: var(--bills-muted, #8b9bb0);
+}
+
+.platform-shell .plat-bills__schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
+}
+
+.platform-shell .plat-bills__schedule-list > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__schedule-list dt {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--bills-muted, #8b9bb0);
+}
+
+.platform-shell .plat-bills__schedule-list dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--bills-title, #f8fafc);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.platform-shell .plat-bills__schedule-foot {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--bills-muted, #8b9bb0);
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-card {
+  border-color: #e2e8f0;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-icon {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-list {
+  border-top-color: #eef2f7;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-list dd {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-status.tone-ok {
+  color: #047857;
+}
+
+html[data-theme="light"] .platform-shell .plat-bills__schedule-status.tone-warn {
+  color: #b45309;
+}
+

@@ -21,6 +21,7 @@ import { getDashboardReports, type DashboardReports } from "../shared/dashboardA
 import { listSettlement } from "../merchant/api";
 import { billingScheduleSummary, tierLabel } from "../commercialLabels";
 import { FundAmount } from "../platform/FundAmount";
+import { AnimatedText } from "../shared/AnimatedText";
 import type { OrgPrimaryOwnerContact } from "../platform/api";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { OrgListPagination } from "../platform/OrgListPagination";
@@ -548,17 +549,17 @@ export function MerchantDetailCard({
               <div className="b3-card glass-tone-slate b3-card--kpi">
                 <p className="b3-card__label">Volume (MTD)</p>
                 <p className="b3-card__value b3-card__value--ok">
-                  <FundAmount amount={settledVolume} />
+                  <FundAmount animate amount={settledVolume} />
                 </p>
               </div>
               <div className="b3-card glass-tone-blue b3-card--kpi">
                 <p className="b3-card__label">Orders (MTD)</p>
-                <p className="b3-card__value">{displayOrders}</p>
+                <p className="b3-card__value"><AnimatedText text={displayOrders} /></p>
               </div>
               <div className="b3-card glass-tone-emerald b3-card--kpi">
                 <p className="b3-card__label">Platform fee (MTD)</p>
                 <p className="b3-card__value b3-card__value--ok">
-                  <FundAmount amount={displayPlatformFeeMtd} />
+                  <FundAmount animate amount={displayPlatformFeeMtd} />
                 </p>
               </div>
             </div>
@@ -758,16 +759,16 @@ export function MerchantDetailCard({
                 <div className="b3-card glass-tone-slate b3-card--kpi">
                   <p className="b3-card__label">Volume (MTD)</p>
                   <p className="b3-card__value b3-card__value--ok">
-                    <FundAmount amount={settledVolume} />
+                    <FundAmount animate amount={settledVolume} />
                   </p>
                 </div>
                 <div className="b3-card glass-tone-blue b3-card--kpi">
                   <p className="b3-card__label">Orders (MTD)</p>
-                  <p className="b3-card__value">{displayOrders}</p>
+                  <p className="b3-card__value"><AnimatedText text={displayOrders} /></p>
                 </div>
                 <div className="b3-card glass-tone-emerald b3-card--kpi">
                   <p className="b3-card__label">Open orders</p>
-                  <p className="b3-card__value">{openOrders}</p>
+                  <p className="b3-card__value"><AnimatedText text={openOrders} /></p>
                 </div>
               </div>
             </>

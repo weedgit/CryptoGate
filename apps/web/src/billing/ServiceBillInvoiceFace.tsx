@@ -6,6 +6,7 @@ import { displayNetworkForPair } from "../shared/assetNetworks";
 import { displayServiceBillTxHash } from "../shared/serviceBillPeriod";
 import { truncateAddress } from "../platform/orgDetailSeeds";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { formatPhoneDisplay } from "../shared/phoneFormat";
 import {
   AssetIcon,
   NetworkIcon,
@@ -300,7 +301,7 @@ export function ServiceBillInvoiceFace({
               {seller.email?.trim() || "—"}
             </p>
             <p className="sb-invoice__brand-phone">
-              {seller.phone?.trim() || "—"}
+              {formatPhoneDisplay(seller.phone) || "—"}
             </p>
           </div>
         </div>
@@ -324,7 +325,7 @@ export function ServiceBillInvoiceFace({
             {buyer.contactEmail?.trim() || "—"}
           </p>
           <p className="sb-invoice__party-line">
-            {buyer.phone?.trim() || "—"}
+            {formatPhoneDisplay(buyer.phone) || "—"}
           </p>
           {buyer.country ? (
             <p className="sb-invoice__party-line">{buyer.country}</p>
@@ -357,7 +358,9 @@ export function ServiceBillInvoiceFace({
               Billing period
             </dt>
             <dd className="sb-invoice__fact-period">
-              {shortDate(bill.periodStart)} – {shortDate(bill.periodEnd)}
+              {shortDate(bill.periodEnd) === shortDate(bill.periodStart)
+                ? shortDate(bill.periodStart)
+                : `${shortDate(bill.periodStart)} – ${shortDate(bill.periodEnd)}`}
             </dd>
           </div>
           <div>

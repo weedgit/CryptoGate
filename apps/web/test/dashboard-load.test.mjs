@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPortalCss } from "./portal-css.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dash = readFileSync(join(root, "src/merchant/DashboardPage.tsx"), "utf8");
@@ -37,7 +38,8 @@ describe("merchant dashboard first paint", () => {
 
   it("keeps platform/agent date filters mounted while the range refetches", () => {
     assert.match(platformDash, /loading && !hasLoaded/);
-    assert.match(platformDash, /pg-dash__period/);
+    assert.match(platformDash, /<DashPeriodControls/);
+    assert.match(dash, /<DashPeriodControls/);
     assert.match(platformDash, /is-period-refresh/);
     assert.doesNotMatch(
       platformDash,
@@ -55,7 +57,7 @@ describe("merchant dashboard first paint", () => {
     assert.match(help, /createPortal/);
     assert.match(platformDash, /function CardHelp[\s\S]*ChartHelpButton/);
     assert.match(agentDash, /PlatformDashboardPage/);
-    const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
+    const css = readPortalCss();
     assert.match(css, /\.chart-help__popover--portal[\s\S]*background:\s*#1e2a38/);
   });
 

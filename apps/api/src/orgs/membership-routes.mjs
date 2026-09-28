@@ -42,6 +42,7 @@ import {
 import {
   canListOrgMemberEmailsBulk,
   canManageDirectChildOrg,
+  effectiveRoleOnOrg,
   evaluateCrossOrgMerchantSiteInvite,
   isPlatformOrAgentOperatorMemberships,
 } from "./role-policy.mjs";
@@ -50,6 +51,12 @@ import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { createPasswordResetToken } from "../auth/password-reset-store.mjs";
 import { sendInviteEmail } from "../mail/auth-mail.mjs";
+import {
+  AgentNotificationEventType,
+  PlatformNotificationEventType,
+  notifyAgentOrg,
+  notifyPlatform,
+} from "../notifications/notify.mjs";
 import {
   inviteRelativePathForToken,
   inviteUrlForToken,
@@ -122,7 +129,7 @@ export async function handleListOrgUsers(req, res, orgId) {
   if (!loaded) return;
   const { caller, org } = loaded;
 
-  const memberRole = roleOnOrg(caller.memberships, orgId);
+  const memberRole = await effectiveRoleOnOrg(caller, org);
   const ancestors = await collectAncestorOrgIds(org);
   const mayList =
     canListOrgUsers(memberRole, caller.platformOperator) ||
@@ -181,7 +188,7 @@ export async function handleInviteOrgUser(req, res, orgId) {
     !canInviteToOrg({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
       roleOnParent: org.parent_id ? roleOnOrg(caller.memberships, org.parent_id) : null,
       memberCount,
       invitedRole: role,
@@ -326,6 +333,33 @@ export async function handleInviteOrgUser(req, res, orgId) {
     },
   });
 
+  if (org.type === "agent") {
+    const who = profile?.displayName ? `${profile.displayName} (${user.email})` : user.email;
+    notifyAgentOrg(
+      orgId,
+      AgentNotificationEventType.TeamMemberJoined,
+      {
+        subject: `New team member — ${org.name ?? "your agent team"}`,
+        lines: [`${who} was added to ${org.name ?? "your agent team"} as ${role}.`],
+        path: "settings/team",
+      },
+      { excludeUserId: user.id },
+    );
+  }
+
+  if (org.type === "platform") {
+    const who = profile?.displayName ? `${profile.displayName} (${user.email})` : user.email;
+    notifyPlatform(
+      PlatformNotificationEventType.TeamMemberJoined,
+      {
+        subject: "New platform team member",
+        lines: [`${who} was added to the platform team as ${role}.`],
+        path: "settings/team",
+      },
+      { excludeUserId: user.id },
+    );
+  }
+
   sendJson(res, 201, {
     ...toOrgMembership({
       orgId,
@@ -353,7 +387,7 @@ export async function handleAssignOrgUserRole(req, res, orgId, userId) {
     !canAssignOrgRole({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
     })
   ) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
@@ -425,7 +459,7 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
     !canManageMembershipLifecycle({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
     })
   ) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
@@ -516,13 +550,13 @@ export async function handleSetOrgUserStatus(req, res, orgId, userId) {
 export async function handleRemoveOrgUser(req, res, orgId, userId) {
   const loaded = await loadVisibleOrg(req, res, orgId);
   if (!loaded) return;
-  const { caller } = loaded;
+  const { caller, org } = loaded;
 
   if (
     !canManageMembershipLifecycle({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
     })
   ) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
@@ -583,7 +617,7 @@ export async function handleAdminPutMemberPosPin(req, res, orgId, userId) {
     !canManageMemberPosPin({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
     })
   ) {
     sendError(
@@ -649,7 +683,7 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
     !canManageMemberPosPin({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
-      roleOnOrg: roleOnOrg(caller.memberships, orgId),
+      roleOnOrg: await effectiveRoleOnOrg(caller, org),
     })
   ) {
     sendError(

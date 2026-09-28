@@ -25,13 +25,7 @@ describe("@paymentgate/web phase1 agent list / architecture", () => {
       join(root, "src/platform/ArchitecturePage.tsx"),
       "utf8",
     );
-    const agent = readFileSync(
-      join(root, "src/agent/ArchitecturePage.tsx"),
-      "utf8",
-    );
     assert.doesNotMatch(platform, /label=\"Depth\"/);
-    assert.doesNotMatch(agent, /label=\"Depth\"/);
     assert.doesNotMatch(platform, /agentDepthOfNode/);
-    assert.doesNotMatch(agent, /agentDepthOfNode/);
   });
 });

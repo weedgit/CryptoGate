@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AuthToast } from "../auth/AuthToast";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { OnboardWizardBrandHead } from "../shared/onboardMerchantUi";
 import { NumberStepper } from "../ui/NumberStepper";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { waivedMonthsLabel } from "../commercialLabels";
@@ -122,12 +124,12 @@ function WaiverCard({
 
   const formActions = (
     <span className="plat-waivers__row-actions">
-      <button type="submit" className="btn-primary plat-waivers__btn" disabled={busy}>
+      <button type="submit" className="plat-waivers__btn is-gold" disabled={busy}>
         {busy ? "Saving…" : "Save"}
       </button>
       <button
         type="button"
-        className="btn-secondary plat-waivers__btn"
+        className="plat-waivers__btn"
         disabled={busy}
         onClick={cancelForm}
       >
@@ -138,22 +140,27 @@ function WaiverCard({
 
   return (
     <section className="plat-waivers__card" aria-label={title}>
-      <header className="plat-waivers__head">
+      <div className="plat-waivers__toolbar">
+        <div className="plat-missed-modal__stat is-ready plat-waivers__stat">
+          <strong>{rows.length}</strong>
+          <span>merchant{rows.length === 1 ? "" : "s"} on this list</span>
+        </div>
         <p className="plat-waivers__hint">{hint}</p>
-        {canEdit && !adding ? (
+        {canEdit ? (
           <button
             type="button"
-            className="btn-secondary plat-waivers__btn"
-            disabled={busy}
+            className="b4-wizard__continue b4-wizard__continue--gold plat-waivers__add"
+            disabled={busy || adding}
             onClick={startAdd}
           >
-            Add merchant
+            + Add merchant
           </button>
         ) : null}
-      </header>
+      </div>
 
-      <form onSubmit={submit}>
-        <table className="plat-waivers__table">
+      <form className="plat-missed-modal__table-wrap" onSubmit={submit}>
+        <div className="plat-missed-modal__table-scroll">
+        <table className="plat-missed-modal__table plat-waivers__table">
           <thead>
             <tr>
               <th>Merchant</th>
@@ -183,17 +190,26 @@ function WaiverCard({
             {rows.map((row) =>
               editingId === row.orgId ? (
                 <tr key={row.orgId} className="is-editing">
-                  <td className="plat-waivers__merchant">{row.orgName ?? row.orgId}</td>
+                  <td className="plat-waivers__merchant">
+                    <MerchantCell name={row.orgName ?? row.orgId} />
+                  </td>
                   {isFee ? <td>{monthsField}</td> : null}
                   <td>{reasonField}</td>
                   <td>{formActions}</td>
                 </tr>
               ) : (
                 <tr key={row.orgId}>
-                  <td className="plat-waivers__merchant">{row.orgName ?? row.orgId}</td>
+                  <td className="plat-waivers__merchant">
+                    <MerchantCell name={row.orgName ?? row.orgId} />
+                  </td>
                   {"monthsLeft" in row ? (
-                    <td title={`${row.monthsUsed} of ${row.monthsGranted} used`}>
-                      {waivedMonthsLabel(row.monthsLeft)}
+                    <td>
+                      <span className="plat-missed-modal__badge tone-ok">
+                        {waivedMonthsLabel(row.monthsLeft)}
+                      </span>
+                      <span className="plat-missed-modal__note">
+                        {row.monthsUsed} of {row.monthsGranted} used
+                      </span>
                     </td>
                   ) : null}
                   <td className="plat-waivers__reason">{row.reason}</td>
@@ -204,7 +220,7 @@ function WaiverCard({
                           <>
                             <button
                               type="button"
-                              className="btn-secondary plat-waivers__btn is-danger"
+                              className="plat-waivers__btn is-danger"
                               disabled={busy}
                               onClick={() => void onRemove(row.orgId)}
                             >
@@ -212,7 +228,7 @@ function WaiverCard({
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary plat-waivers__btn"
+                              className="plat-waivers__btn"
                               disabled={busy}
                               onClick={() => setConfirmRemoveId(null)}
                             >
@@ -223,7 +239,7 @@ function WaiverCard({
                           <>
                             <button
                               type="button"
-                              className="btn-secondary plat-waivers__btn"
+                              className="plat-waivers__btn"
                               disabled={busy || adding}
                               onClick={() => startEdit(row)}
                             >
@@ -231,7 +247,7 @@ function WaiverCard({
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary plat-waivers__btn"
+                              className="plat-waivers__btn"
                               disabled={busy}
                               onClick={() => setConfirmRemoveId(row.orgId)}
                             >
@@ -245,27 +261,63 @@ function WaiverCard({
                 </tr>
               ),
             )}
-            {rows.length === 0 && !adding ? (
-              <tr>
-                <td className="plat-waivers__empty" colSpan={isFee ? 4 : 3}>
-                  No merchants on this list.
-                </td>
-              </tr>
-            ) : null}
           </tbody>
         </table>
+        {rows.length === 0 && !adding ? (
+          <p className="plat-missed-modal__empty">No merchants on this list.</p>
+        ) : null}
+        </div>
       </form>
     </section>
   );
 }
 
-const COPY: Record<Kind, { title: string; hint: string }> = {
+function MerchantCell({ name }: { name: string }) {
+  return (
+    <span className="plat-missed-modal__merchant-cell">
+      <OrgBrandMark name={name} size={32} className="plat-missed-modal__avatar" />
+      <span className="plat-waivers__merchant-name">{name}</span>
+    </span>
+  );
+}
+
+function PercentIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M19 5 5 19M7.5 9.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm9 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const COPY: Record<Kind, { title: string; subtitle: string; hint: string }> = {
   fee: {
     title: "Waive platform fee",
+    subtitle: "Skip monthly platform fees for chosen merchants.",
     hint: "Each new monthly bill is saved as Waived with the real amounts, and the months left go down by one. The merchant leaves the list at 0.",
   },
   activation: {
     title: "Waive activation",
+    subtitle: "Activate chosen merchants without an activation fee.",
     hint: "When setup is complete the merchant is activated that day and the activation bill is saved as Waived. Then the merchant leaves the list.",
   },
 };
@@ -363,45 +415,46 @@ export function BillingWaiverModal({
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
       <AuthToast message={notice} tone="ok" onDismiss={() => setNotice(null)} />
       <div
-        className="b3-commission-modal-backdrop"
+        className="b4-wizard-portal"
         role="presentation"
         onClick={() => {
           if (!busy) onClose();
         }}
       >
         <div
-          className="b3-commission-modal plat-waivers-modal"
+          className="plat-waivers-pop"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="b3-commission-modal__head">
-            <h3 id={titleId} className="plat-waivers__title">
-              {copy.title}
-              <span className="plat-waivers__count">{rows.length}</span>
-            </h3>
-            <button
-              type="button"
-              className="b3-commission-modal__close"
-              aria-label="Close"
-              disabled={busy}
-              onClick={onClose}
-            >
-              ×
-            </button>
-          </header>
-          <WaiverCard
-            kind={kind}
+          <OnboardWizardBrandHead
+            titleId={titleId}
             title={copy.title}
-            hint={copy.hint}
-            rows={rows}
-            merchants={merchants}
-            canEdit={canEdit}
-            busy={busy}
-            onSave={(draft) => save(draft)}
-            onRemove={remove}
+            subtitle={copy.subtitle}
+            onClose={onClose}
+            closeDisabled={busy}
+            icon={kind === "fee" ? <PercentIcon /> : <StarIcon />}
           />
+          <div className="plat-waivers-pop__body">
+            <WaiverCard
+              kind={kind}
+              title={copy.title}
+              hint={copy.hint}
+              rows={rows}
+              merchants={merchants}
+              canEdit={canEdit}
+              busy={busy}
+              onSave={(draft) => save(draft)}
+              onRemove={remove}
+            />
+          </div>
+          <footer className="b4-wizard__foot">
+            <span />
+            <button type="button" className="b4-wizard__cancel" disabled={busy} onClick={onClose}>
+              Close
+            </button>
+          </footer>
         </div>
       </div>
     </>,

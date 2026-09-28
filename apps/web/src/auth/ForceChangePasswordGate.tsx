@@ -4,13 +4,15 @@ import { AuthField } from "./AuthField";
 import { AuthLayout } from "./AuthLayout";
 import { AuthToast } from "./AuthToast";
 import { evaluatePasswordPolicy, passwordPolicyLabel } from "./passwordPolicy";
+import { productLineFromPortal } from "./productLine";
 
 type Props = {
+  portalLabel: string;
   onChanged: (session: Session) => void;
 };
 
 /** Blocks portal until mustChangePassword is cleared. */
-export function ForceChangePasswordGate({ onChanged }: Props) {
+export function ForceChangePasswordGate({ portalLabel, onChanged }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,7 +48,7 @@ export function ForceChangePasswordGate({ onChanged }: Props) {
   return (
     <>
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      <AuthLayout productLine="PLATFORM" split={false}>
+      <AuthLayout productLine={productLineFromPortal(portalLabel)}>
         <form className="login-card" onSubmit={onSubmit}>
           <div className="login-card-head">
             <h1>Change password</h1>

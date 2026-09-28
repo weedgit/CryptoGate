@@ -2,12 +2,15 @@ import {
   FormEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { getMerchantOrgs, peekMerchantOrgs } from "./merchantOrgList";
+import {
+  getMerchantOrgs,
+  peekMerchantOrgs,
+  refreshMerchantOrgList,
+} from "./merchantOrgList";
 import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
@@ -28,7 +31,6 @@ import {
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import { AuthToast } from "../auth/AuthToast";
 import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
-import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { PlatformPending } from "../platform/ui/PlatformPending";
@@ -104,6 +106,25 @@ function formatRelativeLogin(iso: string | null | undefined): string {
 type RemoveTarget = { userId: string; email: string };
 type PosPinTarget = { userId: string; email: string };
 
+function PinPadIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="4" y="3" width="16" height="18" rx="3" />
+      <path d="M8.5 8h.01M12 8h.01M15.5 8h.01M8.5 12h.01M12 12h.01M15.5 12h.01M12 16h.01" />
+    </svg>
+  );
+}
+
 /** D16 — Merchant team settings (platform team chrome). */
 export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
@@ -147,8 +168,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const [posPinTarget, setPosPinTarget] = useState<PosPinTarget | null>(null);
   const [posPinValue, setPosPinValue] = useState("");
   const [posPinConfirm, setPosPinConfirm] = useState("");
-  const [topbarActionsSlot, setTopbarActionsSlot] =
-    useState<HTMLElement | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [profileEditBusy, setProfileEditBusy] = useState(false);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
@@ -159,10 +178,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   }, []);
   const showErr = useCallback((message: string) => {
     setToast({ message, tone: "error" });
-  }, []);
-
-  useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
   }, []);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
@@ -401,7 +416,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const setupLockHint = liveActionLockedHint(session);
 
   return (
-    <div className="plat-team">
+    <div className="plat-team plat-bills">
       <AuthToast
         message={toast?.message ?? error}
         tone={toast?.tone ?? "error"}
@@ -413,11 +428,48 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
 
       <SetupChecklistCard session={session} portal="merchant" />
 
-      {canManage && topbarActionsSlot
-        ? createPortal(
+      <div className="plat-bills__period-bar">
+        <div className="plat-bills__intro">
+          <span className="plat-bills__intro-icon" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              width="36"
+              height="36"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </span>
+          <div className="plat-bills__intro-copy">
+            <h1 className="plat-bills__intro-title">Team</h1>
+            <p className="plat-bills__intro-sub">
+              {org ? `${org.name} → ` : "Merchant → "}Owner, Administrator, Viewer,
+              and Cashier memberships.
+            </p>
+          </div>
+        </div>
+        <div className="plat-bills__period-tools">
+          <button
+            type="button"
+            className="pg-dash__period-refresh"
+            onClick={() => void load({ force: true })}
+            disabled={loading || busy}
+            aria-label="Refresh team"
+            title="Refresh"
+          >
+            {loading ? "…" : "↻"}
+          </button>
+          {canManage ? (
             <button
               type="button"
-              className="plat-team__invite-cta"
+              className="btn-primary plat-bills__action-btn plat-team__invite-cta"
               onClick={openInvite}
               disabled={busy || !liveUnlocked}
               title={!liveUnlocked ? setupLockHint : undefined}
@@ -426,38 +478,37 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                 +
               </span>
               Invite Member
-            </button>,
-            topbarActionsSlot,
-          )
-        : null}
-
-      {org ? (
-        <header className="plat-team__org">
-          <p className="plat-team__org-eyebrow">Organization</p>
-          <div className="plat-team__org-title-row">
-            <OrgBrandMark name={org.name} iconKey={org.iconKey} size={40} />
-            <h1 className="plat-team__org-name">{org.name}</h1>
-            <div className="plat-team__org-chips">
-              <span className="plat-team__org-chip">
-                {orgTypeLabel(org.type)}
-              </span>
-              {canEditProfile ? (
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  disabled={profileEditBusy}
-                  onClick={() => {
-                    setProfileEditError(null);
-                    setProfileEditOpen(true);
-                  }}
-                >
-                  Edit
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </header>
-      ) : null}
+            </button>
+          ) : null}
+          {canEditProfile && org ? (
+            <button
+              type="button"
+              className="btn-primary plat-bills__action-btn plat-team__invite-cta"
+              disabled={profileEditBusy}
+              onClick={() => {
+                setProfileEditError(null);
+                setProfileEditOpen(true);
+              }}
+            >
+              <svg
+                className="plat-team__settings-cta-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+                <circle cx="15" cy="6" r="2" />
+                <circle cx="9" cy="12" r="2" />
+                <circle cx="17" cy="18" r="2" />
+              </svg>
+              Settings
+            </button>
+          ) : null}
+        </div>
+      </div>
 
       <OrgProfileEditModal
         open={profileEditOpen}
@@ -482,7 +533,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
             setOrg(updated);
             setToast({ message: "Organization profile saved", tone: "ok" });
             setProfileEditOpen(false);
-            await getMerchantOrgs({ force: true });
+            await refreshMerchantOrgList().catch(() => undefined);
             if (onSessionRefresh) {
               onSessionRefresh(await getSession());
             }
@@ -496,16 +547,8 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         }}
       />
 
-      <section className="plat-team__card">
-        <header className="plat-team__card-head">
-          <div>
-            <h2>Members</h2>
-            <p className="plat-team__card-copy">
-              Merchant Owner, Administrator, Viewer, and Cashier memberships.
-            </p>
-          </div>
-        </header>
-
+      <div className="plat-bills__panel plat-team__panel plat-team__panel--solo">
+        <div className="plat-bills__main">
         {loading ? (
           <PlatformPending
             compact
@@ -633,7 +676,9 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                                   {canManagePosPin ? (
                                     <button
                                       type="button"
-                                      className="plat-team__action"
+                                      className="plat-team__action plat-team__action--icon"
+                                      aria-label={`POS PIN for ${m.email}`}
+                                      title="POS PIN"
                                       disabled={busy}
                                       onClick={() =>
                                         openPosPin({
@@ -642,7 +687,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                                         })
                                       }
                                     >
-                                      POS PIN
+                                      <PinPadIcon />
                                     </button>
                                   ) : null}
                                   {canManage ? (
@@ -711,7 +756,8 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
           </p>
           </>
         )}
-      </section>
+        </div>
+      </div>
 
       {editTarget && orgId ? (
         <TeamMemberEditModal

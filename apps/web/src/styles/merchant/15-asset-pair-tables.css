@@ -1,0 +1,389 @@
+/* Asset / network pair tables (Health + catalog) */
+.platform-shell .plat-pair-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.platform-shell .plat-pair-tables--compact {
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.platform-shell .dash-split .plat-health-card .plat-pair-tables--compact {
+  margin-top: 0;
+  margin-bottom: 0;
+  gap: 0;
+}
+
+.platform-shell .plat-pair-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.platform-shell .plat-pair-table__col-network {
+  width: 46%;
+}
+
+.platform-shell .plat-pair-table__col-asset {
+  width: 22%;
+}
+
+.platform-shell .plat-pair-table__col-status {
+  width: 32%;
+}
+
+.platform-shell .plat-pair-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #b8c5d3;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.platform-shell .plat-pair-table th.is-active {
+  color: #93c5fd;
+  box-shadow: inset 0 -2px 0 rgba(96, 165, 250, 0.85);
+}
+
+.platform-shell .plat-pair-table__th-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-pair-table__th-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-shell .plat-pair-table--compact .plat-pair-table__th-btn {
+  padding: 6px 8px;
+}
+
+.platform-shell .plat-pair-table__th-btn:hover {
+  color: var(--text);
+}
+
+.platform-shell .plat-pair-table__th-btn.is-active:hover {
+  color: #bfdbfe;
+}
+
+.platform-shell .plat-pair-table__th--end {
+  text-align: right;
+}
+
+/* Push Status label + up/down chevrons to the right edge of the column */
+.platform-shell .plat-pair-table__th--end .plat-pair-table__th-btn,
+.platform-shell .plat-pair-table__th-btn--end,
+.platform-shell .plat-pair-table thead th:last-child .plat-pair-table__th-btn {
+  display: flex;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.platform-shell .plat-pair-table__th--end .plat-pair-table__th-cluster,
+.platform-shell .plat-pair-table__th-btn--end .plat-pair-table__th-cluster,
+.platform-shell .plat-pair-table thead th:last-child .plat-pair-table__th-cluster {
+  margin-left: auto;
+}
+
+.platform-shell .plat-pair-table__th--center {
+  text-align: center;
+}
+
+.platform-shell .plat-pair-table__th--center .plat-pair-table__th-btn,
+.platform-shell .plat-pair-table__th-btn--center {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.platform-shell .plat-pair-table__th--center .plat-pair-table__th-cluster,
+.platform-shell .plat-pair-table__th-btn--center .plat-pair-table__th-cluster {
+  margin-left: 0;
+  margin-inline: auto;
+}
+
+.platform-shell .plat-pair-asset-cell {
+  text-align: center;
+}
+
+.platform-shell .plat-pair-status-cell {
+  text-align: right;
+}
+
+.platform-shell .plat-pair-status-cell .network-status-lamp {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.platform-shell .plat-pair-table__arrange {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 10px;
+  min-width: 10px;
+  height: 11px;
+  flex-shrink: 0;
+  color: rgba(184, 197, 211, 0.45);
+}
+
+.platform-shell .plat-pair-table__arrange.is-active {
+  color: #93c5fd;
+  gap: 0;
+}
+
+.platform-shell .plat-pair-table__arrange svg {
+  display: block;
+  width: 8px;
+  height: 4px;
+  overflow: visible;
+}
+
+.platform-shell .plat-pair-table__arrange.is-idle .plat-pair-table__arrange-up,
+.platform-shell .plat-pair-table__arrange.is-idle .plat-pair-table__arrange-down {
+  opacity: 0.55;
+}
+
+.platform-shell .plat-pair-table__arrange.is-active .plat-pair-table__arrange-up.is-on,
+.platform-shell .plat-pair-table__arrange.is-active .plat-pair-table__arrange-down.is-on {
+  opacity: 1;
+}
+
+.platform-shell .plat-pair-table__th-btn:hover .plat-pair-table__arrange.is-idle {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.platform-shell .plat-pair-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-pair-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.platform-shell .plat-pair-table--compact {
+  font-size: 14px;
+}
+
+.platform-shell .plat-pair-table--compact th {
+  font-size: 12px;
+}
+
+.platform-shell .plat-pair-table--compact th,
+.platform-shell .plat-pair-table--compact td {
+  padding: 7px 10px;
+}
+
+.platform-shell .plat-pair-table--compact .network-status-lamp {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+.platform-shell .plat-pair-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.platform-shell .plat-crypto-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.platform-shell .plat-crypto-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.platform-shell .plat-crypto-icon__letter {
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.platform-shell .plat-pair-table--compact .plat-crypto-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.platform-shell .plat-pair-table--compact .plat-crypto-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes plat-live-dot-glow {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.45);
+  }
+
+  50% {
+    opacity: 0.92;
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.85);
+  }
+}
+
+@keyframes plat-live-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  70%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.platform-shell .plat-pair-table th:last-child,
+.platform-shell .plat-pair-table td:last-child {
+  text-align: right;
+}
+
+.platform-shell .plat-pair-status-cell {
+  text-align: right;
+}
+
+.platform-shell .plat-pair-status-cell .network-status-lamp,
+.platform-shell .plat-pair-status-cell .network-status-lamp.plat-pair-status-lamp {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: 0;
+}
+
+.platform-shell .plat-health-pairs {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.platform-shell .dash-split .plat-health-card {
+  max-width: 340px;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  justify-self: end;
+  align-self: start;
+  padding: 0;
+  border-radius: 0;
+  display: block;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+}
+
+.platform-shell .dash-split .plat-health-card.pg-networks-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: none;
+  overflow: visible;
+  border-radius: 16px;
+  padding: 14px 16px;
+  align-self: start;
+}
+
+.platform-shell .dash-split .plat-health-card.panel.pg-networks-panel {
+  overflow: visible;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.platform-shell .dash-split .plat-health-card.panel {
+  overflow: visible;
+  border-radius: 0;
+  padding: 0;
+}
+
+.platform-shell .dash-split .plat-health-pairs {
+  margin: 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.platform-shell .dash-split .pg-networks-panel .plat-health-pairs {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr {
+  cursor: pointer;
+}
+
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr.is-match {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr.is-active {
+  background: rgba(96, 165, 250, 0.12);
+  box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.75);
+}
+
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr.is-active .plat-pair-asset-cell,
+.platform-shell .plat-pair-tables--selectable .plat-pair-table tbody tr.is-active .plat-pair-network-cell {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.platform-shell .plat-pair-asset-cell {
+  font-weight: 500;
+}
+
+.platform-shell .dash-split .plat-health-card .plat-pair-table th:first-child .plat-pair-table__th-btn,
+.platform-shell .dash-split .plat-health-card .plat-pair-table td:first-child {
+  padding-left: 10px;
+}
+
+.platform-shell .dash-split .plat-health-card .plat-pair-table th:last-child .plat-pair-table__th-btn,
+.platform-shell .dash-split .plat-health-card .plat-pair-table td:last-child {
+  padding-right: 10px;
+}
+

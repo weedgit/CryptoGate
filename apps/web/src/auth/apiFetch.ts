@@ -1,3 +1,4 @@
+import { recordServerTime } from "../shared/serverClock";
 import { showToast } from "../shared/toast";
 
 type SessionAuthHandlers = {
@@ -82,7 +83,10 @@ export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
+  const sentAt = Date.now();
+  const started = performance.now();
   const res = await fetch(input, init);
+  recordServerTime(res.headers.get("X-Server-Time"), sentAt, performance.now() - started);
   if (res.status === 401) {
     void handle401(res);
   } else if (res.status === 403) {

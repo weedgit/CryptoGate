@@ -22,6 +22,7 @@ import {
   persistRememberedEmail,
 } from "./loginEnv";
 import { consumeSessionNotice } from "./apiFetch";
+import { productLineFromPortal } from "./productLine";
 
 type Props = {
   portalSubtitle: string;
@@ -34,19 +35,12 @@ type View = "login" | "forgot" | "reset" | "mfa";
 const RESEND_SECONDS = 30;
 const SHAKE_MS = 480;
 
-function productLineFromSubtitle(subtitle: string): string {
-  const s = subtitle.toLowerCase();
-  if (s.includes("merchant")) return "MERCHANT POS";
-  if (s.includes("agent")) return "AGENT PORTAL";
-  return "PLATFORM";
-}
-
 export function PortalLoginPage({
   portalSubtitle,
   onSignedIn,
   startOnMfa = false,
 }: Props) {
-  const productLine = productLineFromSubtitle(portalSubtitle);
+  const productLine = productLineFromPortal(portalSubtitle);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

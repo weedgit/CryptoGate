@@ -51,13 +51,6 @@ function isPastDue(iso: string): boolean {
   return Number.isFinite(t) && t < Date.now();
 }
 
-function formatOrgIdLabel(id: string): string {
-  const t = id.trim();
-  if (!t) return "—";
-  if (t.length <= 12) return t.toUpperCase();
-  return `${t.slice(0, 8).toUpperCase()}…`;
-}
-
 /** Match commission slip lifecycle arrows: done / flowing / idle. */
 function timelineArrowTone(
   step: TimelineStep,
@@ -308,6 +301,11 @@ export function ServiceBillDetailPage({ session }: Props) {
     platformBillingPayToFallback() ||
     null;
   const actionsOpen = !portal && showPlatformActions(bill.status);
+  const merchantHref = portal?.orgHref
+    ? portal.orgHref(bill.orgId)
+    : portal
+      ? route(`accounts/merchants/${bill.orgId}`)
+      : platformRoute(`merchants/${bill.orgId}`);
 
   const invoiceProps = {
     bill,
@@ -354,14 +352,15 @@ export function ServiceBillDetailPage({ session }: Props) {
           >
             {serviceBillStatusLabel(bill.status)}
           </span>
-          <span className="plat-bill-detail__merchant">
-            <span>{merchant?.name ?? bill.orgId}</span>
-            {merchant?.id || bill.orgId ? (
-              <span className="plat-bill-detail__org-id">
-                Org ID {formatOrgIdLabel(merchant?.id ?? bill.orgId)}
-              </span>
-            ) : null}
-          </span>
+          {portal?.kind !== "merchant" && merchant?.name ? (
+            merchantHref ? (
+              <Link className="plat-bill-detail__merchant" to={merchantHref}>
+                {merchant.name}
+              </Link>
+            ) : (
+              <span className="plat-bill-detail__merchant">{merchant.name}</span>
+            )
+          ) : null}
         </div>
         <InvoicePrintButton />
       </header>

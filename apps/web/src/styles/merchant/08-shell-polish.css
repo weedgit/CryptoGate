@@ -1,0 +1,519 @@
+/* Platform / merchant / agent shell — charcoal dashboard polish (teal primary) */
+.platform-shell {
+  --bg: #070d18;
+  --sidebar: #081018;
+  --surface: #161b24;
+  --surface-elevated: #1c2330;
+  --border: #252d3a;
+  --border-strong: #343e4f;
+  --glass-blur: 16px;
+  --glass: rgba(255, 255, 255, 0.06);
+  /* Keep Institutional Ink teal — not emerald / orange from mood boards */
+  --teal: #00d4c8;
+  --teal-hover: #00f1e6;
+  --teal-pressed: #00b2aa;
+  --teal-dim: rgba(0, 212, 200, 0.14);
+  --accent: var(--teal);
+  --plat-gold: #ffb703;
+  --plat-gold-bright: #ffc933;
+  --plat-gold-grad: linear-gradient(135deg, #e6a002 0%, #ffb703 55%, #ffd56a 100%);
+  /* Primary CTA — gold outline on tinted charcoal (dashboard Onboard) */
+  --btn-primary-bg: rgba(240, 180, 41, 0.1);
+  --btn-primary-bg-hover: rgba(240, 180, 41, 0.18);
+  --btn-primary-border: rgba(240, 180, 41, 0.35);
+  --btn-primary-border-hover: rgba(240, 180, 41, 0.5);
+  --btn-primary-fg: #fde68a;
+  --btn-primary-fg-hover: #fef3c7;
+  --nav-active-bg: linear-gradient(135deg, #322610 0%, #463616 42%, #54401c 100%);
+  --nav-active-fg: #ffffff;
+  --plat-blue: #3b82f6;
+  --muted: #8a9bb0;
+  --footer: #5a6a7a;
+  --text: #f4f7fb;
+  --warn: #ffb703;
+  --anomaly: #ff5a6a;
+  --ok: #00e676;
+  --ok-dim: rgba(0, 230, 118, 0.12);
+  --warn-dim: rgba(255, 183, 3, 0.12);
+  --anomaly-dim: rgba(255, 90, 106, 0.12);
+  --info: #60a5fa;
+  --radius-card: 12px;
+  --radius-lg: 14px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #050a12;
+}
+
+@keyframes plat-sidebar-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.platform-shell:not(.is-enter) .sidebar .logo-row,
+.platform-shell:not(.is-enter) .sidebar .nav-label,
+.platform-shell:not(.is-enter) .sidebar .nav-item,
+.platform-shell:not(.is-enter) .sidebar .sidebar-foot,
+.platform-shell:not(.is-enter) .topbar {
+  opacity: 0;
+}
+
+.platform-shell.is-enter .sidebar .logo-row {
+  animation: plat-sidebar-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 40ms;
+}
+
+.platform-shell.is-enter .sidebar .nav-label {
+  animation: plat-sidebar-rise 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--nav-delay, 0ms);
+}
+
+.platform-shell.is-enter .sidebar .nav-item {
+  animation: plat-sidebar-rise 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--nav-delay, 0ms);
+}
+
+.platform-shell.is-enter .sidebar .sidebar-foot {
+  animation: plat-sidebar-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 680ms;
+}
+
+.platform-shell.is-enter .topbar {
+  animation: plat-sidebar-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .sidebar .logo-row,
+  .platform-shell .sidebar .nav-label,
+  .platform-shell .sidebar .nav-item,
+  .platform-shell .sidebar .sidebar-foot,
+  .platform-shell .topbar {
+    opacity: 1;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+.platform-shell .sidebar {
+  position: sticky;
+  top: 0;
+  align-self: stretch;
+  flex-shrink: 0;
+  width: 200px;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 12px 14px;
+  /* Soft partial atmosphere: quiet gold ribbons + depth, not a full pattern */
+  background-color: #0a1320;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 900' preserveAspectRatio='xMidYMin slice'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23fde68a' stop-opacity='0'/%3E%3Cstop offset='.4' stop-color='%23fbbf24' stop-opacity='.5'/%3E%3Cstop offset='.7' stop-color='%23fff3c4' stop-opacity='.28'/%3E%3Cstop offset='1' stop-color='%23f59e0b' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232dd4bf' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='%237dd3fc' stop-opacity='.28'/%3E%3Cstop offset='1' stop-color='%23f0b429' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cfilter id='soft' x='-25%25' y='-25%25' width='150%25' height='150%25'%3E%3CfeGaussianBlur stdDeviation='2.4'/%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M-10 56 C 50 110, 110 28, 210 78' fill='none' stroke='url(%23a)' stroke-width='1.5' filter='url(%23soft)' opacity='.7'/%3E%3Cpath d='M-20 92 C 60 150, 130 50, 220 108' fill='none' stroke='%23fbbf24' stroke-opacity='.1' stroke-width='7' filter='url(%23soft)'/%3E%3Cpath d='M-30 780 C 55 720, 120 840, 220 760' fill='none' stroke='url(%23b)' stroke-width='1.3' filter='url(%23soft)' opacity='.55'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 95% 28% at 42% 6%, rgba(240, 180, 41, 0.09) 0%, transparent 72%),
+    radial-gradient(ellipse 80% 22% at 70% 94%, rgba(56, 189, 248, 0.05) 0%, transparent 75%),
+    linear-gradient(180deg, #101c2e 0%, #0a1320 48%, #081018 100%);
+  background-repeat: no-repeat;
+  background-size: cover, auto, auto, auto;
+  background-position: center top, center, center, center;
+  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 10px 0 32px rgba(0, 0, 0, 0.38);
+  transition: width 180ms ease, padding 180ms ease;
+}
+
+.platform-shell--collapsed .sidebar {
+  width: 56px;
+  padding: 16px 6px;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+.platform-shell .logo-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+  min-height: 0;
+  padding: 4px 36px 10px 4px;
+  text-align: center;
+}
+
+.platform-shell--collapsed .logo-row {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+}
+
+.platform-shell--collapsed .logo-mark {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  border-radius: 0;
+}
+
+.platform-shell .logo-mark {
+  background: transparent;
+  color: inherit;
+  border-radius: 0;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 14px rgba(240, 180, 41, 0.28));
+}
+
+.platform-shell .logo-copy {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.05;
+  padding: 0;
+}
+
+.platform-shell .logo-title {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #ffffff;
+}
+
+.platform-shell .logo-tagline {
+  display: block;
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: #8a9bb0;
+  white-space: nowrap;
+}
+
+.platform-shell .sidebar-toggle {
+  margin: 0;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #0a1524;
+  color: #94a3b8;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 0;
+  overflow: visible;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.platform-shell .sidebar-toggle:hover {
+  color: #e2e8f0;
+  border-color: rgba(240, 180, 41, 0.45);
+  background: rgba(240, 180, 41, 0.08);
+}
+
+.platform-shell .sidebar-toggle-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.platform-shell .sidebar-toggle--rail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+}
+
+.platform-shell--collapsed .sidebar-toggle--rail {
+  position: static;
+  margin: 8px auto 0;
+}
+
+.platform-shell--collapsed .sidebar-toggle {
+  margin: 0;
+}
+
+.platform-shell .nav-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.platform-shell .nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.platform-shell .nav-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 0 0 8px 6px;
+}
+
+.platform-shell--collapsed .nav-list {
+  width: 100%;
+  max-width: 100%;
+  align-items: center;
+  overflow-x: hidden;
+  /* stable gutter from expanded rule shifts icons left in a 56px rail */
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+.platform-shell--collapsed .nav-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.platform-shell--collapsed .nav-group {
+  width: 100%;
+  align-items: center;
+}
+
+.platform-shell--collapsed .sidebar-foot {
+  width: 100%;
+  align-items: center;
+}
+
+.platform-shell .main {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Soft settlement field: ink depth + quiet network mesh (stays put while scroll) */
+  background-color: #0a1220;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3ClinearGradient id='link' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2394a3b8' stop-opacity='0'/%3E%3Cstop offset='.5' stop-color='%237dd3fc' stop-opacity='.22'/%3E%3Cstop offset='1' stop-color='%23f0b429' stop-opacity='0'/%3E%3C/linearGradient%3E%3Cfilter id='soft' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='1.2'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='none' stroke='url(%23link)' stroke-width='1' filter='url(%23soft)' opacity='.55'%3E%3Cpath d='M180 160 L320 240 L260 380 L420 340 L480 520'/%3E%3Cpath d='M980 120 L1120 200 L1080 340 L1240 300 L1320 460'/%3E%3Cpath d='M620 640 L760 580 L900 700 L1040 620 L1180 760'/%3E%3Cpath d='M140 700 L280 620 L400 760'/%3E%3C/g%3E%3Cg filter='url(%23soft)'%3E%3Ccircle cx='180' cy='160' r='2.2' fill='%23f0b429' fill-opacity='.35'/%3E%3Ccircle cx='320' cy='240' r='1.8' fill='%237dd3fc' fill-opacity='.4'/%3E%3Ccircle cx='260' cy='380' r='2' fill='%2394a3b8' fill-opacity='.35'/%3E%3Ccircle cx='420' cy='340' r='1.6' fill='%232dd4bf' fill-opacity='.4'/%3E%3Ccircle cx='480' cy='520' r='2.4' fill='%23f0b429' fill-opacity='.28'/%3E%3Ccircle cx='980' cy='120' r='2' fill='%237dd3fc' fill-opacity='.35'/%3E%3Ccircle cx='1120' cy='200' r='1.7' fill='%23f0b429' fill-opacity='.3'/%3E%3Ccircle cx='1080' cy='340' r='2.2' fill='%232dd4bf' fill-opacity='.35'/%3E%3Ccircle cx='1240' cy='300' r='1.5' fill='%2394a3b8' fill-opacity='.4'/%3E%3Ccircle cx='1320' cy='460' r='2' fill='%237dd3fc' fill-opacity='.28'/%3E%3Ccircle cx='760' cy='580' r='1.8' fill='%23f0b429' fill-opacity='.25'/%3E%3Ccircle cx='900' cy='700' r='2.1' fill='%232dd4bf' fill-opacity='.32'/%3E%3Ccircle cx='1040' cy='620' r='1.6' fill='%237dd3fc' fill-opacity='.3'/%3E%3Ccircle cx='280' cy='620' r='1.9' fill='%2394a3b8' fill-opacity='.3'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(ellipse 70% 55% at 12% 0%, rgba(240, 180, 41, 0.07) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 50% at 92% 8%, rgba(56, 189, 248, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 45% at 78% 88%, rgba(45, 212, 191, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 40% 100%, rgba(30, 58, 138, 0.18) 0%, transparent 72%),
+    linear-gradient(165deg, #0d1728 0%, #0a1220 45%, #070e18 100%);
+  background-repeat: no-repeat;
+  background-size: cover, auto, auto, auto, auto, auto;
+  background-position: center top, center, center, center, center, center;
+}
+
+.platform-shell .main__scroll {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.platform-shell .topbar {
+  position: sticky;
+  top: 8px;
+  z-index: 40;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 10px 28px 0;
+  padding: 8px 14px 8px 16px;
+  border: 1px solid var(--topbar-control-border, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  min-height: 0;
+  overflow: visible;
+}
+
+.platform-shell .topbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  grid-column: 2;
+}
+
+.platform-shell .topbar-left {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.platform-shell .topbar-leading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.platform-shell .topbar-leading:empty {
+  display: none;
+}
+
+.platform-shell .plat-topbar-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-topbar-mark .plat-crypto-icon {
+  width: 22px;
+  height: 22px;
+  box-shadow: none;
+}
+
+.platform-shell .topbar-right {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-shell .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shell .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .plat-period-pills--topbar {
+  margin-left: 0;
+  flex-wrap: nowrap;
+}
+
+.dash-page.plat-dash.is-period-refresh {
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.platform-shell .body {
+  background: transparent;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+  padding-top: 0;
+}
+
+/* Service Bills: fill the scrollport; panel height stays fixed regardless of row count. */
+.platform-shell .main:has(.plat-bills) .main__scroll {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.platform-shell .body:has(.plat-bills) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell .body:has(.plat-bills) .plat-bills {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Invoice list: same fill — table scrolls inside a fixed-height panel. */
+.platform-shell .main:has(.invoice-list) .main__scroll {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.platform-shell .body:has(.invoice-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-shell .body:has(.invoice-list) .invoice-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Agents / Merchants / Accounts: lock pane scroll inside body.
+ * Topbar sits outside this scrollport, so do NOT reserve a scrollbar gutter
+ * here — that empty strip reads as a large right-side gap when nothing scrolls. */
+.platform-shell .main:has(.org-agents--split) .main__scroll,
+.platform-shell .main:has(.org-architecture) .main__scroll {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+

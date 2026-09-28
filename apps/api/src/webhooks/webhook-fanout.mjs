@@ -13,6 +13,14 @@ import {
   dashboardEventFromOutboxRow,
   publishDashboardEvent,
 } from "../events/dashboard-events-hub.mjs";
+import {
+  AgentNotificationEventType,
+  notifyAgentOfOrg,
+  notifyOrderEvent,
+} from "../notifications/notify.mjs";
+
+const PAYMENT_ANOMALY_EVENT = "payment_order.payment_anomaly";
+const PAYMENT_COMPLETED_EVENT = "payment_order.completed";
 
 /**
  * Drain outbox → webhook_deliveries for subscribed merchant endpoints.
@@ -36,6 +44,10 @@ export async function processPaymentOrderWebhookOutbox(opts = {}) {
   const client = await pool.connect();
   /** @type {{ outboxId: string, queued: number }[]} */
   const results = [];
+  /** @type {{ orgId: string, orderNumber: string }[]} */
+  const anomalies = [];
+  /** @type {{ orderId: string, kind: "completed" | "anomaly" }[]} */
+  const orderEmails = [];
   try {
     await client.query("BEGIN");
     const rows = await claim(opts.limit ?? 50, client);
@@ -72,6 +84,18 @@ export async function processPaymentOrderWebhookOutbox(opts = {}) {
 
       await markProcessed(row.id, client);
       results.push({ outboxId: row.id, queued });
+      if (row.order_id && row.event_type === PAYMENT_COMPLETED_EVENT) {
+        orderEmails.push({ orderId: String(row.order_id), kind: "completed" });
+      }
+      if (row.order_id && row.event_type === PAYMENT_ANOMALY_EVENT) {
+        orderEmails.push({ orderId: String(row.order_id), kind: "anomaly" });
+      }
+      if (row.event_type === PAYMENT_ANOMALY_EVENT && row.org_id) {
+        anomalies.push({
+          orgId: String(row.org_id),
+          orderNumber: String(row.order_number ?? row.order_id),
+        });
+      }
 
       // Dashboard SSE (same outbox drain — works even with zero webhook endpoints).
       const live = dashboardEventFromOutboxRow(row);
@@ -85,6 +109,20 @@ export async function processPaymentOrderWebhookOutbox(opts = {}) {
     }
 
     await client.query("COMMIT");
+    for (const e of orderEmails) notifyOrderEvent(e.orderId, e.kind);
+    for (const a of anomalies) {
+      notifyAgentOfOrg(
+        a.orgId,
+        AgentNotificationEventType.MerchantPaymentAnomaly,
+        (merchantName) => ({
+          subject: `Payment anomaly — ${merchantName}`,
+          lines: [
+            `Order ${a.orderNumber} for ${merchantName} needs attention (payment anomaly).`,
+          ],
+          path: "accounts/merchants",
+        }),
+      );
+    }
     return results;
   } catch (err) {
     try {

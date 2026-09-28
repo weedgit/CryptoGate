@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPortalCss } from "./portal-css.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -24,7 +25,7 @@ describe("invite link normalization (web)", () => {
   });
 
   it("invite URL field does not break mid-word in CSS", () => {
-    const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
+    const css = readPortalCss();
     // Prefer the base rule (not platform-shell colour overrides).
     const blocks = [...css.matchAll(/\.invite-creds__value\s*\{([^}]+)\}/g)].map(
       (m) => m[1],

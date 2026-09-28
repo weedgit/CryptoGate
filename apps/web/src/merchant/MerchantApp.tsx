@@ -28,18 +28,9 @@ const MerchantOrdersRoutes = lazyNamed(
   () => import("./MerchantOrdersRoutes"),
   "MerchantOrdersRoutes",
 );
-const ReportsPage = lazyNamed(() => import("./ReportsPage"), "ReportsPage");
-const IntegrationsPage = lazyNamed(
-  () => import("./IntegrationsPage"),
-  "IntegrationsPage",
-);
 const NotificationsSettingsPage = lazyNamed(
   () => import("./NotificationsSettingsPage"),
   "NotificationsSettingsPage",
-);
-const PricingSettingsPage = lazyNamed(
-  () => import("./PricingSettingsPage"),
-  "PricingSettingsPage",
 );
 const TeamSettingsPage = lazyNamed(
   () => import("./TeamSettingsPage"),
@@ -123,7 +114,7 @@ export function MerchantApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate onChanged={setSession} />
+      <ForceChangePasswordGate portalLabel="Merchant portal" onChanged={setSession} />
     );
   }
 
@@ -161,11 +152,7 @@ export function MerchantApp() {
         />
         <Route
           path="settings/integrations"
-          element={
-            <OwnerOnly session={session} area="integrations">
-              <IntegrationsPage session={session} />
-            </OwnerOnly>
-          }
+          element={<Navigate to={merchantRoute("networks")} replace />}
         />
         <Route
           path="settings/settlement"
@@ -192,19 +179,11 @@ export function MerchantApp() {
         />
         <Route
           path="settings/notifications"
-          element={
-            <OwnerOnly session={session} area="notification settings">
-              <NotificationsSettingsPage session={session} />
-            </OwnerOnly>
-          }
+          element={<NotificationsSettingsPage session={session} />}
         />
         <Route
           path="settings/pricing"
-          element={
-            <OwnerOnly session={session} area="pricing settings">
-              <PricingSettingsPage session={session} />
-            </OwnerOnly>
-          }
+          element={<Navigate to={merchantRoute("settings/settlement")} replace />}
         />
         <Route
           path="settings/team"
@@ -250,17 +229,18 @@ export function MerchantApp() {
           }
         />
         <Route
-          path="sites/*"
+          path="sites"
           element={<MerchantSitesRoutes session={session} />}
         />
         <Route
-          path="reports/*"
-          element={
-            <OwnerOnly session={session} area="reports">
-              <ReportsPage session={session} />
-            </OwnerOnly>
-          }
+          path="sites/new"
+          element={<MerchantSitesRoutes session={session} />}
         />
+        <Route
+          path="sites/:id"
+          element={<MerchantSitesRoutes session={session} />}
+        />
+        <Route path="reports/*" element={<Navigate to={merchantRoute()} replace />} />
         <Route
           path="*"
           element={

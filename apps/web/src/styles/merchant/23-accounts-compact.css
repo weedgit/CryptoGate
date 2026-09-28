@@ -1,0 +1,370 @@
+/* Compact Agents (7 cols) / Merchants (6 cols) — fixed rem for Status/Bill so they never clip */
+.platform-shell .org-agents__col-num {
+  width: 1.75rem;
+}
+.platform-shell .org-agents__col-name {
+  width: 26%;
+}
+.platform-shell .org-agents__col-type {
+  width: 6.5rem;
+}
+.platform-shell .org-agents__col-parent {
+  width: auto;
+}
+.platform-shell .org-agents__col-merchants {
+  width: 5.5rem;
+}
+.platform-shell .org-agents__col-payout {
+  width: 6.25rem;
+}
+.platform-shell .org-agents__col-bill {
+  width: 5.75rem;
+}
+.platform-shell .org-agents__col-status {
+  width: 5.25rem;
+}
+
+.platform-shell .org-agents__th-parent,
+.platform-shell .org-agents__td-parent {
+  overflow: visible;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-status,
+.platform-shell .org-agents__table td.org-agents__td-status {
+  width: 5.25rem;
+  min-width: 5.25rem;
+  white-space: nowrap;
+  text-align: right;
+  padding-left: 4px;
+  padding-right: 8px;
+  overflow: visible;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-payout,
+.platform-shell .org-agents__table td.org-agents__td-payout {
+  width: 6.25rem;
+  min-width: 6.25rem;
+  white-space: nowrap;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  overflow: visible;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-bill,
+.platform-shell .org-agents__table td.org-agents__td-bill {
+  width: 5.75rem;
+  min-width: 5.75rem;
+  white-space: nowrap;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  overflow: visible;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-merchants,
+.platform-shell .org-agents__table td.org-agents__num {
+  width: 5.5rem;
+  min-width: 5.5rem;
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow: visible;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-merchants {
+  color: #94a3b8;
+}
+
+.platform-shell .org-agents__th-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+  padding-right: 4px;
+}
+
+.platform-shell .org-agents__table th.org-agents__th-num,
+.platform-shell .org-agents__table td.org-agents__idx {
+  width: 1.75rem;
+  min-width: 1.75rem;
+  max-width: 1.75rem;
+  box-sizing: border-box;
+}
+
+.platform-shell .org-agents__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.platform-shell .org-agents__table th.is-end .org-agents__sort-btn {
+  justify-content: flex-end;
+}
+
+.platform-shell .org-agents__table th.is-sorted,
+.platform-shell .org-agents__sort-btn.is-active {
+  color: #93c5fd;
+}
+
+.platform-shell .org-agents__sort-btn:hover {
+  color: var(--text);
+}
+
+.platform-shell .org-agents__sort-btn.is-active:hover {
+  color: #bfdbfe;
+}
+.platform-shell .org-agents__idx {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding-left: 8px;
+  padding-right: 4px;
+}
+
+.platform-shell .org-agents__row {
+  animation: org-agents-row-in 280ms ease-out both;
+}
+
+.platform-shell .org-agents__table tbody tr:nth-child(odd) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.platform-shell .org-agents__table tbody tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+.platform-shell .org-agents__table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.platform-shell .org-agents__table tbody tr.is-selected td {
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.platform-shell .org-agents__table tbody tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--plat-gold-bright, #fbbf24);
+}
+
+.platform-shell .org-agents__table tbody tr.is-selected:hover td {
+  background: rgba(251, 191, 36, 0.18);
+}
+
+.platform-shell .org-agents__table tbody tr.is-selected .org-agents__name {
+  color: var(--plat-gold-bright, #fbbf24);
+}
+
+@keyframes org-agents-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.platform-shell .org-agents__name {
+  color: var(--text, #f8fafc);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.platform-shell .org-agents__name:hover {
+  color: var(--plat-gold-bright, #fbbf24);
+}
+
+.platform-shell .org-agents__parent {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.platform-shell .org-agents__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: max-content;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.platform-shell .org-agents__status.is-active {
+  color: var(--plat-gold-bright, #fbbf24);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.platform-shell .org-agents__status.is-paused {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.platform-shell .org-agents__payout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: max-content;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.platform-shell .org-agents__payout.is-paid {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .org-agents__payout.is-pending {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .org-agents__payout.is-scheduled {
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+/* Merchant list — open / latest service bill (separate rail from org Status) */
+.platform-shell .org-agents__bill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: max-content;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.platform-shell .org-agents__bill.is-paid {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .org-agents__bill.is-issued {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.platform-shell .org-agents__bill.is-activation {
+  color: #fda4af;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.platform-shell .org-agents__bill.is-activation.is-pulse {
+  animation: plat-bills-overdue-pulse 1.6s ease-in-out infinite;
+}
+
+.platform-shell .org-agents__bill.is-overdue {
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.platform-shell .org-agents__bill.is-overdue.is-pulse {
+  animation: plat-bills-overdue-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .org-agents__bill.is-overdue.is-pulse,
+  .platform-shell .org-agents__bill.is-activation.is-pulse {
+    animation: none;
+  }
+}
+
+.platform-shell .org-agents__list-empty {
+  flex: 1 1 auto;
+  min-height: 320px;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+
+.platform-shell .org-agents__list-empty .b3-empty__copy {
+  max-width: 320px;
+}
+
+.platform-shell .org-agents__list-empty .b3-empty__mark.is-busy {
+  color: rgba(251, 191, 36, 0.85);
+}
+
+.platform-shell .org-agents__list-empty-spinner {
+  /* Size + motion from .cg-spinner */
+}
+
+.platform-shell .org-agents__list-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+  .platform-shell .org-agents__actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .platform-shell .org-agents__search-wrap {
+    width: min(220px, 56vw);
+  }
+}
+

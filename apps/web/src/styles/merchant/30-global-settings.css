@@ -1,0 +1,183 @@
+/* B13 — Global settings (Figma b13-global-settings) */
+:is(.platform-shell, .profile-settings-modal) .plat-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px 20px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__subtitle {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__save {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 8px;
+  background: #00d4c8;
+  color: #0b0f14;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: filter 160ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__save:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__save.is-pulse {
+  animation: plat-settings-save-pulse 400ms ease;
+}
+
+@keyframes plat-settings-save-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 212, 200, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(0, 212, 200, 0);
+  }
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__flash {
+  margin: 0;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__payout-form .btn-primary {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #1e2a36;
+  background: #12181f;
+  animation: plat-settings-card-in 360ms ease both;
+}
+
+@keyframes plat-settings-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__card-note {
+  margin: 0;
+  font-size: 11px;
+  color: #5a6a7a;
+  line-height: 1.4;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 28px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__row-copy {
+  min-width: 0;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__row-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #8a9bb0;
+  line-height: 1.35;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+:is(.platform-shell, .profile-settings-modal) .plat-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+

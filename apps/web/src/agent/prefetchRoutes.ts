@@ -28,5 +28,6 @@ export function prefetchAgentRoute(path: string) {
     else warm(() => import("./CommissionsPage"));
   }
   else if (path === "settings/team") warm(() => import("./TeamSettingsPage"));
-  else if (path === "settings") warm(() => import("./AgentSettingsPage"));
+  else if (path === "settings/notifications")
+    warm(() => import("./AgentNotificationSettings"));
 }

@@ -12,6 +12,10 @@ import {
 import { findUserMfaById } from "../auth/users.mjs";
 import { verifyTotp } from "../auth/totp.mjs";
 import {
+  AgentNotificationEventType,
+  notifyAgentOrg,
+} from "../notifications/notify.mjs";
+import {
   agentPayoutAllowedOnOrgType,
   agentPayoutCooldownMs,
   toAgentPayoutAddress,
@@ -157,6 +161,28 @@ export async function handlePutAgentPayout(req, res, orgId) {
         : null,
     },
   });
+
+  if (result.kind !== "unchanged") {
+    const address = validated.parsed.address;
+    const masked =
+      address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
+    const activatesAt = result.row.pending_activates_at
+      ? new Date(result.row.pending_activates_at).toUTCString()
+      : null;
+    notifyAgentOrg(orgId, AgentNotificationEventType.PayoutWallet, {
+      subject:
+        result.kind === "pending"
+          ? "Payout wallet change requested"
+          : "Payout wallet set",
+      lines: [
+        result.kind === "pending"
+          ? `A new commission payout wallet (${masked}) was requested for ${loaded.org.name}.${activatesAt ? ` It becomes active on ${activatesAt}.` : ""}`
+          : `The commission payout wallet for ${loaded.org.name} is now ${masked}.`,
+        "If you did not make this change, contact support immediately.",
+      ],
+      path: "",
+    });
+  }
 
   sendJson(res, 200, toAgentPayoutAddress(result.row));
 }

@@ -1,5 +1,6 @@
 import type { Session } from "../merchant/api";
 import { agentRoute, merchantRoute } from "../shared/portalRouting";
+import { ORG_EDIT_PARAM, PROFILE_EDIT_PARAM, withEditParam } from "../shared/modalLinks";
 
 /**
  * Live actions unlock after contact + org profile (name, billing email,
@@ -100,15 +101,15 @@ export function setupChecklistItems(
 ): SetupChecklistItem[] {
   const personPath =
     portal === "agent"
-      ? agentRoute("settings")
+      ? withEditParam(agentRoute(), PROFILE_EDIT_PARAM)
       : merchantRoute("settings/security");
   const profilePath =
     portal === "agent"
-      ? agentRoute("settings")
+      ? withEditParam(agentRoute(), ORG_EDIT_PARAM)
       : merchantRoute("settings/team");
   const walletPath =
     portal === "agent"
-      ? agentRoute("settings")
+      ? withEditParam(agentRoute(), ORG_EDIT_PARAM)
       : merchantRoute("settings/settlement");
   const contactPath = personPath;
 

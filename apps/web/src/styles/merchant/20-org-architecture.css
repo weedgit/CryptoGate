@@ -1,0 +1,975 @@
+/* —— Org architecture page —— */
+.platform-shell .org-architecture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Match architecture panes (quiet slate + soft ambient gradient). */
+.platform-shell .org-architecture .panel {
+  background-color: #0d1624;
+  background-image:
+    radial-gradient(
+      ellipse 80% 48% at 50% -8%,
+      rgba(56, 189, 248, 0.04) 0%,
+      transparent 65%
+    ),
+    linear-gradient(180deg, #121c2c 0%, #0d1624 55%, #0b1420 100%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.platform-shell .org-architecture__workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.platform-shell .org-architecture__map {
+  display: grid;
+  /* Hierarchy ~40% of the content area */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  justify-content: stretch;
+  align-content: stretch;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  /* visible so tree rails aren't clipped when the tree column is narrow */
+  overflow: visible;
+}
+
+.platform-shell .org-architecture__orphans {
+  margin: 0;
+}
+
+.platform-shell .org-architecture__tree-pane,
+.platform-shell .org-architecture__detail-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Detail pane can clip; tree pane must NOT — overflow:hidden hides root rails
+ * in the 2-column (wide) layout while stacked (narrow) looked fine. */
+.platform-shell .org-architecture__tree-pane {
+  overflow: visible;
+  container-type: inline-size;
+  container-name: org-tree;
+}
+
+.platform-shell .org-architecture__detail-pane {
+  overflow: hidden;
+}
+
+.platform-shell .org-architecture__tree-pane {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+  /* Opacity-only enter — transform + overflow:hidden clips tree rails when stacked */
+  animation: org-arch-fade-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
+  background-color: #0c1522;
+  background-image:
+    radial-gradient(
+      ellipse 80% 42% at 14% -4%,
+      rgba(56, 189, 248, 0.05) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 65% 38% at 90% 108%,
+      rgba(45, 212, 191, 0.035) 0%,
+      transparent 70%
+    ),
+    linear-gradient(
+      165deg,
+      #121c2c 0%,
+      #0e1826 45%,
+      #0b1420 100%
+    );
+  background-repeat: no-repeat;
+}
+
+.platform-shell .org-architecture__detail-pane {
+  width: 100%;
+  min-width: 0;
+  animation: org-arch-from-right 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 180ms;
+  background-color: #0d1624;
+  background-image:
+    radial-gradient(
+      ellipse 55% 40% at 96% 0%,
+      rgba(253, 230, 138, 0.02) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 58% 36% at 72% 100%,
+      rgba(56, 189, 248, 0.025) 0%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      #131e2e 0%,
+      #0f1928 48%,
+      #0c1522 100%
+    );
+  background-repeat: no-repeat;
+}
+
+.platform-shell .org-architecture__pane-head {
+  flex-shrink: 0;
+  /* Tight to control height (selects/icons ~30px) — was 12px and felt loose */
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  background-color: transparent;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0.01) 55%,
+    transparent 100%
+  );
+}
+
+.platform-shell .org-architecture__pane-head--row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 30px;
+}
+
+.platform-shell .org-architecture__pane-title-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.platform-shell .org-architecture__pane-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.platform-shell .org-architecture__pane-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #94a3b8;
+}
+
+/* Nav icons use mask fills in the sidebar; here we need the stroke SVG itself. */
+.platform-shell .org-architecture__pane-mark .nav-item-icon {
+  width: 20px;
+  height: 20px;
+  background: none !important;
+  background-color: transparent !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  color: inherit;
+}
+
+.platform-shell .org-architecture__pane-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.platform-shell .org-architecture__pane-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.45);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.platform-shell .org-architecture__pane-sub {
+  margin: 0;
+  max-width: 42ch;
+  padding-left: 30px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .org-architecture__pane-toolbar {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  align-self: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+  max-width: 100%;
+  min-height: 30px;
+}
+
+.platform-shell .org-architecture__pane-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Pane filters — same dark combobox language as dashboard volume filters */
+.platform-shell .org-architecture__pane-filter .searchable-select {
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  flex: 0 0 auto;
+}
+
+.platform-shell .org-architecture__pane-filter .searchable-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: max-content;
+  min-width: max-content;
+  max-width: 168px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 10px 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: #141a24;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.platform-shell .org-architecture__pane-filter .searchable-select__value,
+.platform-shell .org-architecture__pane-filter .searchable-select__value-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.platform-shell .org-architecture__pane-filter .searchable-select.is-open .searchable-select__trigger,
+.platform-shell .org-architecture__pane-filter .searchable-select__trigger:hover {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #f8fafc;
+}
+
+.platform-shell .org-architecture__pane-filter .searchable-select__trigger:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.55);
+  outline-offset: 1px;
+}
+
+.platform-shell .org-architecture__pane-filter .searchable-select__caret {
+  border-top-color: #94a3b8;
+}
+
+/* Right-click org tree actions — doc/image/drop_menu.png */
+.org-architecture__ctx-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 220px;
+  padding: 6px;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 20, 28, 0.96);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+}
+
+.org-architecture__ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.org-architecture__ctx-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #f1f5f9;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.org-architecture__ctx-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.org-architecture__ctx-label {
+  line-height: 1.2;
+}
+
+.org-architecture__ctx-hint {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.org-architecture__ctx-icon {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 0;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+}
+
+.org-architecture__ctx-icon--add {
+  background: rgba(240, 180, 41, 0.16);
+  color: #fbbf24;
+}
+
+.org-architecture__ctx-icon--suspend {
+  background: rgba(240, 180, 41, 0.18);
+  color: #fbbf24;
+}
+
+.org-architecture__ctx-icon--active {
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+}
+
+.org-architecture__ctx-icon--danger {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fb7185;
+}
+
+.org-architecture__ctx-item:hover,
+.org-architecture__ctx-item:focus-visible {
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+}
+
+.org-architecture__ctx-item--suspend:hover,
+.org-architecture__ctx-item--suspend:focus-visible,
+.org-architecture__ctx-item--active:hover,
+.org-architecture__ctx-item--active:focus-visible {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(240, 180, 41, 0.08);
+  color: #fbbf24;
+}
+
+.org-architecture__ctx-item--danger:hover,
+.org-architecture__ctx-item--danger:focus-visible {
+  border-color: transparent;
+  background: rgba(127, 29, 29, 0.55);
+  color: #fecaca;
+}
+
+.org-architecture__ctx-item--danger:hover .org-architecture__ctx-hint,
+.org-architecture__ctx-item--danger:focus-visible .org-architecture__ctx-hint {
+  color: rgba(254, 202, 202, 0.78);
+}
+
+.org-architecture__ctx-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.platform-shell .org-architecture__pane-tree-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-shell .org-architecture__pane-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.platform-shell .org-architecture__pane-icon-btn:hover,
+.platform-shell .org-architecture__pane-icon-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+/* Fallback active tone (specific --status- / --pay- rules below win) */
+.platform-shell .org-architecture__pane-icon-btn.is-active {
+  color: #042f2e;
+  background: var(--teal, #00d4c8);
+  box-shadow: 0 0 0 1px rgba(0, 212, 200, 0.35);
+}
+
+/* Org status — tinted at rest, solid when active */
+
+/* Payment status — tinted at rest, solid when active */
+
+.platform-shell .org-architecture__pane-tree-btns + .org-architecture__pane-tree-btns {
+  margin-left: 0;
+  padding-left: 2px;
+  border-left: 0;
+}
+
+.platform-shell .org-architecture__tree-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 8px 14px 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.platform-shell .org-architecture__tree-foot-summary {
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .org-architecture__tree-foot-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.platform-shell .org-architecture__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
+  animation: org-arch-live-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes org-arch-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.08);
+  }
+}
+
+.platform-shell .org-architecture__tree-scroll,
+.platform-shell .org-architecture__detail-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* Rows contain their own overflow (meta); keep x hidden so the pane
+   * never becomes a horizontal scrollport that fights the left rails. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.32) transparent;
+}
+
+.platform-shell .org-architecture__tree-scroll::-webkit-scrollbar,
+.platform-shell .org-architecture__detail-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.platform-shell .org-architecture__tree-scroll::-webkit-scrollbar-track,
+.platform-shell .org-architecture__detail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.platform-shell .org-architecture__tree-scroll::-webkit-scrollbar-thumb,
+.platform-shell .org-architecture__detail-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.22);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.platform-shell .org-architecture__tree-scroll::-webkit-scrollbar-thumb:hover,
+.platform-shell .org-architecture__detail-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.38);
+  background-clip: padding-box;
+}
+
+.platform-shell .org-architecture__detail-scroll {
+  padding: 12px 14px 16px;
+  /* Inherit pane surface — match dashboard panels */
+  background: transparent;
+  background-image: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100%;
+}
+
+.platform-shell .org-architecture__detail-scroll:has(> .platform-detail) {
+  /* Hero bleeds to pane edges; keep bottom pad only */
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 14px;
+}
+
+.platform-shell .org-architecture__detail-scroll:has(> .platform-detail) > .platform-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100%;
+  height: auto;
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 12px;
+  overflow-x: hidden;
+}
+
+.platform-shell .org-architecture__detail-scroll:has(> .platform-detail) > .platform-detail > .platform-detail__body {
+  margin-left: 14px;
+  margin-right: 14px;
+  width: auto;
+  min-width: 0;
+  max-width: calc(100% - 28px);
+  box-sizing: border-box;
+}
+
+.platform-shell .org-architecture__tree-scroll {
+  padding: 6px 8px 10px;
+  border: 0;
+  border-radius: 0;
+  /* Inherit pane surface — match dashboard panels */
+  background: transparent;
+  background-image: none;
+  outline: none;
+}
+
+.platform-shell .org-architecture__tree-scroll:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(45, 212, 191, 0.35);
+}
+
+.platform-shell .org-architecture__row.is-selected {
+  background-color: rgba(20, 40, 58, 0.2);
+  background-image: linear-gradient(
+    90deg,
+    rgba(45, 212, 191, 0.22) 0%,
+    rgba(45, 212, 191, 0.1) 40%,
+    rgba(20, 40, 58, 0.08) 100%
+  );
+  box-shadow:
+    inset 2px 0 0 rgba(45, 212, 191, 0.8),
+    inset 0 1px 0 rgba(94, 234, 212, 0.12);
+}
+
+.platform-shell .org-architecture__row:hover:not(.is-selected) {
+  background-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.04) 100%
+  );
+}
+
+.platform-shell .org-architecture__row.is-selected:hover {
+  background-color: rgba(20, 40, 58, 0.22);
+  background-image: linear-gradient(
+    90deg,
+    rgba(45, 212, 191, 0.28) 0%,
+    rgba(45, 212, 191, 0.12) 40%,
+    rgba(20, 40, 58, 0.1) 100%
+  );
+}
+
+/* Full-row hover owns the highlight — don't paint just the name. */
+.platform-shell .org-architecture__row .b3-accounts__name:hover {
+  background: transparent;
+}
+
+.platform-shell .org-architecture__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.platform-shell .org-architecture .b3-accounts__row.org-architecture__row {
+  /* No gap before chevron — caret must sit on the parent rail, not under the badge.
+   * Spacing to badge/name comes from chevron margin-right. */
+  --tree-row-gap: 0px;
+  min-height: 34px;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 8px;
+  gap: 0;
+  /* Do NOT overflow:hidden here — it clips stem/fork rails in Chrome. */
+  overflow: visible;
+}
+
+.platform-shell .org-architecture .b3-accounts__chevron {
+  margin-right: 8px;
+}
+
+.platform-shell .org-architecture .b3-accounts__badge {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  box-shadow: 0 0 10px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.platform-shell .org-architecture__row-meta {
+  display: grid;
+  grid-template-columns: 28px 76px 64px 78px;
+  align-items: center;
+  justify-items: start;
+  column-gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 20px;
+  margin-left: auto;
+  margin-right: 2px;
+  overflow: hidden;
+}
+
+/* Narrow tree column (wide window / 2-col map): shed meta before it overflows */
+@container org-tree (max-width: 560px) {
+  .platform-shell .org-architecture__meta-onboard {
+    display: none;
+  }
+
+  .platform-shell .org-architecture__row-meta {
+    grid-template-columns: 28px 64px 78px;
+  }
+}
+
+@container org-tree (max-width: 440px) {
+  .platform-shell .org-architecture__meta-status,
+  .platform-shell .org-architecture__meta-budget {
+    display: none;
+  }
+
+  .platform-shell .org-architecture__row-meta {
+    grid-template-columns: 28px;
+  }
+}
+
+@container org-tree (max-width: 360px) {
+  .platform-shell .org-architecture__row-meta {
+    display: none;
+  }
+}
+
+.platform-shell .org-architecture__meta-count,
+.platform-shell .org-architecture__meta-onboard,
+.platform-shell .org-architecture__meta-status,
+.platform-shell .org-architecture__meta-budget {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  height: 20px;
+}
+
+.platform-shell .org-architecture__onboard-date {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #94a3b8;
+  white-space: nowrap;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-shell .org-architecture__onboard-date.is-empty {
+  color: #64748b;
+}
+
+.platform-shell .org-architecture__budget {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 18px;
+  min-height: 18px;
+  padding: 0 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+}
+
+/* Pay / commission chips — fixed width in the architecture rail (PENDING…OVERDUE) */
+.platform-shell .org-architecture .org-architecture__meta-budget {
+  justify-content: stretch;
+  width: 100%;
+}
+
+.platform-shell .org-architecture .org-architecture__meta-budget .org-architecture__budget,
+.platform-shell .org-architecture .org-architecture__meta-budget .org-agents__payout,
+.platform-shell .org-architecture .org-architecture__meta-budget .org-agents__bill {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0 4px;
+}
+
+/* Account status chips — match mockup (ACTIVE green, PAUSED slate) */
+.platform-shell .org-architecture .org-agents__status.is-active {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.42);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.platform-shell .org-architecture .org-agents__status.is-paused {
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.platform-shell .org-architecture__budget--empty {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+  border-color: transparent;
+  background: transparent;
+  text-align: center;
+}
+
+.platform-shell .org-architecture__child-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.platform-shell .org-architecture__name:has(.org-architecture__cashier-count) {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-shell .org-architecture__cashier-count {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.14);
+}
+
+html[data-theme="light"] .platform-shell .org-architecture__cashier-count {
+  color: #6d28d9;
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.platform-shell .org-architecture__detail-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 32px 24px;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.platform-shell .org-architecture__detail-inner--dense {
+  gap: 14px;
+  padding: 18px 20px 16px;
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__detail-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__detail-title {
+  padding-top: 6px;
+  font-size: 15px;
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__detail-head {
+  gap: 10px;
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__section-title {
+  margin: 0 0 8px;
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__cta {
+  padding: 10px 14px;
+  width: min(100%, 280px);
+}
+
+.platform-shell .org-architecture__detail-inner--dense .org-architecture__detail-foot {
+  padding-top: 8px;
+}
+
+.platform-shell .org-architecture__stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.platform-shell .org-architecture__stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 8px 6px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+}
+
+.platform-shell .org-architecture__stat-pill-value {
+  font-size: 14px;
+  font-weight: 650;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.platform-shell .org-architecture__stat-pill-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.platform-shell .org-architecture__stat-pill-sub {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #94a3b8;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+

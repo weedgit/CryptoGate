@@ -1,0 +1,809 @@
+/* —— Fees (single page, Rates-aligned) —— */
+/* Dark tokens below are locked. Light overrides live in html[data-theme="light"]. */
+.platform-shell .plat-fees {
+  --fees-panel: #0d1a2a;
+  --fees-border: rgba(120, 160, 190, 0.16);
+  --fees-gold: #f0b429;
+  --fees-gold-bright: #ffd36a;
+  --fees-title: #f8fafc;
+  --fees-muted: #8a9bb0;
+  --fees-input-bg: rgba(0, 0, 0, 0.35);
+  --fees-input-border: rgba(120, 160, 190, 0.28);
+  --fees-rule: rgba(120, 160, 190, 0.14);
+  --fees-guide-h: #cbd5e1;
+  --fees-guide-strong: #e2e8f0;
+  --fees-formula-fg: #fde68a;
+  --fees-formula-border: rgba(240, 180, 41, 0.22);
+  --fees-formula-bg: rgba(240, 180, 41, 0.06);
+  --fees-example-bg: rgba(0, 0, 0, 0.22);
+  --fees-example-border: rgba(120, 160, 190, 0.14);
+  --fees-example-fg: #94a3b8;
+  --fees-tier-bg: rgba(0, 0, 0, 0.22);
+  --fees-tier-border: rgba(120, 160, 190, 0.14);
+  --fees-dirty-fg: #fde68a;
+  --fees-dirty-border: rgba(240, 180, 41, 0.4);
+  --fees-dirty-bg: rgba(240, 180, 41, 0.1);
+  --fees-select-menu-bg: #0a1524;
+  --fees-select-option: #e2e8f0;
+  --fees-select-chevron: #94a3b8;
+  --fees-embed-bg: rgba(0, 0, 0, 0.18);
+  --fees-embed-border: rgba(120, 160, 190, 0.14);
+  --fees-foot-rule: rgba(120, 160, 190, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.platform-shell .plat-fees__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 16px;
+  align-items: start;
+}
+
+.platform-shell .plat-fees__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.platform-shell .plat-fees__head-main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .plat-fees__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--fees-title);
+}
+
+.platform-shell .plat-fees__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.platform-shell .plat-fees__guide {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 16px 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--fees-border);
+  background: var(--fees-panel);
+  scrollbar-width: thin;
+}
+
+.platform-shell .plat-fees__guide-head {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--fees-rule);
+}
+
+.platform-shell .plat-fees__guide-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--fees-gold-bright);
+}
+
+.platform-shell .plat-fees__guide-lede {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__guide-block {
+  margin: 0 0 14px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--fees-rule);
+}
+
+.platform-shell .plat-fees__guide-block:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.platform-shell .plat-fees__guide-block h3 {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--fees-guide-h);
+}
+
+.platform-shell .plat-fees__guide-block p {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__guide-block p:last-child {
+  margin-bottom: 0;
+}
+
+.platform-shell .plat-fees__guide-block strong {
+  color: var(--fees-guide-strong);
+  font-weight: 650;
+}
+
+.platform-shell .plat-fees__guide-formula {
+  margin: 8px 0 !important;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--fees-formula-border);
+  background: var(--fees-formula-bg);
+  color: var(--fees-formula-fg) !important;
+  font-family: var(--font-mono);
+  font-size: 11.5px !important;
+  line-height: 1.55 !important;
+}
+
+.platform-shell .plat-fees__guide-example {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--fees-example-border);
+  background: var(--fees-example-bg);
+}
+
+.platform-shell .plat-fees__guide-example strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  color: var(--fees-gold-bright);
+}
+
+.platform-shell .plat-fees__guide-example p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fees-example-fg);
+}
+
+.platform-shell .plat-fees__guide-example b {
+  color: var(--fees-guide-strong);
+  font-weight: 650;
+}
+
+.platform-shell .plat-fees__panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px 16px;
+  align-items: start;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--fees-border);
+  background: var(--fees-panel);
+  scroll-margin-top: 24px;
+}
+
+.platform-shell .plat-fees__panel-top {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 12px;
+  position: relative;
+}
+
+.platform-shell .plat-fees__panel-top .plat-fees__save {
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.platform-shell .plat-fees__panel-top::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  border-radius: 0;
+  background: var(--fees-rule);
+}
+
+.platform-shell .plat-fees__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(240, 180, 41, 0.14);
+  color: var(--fees-gold);
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-fees__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.platform-shell .plat-fees__panel-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.platform-shell .plat-fees__panel-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--fees-title);
+}
+
+.platform-shell .plat-fees__panel-sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__schedule,
+.platform-shell .plat-fees__panel--block > .plat-fee-billing,
+.platform-shell .plat-fees__panel--block > .plat-billing-calendar {
+  grid-column: 1 / -1;
+}
+
+.platform-shell .plat-fees__dirty {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--fees-dirty-border);
+  background: var(--fees-dirty-bg);
+  color: var(--fees-dirty-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.platform-shell .plat-fees__tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.platform-shell .plat-fees__tier {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--fees-tier-border);
+  background: var(--fees-tier-bg);
+}
+
+.platform-shell .plat-fees__tier--small {
+  border-color: rgba(96, 165, 250, 0.22);
+}
+
+.platform-shell .plat-fees__tier--mid {
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.platform-shell .plat-fees__tier--enterprise {
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.platform-shell .plat-fees__tier.is-popular {
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.18);
+}
+
+.platform-shell .plat-fees__tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.platform-shell .plat-fees__tier-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--fees-title);
+}
+
+.platform-shell .plat-fees__tier--small .plat-fees__tier-head h3 {
+  color: #93c5fd;
+}
+
+.platform-shell .plat-fees__tier--mid .plat-fees__tier-head h3 {
+  color: #6ee7b7;
+}
+
+.platform-shell .plat-fees__tier--enterprise .plat-fees__tier-head h3 {
+  color: #fcd34d;
+}
+
+.platform-shell .plat-fees__tier-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.platform-shell .plat-fees__tier-band {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__tier-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.platform-shell .plat-fees__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.platform-shell .plat-fees__field--wide {
+  grid-column: 1 / -1;
+}
+
+.platform-shell .plat-fees__field > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__field input,
+.platform-shell .plat-fees__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--fees-input-border);
+  background: var(--fees-input-bg);
+  color: var(--fees-title);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-shell .plat-fees__field textarea {
+  font-family: var(--font-ui);
+  resize: vertical;
+  min-height: 56px;
+}
+
+.platform-shell .plat-fees__field input:focus,
+.platform-shell .plat-fees__field textarea:focus {
+  outline: none;
+  border-color: rgba(240, 180, 41, 0.55);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-fees__field input:disabled,
+.platform-shell .plat-fees__field textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-fees__schedule-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fees-foot-rule);
+}
+
+.platform-shell .plat-fees__timing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(320px, 100%);
+  position: relative;
+}
+
+.platform-shell .plat-fees__timing > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__select {
+  position: relative;
+  width: 100%;
+}
+
+.platform-shell .plat-fees__select-trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--fees-input-border);
+  background: var(--fees-input-bg);
+  color: var(--fees-title);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.platform-shell .plat-fees__select-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-fees__select-trigger svg {
+  flex-shrink: 0;
+  color: var(--fees-select-chevron);
+}
+
+.platform-shell .plat-fees__select.is-open .plat-fees__select-trigger,
+.platform-shell .plat-fees__select-trigger:hover:not(:disabled) {
+  border-color: rgba(240, 180, 41, 0.55);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-fees__select.is-open .plat-fees__select-trigger svg {
+  color: var(--fees-gold-bright);
+  transform: rotate(180deg);
+}
+
+.platform-shell .plat-fees__select-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-fees__select-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  background: var(--fees-select-menu-bg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.platform-shell .plat-fees__select-option {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fees-select-option);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.platform-shell .plat-fees__select-option:hover {
+  background: rgba(240, 180, 41, 0.12);
+  color: var(--fees-title);
+}
+
+.platform-shell .plat-fees__select-option.is-active {
+  background: rgba(240, 180, 41, 0.18);
+  color: var(--fees-gold-bright);
+}
+
+.platform-shell .plat-fees__schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-shell .plat-fees__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fees-muted);
+}
+
+.platform-shell .plat-fees__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.55);
+  background: transparent;
+  color: var(--fees-gold-bright);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.platform-shell .plat-fees__save svg {
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-fees__save:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.1);
+  border-color: rgba(240, 180, 41, 0.75);
+}
+
+.platform-shell .plat-fees__save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-fee-billing--embedded .plat-fee-billing__card,
+.platform-shell .plat-billing-calendar--embedded .plat-billing-calendar__fieldset {
+  border-color: var(--fees-embed-border);
+  background: var(--fees-embed-bg);
+  box-shadow: none;
+}
+
+.platform-shell .plat-fee-billing--embedded .plat-fee-bands__actions,
+.platform-shell .plat-billing-calendar--embedded .plat-billing-calendar__actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--fees-foot-rule);
+}
+
+.platform-shell .plat-billing-calendar--embedded .plat-billing-calendar__actions {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .plat-fees__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-fees__guide {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .platform-shell .plat-fees__tier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .plat-fees__panel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .platform-shell .plat-fees__tier-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fees — light mode (dark tokens above stay locked) */
+html[data-theme="light"] .platform-shell .plat-fees {
+  --fees-panel: #ffffff;
+  --fees-border: #d8dee8;
+  --fees-gold: #b45309;
+  --fees-gold-bright: #b45309;
+  --fees-title: #0f172a;
+  --fees-muted: #64748b;
+  --fees-input-bg: #f8fafc;
+  --fees-input-border: #cbd5e1;
+  --fees-rule: #e2e8f0;
+  --fees-guide-h: #334155;
+  --fees-guide-strong: #0f172a;
+  --fees-formula-fg: #92400e;
+  --fees-formula-border: rgba(180, 83, 9, 0.28);
+  --fees-formula-bg: #fffbeb;
+  --fees-example-bg: #f8fafc;
+  --fees-example-border: #e2e8f0;
+  --fees-example-fg: #64748b;
+  --fees-tier-bg: #f8fafc;
+  --fees-tier-border: #e2e8f0;
+  --fees-dirty-fg: #92400e;
+  --fees-dirty-border: rgba(180, 83, 9, 0.35);
+  --fees-dirty-bg: #fffbeb;
+  --fees-select-menu-bg: #ffffff;
+  --fees-select-option: #0f172a;
+  --fees-select-chevron: #64748b;
+  --fees-embed-bg: #f8fafc;
+  --fees-embed-border: #e2e8f0;
+  --fees-foot-rule: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__panel,
+html[data-theme="light"] .platform-shell .plat-fees__guide {
+  background: #ffffff;
+  border-color: #d8dee8;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__card,
+html[data-theme="light"] .platform-shell .plat-fees .plat-billing-calendar__fieldset {
+  background: #ffffff;
+  border-color: #d8dee8;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__icon {
+  background: rgba(180, 83, 9, 0.1);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--small {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--mid {
+  border-color: rgba(5, 150, 105, 0.28);
+  background: linear-gradient(180deg, #ecfdf5 0%, #f8fafc 100%);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--enterprise {
+  border-color: rgba(180, 83, 9, 0.3);
+  background: linear-gradient(180deg, #fffbeb 0%, #f8fafc 100%);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--small .plat-fees__tier-head h3 {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--mid .plat-fees__tier-head h3 {
+  color: #047857;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier--enterprise .plat-fees__tier-head h3 {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier-badge {
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(5, 150, 105, 0.1);
+  color: #047857;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__tier.is-popular {
+  box-shadow: 0 0 0 1px rgba(5, 150, 105, 0.22);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__select-menu {
+  border-color: #d8dee8;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__select-option:hover {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__select-option.is-active {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__save {
+  border-color: rgba(180, 83, 9, 0.45);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees__save:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: rgba(180, 83, 9, 0.7);
+  color: #92400e;
+}
+
+/* Fees remittance / calendar foot actions */
+html[data-theme="light"] .platform-shell .plat-fee-bands__actions,
+html[data-theme="light"] .platform-shell .plat-fee-billing--embedded .plat-fee-bands__actions,
+html[data-theme="light"] .platform-shell .plat-billing-calendar--embedded .plat-billing-calendar__actions {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .plat-fee-bands__actions-note {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-fee-bands__save.btn-primary {
+  background: #fffbeb;
+  border-color: rgba(180, 83, 9, 0.45);
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__card-head h3,
+html[data-theme="light"] .platform-shell .plat-fees .plat-billing-calendar__legend {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__card-head p {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__card-head p strong {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__rail-chip {
+  border-color: #d8dee8;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__rail-sep {
+  color: #94a3b8;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .plat-fee-billing__bills-link {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .field-shell,
+html[data-theme="light"] .platform-shell .plat-fees .b4-field__control,
+html[data-theme="light"] .platform-shell .plat-fees .cg-number-stepper__input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .b4-field__label {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .cg-number-stepper__spin,
+html[data-theme="light"] .platform-shell .plat-fees .cg-number-stepper__btn {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+html[data-theme="light"] .platform-shell .plat-fees .cg-number-stepper__btn:hover:not(:disabled) {
+  background: #fffbeb;
+  color: #b45309;
+}
+

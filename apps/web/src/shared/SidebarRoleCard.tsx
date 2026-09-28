@@ -95,13 +95,40 @@ export function SidebarRoleCard({ session, portal, collapsed = false }: Props) {
           </span>
         ) : (
           <>
-            <span className="sidebar-role__head">
-              <RoleBadge role={info.role} label={info.label} />
-              <span className="sidebar-role__more" aria-hidden>
-                Permissions
+            <span className="sidebar-role__row">
+              <span className={`sidebar-role__icon tone-${roleTone(info.role)}`} aria-hidden>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path
+                    d="M12 3l7 3v5.5c0 4.3-2.9 8-7 9.5-4.1-1.5-7-5.2-7-9.5V6z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 12l2.2 2.2L15.2 10"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <span className="sidebar-role__text">
+                <span className="sidebar-role__name">{info.label}</span>
+                <span className="sidebar-role__summary">{info.summary}</span>
+              </span>
+              <span className="sidebar-role__chev" aria-hidden>
+                <svg viewBox="0 0 12 12" width="12" height="12" fill="none">
+                  <path
+                    d="M2.75 7.5L6 4.25L9.25 7.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </span>
             </span>
-            <span className="sidebar-role__summary">{info.summary}</span>
             {locked ? (
               <span className="sidebar-role__locked">Watch-only · finish setup</span>
             ) : null}

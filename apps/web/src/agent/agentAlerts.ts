@@ -9,12 +9,15 @@ import { formatCountdown } from "../merchant/org";
 import { getCommissionPayoutsSummary } from "../shared/commissionsServer";
 import { createConditionAlertGroup } from "../shared/conditionAlerts";
 import { agentRoute } from "../shared/portalRouting";
+import { ORG_EDIT_PARAM, withEditParam } from "../shared/modalLinks";
 import { getAgentPayout, type Session } from "./api";
+import { agentInAppEnabled, loadAgentNotificationPrefs } from "./agentNotificationPrefs";
 import { primaryAgentOrgId, sessionCanOnboardMerchant } from "./org";
 
 const publish = createConditionAlertGroup();
 
 export function clearAgentAlerts(): void {
+  lastSession = null;
   publish([]);
 }
 
@@ -44,7 +47,7 @@ function payoutPendingAlert(orgId: string, activatesAt: string): AlertItem {
       ? `New commission payout wallet activates in ${remaining}. Until then, payouts still go to the current wallet.`
       : `New commission payout wallet activates ${formatShortTime(activatesAt)}. Until then, payouts still go to the current wallet.`,
     at: formatShortTime(activatesAt),
-    href: agentRoute("settings"),
+    href: withEditParam(agentRoute(), ORG_EDIT_PARAM),
     hrefLabel: "Settings",
     tone: "warn",
     urgent: false,
@@ -77,8 +80,16 @@ function stuckCommissionsAlert(
   };
 }
 
+let lastSession: Session | null = null;
+
+/** Re-run with the last session (e.g. after notification prefs change). */
+export function rerunAgentAlerts(): void {
+  if (lastSession) void refreshAgentAlerts(lastSession);
+}
+
 /** Recompute agent condition alerts (setup, payout cool-down, stuck commissions). */
 export async function refreshAgentAlerts(session: Session): Promise<void> {
+  lastSession = session;
   const orgId = primaryAgentOrgId(session);
   if (!orgId) {
     publish([]);
@@ -87,14 +98,15 @@ export async function refreshAgentAlerts(session: Session): Promise<void> {
   const items: AlertItem[] = [];
   if (sessionNeedsOrgSetup(session)) items.push(setupAlert(orgId, session));
 
-  const [payout, summary] = await Promise.all([
+  const [payout, summary, prefs] = await Promise.all([
     getAgentPayout(orgId).catch(() => null),
     getCommissionPayoutsSummary({ payeeOrgId: orgId }).catch(() => null),
+    loadAgentNotificationPrefs(orgId).catch(() => null),
   ]);
-  if (payout?.pendingActivatesAt) {
+  if (payout?.pendingActivatesAt && agentInAppEnabled(prefs, "payout_wallet")) {
     items.push(payoutPendingAlert(orgId, payout.pendingActivatesAt));
   }
-  if (summary && summary.stuckPaid > 0) {
+  if (summary && summary.stuckPaid > 0 && agentInAppEnabled(prefs, "commission_paid")) {
     items.push(
       stuckCommissionsAlert(orgId, summary.stuckPaid, sessionCanOnboardMerchant(session)),
     );

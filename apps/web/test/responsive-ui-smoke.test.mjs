@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPortalCss } from "./portal-css.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const css = readFileSync(join(root, "src/styles/merchant.css"), "utf8");
+const css = readPortalCss();
 const platformShell = readFileSync(
   join(root, "src/platform/PlatformShell.tsx"),
   "utf8",

@@ -54,3 +54,29 @@ export function billingScheduleSummary(
   }
   return pending.join(" · ");
 }
+
+/** Schedule band for settled volume this billing month. */
+export function tierForMonthlyVolume(
+  volumeUsd: number,
+  tiers: ReadonlyArray<{ tier: string; volumeMinUsd?: string; volumeMaxUsd?: string | null }>,
+): string | null {
+  if (tiers.length === 0) return null;
+  const vol = Number.isFinite(volumeUsd) ? volumeUsd : 0;
+  const rank: Record<string, number> = { enterprise: 3, mid: 2, small: 1 };
+  const match = tiers
+    .map((row) => ({
+      tier: row.tier,
+      min: Number(row.volumeMinUsd ?? 0),
+      max:
+        row.volumeMaxUsd == null || row.volumeMaxUsd === ""
+          ? null
+          : Number(row.volumeMaxUsd),
+    }))
+    .filter((band) => {
+      if (!Number.isFinite(band.min) || vol < band.min) return false;
+      if (band.max != null && Number.isFinite(band.max) && vol >= band.max) return false;
+      return true;
+    })
+    .sort((a, b) => (rank[b.tier] ?? 0) - (rank[a.tier] ?? 0))[0];
+  return match?.tier ?? "small";
+}

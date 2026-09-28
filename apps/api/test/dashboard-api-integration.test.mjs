@@ -117,10 +117,12 @@ describePg("dashboard aggregates (Postgres integration)", () => {
     ids.m1 = await org("merchant", `${prefix}-m1`, ids.agent);
     ids.s1 = await org("merchant_site", `${prefix}-s1`, ids.m1);
     ids.m2 = await org("merchant", `${prefix}-m2`, platform.id);
+    ids.emptyAgent = await org("agent", `${prefix}-empty-agent`, platform.id);
     await getPool().query(`UPDATE org_accounts SET created_at = '2026-05-11T12:00:00Z' WHERE id = $1`, [ids.m1]);
 
     await user("platform", platform.id, "owner");
     await user("agent", ids.agent, "owner");
+    await user("emptyAgent", ids.emptyAgent, "owner");
     const m1Owner = await user("m1", ids.m1, "owner");
     const cashier = await user("cashier", ids.m1, "cashier");
     const m2Owner = await user("m2", ids.m2, "owner");
@@ -284,6 +286,20 @@ describePg("dashboard aggregates (Postgres integration)", () => {
     assert.deepEqual(eth.series, [0, 0, 3000, 3000, 3000, 3000, 3000]);
     const usdt = json.pairs.find((p) => p.asset === "USDT" && p.network === "tron");
     assert.equal(usdt.series[0], 1.0002);
+    assert.equal(eth.source, "quotes");
+  });
+
+  it("agent with no quotes falls back to platform market rates without counts", async () => {
+    const { status, json } = await get(
+      "emptyAgent",
+      `/v1/dashboard/rates?${WEEK}&orgId=${ids.emptyAgent}`,
+    );
+    assert.equal(status, 200);
+    const eth = json.pairs.find((p) => p.asset === "ETH" && p.network === "ethereum");
+    assert.ok(eth, "ETH/ethereum market rate present");
+    assert.equal(eth.source, "market");
+    assert.equal(eth.quoteCount, null);
+    assert.ok(eth.latest > 0);
   });
 
   it("org cards sum subtree volume and paid fees", async () => {

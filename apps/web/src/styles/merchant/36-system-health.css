@@ -1,0 +1,399 @@
+/* —— B17 System Health (ops) —— */
+.platform-shell .plat-ops-health {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@keyframes plat-ops-health-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plat-ops-health-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes plat-ops-health-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.platform-shell .plat-ops-health__stack > .plat-ops-health__card:first-child {
+  animation: plat-ops-health-from-left 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
+}
+
+.platform-shell .plat-ops-health__stack > .plat-ops-health__card:last-child {
+  animation: plat-ops-health-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 180ms;
+}
+
+.platform-shell .plat-ops-health__panels > .plat-ops-health__card {
+  animation: plat-ops-health-from-right 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 160ms;
+}
+
+.platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr {
+  animation: plat-ops-health-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr:nth-child(1) {
+  animation-delay: 60ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr:nth-child(2) {
+  animation-delay: 110ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr:nth-child(3) {
+  animation-delay: 160ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr:nth-child(n + 4) {
+  animation-delay: 200ms;
+}
+
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr {
+  animation: plat-ops-health-rise 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(1) {
+  animation-delay: 40ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(2) {
+  animation-delay: 70ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(3) {
+  animation-delay: 100ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(4) {
+  animation-delay: 130ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(5) {
+  animation-delay: 160ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(6) {
+  animation-delay: 190ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(7) {
+  animation-delay: 220ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(8) {
+  animation-delay: 250ms;
+}
+.platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr:nth-child(n + 9) {
+  animation-delay: 280ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .plat-ops-health__stack > .plat-ops-health__card,
+  .platform-shell .plat-ops-health__panels > .plat-ops-health__card,
+  .platform-shell .plat-ops-health.is-enter .plat-ops-health__table tbody tr,
+  .platform-shell .plat-ops-health.is-enter .plat-pair-table tbody tr {
+    animation: none;
+  }
+}
+
+.platform-shell .plat-ops-health__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.platform-shell .plat-ops-health__topbar-btn {
+  margin: 0;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.platform-shell .plat-ops-health__topbar-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.platform-shell .plat-ops-health__topbar-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn {
+  border-color: rgba(180, 83, 9, 0.4);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn:hover:not(:disabled) {
+  border-color: rgba(180, 83, 9, 0.6);
+  background: #fef3c7;
+  color: #92400e;
+}
+
+html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn:disabled {
+  opacity: 0.6;
+}
+
+.platform-shell .plat-ops-health__panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.platform-shell .plat-ops-health__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.platform-shell .plat-ops-health__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 160, 190, 0.16);
+  /* Match Organization card palette */
+  background: #04182b;
+  min-width: 0;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.platform-shell .plat-ops-health__stack > .plat-ops-health__card {
+  flex: 1 1 auto;
+}
+
+.platform-shell .plat-ops-health__card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px 12px;
+  background: #0a1e34;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+.platform-shell .plat-ops-health__card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.platform-shell .plat-ops-health__card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .plat-ops-health__card-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: #8b9bb0;
+  line-height: 1.35;
+}
+
+.platform-shell .plat-ops-health__meta {
+  font-size: 12px;
+  color: #8b9bb0;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-ops-health__note {
+  margin: 0;
+  padding: 12px 16px 0;
+  font-size: 12.5px;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-ops-health__empty {
+  margin: 12px 16px 16px;
+  padding: 28px 18px;
+  text-align: center;
+  border: 1px dashed rgba(120, 160, 190, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 30, 52, 0.45);
+}
+
+.platform-shell .plat-ops-health__empty-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.platform-shell .plat-ops-health__empty-copy {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-ops-health__empty-copy code {
+  font-size: 11.5px;
+  color: #cbd5e1;
+}
+
+.platform-shell .plat-ops-health__table-wrap {
+  overflow-x: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: #04182b;
+}
+
+.platform-shell .plat-ops-health__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.platform-shell .plat-ops-health__table th,
+.platform-shell .plat-ops-health__table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+  background: #04182b;
+}
+
+.platform-shell .plat-ops-health__table th {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7b8798;
+  background: #0a1e34;
+}
+
+.platform-shell .plat-ops-health__table td {
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+.platform-shell .plat-ops-health__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.platform-shell .plat-ops-health__table tbody tr:hover td {
+  background: #0a1e34;
+}
+
+.platform-shell .plat-ops-health__net-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .plat-ops-health__net-cell > .plat-crypto-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+
+.platform-shell .plat-ops-health__net-cell > .plat-crypto-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.platform-shell .plat-ops-health__net-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .plat-ops-health__net {
+  display: block;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.25;
+}
+
+.platform-shell .plat-ops-health__assets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 1px;
+}
+
+.platform-shell .plat-ops-health__asset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.platform-shell .plat-ops-health__asset .plat-crypto-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.platform-shell .plat-ops-health__asset .plat-crypto-icon svg {
+  width: 9px;
+  height: 9px;
+}
+
+.platform-shell .plat-ops-health__cell-muted {
+  color: #8b9bb0;
+  font-size: 12.5px;
+}
+
+.platform-shell .plat-ops-health__status-cell .network-status-lamp {
+  vertical-align: middle;
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .plat-ops-health__panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+
+  .platform-shell .plat-ops-health__table {
+    table-layout: auto;
+  }
+}
+

@@ -1,4 +1,55 @@
 import { apiFetch } from "../auth/apiFetch";
+import { API_BASE, parseError } from "../shared/apiCore";
+import {
+  listOrgs,
+  setOrgStatus,
+  patchOrgProfile,
+  deleteOrg,
+  getOrgDeletePreview,
+  createOrg,
+  getMerchantCommercial,
+  updateMerchantCommercial,
+} from "../shared/orgApi";
+import type {
+  OrgAccount,
+  OrgDeletePreview,
+  MerchantCommercialSettings,
+} from "../shared/orgApi";
+import {
+  SERVICE_BILLS_LIST_LIMIT,
+  listServiceBillsPage,
+  listServiceBills,
+  getServiceBill,
+} from "../shared/serviceBillApi";
+import type { ServiceBill, ServiceBillListPage } from "../shared/serviceBillApi";
+import { listAuditLog } from "../shared/auditApi";
+import type { AuditLogEntry } from "../shared/auditApi";
+import {
+  getFeeTierSettings,
+  getAgentPayout,
+  listAgentPayoutAddresses,
+  putAgentPayout,
+  getAgentCommission,
+  listAgentCommissions,
+} from "../shared/agentCommissionApi";
+import type {
+  FeeTierBand,
+  PlatformFeeTierSettings,
+  AgentPayoutAddress,
+  AgentCommissionSettings,
+} from "../shared/agentCommissionApi";
+import {
+  getNetworksStatus,
+  getMerchantNetworkRails,
+  putMerchantNetworkRailSettings,
+  listActiveNetworkMaintenance,
+} from "../shared/networkApi";
+import type {
+  NetworkOrderabilityLamp,
+  NetworksStatus,
+  MerchantNetworkRailItem,
+  ActiveNetworkMaintenance,
+} from "../shared/networkApi";
 import {
   ApiError,
   getSession,
@@ -25,9 +76,52 @@ import {
   type XpubSettings,
 } from "../merchant/api";
 
-const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-  "/v1";
+export {
+  listOrgs,
+  setOrgStatus,
+  patchOrgProfile,
+  deleteOrg,
+  getOrgDeletePreview,
+  createOrg,
+  getMerchantCommercial,
+  updateMerchantCommercial,
+};
+export type { OrgAccount, OrgDeletePreview, MerchantCommercialSettings };
+export {
+  SERVICE_BILLS_LIST_LIMIT,
+  listServiceBillsPage,
+  listServiceBills,
+  getServiceBill,
+};
+export type { ServiceBill, ServiceBillListPage };
+export { listAuditLog };
+export type { AuditLogEntry };
+export {
+  getFeeTierSettings,
+  getAgentPayout,
+  listAgentPayoutAddresses,
+  putAgentPayout,
+  getAgentCommission,
+  listAgentCommissions,
+};
+export type {
+  FeeTierBand,
+  PlatformFeeTierSettings,
+  AgentPayoutAddress,
+  AgentCommissionSettings,
+};
+export {
+  getNetworksStatus,
+  getMerchantNetworkRails,
+  putMerchantNetworkRailSettings,
+  listActiveNetworkMaintenance,
+};
+export type {
+  NetworkOrderabilityLamp,
+  NetworksStatus,
+  MerchantNetworkRailItem,
+  ActiveNetworkMaintenance,
+};
 
 export {
   ApiError,
@@ -55,67 +149,6 @@ export type {
   XpubSettings,
   OrgMember,
   InviteOrgUserResult,
-};
-
-export type OrgAccount = {
-  id: string;
-  type: string;
-  name: string;
-  parentId: string | null;
-  status?: "active" | "paused";
-  /** When paused for unpaid service bill. */
-  statusReason?: string | null;
-  statusReasonBillId?: string | null;
-  orderCreateSuspended?: boolean;
-  country?: string | null;
-  legalName?: string | null;
-  billingEmail?: string | null;
-  iconKey?: string | null;
-  createdAt?: string;
-};
-
-export type ServiceBill = {
-  id: string;
-  orgId: string;
-  periodStart: string;
-  periodEnd: string;
-  subscriptionAmount: string;
-  volumeFeeAmount: string;
-  totalAmount: string;
-  currency: string;
-  status: string;
-  dueAt: string;
-  billKind?: string | null;
-  sentAt?: string | null;
-  opsNote?: string | null;
-  creditAppliedUsd?: string | null;
-  tier?: string | null;
-  volumeFeePercent?: string | null;
-  billedVolumeUsd?: string | null;
-  paidAt?: string | null;
-  cancelledAt?: string | null;
-  waivedAt?: string | null;
-  closeReason?: string | null;
-  lastAdjustmentReason?: string | null;
-  lastAdjustmentAmount?: string | null;
-  paymentReference?: string | null;
-  rxAddress?: string | null;
-  remittancePayTo?: string | null;
-  invoiceSeller?: { name: string; email: string | null; phone?: string | null };
-  txAddress?: string | null;
-  createdAt?: string | null;
-};
-
-export type AuditLogEntry = {
-  id: string;
-  actorUserId: string | null;
-  actorEmail?: string | null;
-  actorDisplayName?: string | null;
-  actorAvatarUrl?: string | null;
-  orgId: string | null;
-  action: string;
-  metadata: Record<string, string | number | boolean | null>;
-  createdAt: string;
 };
 
 export type PlatformOrgMemberEmailRow = {
@@ -168,6 +201,24 @@ export function ownerContactWithMfa(
     team.find((m) => m.userId === contact.userId) ??
     team.find((m) => m.role === "owner");
   return { ...contact, mfaEnrolled: row?.mfaEnrolled === true };
+}
+
+/** Owner contact from the team roster when the overview omits it (non-platform callers). */
+export function ownerContactFromTeam(team: OrgMember[]): OrgPrimaryOwnerContact | null {
+  const row = team.find((m) => m.role === "owner") ?? team[0] ?? null;
+  if (!row) return null;
+  return {
+    userId: row.userId,
+    firstName: row.firstName ?? null,
+    lastName: row.lastName ?? null,
+    email: row.email,
+    phone: row.phone ?? null,
+    timezone: row.timezone ?? "",
+    emailVerified: row.emailVerified === true,
+    phoneVerified: row.phoneVerified === true,
+    avatarUrl: row.avatarUrl ?? null,
+    mfaEnrolled: row.mfaEnrolled === true,
+  };
 }
 
 export type OrgOverviewMetrics = {
@@ -224,87 +275,6 @@ export type ServiceBillUpdateAction =
   | "mark_paid"
   | "adjust"
   | "grant_credit";
-
-async function parseError(res: Response): Promise<never> {
-  const body = await res.text();
-  try {
-    const json = JSON.parse(body) as { code?: string; message?: string };
-    const raw = json.message?.trim() || "";
-    const friendly =
-      res.status >= 500
-        ? "Something went wrong on the server. Please try again."
-        : raw || `Request failed (${res.status})`;
-    throw new ApiError(json.code ?? "http_error", friendly, res.status);
-  } catch (e) {
-    if (e instanceof ApiError) throw e;
-    const friendly =
-      res.status >= 500
-        ? "Something went wrong on the server. Please try again."
-        : body?.trim() || `Request failed (${res.status})`;
-    throw new ApiError("http_error", friendly, res.status);
-  }
-}
-
-export async function listOrgs(): Promise<OrgAccount[]> {
-  const res = await apiFetch(`${API_BASE}/orgs`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: OrgAccount[] };
-  return data.items ?? [];
-}
-
-export async function setOrgStatus(
-  orgId: string,
-  status: "active" | "paused",
-  opts?: { reason?: string; mfaCode?: string },
-): Promise<OrgAccount> {
-  const body: {
-    status: "active" | "paused";
-    reason?: string;
-    mfaCode?: string;
-  } = { status };
-  const reason = opts?.reason?.trim();
-  if (reason) body.reason = reason;
-  const mfaCode = opts?.mfaCode?.trim();
-  if (mfaCode) body.mfaCode = mfaCode;
-  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`, {
-    method: "PUT",
-    credentials: "include",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
-}
-
-export async function patchOrgProfile(
-  orgId: string,
-  body: {
-    name: string;
-    iconKey?: string | null;
-    country?: string;
-    legalName?: string | null;
-    billingEmail?: string | null;
-  },
-): Promise<OrgAccount> {
-  const payload: Record<string, unknown> = {
-    name: body.name.trim(),
-    iconKey: body.iconKey ?? null,
-  };
-  if (body.country !== undefined) payload.country = body.country;
-  if (body.legalName !== undefined) payload.legalName = body.legalName;
-  if (body.billingEmail !== undefined) payload.billingEmail = body.billingEmail;
-  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
-}
 
 /** Platform Owner only — edit org Owner person profile. */
 export async function patchOrgOwnerProfile(
@@ -389,102 +359,6 @@ export async function putOrgOwnerVerification(
   return (await res.json()) as OrgPrimaryOwnerContact;
 }
 
-export async function deleteOrg(
-  orgId: string,
-  opts?: { cascade?: boolean },
-): Promise<void> {
-  const q = opts?.cascade ? "?cascade=1" : "";
-  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
-    method: "DELETE",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-}
-
-export type OrgDeletePreview = {
-  rootOrgId: string;
-  orgCount: number;
-  childOrgCount: number;
-  memberCount: number;
-  orderCount: number;
-  billCount: number;
-  orgs: Array<{ id: string; type: string; name: string; depth: number }>;
-};
-
-export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgDeletePreview;
-}
-
-/** Platform agent detail needs the full load-test bill set (not the API default 100). */
-export const SERVICE_BILLS_LIST_LIMIT = 5000;
-
-export type ServiceBillListPage = {
-  items: ServiceBill[];
-  total: number;
-  limit: number;
-  offset: number;
-};
-
-export async function listServiceBillsPage(opts?: {
-  status?: string;
-  orgId?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<ServiceBillListPage> {
-  const q = new URLSearchParams();
-  if (opts?.status) q.set("status", opts.status);
-  if (opts?.orgId) q.set("orgId", opts.orgId);
-  if (opts?.limit != null) q.set("limit", String(opts.limit));
-  if (opts?.offset != null) q.set("offset", String(opts.offset));
-  const suffix = q.toString() ? `?${q}` : "";
-  const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as {
-    items: ServiceBill[];
-    total?: number;
-    limit?: number;
-    offset?: number;
-  };
-  const items = data.items ?? [];
-  return {
-    items,
-    total: data.total ?? items.length,
-    limit: data.limit ?? opts?.limit ?? 100,
-    offset: data.offset ?? opts?.offset ?? 0,
-  };
-}
-
-export async function listServiceBills(opts?: {
-  status?: string;
-  orgId?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<ServiceBill[]> {
-  const page = await listServiceBillsPage(opts);
-  return page.items;
-}
-
-export async function getServiceBill(billId: string): Promise<ServiceBill> {
-  const res = await apiFetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as ServiceBill;
-}
-
 export async function issueServiceBill(input: {
   orgId: string;
   periodStart: string;
@@ -566,28 +440,6 @@ export async function createMissedInvoice(
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as ServiceBill;
-}
-
-export async function createOrg(body: {
-  type: string;
-  name: string;
-  parentId: string;
-  country?: string;
-  legalName?: string;
-  commissionPercent?: string;
-  commercial?: { tier: string; volumeFeePercent: string };
-}): Promise<OrgAccount> {
-  const res = await apiFetch(`${API_BASE}/orgs`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
 }
 
 export type FeeWaiver = {
@@ -707,65 +559,13 @@ export async function updateServiceBill(
   return (await res.json()) as ServiceBill;
 }
 
-export async function listAuditLog(opts?: {
-  from?: string;
-  to?: string;
-  actorUserId?: string;
-  orgId?: string;
-  action?: string;
-  limit?: number;
-}): Promise<AuditLogEntry[]> {
-  const q = new URLSearchParams();
-  if (opts?.from) q.set("from", opts.from);
-  if (opts?.to) q.set("to", opts.to);
-  if (opts?.actorUserId) q.set("actorUserId", opts.actorUserId);
-  if (opts?.orgId) q.set("orgId", opts.orgId);
-  if (opts?.action) q.set("action", opts.action);
-  if (opts?.limit != null) q.set("limit", String(opts.limit));
-  const suffix = q.toString() ? `?${q}` : "";
-  const res = await apiFetch(`${API_BASE}/audit${suffix}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: AuditLogEntry[] };
-  return data.items ?? [];
-}
-
-export type FeeTierBand = {
-  tier: string;
-  subscriptionAmountUsd: string;
-  volumeFeeMinPercent: string;
-  volumeFeeMaxPercent: string;
-  defaultSignupPercent: string;
-  volumeMinUsd?: string;
-  volumeMaxUsd?: string | null;
-  agentCommissionPercent?: string;
-  tierDescription?: string;
-};
-
 export type FeeTierEffectiveTiming = "immediate" | "next_billing_cycle";
-
-export type PlatformFeeTierSettings = {
-  tiers: FeeTierBand[];
-  updatedAt: string | null;
-  pendingEffectiveFrom?: string | null;
-};
 
 export type PlatformOrgPolicy = {
   maxAgentDepth: number;
   mfaEnforcement: boolean;
   sessionTimeoutMinutes: number;
 };
-
-export async function getFeeTierSettings(): Promise<PlatformFeeTierSettings> {
-  const res = await apiFetch(`${API_BASE}/platform/settings/fee-tiers`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as PlatformFeeTierSettings;
-}
 
 export async function updateFeeTierSettings(body: {
   tiers: FeeTierBand[];
@@ -968,12 +768,6 @@ export async function getBackupStatus(): Promise<BackupStatus> {
   return (await res.json()) as BackupStatus;
 }
 
-export type NetworkOrderabilityLamp = {
-  code: "open" | "paused" | "down" | "off" | "checking";
-  label: string;
-  tone: "ok" | "warn" | "bad" | "muted";
-};
-
 export type NetworkCatalogIngestStatus =
   | "live"
   | "stub"
@@ -1036,24 +830,6 @@ export type NetworkCatalog = {
   items: NetworkCatalogCard[];
 };
 
-export type NetworksStatus = {
-  chainEnv: string;
-  checkedAt: string;
-  items: {
-    network: string;
-    title: string;
-    lamp: NetworkOrderabilityLamp;
-    maintenance: { active: boolean; message: string | null };
-    ingestStatus: NetworkCatalogIngestStatus | string;
-    pairs: {
-      asset: string;
-      enabled: boolean;
-      lamp: NetworkOrderabilityLamp;
-      displayNetwork: string;
-    }[];
-  }[];
-};
-
 export async function getNetworkCatalog(): Promise<NetworkCatalog> {
   const res = await apiFetch(`${API_BASE}/platform/networks/catalog`, {
     credentials: "include",
@@ -1061,15 +837,6 @@ export async function getNetworkCatalog(): Promise<NetworkCatalog> {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as NetworkCatalog;
-}
-
-export async function getNetworksStatus(): Promise<NetworksStatus> {
-  const res = await apiFetch(`${API_BASE}/networks/status`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as NetworksStatus;
 }
 
 export async function putNetworkMaintenance(
@@ -1150,82 +917,6 @@ export async function putPlatformNetworkRailSettings(
       requiredConfirmations: number | null;
       minAmount: string | null;
     };
-    updatedAt: string;
-  };
-}
-
-export type MerchantNetworkRailItem = {
-  network: string;
-  title: string;
-  lamp: NetworkOrderabilityLamp;
-  primaryAsset: string | null;
-  minAmount: string | null;
-  platformFloorConfirmations: number;
-  merchantConfirmations: number | null;
-  effectiveConfirmations: number;
-  pairs: {
-    asset: string;
-    displayNetwork: string;
-    lamp: NetworkOrderabilityLamp;
-    minAmount: string;
-    platformConfirmations: number;
-    effectiveConfirmations: number;
-  }[];
-};
-
-export async function getMerchantNetworkRails(
-  orgId: string,
-): Promise<{
-  orgId: string;
-  checkedAt: string;
-  items: MerchantNetworkRailItem[];
-}> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/network-rails`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    orgId: string;
-    checkedAt: string;
-    items: MerchantNetworkRailItem[];
-  };
-}
-
-export async function putMerchantNetworkRailSettings(
-  orgId: string,
-  network: string,
-  body: { requiredConfirmations: number | null },
-): Promise<{
-  orgId: string;
-  network: string;
-  platformFloorConfirmations: number;
-  merchantConfirmations: number | null;
-  effectiveConfirmations: number;
-  updatedAt: string;
-}> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
-    {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    orgId: string;
-    network: string;
-    platformFloorConfirmations: number;
-    merchantConfirmations: number | null;
-    effectiveConfirmations: number;
     updatedAt: string;
   };
 }
@@ -1329,176 +1020,6 @@ export async function putPlatformSiteNetworkRailSettings(
   );
   if (!res.ok) await parseError(res);
   return (await res.json()) as ScopedNetworkRailSettings;
-}
-
-export type ActiveNetworkMaintenance = {
-  network: string;
-  message: string | null;
-  startedAt: string | null;
-  endsAt: string | null;
-};
-
-export async function listActiveNetworkMaintenance(): Promise<{
-  items: ActiveNetworkMaintenance[];
-  checkedAt: string;
-}> {
-  const res = await apiFetch(`${API_BASE}/network-maintenance`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    items: ActiveNetworkMaintenance[];
-    checkedAt: string;
-  };
-}
-
-export type MerchantCommercialSettings = {
-  orgId: string;
-  tier: string;
-  volumeFeePercent: string;
-  rateMode?: "automatic" | "fixed";
-  pendingVolumeFeePercent?: string | null;
-  subscriptionAmountUsd: string;
-  bandMinPercent: string;
-  bandMaxPercent: string;
-  effectiveFrom: string;
-  serviceBillCreditUsd?: string;
-  billingAnchorAt?: string | null;
-  nextInvoiceOn?: string | null;
-  /** Monthly bills still to be saved as waived (waive platform fee list). */
-  waivedMonthsLeft?: number | null;
-  /** On the waive activation list (activated with a waived bill at setup). */
-  activationWaived?: boolean;
-};
-
-export async function getMerchantCommercial(
-  orgId: string,
-): Promise<MerchantCommercialSettings> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as MerchantCommercialSettings;
-}
-
-export async function updateMerchantCommercial(
-  orgId: string,
-  body: {
-    tier?: string;
-    volumeFeePercent?: string;
-    rateMode?: "automatic" | "fixed";
-    reason?: string;
-    serviceBillCreditUsd?: string;
-  },
-): Promise<MerchantCommercialSettings> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
-    {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as MerchantCommercialSettings;
-}
-
-export type AgentPayoutAddress = {
-  orgId: string;
-  asset: string;
-  network: string;
-  address: string;
-  pendingAddress?: string | null;
-  pendingActivatesAt?: string | null;
-  updatedAt?: string;
-};
-
-export type AgentCommissionSettings = {
-  orgId: string;
-  commissionPercent: string;
-  rateMode?: "automatic" | "fixed";
-  effectiveFrom: string;
-  updatedAt?: string;
-};
-
-export async function getAgentPayout(
-  orgId: string,
-): Promise<AgentPayoutAddress | null> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (res.status === 404) return null;
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as AgentPayoutAddress;
-}
-
-/** Batch list — commissions board (avoids N× getAgentPayout). */
-export async function listAgentPayoutAddresses(): Promise<AgentPayoutAddress[]> {
-  const res = await apiFetch(`${API_BASE}/agent-payout-addresses`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: AgentPayoutAddress[] };
-  return data.items ?? [];
-}
-
-export async function putAgentPayout(
-  orgId: string,
-  body: { asset: string; network: string; address: string; mfaCode: string },
-): Promise<AgentPayoutAddress> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-payout`,
-    {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as AgentPayoutAddress;
-}
-
-export async function getAgentCommission(
-  orgId: string,
-): Promise<AgentCommissionSettings> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/agent-commission`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as AgentCommissionSettings;
-}
-
-/** Batch list — commissions board (avoids N× getAgentCommission). */
-export async function listAgentCommissions(): Promise<AgentCommissionSettings[]> {
-  const res = await apiFetch(`${API_BASE}/agent-commissions`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: AgentCommissionSettings[] };
-  return data.items ?? [];
 }
 
 export async function putAgentCommission(

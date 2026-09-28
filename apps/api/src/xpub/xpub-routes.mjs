@@ -23,6 +23,7 @@ import {
   settingsLookupOrgId,
 } from "../sites/site-inherit.mjs";
 import { denyIfOrgSuspended } from "../orgs/org-ancestry.mjs";
+import { NotificationEventType, notifyMerchantOrg } from "../notifications/notify.mjs";
 
 /**
  * @param {import("node:http").IncomingMessage} req
@@ -131,5 +132,22 @@ export async function handlePutXpub(req, res, orgId) {
     },
   });
   await grantSiteOverrideAfterPlatformWrite(loaded.org, "xpub", loaded.caller);
+
+  if (result.kind !== "unchanged") {
+    const rail = `${validated.parsed.asset} on ${validated.parsed.network}`;
+    const activatesAt = result.row.pending_activates_at
+      ? new Date(result.row.pending_activates_at).toISOString()
+      : null;
+    notifyMerchantOrg(orgId, NotificationEventType.XpubChange, {
+      subject: `xPub ${result.kind === "pending" ? "change pending" : "registered"} — ${rail}`,
+      lines: [
+        result.kind === "pending"
+          ? `A new watch-only xPub for ${rail} was submitted for ${loaded.org.name}. It activates after the cool-down${activatesAt ? ` (${activatesAt})` : ""}.`
+          : `The watch-only xPub for ${rail} on ${loaded.org.name} is now active.`,
+        "If you did not make this change, contact your administrator immediately.",
+      ],
+      path: "settings/settlement",
+    });
+  }
   sendJson(res, 200, toXpubSettings(result.row));
 }

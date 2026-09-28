@@ -1,0 +1,1051 @@
+/* Commissions tables — align density with Service Bills panel */
+.platform-shell .plat-commissions .plat-bills__table-wrap {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.platform-shell .plat-commissions__table {
+  font-size: 13.5px;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 960px;
+}
+
+.platform-shell .plat-commissions__table--history {
+  min-width: 1120px;
+}
+
+.platform-shell .plat-commissions__col-agent {
+  width: 22%;
+}
+
+.platform-shell .plat-commissions__col-num {
+  width: 9.5%;
+}
+
+.platform-shell .plat-commissions__col-period {
+  width: 8.5%;
+}
+
+.platform-shell .plat-commissions__col-rate {
+  width: 6.5%;
+}
+
+.platform-shell .plat-commissions__col-status {
+  width: 10.5%;
+}
+
+.platform-shell .plat-commissions__col-addr {
+  width: 18%;
+}
+
+.platform-shell .plat-commissions__col-tx {
+  width: 16%;
+}
+
+.platform-shell .plat-commissions__col-settled {
+  width: 10%;
+}
+
+.platform-shell .plat-commissions__col-actions {
+  width: 2.75rem;
+}
+
+.platform-shell .plat-commissions__col-select {
+  width: 2.25rem;
+}
+
+.platform-shell .plat-commissions__th-select,
+.platform-shell .plat-commissions__td-select {
+  text-align: center;
+}
+
+.platform-shell .plat-commissions__bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 10%, transparent);
+  font-size: 0.875rem;
+}
+
+.platform-shell .plat-commissions__bulk-bar > span {
+  margin-right: auto;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__merchant {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  padding-inline-end: 12px;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__merchant + td {
+  padding-inline-start: 10px;
+}
+
+.platform-shell .plat-commissions__table th,
+.platform-shell .plat-commissions__table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.platform-shell .plat-commissions .plat-bills__panel .plat-bills__table th,
+.platform-shell .plat-commissions .plat-bills__panel .plat-bills__table td {
+  padding-block: 12px;
+  padding-inline: 18px;
+}
+
+.platform-shell .plat-commissions .plat-bills__panel .plat-bills__table thead th {
+  padding-block: 12px;
+  padding-inline: 18px;
+}
+
+.platform-shell .plat-commissions__table th {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--bills-label, #8b97a8);
+  background: var(--bills-bg-elevated, #0a1e34);
+  padding: 12px 18px;
+  min-height: 44px;
+  height: 44px;
+}
+
+.platform-shell .plat-commissions__table td {
+  padding: 12px 18px;
+  color: var(--bills-text, #d5dbe6);
+  border-bottom-color: var(--bills-divider, rgba(120, 160, 190, 0.12));
+}
+
+.platform-shell .plat-commissions__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.platform-shell .plat-commissions__table tbody tr:hover td {
+  background: rgba(120, 160, 190, 0.05);
+}
+
+.platform-shell .plat-commissions__table tbody tr.plat-bills__row {
+  cursor: pointer;
+  animation: none;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__merchant-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 0.72rem;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__merchant-cell {
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__merchant-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.platform-shell .plat-commissions__table .plat-bills__badge {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.platform-shell .plat-commissions__period {
+  color: var(--bills-muted, #a8b3c4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 13.5px;
+  line-height: 1.2;
+}
+
+.platform-shell .plat-commissions__period .muted {
+  font-size: 12px;
+  margin-top: 0;
+  line-height: 1.15;
+}
+
+/* Beat .plat-bills__table td { text-align: left } so header + cells share right edge */
+.platform-shell .plat-commissions__table th.plat-commissions__th-center {
+  text-align: center;
+}
+
+.platform-shell .plat-commissions__table th.plat-commissions__th-num {
+  text-align: center;
+}
+
+.platform-shell .plat-commissions__table td.plat-commissions__num,
+.platform-shell .plat-commissions__table td.plat-commissions__rate-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__num .fund-amount {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bills-text, #e2e8f0);
+  font-weight: 550;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.platform-shell .plat-commissions__num--emph .fund-amount {
+  color: var(--bills-gold-bright, #e8c547);
+  font-weight: 650;
+}
+
+.platform-shell .plat-commissions__rate-cell {
+  color: #a8b3c4;
+}
+
+.platform-shell .plat-commissions__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__status.is-scheduled {
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.platform-shell .plat-commissions__status.is-pending {
+  color: #f0c674;
+  border-color: rgba(240, 198, 116, 0.32);
+  background: rgba(240, 198, 116, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-ready {
+  color: #7dd3c0;
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-verifying {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-commissions__status.is-paid {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-issued,
+.agent-shell .plat-commissions__status.is-issued {
+  color: #7dd3c0;
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.platform-shell .plat-commissions__status.is-settled,
+.agent-shell .plat-commissions__status.is-settled {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.platform-shell .plat-commissions__generate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-commissions .plat-bills__period-bar {
+  align-items: flex-end;
+}
+
+.platform-shell .plat-commissions__generate-btn {
+  min-height: 34px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: none;
+  /* Solid teal CTA (matches commissions accent) */
+  background: #00d4c8;
+  border: 1px solid #00d4c8;
+  color: #04182b;
+}
+
+.platform-shell .plat-commissions__generate-btn:hover:not(:disabled),
+.platform-shell .plat-commissions__generate-btn:focus-visible:not(:disabled) {
+  /* Softer lift than neon --teal-hover; fits navy page */
+  background: #14e0d4;
+  border-color: #14e0d4;
+  color: #04182b;
+  outline: none;
+}
+
+.platform-shell .plat-commissions__generate-btn:active:not(:disabled) {
+  background: #00b2aa;
+  border-color: #00b2aa;
+  color: #04182b;
+}
+
+.platform-shell .plat-commissions__period-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+/* Billing period + refresh — one segmented control */
+.platform-shell .plat-commissions__period-group {
+  display: inline-flex;
+  align-items: stretch;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--bills-border, rgba(120, 160, 190, 0.16));
+  background: var(--bills-bg-elevated, #0a1e34);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .plat-commissions__period-group .plat-commissions__period-picker {
+  border-right: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
+}
+
+.platform-shell .plat-commissions__period-field {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 11.5rem;
+  height: 100%;
+  margin: 0;
+  padding: 0 12px 0 11px;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  background: transparent;
+  color: var(--bills-text, #f1f5f9);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.platform-shell .plat-commissions__period-field:hover,
+.platform-shell .plat-commissions__period-field.is-open {
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.platform-shell .plat-commissions__period-field:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline-offset: -2px;
+}
+
+.platform-shell .plat-commissions__period-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: var(--bills-gold-bright, #fbbf24);
+  background: rgba(245, 197, 66, 0.12);
+}
+
+.platform-shell .plat-commissions__period-text {
+  display: inline-flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 1px;
+}
+
+.platform-shell .plat-commissions__period-eyebrow {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--bills-label, #7b8798);
+}
+
+.platform-shell .plat-commissions__period-label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--bills-title, #f8fafc);
+}
+
+.platform-shell .plat-commissions__period-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--bills-muted, #8b9bb0);
+  transition: transform 140ms ease, color 140ms ease;
+}
+
+.platform-shell .plat-commissions__period-field:hover .plat-commissions__period-chevron,
+.platform-shell .plat-commissions__period-field.is-open .plat-commissions__period-chevron {
+  color: var(--bills-gold-bright, #fbbf24);
+}
+
+.platform-shell .plat-commissions__period-field.is-open .plat-commissions__period-chevron {
+  transform: rotate(180deg);
+}
+
+.platform-shell .plat-commissions__refresh {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0 10px 10px 0;
+  background: transparent;
+  color: var(--bills-muted, #8b9bb0);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.platform-shell .plat-commissions__period-group > .plat-commissions__refresh:only-child {
+  border-radius: 10px;
+}
+
+.platform-shell .plat-commissions__refresh:hover:not(:disabled) {
+  background: rgba(245, 197, 66, 0.08);
+  color: var(--bills-gold-bright, #fbbf24);
+}
+
+.platform-shell .plat-commissions__refresh:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.5);
+  outline-offset: -2px;
+}
+
+.platform-shell .plat-commissions__refresh:disabled {
+  cursor: progress;
+}
+
+.platform-shell .plat-commissions__refresh.is-spinning svg {
+  animation: plat-commissions-refresh-spin 0.9s linear infinite;
+}
+
+@keyframes plat-commissions-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .plat-commissions__refresh.is-spinning svg {
+    animation: none;
+  }
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-group {
+  border-color: #d8dee8;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-group .plat-commissions__period-picker {
+  border-right-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-field:hover,
+html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open,
+html[data-theme="light"] .platform-shell .plat-commissions__refresh:hover:not(:disabled) {
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-icon {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-eyebrow {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-label {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-chevron,
+html[data-theme="light"] .platform-shell .plat-commissions__refresh {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-menu {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-menu-head,
+html[data-theme="light"] .platform-shell .plat-commissions__period-menu-foot {
+  border-color: #eef2f7;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-year,
+html[data-theme="light"] .platform-shell .plat-commissions__period-month {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-year-btn {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-year-btn:hover,
+html[data-theme="light"] .platform-shell .plat-commissions__period-month:hover {
+  border-color: rgba(180, 83, 9, 0.3);
+  background: #fffbeb;
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-month.is-selected {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-foot-btn {
+  color: #b45309;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-foot-btn:hover {
+  color: #92400e;
+}
+
+html[data-theme="light"] .platform-shell .plat-commissions__period-field:hover .plat-commissions__period-chevron,
+html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open .plat-commissions__period-chevron,
+html[data-theme="light"] .platform-shell .plat-commissions__refresh:hover:not(:disabled) {
+  color: #b45309;
+}
+
+.platform-shell .plat-commissions__period-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 17.5rem;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--bills-bg-elevated, #0a1e34) 72%, #1a2f44);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(245, 197, 66, 0.06);
+}
+
+.platform-shell .plat-commissions__period-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.18);
+}
+
+.platform-shell .plat-commissions__period-year {
+  color: var(--bills-text, #f1f5f9);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.platform-shell .plat-commissions__period-year-btn {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.platform-shell .plat-commissions__period-year-btn:hover {
+  color: var(--bills-gold-bright, #fbbf24);
+  background: rgba(245, 197, 66, 0.1);
+}
+
+.platform-shell .plat-commissions__period-months {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.platform-shell .plat-commissions__period-month {
+  appearance: none;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bills-text, #f1f5f9);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.platform-shell .plat-commissions__period-month:hover {
+  border-color: rgba(245, 197, 66, 0.35);
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.platform-shell .plat-commissions__period-month.is-selected {
+  border-color: rgba(245, 197, 66, 0.55);
+  background: var(--bills-gold-bright, #fbbf24);
+  color: #04182b;
+}
+
+.platform-shell .plat-commissions__period-menu-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(120, 160, 190, 0.18);
+}
+
+.platform-shell .plat-commissions__period-foot-btn {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bills-gold-bright, #fbbf24);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.platform-shell .plat-commissions__period-foot-btn:hover {
+  color: #fde68a;
+  text-decoration: underline;
+}
+
+.platform-shell .plat-commissions__addr,
+.platform-shell .plat-commissions__tx {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: visible;
+  max-width: none;
+}
+
+.platform-shell .plat-commissions__addr code,
+.platform-shell .plat-commissions__tx code {
+  font: inherit;
+  color: inherit;
+  background: none;
+  padding: 0;
+  border: 0;
+}
+
+.platform-shell .plat-commissions__addr .chain-value,
+.platform-shell .plat-commissions__tx .chain-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: none;
+  vertical-align: middle;
+}
+
+.platform-shell .plat-commissions__addr .chain-value__link,
+.platform-shell .plat-commissions__tx .chain-value__link {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.platform-shell .plat-commissions__addr .chain-value__link,
+.platform-shell .plat-commissions__addr .chain-value > .mono,
+.platform-shell .plat-commissions__tx .chain-value__link,
+.platform-shell .plat-commissions__tx .chain-value > .mono,
+.platform-shell .plat-commissions__tx code {
+  font-size: 12.5px;
+}
+
+.platform-shell .plat-commissions__row--review {
+  cursor: pointer;
+}
+
+.platform-shell .plat-commissions__row--review:hover > td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.platform-shell .plat-commissions__row--review:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.45);
+  outline-offset: -2px;
+}
+
+.platform-shell .plat-commissions__paid-at {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #a8b3c4;
+  font-size: 12.5px;
+}
+
+.platform-shell .plat-commissions .plat-bills__table-wrap .org-pager {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
+  background: var(--bills-bg-elevated, #0a1e34);
+}
+
+@keyframes plat-slip-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes plat-slip-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plat-slip-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plat-slip-amount-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plat-slip-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes plat-slip-status-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__label {
+  display: block;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b97a8;
+}
+
+@keyframes plat-slip-life-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plat-slip-life-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(240, 180, 41, 0.08);
+  }
+}
+
+@keyframes plat-slip-chevron-flow {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateX(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateX(1px);
+  }
+  70% {
+    opacity: 0.55;
+    transform: translateX(2px);
+  }
+}
+
+/* Status badge works when slip is portaled outside .platform-shell */
+.b3-commission-modal-backdrop .plat-commissions__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 5.25rem;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-scheduled {
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-pending {
+  color: #f0c674;
+  border-color: rgba(240, 198, 116, 0.32);
+  background: rgba(240, 198, 116, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-ready {
+  color: #7dd3c0;
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-verifying {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-paid {
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.32);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-issued {
+  color: #7dd3c0;
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions__status.is-settled {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__tree-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #a8b3c4;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__field-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__confirm-note {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__optional {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #64748b;
+}
+
+.b3-commission-modal-backdrop .plat-commissions-slip__note-input {
+  resize: vertical;
+  min-height: 56px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  background: #0b0f14;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 8px;
+  color: #f8fafc;
+}
+
+/* Shared modal edit surface — matches suspend Reason (doc/image/suspend.png) */
+.b3-commission-modal-backdrop .field-shell,
+.b3-commission-modal-backdrop .field-control,
+.b3-commission-modal-backdrop input.field-control,
+.b3-commission-modal-backdrop select.field-control,
+.b3-commission-modal-backdrop textarea.field-control,
+.b3-commission-modal-backdrop .plat-settings__input,
+.b3-commission-modal-backdrop .plat-settings__select,
+.b3-commission-modal-backdrop .plat-settings__select--block,
+.b3-commission-modal-backdrop .searchable-select__trigger {
+  background-color: #0b0f14;
+  background-image: none;
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+/* Legacy hook kept for any non-backdrop references */
+
+.platform-shell .org-agents__col-tier,
+.platform-shell .org-agents__col-fee {
+  width: 88px;
+}
+
+.platform-shell .org-agents__col-volume {
+  width: 110px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__empty {
+  margin: 8px 0 4px;
+  font-size: 13px;
+}
+
+.platform-shell .dash-page.plat-dash .overview-charts__head {
+  animation: dash-fade-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 320ms;
+}
+
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card {
+  animation: dash-rise-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(1) {
+  animation-delay: 360ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(2) {
+  animation-delay: 410ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(3) {
+  animation-delay: 460ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(4) {
+  animation-delay: 510ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(5) {
+  animation-delay: 560ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(6) {
+  animation-delay: 610ms;
+}
+.platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card:nth-child(n + 7) {
+  animation-delay: 640ms;
+}
+
+.platform-shell .dash-page.plat-dash .overview-chart-card:not(.overview-chart-card--slot):not(.overview-chart-card--ghost) {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.platform-shell .dash-page.plat-dash
+  .overview-charts:not(.overview-charts--editing)
+  .overview-chart-card:not(.overview-chart-card--slot):not(.overview-chart-card--ghost):hover {
+  transform: translateY(-2px);
+  border-color: var(--chart-accent-border, rgba(156, 132, 240, 0.55));
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.36),
+    0 0 0 1px var(--chart-accent-glow, rgba(156, 132, 240, 0.12)),
+    0 0 28px var(--chart-accent-glow, rgba(156, 132, 240, 0.12));
+}
+
+/* Keep drag/edit interactions steady — no entrance replay while editing */
+.platform-shell .dash-page.plat-dash .overview-charts--editing .overview-chart-card,
+.platform-shell .dash-page.plat-dash .overview-chart-card--slot,
+.platform-shell .dash-page.plat-dash .overview-chart-card--ghost {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .dash-page.plat-dash .plat-stat-block,
+  .platform-shell .dash-page.plat-dash .plat-metric-line,
+  .platform-shell .dash-page.plat-dash .dash-split > *,
+  .platform-shell .dash-page.plat-dash .overview-charts__head,
+  .platform-shell .dash-page.plat-dash .overview-charts__grid > .overview-chart-card {
+    animation: none !important;
+  }
+
+  .platform-shell .dash-page.plat-dash .overview-chart-card {
+    transition: none;
+  }
+
+  .platform-shell .dash-page.plat-dash
+    .overview-charts:not(.overview-charts--editing)
+    .overview-chart-card:hover {
+    transform: none;
+  }
+}
+

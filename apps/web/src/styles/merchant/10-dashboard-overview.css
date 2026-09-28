@@ -1,0 +1,140 @@
+/* Platform dashboard overview — period + 4 cards */
+.platform-shell .dash-page.plat-dash {
+  gap: 14px;
+  margin-top: 0;
+}
+
+/* Dashboard entrance — stagger blocks on first paint after load */
+@keyframes dash-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dash-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Overview cards — same living 3D language as merchant dashboard KPIs */
+
+.platform-shell .dash-page.plat-dash .plat-stat-block,
+.platform-shell .dash-page.plat-dash .plat-metric-line {
+  animation: dash-fade-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .dash-page.plat-dash .plat-stat-block:nth-child(1),
+.platform-shell .dash-page.plat-dash .plat-metric-line:nth-child(1) {
+  animation-delay: 160ms;
+}
+.platform-shell .dash-page.plat-dash .plat-stat-block:nth-child(2),
+.platform-shell .dash-page.plat-dash .plat-metric-line:nth-child(2) {
+  animation-delay: 210ms;
+}
+.platform-shell .dash-page.plat-dash .plat-stat-block:nth-child(3),
+.platform-shell .dash-page.plat-dash .plat-metric-line:nth-child(3) {
+  animation-delay: 260ms;
+}
+.platform-shell .dash-page.plat-dash .plat-metric-line:nth-child(4) {
+  animation-delay: 300ms;
+}
+
+.platform-shell .dash-page.plat-dash .dash-split > * {
+  animation: dash-rise-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Keep split cards free of lingering transform (stable scroll gaps). */
+.platform-shell .dash-page.plat-dash.pg-dash .dash-split > * {
+  animation: none;
+}
+
+.platform-shell .dash-page.plat-dash .dash-split > *:nth-child(1) {
+  animation-delay: 220ms;
+}
+.platform-shell .dash-page.plat-dash .dash-split > *:nth-child(2) {
+  animation-delay: 300ms;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__all {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #00d4c8);
+  text-decoration: none;
+}
+
+.platform-shell .dash-page.plat-dash .plat-dash-merchants__all:hover {
+  text-decoration: underline;
+}
+
+.platform-shell .plat-commissions__topbar-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.platform-shell .plat-commissions.plat-bills {
+  gap: 16px;
+}
+
+/* Pull table up under toolbar (cancel most of flex gap) */
+
+.platform-shell .plat-commissions__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.platform-shell .plat-commissions__empty-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--bills-text, #e2e8f0);
+}
+
+.platform-shell .plat-commissions__empty-copy {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--bills-muted, #8b97a8);
+}
+
+.platform-shell .plat-commissions__history-title {
+  margin: 28px 0 8px;
+  font-size: 15px;
+  font-weight: 650;
+}
+

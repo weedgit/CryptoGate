@@ -1,0 +1,160 @@
+/* C12 — Agent settings (agent detail / team chrome) */
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) {
+  gap: 18px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__badge {
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__grid {
+  gap: 18px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #94a3b8;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__card-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #34d399;
+  text-decoration: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link::after {
+  content: "→";
+  font-size: 14px;
+  line-height: 1;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__nav-link:hover {
+  color: #6ee7b7;
+  text-decoration: none;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde68a;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__notice code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: #fef3c7;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__payout-form {
+  gap: 14px;
+  margin-top: 0;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field {
+  display: grid;
+  gap: 6px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__input {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger:focus,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__field .searchable-select__trigger:focus-visible,
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__input:focus {
+  outline: none;
+  border-color: rgba(52, 211, 153, 0.45);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.12);
+}
+
+.plat-settings:is(.plat-settings--agent, .plat-settings--merchant) .plat-settings__submit {
+  justify-self: start;
+  min-height: 36px;
+  margin-top: 2px;
+}
+
+/* C12 — Agent settings */
+

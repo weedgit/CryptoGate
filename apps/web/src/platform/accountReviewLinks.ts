@@ -1,4 +1,7 @@
-export type ReviewScope = { agentId: string } | { merchantId: string };
+export type ReviewScope =
+  | { agentId: string }
+  | { merchantId: string }
+  | { siteId: string };
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -24,7 +27,23 @@ export function utcMonthBounds(now: Date = new Date()): {
 }
 
 function scopeEntry(scope: ReviewScope): [string, string] {
-  return "agentId" in scope ? ["agent", scope.agentId] : ["merchant", scope.merchantId];
+  if ("agentId" in scope) return ["agent", scope.agentId];
+  if ("siteId" in scope) return ["site", scope.siteId];
+  return ["merchant", scope.merchantId];
+}
+
+/** Every invoice created this UTC month (matches Orders MTD). */
+export function ordersReviewQuery(scope: ReviewScope, now: Date = new Date()): string {
+  const { monthStart, today } = utcMonthBounds(now);
+  const q = new URLSearchParams({
+    status: "all",
+    period: "custom",
+    from: monthStart,
+    to: today,
+    utc: "1",
+  });
+  q.set(...scopeEntry(scope));
+  return q.toString();
 }
 
 /** Completed invoices created this UTC month for the agent subtree or merchant. */

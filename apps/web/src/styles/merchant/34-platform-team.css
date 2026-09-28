@@ -1,0 +1,1115 @@
+/* B15 — Platform team (Figma b15-platform-team) */
+:is(.platform-shell, .shell) .plat-team {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.platform-shell .plat-team__panel.plat-bills__panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.platform-shell .plat-team__panel--solo.plat-bills__panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-shell .plat-team.plat-bills .plat-bills__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: #04182b;
+}
+
+.platform-shell .plat-team.plat-bills .plat-team__table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: #04182b;
+}
+
+.platform-shell .plat-team.plat-bills .plat-team__count {
+  margin: 0;
+  padding: 10px 16px 12px;
+  border-top: 1px solid rgba(120, 160, 190, 0.12);
+  background: #0a1e34;
+  color: #8b9bb0;
+}
+
+.platform-shell .plat-team.plat-bills .plat-team__empty {
+  margin: 16px;
+  padding: 28px 18px;
+  text-align: center;
+  border: 1px dashed rgba(120, 160, 190, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 30, 52, 0.45);
+}
+
+.platform-shell .plat-team.plat-bills .plat-team__invite-cta.plat-bills__action-btn {
+  background: transparent;
+  box-shadow: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.75);
+  background: transparent;
+  color: #f0b429;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-cta:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.1);
+  color: #ffd36a;
+  border-color: rgba(240, 180, 41, 0.9);
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-cta .plat-team__settings-cta-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  fill: none;
+  background: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-cta-plus {
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+:is(.platform-shell, .shell) .plat-team__org-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+:is(.platform-shell, .shell) .plat-team__count {
+  margin: 0;
+  padding: 10px 16px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8b9bb0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+:is(.platform-shell, .shell) .plat-team__empty {
+  margin: 0;
+  padding: 18px 14px;
+  font-size: 13px;
+  color: #94a3b8;
+  border: 1px dashed rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 13, 18, 0.6);
+}
+
+:is(.platform-shell, .shell) .plat-team__table-wrap {
+  overflow-x: auto;
+  padding: 0;
+  background: #04182b;
+}
+
+:is(.platform-shell, .shell) .plat-team__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th,
+:is(.platform-shell, .shell) .plat-team__table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+:is(.platform-shell, .shell) .plat-team__table--dense th,
+:is(.platform-shell, .shell) .plat-team__table--dense td {
+  padding: 11px 12px;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #7b8798;
+  background: #0a1e34;
+  border-bottom-color: rgba(120, 160, 190, 0.12);
+  box-shadow: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__table td {
+  color: #f1f5f9;
+  font-weight: 500;
+  background: #04182b;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(1),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(1) {
+  width: 18%;
+  padding-left: 14px;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(2),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(2) {
+  width: 20%;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(3),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(3) {
+  width: 14%;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(4),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(4) {
+  width: 12%;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(5),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(5) {
+  width: 12%;
+}
+
+:is(.platform-shell, .shell) .plat-team__table th:nth-child(6),
+:is(.platform-shell, .shell) .plat-team__table td:nth-child(6) {
+  width: 12%;
+}
+
+:is(.platform-shell, .shell) .plat-team__th-login,
+:is(.platform-shell, .shell) .plat-team__login {
+  text-align: right;
+}
+
+:is(.platform-shell, .shell) .plat-team__td-mfa {
+  text-align: left;
+}
+
+:is(.platform-shell, .shell) .plat-team__th-actions,
+:is(.platform-shell, .shell) .plat-team__td-actions {
+  width: 18%;
+  text-align: right;
+  padding-right: 14px;
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr {
+  animation: plat-team-row-in 280ms ease both;
+  transition: background-color 160ms ease;
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr:nth-child(odd) td,
+:is(.platform-shell, .shell) .plat-team__table tbody tr:nth-child(even) td {
+  background: #04182b;
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr:last-child td {
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+:is(.platform-shell, .shell) .plat-team__table tbody tr:hover td {
+  background: #0a1e34;
+}
+
+@keyframes plat-team-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.platform-shell, .shell) .plat-team__table tbody tr {
+    animation: none;
+  }
+}
+
+:is(.platform-shell, .shell) .plat-team__member {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+:is(.platform-shell, .shell) .plat-team__avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0a2036;
+  border: 0;
+}
+
+:is(.platform-shell, .shell) .plat-team__avatar img,
+:is(.platform-shell, .shell) .plat-team__avatar-default {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  display: block;
+}
+
+:is(.platform-shell, .shell) .plat-team__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.platform-shell, .shell) .plat-team__you,
+:is(.platform-shell, .shell) .plat-team__paused-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:is(.platform-shell, .shell) .plat-team__you {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+:is(.platform-shell, .shell) .plat-team__paused-tag {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+
+:is(.platform-shell, .shell) .plat-team__email,
+:is(.platform-shell, .shell) .plat-team__phone {
+  font-size: 13px;
+  color: #8b9bb0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.platform-shell, .shell) .plat-team__action--icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  color: #f5c542;
+  border-color: rgba(245, 197, 66, 0.75);
+}
+
+:is(.platform-shell, .shell) .plat-team__action--icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex-shrink: 0;
+}
+
+:is(.platform-shell, .shell, .sidebar-role__pop) .plat-team__role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
+  color: #cbd5e1;
+  background: rgba(120, 160, 190, 0.1);
+  border: 1px solid rgba(120, 160, 190, 0.28);
+}
+
+:is(.platform-shell, .shell, .sidebar-role__pop) .plat-team__role.tone-owner {
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+:is(.platform-shell, .shell, .sidebar-role__pop) .plat-team__role.tone-admin {
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+:is(.platform-shell, .shell, .sidebar-role__pop) .plat-team__role.tone-viewer {
+  color: #cbd5e1;
+  background: rgba(120, 160, 190, 0.1);
+  border-color: rgba(120, 160, 190, 0.28);
+}
+
+:is(.platform-shell, .shell, .sidebar-role__pop) .plat-team__role.tone-cashier {
+  color: #5eead4;
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.32);
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker {
+  width: fit-content;
+  max-width: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: auto;
+  min-width: 108px;
+  min-height: 32px;
+  padding: 0 10px 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 120, 150, 0.28);
+  background: #06192c;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:hover {
+  background: #072033;
+  border-color: rgba(100, 140, 175, 0.45);
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus,
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__trigger:focus-visible,
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select.is-open .searchable-select__trigger {
+  outline: none;
+  border-color: rgba(100, 140, 175, 0.55);
+  box-shadow: none;
+  background: #072033;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__value {
+  color: inherit;
+}
+
+:is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__caret {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  opacity: 0.85;
+  color: #94a3b8;
+  border-top-color: #94a3b8;
+  flex-shrink: 0;
+}
+
+:is(.platform-shell, .shell) .plat-team__mfa {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  white-space: nowrap;
+}
+
+:is(.platform-shell, .shell) .plat-team__mfa.is-on {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+:is(.platform-shell, .shell) .plat-team__mfa-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+  box-shadow: 0 0 5px currentColor;
+}
+
+:is(.platform-shell, .shell) .plat-team__login {
+  font-size: 12px;
+  color: #8b9bb0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+:is(.platform-shell, .shell) .plat-team__actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+:is(.platform-shell, .shell) .plat-team__actions-empty {
+  color: #516377;
+  font-size: 13px;
+}
+
+:is(.platform-shell, .shell) .plat-team__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 197, 66, 0.7);
+  background: transparent;
+  color: #f5c542;
+  box-shadow: none;
+}
+
+:is(.platform-shell, .shell) .plat-team__action:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.1);
+  color: #ffd36a;
+  border-color: rgba(240, 180, 41, 0.9);
+}
+
+:is(.platform-shell, .shell) .plat-team__action.is-danger {
+  border-color: rgba(255, 90, 106, 0.75);
+  color: #ff5a6a;
+  background: transparent;
+}
+
+:is(.platform-shell, .shell) .plat-team__action.is-danger:hover:not(:disabled) {
+  border-color: #ff5a6a;
+  background: rgba(255, 90, 106, 0.1);
+  color: #ff8b96;
+}
+
+:is(.platform-shell, .shell) .plat-team__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:is(.platform-shell, .shell) .plat-team__invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+:is(.platform-shell, .shell) .plat-team__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+:is(.platform-shell, .shell) .plat-team__field > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+:is(.platform-shell, .shell) .plat-team__input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #2a3a4a;
+  background: #0b0f14;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+:is(.platform-shell, .shell) .plat-team__input:focus {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
+}
+
+/* Invite modal — portaled to body (must not rely on .platform-shell) */
+.b3-commission-modal-backdrop .plat-team__invite-modal {
+  width: min(440px, calc(100vw - 32px));
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(165deg, rgba(18, 24, 34, 0.99), rgba(10, 13, 18, 0.99));
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-modal .b3-commission-modal__head {
+  align-items: flex-start;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-head-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-right: 8px;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-modal .b3-commission-modal__head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-lede {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #94a3b8;
+  font-weight: 450;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 0;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-modal .b3-commission-modal__body {
+  padding: 16px 20px 0;
+  gap: 22px;
+}
+
+.b3-commission-modal-backdrop .plat-team__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.b3-commission-modal-backdrop .plat-team__field > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.b3-commission-modal-backdrop .plat-team__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background-color: #0b0f14;
+  background-image: none;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.b3-commission-modal-backdrop .plat-team__input::placeholder {
+  color: #64748b;
+}
+
+.b3-commission-modal-backdrop .plat-team__input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: #0d1218;
+}
+
+.b3-commission-modal-backdrop .plat-team__input:focus {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16);
+}
+
+.b3-commission-modal-backdrop .plat-team__input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Hide CSS triangle caret — SVG chevron is on the trigger */
+
+/* Invite credentials — success state inside team invite modal */
+.invite-creds {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(52, 211, 153, 0.72);
+  background:
+    linear-gradient(165deg, rgba(16, 28, 24, 0.92), rgba(8, 12, 16, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(52, 211, 153, 0.18);
+}
+
+.invite-creds--added {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(165deg, rgba(18, 24, 34, 0.96), rgba(10, 13, 18, 0.98));
+}
+
+.invite-creds__banner,
+.invite-creds--added {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.invite-creds__banner {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.invite-creds__banner-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.invite-creds__banner .invite-creds__title {
+  margin: 0;
+}
+
+.invite-creds__mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  color: #34d399;
+  background: transparent;
+  border: 0;
+}
+
+.invite-creds__mark svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.invite-creds--added .invite-creds__mark {
+  color: #94a3b8;
+  background: transparent;
+  border: 0;
+}
+
+.invite-creds__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.invite-creds__title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
+}
+
+.invite-creds__lead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.invite-creds__lead strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.invite-creds__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invite-creds__row {
+  display: grid;
+  grid-template-columns: minmax(132px, 168px) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 6px;
+}
+
+.invite-creds__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.invite-creds__label-text {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.invite-creds__label-icon {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #8ea0b3;
+}
+
+.invite-creds__label-icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.invite-creds__value-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.invite-creds__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 40px 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: #f1f5f9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.invite-creds__copy {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8ea0b3;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.invite-creds__copy:hover:not(:disabled) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.invite-creds__copy.is-copied {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.invite-creds__copy svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.invite-creds__value--link {
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+.invite-creds__value--link:hover {
+  color: #fde68a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.invite-creds__share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.invite-creds__share-label {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.invite-creds__share-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.invite-creds__share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #0b1624;
+  color: #d5dee8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.invite-creds__share-btn:hover {
+  color: #f8fafc;
+  background: #123044;
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+.invite-creds__share-btn svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .invite-creds__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 4px -20px 0;
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 11, 16, 0.45);
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-cancel {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-confirm {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 118px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid var(--btn-primary-border, rgba(240, 180, 41, 0.35));
+  border-radius: 10px;
+  background: var(--btn-primary-bg, rgba(240, 180, 41, 0.1));
+  color: var(--btn-primary-fg, #fde68a);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-confirm:hover:not(:disabled) {
+  filter: none;
+  background: var(--btn-primary-bg-hover, rgba(240, 180, 41, 0.18));
+  border-color: var(--btn-primary-border-hover, rgba(240, 180, 41, 0.5));
+  color: var(--btn-primary-fg-hover, #fef3c7);
+  box-shadow: none;
+}
+
+.b3-commission-modal-backdrop .plat-team__invite-confirm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Remove-member confirm (portaled) */
+.b3-commission-modal-backdrop .plat-team__remove-modal {
+  width: min(400px, 100%);
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-warn {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-foot {
+  gap: 10px;
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-confirm {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 96px;
+  margin: 0;
+  padding: 8px 16px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.16);
+  color: #fecaca;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-confirm:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.28);
+  border-color: rgba(248, 113, 113, 0.7);
+  color: #fff;
+}
+
+.b3-commission-modal-backdrop .plat-team__remove-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  :is(.platform-shell, .shell) .plat-team__table {
+    table-layout: auto;
+  }
+}
+
+/* Platform Support — payment invoices workspace */
+
+.platform-shell .plat-support__kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.platform-shell .plat-support__empty-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+
+.platform-shell .plat-support__col-network {
+  width: 8.5rem;
+}
+
+@media (max-width: 1200px) {
+  .platform-shell .plat-support__kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .platform-shell .plat-support__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+

@@ -1,0 +1,508 @@
+/* ─── Topbar chrome (mockup) ─── */
+.platform-shell .topbar.topbar--chrome {
+  --tb-icon: #e2e8f0;
+  --tb-icon-muted: #94a3b8;
+  --tb-text: #ffffff;
+  --tb-muted: #8a9bb0;
+  --tb-search-bg: #0c1c33;
+  --tb-search-border: rgba(100, 120, 150, 0.28);
+  --tb-bar-bg: #08172d;
+  display: grid;
+  /* Left / right clusters; search is absolutely centered in the bar */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  /* One position for every tab — never page-override margin/top */
+  margin: 0;
+  /* Horizontal only — vertical centering via align-items (avoids pad/border skew) */
+  padding: 0 clamp(12px, 2.5vw, 40px);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  border: 0;
+  border-radius: 0;
+  /* Reference topbar navy */
+  background-color: var(--tb-bar-bg);
+  background-image: none;
+  /* Soft divider — lighter hairline so it sits against the navy bar */
+  box-shadow: inset 0 -1px 0 rgba(148, 163, 184, 0.18);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.platform-shell .topbar--chrome .topbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  grid-column: 1;
+  justify-self: start;
+  z-index: 2;
+  /* Don't block the centered search — only children capture clicks. */
+  pointer-events: none;
+}
+
+.platform-shell .topbar--chrome .topbar-left > * {
+  pointer-events: auto;
+}
+
+.platform-shell .topbar--chrome .topbar-center {
+  /* Span full bar — base `.topbar-center { grid-column: 2 }` otherwise
+     anchors absolute left:50% to the right half only. */
+  grid-column: 1 / -1;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(520px, calc(100% - 280px));
+  max-width: 520px;
+  min-width: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.platform-shell .topbar--chrome .topbar-center > * {
+  pointer-events: auto;
+}
+
+.platform-shell .topbar--chrome .topbar-center-slot:empty {
+  display: none;
+}
+
+.platform-shell .topbar--chrome .topbar-center-slot:not(:empty) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Page-owned search (Accounts, etc.) replaces the chrome Search field. */
+.platform-shell .topbar--chrome:has(.topbar-center-slot:not(:empty)) > .topbar-center > .topbar-search {
+  display: none;
+}
+
+.platform-shell .topbar--chrome .topbar-center-slot .topbar-search {
+  width: 100%;
+  max-width: none;
+  border: 1px solid var(--tb-search-border);
+  background: var(--tb-search-bg);
+}
+
+/* Merchant topbar center (no --chrome): same pill as platform chrome search. */
+
+.platform-shell .topbar--chrome .topbar-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 34px;
+  padding: 0 14px 0 12px;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--tb-search-border);
+  background-color: var(--tb-search-bg);
+  background-image: none;
+  color: #8a94a6;
+}
+
+.platform-shell .topbar--chrome .topbar-search__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #8a94a6;
+}
+
+.platform-shell .topbar--chrome .topbar-search:focus-within {
+  border-color: rgba(0, 212, 200, 0.35);
+  box-shadow: 0 0 0 2px rgba(0, 212, 200, 0.12);
+  color: var(--tb-icon);
+}
+
+.platform-shell .topbar--chrome .topbar-search:focus-within .topbar-search__icon {
+  color: var(--tb-icon);
+}
+
+.platform-shell .topbar--chrome .topbar-search__input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  color: var(--tb-text);
+  text-align: left;
+}
+
+.platform-shell .topbar--chrome .topbar-search__input::placeholder {
+  color: #8a94a6;
+  font-weight: 450;
+  text-align: left;
+}
+
+.platform-shell .topbar--chrome .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  grid-column: 2;
+  justify-self: end;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.platform-shell .topbar--chrome .topbar-right > * {
+  pointer-events: auto;
+}
+
+.platform-shell .topbar--chrome .topbar-actions:empty {
+  display: none;
+}
+
+/* Keep search clear of wide action clusters (Onboard, etc.). */
+.platform-shell .topbar.topbar--chrome:has(.topbar-actions:not(:empty)) .topbar-center {
+  width: min(420px, calc(100% - 520px));
+}
+
+.platform-shell .topbar--chrome .topbar-actions:not(:empty) {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.platform-shell .topbar--chrome .topbar-utils {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.platform-shell .topbar--chrome .alerts-bell,
+.platform-shell .topbar--chrome .chrome-icon-btn,
+.platform-shell .topbar--chrome .theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--tb-icon) !important;
+  border-radius: 8px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.platform-shell .topbar--chrome .alerts-bell-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+}
+
+.platform-shell .topbar--chrome .theme-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.platform-shell .topbar--chrome .alerts-bell.has-unread,
+.platform-shell .topbar--chrome .alerts-bell.has-unread .alerts-bell-icon {
+  color: var(--tb-icon) !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+.platform-shell .topbar--chrome .alerts-bell.has-unread::before,
+.platform-shell .topbar--chrome .alerts-bell.has-unread .alerts-bell-badge::after {
+  display: none !important;
+  animation: none !important;
+  content: none !important;
+}
+
+.platform-shell .topbar--chrome .alerts-bell:hover,
+.platform-shell .topbar--chrome .alerts-bell.is-open,
+.platform-shell .topbar--chrome .chrome-icon-btn:hover,
+.platform-shell .topbar--chrome .theme-toggle-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: transparent !important;
+}
+
+.platform-shell .topbar--chrome .alerts-bell-badge {
+  top: 9px;
+  right: 9px;
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  background: #ef4444;
+  border: 0;
+  box-shadow: 0 0 0 2px var(--tb-bar-bg);
+}
+
+.platform-shell .topbar--chrome .topbar-divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 2px;
+  background: rgba(148, 163, 184, 0.2);
+  flex-shrink: 0;
+}
+
+.platform-shell .sidebar-profile--topbar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: auto;
+  height: 34px;
+  line-height: 0;
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  padding: 0 8px 0 2px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar:hover,
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(148, 163, 184, 0.16);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__avatar,
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__avatar {
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.35),
+    0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__name,
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__name {
+  color: #ffffff;
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__org,
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__org {
+  color: #b6c2d1;
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__chevron,
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__chevron {
+  color: var(--tb-icon, #e2e8f0);
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: none;
+  border: 0;
+  transition: box-shadow 160ms ease;
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__avatar--default {
+  background: #e8edf5;
+  color: #0f172a;
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__avatar-img--default {
+  object-fit: contain;
+  padding: 0;
+  box-sizing: border-box;
+  display: block;
+}
+
+.platform-shell .sidebar-profile__meta--topbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  max-width: 220px;
+  line-height: 1.15;
+  padding-right: 2px;
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__name,
+.platform-shell .sidebar-profile--topbar .sidebar-profile__org {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tb-text);
+  transition: color 160ms ease;
+}
+
+.platform-shell .sidebar-profile__org {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tb-muted);
+  transition: color 160ms ease;
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  color: var(--tb-icon-muted, #94a3b8);
+  flex-shrink: 0;
+  transition: color 160ms ease;
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__chevron {
+  color: var(--tb-icon, #e2e8f0);
+}
+
+.platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__chevron svg {
+  transform: rotate(180deg);
+}
+
+.platform-shell .sidebar-profile--topbar .sidebar-profile__chevron svg {
+  display: block;
+  transition: transform 140ms ease;
+}
+
+html[data-theme="light"] .platform-shell .topbar.topbar--chrome {
+  --tb-icon: #334155;
+  --tb-icon-muted: #64748b;
+  --tb-text: #0f172a;
+  --tb-muted: #64748b;
+  --tb-search-bg: #f1f5f9;
+  --tb-search-border: #e2e8f0;
+  --tb-bar-bg: #ffffff;
+  background: #ffffff;
+  background-color: #ffffff;
+  background-image: none;
+  box-shadow: inset 0 -1px 0 #cbd5e1;
+}
+
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar:hover,
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar.is-open {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__name,
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__name {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar:hover .sidebar-profile__org,
+html[data-theme="light"] .platform-shell .sidebar-profile__trigger.is-topbar.is-open .sidebar-profile__org {
+  color: #475569;
+}
+
+/* Profile menu is portaled to body */
+html[data-theme="light"] .sidebar-profile__menu {
+  border-color: #d8dee8;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .sidebar-profile__menu-item {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .sidebar-profile__menu-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .sidebar-profile__menu-item--danger {
+  color: #b91c1c;
+}
+
+html[data-theme="light"] .sidebar-profile__menu-item--danger:hover {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-search__icon {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-search__input {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-search__input::placeholder {
+  color: #94a3b8;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-search:focus-within {
+  border-color: rgba(0, 212, 200, 0.45);
+  box-shadow: 0 0 0 2px rgba(0, 212, 200, 0.12);
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .alerts-bell,
+html[data-theme="light"] .platform-shell .topbar--chrome .chrome-icon-btn,
+html[data-theme="light"] .platform-shell .topbar--chrome .theme-toggle-btn {
+  color: #334155 !important;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .alerts-bell:hover,
+html[data-theme="light"] .platform-shell .topbar--chrome .chrome-icon-btn:hover,
+html[data-theme="light"] .platform-shell .topbar--chrome .theme-toggle-btn:hover {
+  color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .alerts-bell-badge {
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-divider {
+  background: #e2e8f0;
+}
+

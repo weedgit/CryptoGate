@@ -1,0 +1,522 @@
+/* —— Rates & pricing (rate.png) —— */
+/* —— Rates (platform pricing settings) —— */
+/* Dark tokens locked. Light overrides in html[data-theme="light"]. */
+.platform-shell .plat-rates {
+  --rates-panel: #0d1a2a;
+  --rates-border: rgba(120, 160, 190, 0.16);
+  --rates-gold: #f0b429;
+  --rates-gold-bright: #ffd36a;
+  --rates-title: #f8fafc;
+  --rates-muted: #8a9bb0;
+  --rates-input-bg: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  max-width: 980px;
+}
+
+.platform-shell .plat-rates__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.platform-shell .plat-rates__head-main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.platform-shell .plat-rates__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--rates-title);
+}
+
+.platform-shell .plat-rates__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--rates-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .plat-rates__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.platform-shell .plat-rates__panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--rates-border);
+  background: var(--rates-panel);
+}
+
+.platform-shell .plat-rates__panel-top {
+  display: contents;
+}
+
+.platform-shell .plat-rates__panel > .plat-rates__toggle-grid {
+  grid-column: 1 / -1;
+}
+
+.platform-shell .plat-rates__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(240, 180, 41, 0.14);
+  color: var(--rates-gold);
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-rates__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.platform-shell .plat-rates__panel-copy {
+  min-width: 0;
+}
+
+.platform-shell .plat-rates__panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--rates-title);
+  letter-spacing: -0.01em;
+}
+
+.platform-shell .plat-rates__panel-sub {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--rates-muted);
+}
+
+.platform-shell .plat-rates__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 2px 4px;
+}
+
+.platform-shell .plat-rates__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.75);
+  background: transparent;
+  color: var(--rates-gold);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.platform-shell .plat-rates__save svg {
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-rates__save:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.1);
+  border-color: rgba(240, 180, 41, 0.95);
+  color: var(--rates-gold-bright);
+}
+
+.platform-shell .plat-rates__save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-rates__toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 28px;
+  padding-top: 4px;
+}
+
+.platform-shell .plat-rates__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.platform-shell .plat-rates__toggle:has(input:disabled) {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.platform-shell .plat-rates__toggle > input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  border-radius: 4px;
+  border: 1.5px solid rgba(148, 163, 184, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+.platform-shell .plat-rates__toggle > input:checked {
+  border-color: rgba(240, 180, 41, 0.9);
+  background: rgba(240, 180, 41, 0.12);
+}
+
+.platform-shell .plat-rates__toggle > input:checked::after {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4.5px;
+  height: 8.5px;
+  border: solid var(--rates-gold);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.platform-shell .plat-rates__toggle-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.platform-shell .plat-rates__toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--rates-title);
+}
+
+.platform-shell .plat-rates__toggle-label .chart-help {
+  transform: scale(0.9);
+}
+
+.platform-shell .plat-rates__toggle-hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--rates-muted);
+}
+
+.platform-shell .plat-rates__panel--metric {
+  grid-template-columns: auto minmax(0, 1.4fr) 96px minmax(180px, 0.9fr);
+  align-items: center;
+}
+
+.platform-shell .plat-rates__stepper {
+  width: 104px;
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-rates__metric-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 30px 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 190, 0.28);
+  background: var(--rates-input-bg);
+  color: var(--rates-title);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.platform-shell .plat-rates__metric-input:focus {
+  outline: none;
+  border-color: rgba(240, 180, 41, 0.55);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+}
+
+.platform-shell .plat-rates__metric-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-rates__stepper .cg-number-stepper__spin {
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 28px;
+  border-radius: 0 6px 6px 0;
+  border-left-color: rgba(125, 211, 252, 0.28);
+  background: rgba(125, 211, 252, 0.06);
+}
+
+.platform-shell .plat-rates__stepper .cg-number-stepper__btn {
+  color: #7dd3fc;
+}
+
+.platform-shell .plat-rates__stepper .cg-number-stepper__btn + .cg-number-stepper__btn {
+  border-top-color: rgba(125, 211, 252, 0.22);
+}
+
+.platform-shell .plat-rates__stepper .cg-number-stepper__btn:hover:not(:disabled) {
+  color: #bae6fd;
+  background: rgba(125, 211, 252, 0.12);
+}
+
+.platform-shell .plat-rates__stepper .cg-number-stepper__btn svg {
+  width: 13px;
+  height: 9px;
+}
+
+.platform-shell .plat-rates__stepper:has(.cg-number-stepper__input:disabled) .cg-number-stepper__spin {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.platform-shell .plat-rates__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 190, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--rates-muted);
+}
+
+.platform-shell .plat-rates__info strong {
+  font-weight: 650;
+  color: #cbd5e1;
+}
+
+.platform-shell .plat-rates__panel--list {
+  grid-template-columns: auto minmax(0, 0.85fr) minmax(0, 1.4fr);
+  align-items: center;
+}
+
+.platform-shell .plat-rates__checks-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 190, 0.14);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.platform-shell .plat-rates__bar-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.platform-shell .plat-rates__bar-check:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.platform-shell .plat-rates__bar-check input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 4px;
+  border: 1.5px solid rgba(148, 163, 184, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-rates__bar-check input:checked {
+  border-color: rgba(240, 180, 41, 0.9);
+  background: rgba(240, 180, 41, 0.12);
+}
+
+.platform-shell .plat-rates__bar-check input:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--rates-gold);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+@media (max-width: 900px) {
+  .platform-shell .plat-rates__panel--metric {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .platform-shell .plat-rates__stepper,
+  .platform-shell .plat-rates__info {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .platform-shell .plat-rates__panel--list {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .platform-shell .plat-rates__checks-bar {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .plat-rates__toggle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-rates__panel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .platform-shell .plat-rates__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Rates — light mode (dark tokens above stay locked) */
+html[data-theme="light"] .platform-shell .plat-rates {
+  --rates-panel: #ffffff;
+  --rates-border: #d8dee8;
+  --rates-gold: #d97706;
+  --rates-gold-bright: #b45309;
+  --rates-title: #0f172a;
+  --rates-muted: #64748b;
+  --rates-input-bg: #f8fafc;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__panel {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__icon {
+  background: #fffbeb;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  color: #d97706;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__toggle {
+  border-color: #e2e8f0;
+  background: transparent;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__toggle > input {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__toggle > input:checked {
+  border-color: #f59e0b;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__toggle > input:checked::after {
+  border-color: #d97706;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__bar-check input {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__bar-check input:checked {
+  border-color: #f59e0b;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__bar-check input:checked::after {
+  border-color: #d97706;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__metric-input {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+/* Steppers were cyan leftovers — match amber Rates chrome */
+html[data-theme="light"] .platform-shell .plat-rates__stepper .cg-number-stepper__spin {
+  border-left-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__stepper .cg-number-stepper__btn {
+  color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__stepper .cg-number-stepper__btn + .cg-number-stepper__btn {
+  border-top-color: #e2e8f0;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__stepper .cg-number-stepper__btn:hover:not(:disabled) {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__save {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__save:hover:not(:disabled) {
+  background: #d97706;
+  border-color: #d97706;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__info {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__info strong {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__checks-bar {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .platform-shell .plat-rates__bar-check {
+  color: #334155;
+}
+

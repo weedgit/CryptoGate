@@ -22,9 +22,9 @@ describe("contact / org setup UI", () => {
     assert.match(src, /missingSetupPartsLabel/);
   });
 
-  it("shows setup checklist on agent and merchant settings", () => {
-    const agent = readFileSync(
-      join(root, "src/agent/AgentSettingsPage.tsx"),
+  it("shows setup checklist on merchant settings; agent steps open the org window", () => {
+    const agentLinks = readFileSync(
+      join(root, "src/auth/contactVerification.ts"),
       "utf8",
     );
     const team = readFileSync(
@@ -35,7 +35,8 @@ describe("contact / org setup UI", () => {
       join(root, "src/merchant/IntegrationsPage.tsx"),
       "utf8",
     );
-    assert.match(agent, /SetupChecklistCard/);
+    assert.match(agentLinks, /ORG_EDIT_PARAM/);
+    assert.match(agentLinks, /PROFILE_EDIT_PARAM/);
     assert.match(team, /SetupChecklistCard/);
     assert.match(team, /sessionLiveActionsUnlocked/);
     assert.match(integrations, /SetupChecklistCard/);
@@ -81,7 +82,7 @@ describe("contact / org setup UI", () => {
     const agentAlerts = readFileSync(join(root, "src/agent/agentAlerts.ts"), "utf8");
     assert.match(agentAlerts, /setupAlertHref\("agent"\)/);
     const bills = readFileSync(
-      join(root, "src/merchant/MerchantBillingPlanCard.tsx"),
+      join(root, "src/merchant/ServiceBillsListPage.tsx"),
       "utf8",
     );
     assert.doesNotMatch(bills, /plat-bills__activation-callout/);

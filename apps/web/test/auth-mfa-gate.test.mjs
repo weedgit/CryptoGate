@@ -20,14 +20,16 @@ describe("MFA step-up gate", () => {
       join(root, "src/auth/MfaEnrollRequiredModal.tsx"),
       "utf8",
     );
-    assert.match(modal, /Profile from the sidebar/);
+    assert.match(modal, /Set up two-factor auth/);
+    assert.match(modal, /MFA_SETUP_PARAM/);
     assert.match(modal, /enrollmentPending/);
   });
 
   it("wires MfaStepUpGate on privileged save flows", () => {
     for (const file of [
-      "src/merchant/SettlementPage.tsx",
-      "src/agent/AgentSettingsPage.tsx",
+      "src/merchant/settlement/SettlementAddressesCard.tsx",
+      "src/merchant/settlement/HdPoolPanel.tsx",
+      "src/agent/AgentOrgEditHost.tsx",
       "src/platform/ComplianceOverrideModal.tsx",
     ]) {
       const src = readFileSync(join(root, file), "utf8");

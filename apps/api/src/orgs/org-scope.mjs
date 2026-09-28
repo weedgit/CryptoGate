@@ -24,3 +24,20 @@ export async function listOrgsInSubtree(rootIds) {
   );
   return rows;
 }
+
+/**
+ * Profile columns (brand icon, billing / legal details) the subtree walk skips.
+ * @param {object[]} rows rows with `id`
+ * @returns {Promise<object[]>} same rows with profile columns merged in
+ */
+export async function withOrgProfileColumns(rows) {
+  if (rows.length === 0) return rows;
+  const { rows: profiles } = await getPool().query(
+    `SELECT id, country, billing_email, legal_name, icon_key
+     FROM org_accounts
+     WHERE id = ANY($1::uuid[])`,
+    [rows.map((r) => r.id)],
+  );
+  const byId = new Map(profiles.map((p) => [String(p.id), p]));
+  return rows.map((r) => ({ ...r, ...byId.get(String(r.id)) }));
+}

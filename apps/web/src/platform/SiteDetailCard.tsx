@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ordersReviewQuery, volumeReviewQuery } from "./accountReviewLinks";
 import { AuthToast } from "../auth/AuthToast";
 import { InviteCredentialsPanel } from "../auth/InviteCredentialsPanel";
 import type { OnboardInviteCreds } from "../shared/onboardInviteState";
 import {
   ApiError,
   getOrgOverview,
+  ownerContactFromTeam,
   ownerContactWithMfa,
   patchOrgProfile,
   type AuditLogEntry,
@@ -19,6 +21,7 @@ import { OrgProfileEditModal } from "../shared/OrgProfileEditModal";
 import { AccountOverviewProfile } from "../shared/AccountOverviewProfile";
 import { AccountsDetailHero } from "./AccountsDetailHero";
 import { FundAmount } from "./FundAmount";
+import { AnimatedText } from "../shared/AnimatedText";
 import { orgTypeLabel, sessionIsPlatformOwner } from "./org";
 import { OrgTeamRoster } from "./OrgTeamRoster";
 import { DetailActivityCard } from "./DetailActivityTable";
@@ -131,6 +134,12 @@ export function SiteDetailCard({
   const portal = useAccountsPortal();
   const route = portal?.route ?? platformRoute;
   const auditHref = portal ? portal.auditHref : platformRoute("audit");
+  /** Invoice list for this portal; the Agent portal has none. */
+  const invoicesBase = !portal
+    ? platformRoute("invoices")
+    : portal.kind === "merchant"
+      ? portal.route("orders")
+      : null;
   const canSupportOwner = useMemo(
     () => (portal ? false : sessionIsPlatformOwner(session)),
     [portal, session],
@@ -217,25 +226,7 @@ export function SiteDetailCard({
         if (contact) {
           setPrimaryOwner(ownerContactWithMfa(contact, teamRows));
         } else {
-          const ownerRow =
-            teamRows.find((m) => m.role === "owner") ??
-            teamRows[0] ??
-            null;
-          setPrimaryOwner(
-            ownerRow
-              ? {
-                  userId: ownerRow.userId,
-                  email: ownerRow.email,
-                  phone: null,
-                  timezone: "",
-                  emailVerified: false,
-                  phoneVerified: false,
-                  firstName: null,
-                  lastName: null,
-                  mfaEnrolled: ownerRow.mfaEnrolled === true,
-                }
-              : null,
-          );
+          setPrimaryOwner(ownerContactFromTeam(teamRows));
         }
       })
       .catch((err) => {
@@ -419,7 +410,7 @@ export function SiteDetailCard({
                       </button>
                     </div>
                     <p className="b3-card__value">
-                      {teamLoading && team.length === 0 ? "…" : cashierCount}
+                      {teamLoading && team.length === 0 ? "…" : <AnimatedText text={cashierCount} />}
                     </p>
                   </div>
                 </div>
@@ -428,9 +419,20 @@ export function SiteDetailCard({
                     <KpiCoinsIcon />
                   </span>
                   <div className="b3-kpi__copy">
-                    <p className="b3-card__label">Volume (MTD)</p>
+                    <div className="b3-kpi__label-row">
+                      <p className="b3-card__label">Volume (MTD)</p>
+                      {invoicesBase ? (
+                        <Link
+                          className="b3-kpi__more"
+                          to={`${invoicesBase}?${volumeReviewQuery({ siteId: org.id })}`}
+                          aria-label="Review this month's completed invoices"
+                        >
+                          Review →
+                        </Link>
+                      ) : null}
+                    </div>
                     <p className="b3-card__value b3-card__value--gold">
-                      <FundAmount amount={displayVolume} />
+                      <FundAmount animate amount={displayVolume} />
                     </p>
                   </div>
                 </div>
@@ -439,8 +441,19 @@ export function SiteDetailCard({
                     <KpiOrdersIcon />
                   </span>
                   <div className="b3-kpi__copy">
-                    <p className="b3-card__label">Orders (MTD)</p>
-                    <p className="b3-card__value">{metrics?.ordersMtd ?? 0}</p>
+                    <div className="b3-kpi__label-row">
+                      <p className="b3-card__label">Orders (MTD)</p>
+                      {invoicesBase ? (
+                        <Link
+                          className="b3-kpi__more"
+                          to={`${invoicesBase}?${ordersReviewQuery({ siteId: org.id })}`}
+                          aria-label="Review this month's invoices"
+                        >
+                          Review →
+                        </Link>
+                      ) : null}
+                    </div>
+                    <p className="b3-card__value"><AnimatedText text={metrics?.ordersMtd ?? 0} /></p>
                   </div>
                 </div>
               </div>

@@ -13,10 +13,9 @@ const SETTINGS_ROLES = new Set(["owner", "administrator"]);
  * @param {{ platformOperator: boolean, memberships: { orgId: string, role: string }[] }} caller
  * @param {{ id: string, type: string }} org
  */
-export function canEditOrgProfile(caller, org) {
+export function canEditOrgProfile(caller, org, role = roleOnOrg(caller.memberships, org.id)) {
   if (org.type === "platform") return false;
   if (canManagePlatform(caller)) return true;
-  const role = roleOnOrg(caller.memberships, org.id);
   return SETTINGS_ROLES.has(role);
 }
 
@@ -126,6 +125,32 @@ export async function canManageMerchantSiteTree(
     currentId = row.parent_id ?? row.parentId ?? null;
   }
   return false;
+}
+
+/**
+ * Caller's role on `org`. Sites fall back to the nearest merchant / parent-site
+ * Owner or Administrator role above them, so merchant managers can run site
+ * teams and profiles without a direct site membership.
+ * @param {{ memberships: { orgId: string, role: string }[] }} caller
+ * @param {{ id: string, type: string, parent_id?: string | null, parentId?: string | null }} org
+ * @returns {Promise<string | null>}
+ */
+export async function effectiveRoleOnOrg(caller, org, getById = findOrgByIdLazy) {
+  const direct = roleOnOrg(caller.memberships, org.id);
+  if (direct || org.type !== "merchant_site") return direct;
+  let currentId = org.parent_id ?? org.parentId ?? null;
+  const seen = new Set();
+  while (currentId) {
+    if (seen.has(currentId)) break;
+    seen.add(currentId);
+    const row = await getById(currentId);
+    if (!row || (row.type !== "merchant" && row.type !== "merchant_site")) break;
+    const role = roleOnOrg(caller.memberships, currentId);
+    if (canManageOrgTree(role)) return role;
+    if (row.type === "merchant") break;
+    currentId = row.parent_id ?? row.parentId ?? null;
+  }
+  return null;
 }
 
 /** Lazy import to avoid circular deps at module load. */

@@ -345,8 +345,8 @@ function webhookFailureAlert(
     title: "Webhook not reaching your server",
     body: `${host} failed ${attempts} times — check that your endpoint is up and verifies the signed payload.`,
     at: at ? formatShortTime(at) : "Recent",
-    href: merchantRoute("settings/integrations"),
-    hrefLabel: "Integrations",
+    href: merchantRoute("networks"),
+    hrefLabel: "Networks",
     tone: "warn",
     urgent: true,
     unresolved: true,
@@ -483,7 +483,7 @@ async function loadActivationAlert(
 
 async function loadMaintenanceAlerts(next: AlertItem[]): Promise<void> {
   try {
-    for (const m of await listActiveNetworkMaintenance()) {
+    for (const m of (await listActiveNetworkMaintenance()).items ?? []) {
       next.push(maintenanceAlert(m));
     }
   } catch {

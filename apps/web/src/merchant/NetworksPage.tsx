@@ -16,6 +16,7 @@ import {
 } from "./org";
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { NumberStepper } from "../ui/NumberStepper";
+import { IntegrationsPage } from "./IntegrationsPage";
 
 type Props = { session: Session };
 
@@ -25,8 +26,18 @@ function clampConfirm(raw: string, floor: number): number {
   return Math.min(64, Math.max(floor, Math.round(n)));
 }
 
-/** Merchant view: orderability + stricter confirmation overrides (platform floor). */
+/** Merchant Networks tab: rail settings, then API keys and webhooks. */
 export function NetworksPage({ session }: Props) {
+  return (
+    <div className="merchant-networks-page">
+      <NetworkRailsPanel session={session} />
+      <IntegrationsPage session={session} />
+    </div>
+  );
+}
+
+/** Orderability + stricter confirmation overrides (platform floor). */
+function NetworkRailsPanel({ session }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const canEdit = useMemo(
     () => (orgId ? sessionCanEditOrgSettings(session) : false),

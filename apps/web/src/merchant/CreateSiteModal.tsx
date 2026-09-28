@@ -18,7 +18,7 @@ import {
   type OrgAccount,
   type Session,
 } from "./api";
-import { getMerchantOrgs, invalidateMerchantOrgList } from "./merchantOrgList";
+import { getMerchantOrgs, refreshMerchantOrgList } from "./merchantOrgList";
 import {
   parentMerchantOrgId,
   primaryMerchantOrgId,
@@ -97,15 +97,24 @@ export function CreateSiteModal({ session, onClose }: Props) {
     getMerchantOrgs()
       .then((list) => {
         setOrgs(list);
+        const requested = new URLSearchParams(window.location.search).get("parentId");
+        const requestedParent =
+          requested &&
+          (requested === merchantId ||
+            (merchantId != null &&
+              sitesInMerchantSubtree(list, merchantId).some((s) => s.id === requested)))
+            ? requested
+            : null;
         const defaultParent =
-          homeOrgId &&
+          requestedParent ??
+          (homeOrgId &&
           list.some(
             (o) =>
               o.id === homeOrgId &&
               (o.type === "merchant" || o.type === "merchant_site"),
           )
             ? homeOrgId
-            : merchantId ?? "";
+            : merchantId ?? "");
         setParentId((prev) => prev || defaultParent || "");
       })
       .catch(() => setOrgs([]));
@@ -166,7 +175,7 @@ export function CreateSiteModal({ session, onClose }: Props) {
         name: name.trim(),
         parentId,
       });
-      invalidateMerchantOrgList();
+      await refreshMerchantOrgList().catch(() => undefined);
       if (ownerEmail.trim()) {
         try {
           await inviteOrgUser(site.id, {

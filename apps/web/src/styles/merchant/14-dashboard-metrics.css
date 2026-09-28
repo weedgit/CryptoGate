@@ -1,0 +1,416 @@
+/* Dashboard metric header: title + actions on row 1, value + compare on row 2,
+   so every card lines up regardless of value width. */
+.platform-shell .overview-chart-card__top:not(.overview-chart-card__top--select) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.platform-shell .overview-chart-card__top:not(.overview-chart-card__top--select) .overview-chart-card__title-row {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: none;
+}
+
+.platform-shell .overview-chart-card__top:not(.overview-chart-card__top--select) .overview-chart-card__actions {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 28px;
+}
+
+.platform-shell .overview-chart-card__top:not(.overview-chart-card__top--select) .overview-chart-card__metrics--inline {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-content: center;
+  align-items: baseline;
+  margin-left: 0;
+  gap: 4px 12px;
+}
+
+.platform-shell .overview-chart-card__top:not(.overview-chart-card__top--select) .overview-chart-card__compare {
+  max-width: none;
+  white-space: nowrap;
+}
+
+.platform-shell .overview-chart-card__spark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin-top: 0;
+  color: var(--chart-accent, #9c84f0);
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 6px var(--chart-accent-glow, rgba(156, 132, 240, 0.35)));
+}
+
+.platform-shell .overview-chart-card__plot {
+  width: 100%;
+  height: 128px;
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+.platform-shell .overview-chart-card__plot--lg {
+  height: min(420px, 52vh);
+}
+
+.platform-shell .overview-chart-card__chart {
+  width: 100%;
+  --chart-accent: #9c84f0;
+  --chart-accent-soft: rgba(156, 132, 240, 0.45);
+  --chart-accent-fill: rgba(156, 132, 240, 0.18);
+}
+
+.platform-shell .overview-chart-card__datetime {
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-shell .overview-chart-card__spark .volume-chart__line {
+  stroke: var(--chart-accent, #9c84f0);
+}
+
+.platform-shell .overview-chart-card__spark .volume-chart__point {
+  fill: var(--chart-accent, #9c84f0);
+}
+
+.platform-shell .overview-chart-card__chart .chart-hover__crosshair {
+  stroke: var(--chart-accent-soft, rgba(156, 132, 240, 0.85));
+}
+
+.platform-shell .overview-chart-card__chart .chart-hover__dot-ring {
+  stroke: var(--chart-accent-soft, rgba(156, 132, 240, 0.45));
+}
+
+.platform-shell .overview-chart-card__chart .chart-hover__dot {
+  fill: var(--chart-accent, #9c84f0);
+}
+
+/* Phase 1: X-axis wipe (axes/grid). Phase 2: series clip wipe (continuous line). */
+.platform-shell .volume-chart.is-axis-revealing,
+.platform-shell .overview-chart-card__spark.is-axis-revealing {
+  animation: chart-axis-x-wipe 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.platform-shell .volume-chart.is-axis-revealing .volume-chart__series,
+.platform-shell .overview-chart-card__spark.is-axis-revealing .volume-chart__series {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+@keyframes chart-axis-x-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-shell .volume-chart.is-axis-revealing,
+  .platform-shell .overview-chart-card__spark.is-axis-revealing {
+    animation: none;
+  }
+}
+
+.platform-shell .overview-chart-card__empty {
+  flex: 1;
+  margin: 12px 0;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--footer);
+  font-size: 13px;
+  min-height: 120px;
+}
+
+.platform-shell .overview-chart-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-shell .overview-chart-card__updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #8b9bb4;
+}
+
+.platform-shell .overview-chart-card__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #8b9bb4;
+  text-decoration: none;
+}
+
+.platform-shell .overview-chart-card__more:hover {
+  color: #cbd5e1;
+  text-decoration: none;
+  filter: none;
+}
+
+.platform-shell .overview-chart-card__more--muted {
+  color: #8b9bb4;
+  cursor: default;
+}
+
+.platform-shell .overview-chart-card__foot-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  display: block;
+  overflow: visible;
+}
+
+@media (max-width: 1100px) {
+  .platform-shell .overview-charts__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .overview-charts__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.platform-shell .plat-card-help {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.platform-shell .plat-card-help__btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  cursor: help;
+  display: grid;
+  place-items: center;
+}
+
+.platform-shell .plat-card-help__btn:hover,
+.platform-shell .plat-card-help__btn:focus-visible {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.platform-shell .plat-card-help__tip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: min(260px, 70vw);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 212, 200, 0.38);
+  background: #1e2a38;
+  color: #e8eef8;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 16px 36px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+}
+
+.platform-shell .plat-card-help:hover .plat-card-help__tip,
+.platform-shell .plat-card-help:focus-within .plat-card-help__tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.platform-shell .plat-stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-shell .plat-stat-block:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.platform-shell .plat-stat-block__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.platform-shell .plat-stat-triple {
+  display: grid;
+  gap: 10px;
+}
+
+.platform-shell .plat-stat-triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.platform-shell .plat-stat-triple > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.platform-shell .plat-stat-triple > div:nth-child(1) {
+  justify-self: start;
+}
+
+.platform-shell .plat-stat-triple > div:nth-child(2) {
+  justify-self: center;
+}
+
+.platform-shell .plat-stat-triple > div:nth-child(3) {
+  justify-self: end;
+}
+
+.platform-shell .plat-metric-lines {
+  list-style: none;
+  margin: 0;
+  padding: 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.platform-shell .plat-metric-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.platform-shell .plat-metric-line:first-child {
+  padding-top: 0;
+}
+
+.platform-shell .plat-metric-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.platform-shell .plat-metric-line__label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.platform-shell .plat-metric-line__label::after {
+  content: ":";
+}
+
+.platform-shell .plat-metric-line__value {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  line-height: 1.2;
+}
+
+.platform-shell .plat-stat-k {
+  display: block;
+  font-size: 11px;
+  color: var(--footer);
+  margin-bottom: 4px;
+}
+
+.platform-shell .plat-stat-v {
+  display: block;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Funds — Total/Fees pair + Collected (compact, no card) */
+
+.platform-shell .plat-fund-rail__eyebrow-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.platform-shell .plat-fund-rail__eyebrow-title > span:last-child {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.55);
+}
+
+.platform-shell .plat-fund-rail__unit {
+  color: inherit;
+  -webkit-text-fill-color: transparent;
+  background-image: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+  overflow: visible;
+}
+
+.platform-shell .plat-fund-rail__unit {
+  flex-shrink: 0;
+  font-size: 0.28em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-inline-start: 0.22em;
+  align-self: flex-end;
+  margin-bottom: 0.22em;
+  color: inherit;
+  -webkit-text-fill-color: transparent;
+  background-image: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.platform-shell .plat-fund-currency {
+  font-size: 0.36em;
+  font-weight: 700;
+  margin-left: 0.22em;
+  vertical-align: 0.12em;
+  letter-spacing: 0.06em;
+}
+

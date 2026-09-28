@@ -1,5 +1,6 @@
 import type { CommissionStatementRow } from "./commissionStatements";
 import { apiFetch } from "../auth/apiFetch";
+import { API_BASE, parseError } from "../shared/apiCore";
 import {
   agentRoute,
   platformRoute,
@@ -49,22 +50,6 @@ export type CommissionPayoutRecord = {
   agentConfirmedBy?: string | null;
   updatedAt: string;
 };
-
-const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-  "/v1";
-
-async function parseError(res: Response): Promise<never> {
-  let message = res.statusText || `HTTP ${res.status}`;
-  try {
-    const data = (await res.json()) as { message?: string; error?: string };
-    if (data.message) message = data.message;
-    else if (data.error) message = data.error;
-  } catch {
-    /* ignore */
-  }
-  throw new Error(message);
-}
 
 export async function listCommissionPayouts(filter?: {
   payer?: "platform";

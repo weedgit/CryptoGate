@@ -1,0 +1,83 @@
+/* Billing calendar (Fees → Billing calendar) */
+.platform-shell .plat-billing-calendar__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: none;
+  width: 100%;
+}
+
+.platform-shell .plat-billing-calendar__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.platform-shell .plat-billing-calendar__fieldset {
+  margin: 0;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d8dde6) 90%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #f3f5f8);
+  min-width: 0;
+}
+.platform-shell .plat-billing-calendar__legend {
+  padding: 0 0.35rem 0 0;
+  margin-bottom: 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.platform-shell .plat-billing-calendar__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.platform-shell .plat-billing-calendar__row--activation {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.platform-shell .plat-billing-calendar__row--activation .plat-billing-calendar__check {
+  margin-top: 0;
+  align-self: end;
+  min-height: 34px;
+  padding-bottom: 2px;
+}
+.platform-shell .plat-billing-calendar__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.platform-shell .plat-billing-calendar__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.platform-shell .platform-detail__pause-reason {
+  margin: 0.35rem 1.25rem 0;
+  font-size: 0.88rem;
+}
+@media (max-width: 900px) {
+  .platform-shell .plat-billing-calendar__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .plat-billing-calendar__row,
+  .platform-shell .plat-billing-calendar__row--activation {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-shell .plat-billing-calendar__row--activation .plat-billing-calendar__check {
+    min-height: 0;
+    padding-bottom: 0;
+  }
+}
+

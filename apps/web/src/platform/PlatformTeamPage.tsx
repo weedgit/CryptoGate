@@ -292,8 +292,6 @@ export function PlatformTeamPage({ session }: Props) {
         }}
       />
 
-      {portal?.header}
-
       <div className="plat-bills__period-bar">
         <div className="plat-bills__intro">
           <span className="plat-bills__intro-icon" aria-hidden>
@@ -347,6 +345,7 @@ export function PlatformTeamPage({ session }: Props) {
               Invite Member
             </button>
           ) : null}
+          {portal?.actions}
         </div>
       </div>
 

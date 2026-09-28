@@ -1,5 +1,6 @@
 import { useId, useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { animateCardValue } from "../../shared/AnimatedText";
 
 export function MiniSpark({
   values,
@@ -110,8 +111,11 @@ export function DashKpiCard({
   href,
   linkLabel,
   linkWithTitle = false,
+  icon,
 }: {
   accent: KpiAccent;
+  /** Replaces the accent's default icon. */
+  icon?: ReactNode;
   label: string;
   value: ReactNode;
   hint?: string;
@@ -148,13 +152,13 @@ export function DashKpiCard({
     <div className={`pg-kpi is-${accent}${linkWithTitle ? " pg-kpi--title-link" : ""}`}>
       <div className="pg-kpi__top">
         <span className="pg-kpi__icon" aria-hidden>
-          <DashKpiIcon accent={accent} />
+          {icon ?? <DashKpiIcon accent={accent} />}
         </span>
         <span className="pg-kpi__label">{label}</span>
         {linkWithTitle ? link : null}
       </div>
       <div className="pg-kpi__metrics">
-        <span className="pg-kpi__value">{value}</span>
+        <span className="pg-kpi__value">{animateCardValue(value)}</span>
         {!hasSpark && meta ? <div className="pg-kpi__meta-inline">{meta}</div> : null}
       </div>
       {hasSpark ? (

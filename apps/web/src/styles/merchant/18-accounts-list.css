@@ -1,0 +1,150 @@
+/* B2 / B5 — Agent & merchant accounts list (platform) */
+
+/* B2 — Agents / Merchants list: flat table + optional split detail */
+.platform-shell .org-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.platform-shell .org-agents.org-agents--split {
+  flex: 1 1 auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  gap: 0;
+}
+
+.platform-shell .org-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.platform-shell .org-agents.org-agents--split .org-split {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.platform-shell .org-split__list {
+  min-width: 0;
+  min-height: 0;
+}
+
+.platform-shell .org-agents.org-agents--split .org-split__list {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
+}
+
+.platform-shell .org-agents.org-agents--split .org-split__list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.platform-shell .org-split__pane {
+  position: relative;
+  top: auto;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.platform-shell .org-split__empty,
+.platform-shell .b3-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 40px 32px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  text-align: center;
+  background: #0e1218;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+}
+
+.platform-shell .b3-empty__mark {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 18px;
+  color: rgba(251, 191, 36, 0.72);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.18);
+}
+
+.platform-shell .b3-empty__title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.platform-shell .b3-empty__copy {
+  margin: 0 0 20px;
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.platform-shell .b3-empty__hints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(280px, 100%);
+}
+
+.platform-shell .b3-empty__hints li {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: left;
+  background: #080b10;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.platform-shell .b3-empty__hints li::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: var(--plat-gold-bright, #fbbf24);
+}
+
+.platform-shell .org-split__empty-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+

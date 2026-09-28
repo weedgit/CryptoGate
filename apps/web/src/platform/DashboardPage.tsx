@@ -10,6 +10,8 @@ import {
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
 import { GateLogoMark } from "../auth/GateLogoMark";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
+import { AnimatedText } from "../shared/AnimatedText";
 import { platformRoute } from "../shared/portalRouting";
 import {
   useDashboardLiveEvents,
@@ -42,6 +44,7 @@ import {
 } from "../shared/dashboardApi";
 import { PagePending } from "./ui/PlatformPending";
 import { DashKpiCard } from "./ui/DashKpiCard";
+import { DashHeroAura, DashHeroHighlights, DashPeriodControls } from "./ui/DashHero";
 import { AssetNetworkTables } from "./AssetNetworkTables";
 import { AddChartsModal } from "./ui/AddChartsModal";
 import { ChartHelpButton } from "./ui/ChartHelpButton";
@@ -528,7 +531,6 @@ export function DashboardPage({ session }: Props) {
   const scopeOrgId = portal?.scopeOrgId ?? null;
   const overviewStorageKey = portal?.overviewStorageKey ?? OVERVIEW_STORAGE_KEY;
   const [commissionPercent, setCommissionPercent] = useState<string | null>(null);
-
   const [period, setPeriod] = useState<PeriodId | "custom">("7d");
   const [startDate, setStartDate] = useState(() =>
     toDateInputValue(periodWindow("7d").from),
@@ -835,6 +837,7 @@ export function DashboardPage({ session }: Props) {
       const pair = byPair.get(`${asset}:${network}`);
       const latest = pair?.latest ?? null;
       const quoteCount = pair?.quoteCount ?? 0;
+      const market = pair?.source === "market";
       const empty = latest == null;
       const money = (n: number) => (
         <span className="fund-amount">
@@ -847,11 +850,15 @@ export function DashboardPage({ session }: Props) {
         id: rateOverviewId(asset, network),
         category: portal ? "Rates" : "Platform",
         title: `${asset} · ${netLabel}`,
-        help: `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
+        help: market
+          ? `Market USD convert rate for 1 ${asset} on ${row.displayNetwork} across the platform in the selected period. Shown until your merchants have quotes for this pair.`
+          : `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
         value: empty ? "—" : money(latest),
         compareLabel: empty
           ? `No quotes · ${periodLabel}`
-          : `${quoteCount.toLocaleString()} quote${quoteCount === 1 ? "" : "s"} · ${periodLabel}`,
+          : market
+            ? `Market rate · ${periodLabel}`
+            : `${quoteCount.toLocaleString()} quote${quoteCount === 1 ? "" : "s"} · ${periodLabel}`,
         trendPercent: empty ? null : trendFromRateSeries(rateSeries),
         trendLabel,
         series: empty ? labels.map(() => 0) : rateSeries,
@@ -997,59 +1004,19 @@ export function DashboardPage({ session }: Props) {
   );
 
   const periodControls = (
-    <div className="pg-dash__period" aria-label="Period">
-      <div className="pg-dash__period-pills" role="group" aria-label="Quick periods">
-        {PERIOD_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`pg-dash__period-pill${period === opt.id ? " is-active" : ""}`}
-            onClick={() => onPeriodSelect(opt.id)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      <div className="pg-dash__period-dates" aria-label="Date range">
-        <label className="pg-dash__period-date">
-          <span className="sr-only">Start</span>
-          <input
-            type="date"
-            value={startDate}
-            max={endDate || undefined}
-            onChange={(e) => onStartDateChange(e.target.value)}
-            onWheel={(e) => e.currentTarget.blur()}
-          />
-        </label>
-        <span className="pg-dash__period-sep" aria-hidden>
-          –
-        </span>
-        <label className="pg-dash__period-date">
-          <span className="sr-only">End</span>
-          <input
-            type="date"
-            value={endDate}
-            min={startDate || undefined}
-            onChange={(e) => onEndDateChange(e.target.value)}
-            onWheel={(e) => e.currentTarget.blur()}
-          />
-        </label>
-      </div>
-      <button
-        type="button"
-        className="pg-dash__period-refresh"
-        onClick={refreshDashboard}
-        disabled={loading}
-        aria-label="Refresh dashboard"
-        title={
-          updatedAt
-            ? `Updated ${formatUpdatedClock(updatedAt)}`
-            : "Refresh dashboard"
-        }
-      >
-        {loading && hasLoaded ? "…" : "↻"}
-      </button>
-    </div>
+    <DashPeriodControls
+      options={PERIOD_OPTIONS}
+      period={period}
+      startDate={startDate}
+      endDate={endDate}
+      onPeriodSelect={onPeriodSelect}
+      onStartDateChange={onStartDateChange}
+      onEndDateChange={onEndDateChange}
+      onRefresh={refreshDashboard}
+      refreshing={loading && hasLoaded}
+      disabled={loading}
+      refreshTitle={updatedAt ? `Updated ${formatUpdatedClock(updatedAt)}` : undefined}
+    />
   );
 
   const stats = useMemo(() => statsFromKpis(kpis), [kpis]);
@@ -1071,6 +1038,7 @@ export function DashboardPage({ session }: Props) {
   }, [totalSeries, kpis]);
 
   const successRate = kpis?.orders.successRate ?? 100;
+  const heroOrg = portal ? orgs.find((o) => o.id === portal.titleOrgId) ?? null : null;
 
   if (loading && !hasLoaded) {
     return <PagePending />;
@@ -1086,13 +1054,20 @@ export function DashboardPage({ session }: Props) {
       <header className="pg-dash__hero">
         <div className="pg-dash__hero-top">
           <div className="pg-dash__hero-brand">
-            <GateLogoMark size={140} className="pg-dash__mark" alt="" />
+            {portal ? (
+              <OrgBrandMark
+                name={heroOrg?.name ?? portal.title}
+                iconKey={heroOrg?.iconKey}
+                size={104}
+                className="pg-dash__org-mark"
+              />
+            ) : (
+              <GateLogoMark size={140} className="pg-dash__mark" alt="" />
+            )}
             <div className="pg-dash__hero-copy">
               <p className="pg-dash__eyebrow">{portal ? portal.eyebrow : "Platform"}</p>
               <h1 className="pg-dash__welcome">
-                {portal
-                  ? (orgs.find((o) => o.id === portal.titleOrgId)?.name ?? portal.title)
-                  : "PaymentGate"}
+                {portal ? (heroOrg?.name ?? portal.title) : "PaymentGate"}
               </h1>
               <p className="pg-dash__lede">
                 Here’s what’s happening with your payment ecosystem today.
@@ -1100,141 +1075,13 @@ export function DashboardPage({ session }: Props) {
             </div>
           </div>
           <div className="pg-dash__hero-aside">
-            <ul className="pg-dash__hero-highlights" aria-label="Platform highlights">
-              <li className="pg-dash__hero-highlight" data-tone="blue">
-                <span className="pg-dash__hero-highlight-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.5" />
-                    <path
-                      d="M3.75 12h16.5M12 3.75c2.4 2.6 3.6 5.4 3.6 8.25S14.4 17.65 12 20.25C9.6 17.65 8.4 14.85 8.4 12S9.6 6.35 12 3.75Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span className="pg-dash__hero-highlight-copy">
-                  <span className="pg-dash__hero-highlight-title">Global network</span>
-                  <span className="pg-dash__hero-highlight-sub">Trusted infrastructure</span>
-                </span>
-              </li>
-              <li className="pg-dash__hero-highlight" data-tone="teal">
-                <span className="pg-dash__hero-highlight-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 3.6 20.1 8.1v7.8L12 20.4 3.9 15.9V8.1L12 3.6Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 12.15 20.1 8.1M12 12.15 3.9 8.1M12 12.15V20.4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span className="pg-dash__hero-highlight-copy">
-                  <span className="pg-dash__hero-highlight-title">Secure &amp; compliant</span>
-                  <span className="pg-dash__hero-highlight-sub">Built for growth</span>
-                </span>
-              </li>
-              <li className="pg-dash__hero-highlight" data-tone="blue">
-                <span className="pg-dash__hero-highlight-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4.5 16.5V19.5M9.5 12.5V19.5M14.5 9.5V19.5M19.5 5.5V19.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M4.2 11.2 10.3 6.8l4.1 3.1 5.4-6.2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <span className="pg-dash__hero-highlight-copy">
-                  <span className="pg-dash__hero-highlight-title">Real-time insights</span>
-                  <span className="pg-dash__hero-highlight-sub">Your payments, in control</span>
-                </span>
-              </li>
-            </ul>
+            <DashHeroHighlights />
             <div className="pg-dash__hero-toolbar">
               {periodControls}
             </div>
           </div>
         </div>
-        <div className="pg-dash__hero-aura" aria-hidden>
-          <svg
-            className="pg-dash__hero-aura-svg"
-            viewBox="0 0 640 160"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <linearGradient id="pg-hero-gold-a" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                <stop offset="20%" stopColor="rgba(255,220,140,0.62)" />
-                <stop offset="52%" stopColor="rgba(255,193,69,0.38)" />
-                <stop offset="80%" stopColor="rgba(255,208,96,0.2)" />
-                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
-              </linearGradient>
-              <linearGradient id="pg-hero-gold-b" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-                <stop offset="16%" stopColor="rgba(255,230,160,0.42)" />
-                <stop offset="48%" stopColor="rgba(255,193,69,0.22)" />
-                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
-              </linearGradient>
-              <linearGradient id="pg-hero-gold-fill" x1="50%" y1="0%" x2="50%" y2="100%">
-                <stop offset="0%" stopColor="rgba(255,208,96,0.12)" />
-                <stop offset="100%" stopColor="rgba(255,208,96,0)" />
-              </linearGradient>
-              <radialGradient id="pg-hero-dot-glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="rgba(255,230,160,0.95)" />
-                <stop offset="55%" stopColor="rgba(255,193,69,0.45)" />
-                <stop offset="100%" stopColor="rgba(255,193,69,0)" />
-              </radialGradient>
-            </defs>
-            <path
-              d="M20 118 C 140 118, 200 42, 320 48 C 440 54, 500 108, 620 102"
-              fill="none"
-              stroke="url(#pg-hero-gold-a)"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-            />
-            <path
-              d="M40 128 C 160 124, 220 68, 340 72 C 460 76, 520 120, 600 116"
-              fill="none"
-              stroke="url(#pg-hero-gold-b)"
-              strokeWidth="1.15"
-              strokeLinecap="round"
-              opacity="0.85"
-            />
-            <path
-              d="M60 132 C 180 128, 240 86, 360 88 C 480 90, 530 122, 580 120 L 580 148 L 60 148 Z"
-              fill="url(#pg-hero-gold-fill)"
-              opacity="0.55"
-            />
-            <g className="pg-dash__hero-dots" fill="#ffd060">
-              <circle cx="212" cy="58" r="0.85" opacity="0.4" />
-              <circle cx="248" cy="44" r="1.2" opacity="0.58" />
-              <circle cx="336" cy="52" r="1.1" opacity="0.52" />
-              <circle cx="392" cy="58" r="0.8" opacity="0.38" />
-              <circle cx="448" cy="72" r="1.15" opacity="0.48" />
-              <circle cx="498" cy="96" r="0.9" opacity="0.36" />
-              <circle cx="542" cy="108" r="1" opacity="0.44" />
-              <circle cx="268" cy="78" r="0.9" opacity="0.32" />
-              <circle cx="420" cy="64" r="0.95" opacity="0.4" />
-              <circle cx="520" cy="112" r="1.05" opacity="0.36" />
-              <circle cx="230" cy="52" r="1.8" fill="url(#pg-hero-dot-glow)" opacity="0.5" />
-              <circle cx="410" cy="60" r="1.55" fill="url(#pg-hero-dot-glow)" opacity="0.4" />
-            </g>
-          </svg>
-        </div>
+        <DashHeroAura />
       </header>
 
       <div className="pg-dash__kpi-row">
@@ -1254,19 +1101,25 @@ export function DashboardPage({ session }: Props) {
         {portal ? (
           <DashKpiCard
             accent="teal"
-            label="Commission Earned"
+            icon={
+              <img
+                className="pg-kpi__icon-img"
+                src="/brand/wallet-icon.png"
+                alt=""
+                width={36}
+                height={36}
+                draggable={false}
+              />
+            }
+            label="Merchant Fees"
             value={
               <span className="pg-kpi__money">
-                ${formatMoneyFigureFixed(stats.commissionOwed + stats.commissionPaid)}
+                <AnimatedText text={"$" + formatMoneyFigureFixed(stats.collected)} />
               </span>
             }
-            hint={
-              commissionPercent
-                ? `${commissionPercent}% of platform fees`
-                : `${formatMoneyFigure(stats.commissionPaid)} paid`
-            }
-            href={route("commissions")}
-            linkLabel="View Commissions"
+            hint={`of $${formatMoneyFigureFixed(stats.fees)} billed · ${periodLabel}`}
+            href={route("service-bills")}
+            linkLabel="View Bills"
           />
         ) : (
           <DashKpiCard
@@ -1297,7 +1150,7 @@ export function DashboardPage({ session }: Props) {
           label="Total Volume"
           value={
             <span className="pg-kpi__money">
-              ${formatMoneyFigureFixed(stats.volume)}
+              <AnimatedText text={"$" + formatMoneyFigureFixed(stats.volume)} />
             </span>
           }
           trend={kpiSparks.volumeTrend}
@@ -1307,7 +1160,7 @@ export function DashboardPage({ session }: Props) {
         />
         <div
           className="pg-feature"
-          aria-label={portal ? "Merchant fees collected" : "Platform fees collected"}
+          aria-label={portal ? "Commission earned" : "Platform fees collected"}
         >
           <div className="pg-feature__top">
             <span className="pg-feature__icon" aria-hidden>
@@ -1321,24 +1174,43 @@ export function DashboardPage({ session }: Props) {
               />
             </span>
             <p className="pg-feature__kicker">
-              {portal ? "Merchant fees" : "Platform fees"}
+              {portal ? "Commission earned" : "Platform fees"}
             </p>
           </div>
-          <p className="pg-feature__value">
-            ${formatMoneyFigureFixed(stats.collected)}
-          </p>
-          <p className="pg-feature__label">
-            from invoices · {periodLabel}
-          </p>
-          <p className="pg-feature__sub">
-            of ${formatMoneyFigureFixed(stats.fees)} billed
-          </p>
+          {portal ? (
+            <>
+              <p className="pg-feature__value">
+                ${formatMoneyFigureFixed(stats.commissionOwed + stats.commissionPaid)}
+              </p>
+              <p className="pg-feature__label">
+                {commissionPercent
+                  ? `${commissionPercent}% of platform fees`
+                  : "from merchant fees"}
+              </p>
+              <p className="pg-feature__sub">
+                ${formatMoneyFigureFixed(stats.commissionPaid)} paid · $
+                {formatMoneyFigureFixed(stats.commissionOwed)} pending
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="pg-feature__value">
+                <AnimatedText text={"$" + formatMoneyFigureFixed(stats.collected)} />
+              </p>
+              <p className="pg-feature__label">
+                from invoices · {periodLabel}
+              </p>
+              <p className="pg-feature__sub">
+                of ${formatMoneyFigureFixed(stats.fees)} billed
+              </p>
+            </>
+          )}
           <Link
-            to={route("service-bills")}
+            to={route(portal ? "commissions" : "service-bills")}
             className="pg-feature__link"
           >
             <span className="pg-feature__link-text">
-              {portal ? "View Bills" : "View Volume"}
+              {portal ? "View Commissions" : "View Volume"}
             </span>
             <span className="pg-feature__link-arrow" aria-hidden>
               →
@@ -1508,6 +1380,7 @@ export function DashboardPage({ session }: Props) {
         </div>
       </div>
 
+      {portal ? null : (
       <div className="pg-dash__status-row">
         <DashKpiCard
           accent="ok"
@@ -1542,21 +1415,10 @@ export function DashboardPage({ session }: Props) {
           hint={
             stats.anomalies > 0 ? "Open Attention" : "No action required"
           }
-          href={portal ? undefined : platformRoute("invoices")}
+          href={platformRoute("invoices")}
           linkLabel="Open"
           linkWithTitle
         />
-        {portal ? (
-          <DashKpiCard
-            accent={stats.merchants.pause > 0 ? "warn" : "ok"}
-            label="Paused Merchants"
-            value={stats.merchants.pause.toLocaleString()}
-            hint={stats.merchants.pause > 0 ? "Service paused" : "All running"}
-            href={route("accounts/merchants")}
-            linkLabel="View"
-            linkWithTitle
-          />
-        ) : (
           <DashKpiCard
             accent={
               backupStatus == null
@@ -1590,8 +1452,8 @@ export function DashboardPage({ session }: Props) {
             linkLabel="View"
             linkWithTitle
           />
-        )}
       </div>
+      )}
 
       <ChartMaximizeOverlay
         open={volumeMaximized}

@@ -21,6 +21,7 @@ import {
 } from "../merchant/api";
 import { readOrgIconFile } from "../shared/orgBrand";
 import { formatPhoneInput } from "../shared/phoneFormat";
+import { showToast } from "../shared/toast";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { AuthToast } from "./AuthToast";
@@ -36,6 +37,10 @@ type Props = {
   title?: string;
   onClose: () => void;
   onSessionRefresh?: (session: Session) => void;
+  /** Extra full-width section below the form (e.g. portal notifications). */
+  extraSection?: ReactNode;
+  /** Open straight into authenticator setup (when the user can enroll). */
+  startMfa?: boolean;
 };
 
 const TIMEZONES = [
@@ -272,6 +277,8 @@ export function ProfileSettingsModal({
   title = "Profile",
   onClose,
   onSessionRefresh,
+  extraSection,
+  startMfa = false,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [live, setLive] = useState(session);
@@ -284,6 +291,8 @@ export function ProfileSettingsModal({
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
   const [currentPassword, setCurrentPassword] = useState("");
+  /** Read-only until focused so browsers / password managers don't autofill it. */
+  const [currentPasswordArmed, setCurrentPasswordArmed] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
@@ -293,7 +302,9 @@ export function ProfileSettingsModal({
   const [readingFile, setReadingFile] = useState(false);
   const [contactBusy, setContactBusy] = useState<"email" | "phone" | "mfa" | null>(null);
   const [otpModal, setOtpModal] = useState<OtpPending | null>(null);
-  const [mfaWizard, setMfaWizard] = useState(false);
+  const [mfaWizard, setMfaWizard] = useState(
+    () => startMfa && sessionCanEnrollMfa(session) && session.mfaEnrolled !== true,
+  );
   const [mfaReplaceOpen, setMfaReplaceOpen] = useState(false);
   const [mfaReplacePassword, setMfaReplacePassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -458,7 +469,7 @@ export function ProfileSettingsModal({
       });
       applySession(next);
 
-      if (currentPassword || newPassword || confirmPassword) {
+      if (newPassword || confirmPassword) {
         if (!currentPassword) {
           setError("Enter your current password");
           return;
@@ -481,7 +492,8 @@ export function ProfileSettingsModal({
         setConfirmPassword("");
       }
 
-      setOk("Profile saved.");
+      showToast("Profile saved.", { tone: "ok" });
+      onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save profile");
     } finally {
@@ -489,23 +501,19 @@ export function ProfileSettingsModal({
     }
   }
 
-  if (mfaWizard) {
-    return createPortal(
-      <div className="auth-flow-overlay">
-        <MfaEnrollmentWizard
-          onCancel={() => setMfaWizard(false)}
-          onComplete={() => {
-            void getSession().then((next) => {
-              applySession(next);
-              setMfaWizard(false);
-              setOk("Authenticator enabled.");
-            });
-          }}
-        />
-      </div>,
-      document.body,
-    );
-  }
+  const mfaPopup = mfaWizard ? (
+    <MfaEnrollmentWizard
+      variant="modal"
+      onCancel={() => setMfaWizard(false)}
+      onComplete={() => {
+        void getSession().then((next) => {
+          applySession(next);
+          setMfaWizard(false);
+          setOk("Authenticator enabled.");
+        });
+      }}
+    />
+  ) : null;
 
   return createPortal(
     <div
@@ -534,19 +542,19 @@ export function ProfileSettingsModal({
             <svg viewBox="0 0 640 120" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="profile-edit-gold-a" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffd060" stopOpacity="0" />
-                  <stop offset="0.35" stopColor="#ffd060" stopOpacity="0.9" />
-                  <stop offset="1" stopColor="#ffd060" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0" />
+                  <stop offset="0.35" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0.9" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0" />
                 </linearGradient>
                 <linearGradient id="profile-edit-gold-b" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffc145" stopOpacity="0" />
-                  <stop offset="0.5" stopColor="#ffc145" stopOpacity="0.7" />
-                  <stop offset="1" stopColor="#ffc145" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0" />
+                  <stop offset="0.5" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0.7" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0" />
                 </linearGradient>
                 <linearGradient id="profile-edit-gold-c" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffe08a" stopOpacity="0" />
-                  <stop offset="0.6" stopColor="#ffe08a" stopOpacity="0.55" />
-                  <stop offset="1" stopColor="#ffe08a" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0" />
+                  <stop offset="0.6" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0.55" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0" />
                 </linearGradient>
               </defs>
               <path
@@ -831,9 +839,14 @@ export function ProfileSettingsModal({
                   <input
                     className="field-control"
                     type={showCurrent ? "text" : "password"}
+                    name="profile-current-password"
                     value={currentPassword}
                     disabled={saving}
-                    autoComplete="current-password"
+                    readOnly={!currentPasswordArmed}
+                    onFocus={() => setCurrentPasswordArmed(true)}
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                     placeholder="Required to change password"
                     onChange={(e) => setCurrentPassword(e.target.value)}
                   />
@@ -881,6 +894,8 @@ export function ProfileSettingsModal({
               </label>
             </div>
           </div>
+
+          {extraSection}
 
           <footer className="owner-acct__foot">
             <button
@@ -940,6 +955,7 @@ export function ProfileSettingsModal({
           }}
         />
       ) : null}
+      {mfaPopup}
     </div>,
     document.body,
   );

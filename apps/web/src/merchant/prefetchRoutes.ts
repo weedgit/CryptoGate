@@ -12,15 +12,9 @@ export function prefetchMerchantRoute(path: string) {
     warm(() => import("./ServiceBillsListPage"));
   else if (path === "sites" || path.startsWith("sites/"))
     warm(() => import("./MerchantSitesRoutes"));
-  else if (path === "reports" || path.startsWith("reports/"))
-    warm(() => import("./ReportsPage"));
   else if (path === "networks") warm(() => import("./NetworksPage"));
   else if (path === "settings/settlement") warm(() => import("./SettlementPage"));
   else if (path === "settings/team") warm(() => import("./TeamSettingsPage"));
-  else if (path === "settings/integrations")
-    warm(() => import("./IntegrationsPage"));
   else if (path === "settings/notifications")
     warm(() => import("./NotificationsSettingsPage"));
-  else if (path === "settings/pricing")
-    warm(() => import("./PricingSettingsPage"));
 }

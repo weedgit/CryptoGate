@@ -96,7 +96,14 @@ function shutdown() {
     await closePool();
     process.exit(0);
   });
+  // Keep-alive sockets and dashboard SSE streams never end on their own.
+  server.closeIdleConnections?.();
+  setTimeout(() => server.closeAllConnections?.(), SHUTDOWN_DRAIN_MS).unref();
+  setTimeout(() => process.exit(0), SHUTDOWN_FORCE_EXIT_MS).unref();
 }
+
+const SHUTDOWN_DRAIN_MS = 3_000;
+const SHUTDOWN_FORCE_EXIT_MS = 10_000;
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

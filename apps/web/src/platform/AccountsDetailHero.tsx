@@ -35,30 +35,30 @@ export function AccountsDetailHero({
         >
           <defs>
             <linearGradient id={gA} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-              <stop offset="12%" stopColor="rgba(255,220,140,0.2)" />
-              <stop offset="36%" stopColor="rgba(255,220,140,0.7)" />
-              <stop offset="58%" stopColor="rgba(255,193,69,0.42)" />
-              <stop offset="82%" stopColor="rgba(255,208,96,0.18)" />
-              <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+              <stop offset="12%" style={{ stopColor: "rgb(var(--gw-hi, 255 220 140) / 0.2)" }} />
+              <stop offset="36%" style={{ stopColor: "rgb(var(--gw-hi, 255 220 140) / 0.7)" }} />
+              <stop offset="58%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.42)" }} />
+              <stop offset="82%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.18)" }} />
+              <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
             </linearGradient>
             <linearGradient id={gB} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-              <stop offset="14%" stopColor="rgba(255,230,160,0.16)" />
-              <stop offset="40%" stopColor="rgba(255,230,160,0.48)" />
-              <stop offset="68%" stopColor="rgba(255,193,69,0.22)" />
-              <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+              <stop offset="14%" style={{ stopColor: "rgb(var(--gw-hi, 255 230 160) / 0.16)" }} />
+              <stop offset="40%" style={{ stopColor: "rgb(var(--gw-hi, 255 230 160) / 0.48)" }} />
+              <stop offset="68%" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69) / 0.22)" }} />
+              <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
             </linearGradient>
             <linearGradient id={gC} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(255,208,96,0)" />
-              <stop offset="20%" stopColor="rgba(255,208,96,0.12)" />
-              <stop offset="48%" stopColor="rgba(255,208,96,0.34)" />
-              <stop offset="74%" stopColor="rgba(255,220,140,0.14)" />
-              <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
+              <stop offset="20%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.12)" }} />
+              <stop offset="48%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.34)" }} />
+              <stop offset="74%" style={{ stopColor: "rgb(var(--gw-hi, 255 220 140) / 0.14)" }} />
+              <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
             </linearGradient>
             <linearGradient id={gFill} x1="50%" y1="0%" x2="50%" y2="100%">
-              <stop offset="0%" stopColor="rgba(255,208,96,0.08)" />
-              <stop offset="100%" stopColor="rgba(255,208,96,0)" />
+              <stop offset="0%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0.08)" }} />
+              <stop offset="100%" style={{ stopColor: "rgb(var(--gw-base, 255 208 96) / 0)" }} />
             </linearGradient>
           </defs>
           <path

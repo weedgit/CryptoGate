@@ -8,6 +8,7 @@ import {
   claimPendingWebhookDeliveries,
   updateWebhookDeliveryResult,
 } from "./webhook-store.mjs";
+import { notifyWebhookFailure } from "../notifications/notify.mjs";
 
 /**
  * POST one delivery. Inject `fetchImpl` / `updateResult` in tests.
@@ -18,6 +19,9 @@ import {
  *   attempt: number,
  *   url: string,
  *   signing_secret: string,
+ *   webhook_id?: string,
+ *   event_type?: string,
+ *   org_id?: string,
  * }} row
  * @param {{
  *   fetchImpl?: typeof fetch,
@@ -77,6 +81,15 @@ export async function deliverWebhookOnce(row, opts = {}) {
       httpStatus,
       nextRetryAt: null,
     });
+    if (row.org_id && row.webhook_id) {
+      notifyWebhookFailure({
+        webhookId: String(row.webhook_id),
+        orgId: String(row.org_id),
+        url: row.url,
+        eventType: row.event_type ?? "webhook",
+        attempts: row.attempt,
+      });
+    }
     return { status: "failed", httpStatus };
   }
 

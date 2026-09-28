@@ -564,19 +564,19 @@ function OwnerProfileEditModal({
             <svg viewBox="0 0 640 120" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="owner-edit-gold-a" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffd060" stopOpacity="0" />
-                  <stop offset="0.35" stopColor="#ffd060" stopOpacity="0.9" />
-                  <stop offset="1" stopColor="#ffd060" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0" />
+                  <stop offset="0.35" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0.9" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-base, 255 208 96))" }} stopOpacity="0" />
                 </linearGradient>
                 <linearGradient id="owner-edit-gold-b" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffc145" stopOpacity="0" />
-                  <stop offset="0.5" stopColor="#ffc145" stopOpacity="0.7" />
-                  <stop offset="1" stopColor="#ffc145" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0" />
+                  <stop offset="0.5" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0.7" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-deep, 255 193 69))" }} stopOpacity="0" />
                 </linearGradient>
                 <linearGradient id="owner-edit-gold-c" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#ffe08a" stopOpacity="0" />
-                  <stop offset="0.6" stopColor="#ffe08a" stopOpacity="0.55" />
-                  <stop offset="1" stopColor="#ffe08a" stopOpacity="0" />
+                  <stop offset="0" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0" />
+                  <stop offset="0.6" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0.55" />
+                  <stop offset="1" style={{ stopColor: "rgb(var(--gw-hi, 255 224 138))" }} stopOpacity="0" />
                 </linearGradient>
               </defs>
               <path d="M80 62 C 180 58, 240 30, 340 36 C 430 42, 500 56, 580 50" fill="none" stroke="url(#owner-edit-gold-a)" strokeWidth="1.55" strokeLinecap="round" />

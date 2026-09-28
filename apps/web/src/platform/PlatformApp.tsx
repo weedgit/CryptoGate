@@ -50,6 +50,10 @@ const PlatformTeamPage = lazyNamed(
   () => import("./PlatformTeamPage"),
   "PlatformTeamPage",
 );
+const PlatformAlertsSettingsPage = lazyNamed(
+  () => import("./PlatformAlertsSettingsPage"),
+  "PlatformAlertsSettingsPage",
+);
 const ServiceBillDetailPage = lazyNamed(
   () => import("./ServiceBillDetailPage"),
   "ServiceBillDetailPage",
@@ -111,7 +115,7 @@ export function PlatformApp() {
 
   if (session.mustChangePassword) {
     return (
-      <ForceChangePasswordGate onChanged={setSession} />
+      <ForceChangePasswordGate portalLabel="Platform portal" onChanged={setSession} />
     );
   }
 
@@ -262,6 +266,10 @@ export function PlatformApp() {
           element={<NetworkCatalogPage session={session} />}
         />
         <Route path="settings/team" element={<PlatformTeamPage session={session} />} />
+        <Route
+          path="settings/notifications"
+          element={<PlatformAlertsSettingsPage session={session} />}
+        />
         <Route
           path="ops/health"
           element={<Navigate to={platformRoute("settings/networks")} replace />}

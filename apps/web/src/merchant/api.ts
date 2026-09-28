@@ -1,8 +1,69 @@
 import { apiFetch, setLoginInProgress } from "../auth/apiFetch";
+import { API_BASE, ApiError, parseError } from "../shared/apiCore";
+import {
+  listActiveNetworkMaintenance,
+  getNetworksStatus,
+  getMerchantNetworkRails,
+  putMerchantNetworkRailSettings,
+} from "../shared/networkApi";
+import type {
+  ActiveNetworkMaintenance,
+  NetworkOrderabilityLamp,
+  NetworksStatus,
+  MerchantNetworkRailItem,
+} from "../shared/networkApi";
+import {
+  SERVICE_BILLS_LIST_LIMIT,
+  listServiceBillsPage,
+  listServiceBills,
+  getServiceBill,
+} from "../shared/serviceBillApi";
+import type { ServiceBill, ServiceBillListPage } from "../shared/serviceBillApi";
+import {
+  listOrgs,
+  setOrgStatus,
+  patchOrgProfile,
+  getMerchantCommercial,
+  createOrg,
+  deleteOrg,
+  getOrgDeletePreview,
+} from "../shared/orgApi";
+import type {
+  OrgAccount,
+  MerchantCommercialSettings,
+  OrgDeletePreview,
+} from "../shared/orgApi";
 
-const API_BASE =
-  (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||
-  "/v1";
+export { ApiError };
+export {
+  listActiveNetworkMaintenance,
+  getNetworksStatus,
+  getMerchantNetworkRails,
+  putMerchantNetworkRailSettings,
+};
+export type {
+  ActiveNetworkMaintenance,
+  NetworkOrderabilityLamp,
+  NetworksStatus,
+  MerchantNetworkRailItem,
+};
+export {
+  SERVICE_BILLS_LIST_LIMIT,
+  listServiceBillsPage,
+  listServiceBills,
+  getServiceBill,
+};
+export type { ServiceBill, ServiceBillListPage };
+export {
+  listOrgs,
+  setOrgStatus,
+  patchOrgProfile,
+  getMerchantCommercial,
+  createOrg,
+  deleteOrg,
+  getOrgDeletePreview,
+};
+export type { OrgAccount, MerchantCommercialSettings, OrgDeletePreview };
 
 export type Session = {
   userId: string;
@@ -146,46 +207,6 @@ export type PaymentDetails = {
   rateFetchedAt?: string | null;
   quoteExpiresAt?: string | null;
 };
-
-export class ApiError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    public httpStatus: number,
-    public details?: unknown,
-  ) {
-    super(message);
-  }
-}
-
-async function parseError(res: Response): Promise<never> {
-  const body = await res.text();
-  try {
-    const json = JSON.parse(body) as {
-      code?: string;
-      message?: string;
-      details?: unknown;
-    };
-    const raw = json.message?.trim() || "";
-    const friendly =
-      res.status >= 500
-        ? "Something went wrong on the server. Please try again."
-        : raw || `Request failed (${res.status})`;
-    throw new ApiError(
-      json.code ?? "http_error",
-      friendly,
-      res.status,
-      json.details,
-    );
-  } catch (e) {
-    if (e instanceof ApiError) throw e;
-    const friendly =
-      res.status >= 500
-        ? "Something went wrong on the server. Please try again."
-        : body?.trim() || `Request failed (${res.status})`;
-    throw new ApiError("http_error", friendly, res.status);
-  }
-}
 
 export async function login(
   email: string,
@@ -364,132 +385,6 @@ export async function createOrder(input: {
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as PaymentOrder;
-}
-
-export type ActiveNetworkMaintenance = {
-  network: string;
-  message: string | null;
-  startedAt: string | null;
-  endsAt: string | null;
-};
-
-export async function listActiveNetworkMaintenance(): Promise<
-  ActiveNetworkMaintenance[]
-> {
-  const res = await apiFetch(`${API_BASE}/network-maintenance`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items?: ActiveNetworkMaintenance[] };
-  return data.items ?? [];
-}
-
-export type NetworkOrderabilityLamp = {
-  code: "open" | "paused" | "down" | "off" | "checking";
-  label: string;
-  tone: "ok" | "warn" | "bad" | "muted";
-};
-
-export type NetworksStatus = {
-  chainEnv: string;
-  checkedAt: string;
-  items: {
-    network: string;
-    title: string;
-    lamp: NetworkOrderabilityLamp;
-    maintenance: { active: boolean; message: string | null };
-    ingestStatus: string;
-    pairs: {
-      asset: string;
-      enabled: boolean;
-      lamp: NetworkOrderabilityLamp;
-      displayNetwork: string;
-    }[];
-  }[];
-};
-
-export async function getNetworksStatus(): Promise<NetworksStatus> {
-  const res = await apiFetch(`${API_BASE}/networks/status`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as NetworksStatus;
-}
-
-export type MerchantNetworkRailItem = {
-  network: string;
-  title: string;
-  lamp: NetworkOrderabilityLamp;
-  primaryAsset: string | null;
-  minAmount: string | null;
-  platformFloorConfirmations: number;
-  merchantConfirmations: number | null;
-  effectiveConfirmations: number;
-  pairs: {
-    asset: string;
-    displayNetwork: string;
-    lamp: NetworkOrderabilityLamp;
-    minAmount: string;
-    platformConfirmations: number;
-    effectiveConfirmations: number;
-  }[];
-};
-
-export async function getMerchantNetworkRails(orgId: string): Promise<{
-  orgId: string;
-  checkedAt: string;
-  items: MerchantNetworkRailItem[];
-}> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/network-rails`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    orgId: string;
-    checkedAt: string;
-    items: MerchantNetworkRailItem[];
-  };
-}
-
-export async function putMerchantNetworkRailSettings(
-  orgId: string,
-  network: string,
-  body: { requiredConfirmations: number | null },
-): Promise<{
-  orgId: string;
-  network: string;
-  platformFloorConfirmations: number;
-  merchantConfirmations: number | null;
-  effectiveConfirmations: number;
-  updatedAt: string;
-}> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/networks/${encodeURIComponent(network)}/rail-settings`,
-    {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as {
-    orgId: string;
-    network: string;
-    platformFloorConfirmations: number;
-    merchantConfirmations: number | null;
-    effectiveConfirmations: number;
-    updatedAt: string;
-  };
 }
 
 export async function getPaymentDetails(orderId: string): Promise<PaymentDetails> {
@@ -978,36 +873,6 @@ export async function getRetention(orgId: string): Promise<OrgRetentionSettings>
   return (await res.json()) as OrgRetentionSettings;
 }
 
-export type ServiceBill = {
-  id: string;
-  orgId: string;
-  periodStart: string;
-  periodEnd: string;
-  subscriptionAmount: string;
-  volumeFeeAmount: string;
-  totalAmount: string;
-  currency: string;
-  status: string;
-  dueAt: string;
-  tier?: string | null;
-  volumeFeePercent?: string | null;
-  billedVolumeUsd?: string | null;
-  paidAt?: string | null;
-  cancelledAt?: string | null;
-  waivedAt?: string | null;
-  closeReason?: string | null;
-  lastAdjustmentReason?: string | null;
-  lastAdjustmentAmount?: string | null;
-  paymentReference?: string | null;
-  rxAddress?: string | null;
-  /** Effective remittance destination (rx snapshot or live fee wallet). */
-  remittancePayTo?: string | null;
-  invoiceSeller?: { name: string; email: string | null; phone?: string | null };
-  txAddress?: string | null;
-  billKind?: string | null;
-  createdAt?: string | null;
-};
-
 export type ServiceBillCheckout = {
   billId: string;
   totalAmount: string;
@@ -1016,65 +881,6 @@ export type ServiceBillCheckout = {
   qrPayload?: string | null;
   instructions: string;
 };
-
-/** Match platform — API default 100 truncates merchant bill views. */
-export const SERVICE_BILLS_LIST_LIMIT = 5000;
-
-export type ServiceBillListPage = {
-  items: ServiceBill[];
-  total: number;
-  limit: number;
-  offset: number;
-};
-
-export async function listServiceBillsPage(opts?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<ServiceBillListPage> {
-  const q = new URLSearchParams();
-  if (opts?.status) q.set("status", opts.status);
-  const limit = opts?.limit ?? SERVICE_BILLS_LIST_LIMIT;
-  q.set("limit", String(limit));
-  if (opts?.offset != null) q.set("offset", String(opts.offset));
-  const suffix = q.toString() ? `?${q}` : "";
-  const res = await apiFetch(`${API_BASE}/service-bills${suffix}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as {
-    items: ServiceBill[];
-    total?: number;
-    limit?: number;
-    offset?: number;
-  };
-  const items = data.items ?? [];
-  return {
-    items,
-    total: data.total ?? items.length,
-    limit: data.limit ?? limit,
-    offset: data.offset ?? opts?.offset ?? 0,
-  };
-}
-
-export async function listServiceBills(opts?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<ServiceBill[]> {
-  const page = await listServiceBillsPage(opts);
-  return page.items;
-}
-
-export async function getServiceBill(billId: string): Promise<ServiceBill> {
-  const res = await apiFetch(`${API_BASE}/service-bills/${encodeURIComponent(billId)}`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as ServiceBill;
-}
 
 export async function getServiceBillCheckout(billId: string): Promise<ServiceBillCheckout> {
   const res = await apiFetch(
@@ -1354,23 +1160,6 @@ export async function putNotificationPreferences(
   };
 }
 
-export type OrgAccount = {
-  id: string;
-  type: string;
-  name: string;
-  parentId: string | null;
-  status?: "active" | "paused";
-  /** When paused for unpaid service bill. */
-  statusReason?: string | null;
-  statusReasonBillId?: string | null;
-  orderCreateSuspended?: boolean;
-  country?: string | null;
-  legalName?: string | null;
-  billingEmail?: string | null;
-  iconKey?: string | null;
-  createdAt?: string;
-};
-
 export type OrgMembership = {
   orgId: string;
   userId: string;
@@ -1425,74 +1214,10 @@ export async function listOrgUsers(orgId: string): Promise<OrgMember[]> {
   return data.items ?? [];
 }
 
-export async function listOrgs(): Promise<OrgAccount[]> {
-  const res = await apiFetch(`${API_BASE}/orgs`, {
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  const data = (await res.json()) as { items: OrgAccount[] };
-  return data.items ?? [];
-}
-
 export async function getOrg(orgId: string): Promise<OrgAccount> {
   const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
     credentials: "include",
     headers: { Accept: "application/json" },
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
-}
-
-export async function setOrgStatus(
-  orgId: string,
-  status: "active" | "paused",
-  opts?: { reason?: string },
-): Promise<OrgAccount> {
-  const body: { status: "active" | "paused"; reason?: string } = { status };
-  const reason = opts?.reason?.trim();
-  if (reason) body.reason = reason;
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/status`,
-    {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
-}
-
-export async function patchOrgProfile(
-  orgId: string,
-  body: {
-    name: string;
-    iconKey?: string | null;
-    country?: string;
-    legalName?: string | null;
-    billingEmail?: string | null;
-  },
-): Promise<OrgAccount> {
-  const payload: Record<string, unknown> = {
-    name: body.name.trim(),
-    iconKey: body.iconKey ?? null,
-  };
-  if (body.country !== undefined) payload.country = body.country;
-  if (body.legalName !== undefined) payload.legalName = body.legalName;
-  if (body.billingEmail !== undefined) payload.billingEmail = body.billingEmail;
-  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
   });
   if (!res.ok) await parseError(res);
   return (await res.json()) as OrgAccount;
@@ -1751,86 +1476,6 @@ export async function removeOrgUser(orgId: string, userId: string): Promise<void
     },
   );
   if (!res.ok && res.status !== 204) await parseError(res);
-}
-
-export type MerchantCommercialSettings = {
-  orgId: string;
-  tier: string;
-  volumeFeePercent: string;
-  pendingVolumeFeePercent?: string | null;
-  subscriptionAmountUsd: string;
-  bandMinPercent: string;
-  bandMaxPercent: string;
-  effectiveFrom: string;
-  billingAnchorAt?: string | null;
-  nextInvoiceOn?: string | null;
-};
-
-export async function getMerchantCommercial(
-  orgId: string,
-): Promise<MerchantCommercialSettings> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/commercial`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as MerchantCommercialSettings;
-}
-
-export async function createOrg(body: {
-  type: string;
-  name: string;
-  parentId: string;
-}): Promise<OrgAccount> {
-  const res = await apiFetch(`${API_BASE}/orgs`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
-}
-
-export async function deleteOrg(
-  orgId: string,
-  opts?: { cascade?: boolean },
-): Promise<void> {
-  const q = opts?.cascade ? "?cascade=1" : "";
-  const res = await apiFetch(`${API_BASE}/orgs/${encodeURIComponent(orgId)}${q}`, {
-    method: "DELETE",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok && res.status !== 204) await parseError(res);
-}
-
-export type OrgDeletePreview = {
-  rootOrgId: string;
-  orgCount: number;
-  childOrgCount: number;
-  memberCount: number;
-  orderCount: number;
-  billCount: number;
-  orgs: Array<{ id: string; type: string; name: string; depth: number }>;
-};
-
-export async function getOrgDeletePreview(orgId: string): Promise<OrgDeletePreview> {
-  const res = await apiFetch(
-    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/delete-preview`,
-    {
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    },
-  );
-  if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgDeletePreview;
 }
 
 export async function getPlatformPricingSettings(): Promise<{

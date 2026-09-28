@@ -20,7 +20,7 @@ import {
   platformFeeMonthToDate,
   utcMonthStart,
 } from "./org-overview-metrics.mjs";
-import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
+import { isVisibleOrg, listVisibleOrgs } from "./org-access.mjs";
 import { canListOrgUsers, isPlatformStaff } from "./membership-rules.mjs";
 import { listMembershipsForOrg } from "./membership-store.mjs";
 import { listOrgsInSubtree } from "./org-scope.mjs";
@@ -31,6 +31,7 @@ import {
   canReadAgentCommission,
   canReadAgentPayout,
   canReadMerchantCommercial,
+  effectiveRoleOnOrg,
   auditListScope,
   isMerchantOrgType,
   paymentOrderListScope,
@@ -55,7 +56,7 @@ export async function handleGetOrgOverview(req, res, orgId) {
     return;
   }
 
-  const memberRole = roleOnOrg(caller.memberships, orgId);
+  const memberRole = await effectiveRoleOnOrg(caller, org);
   const platformStaff =
     caller.platformOperator === true || isPlatformStaff(caller.memberships);
   /** @type {Awaited<ReturnType<typeof listMembershipsForOrg>>} */

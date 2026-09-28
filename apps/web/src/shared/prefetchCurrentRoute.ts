@@ -59,7 +59,7 @@ function prefetchAgent(sub: string) {
     if (sub.includes("/")) warm(() => import("../agent/CommissionInvoiceDetailPage"));
     else warm(() => import("../agent/CommissionsPage"));
   }
-  else if (sub.startsWith("settings")) warm(() => import("../agent/AgentSettingsPage"));
+  else if (sub.startsWith("settings/team")) warm(() => import("../agent/TeamSettingsPage"));
 }
 
 function prefetchMerchant(sub: string) {
@@ -75,7 +75,7 @@ function prefetchMerchant(sub: string) {
     if (sub.includes("/")) warm(() => import("../merchant/ServiceBillDetailPage"));
     else warm(() => import("../merchant/ServiceBillsListPage"));
   }
-  else if (sub.startsWith("sites")) warm(() => import("../merchant/SitesListPage"));
+  else if (sub.startsWith("sites")) warm(() => import("../merchant/MerchantSitesRoutes"));
   else if (sub.startsWith("settings")) warm(() => import("../merchant/TeamSettingsPage"));
 }
 

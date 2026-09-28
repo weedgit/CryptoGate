@@ -1,3 +1,4 @@
+import { serverNow } from "../shared/serverClock";
 import { getUserTimezone } from "../shared/userTimezone";
 
 /** Canonical OrderStatus → UI label. Never "Paid". */
@@ -208,7 +209,7 @@ export function formatExpiryRemaining(iso: string | null | undefined): string {
   if (!iso) return "—";
   const end = Date.parse(iso);
   if (!Number.isFinite(end)) return "—";
-  const ms = end - Date.now();
+  const ms = end - serverNow();
   if (ms <= 0) return "expired";
   const totalSec = Math.floor(ms / 1000);
   const m = Math.floor(totalSec / 60);

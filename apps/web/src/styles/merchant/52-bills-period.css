@@ -1,0 +1,304 @@
+/* Service Bills period bar + AR KPI strip */
+.platform-shell .plat-bills__period-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  width: 100%;
+  flex-shrink: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--bills-divider);
+}
+
+.platform-shell .plat-bills__intro {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__intro-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  color: var(--bills-gold);
+}
+
+.platform-shell .plat-bills__intro-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+.platform-shell .plat-bills__intro-copy {
+  min-width: 0;
+}
+
+.platform-shell .plat-bills__intro-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--bills-title);
+}
+
+.platform-shell .plat-bills__intro-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--bills-muted);
+}
+
+.platform-shell .plat-bills__period-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  margin-left: auto;
+}
+
+.platform-shell .plat-bills__kpi-carousel {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.platform-shell .plat-bills__kpi-carousel:not(.is-fit) {
+  padding: 0 2.1rem;
+}
+.platform-shell .plat-bills__kpi {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 0 4px;
+}
+.platform-shell .plat-bills__kpi-carousel.is-fit .plat-bills__kpi {
+  overflow-x: hidden;
+  scroll-snap-type: none;
+}
+.platform-shell .plat-bills__kpi::-webkit-scrollbar {
+  display: none;
+}
+.platform-shell .plat-bills__kpi-card {
+  --bills-kpi-accent: var(--pg-warn, #fbbf24);
+  --bills-kpi-glow: color-mix(in srgb, var(--bills-kpi-accent) 28%, #0d1830);
+  --bills-kpi-glow-soft: color-mix(in srgb, var(--bills-kpi-accent) 16%, #0b1526);
+  --bills-kpi-base: #0c1524;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 2px;
+  box-sizing: border-box;
+  flex: 1 0 148px;
+  min-width: 148px;
+  scroll-snap-align: start;
+  padding: 12px 14px 10px;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--bills-kpi-accent) 28%, rgba(148, 163, 184, 0.12));
+  background:
+    radial-gradient(110% 90% at 0% 0%, var(--bills-kpi-glow) 0%, transparent 58%),
+    radial-gradient(100% 80% at 100% 0%, var(--bills-kpi-glow-soft) 0%, transparent 55%),
+    linear-gradient(180deg, #101c30 0%, var(--bills-kpi-base) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 8px 22px rgba(0, 0, 0, 0.26),
+    0 0 20px color-mix(in srgb, var(--bills-kpi-accent) 12%, transparent);
+  color: inherit;
+}
+.platform-shell .plat-bills__kpi-card.is-warn { --bills-kpi-accent: var(--pg-warn, #fbbf24); }
+.platform-shell .plat-bills__kpi-card.is-danger { --bills-kpi-accent: var(--pg-danger, #fb7185); }
+.platform-shell .plat-bills__kpi-card.is-blue { --bills-kpi-accent: var(--pg-blue, #60a5fa); }
+.platform-shell .plat-bills__kpi-card.is-violet { --bills-kpi-accent: var(--pg-violet, #c084fc); }
+.platform-shell .plat-bills__kpi-card.is-ok { --bills-kpi-accent: var(--pg-ok, #4ade80); }
+.platform-shell .plat-bills__kpi-card.is-slate { --bills-kpi-accent: var(--pg-slate, #94a3b8); }
+
+.platform-shell .plat-bills__kpi-carousel.is-fit .plat-bills__kpi-card {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.platform-shell .plat-bills__kpi-nav {
+  appearance: none;
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: color-mix(in srgb, #0b1220 88%, #fff);
+  color: #e2e8f0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-60%);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+.platform-shell .plat-bills__kpi-nav.is-prev { left: 0; }
+.platform-shell .plat-bills__kpi-nav.is-next { right: 0; }
+.platform-shell .plat-bills__kpi-nav:hover:not(:disabled),
+.platform-shell .plat-bills__kpi-nav:focus-visible:not(:disabled) {
+  color: #0b1220;
+  border-color: color-mix(in srgb, #f0b429 55%, transparent);
+  background: linear-gradient(180deg, #f0b429 0%, #d97706 100%);
+  outline: none;
+}
+.platform-shell .plat-bills__kpi-nav:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+.platform-shell .plat-bills__kpi-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 0.55rem;
+}
+.platform-shell .plat-bills__kpi-dot {
+  appearance: none;
+  width: 6px;
+  height: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, #94a3b8 55%, transparent);
+  cursor: pointer;
+  transition: width 140ms ease, background-color 140ms ease;
+}
+.platform-shell .plat-bills__kpi-dot.is-active {
+  width: 16px;
+  background: #f0b429;
+}
+.platform-shell .plat-bills__kpi-dot:focus-visible {
+  outline: 2px solid color-mix(in srgb, #f0b429 55%, transparent);
+  outline-offset: 2px;
+}
+@media (max-width: 720px) {
+  .platform-shell .plat-bills__kpi-carousel:not(.is-fit) {
+    padding: 0 1.75rem;
+  }
+  .platform-shell .plat-bills__kpi-carousel:not(.is-fit) .plat-bills__kpi-card {
+    flex: 0 0 min(78vw, 240px);
+    min-width: min(78vw, 240px);
+  }
+}
+.platform-shell .plat-bills__kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+.platform-shell .plat-bills__kpi-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  color: color-mix(in srgb, var(--bills-kpi-accent) 88%, #fff);
+  background: transparent;
+}
+.platform-shell .plat-bills__kpi-icon svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+.platform-shell .plat-bills__kpi-view {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: color-mix(in srgb, var(--bills-kpi-accent) 92%, #fff);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 140ms ease, gap 140ms ease;
+}
+.platform-shell .plat-bills__kpi-view:hover,
+.platform-shell .plat-bills__kpi-view:focus-visible {
+  color: var(--bills-kpi-accent);
+  gap: 6px;
+  outline: none;
+}
+.platform-shell .plat-bills__kpi-view-text {
+  box-shadow: inset 0 -1px 0 transparent;
+}
+.platform-shell .plat-bills__kpi-view:hover .plat-bills__kpi-view-text,
+.platform-shell .plat-bills__kpi-view:focus-visible .plat-bills__kpi-view-text {
+  box-shadow: inset 0 -1px 0 currentColor;
+}
+.platform-shell .plat-bills__kpi-view-arrow {
+  line-height: 1;
+}
+.platform-shell .plat-bills__kpi-card.is-clickable {
+  cursor: pointer;
+}
+.platform-shell .plat-bills__kpi-card.is-clickable:hover {
+  border-color: color-mix(in srgb, var(--bills-kpi-accent) 45%, rgba(148, 163, 184, 0.2));
+}
+.platform-shell .plat-bills__kpi-card.is-clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--bills-kpi-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+.platform-shell .plat-bills__kpi-label {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: #94a3b8;
+}
+.platform-shell .plat-bills__kpi-value {
+  margin: 4px 0 0;
+  width: 100%;
+  text-align: center;
+  font-size: clamp(18px, 1.5vw, 24px);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: #f1f5f9;
+}
+.platform-shell .plat-bills__kpi-value .fund-amount {
+  color: #f1f5f9;
+}
+.platform-shell .plat-bills__kpi-meta {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #94a3b8;
+}
+

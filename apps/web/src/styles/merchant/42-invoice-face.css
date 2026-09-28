@@ -1,0 +1,1511 @@
+/* —— Service bill / commission invoice face (follows color mode) —— */
+.sb-invoice {
+  /* Dark mode (app default) */
+  --inv-bg: #0b1628;
+  --inv-fg: #e8edf5;
+  --inv-muted: #94a3b8;
+  --inv-label: #8b97a8;
+  --inv-border: rgba(148, 163, 184, 0.18);
+  --inv-divider: rgba(148, 163, 184, 0.14);
+  --inv-surface: rgba(255, 255, 255, 0.045);
+  --inv-table-head-bg: rgba(255, 255, 255, 0.06);
+  --inv-balance-bg: rgba(240, 180, 41, 0.14);
+  --inv-link: #5eead4;
+  --inv-link-hover: #99f6e4;
+  --inv-shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
+  --inv-btn-border: rgba(148, 163, 184, 0.28);
+  --inv-btn-fg: #cbd5e1;
+  --inv-btn-hover-bg: rgba(255, 255, 255, 0.06);
+  --inv-btn-hover-fg: #f8fafc;
+  --inv-stamp: #f87171;
+  --inv-qr-bg: #ffffff;
+  --inv-anomaly-bg: rgba(248, 113, 113, 0.12);
+  --inv-anomaly-border: rgba(248, 113, 113, 0.35);
+  --inv-anomaly-title: #fca5a5;
+  --inv-anomaly-text: #fecaca;
+  --inv-missing-fg: #f1d48a;
+  --inv-remit-pay-bg: color-mix(in srgb, var(--inv-surface) 82%, #0f766e);
+
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 210mm; /* A4 */
+  max-width: 100%;
+  padding: 28px 28px 24px;
+  border-radius: 12px;
+  border: 1px solid var(--inv-border);
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+  box-shadow: var(--inv-shadow);
+  box-sizing: border-box;
+}
+
+.sb-invoice--paper {
+  background: var(--inv-bg);
+  color: var(--inv-fg);
+}
+
+html[data-theme="light"] .sb-invoice {
+  --inv-bg: #ffffff;
+  --inv-fg: #0f172a;
+  --inv-muted: #64748b;
+  --inv-label: #64748b;
+  --inv-border: rgba(15, 23, 42, 0.1);
+  --inv-divider: #e2e8f0;
+  --inv-surface: #f8fafc;
+  --inv-table-head-bg: #eef2f8;
+  --inv-balance-bg: rgba(240, 180, 41, 0.16);
+  --inv-link: #0f766e;
+  --inv-link-hover: #115e59;
+  --inv-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
+  --inv-btn-border: rgba(15, 23, 42, 0.14);
+  --inv-btn-fg: #334155;
+  --inv-btn-hover-bg: rgba(15, 23, 42, 0.05);
+  --inv-btn-hover-fg: #0f172a;
+  --inv-stamp: #ef4444;
+  --inv-qr-bg: #ffffff;
+  --inv-anomaly-bg: #fff1f2;
+  --inv-anomaly-border: #fecaca;
+  --inv-anomaly-title: #b91c1c;
+  --inv-anomaly-text: #7f1d1d;
+  --inv-missing-fg: #8a5a0a;
+  --inv-remit-pay-bg: color-mix(in srgb, var(--inv-surface) 88%, #ccfbf1);
+}
+
+.sb-invoice__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sb-invoice__print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.sb-invoice__print-btn svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.sb-invoice__print-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+html[data-theme="light"] .sb-invoice__print-btn {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #334155;
+}
+
+html[data-theme="light"] .sb-invoice__print-btn:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.22);
+}
+
+.sb-invoice__brand-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--inv-divider);
+}
+
+.sb-invoice__brand-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sb-invoice__brand-mark {
+  flex-shrink: 0;
+}
+
+.sb-invoice__brand-name {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--inv-fg);
+}
+
+.sb-invoice__brand-gate {
+  color: #f0b429;
+}
+
+html[data-theme="light"] .sb-invoice__brand-gate {
+  color: #d97706;
+}
+
+.sb-invoice__brand-meta {
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.sb-invoice__brand-sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__brand-email {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__brand-phone {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__doc-title {
+  text-align: right;
+}
+
+.sb-invoice__doc-label {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: var(--inv-fg);
+}
+
+.sb-invoice__doc-id {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--inv-muted);
+}
+
+.po-invoice .sb-invoice__doc-id {
+  color: var(--inv-fg);
+}
+
+.sb-invoice__doc-badge {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sb-invoice__billto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 1.05fr);
+  gap: 0 28px;
+  align-items: start;
+}
+
+.sb-invoice__billto {
+  padding-right: 28px;
+  border-right: 1px solid var(--inv-divider);
+}
+
+.sb-invoice__billto h3,
+.sb-invoice__remit h3,
+.sb-invoice__receipt h3 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__party-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--inv-fg);
+}
+
+.sb-invoice__party-line {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.sb-invoice__facts > div {
+  display: grid;
+  grid-template-columns: minmax(132px, auto) minmax(0, 1fr);
+  gap: 8px 14px;
+  align-items: baseline;
+}
+
+.sb-invoice__facts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+  white-space: nowrap;
+}
+
+.sb-invoice__fact-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--inv-label);
+  opacity: 0.9;
+}
+
+.sb-invoice__fact-icon svg {
+  display: block;
+}
+
+.sb-invoice__facts dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--inv-fg);
+  text-align: right;
+}
+
+.sb-invoice__fact-period {
+  white-space: nowrap;
+}
+
+.sb-invoice__lines--mock {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sb-invoice__lines--mock th,
+.sb-invoice__lines--mock td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--inv-divider);
+  font-size: 13px;
+  color: var(--inv-fg);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sb-invoice__lines--mock th {
+  padding: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+  background: var(--inv-table-head-bg);
+  border-bottom-color: var(--inv-divider);
+}
+
+.sb-invoice__lines--mock th:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.sb-invoice__lines--mock th:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.sb-invoice__lines--mock th:first-child,
+.sb-invoice__lines--mock td:first-child {
+  padding-left: 10px;
+}
+
+.sb-invoice__lines--mock th:nth-child(2),
+.sb-invoice__lines--mock th:nth-child(3),
+.sb-invoice__lines--mock th:nth-child(4),
+.sb-invoice__lines--mock td:nth-child(2),
+.sb-invoice__lines--mock td:nth-child(3),
+.sb-invoice__lines--mock td:nth-child(4) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sb-invoice__amt {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--inv-fg);
+}
+
+.sb-invoice__totals {
+  margin-left: auto;
+  width: min(300px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sb-invoice__totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--inv-divider);
+  font-size: 13px;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__totals-row > span:last-child {
+  color: var(--inv-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-invoice__totals-row--balance {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-bottom: 0;
+  border-radius: 8px;
+  background: var(--inv-balance-bg);
+  color: var(--inv-fg);
+  font-weight: 700;
+}
+
+.sb-invoice__totals-row--balance > span:first-child {
+  color: var(--inv-fg);
+  font-weight: 700;
+}
+
+.sb-invoice__totals-row--balance > span:last-child {
+  color: var(--inv-fg);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sb-invoice__remit,
+.sb-invoice__receipt {
+  padding: 18px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--inv-border);
+  background: transparent;
+  position: relative;
+}
+
+.sb-invoice__remit--pay {
+  padding: 22px 24px;
+  border-radius: 12px;
+  border-color: color-mix(in srgb, var(--inv-border) 55%, #5eead4);
+  background: var(--inv-remit-pay-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.sb-invoice__remit--pay > h3 {
+  margin-bottom: 6px;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--inv-label) 70%, #94a3b8);
+}
+
+.sb-invoice__remit-note {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__remit-missing {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 162, 39, 0.32);
+  background: var(--inv-balance-bg, rgba(240, 180, 41, 0.14));
+  color: var(--inv-missing-fg, #8a5a0a);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sb-invoice__remit-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px 22px;
+  align-items: center;
+}
+
+.sb-invoice__qr-wrap {
+  position: relative;
+  width: 152px;
+  height: 152px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--inv-qr-bg);
+  border: 1px solid var(--inv-divider);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.sb-invoice__qr-wrap canvas,
+.sb-invoice__qr-wrap img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.sb-invoice__qr-mark {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.sb-invoice__remit--pay .sb-invoice__qr-mark .qr-center-mark--icon,
+.sb-invoice__remit--pay .sb-invoice__qr-mark .plat-crypto-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.sb-invoice__remit--pay .sb-invoice__qr-mark .plat-crypto-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.sb-invoice__qr-missing {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--inv-label);
+}
+
+.sb-invoice__remit-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sb-invoice__remit-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+}
+
+.sb-invoice__remit-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sb-invoice__remit-field--amt {
+  flex-shrink: 0;
+  justify-items: end;
+  text-align: right;
+}
+
+.sb-invoice__remit-field-label,
+.sb-invoice__remit-dl dt,
+.sb-invoice__payto .label,
+.sb-invoice__closed-reason .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__remit-lead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--inv-fg);
+  line-height: 1.2;
+}
+
+.sb-invoice__remit-pair {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+  min-width: 0;
+}
+
+.sb-invoice__remit-asset {
+  color: var(--inv-fg);
+}
+
+.sb-invoice__remit-pair-sep {
+  margin: 0 1px;
+  color: var(--inv-muted);
+  font-weight: 700;
+}
+
+.sb-invoice__remit-net {
+  color: var(--inv-fg);
+}
+
+.sb-invoice__remit-lead strong {
+  font-weight: 800;
+}
+
+.sb-invoice__chain-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.sb-invoice__remit--pay .sb-invoice__chain-inline .plat-crypto-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.sb-invoice__remit--pay .sb-invoice__chain-inline .plat-crypto-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sb-invoice__remit-dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.sb-invoice__remit--receipt .sb-invoice__remit-dl {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 20px;
+  row-gap: 16px;
+}
+
+.sb-invoice__remit--receipt .sb-invoice__remit-dl > .sb-invoice__remit-span {
+  grid-column: 1 / -1;
+}
+
+.sb-invoice__remit-dl > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sb-invoice__remit-dl dt,
+.sb-invoice__payto .label,
+.sb-invoice__closed-reason .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__remit-dl dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--inv-fg);
+  overflow-wrap: anywhere;
+}
+
+.sb-invoice__remit--pay .chain-value__link,
+.sb-invoice__remit--pay .chain-value > .mono {
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-bottom: 0;
+}
+
+.sb-invoice__remit--pay .chain-value__copy {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--inv-divider);
+  background: var(--inv-surface);
+}
+
+.sb-invoice__remit-amt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  flex-shrink: 0;
+  color: var(--inv-fg);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.sb-invoice__remit-amt-num {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-invoice__remit-amt-unit {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--inv-muted);
+}
+
+.sb-invoice__stamp {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border: 2px solid var(--inv-stamp);
+  border-radius: 4px;
+  color: var(--inv-stamp);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  transform: rotate(-8deg);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.sb-invoice__closed-reason {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--inv-fg);
+}
+
+.sb-invoice__closed-reason .label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sb-invoice__guest-link {
+  color: var(--inv-link);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--inv-link) 35%, transparent);
+}
+
+.sb-invoice__guest-link:hover {
+  color: var(--inv-link-hover);
+}
+
+.sb-invoice__doc-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px 28px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--inv-divider);
+}
+
+.sb-invoice__kicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__doc-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: min(280px, 100%);
+}
+
+.sb-invoice__meta-dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 20px;
+  margin: 0;
+  width: 100%;
+}
+
+.sb-invoice__meta-dl > div {
+  min-width: 0;
+}
+
+.sb-invoice__meta-dl--receipt .sb-invoice__meta-span-2 {
+  grid-column: 1 / -1;
+}
+
+.sb-invoice__meta-dl dt {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__meta-dl dd {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--inv-fg);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.sb-invoice__meta-dl dd.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 450;
+}
+
+.sb-invoice__party-chain {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chain-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chain-value__link,
+.chain-value > .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.chain-value__link {
+  color: #7dd3c7;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(125, 211, 199, 0.25);
+}
+
+.chain-value__link:hover {
+  color: #99f6e4;
+  border-bottom-color: rgba(153, 246, 228, 0.45);
+}
+
+.sb-invoice .chain-value__link {
+  color: var(--inv-link);
+  border-bottom-color: color-mix(in srgb, var(--inv-link) 35%, transparent);
+}
+
+.sb-invoice .chain-value__link:hover {
+  color: var(--inv-link-hover);
+  border-bottom-color: color-mix(in srgb, var(--inv-link-hover) 45%, transparent);
+}
+
+.chain-value__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sb-invoice__parties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sb-invoice__party {
+  padding: 14px 14px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--inv-divider);
+  background: var(--inv-surface);
+}
+
+.sb-invoice__party h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__party-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--inv-label);
+}
+
+.sb-invoice__party .muted {
+  color: var(--inv-label);
+}
+
+.sb-invoice__lines {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sb-invoice__lines th,
+.sb-invoice__lines td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--inv-divider);
+  font-size: 13px;
+  color: var(--inv-fg);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sb-invoice__lines th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--inv-label);
+}
+
+.sb-invoice__lines th:last-child,
+.sb-invoice__lines td:last-child {
+  text-align: right;
+}
+
+.sb-invoice__amt.muted {
+  color: var(--inv-label);
+}
+
+.sb-invoice__line-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--inv-label);
+}
+
+/* Invoice bill-status pills: readable on both light and dark invoice faces. */
+.sb-invoice .org-agents__bill.is-paid {
+  color: #86efac;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.sb-invoice .org-agents__bill.is-issued {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.sb-invoice .org-agents__bill.is-overdue,
+.sb-invoice .org-agents__bill.is-activation {
+  color: #fda4af;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+html[data-theme="light"] .sb-invoice .org-agents__bill.is-paid {
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.28);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+html[data-theme="light"] .sb-invoice .org-agents__bill.is-issued {
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(251, 191, 36, 0.16);
+}
+
+html[data-theme="light"] .sb-invoice .org-agents__bill.is-overdue,
+html[data-theme="light"] .sb-invoice .org-agents__bill.is-activation {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.28);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.sb-invoice__total-row td {
+  font-weight: 700;
+  border-bottom: none;
+  padding-top: 14px;
+}
+
+.sb-invoice__payto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  margin: 8px 0 0;
+}
+
+.platform-shell .plat-bill-detail__split--invoice {
+  display: grid;
+  grid-template-columns: var(--bill-invoice-col) var(--bill-side-col);
+  column-gap: var(--bill-col-gap);
+  width: min(100%, var(--bill-detail-width));
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+.platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main {
+  width: 100%;
+  max-width: var(--bill-invoice-col);
+  min-width: 0;
+}
+
+.platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main .sb-invoice {
+  width: 100%;
+  max-width: var(--bill-invoice-col);
+}
+
+.po-invoice__anomaly {
+  padding: 14px 14px 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--inv-anomaly-border);
+  border-left: 3px solid var(--inv-stamp);
+  background: var(--inv-anomaly-bg);
+}
+
+.po-invoice__anomaly h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--inv-anomaly-title);
+}
+
+.po-invoice__anomaly p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--inv-anomaly-text);
+}
+
+.po-invoice__anomaly .sb-invoice__meta-dl {
+  margin-top: 12px;
+}
+
+.po-invoice__anomaly .sb-invoice__meta-dl dt {
+  color: var(--inv-anomaly-title);
+}
+
+.po-invoice__anomaly .sb-invoice__meta-dl dd {
+  color: var(--inv-fg);
+  font-weight: 650;
+}
+
+@media (max-width: 720px) {
+  .sb-invoice__parties,
+  .sb-invoice__billto-row,
+  .sb-invoice__remit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sb-invoice__remit--receipt .sb-invoice__remit-dl {
+    grid-template-columns: 1fr;
+  }
+
+  .sb-invoice__billto {
+    padding-right: 0;
+    padding-bottom: 18px;
+    border-right: 0;
+    border-bottom: 1px solid var(--inv-divider);
+  }
+
+  .sb-invoice__fact-period {
+    white-space: normal;
+  }
+
+  .sb-invoice__meta-dl {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sb-invoice__doc-status,
+  .sb-invoice__doc-title {
+    align-items: stretch;
+    text-align: left;
+    width: 100%;
+  }
+
+  .sb-invoice__facts dd {
+    text-align: left;
+  }
+
+  .platform-shell .plat-bill-detail__split--invoice {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, var(--bill-invoice-col, 210mm));
+  }
+
+  .platform-shell .plat-bill-detail__head {
+    width: min(100%, var(--bill-invoice-col, 210mm));
+    column-gap: 10px;
+  }
+
+  .platform-shell .plat-bill-detail__identity {
+    min-width: 0;
+  }
+
+  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .platform-shell .plat-bill-detail,
+  .plat-bill-detail {
+    --bill-invoice-col: 100%;
+    --bill-side-col: 0px;
+    --bill-detail-width: 100%;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .sb-invoice,
+  .sb-invoice *,
+  .po-invoice,
+  .po-invoice *,
+  .b3-commission-modal-backdrop {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .b3-commission-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .b3-commission-modal-backdrop .plat-commissions-slip__label,
+  .b3-commission-modal-backdrop .plat-commissions-slip__tree-title {
+    color: #475569 !important;
+  }
+
+  .b3-commission-modal-backdrop .plat-commissions__num .fund-amount {
+    color: #0f172a !important;
+  }
+
+  .b3-commission-modal-backdrop .plat-commissions-slip__tree-title {
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .b3-commission-modal-backdrop .plat-commissions__status,
+  .b3-commission-modal-backdrop .org-agents__bill {
+    color: #0f172a !important;
+    border: 1px solid #64748b !important;
+    background: #f8fafc !important;
+    box-shadow: none !important;
+  }
+
+  .b3-commission-modal-backdrop .no-print,
+  .b3-commission-modal-backdrop .b3-commission-modal__close {
+    display: none !important;
+  }
+
+  .sb-invoice,
+  .po-invoice {
+    --inv-bg: #ffffff;
+    --inv-fg: #0f172a;
+    --inv-muted: #475569;
+    --inv-label: #64748b;
+    --inv-border: #cbd5e1;
+    --inv-divider: #e2e8f0;
+    --inv-surface: #f8fafc;
+    --inv-table-head-bg: #f1f5f9;
+    --inv-balance-bg: #f1f5f9;
+    --inv-link: #0f766e;
+    --inv-link-hover: #115e59;
+    --inv-stamp: #b91c1c;
+    --inv-qr-bg: #ffffff;
+    --inv-shadow: none;
+
+    /* Escape constrained portal columns; size to A4 content box (210mm − 12mm×2). */
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 186mm !important;
+    max-width: 186mm !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    gap: 22px !important;
+    border: none !important;
+    background: #fff !important;
+    color: #0f172a !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  .sb-invoice .no-print,
+  .po-invoice .no-print {
+    display: none !important;
+  }
+
+  /* Collapse portal chrome so the invoice sits at the printable page origin. */
+  .platform-shell .sidebar,
+  .platform-shell .topbar,
+  .platform-shell .portal-nav-backdrop,
+  .platform-shell .portal-mobile-nav-toggle,
+  .plat-bill-detail__head,
+  .plat-bill-detail__side,
+  .order-detail-page__rail,
+  .order-detail-topbar {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root,
+  .platform-shell,
+  .platform-shell .main,
+  .platform-shell .main__scroll,
+  .plat-bill-detail,
+  .platform-shell .plat-bill-detail,
+  .plat-bill-detail__split,
+  .plat-bill-detail__split--invoice,
+  .platform-shell .plat-bill-detail__split--invoice,
+  .plat-bill-detail__main,
+  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main,
+  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main .sb-invoice,
+  .order-detail-page__invoice {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+    transform: none !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Re-assert invoice fill after ancestor resets (static would shrink to 210mm). */
+  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main .sb-invoice,
+  .sb-invoice,
+  .po-invoice {
+    /* A4 (210mm) minus @page 12mm margins → 186mm content box at 100% scale. */
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: auto !important;
+    width: 186mm !important;
+    max-width: 186mm !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    gap: 22px !important;
+  }
+
+  .sb-invoice__doc-head {
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding-bottom: 16px !important;
+  }
+
+  .sb-invoice__brand-head {
+    padding-bottom: 18px !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    gap: 16px 24px !important;
+  }
+
+  .sb-invoice__brand-name {
+    font-size: 22pt !important;
+  }
+
+  .sb-invoice__doc-label {
+    font-size: 22pt !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .sb-invoice__billto-row {
+    gap: 20px 28px !important;
+    padding-top: 6px !important;
+  }
+
+  .sb-invoice__facts {
+    gap: 16px 0 !important;
+  }
+
+  .sb-invoice__facts > div {
+    gap: 6px !important;
+  }
+
+  .sb-invoice__lines--mock th,
+  .sb-invoice__lines--mock td,
+  .sb-invoice__lines th,
+  .sb-invoice__lines td {
+    padding-top: 16px !important;
+    padding-bottom: 16px !important;
+  }
+
+  .sb-invoice__lines--mock th,
+  .sb-invoice__lines th {
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+  }
+
+  .sb-invoice__totals {
+    margin-top: 10px !important;
+  }
+
+  .sb-invoice__totals-row {
+    padding: 13px 0 !important;
+  }
+
+  .sb-invoice__totals-row--balance {
+    margin-top: 8px !important;
+    padding: 14px 16px !important;
+    border: 1.5px solid #94a3b8 !important;
+    background: #f1f5f9 !important;
+  }
+
+  .sb-invoice__remit--pay {
+    margin-top: 6px !important;
+    padding: 20px 20px !important;
+    border: 1.5px solid #64748b !important;
+    background: #f8fafc !important;
+  }
+
+  .sb-invoice__remit-body {
+    gap: 18px !important;
+  }
+
+  .sb-invoice__remit-dl {
+    gap: 14px !important;
+  }
+
+  .sb-invoice__remit--receipt .sb-invoice__remit-dl {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 18px !important;
+    row-gap: 14px !important;
+  }
+
+  .sb-invoice__remit-grid {
+    gap: 16px 18px !important;
+  }
+
+  .sb-invoice__qr-wrap {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .sb-invoice__brand-name,
+  .sb-invoice__brand-gate {
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__brand-gate {
+    color: #b45309 !important;
+  }
+
+  .sb-invoice__brand-sub,
+  .sb-invoice__brand-email,
+  .sb-invoice__brand-phone,
+  .sb-invoice__party-line,
+  .sb-invoice__remit-note,
+  .sb-invoice__remit-amt-unit,
+  .sb-invoice__remit-pair-sep {
+    color: #475569 !important;
+  }
+
+  .sb-invoice__doc-label {
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__doc-id,
+  .po-invoice .sb-invoice__doc-id,
+  .sb-invoice__amt,
+  .sb-invoice__remit-amt,
+  .sb-invoice__remit-amt-num,
+  .sb-invoice__remit-lead,
+  .sb-invoice__remit-asset,
+  .sb-invoice__remit-net,
+  .sb-invoice__party-name {
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__remit-amt-num {
+    font-size: 16pt !important;
+  }
+
+  .sb-invoice__remit-lead {
+    font-size: 11pt !important;
+  }
+
+  .sb-invoice__billto {
+    border-right-color: #cbd5e1 !important;
+  }
+
+  .sb-invoice__billto h3,
+  .sb-invoice__remit h3,
+  .sb-invoice__receipt h3,
+  .sb-invoice__facts dt,
+  .sb-invoice__remit-field-label,
+  .sb-invoice__remit-dl dt,
+  .sb-invoice__payto .label,
+  .sb-invoice__closed-reason .label,
+  .sb-invoice__lines--mock th,
+  .sb-invoice__lines th {
+    color: #64748b !important;
+  }
+
+  .sb-invoice__facts dd,
+  .sb-invoice__remit-dl dd {
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__fact-icon {
+    color: #64748b !important;
+  }
+
+  .sb-invoice__kicker {
+    color: #64748b !important;
+  }
+
+  .sb-invoice__party,
+  .sb-invoice__remit,
+  .sb-invoice__receipt {
+    background: #f8fafc !important;
+    border-color: #94a3b8 !important;
+    box-shadow: none !important;
+  }
+
+  .sb-invoice__qr-wrap {
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .sb-invoice__remit--pay .sb-invoice__qr-mark .qr-center-mark--icon,
+  .sb-invoice__remit--pay .sb-invoice__qr-mark .plat-crypto-icon {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .sb-invoice__remit--pay .chain-value__link,
+  .sb-invoice__remit--pay .chain-value > .mono {
+    color: #0f766e !important;
+    font-size: 9pt !important;
+  }
+
+  .sb-invoice__party .muted,
+  .sb-invoice__remit-note {
+    color: #475569 !important;
+  }
+
+  .sb-invoice__remit-lead,
+  .sb-invoice__remit p.sb-invoice__remit-lead {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  .sb-invoice__lines--mock,
+  .sb-invoice__lines {
+    width: 100% !important;
+  }
+
+  .sb-invoice__lines--mock th,
+  .sb-invoice__lines th {
+    background: #f1f5f9 !important;
+    border-bottom: 1.5px solid #94a3b8 !important;
+  }
+
+  .sb-invoice__lines th,
+  .sb-invoice__lines td,
+  .sb-invoice__lines--mock th,
+  .sb-invoice__lines--mock td {
+    border-bottom-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__totals-row {
+    color: #475569 !important;
+    border-bottom-color: #cbd5e1 !important;
+  }
+
+  .sb-invoice__totals-row > span:last-child {
+    color: #0f172a !important;
+  }
+
+  .sb-invoice__totals-row--balance > span:first-child,
+  .sb-invoice__totals-row--balance > span:last-child {
+    color: #0f172a !important;
+  }
+
+  .chain-value__link {
+    color: #0f766e !important;
+    border-bottom-color: rgba(15, 118, 110, 0.35) !important;
+  }
+
+  .po-invoice__anomaly {
+    border: 1px solid #fecaca !important;
+    border-left: 3px solid #ef4444 !important;
+    background: #fff1f2 !important;
+  }
+
+  .po-invoice__anomaly h3,
+  .po-invoice__anomaly .sb-invoice__meta-dl dt {
+    color: #b91c1c !important;
+  }
+
+  .po-invoice__anomaly p,
+  .po-invoice__anomaly .sb-invoice__meta-dl dd {
+    color: #7f1d1d !important;
+  }
+}
+

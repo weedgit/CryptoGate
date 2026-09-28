@@ -5,11 +5,15 @@ import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import {
   canManageMerchantOrgOps,
   canViewSettlementSettings,
+  isAgentOrgType,
   isMerchantOrgType,
 } from "../orgs/role-policy.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
-import { validateNotificationPrefsBody } from "./notification-rules.mjs";
+import {
+  notificationEventTypesForOrgType,
+  validateNotificationPrefsBody,
+} from "./notification-rules.mjs";
 import {
   listNotificationPreferences,
   upsertNotificationPreferences,
@@ -38,26 +42,54 @@ async function loadPrefsOrg(req, res, orgId, mode) {
   if (!caller) return null;
 
   const org = await findOrgById(orgId);
+  if (org?.type === "platform") {
+    // Platform staff preferences are personal: any member manages their own.
+    const membership = caller.memberships.find((m) => m.orgId === org.id);
+    if (!membership) {
+      sendError(res, 404, "not_found", "Org not found");
+      return null;
+    }
+    return { caller, org, role: membership.role ?? null };
+  }
   const visible = await listVisibleOrgs(
     caller.platformOperator,
     caller.memberships,
   );
-  if (!org || !isVisibleOrg(visible, orgId) || !isMerchantOrgType(org.type)) {
+  const agentOrg = org ? isAgentOrgType(org.type) : false;
+  if (
+    !org ||
+    !isVisibleOrg(visible, orgId) ||
+    !(isMerchantOrgType(org.type) || agentOrg)
+  ) {
     sendError(res, 404, "not_found", "Org not found");
     return null;
   }
 
-  if (mode === "manage" && !canManageMerchantOrgOps(caller, org)) {
-    // Same O/A bar as other merchant settings (Cashier / Viewer 403 on write).
-    sendError(res, 403, "forbidden", "Not allowed to change notification preferences");
-    return null;
-  }
-  if (mode === "view" && !canViewSettlementSettings(caller, org)) {
-    sendError(res, 403, "forbidden", "Not allowed to view notification preferences");
-    return null;
+  if (agentOrg) {
+    // Agent preferences are personal: any member manages their own.
+    const member = caller.memberships.some((m) => m.orgId === org.id);
+    if (!member) {
+      sendError(res, 403, "forbidden", "Only members of this org have notification preferences");
+      return null;
+    }
+    return { caller, org };
   }
 
-  return { caller, org };
+  // Merchant preferences are personal too: every member (Cashier included)
+  // manages their own; O/A of a parent org may still open a child's page.
+  const membership = caller.memberships.find((m) => m.orgId === org.id);
+  if (!membership) {
+    if (mode === "manage" && !canManageMerchantOrgOps(caller, org)) {
+      sendError(res, 403, "forbidden", "Not allowed to change notification preferences");
+      return null;
+    }
+    if (mode === "view" && !canViewSettlementSettings(caller, org)) {
+      sendError(res, 403, "forbidden", "Not allowed to view notification preferences");
+      return null;
+    }
+  }
+
+  return { caller, org, role: membership?.role ?? null };
 }
 
 /**
@@ -69,6 +101,7 @@ export async function handleGetNotificationPreferences(req, res, orgId) {
   const items = await listNotificationPreferences(
     loaded.caller.userId,
     loaded.org.id,
+    notificationEventTypesForOrgType(loaded.org.type, loaded.role),
   );
   sendJson(res, 200, withEmailChannelState(items));
 }
@@ -88,7 +121,8 @@ export async function handlePutNotificationPreferences(req, res, orgId) {
     return;
   }
 
-  const validated = validateNotificationPrefsBody(body);
+  const eventTypes = notificationEventTypesForOrgType(loaded.org.type, loaded.role);
+  const validated = validateNotificationPrefsBody(body, eventTypes);
   if (!validated.ok) {
     sendError(res, validated.status, validated.code, validated.message);
     return;
@@ -103,6 +137,7 @@ export async function handlePutNotificationPreferences(req, res, orgId) {
     loaded.caller.userId,
     loaded.org.id,
     itemsInput,
+    eventTypes,
   );
 
   await insertAuditEvent({

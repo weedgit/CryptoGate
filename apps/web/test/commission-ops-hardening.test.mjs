@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -9,6 +9,14 @@ import {
 } from "../src/commercial/commissionAging.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+function readCommissionsSources() {
+  const dir = join(root, "src/platform/commissions");
+  return [
+    readFileSync(join(root, "src/platform/PlatformCommissionsPage.tsx"), "utf8"),
+    ...readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8")),
+  ].join("\n");
+}
 
 describe("@paymentgate/web commission ops hardening", () => {
   it("wires optional txRef on platform Confirm & pay", () => {
@@ -22,10 +30,7 @@ describe("@paymentgate/web commission ops hardening", () => {
   });
 
   it("wires invoice status pills, aging, and last auto-run banner", () => {
-    const page = readFileSync(
-      join(root, "src/platform/PlatformCommissionsPage.tsx"),
-      "utf8",
-    );
+    const page = readCommissionsSources();
     assert.match(page, /Awaiting/);
     assert.doesNotMatch(page, /Awaiting confirm/);
     assert.match(page, /statusFilter/);
@@ -42,7 +47,7 @@ describe("@paymentgate/web commission ops hardening", () => {
     );
     assert.match(platformAlerts, /summary\.stuckPaid/);
     assert.match(page, /commission_payout_auto/);
-    assert.match(page, /formatLastAutoRunBanner/);
+    assert.match(page, /AutoScheduleCard/);
     assert.match(page, /skipped_zero/);
     assert.match(page, /displayServiceBillTxHash/);
     assert.match(page, /plat-commissions__rate-cell/);

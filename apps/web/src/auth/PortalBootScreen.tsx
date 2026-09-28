@@ -8,7 +8,7 @@ type Props = {
 /** Full-viewport boot splash — same chrome as sign-in, not a bare text dump. */
 export function PortalBootScreen({ title, copy }: Props) {
   return (
-    <AuthLayout showBrand footer={false} split={false}>
+    <AuthLayout footer={false}>
       <div
         className="login-card login-card--boot login-card--enter"
         role="status"

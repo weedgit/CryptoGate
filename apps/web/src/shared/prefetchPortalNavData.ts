@@ -14,8 +14,6 @@ import { getMerchantIntegrations } from "../merchant/merchantIntegrationsCache";
 import { getMerchantOrgs } from "../merchant/merchantOrgList";
 import { getMerchantOrder } from "../merchant/merchantOrderDetail";
 import { getMerchantOrderPayment } from "../merchant/merchantOrderPaymentDetails";
-import { getDashboardReports } from "./dashboardApi";
-import { toDateInputValue } from "./dashboardPeriod";
 import { primaryMerchantOrgId } from "../merchant/org";
 import { getPlatformOrgs } from "../platform/platformOrgList";
 import { getCachedServiceBill } from "./serviceBillDetailCache";
@@ -52,7 +50,7 @@ function prefetchOrderDetail(path: string): void {
 }
 
 function prefetchMerchantSettings(path: string): void {
-  if (!path.startsWith("settings/")) return;
+  if (!path.startsWith("settings/") && path !== "networks") return;
   void getMerchantOrgs();
   const session = readCachedSession();
   if (!session) return;
@@ -61,7 +59,7 @@ function prefetchMerchantSettings(path: string): void {
 
   if (path === "settings/team") {
     void getOrgUsers(orgId);
-  } else if (path === "settings/integrations") {
+  } else if (path === "networks") {
     void getMerchantIntegrations(orgId);
   } else if (path === "settings/notifications") {
     void getNotificationPreferences(orgId).catch(() => undefined);
@@ -138,21 +136,7 @@ export function prefetchAgentNavData(path: string) {
 }
 
 export function prefetchMerchantNavData(path: string) {
-  if (path === "reports") {
-    const to = new Date();
-    const from = new Date(to);
-    from.setDate(from.getDate() - 30);
-    void getDashboardReports({
-      from: toDateInputValue(from),
-      to: toDateInputValue(to),
-    }).catch(() => undefined);
-  }
-  if (
-    path === "reports" ||
-    path.startsWith("reports/") ||
-    path === "sites" ||
-    path.startsWith("sites/")
-  ) {
+  if (path === "sites" || path.startsWith("sites/")) {
     void getMerchantOrgs();
   }
   if (path === "service-bills") prefetchServiceBillsList("merchant");
