@@ -44,7 +44,7 @@ describe("@paymentgate/web merchant M2-60", () => {
     assert.match(routes, /merchantRoute\("charge"\)/);
     assert.equal(existsSync(join(root, "src/merchant/CreateOrderModal.tsx")), false);
     assert.match(app, /function ChargeTerminalLayout/);
-    assert.match(app, /backTo=\{merchantRoute\(\)\}/);
+    assert.match(app, /backTo=\{backTo\}/);
     assert.match(app, /<Route path="charge" element=\{<PayPadPage session=\{session\} \/>\} \/>/);
     const pad = readFileSync(join(root, "src/merchant/cashier/PayPadPage.tsx"), "utf8");
     assert.match(pad, /createOrder/);
@@ -555,6 +555,25 @@ describe("Charge page (merchant + cashier)", () => {
     assert.match(src, /\(\["USD", "EUR", "TOKEN"\] as const\)/);
     assert.match(src, /amountCrypto: trimmed, invoiceDenomination: "crypto"/);
     assert.match(src, /Customer pays exactly/);
+  });
+
+  it("returns to the page Charge was opened from", () => {
+    const link = readFileSync(join(root, "src/merchant/chargeLink.tsx"), "utf8");
+    assert.match(link, /chargeReturnTo: `\$\{location\.pathname\}\$\{location\.search\}`/);
+    assert.match(link, /sessionStorage\.setItem\(RETURN_KEY, from\)/);
+    assert.match(link, /\(charge\|pay\\\/\)/);
+    const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
+    assert.match(app, /const backTo = useChargeReturnTo\(\);/);
+    for (const file of [
+      "src/merchant/DashboardPage.tsx",
+      "src/merchant/SiteHomePage.tsx",
+      "src/merchant/orderDetail/OrderRailActions.tsx",
+      "src/shared/invoiceList/InvoiceListHeader.tsx",
+    ]) {
+      const src = readFileSync(join(root, file), "utf8");
+      assert.match(src, /<ChargeLink className=/, file);
+      assert.doesNotMatch(src, /to=\{merchantRoute\("charge"\)\}/, file);
+    }
   });
 
   it("puts validity and reference under More options for every role", () => {

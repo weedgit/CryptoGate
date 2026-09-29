@@ -54,6 +54,7 @@ import {
   toDateInputValue,
   type DashboardPeriodId,
 } from "../shared/dashboardPeriod";
+import { ChargeLink } from "./chargeLink";
 
 type Props = { session: Session };
 
@@ -339,9 +340,9 @@ export function DashboardPage({ session }: Props) {
                 Service Bills
               </Link>
               {sessionCanCharge(session) ? (
-                <Link className="btn-primary btn-inline" to={merchantRoute("charge")}>
+                <ChargeLink className="btn-primary btn-inline">
                   Charge
-                </Link>
+                </ChargeLink>
               ) : null}
             </div>,
             topbarActionsSlot,

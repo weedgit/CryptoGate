@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { PaymentOrder } from "../api";
 import { merchantRoute, platformRoute } from "../../shared/portalRouting";
 import { SharePayLink } from "../../shared/SharePayLink";
+import { ChargeLink } from "../chargeLink";
 
 type Props = {
   order: PaymentOrder | null;
@@ -64,9 +65,7 @@ export function OrderRailActions({
           </button>
         ) : null}
         {!isPlatform ? (
-          <Link className="order-detail-page__cta" to={merchantRoute("charge")}>
-            New charge
-          </Link>
+          <ChargeLink className="order-detail-page__cta">New charge</ChargeLink>
         ) : order?.orgId ? (
           <Link
             className="order-detail-page__cta"

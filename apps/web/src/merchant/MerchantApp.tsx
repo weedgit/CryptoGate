@@ -21,6 +21,7 @@ import {
   type MerchantExperience,
 } from "./experience";
 import { sessionCanCharge } from "./org";
+import { useChargeReturnTo } from "./chargeLink";
 import {
   WorkspaceSwitcherContext,
   readStoredWorkspace,
@@ -129,6 +130,7 @@ function ChargeTerminalLayout({
   onSignOut: () => void | Promise<void>;
   onSessionRefresh?: (session: Session) => void;
 }) {
+  const backTo = useChargeReturnTo();
   if (!sessionCanCharge(session)) return <Navigate to={merchantRoute()} replace />;
   return (
     <RequireMerchantPortal session={session} onSignOut={onSignOut}>
@@ -136,7 +138,7 @@ function ChargeTerminalLayout({
         session={session}
         onSignOut={onSignOut}
         onSessionRefresh={onSessionRefresh}
-        backTo={merchantRoute()}
+        backTo={backTo}
       >
         <LazyRoute>
           <Outlet />

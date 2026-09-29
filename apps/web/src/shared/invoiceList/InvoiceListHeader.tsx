@@ -7,6 +7,7 @@ import {
 import { FundAmount } from "../../platform/FundAmount";
 import { merchantRoute } from "../portalRouting";
 import { DownloadIcon, PlusIcon, RefreshIcon } from "./InvoiceListIcons";
+import { ChargeLink } from "../../merchant/chargeLink";
 
 type Props = {
   summary: PaymentOrderListSummary;
@@ -106,13 +107,10 @@ export function InvoiceListHeader({
           <RefreshIcon />
         </button>
         {canCreate ? (
-          <Link
-            className="invoice-list__btn invoice-list__btn--primary"
-            to={merchantRoute("charge")}
-          >
+          <ChargeLink className="invoice-list__btn invoice-list__btn--primary">
             <PlusIcon />
             Charge
-          </Link>
+          </ChargeLink>
         ) : null}
       </div>
     </header>
