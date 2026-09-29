@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Fixed email → public avatar path (12 images). */
 export const SEED_AVATAR_BY_EMAIL = Object.freeze({
-  "own.platform@paymentgate.io": "/avatars/seed-01.jpg",
+  "fullshineofwork@gmail.com": "/avatars/seed-01.jpg",
   "admin.platform@paymentgate.io": "/avatars/seed-02.jpg",
   "view.platform@paymentgate.io": "/avatars/seed-03.jpg",
   "own.agent@paymentgate.io": "/avatars/seed-04.jpg",

@@ -7,7 +7,7 @@
  * @param {{ firstName: string, lastName: string, phone?: string }} profile
  */
 export async function markUatDemoUserReady(pool, userId, profile) {
-  // Unique phone per user (users_phone_uidx) — derive from uuid when not provided.
+  // Distinct phone per seeded user — derive from uuid when not provided.
   const digits = String(userId).replace(/\D/g, "").slice(-10).padStart(10, "0");
   const phone = profile.phone?.trim() || `+1555${digits}`;
   await pool.query(

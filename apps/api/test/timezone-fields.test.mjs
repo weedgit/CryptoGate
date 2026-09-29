@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { sessionFromUser } from "../src/auth/session-payload.mjs";
 import { toOrgAccount } from "../src/orgs/org-accounts.mjs";
 import { toPaymentDetails } from "../src/orders/order-map.mjs";
@@ -13,6 +14,11 @@ describe("time zone fields", () => {
       sessionFromUser({ ...base, timezone: "Asia/Seoul", timezoneConfirmed: true }).timezoneConfirmed,
       true,
     );
+  });
+
+  it("auth route session payload forwards the confirmed flag", () => {
+    const src = readFileSync(new URL("../src/http/auth-routes.mjs", import.meta.url), "utf8");
+    assert.match(src, /timezoneConfirmed: user\.timezoneConfirmed === true/);
   });
 
   it("org account exposes its own business time zone only when set", () => {

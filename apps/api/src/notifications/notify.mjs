@@ -6,6 +6,7 @@
  */
 import { NotificationEventType } from "@paymentgate/domain";
 import { sendNotificationEmail } from "../mail/auth-mail.mjs";
+import { button, escapeHtml, para, renderLayout } from "../mail/email-layout.mjs";
 import { isOutboundMailConfigured } from "../mail/mail-config.mjs";
 import { portalWebUrl } from "../mail/portal-links.mjs";
 import {
@@ -48,14 +49,27 @@ const ALERTS_PATH = {
  */
 export function buildNotificationEmail(portal, message) {
   const link = message.path != null ? portalWebUrl(portal, message.path) : null;
+  const alertsUrl = portalWebUrl(portal, ALERTS_PATH[portal]);
+  const subject = `PaymentGate — ${message.subject}`;
   const text = [
     ...message.lines,
     link ? `\nOpen: ${link}` : null,
-    `\nYou can change these emails in Alerts: ${portalWebUrl(portal, ALERTS_PATH[portal])}`,
+    `\nYou can change these emails in Alerts: ${alertsUrl}`,
   ]
     .filter(Boolean)
     .join("\n");
-  return { subject: `PaymentGate — ${message.subject}`, text };
+  const html = renderLayout({
+    title: subject,
+    preheader: message.lines[0] ?? message.subject,
+    heading: message.subject,
+    body: [
+      ...message.lines.map((line) => para(escapeHtml(line))),
+      link ? button(link, "Open in PaymentGate") : "",
+    ].join("\n"),
+    footer: "You're receiving this because email alerts are on for your PaymentGate account.",
+    footerHtml: `<a href="${escapeHtml(alertsUrl)}" style="color:#64748b;">Manage email alerts</a>`,
+  });
+  return { subject, text, html, alertsUrl };
 }
 
 /**
@@ -65,9 +79,10 @@ export function buildNotificationEmail(portal, message) {
  */
 async function sendTo(recipients, portal, message) {
   if (recipients.length === 0) return;
-  const { subject, text } = buildNotificationEmail(portal, message);
+  const { subject, text, html, alertsUrl } = buildNotificationEmail(portal, message);
+  const headers = { "List-Unsubscribe": `<${alertsUrl}>` };
   await Promise.all(
-    recipients.map((to) => sendNotificationEmail({ to, subject, text })),
+    recipients.map((to) => sendNotificationEmail({ to, subject, text, html, headers })),
   );
 }
 

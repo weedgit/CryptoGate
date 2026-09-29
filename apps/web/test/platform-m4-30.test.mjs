@@ -52,7 +52,7 @@ describe("@paymentgate/web platform B4 onboard agent", () => {
     assert.doesNotMatch(wizard, /New agent/);
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
-    assert.match(wizard, /inviteOrgUser/);
+    assert.match(wizard, /inviteOwnerOrRollback/);
   });
 
   it("depth helper matches API default max agent depth", () => {

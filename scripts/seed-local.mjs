@@ -3,7 +3,7 @@
  * Minimal local seed — platform org + platform owner only.
  *
  * Wipes all application data (keeps schema_migrations), then creates:
- *   own.platform@paymentgate.io — Platform Owner
+ *   fullshineofwork@gmail.com — Platform Owner
  *   Password: User1234567890!
  *
  * Usage: node scripts/seed-local.mjs

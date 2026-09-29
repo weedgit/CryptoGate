@@ -78,6 +78,7 @@ async function sessionPayload(user, memberships) {
       avatarUrl: user.avatarUrl ?? null,
       locale: user.locale ?? "en",
       timezone: user.timezone ?? "UTC",
+      timezoneConfirmed: user.timezoneConfirmed === true,
       sessionTimeoutMinutes: user.sessionTimeoutMinutes,
       emailVerified: user.emailVerified === true,
       phone: user.phone ?? null,

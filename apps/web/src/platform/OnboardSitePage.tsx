@@ -5,7 +5,6 @@ import {
   ApiError,
   createOrg,
   getPlatformOrgs,
-  inviteOrgUser,
   listOrgMemberEmails,
   mergePlatformOrg,
   refreshPlatformOrgList,
@@ -27,6 +26,7 @@ import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { platformRoute } from "../shared/portalRouting";
 import { onboardInviteCreds } from "../shared/onboardInviteState";
+import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
   OnboardFieldHead,
@@ -154,10 +154,7 @@ export function OnboardSitePage({ session }: Props) {
       const invitedEmail = form.ownerEmail.trim();
       let inviteCreds = null;
       if (invitedEmail) {
-        const invite = await inviteOrgUser(created.id, {
-          email: invitedEmail,
-          role: "owner",
-        });
+        const invite = await inviteOwnerOrRollback(created.id, invitedEmail);
         inviteCreds = onboardInviteCreds(invitedEmail, invite);
       }
       await refreshPlatformOrgList();
@@ -174,6 +171,7 @@ export function OnboardSitePage({ session }: Props) {
     } catch (err) {
       if (err instanceof ApiError && err.code === "email_taken") {
         setError(REGISTERED_EMAIL_API_MESSAGE);
+        void refreshPlatformOrgList().catch(() => undefined);
       } else {
         setError(inviteEmailErrorMessage(err));
       }

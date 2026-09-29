@@ -129,19 +129,6 @@ export async function findUserByEmail(email) {
 }
 
 /**
- * @param {string} phone E.164
- * @returns {Promise<string | null>} user id when taken
- */
-export async function findUserIdByPhone(phone) {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT id FROM users WHERE phone = $1 LIMIT 1`,
-    [phone],
-  );
-  return rows[0]?.id ?? null;
-}
-
-/**
  * @param {string} id
  * @returns {Promise<{ id: string, email: string, mfaEnrolled: boolean } | null>}
  */
@@ -458,6 +445,59 @@ export async function updateUserPassword(userId, password) {
 }
 
 /**
+ * Delete accounts left without any membership. The row stays for audit history; the email is
+ * released so the same address can be invited again as a brand-new account.
+ * @param {string[]} userIds candidates; users still in an org are skipped
+ * @param {import("pg").Pool | import("pg").PoolClient} [client]
+ * @returns {Promise<{ id: string, email: string }[]>} deleted accounts with their former email
+ */
+export async function tombstoneUsersWithoutMemberships(userIds, client) {
+  const ids = [...new Set((userIds ?? []).filter(Boolean))];
+  if (ids.length === 0) return [];
+  const q = client ?? getPool();
+  const { rows } = await q.query(
+    `WITH gone AS (
+       SELECT u.id, u.email
+       FROM users u
+       WHERE u.id = ANY($1::uuid[])
+         AND u.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM org_memberships m WHERE m.user_id = u.id)
+       FOR UPDATE
+     )
+     UPDATE users u
+     SET email = 'deleted+' || u.id::text || '@deleted.invalid',
+         password_hash = 'deleted',
+         deleted_at = now(),
+         email_verified_at = NULL,
+         phone = NULL,
+         phone_verified_at = NULL,
+         mfa_secret = NULL,
+         mfa_pending_secret = NULL,
+         mfa_enrolled_at = NULL,
+         avatar_url = NULL,
+         pos_pin_hash = NULL,
+         must_change_password = false,
+         updated_at = now()
+     FROM gone
+     WHERE u.id = gone.id
+     RETURNING u.id, gone.email`,
+    [ids],
+  );
+  const goneIds = rows.map((r) => r.id);
+  if (goneIds.length > 0) {
+    for (const table of [
+      "sessions",
+      "password_reset_tokens",
+      "contact_otps",
+      "notification_preferences",
+    ]) {
+      await q.query(`DELETE FROM ${table} WHERE user_id = ANY($1::uuid[])`, [goneIds]);
+    }
+  }
+  return rows.map((r) => ({ id: r.id, email: r.email }));
+}
+
+/**
  * Invite URL / email OTP proved control of the inbox.
  * @param {string} userId
  */
@@ -522,25 +562,21 @@ export async function clearUserPhone(userId) {
   );
 }
 
+/**
+ * Phone numbers may be shared across accounts; a new number always needs verification.
+ * @param {string} userId
+ * @param {string} phone
+ */
 export async function setUserPhone(userId, phone) {
   const pool = getPool();
-  try {
-    await pool.query(
-      `UPDATE users
-       SET phone = $2,
-           phone_verified_at = CASE WHEN phone IS DISTINCT FROM $2 THEN NULL ELSE phone_verified_at END,
-           updated_at = now()
-       WHERE id = $1`,
-      [userId, phone],
-    );
-  } catch (err) {
-    if (err && err.code === "23505") {
-      const dup = new Error("This phone number is already registered");
-      dup.code = "phone_taken";
-      throw dup;
-    }
-    throw err;
-  }
+  await pool.query(
+    `UPDATE users
+     SET phone = $2,
+         phone_verified_at = CASE WHEN phone IS DISTINCT FROM $2 THEN NULL ELSE phone_verified_at END,
+         updated_at = now()
+     WHERE id = $1`,
+    [userId, phone],
+  );
 }
 
 /**

@@ -5,7 +5,6 @@ import {
   ApiError,
   createOrg,
   getPlatformOrgs,
-  inviteOrgUser,
   listOrgMemberEmails,
   mergePlatformOrg,
   refreshPlatformOrgList,
@@ -26,6 +25,7 @@ import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { platformRoute } from "../shared/portalRouting";
 import { onboardInviteCreds } from "../shared/onboardInviteState";
+import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 import { GateLogoMark } from "../auth/GateLogoMark";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
@@ -186,10 +186,7 @@ export function OnboardMerchantPage({ session }: Props) {
       });
       mergePlatformOrg(created);
       const invitedEmail = form.ownerEmail.trim();
-      const invite = await inviteOrgUser(created.id, {
-        email: invitedEmail,
-        role: "owner",
-      });
+      const invite = await inviteOwnerOrRollback(created.id, invitedEmail);
       await refreshPlatformOrgList();
       navigate(platformRoute(`accounts/merchants/${created.id}`), {
         state: {
@@ -202,6 +199,7 @@ export function OnboardMerchantPage({ session }: Props) {
     } catch (err) {
       if (err instanceof ApiError && err.code === "email_taken") {
         setError(REGISTERED_EMAIL_API_MESSAGE);
+        void refreshPlatformOrgList().catch(() => undefined);
       } else {
         setError(inviteEmailErrorMessage(err));
       }

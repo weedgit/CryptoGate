@@ -216,4 +216,45 @@ describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
       await closePool();
     }
   });
+
+  it("reports undelivered codes in production and allows an immediate retry", async () => {
+    runMigrations();
+    const stamp = Date.now();
+    const user = await createUser({
+      email: `undelivered-${stamp}@local.paymentgate`,
+      password: "Undelivered12!a",
+      invited: true,
+    });
+    const saved = {
+      NODE_ENV: process.env.NODE_ENV,
+      MAIL_TRANSPORT: process.env.MAIL_TRANSPORT,
+      SMS_TRANSPORT: process.env.SMS_TRANSPORT,
+    };
+    process.env.NODE_ENV = "production";
+    delete process.env.MAIL_TRANSPORT;
+    delete process.env.SMS_TRANSPORT;
+    const { server, base } = await startTestServer();
+    try {
+      const token = (await createSession({ userId: user.id, mfaVerified: true }))
+        .token;
+      for (const [path, body] of [
+        ["/v1/auth/contact/email/send", undefined],
+        ["/v1/auth/contact/email/send", undefined],
+        ["/v1/auth/contact/phone/send", { phone: `+6590${String(stamp).slice(-6)}` }],
+        ["/v1/auth/contact/phone/send", { phone: `+6590${String(stamp).slice(-6)}` }],
+      ]) {
+        const res = await apiFetch(base, path, { method: "POST", token, body });
+        assert.equal(res.status, 503, path);
+        assert.equal(res.json.code, "otp_delivery_failed");
+        assert.equal(res.json.devCode, undefined);
+      }
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      await stopTestServer(server);
+      await closePool();
+    }
+  });
 });

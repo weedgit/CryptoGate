@@ -3,8 +3,10 @@ import { requireCaller } from "../http/require-caller.mjs";
 import { revokeAllSessionsForUser } from "../auth/sessions.mjs";
 import {
   clearUserPosPin,
+  findUserByEmail,
   findUserById,
   setUserPosPin,
+  tombstoneUsersWithoutMemberships,
   userHasPosPin,
 } from "../auth/users.mjs";
 import { validatePosPin } from "../auth/pos-pin-hash.mjs";
@@ -30,7 +32,6 @@ import {
   insertMembership,
   listMemberEmailsGroupedByOrg,
   listMembershipsForOrg,
-  listMembershipsForUser,
   provisionUserForInvite,
   updateMembershipRole,
   updateMembershipStatus,
@@ -44,8 +45,6 @@ import {
   canListOrgMemberEmailsBulk,
   canManageDirectChildOrg,
   effectiveRoleOnOrg,
-  evaluateCrossOrgMerchantSiteInvite,
-  isPlatformOrAgentOperatorMemberships,
 } from "./role-policy.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
@@ -63,6 +62,9 @@ import {
   inviteUrlForToken,
   portalLoginUrl,
 } from "../mail/portal-links.mjs";
+
+const EMAIL_TAKEN_MESSAGE =
+  "This email is already registered. Each email can belong to only one account.";
 
 async function memberEmailForAudit(userId) {
   const user = await findUserById(userId);
@@ -199,6 +201,25 @@ export async function handleInviteOrgUser(req, res, orgId) {
     return;
   }
 
+  // One email = one account in one org with one role; registered emails cannot be invited.
+  const registered = await findUserByEmail(email);
+  if (registered) {
+    const existing = await findMembership(orgId, registered.id, { includePaused: true });
+    if (existing) {
+      sendError(
+        res,
+        400,
+        "membership_exists",
+        existing.status === "paused"
+          ? "User is already a member (paused). Resume instead of inviting again."
+          : "User is already a member of this org",
+      );
+      return;
+    }
+    sendError(res, 409, "email_taken", EMAIL_TAKEN_MESSAGE);
+    return;
+  }
+
   let provisioned;
   try {
     provisioned = await provisionUserForInvite(email, {
@@ -209,74 +230,15 @@ export async function handleInviteOrgUser(req, res, orgId) {
       sendError(res, 400, "email_invalid", err.message);
       return;
     }
+    if (err && err.code === "email_taken") {
+      sendError(res, 409, "email_taken", EMAIL_TAKEN_MESSAGE);
+      return;
+    }
     throw err;
   }
 
   const user = { id: provisioned.id, email: provisioned.email };
   const profile = await findUserById(user.id);
-  const existingMemberships = await listMembershipsForUser(user.id);
-  const isMerchantOrSite =
-    org.type === "merchant" || org.type === "merchant_site";
-
-  // Onboard Owner: Platform/Agent O/A cannot become merchant/site Owner.
-  if (
-    isMerchantOrSite &&
-    role === "owner" &&
-    isPlatformOrAgentOperatorMemberships(existingMemberships)
-  ) {
-    sendError(
-      res,
-      403,
-      "owner_invite_forbidden",
-      "Platform or agent Owner/Administrator cannot be onboarded as merchant or site Owner",
-    );
-    return;
-  }
-
-  if (!provisioned.created) {
-    const otherOrgs = existingMemberships.filter((m) => m.orgId !== orgId);
-    if (otherOrgs.length > 0) {
-      if (isMerchantOrSite) {
-        const cross = evaluateCrossOrgMerchantSiteInvite(profile, otherOrgs);
-        if (!cross.ok) {
-          sendError(res, 403, cross.code, cross.message);
-          return;
-        }
-        // Allowed: verified Platform/Agent O/A joining merchant/site team.
-      } else {
-        sendError(
-          res,
-          409,
-          "email_taken",
-          "This email is already registered on the platform.",
-        );
-        return;
-      }
-    }
-  } else if (
-    isMerchantOrSite &&
-    role !== "owner" &&
-    isPlatformOrAgentOperatorMemberships(existingMemberships)
-  ) {
-    const cross = evaluateCrossOrgMerchantSiteInvite(profile, existingMemberships);
-    if (!cross.ok) {
-      sendError(res, 403, cross.code, cross.message);
-      return;
-    }
-  }
-
-  const existing = await findMembership(orgId, user.id, { includePaused: true });
-  if (existing) {
-    sendError(
-      res,
-      400,
-      "membership_exists",
-      existing.status === "paused"
-        ? "User is already a member (paused). Resume instead of inviting again."
-        : "User is already a member of this org",
-    );
-    return;
-  }
 
   const inserted = await insertMembership({
     orgId,
@@ -292,30 +254,19 @@ export async function handleInviteOrgUser(req, res, orgId) {
     await updateOrgBillingEmailIfEmpty(orgId, user.email).catch(() => null);
   }
 
-  /** @type {string | null} */
-  let temporaryPassword = provisioned.temporaryPassword;
-  /** @type {string | null} */
-  let invitePath = null;
-  /** @type {string | null} */
-  let inviteUrl = null;
-  /** @type {{ status: string, mode: string }} */
-  let emailDelivery = { status: "skipped", mode: "none" };
-
-  if (provisioned.created && temporaryPassword) {
-    const rawToken = await createPasswordResetToken(user.id);
-    invitePath = inviteRelativePathForToken(rawToken);
-    inviteUrl = inviteUrlForToken(org.type, rawToken);
-    const loginUrl = portalLoginUrl(org.type);
-    const mail = await sendInviteEmail({
-      to: user.email,
-      orgName: org.name ?? org.type,
-      role,
-      temporaryPassword,
-      inviteUrl,
-      loginUrl,
-    });
-    emailDelivery = { status: mail.delivered ? "sent" : "stubbed", mode: mail.mode };
-  }
+  const { temporaryPassword } = provisioned;
+  const rawToken = await createPasswordResetToken(user.id);
+  const invitePath = inviteRelativePathForToken(rawToken);
+  const inviteUrl = inviteUrlForToken(org.type, rawToken);
+  const mail = await sendInviteEmail({
+    to: user.email,
+    orgName: org.name ?? org.type,
+    role,
+    temporaryPassword,
+    inviteUrl,
+    loginUrl: portalLoginUrl(org.type),
+  });
+  const emailDelivery = { status: mail.delivered ? "sent" : "stubbed", mode: mail.mode };
 
   await insertAuditEvent({
     actorUserId: caller.userId,
@@ -326,11 +277,9 @@ export async function handleInviteOrgUser(req, res, orgId) {
       displayName: profile?.displayName ?? null,
       invitedUserId: user.id,
       role,
-      provisioned: provisioned.created,
+      provisioned: true,
       orgType: org.type,
-      ...(provisioned.created &&
-      temporaryPassword &&
-      (org.type === "agent" || org.type === "merchant")
+      ...(org.type === "agent" || org.type === "merchant"
         ? { initialSignIn: temporaryPassword }
         : {}),
     },
@@ -589,9 +538,10 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
     return;
   }
 
+  const targetEmail = await memberEmailForAudit(userId);
   await deleteMembership(orgId, userId);
   await revokeAllSessionsForUser(userId);
-  const targetEmail = await memberEmailForAudit(userId);
+  const deleted = await tombstoneUsersWithoutMemberships([userId]);
   await insertAuditEvent({
     actorUserId: caller.userId,
     orgId,
@@ -601,6 +551,7 @@ export async function handleRemoveOrgUser(req, res, orgId, userId) {
       email: targetEmail,
       priorRole: existing.role,
       priorStatus: existing.status,
+      accountDeleted: deleted.length > 0,
     },
   });
 

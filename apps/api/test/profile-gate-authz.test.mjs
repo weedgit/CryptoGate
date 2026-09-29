@@ -2,8 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isPersonProfileComplete } from "../src/auth/org-setup.mjs";
 import {
-  evaluateCrossOrgMerchantSiteInvite,
-  isPlatformOrAgentOperatorMemberships,
   canUpdateAgentPayout,
   canChangeSettlementSettings,
   canOnboardSiteUnderParent,
@@ -33,49 +31,6 @@ describe("person profile completeness", () => {
         timezone: "UTC",
       }),
       true,
-    );
-  });
-});
-
-describe("cross-org merchant/site invite", () => {
-  const verified = { emailVerified: true, phoneVerified: true };
-  const unverified = { emailVerified: true, phoneVerified: false };
-
-  it("allows verified platform O/A", () => {
-    const r = evaluateCrossOrgMerchantSiteInvite(verified, [
-      { orgType: "platform", role: "administrator" },
-    ]);
-    assert.equal(r.ok, true);
-  });
-
-  it("rejects platform viewer", () => {
-    const r = evaluateCrossOrgMerchantSiteInvite(verified, [
-      { orgType: "platform", role: "viewer" },
-    ]);
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "invite_role_forbidden");
-  });
-
-  it("rejects unverified agent O/A", () => {
-    const r = evaluateCrossOrgMerchantSiteInvite(unverified, [
-      { orgType: "agent", role: "owner" },
-    ]);
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "invite_unverified");
-  });
-
-  it("detects platform/agent operators for owner onboard block", () => {
-    assert.equal(
-      isPlatformOrAgentOperatorMemberships([
-        { orgType: "agent", role: "owner" },
-      ]),
-      true,
-    );
-    assert.equal(
-      isPlatformOrAgentOperatorMemberships([
-        { orgType: "merchant", role: "owner" },
-      ]),
-      false,
     );
   });
 });

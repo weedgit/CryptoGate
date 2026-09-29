@@ -1,4 +1,19 @@
+import { tombstoneUsersWithoutMemberships } from "../auth/users.mjs";
 import { getPool } from "../db/pool.mjs";
+
+/**
+ * @param {string[]} orgIds
+ * @param {import("pg").Pool | import("pg").PoolClient} q
+ * @returns {Promise<string[]>}
+ */
+export async function listMemberUserIds(orgIds, q) {
+  if (orgIds.length === 0) return [];
+  const { rows } = await q.query(
+    `SELECT DISTINCT user_id FROM org_memberships WHERE org_id = ANY($1::uuid[])`,
+    [orgIds],
+  );
+  return rows.map((r) => r.user_id);
+}
 
 /**
  * All org ids in subtree (root first, then breadth-by-depth).
@@ -116,7 +131,8 @@ async function purgeOrgOperationalData(orgId, client) {
  * Cascade-delete an org subtree: deepest children first, including members (via
  * membership CASCADE) and operational data purged per org.
  * @param {string} rootOrgId
- * @returns {Promise<{ deletedOrgIds: string[], summary: Awaited<ReturnType<typeof summarizeOrgDeleteImpact>> }>}
+ * Members left without any org lose their account (tombstone).
+ * @returns {Promise<{ deletedOrgIds: string[], deletedUsers?: { id: string, email: string }[], summary: Awaited<ReturnType<typeof summarizeOrgDeleteImpact>> }>}
  */
 export async function deleteOrgCascade(rootOrgId) {
   const pool = getPool();
@@ -130,6 +146,10 @@ export async function deleteOrgCascade(rootOrgId) {
     }
 
     const ordered = await listOrgSubtreeIds(rootOrgId, client);
+    const memberIds = await listMemberUserIds(
+      ordered.map((o) => o.id),
+      client,
+    );
     const deletedOrgIds = [];
     for (const { id } of ordered) {
       await purgeOrgOperationalData(id, client);
@@ -139,9 +159,10 @@ export async function deleteOrgCascade(rootOrgId) {
       );
       if (rowCount > 0) deletedOrgIds.push(id);
     }
+    const deletedUsers = await tombstoneUsersWithoutMemberships(memberIds, client);
 
     await client.query("COMMIT");
-    return { deletedOrgIds, summary };
+    return { deletedOrgIds, deletedUsers, summary };
   } catch (err) {
     try {
       await client.query("ROLLBACK");

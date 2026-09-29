@@ -5,7 +5,6 @@ import {
   ApiError,
   createOrg,
   getPlatformOrgs,
-  inviteOrgUser,
   listOrgMemberEmails,
   mergePlatformOrg,
   refreshPlatformOrgList,
@@ -25,6 +24,7 @@ import { sessionCanManagePlatform } from "./org";
 import { onboardReturnPath } from "./platformNav";
 import { platformRoute } from "../shared/portalRouting";
 import { onboardInviteCreds } from "../shared/onboardInviteState";
+import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 import {
   OnboardFieldHead,
   OnboardWizardBrandHead,
@@ -165,10 +165,7 @@ export function OnboardAgentPage({ session }: { session: Session }) {
       });
       mergePlatformOrg(created);
       const invitedEmail = form.ownerEmail.trim();
-      const invite = await inviteOrgUser(created.id, {
-        email: invitedEmail,
-        role: "owner",
-      });
+      const invite = await inviteOwnerOrRollback(created.id, invitedEmail);
       await refreshPlatformOrgList();
       const inviteCreds = onboardInviteCreds(invitedEmail, invite);
       navigate(platformRoute(`accounts/agents/${created.id}`), {
@@ -183,6 +180,7 @@ export function OnboardAgentPage({ session }: { session: Session }) {
       if (err instanceof ApiError && err.code === "email_taken") {
         setError(REGISTERED_EMAIL_API_MESSAGE);
         setFieldErrors({ ownerEmail: REGISTERED_EMAIL_API_MESSAGE });
+        void refreshPlatformOrgList().catch(() => undefined);
       } else if (err instanceof ApiError && err.code === "org_type_disabled") {
         setError(err.message);
       } else {

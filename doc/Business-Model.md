@@ -294,20 +294,17 @@ No country, billing email, phone, avatar, legal name input, or settlement wallet
 
 Onboard = create the org + invite Owner (minimal fields). Completing profile / activity gate is then the new Owner’s job (platform may still support-edit).
 
-**Owner invite on onboard — blocked emails:** the new merchant/site **Owner** must **not** be an existing **Platform Owner/Administrator** or **Agent Owner/Administrator** account. Those users operate from platform/agent portals; they are not onboarded *as* the merchant/site Owner.
+**Account identity — one email, one account, one org, one role:**
 
-**Team invite onto merchant/site (after create):**
-
-| Invitee | Allowed on merchant/site team? |
+| Rule | Decision |
 | --- | --- |
-| **Verified** Platform Owner or Platform Administrator | **Yes** (same user/email may hold merchant/site membership) |
-| **Verified** Agent Owner or Agent Administrator | **Yes** (same) |
-| Platform **Viewer** or Agent **Viewer** | **No** |
-| Other new emails | **Yes** (normal invite), subject to existing uniqueness rules |
+| **Email** | Unique platform-wide. One email = one account = membership in **one** org with **one** role. |
+| **Invite / onboard Owner** | Only an email with **no** account may be invited (team invite or new-org Owner). A registered email is rejected (`email_taken`), whatever org or role it holds — including Platform/Agent O/A and Viewers. Role changes inside the same org use role edit, not a new invite. |
+| **Deleted account** | Removing a person from their org, or deleting their org (with any subtree), **deletes the account**: email released, password/sessions/2FA/phone/POS PIN cleared. The record is kept as a tombstone so the append-only audit log stays intact. The same email may then be invited again and gets a **brand-new** account (no carried-over profile, 2FA, or settings). |
+| **Phone** | **May be reused** across accounts. Each account must verify the number itself by SMS; entering or changing a number always requires a new code. Phone is never a login or password-recovery identifier. SMS codes are rate-limited per number across all accounts. |
+| **Onboard failure** | If the new Owner email turns out to be registered after the org is created, the new org is removed again so it is not left without an Owner. |
 
-“Verified” = that user’s **email verified** and **phone verified** (Phase 1 channels). Invite is rejected until both are true for Platform/Agent O/A invitees.
-
-When a Platform/Agent O/A accepts a merchant/site membership, they act under **that org’s role** (e.g. Merchant Administrator) for in-org help. That does **not** grant agent-portal power to edit merchant settlement; settlement wallet remains **Merchant Owner** or **Platform Owner** only.
+Merchant/site managers do not need separate site memberships: **Merchant (or parent site) Owner/Administrator** manage every site below them through the org tree. A cashier working at two sites needs two emails. Platform and agent staff help merchants through platform support-edit and agent onboarding, not by joining merchant/site teams.
 
 **Org fields after invite**
 
@@ -352,7 +349,7 @@ Until every item below is satisfied for the merchant Owner (org + person), the m
 
 **Owner person profile rule (all orgs):** **Administrator cannot change Owner profile.** Applies to Platform, Agent, Merchant, and Site. Each user may edit **their own** self-profile. Org **Owner** may be support-edited only by **Platform Owner**.
 
-**Agent permissions on merchants (agent portal role):** From the **agent** role, agents **do not** edit merchant profile, settlement, credentials, or fees. There is **no merchant/site fee setting** to edit anyway (Automatic or Platform Fixed only). Agents **do** help **onboard** merchants and sites. For ongoing in-org help, a **verified** Agent Owner/Administrator may be **invited onto the merchant/site team** (see team invite rules above) — then they work as that merchant/site member, not via agent-role edits.
+**Agent permissions on merchants (agent portal role):** From the **agent** role, agents **do not** edit merchant profile, settlement, credentials, or fees. There is **no merchant/site fee setting** to edit anyway (Automatic or Platform Fixed only). Agents **do** help **onboard** merchants and sites. Agent staff cannot join a merchant/site team (one email = one account, see account identity rules above).
 
 **Settlement wallet + xPub (payer receive rails):** may be set/changed **only** by:
 
@@ -411,14 +408,14 @@ Merchant Administrator, Platform Administrator, Viewer, Cashier, and **all agent
 | **12** | Agent activity gate | Requires: **first name**, **last name**, **billing email**, **email verified**, **phone verified**, **timezone**, **wallet (payout) address**. Until then: watch-only. |
 | **13** | Person profile | **All** portal users (Platform → Agent → Merchant → **Cashier**) use **first name + last name**. |
 | **14** | Contact verification | Phase 1: **email** and **phone (SMS)** only. **Change flow:** OTP to the **new** address/number; current verified value stays active until the new OTP succeeds (no old-channel OTP). **Notify old** (non-blocking): alert the previous verified email/SMS when a change is requested and again when it completes. Verification status override: **Platform Owner** only (not Administrator). Audit logged. |
-| **15** | Merchant onboard | **Parent** (read-only when preselected) + **business name** + **owner email**. Legal name auto = business name. Owner email must not be Platform/Agent O/A (see **21**). |
+| **15** | Merchant onboard | **Parent** (read-only when preselected) + **business name** + **owner email**. Legal name auto = business name. Owner email must not belong to an existing account (see **21**, **22**). |
 | **16** | Merchant activity gate | Same as agent **plus country**: first name, last name, billing email, email verified, phone verified, timezone, **settlement wallet**, **country**. Until then: watch-only — **self-profile only** editable; all other surfaces read-only. |
 | **17** | Platform authority | Platform Owner and Administrator may change partner **org** information (billing email, country, lifecycle, matching, etc.). **Fund rails** (settlement/xPub) and **Owner person profile** / verification override: **Platform Owner** only — Administrators cannot. Sensitive platform child writes require MFA (see **24**). All writes audit-logged. |
-| **18** | Agent vs merchant data | From **agent role**: no edit of merchant profile/settlement (fees N/A — no merchant fee UI). Agent **does** onboard merchants/sites. Ongoing help = invite **verified** Agent O/A onto merchant/site team. |
+| **18** | Agent vs merchant data | From **agent role**: no edit of merchant profile/settlement (fees N/A — no merchant fee UI). Agent **does** onboard merchants/sites. Agent staff do not join merchant/site teams (see **22**). |
 | **19** | Merchant fund rails | Settlement address and xPub changeable **only** by **Merchant Owner** or **Platform Owner**. Not by Platform Admin, merchant Admin, agent role, or Cashier. MFA + cool-down + audit. |
 | **20** | Onboard help matrix | Platform O/A: agents + merchants + sites. Agent O/A: merchants under self + sites under those merchants. Merchant O/A: sites under self. Gates apply. |
-| **21** | Merchant/site Owner onboard | Platform O/A and Agent O/A accounts **must not** be onboarded as the new merchant/site **Owner**. |
-| **22** | Merchant/site team invite | **May** invite **verified** Platform O/A and **verified** Agent O/A (same email OK). **Must not** invite Platform Viewer or Agent Viewer. |
+| **21** | Merchant/site Owner onboard | The new Owner email must not belong to **any** existing account (see **22**). |
+| **22** | Account identity | **One email = one account = one org + one role.** Registered emails cannot be invited to any org. Removing a person's membership or deleting their org deletes the account (tombstone; email reusable for a fresh invite). **Phone** may be reused across accounts but each account must verify it by SMS. |
 | **23** | Org Suspend | Status **Active \| Suspended** (`paused`). Suspend requires a **reason** (persisted). Platform Suspend/Resume requires **MFA**. Suspended merchant → descendant sites are **watch-only**; UI shows reason. Single everyday freeze — not a separate “order create suspended” product control. Billing overdue uses the same Suspend path. |
 | **24** | Platform MFA (sensitive) | MFA step-up when Platform O/A: Suspend/Resume, fund rails, matching mode, commercial fee locks on child accounts. |
 | **25** | Login MFA (forced) | **Required enroll + login TOTP** for **Platform** and **Merchant** Owner/Administrator only (fund-bearing portals). **Not forced** for Agent, merchant site, Cashier, or Viewer. Agent O/A may enroll optionally (payout step-up). |

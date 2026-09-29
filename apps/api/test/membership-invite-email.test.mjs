@@ -58,7 +58,53 @@ describePg("org invite — platform-wide email uniqueness", () => {
 
     assert.equal(res.status, 409);
     assert.equal(res.json.code, "email_taken");
-    assert.match(res.json.message, /already registered on the platform/i);
+    assert.match(res.json.message, /already registered/i);
+  });
+
+  it("rejects a registered email even on a merchant team (no cross-org exception)", async () => {
+    const takenEmail = `email-cross-${Date.now()}@paymentgate.local`;
+    const operator = await createUser({ email: takenEmail, password: "UniqueTestPass12!" });
+    await insertMembership({ orgId: seed.platformOrgId, userId: operator.id, role: "administrator" });
+
+    const res = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email: takenEmail, role: "administrator" },
+    });
+    assert.equal(res.status, 409);
+    assert.equal(res.json.code, "email_taken");
+  });
+
+  it("removing a member deletes the account and frees the email for a fresh invite", async () => {
+    const email = `email-reuse-${Date.now()}@paymentgate.local`;
+    const first = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email, role: "viewer" },
+    });
+    assert.equal(first.status, 201);
+
+    const removed = await apiFetch(
+      base,
+      `/v1/orgs/${seed.merchantOrgId}/users/${first.json.userId}`,
+      { method: "DELETE", token: seed.platformToken },
+    );
+    assert.equal(removed.status, 204);
+    const { rows } = await getPool().query(
+      `SELECT email, deleted_at FROM users WHERE id = $1`,
+      [first.json.userId],
+    );
+    assert.ok(rows[0].deleted_at);
+    assert.notEqual(rows[0].email, email);
+
+    const again = await apiFetch(base, `/v1/orgs/${seed.merchantOrgId}/users`, {
+      method: "POST",
+      token: seed.platformToken,
+      body: { email, role: "viewer" },
+    });
+    assert.equal(again.status, 201);
+    assert.notEqual(again.json.userId, first.json.userId);
+    assert.ok(again.json.temporaryPassword);
   });
 
   it("allows invite when email is new", async () => {

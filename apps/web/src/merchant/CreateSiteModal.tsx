@@ -13,7 +13,6 @@ import { AuthToast } from "../auth/AuthToast";
 import {
   ApiError,
   createOrg,
-  inviteOrgUser,
   listOrgMemberEmails,
   type OrgAccount,
   type Session,
@@ -31,6 +30,7 @@ import {
   REGISTERED_EMAIL_API_MESSAGE,
 } from "../shared/registeredEmails";
 import type { OrgRef, RegisteredEmailRef } from "../shared/registeredEmails";
+import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -178,17 +178,14 @@ export function CreateSiteModal({ session, onClose }: Props) {
       await refreshMerchantOrgList().catch(() => undefined);
       if (ownerEmail.trim()) {
         try {
-          await inviteOrgUser(site.id, {
-            email: ownerEmail.trim(),
-            role: "owner",
-          });
+          await inviteOwnerOrRollback(site.id, ownerEmail.trim());
         } catch (inviteErr) {
-          const msg =
-            inviteErr instanceof ApiError && inviteErr.code === "email_taken"
-              ? REGISTERED_EMAIL_API_MESSAGE
-              : inviteErr instanceof ApiError
-                ? inviteErr.message
-                : "Invite failed";
+          if (inviteErr instanceof ApiError && inviteErr.code === "email_taken") {
+            await refreshMerchantOrgList().catch(() => undefined);
+            setError(REGISTERED_EMAIL_API_MESSAGE);
+            return;
+          }
+          const msg = inviteErr instanceof ApiError ? inviteErr.message : "Invite failed";
           setError(`Site created, but owner invite failed: ${msg}`);
           onClose();
           navigate(merchantRoute(`sites/${site.id}`));

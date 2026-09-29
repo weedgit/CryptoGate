@@ -1,7 +1,6 @@
 import {
   findUserByEmail,
   findUserById,
-  findUserIdByPhone,
   markEmailVerified,
   markPhoneVerified,
   normalizeEmail,
@@ -13,6 +12,7 @@ import {
   echoOtpInHttp,
   issueContactOtp,
   normalizePhone,
+  revokeContactOtp,
 } from "../auth/contact-otp-store.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
 import { sendEmailChangeNotice, sendEmailOtp } from "../mail/auth-mail.mjs";
@@ -31,6 +31,33 @@ async function sessionJson(user) {
 function otpEcho(issued) {
   if (!echoOtpInHttp() || !issued.code) return {};
   return { devCode: issued.code };
+}
+
+/**
+ * Outside dev echo, an undelivered code is useless to the user: retire it and
+ * report the failure instead of claiming it was sent.
+ * @returns {Promise<boolean>} true when the error response was sent
+ */
+async function rejectUndelivered(res, userId, channel, sent) {
+  if (sent?.delivered || echoOtpInHttp()) return false;
+  await revokeContactOtp(userId, channel);
+  await insertAuditEvent({
+    actorUserId: userId,
+    action:
+      channel === "email"
+        ? AUDIT_ACTIONS.contactEmailOtpSend
+        : AUDIT_ACTIONS.contactPhoneOtpSend,
+    metadata: { delivered: false, transport: sent?.mode ?? "unknown" },
+  });
+  sendError(
+    res,
+    503,
+    "otp_delivery_failed",
+    channel === "email"
+      ? "We couldn't send the email code. Try again in a minute or contact support."
+      : "We couldn't send the SMS code. Check the number or try again in a minute.",
+  );
+  return true;
 }
 
 async function afterContactVerified(userId) {
@@ -130,7 +157,8 @@ export async function handleSendEmailOtp(req, res) {
     return;
   }
 
-  await sendEmailOtp({ to: destination, code: issued.code });
+  const sent = await sendEmailOtp({ to: destination, code: issued.code });
+  if (await rejectUndelivered(res, user.id, "email", sent)) return;
   if (isChange && user.emailVerified && currentEmail) {
     await notifyOldEmail(currentEmail, "requested");
   }
@@ -274,25 +302,28 @@ export async function handleSendPhoneOtp(req, res) {
     return;
   }
 
-  if (!current || destination !== current) {
-    const takenId = await findUserIdByPhone(destination);
-    if (takenId && takenId !== user.id) {
-      sendError(res, 409, "phone_taken", "This phone number is already registered");
-      return;
-    }
-  }
-
   const issued = await issueContactOtp(user.id, "phone", destination);
   if (issued.resentTooSoon) {
     res.setHeader("Retry-After", String(issued.retryAfterSec ?? 45));
     sendError(res, 429, "otp_cooldown", "Wait before requesting another SMS code");
     return;
   }
+  if (issued.destinationLimited) {
+    res.setHeader("Retry-After", String(issued.retryAfterSec ?? 3600));
+    sendError(
+      res,
+      429,
+      "otp_destination_limit",
+      "Too many codes were sent to this number. Try again later.",
+    );
+    return;
+  }
 
-  await sendSms({
+  const sent = await sendSms({
     to: destination,
     text: `PaymentGate code: ${issued.code}. It expires in 10 minutes.`,
   });
+  if (await rejectUndelivered(res, user.id, "phone", sent)) return;
   if (isChange && user.phoneVerified && current) {
     await notifyOldPhone(current, "requested");
   }
@@ -347,15 +378,7 @@ export async function handleVerifyPhoneOtp(req, res) {
     const current = user.phone && normalizePhone(user.phone);
     const swapped = Boolean(current && destination !== current);
     if (destination !== current) {
-      try {
-        await setUserPhone(user.id, destination);
-      } catch (err) {
-        if (err && err.code === "phone_taken") {
-          sendError(res, 409, "phone_taken", err.message);
-          return;
-        }
-        throw err;
-      }
+      await setUserPhone(user.id, destination);
     }
     await markPhoneVerified(caller.userId);
     if (swapped && current) {

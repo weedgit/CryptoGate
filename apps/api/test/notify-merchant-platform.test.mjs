@@ -51,6 +51,19 @@ describe("notification email body", () => {
     assert.match(merchant.text, /Order 1001 is completed\./);
     assert.match(merchant.text, /Open: .*\/orders\/abc/);
     assert.match(merchant.text, /change these emails in Alerts: .*\/settings\/notifications/);
+    assert.match(merchant.html, /<h1[^>]*>Payment completed — order 1001<\/h1>/);
+    assert.match(merchant.html, /href="[^"]*\/orders\/abc"[^>]*>Open in PaymentGate</);
+    assert.match(merchant.html, /href="[^"]*\/settings\/notifications"[^>]*>Manage email alerts</);
+    assert.match(merchant.alertsUrl, /\/settings\/notifications$/);
+  });
+
+  it("escapes event text in the html body", () => {
+    const mail = buildNotificationEmail("platform", {
+      subject: "New merchant account — <Acme>",
+      lines: ["Merchant <Acme> & Co joined."],
+    });
+    assert.match(mail.html, /Merchant &lt;Acme&gt; &amp; Co joined\./);
+    assert.doesNotMatch(mail.html, /Open in PaymentGate/);
   });
 });
 

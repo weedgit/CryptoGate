@@ -820,60 +820,6 @@ export async function canOnboardSiteUnderParentAsync(caller, parentOrg, findOrg)
   return false;
 }
 
-/**
- * Whether an existing user may be invited onto a merchant/site team.
- * Verified Platform/Agent Owner/Administrator: yes. Viewers: no.
- * @param {{
- *   emailVerified?: boolean,
- *   phoneVerified?: boolean,
- * } | null} user
- * @param {{ orgType: string, role: string }[]} memberships
- * @returns {{ ok: true } | { ok: false, code: string, message: string }}
- */
-export function evaluateCrossOrgMerchantSiteInvite(user, memberships) {
-  const staff = (memberships ?? []).filter(
-    (m) =>
-      (m.orgType === "platform" || m.orgType === "agent") &&
-      ["owner", "administrator", "viewer"].includes(m.role),
-  );
-  if (staff.length === 0) return { ok: true };
-  const hasOA = staff.some(
-    (m) => m.role === "owner" || m.role === "administrator",
-  );
-  const hasViewer = staff.some((m) => m.role === "viewer");
-  if (hasViewer && !hasOA) {
-    return {
-      ok: false,
-      code: "invite_role_forbidden",
-      message:
-        "Platform or agent Viewer accounts cannot join a merchant or site team",
-    };
-  }
-  if (hasOA) {
-    if (!user?.emailVerified || !user?.phoneVerified) {
-      return {
-        ok: false,
-        code: "invite_unverified",
-        message:
-          "Platform or agent Owner/Administrator must verify email and phone before joining a merchant or site team",
-      };
-    }
-  }
-  return { ok: true };
-}
-
-/**
- * Block using Platform/Agent O/A as the Owner email when onboarding merchant/site.
- * @param {{ orgType: string, role: string }[]} memberships
- */
-export function isPlatformOrAgentOperatorMemberships(memberships) {
-  return (memberships ?? []).some(
-    (m) =>
-      (m.orgType === "platform" || m.orgType === "agent") &&
-      (m.role === "owner" || m.role === "administrator"),
-  );
-}
-
 /** Agent may lifecycle-manage direct children only (not grandchildren). */
 const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["merchant"]);
 

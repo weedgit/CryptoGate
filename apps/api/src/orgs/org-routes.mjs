@@ -489,7 +489,7 @@ export async function handleDeleteOrg(req, res, orgId) {
         sendError(res, 404, "not_found", "Org not found");
         return;
       }
-      const { deletedOrgIds } = await deleteOrgCascade(orgId);
+      const { deletedOrgIds, deletedUsers = [] } = await deleteOrgCascade(orgId);
       if (deletedOrgIds.length === 0) {
         sendError(res, 404, "not_found", "Org not found");
         return;
@@ -510,6 +510,7 @@ export async function handleDeleteOrg(req, res, orgId) {
             memberCount: summary.memberCount,
             orderCount: summary.orderCount,
             billCount: summary.billCount,
+            deletedAccounts: deletedUsers,
           },
         });
       } catch (auditErr) {
@@ -581,6 +582,7 @@ export async function handleDeleteOrg(req, res, orgId) {
       type: row.type,
       name: row.name,
       parentId: row.parent_id ?? null,
+      deletedAccounts: result.deletedUsers ?? [],
     },
   });
 

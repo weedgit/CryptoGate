@@ -60,7 +60,7 @@ describe("@paymentgate/web agent C6 onboard merchant", () => {
     assert.doesNotMatch(wizard, /stub UI/i);
     assert.match(wizard, /createOrg/);
     assert.match(wizard, /ownerOnboardEmailConflict/);
-    assert.match(wizard, /inviteOrgUser/);
+    assert.match(wizard, /inviteOwnerOrRollback/);
     assert.doesNotMatch(wizard, /createOrder/);
   });
 

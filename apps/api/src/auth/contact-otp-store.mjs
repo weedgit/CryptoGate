@@ -5,6 +5,9 @@ import { hashSessionToken } from "./session-token.mjs";
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_MS = 45 * 1000;
 const OTP_MAX_ATTEMPTS = 8;
+/** Phones are shared across accounts, so SMS volume is also capped per number. */
+const PHONE_OTP_WINDOW_MS = 60 * 60 * 1000;
+const PHONE_OTP_MAX_PER_WINDOW = 5;
 
 export const E164_PHONE_RE = /^\+[1-9]\d{7,14}$/;
 
@@ -42,7 +45,7 @@ export async function latestActiveOtp(userId, channel) {
  * @param {string} userId
  * @param {"email" | "phone"} channel
  * @param {string} destination
- * @returns {Promise<{ code: string, expiresAt: Date, resentTooSoon?: boolean, retryAfterSec?: number }>}
+ * @returns {Promise<{ code: string, expiresAt: Date, resentTooSoon?: boolean, destinationLimited?: boolean, retryAfterSec?: number }>}
  */
 export async function issueContactOtp(userId, channel, destination) {
   const latest = await latestActiveOtp(userId, channel);
@@ -59,10 +62,32 @@ export async function issueContactOtp(userId, channel, destination) {
     }
   }
 
+  const pool = getPool();
+  if (channel === "phone") {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n, MIN(created_at) AS oldest
+       FROM contact_otps
+       WHERE channel = 'phone' AND destination = $1
+         AND created_at > now() - ($2::int * interval '1 millisecond')`,
+      [destination, PHONE_OTP_WINDOW_MS],
+    );
+    const { n, oldest } = rows[0] ?? { n: 0, oldest: null };
+    if (n >= PHONE_OTP_MAX_PER_WINDOW) {
+      const wait = oldest
+        ? PHONE_OTP_WINDOW_MS - (Date.now() - new Date(oldest).getTime())
+        : PHONE_OTP_WINDOW_MS;
+      return {
+        code: "",
+        expiresAt: new Date(),
+        destinationLimited: true,
+        retryAfterSec: Math.max(1, Math.ceil(wait / 1000)),
+      };
+    }
+  }
+
   const code = sixDigitCode();
   const codeHash = hashSessionToken(code);
   const expiresAt = new Date(Date.now() + OTP_TTL_MS);
-  const pool = getPool();
   await pool.query(
     `UPDATE contact_otps
      SET consumed_at = now()
@@ -136,6 +161,21 @@ export async function consumeContactOtp(userId, channel, code) {
     status: "ok",
     destination: typeof row.destination === "string" ? row.destination : "",
   };
+}
+
+/**
+ * Retire the open code so a failed delivery does not start the resend cooldown.
+ * @param {string} userId
+ * @param {"email" | "phone"} channel
+ */
+export async function revokeContactOtp(userId, channel) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE contact_otps
+     SET consumed_at = now()
+     WHERE user_id = $1 AND channel = $2 AND consumed_at IS NULL`,
+    [userId, channel],
+  );
 }
 
 export function echoOtpInHttp() {

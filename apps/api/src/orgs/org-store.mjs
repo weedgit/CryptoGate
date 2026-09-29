@@ -1,4 +1,6 @@
+import { tombstoneUsersWithoutMemberships } from "../auth/users.mjs";
 import { getPool } from "../db/pool.mjs";
+import { listMemberUserIds } from "./org-delete.mjs";
 import { agentDepthOf } from "./org-rules.mjs";
 
 const ORG_COLS =
@@ -390,22 +392,30 @@ export async function listDescendantOrgsByType(rootId, type, client) {
 }
 
 /**
- * Hard-delete agent org when FK allows. Memberships cascade.
+ * Hard-delete org when FK allows. Memberships cascade; members left without any org
+ * lose their account (tombstone).
  * @param {string} orgId
  */
 export async function deleteOrgAccount(orgId) {
-  const pool = getPool();
+  const client = await getPool().connect();
   try {
-    const { rowCount } = await pool.query(
+    await client.query("BEGIN");
+    const memberIds = await listMemberUserIds([orgId], client);
+    const { rowCount } = await client.query(
       `DELETE FROM org_accounts WHERE id = $1`,
       [orgId],
     );
-    return { ok: rowCount > 0, code: null };
+    const deletedUsers = await tombstoneUsersWithoutMemberships(memberIds, client);
+    await client.query("COMMIT");
+    return { ok: rowCount > 0, code: null, deletedUsers };
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     if (err && err.code === "23503") {
       return { ok: false, code: "has_dependencies" };
     }
     throw err;
+  } finally {
+    client.release();
   }
 }
 

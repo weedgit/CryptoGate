@@ -261,48 +261,20 @@ export async function deleteMembership(orgId, userId) {
 }
 
 /**
- * Invite attaches an existing user, or creates one with a temporary password.
+ * Invite always creates a new account with a temporary password (one email = one account).
+ * Throws `email_taken` when the email already belongs to an account.
  * @param {string} email
  * @param {{ timezone?: string | null }} [defaults] starting profile values for a new user
  */
 export async function provisionUserForInvite(email, defaults = {}) {
-  const existing = await findUserByEmail(email);
-  if (existing) {
-    return {
-      id: existing.id,
-      email: existing.email,
-      temporaryPassword: null,
-      created: false,
-    };
-  }
   const temporaryPassword = `${randomBytes(12).toString("base64url")}9aA!`;
-  try {
-    const user = await createUser({
-      email,
-      password: temporaryPassword,
-      invited: true,
-      timezone: defaults.timezone ?? undefined,
-    });
-    return {
-      id: user.id,
-      email: user.email,
-      temporaryPassword,
-      created: true,
-    };
-  } catch (err) {
-    if (err && err.code === "email_taken") {
-      const raced = await findUserByEmail(email);
-      if (raced) {
-        return {
-          id: raced.id,
-          email: raced.email,
-          temporaryPassword: null,
-          created: false,
-        };
-      }
-    }
-    throw err;
-  }
+  const user = await createUser({
+    email,
+    password: temporaryPassword,
+    invited: true,
+    timezone: defaults.timezone ?? undefined,
+  });
+  return { id: user.id, email: user.email, temporaryPassword };
 }
 
 /**

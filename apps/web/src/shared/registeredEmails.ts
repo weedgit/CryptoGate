@@ -211,5 +211,5 @@ export function registeredEmailConflict(
           : hit.type === "merchant_site"
             ? "Merchant site"
             : hit.type.replace(/_/g, " ");
-  return `This email is already registered on the platform (${typeLabel} "${hit.name}").`;
+  return `This email is already registered (${typeLabel} "${hit.name}"). Each email can belong to only one account.`;
 }

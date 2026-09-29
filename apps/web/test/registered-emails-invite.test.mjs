@@ -29,7 +29,7 @@ describe("ownerOnboardEmailConflict", () => {
     });
     assert.match(
       ownerOnboardEmailConflict("ops@platform.example", index) ?? "",
-      /cannot be the merchant or site Owner/,
+      /already registered .*only one account/,
     );
   });
 
@@ -61,7 +61,7 @@ describe("validatePlatformInviteEmail", () => {
     targetOrgType: "merchant",
   };
 
-  it("allows verified-path platform/agent O/A onto merchant team", () => {
+  it("blocks platform/agent O/A on a merchant team (one email = one account)", () => {
     const index = indexOf({
       email: "admin@agent.example",
       id: "a1",
@@ -69,13 +69,13 @@ describe("validatePlatformInviteEmail", () => {
       name: "Channel",
       role: "administrator",
     });
-    assert.equal(
+    assert.match(
       validatePlatformInviteEmail(
         "admin@agent.example",
         index,
         merchantTarget,
-      ),
-      null,
+      ) ?? "",
+      /already registered/,
     );
   });
 
@@ -93,7 +93,7 @@ describe("validatePlatformInviteEmail", () => {
         index,
         merchantTarget,
       ) ?? "",
-      /Viewer/,
+      /already registered/,
     );
   });
 
