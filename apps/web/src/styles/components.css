@@ -253,16 +253,16 @@
     animation: status-badge-alarm 1.4s var(--ease-inout) infinite;
   }
 
-  /* Order-detail topbar: stronger, continuous status pulse */
-  .order-detail-topbar .status-badge.tone-teal.is-live {
+  /* Order-detail header: stronger, continuous status pulse */
+  .order-detail-bill .plat-bill-detail__head .status-badge.tone-teal.is-live {
     animation: status-badge-topbar-live 2.2s var(--ease-inout) infinite;
   }
 
-  .order-detail-topbar .status-badge.tone-anomaly.is-alarm {
+  .order-detail-bill .plat-bill-detail__head .status-badge.tone-anomaly.is-alarm {
     animation: status-badge-topbar-alarm 1.6s var(--ease-inout) infinite;
   }
 
-  .order-detail-topbar .status-badge.tone-warn.is-live {
+  .order-detail-bill .plat-bill-detail__head .status-badge.tone-warn.is-live {
     animation: status-badge-topbar-warn 2.2s var(--ease-inout) infinite;
   }
 }
@@ -1824,10 +1824,6 @@ html[data-theme="light"] .order-channel-tag--api {
   color: #4f46e5;
 }
 
-.order-detail-topbar__channel {
-  margin-left: 8px;
-}
-
 /* —— Time zone confirm / mismatch card (Edit organization look) —— */
 .tz-prompt {
   position: fixed;
@@ -2054,6 +2050,10 @@ html[data-theme="light"] .tz-prompt__close:hover {
 
 .share-pay-link__btn {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 42px;
   padding: 0 14px;
   border-radius: 10px;
@@ -2086,6 +2086,7 @@ html[data-theme="light"] .tz-prompt__close:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 36px;
   padding: 0 6px;
   border-radius: 8px;
@@ -2099,4 +2100,24 @@ html[data-theme="light"] .tz-prompt__close:hover {
 
 .share-pay-link__app:hover {
   border-color: var(--accent, #00d4c8);
+}
+
+.share-pay-link__icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.share-pay-link__app .share-pay-link__icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.share-pay-link__app .share-pay-link__icon--whatsapp {
+  color: #25d366;
+}
+
+.share-pay-link__app .share-pay-link__icon--telegram {
+  color: #26a5e4;
 }

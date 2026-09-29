@@ -169,7 +169,13 @@ export function useInvoiceListData(session: Session, variant: InvoiceListVariant
   const loadGen = useRef(0);
 
   useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById("platform-topbar-center"));
+    // The cashier terminal has no page top bar; search sits in the Invoices header there.
+    const inline = document.getElementById("invoice-list-header-search");
+    setTopbarSlot(
+      inline?.closest(".cashier-shell")
+        ? inline
+        : document.getElementById("platform-topbar-center"),
+    );
   }, []);
 
   useEffect(() => {

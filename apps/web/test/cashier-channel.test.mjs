@@ -49,7 +49,7 @@ describe("order channel", () => {
   it("sends the web channel header and shows channel in list, detail, and shift", () => {
     assert.match(read("src/merchant/api.ts"), /"X-PaymentGate-Client": "web"/);
     assert.match(read("src/shared/invoiceList/InvoiceRow.tsx"), /<OrderChannelTag via=\{order\.createdVia\}/);
-    assert.match(read("src/merchant/orderDetail/OrderDetailTopbar.tsx"), /<OrderChannelTag via=\{order\.createdVia\}/);
+    assert.match(read("src/merchant/orderDetail/OrderDetailHeader.tsx"), /<OrderChannelTag via=\{order\.createdVia\}/);
     assert.match(read("src/merchant/cashier/ShiftPage.tsx"), /<OrderChannelTag via=\{o\.createdVia\}/);
     assert.match(read("src/shared/invoiceList/useInvoiceListData.ts"), /createdVia: channelFilter \|\| undefined/);
   });

@@ -1037,14 +1037,9 @@ There is no create-order popup. Owners, administrators and cashiers use the same
 
 **Main fields**
 
-- Pay-with asset + network pills
-- **Charge in**: $ USD · € EUR · token (token = customer pays exactly that crypto amount)
-- Amount keypad → **Charge $amount**
-
-**More options** (collapsed, all roles)
-
-- **Valid for** 15 / 30 / 60 min (default 30). Above 30 min, show the hint for phone / chat orders: the same amount stays reserved (Standard matching) until paid, cancelled or expired
-- **Reference** (staff only, max 200 — PO / table / internal “for what”; stored on order, shown on invoice + CSV)
+- Left card: **Currency** ($ USD · € EUR · token; token = customer pays exactly that crypto amount), **Valid for** drop-down top-right (15min / 30min / 60min, default 30min; 60min carries the phone / chat order hint: the same amount stays reserved under Standard matching until paid, cancelled or expired), amount, keypad, **Charge $amount**
+- Right card: **Pay with** list (asset + network icons, status badge, radio), **Reference (optional)** (max 200 — PO / table / internal “for what”; stored on order, shown on invoice + CSV)
+- All roles see the same fields
 
 **Submit** → live payment screen (QR + network logo, With amount / Address only)
 
@@ -1444,7 +1439,7 @@ Same fields as the web Charge page (D4).
 - **Charge in**: $ USD · € EUR · token (default USD; token = customer pays exactly that amount). Request sends `invoiceDenomination` explicitly
 - Asset picker (merchant-enabled list)
 - Network picker
-- **More options**: Valid for 15 / 30 / 60 min (default 30); hint above 30 min for phone / chat orders
+- **Valid for** 15 / 30 / 60 min (default 30; the web shows this as a drop-down); hint above 30 min for phone / chat orders
 - **Merchant reference** via **Add note** (optional — PO / table / check #; max 200)
 - **Charge $amount** (button shows the amount) → G4
 - G4 and pending order detail: **Send payment link** opens the Android share sheet (WhatsApp, Telegram, email, SMS…) with the same message as the web

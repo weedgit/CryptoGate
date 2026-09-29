@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ApiError,
@@ -27,6 +27,7 @@ import { merchantRoute } from "../../shared/portalRouting";
 import { AssetIcon, NetworkIcon } from "../../platform/cryptoIcons";
 import { AuthToast } from "../../auth/AuthToast";
 import { applyPadKey } from "./cashierLogic";
+import { BackspaceIcon } from "./cashierIcons";
 import { markCashierWebOrdersDisabled } from "./cashierPosPolicy";
 
 type Props = { session: Session };
@@ -37,6 +38,8 @@ type Currency = "USD" | "EUR" | "TOKEN";
 const RAIL_KEY = "paymentgate.cashier.rail";
 const CURRENCY_KEY = "paymentgate.cashier.currency";
 const DEFAULT_VALIDITY_SECONDS = 1800;
+const LONG_VALIDITY_HINT =
+  "For phone or chat orders. The same amount stays reserved until this order is paid, cancelled, or expires.";
 
 function tokenSymbol(asset: string): string {
   switch (asset) {
@@ -71,6 +74,10 @@ function writeStored(key: string, value: string): void {
   }
 }
 
+function validityLabel(seconds: number): string {
+  return `${Math.round(seconds / 60)}min`;
+}
+
 function formatPadAmount(raw: string): string {
   if (!raw) return "0.00";
   const [whole, fraction] = raw.split(".");
@@ -99,6 +106,23 @@ export function PayPadPage({ session }: Props) {
   const [reference, setReference] = useState("");
   const [validitySeconds, setValiditySeconds] = useState(DEFAULT_VALIDITY_SECONDS);
   const [showOptions, setShowOptions] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showOptions) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!optionsRef.current?.contains(e.target as Node)) setShowOptions(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowOptions(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showOptions]);
   const [charging, setCharging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blocking, setBlocking] = useState<BlockingOrderInfo | null>(null);
@@ -147,12 +171,6 @@ export function PayPadPage({ session }: Props) {
     !locked && !charging && Number.isFinite(parsed) && parsed > 0;
   const symbol =
     currency === "TOKEN" ? tokenSymbol(rail.asset) : currency === "EUR" ? "€" : "$";
-  const optionsSummary = [
-    `${Math.round(validitySeconds / 60)} min`,
-    reference.trim() ? "reference" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   async function charge() {
     if (!canCharge) return;
@@ -215,6 +233,57 @@ export function PayPadPage({ session }: Props) {
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       <section className="cashier-pad__entry" aria-label="Amount">
+        <div className="cashier-pad__entry-head">
+          <h2 className="cashier-pad__label">Currency</h2>
+          <div
+            ref={optionsRef}
+            className={`cashier-pad__validity${showOptions ? " is-open" : ""}`}
+          >
+            <span className="cashier-pad__validity-label" id="cashier-pad-validity">
+              Valid for
+            </span>
+            <button
+              type="button"
+              className="cashier-pad__validity-toggle"
+              aria-haspopup="listbox"
+              aria-expanded={showOptions}
+              aria-labelledby="cashier-pad-validity cashier-pad-validity-value"
+              onClick={() => setShowOptions((v) => !v)}
+            >
+              <span id="cashier-pad-validity-value">{validityLabel(validitySeconds)}</span>
+              <span className="cashier-pad__validity-chevron" aria-hidden>
+                ▾
+              </span>
+            </button>
+            {showOptions ? (
+              <ul
+                className="cashier-pad__validity-menu"
+                role="listbox"
+                aria-labelledby="cashier-pad-validity"
+              >
+                {VALIDITY_OPTIONS.map((o) => (
+                  <li key={o.seconds} role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={validitySeconds === o.seconds}
+                      className={`cashier-pad__validity-item${
+                        validitySeconds === o.seconds ? " is-active" : ""
+                      }`}
+                      title={o.seconds > DEFAULT_VALIDITY_SECONDS ? LONG_VALIDITY_HINT : undefined}
+                      onClick={() => {
+                        setValiditySeconds(o.seconds);
+                        setShowOptions(false);
+                      }}
+                    >
+                      {validityLabel(o.seconds)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </div>
         <div className="cashier-pad__currency" role="group" aria-label="Charge in">
           {(["USD", "EUR", "TOKEN"] as const).map((c) => (
             <button
@@ -236,13 +305,13 @@ export function PayPadPage({ session }: Props) {
         </div>
         <p className="cashier-pad__amount fund-amount" aria-live="polite">
           <span className="cashier-pad__symbol">{symbol}</span>
-          {formatPadAmount(amount)}
+          <span className="cashier-pad__digits">{formatPadAmount(amount)}</span>
         </p>
-        <p className="cashier-pad__rail-summary">
-          {currency === "TOKEN" ? "Customer pays exactly" : "Customer pays in"}{" "}
-          <AssetIcon asset={rail.asset} /> {rail.asset} ·{" "}
-          {displayNetworkForPair(rail.asset, rail.network)}
-        </p>
+        {currency === "TOKEN" ? (
+          <p className="cashier-pad__rail-summary">
+            Customer pays exactly this amount of {rail.asset}
+          </p>
+        ) : null}
 
         <div className="cashier-pad__keys">
           {KEYS.map((key) => (
@@ -258,10 +327,36 @@ export function PayPadPage({ session }: Props) {
                 press("clear");
               }}
             >
-              {key === "back" ? "⌫" : key}
+              {key === "back" ? <BackspaceIcon className="cashier-pad__key-icon" /> : key}
             </button>
           ))}
         </div>
+
+        {blocking ? (
+          <aside className="cashier-pad__blocking" role="alert">
+            <strong>This amount is already open</strong>
+            <p>
+              Order #{blocking.orderNumber} ({blocking.createdByLabel}) uses the same
+              amount. Finish or cancel it, or change the amount slightly.
+            </p>
+            <Link to={merchantRoute(`pay/${blocking.id}`)}>Open #{blocking.orderNumber}</Link>
+          </aside>
+        ) : null}
+
+        {locked ? (
+          <p className="cashier-pad__locked" role="note">
+            Finish account setup before taking payments.
+          </p>
+        ) : null}
+
+        <button
+          type="button"
+          className="cashier-pad__charge"
+          disabled={!canCharge}
+          onClick={() => void charge()}
+        >
+          {charging ? "Creating QR…" : `Charge ${symbol}${formatPadAmount(amount)}`}
+        </button>
       </section>
 
       <section className="cashier-pad__side">
@@ -288,97 +383,25 @@ export function PayPadPage({ session }: Props) {
                   <strong>{p.asset}</strong>
                   <span>{displayNetworkForPair(p.asset, p.network)}</span>
                 </span>
-                <NetworkStatusLamp lamp={lamp} />
+                <NetworkStatusLamp lamp={lamp} className="cashier-pad__rail-lamp" />
+                <span className="cashier-pad__radio" aria-hidden />
               </button>
             );
           })}
         </div>
 
-        <div className={`cashier-pad__options${showOptions ? " is-open" : ""}`}>
-          <button
-            type="button"
-            className="cashier-pad__options-toggle"
-            aria-expanded={showOptions}
-            aria-controls="cashier-pad-options"
-            onClick={() => setShowOptions((v) => !v)}
-          >
-            <span>More options</span>
-            <span className="cashier-pad__options-summary">{optionsSummary}</span>
-            <span className="cashier-pad__options-chevron" aria-hidden>
-              ▾
-            </span>
-          </button>
-          {showOptions ? (
-            <div className="cashier-pad__options-body" id="cashier-pad-options">
-              <div className="cashier-pad__option">
-                <span id="cashier-pad-validity">Valid for</span>
-                <div
-                  className="cashier-pad__currency"
-                  role="radiogroup"
-                  aria-labelledby="cashier-pad-validity"
-                >
-                  {VALIDITY_OPTIONS.map((o) => (
-                    <button
-                      key={o.seconds}
-                      type="button"
-                      role="radio"
-                      aria-checked={validitySeconds === o.seconds}
-                      className={`cashier-pad__pill${
-                        validitySeconds === o.seconds ? " is-active" : ""
-                      }`}
-                      onClick={() => setValiditySeconds(o.seconds)}
-                    >
-                      {Math.round(o.seconds / 60)} min
-                    </button>
-                  ))}
-                </div>
-                {validitySeconds > DEFAULT_VALIDITY_SECONDS ? (
-                  <p className="cashier-pad__option-hint">
-                    For phone or chat orders. The same amount stays reserved until this
-                    order is paid, cancelled, or expires.
-                  </p>
-                ) : null}
-              </div>
-              <label className="cashier-pad__option">
-                <span>Reference (staff only)</span>
-                <input
-                  className="plat-settings__input"
-                  value={reference}
-                  maxLength={200}
-                  placeholder="Table 4, receipt #, phone order…"
-                  autoComplete="off"
-                  onChange={(e) => setReference(e.target.value)}
-                />
-              </label>
-            </div>
-          ) : null}
-        </div>
+        <label className="cashier-pad__reference">
+          <span className="cashier-pad__field-label">Reference (optional)</span>
+          <input
+            className="cashier-pad__reference-input"
+            value={reference}
+            maxLength={200}
+            placeholder="Add a note, invoice #…"
+            autoComplete="off"
+            onChange={(e) => setReference(e.target.value)}
+          />
+        </label>
 
-        {blocking ? (
-          <aside className="cashier-pad__blocking" role="alert">
-            <strong>This amount is already open</strong>
-            <p>
-              Order #{blocking.orderNumber} ({blocking.createdByLabel}) uses the same
-              amount. Finish or cancel it, or change the amount slightly.
-            </p>
-            <Link to={merchantRoute(`pay/${blocking.id}`)}>Open #{blocking.orderNumber}</Link>
-          </aside>
-        ) : null}
-
-        {locked ? (
-          <p className="cashier-pad__locked" role="note">
-            Finish account setup before taking payments.
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          className="btn-primary cashier-pad__charge"
-          disabled={!canCharge}
-          onClick={() => void charge()}
-        >
-          {charging ? "Creating QR…" : `Charge ${symbol}${formatPadAmount(amount)}`}
-        </button>
       </section>
     </div>
   );

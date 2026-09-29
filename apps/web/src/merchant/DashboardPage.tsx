@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useViewerTimeZone } from "../shared/useViewerTimeZone";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   ApiError,
@@ -32,7 +31,6 @@ import { CashiersTable } from "./dashboard/CashiersTable";
 import { mergeCashierRows } from "./dashboard/cashierRows";
 import { useCashierMembers } from "./dashboard/useCashierMembers";
 import { useWorkspaceScopeOrgId } from "./workspace";
-import { sessionCanCharge } from "./org";
 import { NetworksAssetsPanel } from "./dashboard/NetworksAssetsPanel";
 import { TransactionVolumePanel } from "./dashboard/TransactionVolumePanel";
 import { platformFeeStatus } from "./dashboard/platformFeeStatus";
@@ -54,8 +52,6 @@ import {
   toDateInputValue,
   type DashboardPeriodId,
 } from "../shared/dashboardPeriod";
-import { ChargeLink } from "./chargeLink";
-
 type Props = { session: Session };
 
 function tierLabel(tier: string | undefined): string {
@@ -95,10 +91,6 @@ export function DashboardPage({ session }: Props) {
   const [loading, setLoading] = useState(() => dashKpis == null);
   const [hasLoaded, setHasLoaded] = useState(() => dashKpis != null);
   const [error, setError] = useState<string | null>(null);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
-    null,
-  );
-
   useEffect(() => {
     if (!orgId) return;
     let cancelled = false;
@@ -119,10 +111,6 @@ export function DashboardPage({ session }: Props) {
       window.removeEventListener(MERCHANT_ORGS_UPDATED_EVENT, onUpdated);
     };
   }, [orgId]);
-
-  useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
-  }, []);
 
   const onPeriodSelect = useCallback((id: DashboardPeriodId) => {
     const { from, to } = periodWindow(id);
@@ -326,28 +314,6 @@ export function DashboardPage({ session }: Props) {
   return (
     <div className="dash-page plat-dash pg-dash merchant-dash">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-
-      {topbarActionsSlot
-        ? createPortal(
-            <div
-              className="org-agents__actions plat-orders-topbar__actions"
-              aria-label="Dashboard actions"
-            >
-              <Link
-                className="btn-ghost btn-inline"
-                to={merchantRoute("service-bills")}
-              >
-                Service Bills
-              </Link>
-              {sessionCanCharge(session) ? (
-                <ChargeLink className="btn-primary btn-inline">
-                  Charge
-                </ChargeLink>
-              ) : null}
-            </div>,
-            topbarActionsSlot,
-          )
-        : null}
 
       <header className="pg-dash__hero">
         <div className="pg-dash__hero-top">

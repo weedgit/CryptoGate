@@ -565,7 +565,6 @@ describe("Charge page (merchant + cashier)", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /const backTo = useChargeReturnTo\(\);/);
     for (const file of [
-      "src/merchant/DashboardPage.tsx",
       "src/merchant/SiteHomePage.tsx",
       "src/merchant/orderDetail/OrderRailActions.tsx",
       "src/shared/invoiceList/InvoiceListHeader.tsx",
@@ -576,12 +575,13 @@ describe("Charge page (merchant + cashier)", () => {
     }
   });
 
-  it("puts validity and reference under More options for every role", () => {
+  it("offers a Valid for menu and reference for every role", () => {
     const src = readFileSync(join(root, "src/merchant/cashier/PayPadPage.tsx"), "utf8");
-    assert.match(src, /More options/);
+    assert.match(src, /Valid for/);
+    assert.match(src, /role="listbox"/);
     assert.match(src, /VALIDITY_OPTIONS\.map/);
     assert.match(src, /validitySeconds,/);
-    assert.match(src, /Reference \(staff only\)/);
+    assert.match(src, /Reference \(optional\)/);
     assert.doesNotMatch(src, /role === "owner"|sessionCanManage/);
   });
 

@@ -25,6 +25,7 @@ import { primaryMerchantOrgId } from "../org";
 import { WorkspaceMenuSection } from "../WorkspaceMenuSection";
 import { useIdleSignOut } from "./cashierIdle";
 import { useCashierWebOrders } from "./cashierPosPolicy";
+import { CardIcon, ClockIcon, ReceiptIcon } from "./cashierIcons";
 
 type Props = {
   session: Session;
@@ -36,19 +37,19 @@ type Props = {
 };
 
 const TABS = [
-  { to: merchantRoute(), label: "Charge", end: true },
-  { to: merchantRoute("shift"), label: "My shift", end: false },
-  { to: merchantRoute("orders"), label: "Orders", end: false },
+  { to: merchantRoute(), label: "Charge", end: true, Icon: CardIcon },
+  { to: merchantRoute("shift"), label: "My shift", end: false, Icon: ClockIcon },
+  { to: merchantRoute("orders"), label: "Orders", end: false, Icon: ReceiptIcon },
 ];
 
 /** POS-only merchants: no Charge tab; the index route shows My shift. */
 const POS_ONLY_TABS = [
-  { to: merchantRoute(), label: "My shift", end: true },
-  { to: merchantRoute("orders"), label: "Orders", end: false },
+  { to: merchantRoute(), label: "My shift", end: true, Icon: ClockIcon },
+  { to: merchantRoute("orders"), label: "Orders", end: false, Icon: ReceiptIcon },
 ];
 
 /** Back-office staff on the terminal: Charge only — Orders live in the portal. */
-const PORTAL_TABS = [{ to: merchantRoute("charge"), label: "Charge", end: false }];
+const PORTAL_TABS = [{ to: merchantRoute("charge"), label: "Charge", end: false, Icon: CardIcon }];
 
 /**
  * Cashier terminal chrome — no sidebar. Tablet-first: one top bar with
@@ -123,11 +124,6 @@ export function CashierShell({
   return (
     <div className="shell merchant-shell platform-shell cashier-shell">
       <header className="cashier-shell__bar">
-        {backTo ? (
-          <Link className="cashier-shell__back" to={backTo}>
-            <span aria-hidden>←</span> Back to portal
-          </Link>
-        ) : null}
         <div className="cashier-shell__brand">
           <OrgBrandMark name={brandName} iconKey={org?.iconKey} size={40} />
           <div className="cashier-shell__brand-copy">
@@ -147,6 +143,7 @@ export function CashierShell({
                 `cashier-shell__tab${isActive ? " is-active" : ""}`
               }
             >
+              <tab.Icon className="cashier-shell__tab-icon" />
               {tab.label}
             </NavLink>
           ))}
@@ -168,6 +165,13 @@ export function CashierShell({
           />
         </div>
       </header>
+      {backTo ? (
+        <div className="cashier-shell__backbar">
+          <Link className="cashier-shell__back" to={backTo}>
+            <span aria-hidden>←</span> Back to portal
+          </Link>
+        </div>
+      ) : null}
       {/* Shared list/detail pages portal their filters and actions into these slots. */}
       <div className="cashier-shell__subbar">
         <div className="topbar-leading" id="platform-topbar-leading" />

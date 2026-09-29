@@ -46,6 +46,7 @@ export function InvoiceListHeader({
           {summary.count.toLocaleString()} invoices
         </span>
       </div>
+      <div className="invoice-list__header-search" id="invoice-list-header-search" />
       <div className="invoice-list__total">
         <span className="invoice-list__total-label">
           Total invoice value

@@ -5,19 +5,23 @@ import { formatShortTime, orderStatusLabel, orderStatusTone } from "../orderStat
 import { AuthToast } from "../../auth/AuthToast";
 import { OrderChannelTag } from "../../shared/OrderChannelTag";
 import { StatusBadge } from "../../shared/StatusBadge";
-import { networkShortLabel } from "../../shared/assetNetworks";
+import { displayNetworkForPair } from "../../shared/assetNetworks";
 import { periodWindow } from "../../shared/dashboardPeriod";
 import { zoneAbbrev } from "../../shared/dateTime";
 import { useViewerTimeZone } from "../../shared/useViewerTimeZone";
 import { merchantRoute } from "../../shared/portalRouting";
 import { useDashboardLiveEvents } from "../../shared/useDashboardLiveEvents";
 import { NetworkIcon } from "../../platform/cryptoIcons";
-import { formatUsd } from "../dashboard/format";
 import { OPEN_ORDER_STATUSES, shiftTotals } from "./cashierLogic";
+import { AlertIcon, CheckIcon, ChevronRightIcon, ClockIcon } from "./cashierIcons";
 
 type Props = { session: Session; notice?: string };
 
 const SHIFT_LIMIT = 100;
+
+function formatShiftUsd(value: number): string {
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} USD`;
+}
 
 /** Cashier "My shift" — today's own orders; open ones reopen the live QR. */
 export function ShiftPage({ session, notice }: Props) {
@@ -79,20 +83,37 @@ export function ShiftPage({ session, notice }: Props) {
       ) : null}
 
       <div className="cashier-shift__totals">
-        <div>
-          <span>Completed</span>
-          <strong className="fund-amount">{formatUsd(totals.completedUsd)}</strong>
-          <small>{totals.completed} paid</small>
+        <div className="cashier-shift__total is-completed">
+          <div className="cashier-shift__total-copy">
+            <span>Completed</span>
+            <strong className="fund-amount">{formatShiftUsd(totals.completedUsd)}</strong>
+            <small>{totals.completed} paid</small>
+          </div>
+          <span className="cashier-shift__total-icon" aria-hidden>
+            <CheckIcon />
+          </span>
         </div>
-        <div>
-          <span>Open</span>
-          <strong>{totals.open}</strong>
-          <small>waiting or confirming</small>
+        <div className="cashier-shift__total is-open">
+          <div className="cashier-shift__total-copy">
+            <span>Open</span>
+            <strong>{totals.open}</strong>
+            <small>waiting or confirming</small>
+          </div>
+          <span className="cashier-shift__total-icon" aria-hidden>
+            <ClockIcon />
+          </span>
         </div>
-        <div className={totals.attention > 0 ? "is-attention" : undefined}>
-          <span>Attention</span>
-          <strong>{totals.attention}</strong>
-          <small>{totals.attention > 0 ? "ask a manager" : "all clear"}</small>
+        <div
+          className={`cashier-shift__total${totals.attention > 0 ? " is-attention" : " is-clear"}`}
+        >
+          <div className="cashier-shift__total-copy">
+            <span>Attention</span>
+            <strong>{totals.attention}</strong>
+            <small>{totals.attention > 0 ? "ask a manager" : "all clear"}</small>
+          </div>
+          <span className="cashier-shift__total-icon" aria-hidden>
+            <AlertIcon />
+          </span>
         </div>
       </div>
 
@@ -108,26 +129,33 @@ export function ShiftPage({ session, notice }: Props) {
             <li key={o.id}>
               <button type="button" className="cashier-shift__row" onClick={() => open(o)}>
                 <span className="cashier-shift__row-main">
-                  <span className="mono">#{o.orderNumber}</span>
-                  <OrderChannelTag via={o.createdVia} />
-                  <span className="muted">{formatShortTime(o.createdAt || o.expiresAt)}</span>
-                </span>
-                <span className="cashier-shift__row-amount">
-                  {o.invoiceAmount
-                    ? `${o.invoiceAmount} ${o.invoiceCurrency ?? "USD"}`
-                    : `${o.payableAmount.amount} ${o.asset}`}
-                  <span className="muted">
-                    <NetworkIcon network={o.network} /> {o.asset} ·{" "}
-                    {networkShortLabel(o.network)}
+                  <span className="cashier-shift__row-number mono">#{o.orderNumber}</span>
+                  <span className="cashier-shift__row-meta">
+                    <OrderChannelTag via={o.createdVia} />
+                    <span className="muted">{formatShortTime(o.createdAt || o.expiresAt)}</span>
                   </span>
                 </span>
-                <StatusBadge
-                  tone={orderStatusTone(o.status, o)}
-                  live={o.status === "verifying"}
-                  alarm={o.status === "payment_anomaly"}
-                >
-                  {orderStatusLabel(o.status, o)}
-                </StatusBadge>
+                <span className="cashier-shift__row-amount">
+                  <strong>
+                    {o.invoiceAmount
+                      ? `${o.invoiceAmount} ${o.invoiceCurrency ?? "USD"}`
+                      : `${o.payableAmount.amount} ${o.asset}`}
+                  </strong>
+                  <span className="cashier-shift__row-rail">
+                    <NetworkIcon network={o.network} /> {o.asset} ·{" "}
+                    {displayNetworkForPair(o.asset, o.network)}
+                  </span>
+                </span>
+                <span className="cashier-shift__row-status">
+                  <StatusBadge
+                    tone={orderStatusTone(o.status, o)}
+                    live={o.status === "verifying"}
+                    alarm={o.status === "payment_anomaly"}
+                  >
+                    {orderStatusLabel(o.status, o)}
+                  </StatusBadge>
+                  <ChevronRightIcon className="cashier-shift__row-chevron" />
+                </span>
               </button>
             </li>
           ))}

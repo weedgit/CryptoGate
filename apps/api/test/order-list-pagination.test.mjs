@@ -24,4 +24,12 @@ describe("payment order list pagination", () => {
     assert.match(routes, /total: result\.total/);
     assert.match(routes, /offset: parsed\.offset/);
   });
+
+  it("cashier-only scope still runs the query (My shift)", () => {
+    const routes = readFileSync(
+      join(root, "src/orders/order-list-routes.mjs"),
+      "utf8",
+    );
+    assert.match(routes, /const treeEmpty =[\s\S]*?cashierOrgIds\?\.length > 0[\s\S]*?;/);
+  });
 });

@@ -34,6 +34,18 @@ type Props = { session: Session };
 
 const POLL_MS = 3000;
 
+type StepTone = "done" | "current" | "muted";
+
+/** Chevrons between steps: green when both done, flowing gold into the current step. */
+function stepArrowTone(step: StepTone, next: StepTone | undefined): string {
+  if (!next) return "is-idle";
+  if (step === "done" && next === "done") return "is-done";
+  if ((step === "done" && next === "current") || (step === "current" && next === "muted")) {
+    return "is-flowing";
+  }
+  return "is-idle";
+}
+
 function formatClock(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60);
@@ -164,6 +176,43 @@ export function LivePaymentPage({ session }: Props) {
   const qrValue = addressOnly ? receiveAddress : (pay?.qrPayload ?? "");
   const confirmations = pay?.confirmations ?? 0;
   const required = pay?.requiredConfirmations ?? 0;
+  const paidTime = pay?.confirmedAt
+    ? new Date(pay.confirmedAt).toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        ...(pay?.businessTimezone ? { timeZone: pay.businessTimezone } : {}),
+      })
+    : null;
+  const steps: { id: string; label: string; detail: string; tone: StepTone }[] = [
+    {
+      id: "waiting",
+      label: "Waiting for payment",
+      tone: phase === "waiting" ? "current" : "done",
+      detail:
+        phase === "waiting" && expiresAt
+          ? `Expires in ${formatClock(remainingMs)}`
+          : "Payment request sent",
+    },
+    {
+      id: "detected",
+      label: "Detected",
+      tone: phase === "confirming" ? "current" : phase === "paid" ? "done" : "muted",
+      detail:
+        phase === "confirming"
+          ? required > 0
+            ? `Confirming · ${confirmations}/${required}`
+            : "Confirming on-chain"
+          : phase === "paid"
+            ? "Confirmed on-chain"
+            : "Watching the network",
+    },
+    {
+      id: "paid",
+      label: "Paid",
+      tone: phase === "paid" ? "done" : "muted",
+      detail: phase === "paid" ? (paidTime ? `Paid at ${paidTime}` : "Payment complete") : "—",
+    },
+  ];
   const orderNumber = order?.orderNumber ?? pay?.orderNumber ?? "";
   const canCancel = canCancelPendingOrder(session, order);
   const receipt: ReceiptInput = {
@@ -301,22 +350,33 @@ export function LivePaymentPage({ session }: Props) {
 
       <aside className="cashier-live__staff" aria-label="Cashier controls">
         <p className="cashier-live__order">Order #{orderNumber}</p>
-        <ol className="cashier-live__steps">
-          <li className={phase === "waiting" ? "is-current" : "is-done"}>
-            Waiting for payment
-          </li>
-          <li
-            className={
-              phase === "confirming"
-                ? "is-current"
-                : phase === "paid"
-                  ? "is-done"
-                  : ""
-            }
-          >
-            Detected · confirming
-          </li>
-          <li className={phase === "paid" ? "is-done is-current" : ""}>Paid</li>
+        <ol className="plat-bill-detail__timeline cashier-live__timeline">
+          {steps.map((step, i, arr) => {
+            const next = arr[i + 1];
+            const arrowTone = stepArrowTone(step.tone, next?.tone);
+            return (
+              <li
+                key={step.id}
+                className={`plat-bill-detail__step is-${step.tone}`}
+                style={{ ["--step-delay" as string]: `${i * 90}ms`, animationDelay: `${i * 90}ms` }}
+              >
+                <span className="plat-bill-detail__step-dot" aria-hidden />
+                <div className="plat-bill-detail__step-body">
+                  <p className="plat-bill-detail__step-label">{step.label}</p>
+                  <p className="plat-bill-detail__step-detail">{step.detail}</p>
+                </div>
+                {next ? (
+                  <span className={`plat-bill-detail__step-arrow ${arrowTone}`} aria-hidden>
+                    <span className="plat-bill-detail__step-arrow-inner">
+                      <span className="plat-bill-detail__step-chevron">&gt;</span>
+                      <span className="plat-bill-detail__step-chevron">&gt;</span>
+                      <span className="plat-bill-detail__step-chevron">&gt;</span>
+                    </span>
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
 
         {phase === "waiting" && pay?.paymentPageUrl ? (

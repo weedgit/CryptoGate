@@ -1,21 +1,11 @@
 import type { OnChainDetails, PaymentDetails, PaymentOrder } from "../api";
-import { formatShortTime } from "../orderStatus";
+import { formatExpiryRemaining, formatShortTime } from "../orderStatus";
 import { networkLabel } from "../org";
+import {
+  StateTimelineCard,
+  type StateTimelineStep,
+} from "../../billing/StateTimelineCard";
 import type { OrderDetailView } from "./orderDetailView";
-
-/** Latest reached step in the order payment timeline (0 = Created … 3 = Confirmed). */
-function orderTimelineStepIndex(status: string, hasTx: boolean): number {
-  if (status === "completed" || status === "confirmed") return 3;
-  if (status === "verifying") return 2;
-  if (hasTx) return 1;
-  return 0;
-}
-
-function timelineStepClass(stepIndex: number, currentIndex: number): string {
-  if (stepIndex < currentIndex) return "is-reached";
-  if (stepIndex === currentIndex) return "is-reached is-current";
-  return "";
-}
 
 type Props = {
   order: PaymentOrder | null;
@@ -24,104 +14,101 @@ type Props = {
   view: OrderDetailView;
 };
 
-export function OrderTimelineCard({ order, pay, chain, view }: Props) {
-  const { status, hasTx, expiresAt, asset, network, progress, paidAt, settled } =
-    view;
-  const timelineIndex = orderTimelineStepIndex(status, hasTx);
+function buildOrderTimeline({ order, pay, chain, view }: Props): StateTimelineStep[] {
+  const { status, hasTx, expiresAt, asset, network, progress, paidAt, reasonLabel } = view;
+  const created: StateTimelineStep = {
+    id: "created",
+    label: "Created",
+    detail: `${formatShortTime(order?.createdAt ?? pay?.createdAt)} · ${asset} on ${networkLabel(network)}`,
+    tone: "done",
+  };
+  const detected: StateTimelineStep = {
+    id: "detected",
+    label: "Detected",
+    detail: "Incoming tx seen on chain",
+    tone: "done",
+  };
+  const confirmations = `${progress.total} confirmation${progress.total === 1 ? "" : "s"}`;
 
-  return (
-    <section className="plat-settings__card order-detail-aside-card order-detail-timeline-card">
-      <div className="plat-settings__card-head">
-        <h2 className="plat-settings__card-title">Order timeline</h2>
-      </div>
-      <div className="plat-settings__card-body">
-        <ul
-          className={`order-detail-timeline${
-            status === "verifying" ? " is-flowing" : ""
-          }${
-            status === "completed" || status === "confirmed"
-              ? " is-done"
-              : ""
-          }`}
-        >
-          <li
-            className={timelineStepClass(0, timelineIndex)}
-            style={{ ["--i" as string]: 0 }}
-          >
-            <div className="order-detail-timeline__mark" aria-hidden>
-              <span className="order-detail-timeline__dot" />
-            </div>
-            <div className="order-detail-timeline__body">
-              <div className="order-detail-timeline__row">
-                <strong>Created</strong>
-                <span>{formatShortTime(order?.createdAt ?? expiresAt)}</span>
-              </div>
-              <p>{asset} payment order initialized</p>
-            </div>
-          </li>
-          <li
-            className={timelineStepClass(1, timelineIndex)}
-            style={{ ["--i" as string]: 1 }}
-          >
-            <div className="order-detail-timeline__mark" aria-hidden>
-              <span className="order-detail-timeline__dot" />
-            </div>
-            <div className="order-detail-timeline__body">
-              <div className="order-detail-timeline__row">
-                <strong>Detected</strong>
-                <span>{hasTx ? "Seen on chain" : "—"}</span>
-              </div>
-              <p>Incoming tx on {networkLabel(network)}</p>
-            </div>
-          </li>
-          <li
-            className={timelineStepClass(2, timelineIndex)}
-            style={{ ["--i" as string]: 2 }}
-          >
-            <div className="order-detail-timeline__mark" aria-hidden>
-              <span className="order-detail-timeline__dot" />
-            </div>
-            <div className="order-detail-timeline__body">
-              <div className="order-detail-timeline__row">
-                <strong>Verifying</strong>
-                <span>
-                  {status === "verifying"
-                    ? `${progress.filled}/${progress.total}`
-                    : timelineIndex > 2
-                      ? "Done"
-                      : "—"}
-                </span>
-              </div>
-              <p>Awaiting required confirmations</p>
-            </div>
-          </li>
-          <li
-            className={timelineStepClass(3, timelineIndex)}
-            style={{ ["--i" as string]: 3 }}
-          >
-            <div className="order-detail-timeline__mark" aria-hidden>
-              <span className="order-detail-timeline__dot" />
-            </div>
-            <div className="order-detail-timeline__body">
-              <div className="order-detail-timeline__row">
-                <strong>Confirmed</strong>
-                <span>
-                  {paidAt
-                    ? formatShortTime(paidAt)
-                    : chain?.confirmedAt || pay?.confirmedAt
-                      ? formatShortTime(
-                          chain?.confirmedAt ?? pay?.confirmedAt,
-                        )
-                      : settled
-                        ? "Done"
-                        : "—"}
-                </span>
-              </div>
-              <p>Settlement validation success</p>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </section>
-  );
+  switch (status) {
+    case "pending_payment":
+      return [
+        created,
+        {
+          id: "awaiting",
+          label: "Awaiting payment",
+          detail: `Expires ${formatShortTime(expiresAt)} · ${formatExpiryRemaining(expiresAt)}`,
+          tone: "current",
+        },
+        { id: "verifying", label: "Verifying", detail: `${confirmations} required`, tone: "muted" },
+        { id: "confirmed", label: "Confirmed", detail: "Settlement validation", tone: "muted" },
+      ];
+    case "verifying":
+      return [
+        created,
+        detected,
+        {
+          id: "verifying",
+          label: "Verifying",
+          detail: `${progress.filled}/${progress.total} confirmations`,
+          tone: "current",
+        },
+        { id: "confirmed", label: "Confirmed", detail: "Settlement validation", tone: "muted" },
+      ];
+    case "confirmed":
+    case "completed":
+      return [
+        created,
+        detected,
+        { id: "verifying", label: "Verified", detail: confirmations, tone: "done" },
+        {
+          id: "confirmed",
+          label: status === "completed" ? "Completed" : "Confirmed",
+          detail: formatShortTime(paidAt ?? chain?.confirmedAt ?? pay?.confirmedAt),
+          tone: "done",
+        },
+      ];
+    case "payment_anomaly":
+      return [
+        created,
+        ...(hasTx ? [detected] : []),
+        { id: "attention", label: "Needs attention", detail: reasonLabel, tone: "current" },
+      ];
+    case "expired":
+      return [
+        created,
+        {
+          id: "expired",
+          label: "Expired",
+          detail: `${formatShortTime(expiresAt)} · no matching payment`,
+          tone: "current",
+        },
+      ];
+    case "failed":
+      return [created, { id: "failed", label: "Failed", detail: reasonLabel, tone: "current" }];
+    case "cancelled":
+      if (order?.anomalyResolutionNote) {
+        return [
+          created,
+          ...(hasTx ? [detected] : []),
+          { id: "attention", label: "Needs attention", detail: reasonLabel, tone: "done" },
+          {
+            id: "resolved",
+            label: "Resolved",
+            detail: `${formatShortTime(order.anomalyResolvedAt)} · ${order.anomalyResolutionNote}`,
+            tone: "current",
+          },
+        ];
+      }
+      return [
+        created,
+        { id: "cancelled", label: "Cancelled", detail: "Closed before payment", tone: "current" },
+      ];
+    default:
+      return [created];
+  }
+}
+
+export function OrderTimelineCard(props: Props) {
+  return <StateTimelineCard title="Order state timeline" steps={buildOrderTimeline(props)} />;
 }

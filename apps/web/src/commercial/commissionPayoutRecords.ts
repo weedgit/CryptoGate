@@ -49,6 +49,8 @@ export type CommissionPayoutRecord = {
   settledAt?: string | null;
   agentConfirmedBy?: string | null;
   updatedAt: string;
+  /** When the invoice was issued. */
+  createdAt?: string;
 };
 
 export async function listCommissionPayouts(filter?: {

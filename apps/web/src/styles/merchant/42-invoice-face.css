@@ -242,6 +242,7 @@ html[data-theme="light"] .sb-invoice__brand-gate {
   margin: 4px 0 0;
   font-size: 13px;
   color: var(--inv-muted);
+  overflow-wrap: anywhere;
 }
 
 .sb-invoice__facts {
@@ -1197,9 +1198,7 @@ html[data-theme="light"] .sb-invoice .org-agents__bill.is-activation {
   .platform-shell .portal-nav-backdrop,
   .platform-shell .portal-mobile-nav-toggle,
   .plat-bill-detail__head,
-  .plat-bill-detail__side,
-  .order-detail-page__rail,
-  .order-detail-topbar {
+  .plat-bill-detail__side {
     display: none !important;
   }
 
@@ -1216,8 +1215,7 @@ html[data-theme="light"] .sb-invoice .org-agents__bill.is-activation {
   .platform-shell .plat-bill-detail__split--invoice,
   .plat-bill-detail__main,
   .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main,
-  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main .sb-invoice,
-  .order-detail-page__invoice {
+  .platform-shell .plat-bill-detail__split--invoice .plat-bill-detail__main .sb-invoice {
     display: block !important;
     position: static !important;
     inset: auto !important;

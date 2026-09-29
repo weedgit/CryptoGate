@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import type { PaymentDetails, Session } from "./api";
 import { primaryMerchantOrgId, sessionCanManageIntegrations, sessionCanViewIntegrations } from "./org";
@@ -6,8 +6,7 @@ import { AuthToast } from "../auth/AuthToast";
 import { merchantRoute, platformRoute } from "../shared/portalRouting";
 import { ChainConfirmationsCard } from "./orderDetail/ChainConfirmationsCard";
 import { OrderAnomalyPanel } from "./orderDetail/OrderAnomalyPanel";
-import { OrderDetailTopbar } from "./orderDetail/OrderDetailTopbar";
-import { OrderGatewayCard } from "./orderDetail/OrderGatewayCard";
+import { OrderDetailHeader } from "./orderDetail/OrderDetailHeader";
 import { OrderInvoice } from "./orderDetail/OrderInvoice";
 import { OrderRailActions } from "./orderDetail/OrderRailActions";
 import { OrderTimelineCard } from "./orderDetail/OrderTimelineCard";
@@ -49,12 +48,7 @@ export function OrderDetailPage({
   const seededPay = (location.state as { pay?: PaymentDetails } | null)?.pay;
   const isPlatform = variant === "platform";
   const backTo = isPlatform ? platformRoute("invoices") : merchantRoute("orders");
-  const backLabel = isPlatform ? "← Back to invoices" : "← Back to invoices";
-  const topbarCenterId = isPlatform
-    ? "platform-topbar-center"
-    : "platform-topbar-center";
-
-  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  const backLabel = "← Back to invoices";
 
   const orgId = primaryMerchantOrgId(session);
   const canViewWebhooks = !isPlatform && sessionCanViewIntegrations(session);
@@ -69,9 +63,7 @@ export function OrderDetailPage({
     loading,
     error,
     setError,
-    copied,
     copiedTx,
-    nowTick,
     polling,
     cancelling,
     resolving,
@@ -79,34 +71,25 @@ export function OrderDetailPage({
     setResolveNote,
     watching,
     webhooks,
-    copyAddress,
     copyTxHash,
     onCancelOrder,
     onResolveAnomaly,
   } = useOrderDetail({ id, seededPay, session, canViewWebhooks, orgId });
 
-  useLayoutEffect(() => {
-    setTopbarSlot(document.getElementById(topbarCenterId));
-  }, [topbarCenterId]);
-
   if (!id) {
     return (
-      <div className="order-detail-page plat-settings plat-settings--merchant">
-        <section className="plat-settings__card">
-          <div className="plat-settings__card-body">
-            <p className="muted">This payment order could not be found.</p>
-            <Link className="order-detail-topbar__back" to={backTo}>
-              {backLabel}
-            </Link>
-          </div>
-        </section>
+      <div className="plat-bill-detail order-detail-bill">
+        <p className="muted">This payment order could not be found.</p>
+        <Link className="plat-bill-detail__back" to={backTo}>
+          {backLabel}
+        </Link>
       </div>
     );
   }
 
   if (loading && !order && !pay) {
     return (
-      <div className="order-detail-page plat-settings plat-settings--merchant">
+      <div className="plat-bill-detail order-detail-bill">
         <p className="order-detail-page__loading muted">Loading payment order…</p>
       </div>
     );
@@ -114,20 +97,12 @@ export function OrderDetailPage({
 
   if (error && !order) {
     return (
-      <div className="order-detail-page plat-settings plat-settings--merchant">
-        <AuthToast
-          message={error}
-          tone="error"
-          onDismiss={() => setError(null)}
-        />
-        <section className="plat-settings__card">
-          <div className="plat-settings__card-body">
-            <p className="muted">Could not load this payment order.</p>
-            <Link className="order-detail-topbar__back" to={backTo}>
-              {backLabel}
-            </Link>
-          </div>
-        </section>
+      <div className="plat-bill-detail order-detail-bill">
+        <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+        <p className="muted">Could not load this payment order.</p>
+        <Link className="plat-bill-detail__back" to={backTo}>
+          {backLabel}
+        </Link>
       </div>
     );
   }
@@ -136,24 +111,20 @@ export function OrderDetailPage({
   const showCancel = !isPlatform && canCancelPendingOrder(session, order);
   const showResolve = !isPlatform && canResolveAnomalyOrder(session, order);
 
-  const topbarChrome =
-    topbarSlot && !loading && (order || pay) ? (
-      <OrderDetailTopbar
-        slot={topbarSlot}
+  return (
+    <div className="plat-bill-detail order-detail-bill">
+      <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
+
+      <OrderDetailHeader
         backTo={backTo}
+        backLabel={backLabel}
         isPlatform={isPlatform}
         order={order}
-        pay={pay}
         view={view}
       />
-    ) : null;
 
-  return (
-    <div className="order-detail-page plat-settings plat-settings--merchant">
-      {topbarChrome}
-
-      <div className="order-detail-page__layout">
-        <div className="order-detail-page__main">
+      <div className="plat-bill-detail__split plat-bill-detail__split--invoice">
+        <div className="plat-bill-detail__main">
           <OrderInvoice
             id={id}
             order={order}
@@ -166,55 +137,12 @@ export function OrderDetailPage({
           />
         </div>
 
-        <div className="order-detail-page__rail no-print">
-          <div className="order-detail-page__rail-body">
-            {view.fulfillmentHint ? (
-              <p className="plat-settings__notice order-detail-fulfillment-hint" role="status">
-                {view.fulfillmentHint}
-              </p>
-            ) : null}
-            <OrderGatewayCard
-              order={order}
-              view={view}
-              nowTick={nowTick}
-              copied={copied}
-              onCopyAddress={() => void copyAddress()}
-            />
-
-            <aside className="order-detail-page__aside">
-              <ChainConfirmationsCard
-                status={view.status}
-                progress={view.progress}
-                confirmationStatusSuffix={view.confirmationStatusSuffix}
-                txHash={chain?.txHash}
-                watching={watching}
-                polling={polling}
-                copiedTx={copiedTx}
-                onCopyTxHash={() => void copyTxHash()}
-              />
-
-              {canViewWebhooks ? (
-                <WebhookDeliveriesCard
-                  rows={webhooks.webhookRows}
-                  msg={webhooks.webhookMsg}
-                  busy={webhooks.webhookBusy}
-                  canResend={canResendWebhooks}
-                  onResend={webhooks.resendDelivery}
-                />
-              ) : null}
-
-              <OrderTimelineCard order={order} pay={pay} chain={chain} view={view} />
-            </aside>
-          </div>
-
-          <OrderRailActions
-            order={order}
-            paymentPageUrl={pay?.paymentPageUrl}
-            isPlatform={isPlatform}
-            showCancel={showCancel}
-            cancelling={cancelling}
-            onCancel={() => void onCancelOrder()}
-          />
+        <aside className="plat-bill-detail__side order-detail-bill__side no-print">
+          {view.fulfillmentHint ? (
+            <p className="plat-settings__notice order-detail-fulfillment-hint" role="status">
+              {view.fulfillmentHint}
+            </p>
+          ) : null}
 
           <OrderAnomalyPanel
             order={order}
@@ -226,13 +154,40 @@ export function OrderDetailPage({
             resolving={resolving}
             onResolve={() => void onResolveAnomaly()}
           />
-        </div>
+
+          <OrderTimelineCard order={order} pay={pay} chain={chain} view={view} />
+
+          <ChainConfirmationsCard
+            status={view.status}
+            progress={view.progress}
+            confirmationStatusSuffix={view.confirmationStatusSuffix}
+            txHash={chain?.txHash}
+            watching={watching}
+            polling={polling}
+            copiedTx={copiedTx}
+            onCopyTxHash={() => void copyTxHash()}
+          />
+
+          {canViewWebhooks ? (
+            <WebhookDeliveriesCard
+              rows={webhooks.webhookRows}
+              msg={webhooks.webhookMsg}
+              busy={webhooks.webhookBusy}
+              canResend={canResendWebhooks}
+              onResend={webhooks.resendDelivery}
+            />
+          ) : null}
+
+          <OrderRailActions
+            order={order}
+            paymentPageUrl={pay?.paymentPageUrl}
+            isPlatform={isPlatform}
+            showCancel={showCancel}
+            cancelling={cancelling}
+            onCancel={() => void onCancelOrder()}
+          />
+        </aside>
       </div>
-      <AuthToast
-        message={error}
-        tone="error"
-        onDismiss={() => setError(null)}
-      />
     </div>
   );
 }

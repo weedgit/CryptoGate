@@ -1,6 +1,30 @@
 import type { ReactNode, Ref } from "react";
-import { CopyableChainValue } from "../shared/CopyableChainValue";
+import { explorerTxUrl } from "../shared/chainExplorer";
 import { formatDocumentDateTime } from "../shared/dateTime";
+import {
+  IconFactCalendar,
+  IconFactCurrency,
+  IconFactDue,
+  IconFactSite,
+  IconFactUser,
+  InvoiceAddress,
+  InvoiceBrandHead,
+  InvoiceChainInline,
+  InvoiceClosed,
+  InvoiceExplorerLink,
+  InvoiceLines,
+  InvoicePaper,
+  InvoicePartyFacts,
+  InvoicePayCard,
+  InvoiceReceipt,
+  InvoiceTotals,
+  InvoiceTxHash,
+  invoiceCryptoPlain,
+  invoiceMoney,
+  invoiceMoneyPlain,
+  type InvoiceDlRow,
+  type InvoiceFact,
+} from "./invoiceParts";
 
 /** Minimal payment-order shape for the finance document face. */
 export type PoInvoiceOrder = {
@@ -11,6 +35,10 @@ export type PoInvoiceOrder = {
   payableAmount: string;
   receivedAmount?: string | null;
   invoiceAmountUsd?: string | null;
+  /** "fiat" (USD / EUR invoice converted to crypto) or "crypto" (exact token amount). */
+  invoiceDenomination?: string | null;
+  invoiceCurrency?: string | null;
+  invoiceAmount?: string | null;
   pricingRate?: string | null;
   pricingMode?: string | null;
   rateSource?: string | null;
@@ -46,6 +74,7 @@ export type PoInvoiceSeller = {
   name: string;
   legalName?: string | null;
   contactEmail?: string | null;
+  phone?: string | null;
   orgId: string;
 };
 
@@ -58,26 +87,24 @@ export type PoInvoiceOnChain = {
 
 export type PoInvoiceRemittance = {
   paymentPageUrl?: string | null;
+  qrPayload?: string | null;
 };
 
-function cryptoAmount(amount: string, asset: string): string {
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return `${amount} ${asset}`;
-  return `${n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
-  })} ${asset}`;
+function cryptoAmount(amount: string | number, asset: string): string {
+  return `${invoiceCryptoPlain(amount)} ${asset}`;
 }
 
-function shortDate(iso: string | null | undefined, timeZone?: string | null): string {
+function docDate(iso: string | null | undefined, timeZone?: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return formatDocumentDateTime(d, timeZone);
+  return formatDocumentDateTime(iso, timeZone);
 }
 
 function isSettled(status: string): boolean {
   return status === "completed" || status === "confirmed";
+}
+
+function isClosed(status: string): boolean {
+  return status === "expired" || status === "failed" || status === "cancelled";
 }
 
 /** Staff label suitable for merchant-facing invoice copy (email/name — not internal user ids). */
@@ -92,13 +119,17 @@ function humanStaffLabel(label: string | null | undefined): string | null {
   return value;
 }
 
-function documentKicker(status: string): string {
-  if (isSettled(status)) return "Payment receipt";
-  if (status === "payment_anomaly") return "Attention document";
-  if (status === "expired" || status === "failed" || status === "cancelled") {
-    return "Payment invoice (closed)";
-  }
-  return "Payment invoice";
+function documentSubtitle(status: string): string {
+  if (isSettled(status)) return "Payment Receipt";
+  if (status === "payment_anomaly") return "Payment Invoice · Attention";
+  if (isClosed(status)) return "Payment Invoice · Closed";
+  return "Payment Invoice";
+}
+
+function closedStamp(status: string): string {
+  if (status === "expired") return "EXPIRED";
+  if (status === "failed") return "FAILED";
+  return "CANCELLED";
 }
 
 function showAnomalyBlock(order: PoInvoiceOrder): boolean {
@@ -109,20 +140,57 @@ function showAnomalyBlock(order: PoInvoiceOrder): boolean {
   );
 }
 
+function fiatCell(order: PoInvoiceOrder): { value: string; note: string | null } {
+  if (order.invoiceDenomination === "crypto") {
+    return {
+      value: "—",
+      note: order.invoiceAmountUsd
+        ? `≈ ${invoiceMoney(order.invoiceAmountUsd, "USD")}`
+        : "Exact token amount",
+    };
+  }
+  if (order.invoiceCurrency === "EUR" && order.invoiceAmount) {
+    return {
+      value: `€${invoiceMoneyPlain(order.invoiceAmount)} EUR`,
+      note: order.invoiceAmountUsd
+        ? `≈ ${invoiceMoney(order.invoiceAmountUsd, "USD")}`
+        : null,
+    };
+  }
+  return {
+    value: order.invoiceAmountUsd ? invoiceMoney(order.invoiceAmountUsd, "USD") : "—",
+    note: null,
+  };
+}
+
+function rateNote(order: PoInvoiceOrder): string | null {
+  const parts = [
+    order.rateSource,
+    order.pricingMode,
+    order.referenceRate
+      ? `ref $${order.referenceRate}${order.referenceSource ? ` (${order.referenceSource})` : ""}`
+      : null,
+    order.rateWarning,
+    order.quoteExpiresAt && order.status === "pending_payment"
+      ? `quote until ${docDate(order.quoteExpiresAt, order.businessTimezone)}`
+      : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 type Props = {
   order: PoInvoiceOrder;
   seller: PoInvoiceSeller;
   onChain?: PoInvoiceOnChain | null;
   remittance?: PoInvoiceRemittance | null;
-  statusBadge: ReactNode;
+  statusBadge?: ReactNode;
   toolbar?: ReactNode;
   invoiceRef?: Ref<HTMLElement>;
 };
 
 /**
- * Finance invoice/receipt face for payment orders (Phase 1 field lock).
- * Reuses `.sb-invoice` print styles; root also has `.po-invoice`.
- * System of record remains the payment order — not a service bill.
+ * Finance invoice/receipt face for payment orders, built on the shared paper
+ * invoice parts. System of record remains the payment order — not a service bill.
  */
 export function PaymentOrderInvoiceFace({
   order,
@@ -133,195 +201,138 @@ export function PaymentOrderInvoiceFace({
   toolbar,
   invoiceRef,
 }: Props) {
+  const tz = order.businessTimezone;
   const settled = isSettled(order.status);
+  const closed = isClosed(order.status);
+  const anomaly = showAnomalyBlock(order);
   const received =
     order.receivedAmount ?? onChain?.amount ?? (settled ? order.payableAmount : null);
   const modeLabel = order.matchingModeLabel ?? order.matchingMode;
-  const hasTx = Boolean(onChain?.txHash);
+  const txHash = onChain?.txHash ?? null;
+  const explorerUrl = txHash ? explorerTxUrl(order.network, txHash) : null;
   const createdBy = humanStaffLabel(order.createdByLabel);
+  const fiat = fiatCell(order);
+  const payable = order.payableAmount;
+  const hasPayable = Number.isFinite(Number(payable));
+
+  const facts: InvoiceFact[] = [
+    {
+      icon: <IconFactCalendar />,
+      label: "Issue date",
+      value: docDate(order.createdAt, tz),
+    },
+    settled && order.paidAt
+      ? { icon: <IconFactDue />, label: "Paid", value: docDate(order.paidAt, tz) }
+      : { icon: <IconFactDue />, label: "Expires", value: docDate(order.expiresAt, tz) },
+    {
+      icon: <IconFactCurrency />,
+      label: "Currency",
+      value:
+        order.invoiceDenomination === "crypto"
+          ? order.asset
+          : order.invoiceCurrency || "USD",
+    },
+  ];
+  if (order.siteName) {
+    facts.push({ icon: <IconFactSite />, label: "Site", value: order.siteName });
+  }
+  if (createdBy) {
+    facts.push({ icon: <IconFactUser />, label: "Created by", value: createdBy });
+  }
+
+  const receiptRows: InvoiceDlRow[] = [
+    {
+      label: "Confirmed at",
+      value: docDate(onChain?.confirmedAt ?? (settled ? order.paidAt : null), tz),
+    },
+    {
+      label: "Amount received",
+      value: received != null ? cryptoAmount(received, order.asset) : "—",
+    },
+    { label: "Tx hash", value: <InvoiceTxHash txHash={txHash} network={order.network} /> },
+    ...(explorerUrl
+      ? [{ label: "Explorer", value: <InvoiceExplorerLink href={explorerUrl} /> }]
+      : []),
+    {
+      label: "From address",
+      value: <InvoiceAddress address={onChain?.fromAddress} network={order.network} />,
+    },
+    {
+      label: "Receive address",
+      value: <InvoiceAddress address={order.receiveAddress} network={order.network} />,
+    },
+  ];
+  if (order.addressSource) {
+    receiptRows.push({
+      label: "Address source",
+      value: `${order.addressSource}${order.hdIndex != null ? ` · HD index ${order.hdIndex}` : ""}`,
+      span: true,
+    });
+  }
 
   return (
-    <section className="sb-invoice po-invoice" ref={invoiceRef}>
-      <div className="sb-invoice__toolbar no-print">{toolbar}</div>
+    <InvoicePaper invoiceRef={invoiceRef} toolbar={toolbar} className="po-invoice">
+      <InvoiceBrandHead
+        seller={{ name: seller.name, email: seller.contactEmail, phone: seller.phone }}
+        subtitle={documentSubtitle(order.status)}
+        docLabel={settled ? "Receipt" : "Invoice"}
+        docId={`#${order.orderNumber}`}
+        statusBadge={statusBadge}
+      />
 
-      <header className="sb-invoice__doc-head">
-        <div>
-          <p className="sb-invoice__kicker">{documentKicker(order.status)}</p>
-          <h2 className="sb-invoice__doc-id">#{order.orderNumber}</h2>
-        </div>
-        <div className="sb-invoice__doc-status">
-          {statusBadge}
-          <dl className="sb-invoice__meta-dl">
-            <div>
-              <dt>Created</dt>
-              <dd>{shortDate(order.createdAt, order.businessTimezone)}</dd>
-            </div>
-            {settled && order.paidAt ? (
-              <div>
-                <dt>Paid</dt>
-                <dd>{shortDate(order.paidAt, order.businessTimezone)}</dd>
-              </div>
-            ) : (
-              <div>
-                <dt>Expires</dt>
-                <dd>{shortDate(order.expiresAt, order.businessTimezone)}</dd>
-              </div>
-            )}
-            {order.siteName ? (
-              <div>
-                <dt>Site</dt>
-                <dd>{order.siteName}</dd>
-              </div>
+      <InvoicePartyFacts
+        title="Bill to"
+        party={{ name: "Guest payer" }}
+        lines={[
+          onChain?.fromAddress ? (
+            <InvoiceAddress address={onChain.fromAddress} network={order.network} />
+          ) : (
+            "Pays on-chain"
+          ),
+          <InvoiceChainInline asset={order.asset} network={order.network} />,
+        ]}
+        facts={facts}
+      />
+
+      <InvoiceLines columns={["Description", "Fiat", "Rate", "Amount"]}>
+        <tr>
+          <td>
+            {order.merchantReference?.trim() || "Payment"}
+            <span className="sb-invoice__line-note">
+              {order.asset} on {order.networkLabel} · Mode {order.matchingMode} ·{" "}
+              {modeLabel}
+            </span>
+            {order.memoOrTag ? (
+              <span className="sb-invoice__line-note">
+                Memo / tag · <span className="mono">{order.memoOrTag}</span>
+              </span>
             ) : null}
-            {createdBy ? (
-              <div>
-                <dt>Created by</dt>
-                <dd>{createdBy}</dd>
-              </div>
+          </td>
+          <td>
+            {fiat.value}
+            {fiat.note ? <span className="sb-invoice__line-note">{fiat.note}</span> : null}
+          </td>
+          <td>
+            {order.pricingRate ? `$${order.pricingRate}` : "—"}
+            {rateNote(order) ? (
+              <span className="sb-invoice__line-note">{rateNote(order)}</span>
             ) : null}
-            <div>
-              <dt>Asset</dt>
-              <dd>
-                {order.asset} · {order.networkLabel}
-              </dd>
-            </div>
-            <div>
-              <dt>Matching</dt>
-              <dd>
-                Mode {order.matchingMode} · {modeLabel}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </header>
+          </td>
+          <td className="sb-invoice__amt">{cryptoAmount(payable, order.asset)}</td>
+        </tr>
+      </InvoiceLines>
 
-      <div className="sb-invoice__parties">
-        <div className="sb-invoice__party">
-          <h3>From (merchant)</h3>
-          <p className="sb-invoice__party-name">{seller.name}</p>
-          {seller.legalName ? (
-            <p className="muted">Legal · {seller.legalName}</p>
-          ) : null}
-          {seller.contactEmail ? (
-            <p className="muted">{seller.contactEmail}</p>
-          ) : null}
-        </div>
-        <div className="sb-invoice__party">
-          <h3>Bill to (payer)</h3>
-          <p className="sb-invoice__party-name">Guest payer</p>
-          {onChain?.fromAddress ? (
-            <p className="sb-invoice__party-chain">
-              <span className="muted">From · </span>
-              <CopyableChainValue
-                value={onChain.fromAddress}
-                network={order.network}
-                kind="address"
-              />
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <InvoiceTotals
+        dueLabel="Amount due"
+        due={cryptoAmount(payable, order.asset)}
+        paid={cryptoAmount(settled ? (received ?? payable) : 0, order.asset)}
+        balance={cryptoAmount(settled || closed || !hasPayable ? 0 : payable, order.asset)}
+      />
 
-      <table className="sb-invoice__lines">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Detail</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {order.invoiceAmountUsd ? (
-            <tr>
-              <td>Invoice (USD)</td>
-              <td>
-                {order.pricingRate
-                  ? `1 ${order.asset} = $${order.pricingRate}${
-                      order.rateSource ? ` · ${order.rateSource}` : ""
-                    }${order.pricingMode ? ` · ${order.pricingMode}` : ""}${
-                      order.referenceRate
-                        ? ` · ref $${order.referenceRate}${
-                            order.referenceSource
-                              ? ` (${order.referenceSource})`
-                              : ""
-                          }`
-                        : ""
-                    }${order.rateWarning ? ` · ${order.rateWarning}` : ""}`
-                  : "Locked USD invoice"}
-              </td>
-              <td className="sb-invoice__amt">
-                ${order.invoiceAmountUsd} USD
-              </td>
-            </tr>
-          ) : null}
-          <tr className="sb-invoice__total-row">
-            <td>Crypto collection</td>
-            <td>
-              {order.asset} on {order.networkLabel}
-            </td>
-            <td className="sb-invoice__amt">
-              {cryptoAmount(order.payableAmount, order.asset)}
-            </td>
-          </tr>
-          {order.merchantReference ? (
-            <tr>
-              <td>Reference</td>
-              <td colSpan={2}>{order.merchantReference}</td>
-            </tr>
-          ) : null}
-          {order.memoOrTag ? (
-            <tr>
-              <td>Memo / tag</td>
-              <td colSpan={2} className="mono">
-                {order.memoOrTag}
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-
-      <div className="sb-invoice__remit">
-        <h3>Remittance (merchant wallet)</h3>
-        <p>
-          Send <strong>exact</strong> payable amount on{" "}
-          <strong>{order.networkLabel}</strong> only. Wrong network is not
-          auto-credited.
-        </p>
-        <p className="sb-invoice__payto">
-          <span className="label">Receive address</span>
-          <CopyableChainValue
-            value={order.receiveAddress}
-            network={order.network}
-            kind="address"
-          />
-        </p>
-        {order.addressSource ? (
-          <p className="muted">
-            Address source · {order.addressSource}
-            {order.hdIndex != null ? ` · HD index ${order.hdIndex}` : ""}
-          </p>
-        ) : null}
-        {remittance?.paymentPageUrl ? (
-          <p className="sb-invoice__payto no-print">
-            <span className="label">Guest page</span>
-            <a
-              href={remittance.paymentPageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="sb-invoice__guest-link"
-            >
-              Open guest payment page
-            </a>
-          </p>
-        ) : null}
-      </div>
-
-      {showAnomalyBlock(order) ? (
-        <div className="sb-invoice__receipt po-invoice__anomaly" role="alert">
+      {anomaly ? (
+        <div className="sb-invoice__remit po-invoice__anomaly" role="alert">
           <h3>
-            {order.status === "payment_anomaly"
-              ? "Attention"
-              : "Resolved — Attention"}
+            {order.status === "payment_anomaly" ? "Attention" : "Resolved — Attention"}
           </h3>
           <p>
             {order.anomalyReasonLabel
@@ -337,7 +348,7 @@ export function PaymentOrderInvoiceFace({
           <dl className="sb-invoice__meta-dl">
             <div>
               <dt>Expected</dt>
-              <dd>{cryptoAmount(order.payableAmount, order.asset)}</dd>
+              <dd>{cryptoAmount(payable, order.asset)}</dd>
             </div>
             <div>
               <dt>Received</dt>
@@ -352,54 +363,68 @@ export function PaymentOrderInvoiceFace({
             <p>
               <strong>Staff note:</strong> {order.anomalyResolutionNote}
               {order.anomalyResolvedAt
-                ? ` (${shortDate(order.anomalyResolvedAt, order.businessTimezone)})`
+                ? ` (${docDate(order.anomalyResolvedAt, tz)})`
                 : ""}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {hasTx || settled ? (
-        <div className="sb-invoice__receipt">
-          <h3>{settled ? "On-chain receipt" : "On-chain evidence"}</h3>
-          <dl className="sb-invoice__meta-dl sb-invoice__meta-dl--receipt">
-            <div className="sb-invoice__meta-span-2">
-              <dt>Tx hash</dt>
-              <dd>
-                <CopyableChainValue
-                  value={onChain?.txHash}
-                  network={order.network}
-                  kind="tx"
-                />
-              </dd>
-            </div>
-            <div>
-              <dt>From</dt>
-              <dd>
-                <CopyableChainValue
-                  value={onChain?.fromAddress}
-                  network={order.network}
-                  kind="address"
-                />
-              </dd>
-            </div>
-            <div>
-              <dt>Confirmed</dt>
-              <dd>
-                {shortDate(onChain?.confirmedAt ?? (settled ? order.paidAt : null), order.businessTimezone)}
-              </dd>
-            </div>
-            <div className="sb-invoice__meta-span-2">
-              <dt>Received</dt>
-              <dd>
-                {received != null
-                  ? cryptoAmount(received, order.asset)
-                  : "—"}
-              </dd>
-            </div>
-          </dl>
-        </div>
+      {closed && !anomaly ? (
+        <InvoiceClosed
+          stamp={closedStamp(order.status)}
+          reason={
+            order.status === "expired"
+              ? `Expired ${docDate(order.expiresAt, tz)} with no matching payment.`
+              : null
+          }
+          emptyReason="No remittance due — order is closed."
+          rows={[
+            {
+              label: "Asset / network",
+              value: <InvoiceChainInline asset={order.asset} network={order.network} />,
+            },
+            {
+              label: "Receive address",
+              value: <InvoiceAddress address={order.receiveAddress} network={order.network} />,
+            },
+            { label: "Amount", value: cryptoAmount(payable, order.asset) },
+          ]}
+        />
       ) : null}
-    </section>
+
+      {txHash || settled ? (
+        <InvoiceReceipt
+          title={settled ? "Payment receipt" : "On-chain evidence"}
+          note={
+            settled
+              ? null
+              : "Transaction detected — waiting for the required confirmations."
+          }
+          rows={receiptRows}
+        />
+      ) : null}
+
+      {order.status === "pending_payment" && !txHash ? (
+        <InvoicePayCard
+          title="Payment instructions"
+          note={
+            <>
+              Send the <strong>exact</strong> amount on {order.networkLabel} only. Wrong
+              network is not auto-credited.
+              {order.memoOrTag ? ` Include memo / tag ${order.memoOrTag}.` : ""}
+            </>
+          }
+          qrPayload={remittance?.qrPayload?.trim() || order.receiveAddress || null}
+          qrAlt={`Payment QR for order ${order.orderNumber}`}
+          qrMissing="QR unavailable"
+          asset={order.asset}
+          network={order.network}
+          amount={payable}
+          addressLabel="Receive address"
+          address={order.receiveAddress || null}
+        />
+      ) : null}
+    </InvoicePaper>
   );
 }

@@ -76,14 +76,19 @@ html[data-theme="light"] .cashier-shell__back:hover {
 
 .cashier-shell__tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   margin: 0 auto;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
 }
 
 .cashier-shell__tab {
   display: inline-flex;
   align-items: center;
-  min-height: 48px;
+  gap: 8px;
+  min-height: 44px;
   padding: 0 22px;
   border-radius: 999px;
   font-weight: 600;
@@ -91,18 +96,130 @@ html[data-theme="light"] .cashier-shell__back:hover {
   color: var(--muted);
   text-decoration: none;
   border: 1px solid transparent;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.cashier-shell__tab:hover {
+  color: var(--text);
+}
+
+.cashier-shell__tab-icon {
+  flex-shrink: 0;
 }
 
 .cashier-shell__tab.is-active {
-  color: var(--text);
-  background: var(--surface-elevated);
-  border-color: var(--border-strong);
+  color: var(--btn-primary-fg, #fde68a);
+  background: var(--btn-primary-bg, rgba(240, 180, 41, 0.1));
+  border-color: var(--btn-primary-border-hover, rgba(240, 180, 41, 0.5));
 }
 
 .cashier-shell__utils {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
+}
+
+.cashier-shell__utils .alerts-bell {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.cashier-shell__utils .alerts-bell-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.cashier-shell__utils .alerts-bell-badge {
+  top: -1px;
+  right: -1px;
+}
+
+/* .platform-shell pins a dark palette; the terminal needs its own light one. */
+html[data-theme="light"] .cashier-shell {
+  --bg: #eef1f5;
+  --canvas: #eef1f5;
+  --surface: #ffffff;
+  --surface-elevated: #f1f4f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --glass: rgba(15, 23, 42, 0.05);
+  --muted: #64748b;
+  --footer: #94a3b8;
+  --text: #0f172a;
+  --warn: #b45309;
+  --warn-dim: rgba(245, 158, 11, 0.12);
+  --btn-primary-bg: rgba(200, 144, 26, 0.12);
+  --btn-primary-border: rgba(200, 144, 26, 0.45);
+  --btn-primary-border-hover: #c8901a;
+  --btn-primary-fg: #92400e;
+}
+
+html[data-theme="light"] .cashier-shell__bar {
+  background: #ffffff;
+  border-bottom-color: #e2e8f0;
+}
+
+html[data-theme="light"] .cashier-shell__tabs {
+  background: #f1f4f9;
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] .cashier-shell__utils .alerts-bell {
+  color: #334155;
+}
+
+html[data-theme="light"] .cashier-shell__utils .alerts-bell.has-unread .alerts-bell-icon {
+  color: #e11d48;
+}
+
+html[data-theme="light"] .cashier-shell__utils .alerts-bell:hover,
+html[data-theme="light"] .cashier-shell__utils .alerts-bell.is-open {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.cashier-shell__backbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 12px 20px 0;
+}
+
+.cashier-shell__backbar .cashier-shell__back {
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.invoice-list__header-search:empty {
+  display: none;
+}
+
+.cashier-shell .invoice-list__header {
+  position: relative;
+}
+
+.cashier-shell .invoice-list__header-search {
+  flex: 1 1 260px;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.cashier-shell .invoice-list__header-search > * {
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .cashier-shell .invoice-list__header-search {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 380px;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .cashier-shell__subbar {
@@ -134,28 +251,59 @@ html[data-theme="light"] .cashier-shell__back:hover {
   padding: 16px 20px 28px;
 }
 
-/* ---- Pay pad ---- */
+/* ---- Pay pad (Charge) ---- */
 .cashier-pad {
+  --pad-gold: #c8901a;
+  --pad-gold-hover: #d69d22;
+  --pad-gold-tint: rgba(200, 144, 26, 0.12);
+  --pad-back-key: #232d40;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
   max-width: 1180px;
   margin: 0 auto;
+}
+
+html[data-theme="light"] .cashier-pad {
+  --pad-gold-tint: #fdf5e2;
+  --pad-back-key: #e7edf6;
 }
 
 .cashier-pad__entry,
 .cashier-pad__side {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   padding: 20px;
   border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
 }
 
+html[data-theme="light"] .cashier-pad__entry,
+html[data-theme="light"] .cashier-pad__side {
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.cashier-pad__label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cashier-pad__field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .cashier-pad__currency {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -163,199 +311,398 @@ html[data-theme="light"] .cashier-shell__back:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 18px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: transparent;
+  border: 1px solid transparent;
+  background: var(--surface-elevated);
   color: var(--muted);
   font-weight: 600;
   cursor: pointer;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.cashier-pad__pill:hover {
+  color: var(--text);
 }
 
 .cashier-pad__pill.is-active {
-  color: var(--text);
-  border-color: var(--accent);
-  background: var(--teal-dim);
+  background: var(--pad-gold);
+  color: #fff;
 }
 
 .cashier-pad__amount {
-  margin: 6px 0 0;
-  font-size: clamp(44px, 7vw, 72px);
-  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 14px;
+  margin: 18px 0 14px;
+  font-size: clamp(48px, 6.5vw, 76px);
+  font-weight: 800;
   line-height: 1.05;
-  letter-spacing: -0.02em;
-  text-align: right;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
 .cashier-pad__symbol {
-  margin-right: 6px;
   color: var(--muted);
-  font-weight: 500;
+  font-weight: 700;
+}
+
+.cashier-pad__digits {
+  color: var(--plat-gold-bright, #fbbf24);
+}
+
+html[data-theme="light"] .cashier-pad__digits {
+  color: #b45309;
 }
 
 .cashier-pad__rail-summary {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  margin: -8px 0 4px;
+  text-align: right;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .cashier-pad__keys {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   margin-top: auto;
 }
 
 .cashier-pad__key {
-  min-height: 72px;
-  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 62px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-elevated);
   color: var(--text);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 80ms ease;
+}
+
+html[data-theme="light"] .cashier-pad__key {
+  background: var(--surface);
+}
+
+.cashier-pad__key:hover {
+  border-color: var(--border-strong);
 }
 
 .cashier-pad__key:active {
   transform: scale(0.97);
-  border-color: var(--border-strong);
 }
 
-.cashier-pad__key--back {
+.cashier-pad__key--back,
+html[data-theme="light"] .cashier-pad__key--back {
+  background: var(--pad-back-key);
   color: var(--muted);
 }
 
-.cashier-pad__label {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
+.cashier-pad__key-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.cashier-pad__charge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 60px;
+  margin-top: 6px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--pad-gold);
+  color: #fff;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 80ms ease,
+    opacity 160ms ease;
+}
+
+.cashier-pad__charge:hover:not(:disabled) {
+  background: var(--pad-gold-hover);
+}
+
+.cashier-pad__charge:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.cashier-pad__charge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .cashier-pad__rails {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .cashier-pad__rail {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 60px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 12px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.cashier-pad__rail:hover {
+  border-color: var(--border-strong);
 }
 
 .cashier-pad__rail.is-active {
-  border-color: var(--accent);
-  background: var(--teal-dim);
+  border-color: var(--pad-gold);
+  background: var(--pad-gold-tint);
 }
 
 .cashier-pad__rail-icons {
   display: inline-flex;
-  gap: 2px;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.cashier-pad__rail-icons .plat-crypto-icon {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.cashier-pad__rail-icons .plat-crypto-icon:first-child {
+  z-index: 1;
+}
+
+.cashier-pad__rail-icons .plat-crypto-icon + .plat-crypto-icon {
+  margin-left: -15px;
+}
+
+.cashier-pad__rail-icons .plat-crypto-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .cashier-pad__rail-text {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 8px;
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  line-height: 1.3;
+}
+
+.cashier-pad__rail-text strong {
+  flex-shrink: 0;
+  font-size: 18px;
 }
 
 .cashier-pad__rail-text span {
+  min-width: 0;
   color: var(--muted);
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cashier-pad__options {
+.cashier-pad__rail-lamp {
+  flex-shrink: 0;
+  min-width: 78px;
+  margin-right: clamp(8px, 6%, 64px);
+  justify-content: center;
+}
+
+.cashier-pad__radio {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.cashier-pad__rail.is-active .cashier-pad__radio {
+  border-color: var(--pad-gold);
+  background: var(--pad-gold);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.cashier-pad__reference {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.cashier-pad__reference-input {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--surface-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+html[data-theme="light"] .cashier-pad__reference-input {
   background: var(--bg);
 }
 
-.cashier-pad__options-toggle {
+.cashier-pad__reference-input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.cashier-pad__reference-input:focus {
+  border-color: var(--pad-gold);
+}
+
+.cashier-pad__entry-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cashier-pad__validity {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cashier-pad__validity-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.cashier-pad__validity-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  width: 100%;
-  min-height: 48px;
-  padding: 0 14px;
-  border: none;
-  background: none;
+  min-width: 96px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
   color: var(--text);
   font: inherit;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: border-color 160ms ease;
 }
 
-.cashier-pad__options-summary {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
+html[data-theme="light"] .cashier-pad__validity-toggle {
+  background: var(--surface);
 }
 
-.cashier-pad__options-chevron {
+.cashier-pad__validity-toggle:hover,
+.cashier-pad__validity.is-open .cashier-pad__validity-toggle {
+  border-color: var(--pad-gold);
+}
+
+.cashier-pad__validity-chevron {
   color: var(--muted);
   transition: transform 160ms ease;
 }
 
-.cashier-pad__options.is-open .cashier-pad__options-chevron {
+.cashier-pad__validity.is-open .cashier-pad__validity-chevron {
   transform: rotate(180deg);
 }
 
-.cashier-pad__options-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 4px 14px 14px;
-  border-top: 1px solid var(--border);
-}
-
-.cashier-pad__option {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 10px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.cashier-pad__option-hint {
+.cashier-pad__validity-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  width: 96px;
   margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--warn, #fbbf24);
+  padding: 4px;
+  list-style: none;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-elevated);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="light"] .cashier-pad__validity-menu {
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.cashier-pad__validity-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cashier-pad__validity-item:hover {
+  background: var(--glass, rgba(255, 255, 255, 0.06));
+}
+
+html[data-theme="light"] .cashier-pad__validity-item:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.cashier-pad__validity-item.is-active {
+  color: var(--pad-gold);
+  font-weight: 700;
 }
 
 .cashier-pad__blocking,
 .cashier-pad__locked {
   margin: 0;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--warn);
   background: var(--warn-dim);
   font-size: 14px;
@@ -365,12 +712,10 @@ html[data-theme="light"] .cashier-shell__back:hover {
   margin: 6px 0 8px;
 }
 
-.cashier-pad__charge {
-  margin-top: auto;
-  min-height: 72px;
-  font-size: 22px;
-  font-weight: 700;
-  border-radius: 14px;
+html[data-theme="light"] .cashier-shell__tab.is-active {
+  color: #fff;
+  background: #c8901a;
+  border-color: #c8901a;
 }
 
 /* ---- Live payment ---- */
@@ -408,8 +753,9 @@ html[data-theme="light"] .cashier-shell__back:hover {
 
 .cashier-live__invoice {
   margin: 0;
-  color: var(--muted);
+  color: var(--text);
   font-size: 18px;
+  font-weight: 600;
 }
 
 .cashier-live__payable {
@@ -495,13 +841,25 @@ html[data-theme="light"] .cashier-shell__back:hover {
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   padding: 3px;
-  border-radius: 11px;
+  border-radius: 13px;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
   pointer-events: none;
+}
+
+.cashier-live__qr-mark .qr-center-mark,
+.cashier-live__qr-mark .qr-center-mark--icon .plat-crypto-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 11px;
+}
+
+.cashier-live__qr-mark .qr-center-mark > svg {
+  width: 40px;
+  height: 40px;
 }
 
 html[data-theme="light"] .cashier-live__qr-mode {
@@ -523,6 +881,15 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
 .cashier-live__timer {
   font-variant-numeric: tabular-nums;
   font-size: 18px;
+}
+
+.cashier-live .cashier-live__timer {
+  color: #fcd34d;
+  font-weight: 600;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timer {
+  color: #b45309;
 }
 
 .cashier-live__state {
@@ -583,30 +950,114 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
   font-size: 18px;
 }
 
-.cashier-live__steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Payment progress — same timeline as the service bill detail; current step is gold (waiting, not an error). */
+.cashier-live .cashier-live__timeline {
+  padding: 4px 2px 2px;
 }
 
-.cashier-live__steps li {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+.cashier-live .cashier-live__timeline .plat-bill-detail__step {
+  padding-bottom: 30px;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step:last-child {
+  padding-bottom: 0;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step-dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step-arrow {
+  top: 20px;
+  width: 14px;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step-label {
+  margin-bottom: 3px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step-detail {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step.is-muted .plat-bill-detail__step-label {
   color: var(--muted);
 }
 
-.cashier-live__steps li.is-done {
-  color: var(--text);
+.cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-label {
+  color: #f0b429;
 }
 
-.cashier-live__steps li.is-current {
-  border-color: var(--accent);
-  color: var(--text);
+.cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-dot {
+  background: #f0b429;
+  border-color: #f0b429;
+  animation:
+    plat-bill-dot-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    cashier-step-pulse 1.8s ease-in-out 420ms infinite;
+  animation-delay: inherit, calc(var(--step-delay, 0ms) + 420ms);
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-dot::after {
+  border-color: rgba(240, 180, 41, 0.6);
+}
+
+@keyframes cashier-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(240, 180, 41, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-dot {
+    animation: none;
+  }
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step-dot {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-done .plat-bill-detail__step-dot {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-dot {
+  background: #d97706;
+  border-color: #d97706;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-label {
+  color: #b45309;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step-label {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-muted .plat-bill-detail__step-label,
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step-detail {
+  color: #64748b;
+}
+
+.cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-detail {
+  color: #fcd34d;
   font-weight: 600;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-detail {
+  color: #b45309;
 }
 
 .cashier-live__note {
@@ -624,10 +1075,61 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
   margin-top: auto;
 }
 
-.cashier-live__actions > * {
-  min-height: 52px;
+.cashier-live .cashier-live__actions > *,
+.cashier-live .cashier-live__receipt-actions > * {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  height: auto;
+  min-height: 52px;
+  font-size: 15px;
   text-align: center;
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__receipt-actions {
+  display: flex;
+  min-height: 0;
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__next {
+  min-height: 60px;
+  font-size: 17px;
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__next:hover:not(:disabled),
+.cashier-live .cashier-live__actions > .cashier-live__next:focus-visible {
+  background: rgba(240, 180, 41, 0.2);
+  border-color: rgba(240, 180, 41, 0.6);
+  color: #fef3c7;
+}
+
+.cashier-live .cashier-live__actions .btn-ghost:hover:not(:disabled) {
+  background: rgba(240, 180, 41, 0.08);
+  border-color: rgba(240, 180, 41, 0.35);
+  color: var(--text);
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__cancel:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: var(--anomaly);
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__actions > .cashier-live__next:hover:not(:disabled),
+html[data-theme="light"] .cashier-live .cashier-live__actions > .cashier-live__next:focus-visible {
+  background: rgba(200, 144, 26, 0.2);
+  border-color: #c8901a;
+  color: #78350f;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__actions .btn-ghost:hover:not(:disabled) {
+  background: #fdf5e2;
+  border-color: rgba(200, 144, 26, 0.45);
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__actions > .cashier-live__cancel:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: rgba(220, 38, 38, 0.4);
 }
 
 .cashier-live__cancel {
@@ -654,7 +1156,8 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
 }
 
 /* Customer view: payment panel only, full screen */
-.cashier-shell:has(.cashier-live.is-customer-view) :is(.cashier-shell__bar, .cashier-shell__subbar),
+.cashier-shell:has(.cashier-live.is-customer-view)
+  :is(.cashier-shell__bar, .cashier-shell__backbar, .cashier-shell__subbar),
 .cashier-live.is-customer-view .cashier-live__staff {
   display: none;
 }
@@ -694,32 +1197,74 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
 .cashier-shift__totals {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 18px;
 }
 
-.cashier-shift__totals > div {
+.cashier-shift__total {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
 }
 
-.cashier-shift__totals span,
-.cashier-shift__totals small {
+.cashier-shift__total-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cashier-shift__total-copy span,
+.cashier-shift__total-copy small {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.cashier-shift__total-copy strong {
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.cashier-shift .cashier-shift__total.is-completed strong {
+  color: var(--plat-gold-bright, #fbbf24);
+}
+
+.cashier-shift__total-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.12);
   color: var(--muted);
 }
 
-.cashier-shift__totals strong {
-  font-size: 24px;
+.cashier-shift__total-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.cashier-shift__totals .is-attention {
-  border-color: var(--anomaly);
-  background: var(--anomaly-dim);
+.cashier-shift__total.is-completed .cashier-shift__total-icon {
+  background: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+}
+
+.cashier-shift__total.is-attention {
+  border-color: rgba(244, 63, 94, 0.65);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.cashier-shift__total.is-attention .cashier-shift__total-icon {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fb7185;
 }
 
 .cashier-shift__list {
@@ -728,38 +1273,174 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.cashier-shift__list > li + li {
+  border-top: 1px solid var(--border);
 }
 
 .cashier-shift__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 210px;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  min-height: 62px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
   color: var(--text);
+  font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.cashier-shift__row:hover,
+.cashier-shift__row:focus-visible {
+  background: rgba(240, 180, 41, 0.05);
+  outline: none;
 }
 
 .cashier-shift__row-main,
 .cashier-shift__row-amount {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
 }
 
-.cashier-shift__row-amount .muted {
-  display: inline-flex;
+.cashier-shift__row-number {
+  display: flex;
   align-items: center;
-  gap: 4px;
+  height: 24px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cashier-shift__row-meta {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  gap: 14px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.cashier-shift .cashier-shift__row-meta .order-channel-tag {
+  height: 22px;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 6px;
   font-size: 12px;
+}
+
+.cashier-shift__row-amount strong {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cashier-shift__row-rail {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.cashier-shift__row-rail .plat-crypto-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cashier-shift__row-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  min-width: 0;
+}
+
+.cashier-shift__row-chevron {
+  color: var(--muted);
+}
+
+.cashier-shift .cashier-shift__row-status .status-badge {
+  min-width: 66px;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cashier-shift .cashier-shift__row-status .status-badge.tone-warn {
+  border-color: rgba(240, 180, 41, 0.7);
+  background: rgba(240, 180, 41, 0.12);
+  color: #fcd34d;
+}
+
+.cashier-shift .cashier-shift__row-status .status-badge.tone-ok {
+  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.cashier-shift .cashier-shift__row-status .status-badge.tone-teal {
+  border-color: rgba(45, 212, 191, 0.55);
+  background: rgba(45, 212, 191, 0.1);
+  color: #5eead4;
+}
+
+.cashier-shift .cashier-shift__row-status .status-badge.tone-anomaly {
+  border-color: rgba(244, 63, 94, 0.65);
+  background: rgba(244, 63, 94, 0.12);
+  color: #fb7185;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__total.is-completed strong {
+  color: #b45309;
+}
+
+html[data-theme="light"] .cashier-shift__total.is-completed .cashier-shift__total-icon {
+  color: #059669;
+}
+
+html[data-theme="light"] .cashier-shift__total.is-attention .cashier-shift__total-icon {
+  color: #e11d48;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__row-status .status-badge {
+  color: #475569;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__row-status .status-badge.tone-warn {
+  color: #b45309;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__row-status .status-badge.tone-ok {
+  color: #047857;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__row-status .status-badge.tone-teal {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .cashier-shift .cashier-shift__row-status .status-badge.tone-anomaly {
+  color: #be123c;
 }
 
 .cashier-shift__empty {
@@ -799,6 +1480,7 @@ html[data-theme="light"] .cashier-live__qr-mode-btn.is-active {
   .cashier-shell__main {
     padding: 12px;
   }
+
 
   .cashier-shift__totals {
     grid-template-columns: 1fr;

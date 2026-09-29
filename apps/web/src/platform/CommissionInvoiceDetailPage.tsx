@@ -29,10 +29,14 @@ import { platformRoute } from "../shared/portalRouting";
 import { useCommissionsPortal } from "./commissionsPortal";
 import {
   ApiError,
+  getBillingWalletSettings,
   listAgentPayoutAddresses,
+  listOrgUsers,
   type OrgAccount,
+  type PlatformBillingWalletSettings,
   type Session,
 } from "./api";
+import { resolveServiceBillInvoiceSeller } from "../billing/ServiceBillInvoiceFace";
 import { sessionCanIssueServiceBill } from "./org";
 import { getPlatformOrgs } from "./platformOrgList";
 import { orgDetailHref } from "./platformOrgTree";
@@ -103,6 +107,11 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
   );
   const [slip, setSlip] = useState<CommissionPayoutRecord | null>(null);
   const [orgs, setOrgs] = useState<OrgAccount[]>([]);
+  const [payeeContact, setPayeeContact] = useState<{
+    email: string | null;
+    phone: string | null;
+  }>({ email: null, phone: null });
+  const [billing, setBilling] = useState<PlatformBillingWalletSettings | null>(null);
   const [payoutAddrs, setPayoutAddrs] = useState<
     Map<string, { address: string; asset: string; network: string }>
   >(() => new Map());
@@ -117,16 +126,28 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [row, orgRows, payoutAddrRows] = await Promise.all([
+      const [row, orgRows, payoutAddrRows, wallet] = await Promise.all([
         getCommissionPayout(id),
         portal ? portal.getOrgs() : getPlatformOrgs(),
         listAgentPayoutAddresses(),
+        portal ? null : getBillingWalletSettings().catch(() => null),
       ]);
       if (!row) {
         setSlip(null);
         setError("Invoice not found");
         return;
       }
+      const members = await listOrgUsers(row.payeeOrgId).catch(() => []);
+      const preferred =
+        members.find((m) => /owner/i.test(m.role)) ??
+        members.find((m) => /admin/i.test(m.role)) ??
+        members[0];
+      const payeeOrg = orgRows.find((o) => o.id === row.payeeOrgId);
+      setPayeeContact({
+        email: payeeOrg?.billingEmail?.trim() || preferred?.email?.trim() || null,
+        phone: preferred?.phone?.trim() || null,
+      });
+      setBilling(wallet);
       setSlip(row);
       setPaidNote(row.note?.trim() ?? "");
       setPaidTxRef(row.txRef?.trim() ?? "");
@@ -267,6 +288,7 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
   }
 
   const payable = canPay && slip.payoutStatus === "issued";
+  const payeeOrg = byId.get(slip.payeeOrgId);
   const confirmable =
     portal != null &&
     portal.canConfirmReceipt &&
@@ -310,6 +332,14 @@ export function CommissionInvoiceDetailPage({ session }: Props) {
           <CommissionInvoiceFace
             slip={slip}
             dest={dest}
+            payee={{
+              name: payeeOrg?.name ?? slip.payeeName,
+              legalName: payeeOrg?.legalName,
+              contactEmail: payeeContact.email,
+              phone: payeeContact.phone,
+              country: payeeOrg?.country,
+            }}
+            seller={resolveServiceBillInvoiceSeller({ billing })}
             viewerPortal={portal ? "agent" : "platform"}
             byId={byId}
             orgHref={orgHref}

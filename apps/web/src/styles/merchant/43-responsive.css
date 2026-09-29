@@ -183,12 +183,6 @@
     flex-wrap: wrap;
   }
 
-  .platform-shell .order-detail-page__layout,
-  .platform-shell .order-detail-page__invoice-row {
-    grid-template-columns: 1fr;
-    flex-direction: column;
-  }
-
   .platform-shell .plat-settings__grid {
     grid-template-columns: 1fr;
   }
@@ -254,11 +248,6 @@
   .platform-shell .org-agents__table,
   .platform-shell .data-table {
     min-width: 640px;
-  }
-
-  .platform-shell .order-detail-page__rail,
-  .platform-shell .order-detail-page__main {
-    width: 100%;
   }
 
   .platform-shell .org-agents__cta,

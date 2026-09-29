@@ -90,6 +90,7 @@ export async function handleListPaymentOrders(req, res) {
     resolved.query.kind === "filter" &&
     Array.isArray(resolved.query.treeOrgIds) &&
     resolved.query.treeOrgIds.length === 0 &&
+    !(resolved.query.cashierOrgIds?.length > 0) &&
     !resolved.query.orgId;
 
   const result = treeEmpty
