@@ -20,6 +20,35 @@
   background: var(--surface);
 }
 
+.cashier-shell__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.cashier-shell__back:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="light"] .cashier-shell__back:hover {
+  border-color: rgba(15, 23, 42, 0.2);
+  background: rgba(15, 23, 42, 0.04);
+}
+
 .cashier-shell__brand {
   display: flex;
   align-items: center;
@@ -131,6 +160,9 @@
 }
 
 .cashier-pad__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 40px;
   padding: 0 18px;
   border-radius: 999px;
@@ -258,22 +290,65 @@
   text-overflow: ellipsis;
 }
 
-.cashier-pad__add-ref {
-  align-self: flex-start;
-  padding: 8px 0;
+.cashier-pad__options {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.cashier-pad__options-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
   border: none;
   background: none;
-  color: var(--accent);
+  color: var(--text);
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
-.cashier-pad__reference {
+.cashier-pad__options-summary {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cashier-pad__options-chevron {
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.cashier-pad__options.is-open .cashier-pad__options-chevron {
+  transform: rotate(180deg);
+}
+
+.cashier-pad__options-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.cashier-pad__option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
   font-size: 13px;
   color: var(--muted);
+}
+
+.cashier-pad__option-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--warn, #fbbf24);
 }
 
 .cashier-pad__blocking,

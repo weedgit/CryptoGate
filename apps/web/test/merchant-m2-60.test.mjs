@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,16 +40,15 @@ describe("@paymentgate/web merchant M2-60", () => {
       join(root, "src/merchant/MerchantOrdersRoutes.tsx"),
       "utf8",
     );
-    assert.match(routes, /showCreateModal|orders\/new/);
-    const modal = readFileSync(
-      join(root, "src/merchant/CreateOrderModal.tsx"),
-      "utf8",
-    );
-    assert.match(modal, /Create payment order/);
-    assert.match(modal, /OnboardWizardBrandHead/);
-    assert.match(modal, /b4-wizard__foot/);
-    assert.match(modal, /createOrder/);
-    assert.doesNotMatch(modal, /Mark paid/i);
+    assert.match(routes, /orders\/new/);
+    assert.match(routes, /merchantRoute\("charge"\)/);
+    assert.equal(existsSync(join(root, "src/merchant/CreateOrderModal.tsx")), false);
+    assert.match(app, /function ChargeTerminalLayout/);
+    assert.match(app, /backTo=\{merchantRoute\(\)\}/);
+    assert.match(app, /<Route path="charge" element=\{<PayPadPage session=\{session\} \/>\} \/>/);
+    const pad = readFileSync(join(root, "src/merchant/cashier/PayPadPage.tsx"), "utf8");
+    assert.match(pad, /createOrder/);
+    assert.doesNotMatch(pad, /Mark paid/i);
   });
 
   it("ignores pink animation sticky from Figma", () => {
@@ -548,21 +547,37 @@ describe("@paymentgate/web merchant D7-D9 sites", () => {
   });
 });
 
-describe("Create payment order form", () => {
+describe("Charge page (merchant + cashier)", () => {
   it("charges in $ USD, € EUR, or the pay-with token via one toggle", () => {
-    const src = readFileSync(join(root, "src/merchant/CreateOrderModal.tsx"), "utf8");
+    const src = readFileSync(join(root, "src/merchant/cashier/PayPadPage.tsx"), "utf8");
     assert.doesNotMatch(src, /<select\b/);
-    assert.doesNotMatch(src, /Invoice type|Convert token amount to USD|Fiat \(USD \/ EUR\)/);
-    assert.match(src, /<span id="create-charge-label">Charge in<\/span>/);
-    assert.match(src, /role="radiogroup"/);
-    assert.match(src, /\{ id: "USD", symbol: FIAT_SYMBOL\.USD/);
-    assert.match(src, /\{ id: "TOKEN", symbol: <AssetIcon asset=\{asset\} \/>, label: asset \}/);
-    assert.match(src, /Customer pays exactly \$\{typedAmount\} \$\{asset\}/);
-    assert.match(src, /at the live rate, locked for \$\{lockMinutes\} min/);
-    const assetAt = src.indexOf('htmlFor="create-asset"');
-    const chargeAt = src.indexOf("create-charge-label");
-    const amountAt = src.indexOf('htmlFor="create-amount"');
-    assert.ok(assetAt > 0 && assetAt < chargeAt && chargeAt < amountAt, "asset, then charge, then amount");
+    assert.match(src, /aria-label="Charge in"/);
+    assert.match(src, /\(\["USD", "EUR", "TOKEN"\] as const\)/);
+    assert.match(src, /amountCrypto: trimmed, invoiceDenomination: "crypto"/);
+    assert.match(src, /Customer pays exactly/);
+  });
+
+  it("puts validity and reference under More options for every role", () => {
+    const src = readFileSync(join(root, "src/merchant/cashier/PayPadPage.tsx"), "utf8");
+    assert.match(src, /More options/);
+    assert.match(src, /VALIDITY_OPTIONS\.map/);
+    assert.match(src, /validitySeconds,/);
+    assert.match(src, /Reference \(staff only\)/);
+    assert.doesNotMatch(src, /role === "owner"|sessionCanManage/);
+  });
+
+  it("sends the payment page link from the live screen and order detail", () => {
+    const share = readFileSync(join(root, "src/shared/SharePayLink.tsx"), "utf8");
+    assert.match(share, /navigator\.share/);
+    assert.match(share, /https:\/\/wa\.me\/\?text=/);
+    assert.match(share, /https:\/\/t\.me\/share\/url/);
+    assert.match(share, /mailto:/);
+    assert.match(share, /sms:/);
+    const live = readFileSync(join(root, "src/merchant/cashier/LivePaymentPage.tsx"), "utf8");
+    assert.match(live, /phase === "waiting" && pay\?\.paymentPageUrl \? \(\s*<SharePayLink/);
+    const rail = readFileSync(join(root, "src/merchant/orderDetail/OrderRailActions.tsx"), "utf8");
+    assert.match(rail, /order\?\.status === "pending_payment"/);
+    assert.match(rail, /<SharePayLink/);
   });
 
   it("explains Standard matching in plain words", () => {

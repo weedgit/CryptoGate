@@ -182,6 +182,19 @@ fun OrderDetailScreen(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
             }
+            if (details.status == OrderStatusUi.PENDING && PayLinkShare.canShare(details)) {
+                OutlinedButton(
+                    onClick = { PayLinkShare.share(context, details) },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("Send payment link")
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
             if (showPrint) {
                 Button(
                     onClick = {

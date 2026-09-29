@@ -57,14 +57,23 @@ import com.paymentgate.cashier.api.AssetNetworkCatalog
 import com.paymentgate.cashier.api.AssetNetworkPair
 import com.paymentgate.cashier.api.BlockingOrder
 import com.paymentgate.cashier.api.CashierPosSurface
+import com.paymentgate.cashier.api.ChargeCurrency
 
 data class ValidityChoice(val label: String, val seconds: Int)
 
 private val validityChoices = listOf(
-    ValidityChoice("5 min", 300),
     ValidityChoice("15 min", 900),
     ValidityChoice("30 min", 1800),
+    ValidityChoice("60 min", 3600),
 )
+
+private const val REMOTE_ORDER_HINT =
+    "For phone or chat orders. The same amount stays reserved until this order is paid, cancelled, or expires."
+
+internal fun chargeLabel(amount: String, chargeIn: ChargeCurrency, asset: String): String {
+    val shown = amount.ifBlank { "0" }
+    return if (chargeIn == ChargeCurrency.TOKEN) "$shown $asset" else "${chargeIn.symbol}$shown"
+}
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +84,8 @@ fun CreateOrderScreen(
     chainEnv: String,
     merchantReference: String,
     validitySeconds: Int,
+    chargeIn: ChargeCurrency = ChargeCurrency.TOKEN,
+    onChargeInChange: (ChargeCurrency) -> Unit = {},
     error: String?,
     loading: Boolean,
     online: Boolean,
@@ -112,6 +123,9 @@ fun CreateOrderScreen(
     val amountPulse = rememberAmountPulse(amount)
     var showRailSheet by remember { mutableStateOf(false) }
     var showNoteSheet by remember { mutableStateOf(false) }
+    var showOptions by remember { mutableStateOf(false) }
+    val validityLabel = validityChoices.firstOrNull { it.seconds == validitySeconds }?.label
+        ?: "${validitySeconds / 60} min"
     var showScanDialog by remember { mutableStateOf(false) }
     var scanBuffer by remember { mutableStateOf("") }
     var noteDraft by remember(merchantReference) { mutableStateOf(merchantReference) }
@@ -129,7 +143,7 @@ fun CreateOrderScreen(
                     if (it.contains('.')) it else "$it.00"
                 }
             onAmountChange(normalized)
-            auxBanner = "Barcode applied · $normalized $asset filled · Review the selected rail"
+            auxBanner = "Barcode applied · ${chargeLabel(normalized, chargeIn, asset)} filled · Review the selected rail"
         } else {
             auxBanner = "Barcode not found · Scan again or enter the amount manually"
         }
@@ -322,7 +336,7 @@ fun CreateOrderScreen(
             PaymentGateBrand()
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "New invoice",
+                text = "Charge",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -360,37 +374,73 @@ fun CreateOrderScreen(
                             },
                     ) {
                         Text(
-                            text = if (amount.isBlank()) "0" else amount,
+                            text = chargeIn.symbol + (if (amount.isBlank()) "0" else amount),
                             fontSize = 48.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        AnimatedContent(
-                            targetState = asset,
-                            transitionSpec = {
-                                (fadeIn(tween(PosMotion.Fast)) + scaleIn(initialScale = 0.7f)) togetherWith
-                                    (fadeOut(tween(PosMotion.Fast)) + scaleOut(targetScale = 0.7f))
-                            },
-                            label = "amount-asset",
-                        ) { currentAsset ->
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                AssetIcon(
-                                    asset = currentAsset,
-                                    size = 26.dp,
-                                    modifier = Modifier.padding(bottom = 8.dp),
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = currentAsset,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color =
-                                        if (railUnsupported) MaterialTheme.colorScheme.error
-                                        else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(bottom = 6.dp),
-                                )
+                        if (chargeIn == ChargeCurrency.TOKEN) {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            AnimatedContent(
+                                targetState = asset,
+                                transitionSpec = {
+                                    (fadeIn(tween(PosMotion.Fast)) + scaleIn(initialScale = 0.7f)) togetherWith
+                                        (fadeOut(tween(PosMotion.Fast)) + scaleOut(targetScale = 0.7f))
+                                },
+                                label = "amount-asset",
+                            ) { currentAsset ->
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    AssetIcon(
+                                        asset = currentAsset,
+                                        size = 26.dp,
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = currentAsset,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color =
+                                            if (railUnsupported) MaterialTheme.colorScheme.error
+                                            else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(bottom = 6.dp),
+                                    )
+                                }
                             }
+                        }
+                    }
+                    Text(
+                        text =
+                            if (chargeIn == ChargeCurrency.TOKEN) {
+                                "Customer pays exactly this amount"
+                            } else {
+                                "Customer pays in $asset at the live rate"
+                            },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ChargeCurrency.entries.forEach { option ->
+                            FilterChip(
+                                selected = chargeIn == option,
+                                onClick = { onChargeInChange(option) },
+                                enabled = !loading && online,
+                                leadingIcon =
+                                    if (option == ChargeCurrency.TOKEN) {
+                                        { AssetIcon(asset = asset, size = 18.dp) }
+                                    } else {
+                                        null
+                                    },
+                                label = {
+                                    Text(
+                                        if (option == ChargeCurrency.TOKEN) asset
+                                        else "${option.symbol} ${option.name}",
+                                    )
+                                },
+                            )
                         }
                     }
                 }
@@ -569,19 +619,45 @@ fun CreateOrderScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Validity", style = MaterialTheme.typography.labelLarge)
-                Row(
+                TextButton(
+                    onClick = { showOptions = !showOptions },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    validityChoices.forEach { choice ->
-                        FilterChip(
-                            selected = validitySeconds == choice.seconds,
-                            onClick = { onValidityChange(choice.seconds) },
-                            enabled = !loading && online,
-                            modifier = Modifier.weight(1f),
-                            label = { Text(choice.label) },
-                        )
+                    Text(
+                        text = "More options · Valid for $validityLabel",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Text(if (showOptions) "▲" else "▼")
+                }
+                AnimatedVisibility(
+                    visible = showOptions,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Column {
+                        Text("Valid for", style = MaterialTheme.typography.labelLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            validityChoices.forEach { choice ->
+                                FilterChip(
+                                    selected = validitySeconds == choice.seconds,
+                                    onClick = { onValidityChange(choice.seconds) },
+                                    enabled = !loading && online,
+                                    modifier = Modifier.weight(1f),
+                                    label = { Text(choice.label) },
+                                )
+                            }
+                        }
+                        if (validitySeconds > 1800) {
+                            Text(
+                                text = REMOTE_ORDER_HINT,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -649,7 +725,11 @@ fun CreateOrderScreen(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text("Continue to Pay →", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Charge ${chargeLabel(amount, chargeIn, asset)}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
             OutlinedButton(

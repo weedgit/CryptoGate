@@ -16,7 +16,7 @@ import {
   getMerchantOrgs,
   peekMerchantOrgs,
 } from "./merchantOrgList";
-import { primaryMerchantOrgId, sitesInMerchantSubtree } from "./org";
+import { primaryMerchantOrgId, sessionCanCharge, sitesInMerchantSubtree } from "./org";
 import { AttentionQueue } from "./dashboard/AttentionQueue";
 import { ChannelBreakdown } from "./dashboard/ChannelBreakdown";
 import { CashiersTable } from "./dashboard/CashiersTable";
@@ -282,9 +282,11 @@ export function SiteHomePage({ session }: Props) {
               <Link className="btn-ghost btn-inline" to={merchantRoute("orders")}>
                 Invoices
               </Link>
-              <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
-                + Create Payment Order
-              </Link>
+              {sessionCanCharge(session) ? (
+                <Link className="btn-primary btn-inline" to={merchantRoute("charge")}>
+                  Charge
+                </Link>
+              ) : null}
             </div>,
             topbarActionsSlot,
           )

@@ -108,10 +108,10 @@ export function InvoiceListHeader({
         {canCreate ? (
           <Link
             className="invoice-list__btn invoice-list__btn--primary"
-            to={merchantRoute("orders/new")}
+            to={merchantRoute("charge")}
           >
             <PlusIcon />
-            Create invoice
+            Charge
           </Link>
         ) : null}
       </div>

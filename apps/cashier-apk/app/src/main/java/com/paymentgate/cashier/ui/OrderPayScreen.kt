@@ -353,6 +353,14 @@ fun OrderPayScreen(
                     Text("Link")
                 }
             }
+            if (details.status == OrderStatusUi.PENDING && PayLinkShare.canShare(details)) {
+                OutlinedButton(
+                    onClick = { PayLinkShare.share(context, details) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Send payment link")
+                }
+            }
             if (details.status == OrderStatusUi.EXPIRED) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
@@ -453,7 +461,7 @@ fun OrderPayScreen(
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text(if (orderOpen) "Leave / New invoice" else "New invoice →")
+                Text(if (orderOpen) "Leave / New charge" else "New charge →")
             }
             if (!orderOpen && onViewReceipt != null) {
                 TextButton(onClick = onViewReceipt, modifier = Modifier.fillMaxWidth()) {

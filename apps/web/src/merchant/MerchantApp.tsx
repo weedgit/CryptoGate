@@ -20,6 +20,7 @@ import {
   resolveMerchantExperience,
   type MerchantExperience,
 } from "./experience";
+import { sessionCanCharge } from "./org";
 import {
   WorkspaceSwitcherContext,
   readStoredWorkspace,
@@ -47,6 +48,7 @@ const LivePaymentPage = lazyNamed(
   "LivePaymentPage",
 );
 const ShiftPage = lazyNamed(() => import("./cashier/ShiftPage"), "ShiftPage");
+const PayPadPage = lazyNamed(() => import("./cashier/PayPadPage"), "PayPadPage");
 const NetworksPage = lazyNamed(() => import("./NetworksPage"), "NetworksPage");
 const MerchantOrdersRoutes = lazyNamed(
   () => import("./MerchantOrdersRoutes"),
@@ -113,6 +115,33 @@ function MerchantShellLayout({
           {outlet}
         </MerchantShell>
       )}
+    </RequireMerchantPortal>
+  );
+}
+
+/** Merchant / site staff charging from the portal — same terminal as cashiers plus "Back to portal". */
+function ChargeTerminalLayout({
+  session,
+  onSignOut,
+  onSessionRefresh,
+}: {
+  session: Session;
+  onSignOut: () => void | Promise<void>;
+  onSessionRefresh?: (session: Session) => void;
+}) {
+  if (!sessionCanCharge(session)) return <Navigate to={merchantRoute()} replace />;
+  return (
+    <RequireMerchantPortal session={session} onSignOut={onSignOut}>
+      <CashierShell
+        session={session}
+        onSignOut={onSignOut}
+        onSessionRefresh={onSessionRefresh}
+        backTo={merchantRoute()}
+      >
+        <LazyRoute>
+          <Outlet />
+        </LazyRoute>
+      </CashierShell>
     </RequireMerchantPortal>
   );
 }
@@ -235,6 +264,20 @@ export function MerchantApp() {
   return (
     <WorkspaceSwitcherContext.Provider value={switcher}>
       <Routes key={activeOrgId ?? ""}>
+        {experience !== "cashier" ? (
+          <Route
+            element={
+              <ChargeTerminalLayout
+                session={session}
+                onSignOut={signOut}
+                onSessionRefresh={setSession}
+              />
+            }
+          >
+            <Route path="charge" element={<PayPadPage session={session} />} />
+            <Route path="pay/:orderId" element={<LivePaymentPage session={session} />} />
+          </Route>
+        ) : null}
         <Route element={shell}>
           {experience === "cashier"
             ? cashierRoutes(session)
@@ -250,6 +293,7 @@ function cashierRoutes(session: Session) {
   return (
     <>
       <Route index element={<CashierHomePage session={session} />} />
+      <Route path="charge" element={<Navigate to={merchantRoute()} replace />} />
       <Route path="pay/:orderId" element={<LivePaymentPage session={session} />} />
       <Route path="shift" element={<ShiftPage session={session} />} />
       <Route path="orders/*" element={<MerchantOrdersRoutes session={session} />} />

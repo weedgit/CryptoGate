@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { PaymentOrder } from "../api";
 import { merchantRoute, platformRoute } from "../../shared/portalRouting";
+import { SharePayLink } from "../../shared/SharePayLink";
 
 type Props = {
   order: PaymentOrder | null;
@@ -19,8 +20,24 @@ export function OrderRailActions({
   cancelling,
   onCancel,
 }: Props) {
+  const canShare =
+    !isPlatform && Boolean(paymentPageUrl) && order?.status === "pending_payment";
   return (
     <div className="order-detail-page__rail-actions">
+      {canShare && order && paymentPageUrl ? (
+        <SharePayLink
+          className="order-detail-page__share"
+          url={paymentPageUrl}
+          amountLabel={
+            order.invoiceAmount && order.invoiceDenomination !== "crypto"
+              ? `${order.invoiceAmount} ${order.invoiceCurrency ?? "USD"}`
+              : `${order.payableAmount.amount} ${order.asset}`
+          }
+          merchantName={order.orgName}
+          expiresAt={order.expiresAt}
+          timeZone={order.businessTimezone}
+        />
+      ) : null}
       <div className="order-detail-page__rail-action">
         {paymentPageUrl ? (
           <a
@@ -47,8 +64,8 @@ export function OrderRailActions({
           </button>
         ) : null}
         {!isPlatform ? (
-          <Link className="order-detail-page__cta" to={merchantRoute("orders/new")}>
-            Create another payment order
+          <Link className="order-detail-page__cta" to={merchantRoute("charge")}>
+            New charge
           </Link>
         ) : order?.orgId ? (
           <Link

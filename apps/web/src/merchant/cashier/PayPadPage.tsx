@@ -7,7 +7,8 @@ import {
   type NetworkOrderabilityLamp,
   type Session,
 } from "../api";
-import { parseBlockingOrder, type BlockingOrderInfo } from "../CreateOrderModal";
+import { parseBlockingOrder, type BlockingOrderInfo } from "../blockingOrder";
+import { VALIDITY_OPTIONS } from "../matchingLabels";
 import { invalidateMerchantOrdersList } from "../merchantOrdersList";
 import { primeMerchantOrder } from "../merchantOrderDetail";
 import { primeMerchantOrderPayment } from "../merchantOrderPaymentDetails";
@@ -30,11 +31,28 @@ import { markCashierWebOrdersDisabled } from "./cashierPosPolicy";
 
 type Props = { session: Session };
 
-type Currency = "USD" | "EUR";
+/** TOKEN = charge an exact amount of the selected rail's asset (no fiat conversion). */
+type Currency = "USD" | "EUR" | "TOKEN";
 
 const RAIL_KEY = "paymentgate.cashier.rail";
 const CURRENCY_KEY = "paymentgate.cashier.currency";
 const DEFAULT_VALIDITY_SECONDS = 1800;
+
+function tokenSymbol(asset: string): string {
+  switch (asset) {
+    case "USDT":
+      return "₮";
+    case "ETH":
+      return "Ξ";
+    default:
+      return asset.slice(0, 1);
+  }
+}
+
+function readStoredCurrency(): Currency {
+  const stored = readStored(CURRENCY_KEY);
+  return stored === "EUR" || stored === "TOKEN" ? stored : "USD";
+}
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"] as const;
 
 function readStored(key: string): string | null {
@@ -76,12 +94,11 @@ export function PayPadPage({ session }: Props) {
     const fallback = defaultLivePair();
     return { asset: fallback.asset as string, network: fallback.network as string };
   });
-  const [currency, setCurrency] = useState<Currency>(() =>
-    readStored(CURRENCY_KEY) === "EUR" ? "EUR" : "USD",
-  );
+  const [currency, setCurrency] = useState<Currency>(readStoredCurrency);
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
-  const [showReference, setShowReference] = useState(false);
+  const [validitySeconds, setValiditySeconds] = useState(DEFAULT_VALIDITY_SECONDS);
+  const [showOptions, setShowOptions] = useState(false);
   const [charging, setCharging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blocking, setBlocking] = useState<BlockingOrderInfo | null>(null);
@@ -128,6 +145,14 @@ export function PayPadPage({ session }: Props) {
   const parsed = Number(amount);
   const canCharge =
     !locked && !charging && Number.isFinite(parsed) && parsed > 0;
+  const symbol =
+    currency === "TOKEN" ? tokenSymbol(rail.asset) : currency === "EUR" ? "€" : "$";
+  const optionsSummary = [
+    `${Math.round(validitySeconds / 60)} min`,
+    reference.trim() ? "reference" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   async function charge() {
     if (!canCharge) return;
@@ -141,13 +166,17 @@ export function PayPadPage({ session }: Props) {
     setBlocking(null);
     try {
       const order = await createOrder({
-        amountUsd: trimmed,
-        invoiceAmount: trimmed,
-        invoiceCurrency: currency,
-        invoiceDenomination: "fiat",
+        ...(currency === "TOKEN"
+          ? { amountCrypto: trimmed, invoiceDenomination: "crypto" as const }
+          : {
+              amountUsd: trimmed,
+              invoiceAmount: trimmed,
+              invoiceCurrency: currency,
+              invoiceDenomination: "fiat" as const,
+            }),
         asset: rail.asset,
         network: rail.network,
-        validitySeconds: DEFAULT_VALIDITY_SECONDS,
+        validitySeconds,
         merchantReference: reference.trim() || undefined,
         orgId: primaryMerchantOrgId(session),
       });
@@ -186,8 +215,8 @@ export function PayPadPage({ session }: Props) {
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
 
       <section className="cashier-pad__entry" aria-label="Amount">
-        <div className="cashier-pad__currency" role="group" aria-label="Currency">
-          {(["USD", "EUR"] as const).map((c) => (
+        <div className="cashier-pad__currency" role="group" aria-label="Charge in">
+          {(["USD", "EUR", "TOKEN"] as const).map((c) => (
             <button
               key={c}
               type="button"
@@ -195,16 +224,23 @@ export function PayPadPage({ session }: Props) {
               aria-pressed={currency === c}
               onClick={() => selectCurrency(c)}
             >
-              {c}
+              {c === "TOKEN" ? (
+                <>
+                  <AssetIcon asset={rail.asset} /> {rail.asset}
+                </>
+              ) : (
+                c
+              )}
             </button>
           ))}
         </div>
         <p className="cashier-pad__amount fund-amount" aria-live="polite">
-          <span className="cashier-pad__symbol">{currency === "EUR" ? "€" : "$"}</span>
+          <span className="cashier-pad__symbol">{symbol}</span>
           {formatPadAmount(amount)}
         </p>
         <p className="cashier-pad__rail-summary">
-          Customer pays in <AssetIcon asset={rail.asset} /> {rail.asset} ·{" "}
+          {currency === "TOKEN" ? "Customer pays exactly" : "Customer pays in"}{" "}
+          <AssetIcon asset={rail.asset} /> {rail.asset} ·{" "}
           {displayNetworkForPair(rail.asset, rail.network)}
         </p>
 
@@ -258,27 +294,65 @@ export function PayPadPage({ session }: Props) {
           })}
         </div>
 
-        {showReference ? (
-          <label className="cashier-pad__reference">
-            <span>Reference (staff only)</span>
-            <input
-              className="plat-settings__input"
-              value={reference}
-              maxLength={200}
-              placeholder="Table 4, receipt #…"
-              autoComplete="off"
-              onChange={(e) => setReference(e.target.value)}
-            />
-          </label>
-        ) : (
+        <div className={`cashier-pad__options${showOptions ? " is-open" : ""}`}>
           <button
             type="button"
-            className="cashier-pad__add-ref"
-            onClick={() => setShowReference(true)}
+            className="cashier-pad__options-toggle"
+            aria-expanded={showOptions}
+            aria-controls="cashier-pad-options"
+            onClick={() => setShowOptions((v) => !v)}
           >
-            + Add reference
+            <span>More options</span>
+            <span className="cashier-pad__options-summary">{optionsSummary}</span>
+            <span className="cashier-pad__options-chevron" aria-hidden>
+              ▾
+            </span>
           </button>
-        )}
+          {showOptions ? (
+            <div className="cashier-pad__options-body" id="cashier-pad-options">
+              <div className="cashier-pad__option">
+                <span id="cashier-pad-validity">Valid for</span>
+                <div
+                  className="cashier-pad__currency"
+                  role="radiogroup"
+                  aria-labelledby="cashier-pad-validity"
+                >
+                  {VALIDITY_OPTIONS.map((o) => (
+                    <button
+                      key={o.seconds}
+                      type="button"
+                      role="radio"
+                      aria-checked={validitySeconds === o.seconds}
+                      className={`cashier-pad__pill${
+                        validitySeconds === o.seconds ? " is-active" : ""
+                      }`}
+                      onClick={() => setValiditySeconds(o.seconds)}
+                    >
+                      {Math.round(o.seconds / 60)} min
+                    </button>
+                  ))}
+                </div>
+                {validitySeconds > DEFAULT_VALIDITY_SECONDS ? (
+                  <p className="cashier-pad__option-hint">
+                    For phone or chat orders. The same amount stays reserved until this
+                    order is paid, cancelled, or expires.
+                  </p>
+                ) : null}
+              </div>
+              <label className="cashier-pad__option">
+                <span>Reference (staff only)</span>
+                <input
+                  className="plat-settings__input"
+                  value={reference}
+                  maxLength={200}
+                  placeholder="Table 4, receipt #, phone order…"
+                  autoComplete="off"
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </label>
+            </div>
+          ) : null}
+        </div>
 
         {blocking ? (
           <aside className="cashier-pad__blocking" role="alert">
@@ -303,9 +377,7 @@ export function PayPadPage({ session }: Props) {
           disabled={!canCharge}
           onClick={() => void charge()}
         >
-          {charging
-            ? "Creating QR…"
-            : `Charge ${currency === "EUR" ? "€" : "$"}${formatPadAmount(amount)}`}
+          {charging ? "Creating QR…" : `Charge ${symbol}${formatPadAmount(amount)}`}
         </button>
       </section>
     </div>

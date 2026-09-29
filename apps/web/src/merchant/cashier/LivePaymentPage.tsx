@@ -23,6 +23,7 @@ import { anomalyExplain, orderStatusLabel } from "../orderStatus";
 import { AuthToast } from "../../auth/AuthToast";
 import { displayNetworkForPair } from "../../shared/assetNetworks";
 import { PaymentQrCanvas } from "../../shared/PaymentQrCanvas";
+import { SharePayLink } from "../../shared/SharePayLink";
 import { merchantRoute } from "../../shared/portalRouting";
 import { serverNow } from "../../shared/serverClock";
 import { AssetIcon, NetworkIcon, QrCenterNetworkMark } from "../../platform/cryptoIcons";
@@ -144,7 +145,7 @@ export function LivePaymentPage({ session }: Props) {
       <div className="cashier-live cashier-live--loading">
         <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
         <p className="muted">{error ? "Order unavailable." : "Loading payment…"}</p>
-        <Link className="btn-ghost" to={merchantRoute()}>
+        <Link className="btn-ghost" to={merchantRoute("charge")}>
           Back to Charge
         </Link>
       </div>
@@ -318,6 +319,21 @@ export function LivePaymentPage({ session }: Props) {
           <li className={phase === "paid" ? "is-done is-current" : ""}>Paid</li>
         </ol>
 
+        {phase === "waiting" && pay?.paymentPageUrl ? (
+          <SharePayLink
+            className="cashier-live__share"
+            url={pay.paymentPageUrl}
+            amountLabel={
+              invoiceAmount && order?.invoiceDenomination !== "crypto"
+                ? `${invoiceAmount} ${invoiceCurrency}`
+                : `${payable} ${asset}`
+            }
+            merchantName={pay.merchantName ?? order?.orgName}
+            expiresAt={expiresAt}
+            timeZone={pay.businessTimezone ?? order?.businessTimezone}
+          />
+        ) : null}
+
         {phase === "attention" ? (
           <p className="cashier-live__note">
             Ask a manager to review this order before completing the sale — they can
@@ -359,7 +375,7 @@ export function LivePaymentPage({ session }: Props) {
           <button
             type="button"
             className="btn-primary cashier-live__next"
-            onClick={() => navigate(merchantRoute())}
+            onClick={() => navigate(merchantRoute("charge"))}
           >
             {live ? "New sale (keep this open)" : "New sale"}
           </button>

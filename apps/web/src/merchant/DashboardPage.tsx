@@ -32,6 +32,7 @@ import { CashiersTable } from "./dashboard/CashiersTable";
 import { mergeCashierRows } from "./dashboard/cashierRows";
 import { useCashierMembers } from "./dashboard/useCashierMembers";
 import { useWorkspaceScopeOrgId } from "./workspace";
+import { sessionCanCharge } from "./org";
 import { NetworksAssetsPanel } from "./dashboard/NetworksAssetsPanel";
 import { TransactionVolumePanel } from "./dashboard/TransactionVolumePanel";
 import { platformFeeStatus } from "./dashboard/platformFeeStatus";
@@ -337,9 +338,11 @@ export function DashboardPage({ session }: Props) {
               >
                 Service Bills
               </Link>
-              <Link className="btn-primary btn-inline" to={merchantRoute("orders/new")}>
-                + Create Payment Order
-              </Link>
+              {sessionCanCharge(session) ? (
+                <Link className="btn-primary btn-inline" to={merchantRoute("charge")}>
+                  Charge
+                </Link>
+              ) : null}
             </div>,
             topbarActionsSlot,
           )

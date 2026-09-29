@@ -73,7 +73,7 @@ describe("cashier idle sign-out and receipt", () => {
     assert.equal(CASHIER_IDLE_TIMEOUT_MS, 15 * 60_000);
     assert.equal(idleRemainingMs(0, CASHIER_IDLE_TIMEOUT_MS + 1), 0);
     assert.equal(idleRemainingMs(1_000, 61_000, 120_000), 60_000);
-    assert.match(read("src/merchant/cashier/CashierShell.tsx"), /useIdleSignOut\(\{ enabled: true, onTimeout: onSignOut \}\)/);
+    assert.match(read("src/merchant/cashier/CashierShell.tsx"), /useIdleSignOut\(\{ enabled: !backTo, onTimeout: onSignOut \}\)/);
     assert.match(read("src/merchant/cashier/LivePaymentPage.tsx"), /live \? holdCashierIdle\(\) : undefined/);
   });
 

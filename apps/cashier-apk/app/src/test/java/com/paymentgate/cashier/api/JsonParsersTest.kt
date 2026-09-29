@@ -67,6 +67,38 @@ class JsonParsersTest {
     }
 
     @Test
+    fun createOrderJsonChargesFiatByDefault() {
+        val obj = JSONObject(JsonParsers.createOrderRequestJson("25.00", "USDT", "tron", 1800))
+        assertEquals("25.00", obj.getString("invoiceAmount"))
+        assertEquals("USD", obj.getString("invoiceCurrency"))
+        assertEquals("fiat", obj.getString("invoiceDenomination"))
+        assertFalse(obj.has("amountCrypto"))
+    }
+
+    @Test
+    fun createOrderJsonChargesEur() {
+        val obj =
+            JSONObject(
+                JsonParsers.createOrderRequestJson("25.00", "USDT", "tron", 1800, null, ChargeCurrency.EUR),
+            )
+        assertEquals("EUR", obj.getString("invoiceCurrency"))
+        assertEquals("fiat", obj.getString("invoiceDenomination"))
+    }
+
+    @Test
+    fun createOrderJsonChargesExactToken() {
+        val obj =
+            JSONObject(
+                JsonParsers.createOrderRequestJson("0.015", "ETH", "ethereum", 3600, null, ChargeCurrency.TOKEN),
+            )
+        assertEquals("0.015", obj.getString("amountCrypto"))
+        assertEquals("crypto", obj.getString("invoiceDenomination"))
+        assertFalse(obj.has("amount"))
+        assertFalse(obj.has("invoiceCurrency"))
+        assertEquals(3600, obj.getInt("validitySeconds"))
+    }
+
+    @Test
     fun createOrderJsonIncludesMerchantReferenceWhenSet() {
         val json =
             JsonParsers.createOrderRequestJson(

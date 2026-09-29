@@ -924,7 +924,7 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 | --- | --- | --- | --- | --- |
 | Dashboard | ✓ | ✓ | R | ✓ (limited) |
 | Payment orders / Invoice | ✓ | ✓ | R | own only |
-| Create payment order (C: **Charge**) | ✓ | ✓ | — | ✓ |
+| **Charge** (one page, D4) | ✓ | ✓ | — | ✓ |
 | Service bills | ✓ | R | R | — |
 | Sites | ✓ parent only | ✓ | R | — |
 | Reports | ✓ | ✓ | R | — |
@@ -934,7 +934,7 @@ Applies to **merchant account** (parent) and **merchant (site) account** context
 
 Cashier terminal (no sidebar — top-bar tabs): **Charge** (amount keypad → `Charge $25.00`), **My shift** (own orders today), **Orders**, Sign out — **no Settings, Team, API, Service bills.** POS-only merchants hide **Charge**; the index shows **My shift**.
 
-**Create action naming:** Cashier terminal / APK = **Charge** (POS convention; button shows the amount). Merchant web O/A = **Create payment order** (full form + Confirm panel). Lists / detail = **Invoice**. Do not use “Create invoice” as a button or nav label.
+**Create action naming:** **Charge** everywhere (cashier terminal, APK, merchant portal button, invoice list); the button on the pad shows the amount. Merchant O/A open the same Charge page (D4) with **← Back to portal**. Lists / detail = **Invoice**. Do not use “Create invoice” as a button or nav label.
 
 ---
 
@@ -982,7 +982,7 @@ Cashier terminal (no sidebar — top-bar tabs): **Charge** (amount keypad → `C
 
 Invoice (# + reference) · Merchant & Cashier (site-only label for cashier variant) · Amount (USD) · Asset & Network · Status · Created
 
-**Empty state:** “No invoices”; **Create payment order** when permitted (cashier: **Charge**)
+**Empty state:** “No invoices”; **Charge** when permitted
 
 ---
 
@@ -1025,30 +1025,34 @@ Invoice (# + reference) · Merchant & Cashier (site-only label for cashier varia
 
 ---
 
-### D4. Create payment order
+### D4. Charge (one page for merchant, site and cashier)
 
 | | |
 | --- | --- |
-| **Route** | `/merchant/orders/new` |
-| **Access** | O ✓ · A ✓ · C ✓ |
+| **Route** | `/merchant/charge` (cashier: terminal index `/merchant`); `/merchant/orders/new` redirects here |
+| **Access** | O ✓ · A ✓ · C ✓ · Viewer ✗ (redirect to portal) |
+| **Shell** | Full-screen Charge terminal (same as cashier). O/A see **← Back to portal** and a single **Charge** tab; no idle sign-out |
 
-**Form fields**
+There is no create-order popup. Owners, administrators and cashiers use the same page with the same information. Orders are created for the **active site / workspace**.
 
-- Amount (fiat or crypto display per product decision)
-- Asset (dropdown — enabled only)
-- Network (dropdown — filtered by asset)
-- Validity period (preset: 15m / 30m / 1h / custom)
-- **Merchant reference** (optional, max 200 — PO / table / internal “for what”; stored on order, shown on invoice + CSV)
-- Site (if parent merchant creating for a site)
-- Optional metadata: customer label (internal, via merchantMetadata when needed)
+**Main fields**
 
-**Read-only info shown before submit**
+- Pay-with asset + network pills
+- **Charge in**: $ USD · € EUR · token (token = customer pays exactly that crypto amount)
+- Amount keypad → **Charge $amount**
 
-- Matching mode in effect (merchant default): Standard / Amount fingerprint / Smart address
-- Mode C note: “Payable amount may differ (fingerprint)”
-- Settlement preview: address type main vs derived (after create)
+**More options** (collapsed, all roles)
 
-**Submit** → D3 with success + show QR immediately
+- **Valid for** 15 / 30 / 60 min (default 30). Above 30 min, show the hint for phone / chat orders: the same amount stays reserved (Standard matching) until paid, cancelled or expired
+- **Reference** (staff only, max 200 — PO / table / internal “for what”; stored on order, shown on invoice + CSV)
+
+**Submit** → live payment screen (QR + network logo, With amount / Address only)
+
+**Send payment link** (live screen while waiting, and order detail while `pending_payment`; hidden in Customer view)
+
+- **Share link** (system share sheet, when the browser supports it) · **Copy link**
+- WhatsApp · Telegram · Email · SMS — message: “Pay {amount} to {merchant} (valid until HH:MM): {payment page URL}”
+- Use case: cashier takes an order by phone, email or chat and sends the guest payment page
 
 **Validation errors**
 
@@ -1434,12 +1438,16 @@ Cashier role only. Kotlin native preferred.
 
 ### G3. Charge
 
+Same fields as the web Charge page (D4).
+
 - Amount keypad
+- **Charge in**: $ USD · € EUR · token (default USD; token = customer pays exactly that amount). Request sends `invoiceDenomination` explicitly
 - Asset picker (merchant-enabled list)
 - Network picker
-- Validity (merchant default or presets)
-- **Merchant reference** (optional — PO / table / check #; max 200)
+- **More options**: Valid for 15 / 30 / 60 min (default 30); hint above 30 min for phone / chat orders
+- **Merchant reference** via **Add note** (optional — PO / table / check #; max 200)
 - **Charge $amount** (button shows the amount) → G4
+- G4 and pending order detail: **Send payment link** opens the Android share sheet (WhatsApp, Telegram, email, SMS…) with the same message as the web
 
 **Mode B same-amount create lock**
 
@@ -1637,6 +1645,7 @@ Use: **Invoice** (guest payment order), **payment order** (API/domain), **servic
 | Date | Change |
 | --- | --- |
 | 2026-09-28 | Create-action naming: cashier terminal / APK **Charge**; merchant web **Create payment order**; retire “Create invoice” label. Cashier nav = Charge · My shift · Orders |
+| 2026-09-28 | One Charge page (D4) for merchant, site and cashier; create-order popup removed; O/A get **← Back to portal**; More options (valid for, reference) for all roles; **Send payment link** (share / copy / WhatsApp / Telegram / Email / SMS) on live screen + pending order detail. APK (G3): Charge in USD / EUR / token, More options (15/30/60), Send payment link via Android share sheet |
 | 2026-09-26 | Messages: banners removed — open conditions → dock alerts, results → single toast, role → sidebar role & permissions card, profile → top bar (all portals) |
 | 2026-09-25 | UI: payment_anomaly shown as **Attention** (API status unchanged) |
 | 2026-09-25 | Invoice scale: platform-wide All ≤7d; Completed/Closed ≤31d; large-set hint; ops default period 30d |

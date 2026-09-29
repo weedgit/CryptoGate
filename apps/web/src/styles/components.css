@@ -364,8 +364,7 @@
   .org-architecture__select,
   .org-architecture__select--topbar,
   .plat-issue-bill__form--modal select.field-control,
-  .b7-override-modal__field select,
-  .create-order-page__form select.field-control
+  .b7-override-modal__field select
 ) {
   appearance: none;
   -webkit-appearance: none;
@@ -377,7 +376,6 @@
 
 .field select,
 select.field-control,
-.create-order-page__form select.field-control,
 .reports-filter select,
 .settings-filter select {
   background:
@@ -2027,4 +2025,78 @@ html[data-theme="light"] .tz-prompt__close:hover {
     right: 16px;
     bottom: 16px;
   }
+}
+
+/* Send guest payment link — live payment screen + order detail */
+.share-pay-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.share-pay-link__label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.share-pay-link__main {
+  display: flex;
+  gap: 8px;
+}
+
+.share-pay-link__btn {
+  flex: 1;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong, var(--border));
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-pay-link__btn--primary {
+  border-color: transparent;
+  background: var(--accent, #00d4c8);
+  color: #0b0f14;
+}
+
+.share-pay-link__btn:hover {
+  filter: brightness(1.06);
+}
+
+.share-pay-link__apps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.share-pay-link__app {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.share-pay-link__app:hover {
+  border-color: var(--accent, #00d4c8);
 }

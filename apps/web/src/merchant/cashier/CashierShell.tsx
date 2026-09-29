@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { AlertsDrawer } from "../../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../../shared/AlertsBellButton";
 import { ThemeToggleButton } from "../../shared/ThemeToggleButton";
@@ -31,6 +31,8 @@ type Props = {
   children: ReactNode;
   onSignOut: () => void;
   onSessionRefresh?: (session: Session) => void;
+  /** Merchant / site staff using the terminal: show "Back to portal" and skip kiosk idle sign-out. */
+  backTo?: string;
 };
 
 const TABS = [
@@ -45,11 +47,20 @@ const POS_ONLY_TABS = [
   { to: merchantRoute("orders"), label: "Orders", end: false },
 ];
 
+/** Back-office staff on the terminal: Charge only — Orders live in the portal. */
+const PORTAL_TABS = [{ to: merchantRoute("charge"), label: "Charge", end: false }];
+
 /**
  * Cashier terminal chrome — no sidebar. Tablet-first: one top bar with
  * large tabs; owner/admin settings and billing never appear here.
  */
-export function CashierShell({ session, children, onSignOut, onSessionRefresh }: Props) {
+export function CashierShell({
+  session,
+  children,
+  onSignOut,
+  onSessionRefresh,
+  backTo,
+}: Props) {
   const orgId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -60,9 +71,9 @@ export function CashierShell({ session, children, onSignOut, onSessionRefresh }:
   );
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const webOrdersAllowed = useCashierWebOrders(orgId);
-  const tabs = webOrdersAllowed === false ? POS_ONLY_TABS : TABS;
-  const idle = useIdleSignOut({ enabled: true, onTimeout: onSignOut });
+  const webOrdersAllowed = useCashierWebOrders(backTo ? null : orgId);
+  const tabs = backTo ? PORTAL_TABS : webOrdersAllowed === false ? POS_ONLY_TABS : TABS;
+  const idle = useIdleSignOut({ enabled: !backTo, onTimeout: onSignOut });
 
 
   useEffect(() => {
@@ -107,16 +118,23 @@ export function CashierShell({ session, children, onSignOut, onSessionRefresh }:
     if (alertsOpen) void refreshMerchantAlerts(sessionRef.current);
   }, [alertsOpen]);
 
-  const brandName = org?.name ?? "Cashier";
+  const brandName = org?.name ?? (backTo ? "Merchant" : "Cashier");
 
   return (
     <div className="shell merchant-shell platform-shell cashier-shell">
       <header className="cashier-shell__bar">
+        {backTo ? (
+          <Link className="cashier-shell__back" to={backTo}>
+            <span aria-hidden>←</span> Back to portal
+          </Link>
+        ) : null}
         <div className="cashier-shell__brand">
           <OrgBrandMark name={brandName} iconKey={org?.iconKey} size={40} />
           <div className="cashier-shell__brand-copy">
             <p className="cashier-shell__org">{brandName}</p>
-            <span className="cashier-shell__tagline">Cashier terminal</span>
+            <span className="cashier-shell__tagline">
+              {backTo ? "Charge terminal" : "Cashier terminal"}
+            </span>
           </div>
         </div>
         <nav className="cashier-shell__tabs" aria-label="Cashier">

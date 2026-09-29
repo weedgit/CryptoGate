@@ -152,6 +152,7 @@ class PaymentGateClient(
         network: String = OrderDefaults.NETWORK,
         validitySeconds: Int = OrderDefaults.VALIDITY_SECONDS,
         merchantReference: String? = null,
+        chargeIn: ChargeCurrency = ChargeCurrency.USD,
         idempotencyKey: String = newIdempotencyKey(),
     ): PaymentOrder =
         withContext(Dispatchers.IO) {
@@ -165,6 +166,7 @@ class PaymentGateClient(
                         network,
                         validitySeconds,
                         merchantReference,
+                        chargeIn,
                     ).toRequestBody(jsonMedia),
                 )
                 .header("Accept", "application/json")

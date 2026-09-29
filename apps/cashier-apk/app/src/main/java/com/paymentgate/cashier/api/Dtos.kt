@@ -83,10 +83,17 @@ data class PaymentDetails(
     val businessTimezone: String? = null,
 )
 
+/** What the typed amount means: a fiat invoice converted at the live rate, or the exact token amount. */
+enum class ChargeCurrency(val symbol: String) {
+    USD("$"),
+    EUR("€"),
+    TOKEN(""),
+}
+
 object OrderDefaults {
     const val ASSET = "USDT"
     const val NETWORK = "tron"
-    const val VALIDITY_SECONDS = 900
+    const val VALIDITY_SECONDS = 1800
 }
 
 object SessionRules {

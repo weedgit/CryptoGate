@@ -75,6 +75,13 @@ export function sessionIsCashierOnly(session: Session): boolean {
   return session.memberships.every((m) => m.role === "cashier");
 }
 
+/** Owner, Administrator, and Cashier take payments; Viewers are read-only. */
+export function sessionCanCharge(session: Session): boolean {
+  return session.memberships.some((m) =>
+    ["owner", "administrator", "cashier"].includes(m.role),
+  );
+}
+
 export function sessionRoleOnOrg(session: Session, orgId: string): string | null {
   return session.memberships.find((m) => m.orgId === orgId)?.role ?? null;
 }

@@ -254,7 +254,7 @@ describe("merchant portal experiences", () => {
       assert.match(read(shell), /menuExtra=\{\(close\) => <WorkspaceMenuSection/);
     }
     assert.match(read("src/merchant/cashier/PayPadPage.tsx"), /orgId: primaryMerchantOrgId\(session\)/);
-    assert.match(read("src/merchant/MerchantOrdersRoutes.tsx"), /orgId=\{primaryMerchantOrgId\(session\)\}/);
+    assert.match(read("src/merchant/MerchantOrdersRoutes.tsx"), /<Navigate to=\{merchantRoute\("charge"\)\} replace \/>/);
     for (const page of ["src/merchant/DashboardPage.tsx", "src/merchant/SiteHomePage.tsx"]) {
       assert.match(read(page), /useWorkspaceScopeOrgId\(/);
     }

@@ -85,9 +85,18 @@ object JsonParsers {
         network: String,
         validitySeconds: Int,
         merchantReference: String? = null,
+        chargeIn: ChargeCurrency = ChargeCurrency.USD,
     ): String {
         val o = JSONObject()
-        o.put("amount", amount)
+        if (chargeIn == ChargeCurrency.TOKEN) {
+            o.put("amountCrypto", amount)
+            o.put("invoiceDenomination", "crypto")
+        } else {
+            o.put("amount", amount)
+            o.put("invoiceAmount", amount)
+            o.put("invoiceCurrency", chargeIn.name)
+            o.put("invoiceDenomination", "fiat")
+        }
         o.put("asset", asset)
         o.put("network", network)
         o.put("validitySeconds", validitySeconds)

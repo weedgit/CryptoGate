@@ -25,6 +25,7 @@ import com.paymentgate.cashier.api.AssetNetworkCatalog
 import com.paymentgate.cashier.api.BlockingOrder
 import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.CashierPosSurface
+import com.paymentgate.cashier.api.ChargeCurrency
 import com.paymentgate.cashier.api.JsonParsers
 import com.paymentgate.cashier.api.NetworkReachability
 import com.paymentgate.cashier.api.OrderDefaults
@@ -110,6 +111,7 @@ class MainActivity : ComponentActivity() {
                     var network by remember { mutableStateOf(defaultPair.network) }
                     var merchantReference by remember { mutableStateOf("") }
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
+                    var chargeIn by remember { mutableStateOf(ChargeCurrency.USD) }
                     var payment by remember { mutableStateOf<PaymentDetails?>(null) }
                     var watchingOrderId by remember { mutableStateOf<String?>(null) }
                     var qrMode by remember(watchingOrderId) { mutableStateOf(QrMode.WithAmount) }
@@ -483,6 +485,12 @@ class MainActivity : ComponentActivity() {
                                                         chainEnv = chainEnv,
                                                         merchantReference = merchantReference,
                                                         validitySeconds = validitySeconds,
+                                                        chargeIn = chargeIn,
+                                                        onChargeInChange = {
+                                                            chargeIn = it
+                                                            error = null
+                                                            blockingOrder = null
+                                                        },
                                                         error = error,
                                                         loading = loading,
                                                         online = online,
@@ -556,6 +564,7 @@ class MainActivity : ComponentActivity() {
                                                                             merchantReference =
                                                                                 merchantReference.trim()
                                                                                     .ifEmpty { null },
+                                                                            chargeIn = chargeIn,
                                                                         )
                                                                     payment = app.api.getPaymentDetails(order.id)
                                                                     watchingOrderId = order.id
@@ -815,6 +824,7 @@ class MainActivity : ComponentActivity() {
                                                                     validitySeconds = validitySeconds,
                                                                     merchantReference =
                                                                         merchantReference.trim().ifEmpty { null },
+                                                                    chargeIn = ChargeCurrency.TOKEN,
                                                                 )
                                                             payment = app.api.getPaymentDetails(order.id)
                                                             watchingOrderId = order.id
