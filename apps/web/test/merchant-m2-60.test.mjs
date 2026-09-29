@@ -566,7 +566,7 @@ describe("Charge page (merchant + cashier)", () => {
     assert.match(app, /const backTo = useChargeReturnTo\(\);/);
     for (const file of [
       "src/merchant/SiteHomePage.tsx",
-      "src/merchant/orderDetail/OrderRailActions.tsx",
+      "src/merchant/orderDetail/OrderDetailHeader.tsx",
       "src/shared/invoiceList/InvoiceListHeader.tsx",
     ]) {
       const src = readFileSync(join(root, file), "utf8");
@@ -592,11 +592,16 @@ describe("Charge page (merchant + cashier)", () => {
     assert.match(share, /https:\/\/t\.me\/share\/url/);
     assert.match(share, /mailto:/);
     assert.match(share, /sms:/);
+    assert.match(share, /share-pay-link__url-text/);
+    assert.match(share, /Open link/);
+    assert.doesNotMatch(share, />\s*Copy link\s*</);
     const live = readFileSync(join(root, "src/merchant/cashier/LivePaymentPage.tsx"), "utf8");
     assert.match(live, /phase === "waiting" && pay\?\.paymentPageUrl \? \(\s*<SharePayLink/);
+    const head = readFileSync(join(root, "src/merchant/orderDetail/OrderDetailHeader.tsx"), "utf8");
+    assert.match(head, /<SharePayLink/);
+    assert.match(head, /order\.status === "pending_payment"/);
     const rail = readFileSync(join(root, "src/merchant/orderDetail/OrderRailActions.tsx"), "utf8");
-    assert.match(rail, /order\?\.status === "pending_payment"/);
-    assert.match(rail, /<SharePayLink/);
+    assert.doesNotMatch(rail, /<SharePayLink/);
   });
 
   it("explains Standard matching in plain words", () => {

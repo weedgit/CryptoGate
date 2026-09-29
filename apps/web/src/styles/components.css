@@ -2043,6 +2043,53 @@ html[data-theme="light"] .tz-prompt__close:hover {
   color: var(--muted);
 }
 
+.share-pay-link__url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 6px 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.share-pay-link__url-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.share-pay-link__url-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.share-pay-link__url-copy:hover {
+  color: var(--text);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.share-pay-link__url-copy.is-copied {
+  color: var(--accent, #00d4c8);
+}
+
 .share-pay-link__main {
   display: flex;
   gap: 8px;
@@ -2063,6 +2110,7 @@ html[data-theme="light"] .tz-prompt__close:hover {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -2077,12 +2125,12 @@ html[data-theme="light"] .tz-prompt__close:hover {
 }
 
 .share-pay-link__apps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 6px;
 }
 
 .share-pay-link__app {
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -39,6 +39,13 @@ const CheckIcon = () => (
   </LineIcon>
 );
 
+const OpenIcon = () => (
+  <LineIcon>
+    <path d="M14 4h6v6M20 4l-9 9" />
+    <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+  </LineIcon>
+);
+
 const MailIcon = () => (
   <LineIcon>
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -158,6 +165,20 @@ export function SharePayLink({ className, ...props }: Props) {
   return (
     <div className={`share-pay-link${className ? ` ${className}` : ""}`}>
       <p className="share-pay-link__label">Send payment link</p>
+      <div className="share-pay-link__url">
+        <span className="share-pay-link__url-text" title={props.url}>
+          {props.url}
+        </span>
+        <button
+          type="button"
+          className={`share-pay-link__url-copy${copied ? " is-copied" : ""}`}
+          onClick={() => void copy()}
+          aria-label={copied ? "Link copied" : "Copy link"}
+          title={copied ? "Copied" : "Copy link"}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </button>
+      </div>
       <div className="share-pay-link__main">
         {canShare ? (
           <button
@@ -169,19 +190,10 @@ export function SharePayLink({ className, ...props }: Props) {
             Share link
           </button>
         ) : null}
-        <button type="button" className="share-pay-link__btn" onClick={() => void copy()}>
-          {copied ? (
-            <>
-              <CheckIcon />
-              Copied
-            </>
-          ) : (
-            <>
-              <CopyIcon />
-              Copy link
-            </>
-          )}
-        </button>
+        <a className="share-pay-link__btn" href={props.url} target="_blank" rel="noreferrer">
+          <OpenIcon />
+          Open link
+        </a>
       </div>
       <div className="share-pay-link__apps">
         {links.map((l) => (

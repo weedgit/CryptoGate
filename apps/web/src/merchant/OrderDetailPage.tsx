@@ -120,6 +120,7 @@ export function OrderDetailPage({
         backLabel={backLabel}
         isPlatform={isPlatform}
         order={order}
+        paymentPageUrl={pay?.paymentPageUrl}
         view={view}
       />
 
@@ -180,7 +181,6 @@ export function OrderDetailPage({
 
           <OrderRailActions
             order={order}
-            paymentPageUrl={pay?.paymentPageUrl}
             isPlatform={isPlatform}
             showCancel={showCancel}
             cancelling={cancelling}

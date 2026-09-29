@@ -1,12 +1,29 @@
 import { Link } from "react-router-dom";
 import type { PaymentOrder } from "../api";
-import { merchantRoute, platformRoute } from "../../shared/portalRouting";
-import { SharePayLink } from "../../shared/SharePayLink";
-import { ChargeLink } from "../chargeLink";
+import { platformRoute } from "../../shared/portalRouting";
+
+function ActionIcon({ d }: { d: string }) {
+  return (
+    <svg
+      className="order-detail-page__action-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+const ICON_CANCEL = "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M9 9l6 6M15 9l-6 6";
+const ICON_STORE = "M4 10v10h16V10M3 10l2-6h14l2 6M3 10h18M10 20v-5h4v5";
 
 type Props = {
   order: PaymentOrder | null;
-  paymentPageUrl: string | null | undefined;
   isPlatform: boolean;
   showCancel: boolean;
   cancelling: boolean;
@@ -15,44 +32,15 @@ type Props = {
 
 export function OrderRailActions({
   order,
-  paymentPageUrl,
   isPlatform,
   showCancel,
   cancelling,
   onCancel,
 }: Props) {
-  const canShare =
-    !isPlatform && Boolean(paymentPageUrl) && order?.status === "pending_payment";
+  const openMerchant = isPlatform && order?.orgId;
+  if (!showCancel && !openMerchant) return null;
   return (
     <div className="order-detail-page__rail-actions">
-      {canShare && order && paymentPageUrl ? (
-        <SharePayLink
-          className="order-detail-page__share"
-          url={paymentPageUrl}
-          amountLabel={
-            order.invoiceAmount && order.invoiceDenomination !== "crypto"
-              ? `${order.invoiceAmount} ${order.invoiceCurrency ?? "USD"}`
-              : `${order.payableAmount.amount} ${order.asset}`
-          }
-          merchantName={order.orgName}
-          expiresAt={order.expiresAt}
-          timeZone={order.businessTimezone}
-        />
-      ) : null}
-      <div className="order-detail-page__rail-action">
-        {paymentPageUrl ? (
-          <a
-            href={paymentPageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="order-detail-gateway__guest-btn"
-          >
-            Open guest payment page
-          </a>
-        ) : (
-          <span className="order-detail-page__rail-action-spacer" aria-hidden />
-        )}
-      </div>
       <div className="order-detail-page__rail-action order-detail-page__foot">
         {showCancel ? (
           <button
@@ -61,23 +49,19 @@ export function OrderRailActions({
             disabled={cancelling}
             onClick={onCancel}
           >
+            <ActionIcon d={ICON_CANCEL} />
             {cancelling ? "Cancelling…" : "Cancel pending order"}
           </button>
         ) : null}
-        {!isPlatform ? (
-          <ChargeLink className="order-detail-page__cta">New charge</ChargeLink>
-        ) : order?.orgId ? (
+        {openMerchant ? (
           <Link
             className="order-detail-page__cta"
             to={platformRoute(`accounts/merchants/${order.orgId}`)}
           >
+            <ActionIcon d={ICON_STORE} />
             Open merchant
           </Link>
-        ) : (
-          <Link className="order-detail-page__cta" to={platformRoute("invoices")}>
-            Back to support
-          </Link>
-        )}
+        ) : null}
       </div>
     </div>
   );

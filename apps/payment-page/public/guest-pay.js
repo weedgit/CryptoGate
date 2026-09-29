@@ -68,29 +68,10 @@ const TERMINAL_STATUSES = new Set([
   "invalid",
 ]);
 
-const statusCopy = {
-  pending_payment: "Pending Payment",
-  pending: "Pending Payment",
-  verifying: "Verifying",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  expired: "Expired",
-  payment_anomaly: "Attention",
-  anomaly: "Attention",
-  failed: "Failed",
-  cancelled: "Failed",
-  invalid: "Invalid link",
-  maintenance: "Network unavailable",
-};
-
-const amountLabelEl = document.getElementById("amount-label");
 const amountEl = document.getElementById("amount");
 const amountValueEl = document.getElementById("amount-value");
 const amountAssetEl = document.getElementById("amount-asset");
 const amountCopyEl = document.getElementById("amount-copy");
-const invoiceLabelEl = document.getElementById("invoice-label");
-const invoiceUsdEl = document.getElementById("invoice-usd");
-const rateEvidenceEl = document.getElementById("rate-evidence");
 const networkEl = document.getElementById("network");
 const assetMarkEl = document.getElementById("asset-mark");
 const networkMarkEl = document.getElementById("network-mark");
@@ -99,21 +80,18 @@ const expiresEl = document.getElementById("expires");
 const timerCardEl = document.getElementById("timer-card");
 const timerLabelEl = document.getElementById("timer-label");
 const exactWarn = document.getElementById("exact-warn");
-const networkWarn = document.getElementById("network-warn");
 const memoWarn = document.getElementById("memo-warn");
-const statusEl = document.getElementById("status");
 const orderRefEl = document.getElementById("order-ref");
 const confirmTrackEl = document.getElementById("confirm-track");
 const confirmCountEl = document.getElementById("confirm-count");
 const confirmNoteEl = document.getElementById("confirm-note");
-const payFlowEl = document.getElementById("pay-flow");
 const payProgressEl = document.getElementById("pay-progress");
 const mainEl = document.querySelector(".pay");
 const qrEl = document.getElementById("qr");
 const qrMarkEl = document.getElementById("qr-mark");
+const qrStampEl = document.getElementById("qr-stamp");
 const addressMarkEl = document.getElementById("address-mark");
 const sourceEl = document.getElementById("source-banner");
-const shareBtn = document.getElementById("share-link");
 const qrModeEl = document.getElementById("qr-mode");
 const amountCopyBtn = document.querySelector('[data-copy="amount-copy"]');
 const addressCopyBtn = document.querySelector('[data-copy="address"]');
@@ -135,7 +113,6 @@ function resolveOrderId() {
 const orderId = resolveOrderId();
 
 /** @type {string} */
-let shareUrl = "";
 
 function markPayReady() {
   document.documentElement.dataset.payReady = "1";
@@ -511,12 +488,6 @@ function renderQrMark(network, visible) {
   qrMarkEl.innerHTML = qrMarkHtml(network);
 }
 
-function setShareUrl(url) {
-  shareUrl = url || "";
-  if (!shareBtn) return;
-  shareBtn.disabled = !shareUrl;
-}
-
 /**
  * Prefer HTTPS pay page so camera scan shows amount + asset.
  * Falls back to API qrPayload, then current page.
@@ -568,6 +539,35 @@ function refreshQrFromMode() {
   }
 }
 
+const QR_STAMPS = {
+  completed: ["Paid", "ok"],
+  confirmed: ["Paid", "ok"],
+  verifying: ["Confirming", "live"],
+  expired: ["Expired", "muted"],
+  anomaly: ["Under review", "warn"],
+  invalid: ["Invalid link", "muted"],
+  maintenance: ["Paused", "muted"],
+};
+
+/** Result stamp over the QR; hidden while the order is open for payment. */
+function setQrStamp(state, status) {
+  if (!qrStampEl) return;
+  const stamp =
+    state === "failed"
+      ? [status === "cancelled" ? "Cancelled" : "Failed", "bad"]
+      : QR_STAMPS[state];
+  if (!stamp) {
+    qrStampEl.hidden = true;
+    qrStampEl.textContent = "";
+    delete qrStampEl.dataset.tone;
+    return;
+  }
+  qrStampEl.textContent = stamp[0];
+  qrStampEl.dataset.tone = stamp[1];
+  qrStampEl.dataset.long = stamp[0].length > 7 ? "1" : "0";
+  qrStampEl.hidden = false;
+}
+
 function setQrModeVisible(state) {
   if (!qrModeEl) return;
   const hide =
@@ -578,14 +578,6 @@ function setQrModeVisible(state) {
     state === "anomaly" ||
     state === "invalid";
   qrModeEl.hidden = hide;
-}
-
-function flowStepIndex(status, hasTx) {
-  const state = uiState(status);
-  if (state === "completed" || state === "confirmed") return 3;
-  if (state === "verifying") return 2;
-  if (hasTx) return 1;
-  return 0;
 }
 
 function confirmationEtaLabel(network, total) {
@@ -617,7 +609,7 @@ function confirmationNote(state, filled, total, network) {
     return "Payment seen but needs merchant review";
   }
   if (state === "expired") {
-    return "This order is no longer open. A late on-chain send will not auto-complete — contact the merchant if you already paid.";
+    return "";
   }
   if (state === "failed" || state === "invalid") {
     return "No further confirmations for this order";
@@ -639,6 +631,7 @@ function paintConfirmations(view, state) {
 
   confirmCountEl.textContent = `${filled} / ${total}`;
   confirmNoteEl.textContent = confirmationNote(state, filled, total, view.network);
+  confirmNoteEl.hidden = !confirmNoteEl.textContent;
   confirmTrackEl.setAttribute("aria-valuenow", String(filled));
   confirmTrackEl.setAttribute("aria-valuemax", String(total));
   confirmTrackEl.setAttribute(
@@ -675,29 +668,10 @@ function paintConfirmations(view, state) {
   }
 }
 
-function paintFlow(view, state) {
-  if (!payFlowEl) return;
-  const current = flowStepIndex(view.status, Boolean(view.txHash));
-  const items = payFlowEl.querySelectorAll(":scope > li");
-  items.forEach((li, index) => {
-    li.classList.remove("is-reached", "is-current", "is-ahead");
-    if (index < current) li.classList.add("is-reached");
-    else if (index === current) li.classList.add("is-reached", "is-current");
-    else li.classList.add("is-ahead");
-  });
-  payFlowEl.classList.toggle("is-flowing", state === "verifying");
-  payFlowEl.classList.toggle(
-    "is-done",
-    state === "completed" || state === "confirmed",
-  );
-  payFlowEl.setAttribute("aria-label", `Payment step ${current + 1} of 4`);
-}
-
 function paintProgress(view) {
   if (!payProgressEl) return;
   const state = uiState(view.status);
   paintConfirmations(view, state);
-  paintFlow(view, state);
   payProgressEl.dataset.state = state;
 }
 
@@ -711,54 +685,8 @@ function paint(view) {
     view.memoSupported &&
     Boolean(view.memoOrTag || view.memoWarning);
 
-  if (amountLabelEl) {
-    amountLabelEl.textContent = isModeC ? "Exact payable" : "Pay";
-  }
   if (view.merchantName) {
     document.title = `Pay · ${view.merchantName}`;
-  }
-  if (invoiceUsdEl && invoiceLabelEl) {
-    if (view.invoiceAmountUsd) {
-      invoiceLabelEl.hidden = false;
-      invoiceUsdEl.hidden = false;
-      invoiceUsdEl.textContent = `$${view.invoiceAmountUsd} USD`;
-    } else {
-      invoiceLabelEl.hidden = true;
-      invoiceUsdEl.hidden = true;
-      invoiceUsdEl.textContent = "";
-    }
-  }
-  if (rateEvidenceEl) {
-    if (view.pricingRate) {
-      const bits = [`1 ${view.asset} = $${view.pricingRate}`];
-      if (view.rateSource) bits.push(view.rateSource);
-      if (view.pricingMode) bits.push(view.pricingMode);
-      if (view.referenceRate) {
-        bits.push(
-          `ref $${view.referenceRate}${
-            view.referenceSource ? ` (${view.referenceSource})` : ""
-          }`,
-        );
-      }
-      if (view.rateWarning) bits.push(view.rateWarning);
-      if (view.quoteExpiresAt && view.status === "pending_payment") {
-        const left = remainingSeconds(view.quoteExpiresAt);
-        if (left > 0) {
-          const m = Math.floor(left / 60);
-          const s = left % 60;
-          bits.push(
-            `quote ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
-          );
-        } else {
-          bits.push("quote expired");
-        }
-      }
-      rateEvidenceEl.hidden = false;
-      rateEvidenceEl.textContent = bits.join(" · ");
-    } else {
-      rateEvidenceEl.hidden = true;
-      rateEvidenceEl.textContent = "";
-    }
   }
   if (amountValueEl) amountValueEl.textContent = view.payableAmount;
   if (amountAssetEl) amountAssetEl.textContent = view.asset;
@@ -789,11 +717,6 @@ function paint(view) {
   }
   renderAddressMark(view.network);
   if (orderRefEl) orderRefEl.textContent = view.orderNumber;
-  if (networkWarn) {
-    const warning = String(view.wrongNetworkWarning || "").trim();
-    networkWarn.hidden = !warning;
-    if (warning) networkWarn.textContent = warning;
-  }
   if (exactWarn) {
     exactWarn.hidden = !isModeC;
     if (isModeC) {
@@ -813,24 +736,13 @@ function paint(view) {
     mainEl.dataset.state = state === "pending" ? "pending" : state;
     mainEl.dataset.mode = mode;
   }
-  if (statusEl) {
-    const base =
-      statusCopy[view.status] || statusCopy[state] || statusCopy.pending;
-    statusEl.textContent =
-      state === "anomaly" && view.anomalyReason
-        ? `${base} · ${String(view.anomalyReason).replace(/_/g, " ")}`
-        : base;
-  }
+  setQrStamp(state, view.status);
   if (mainEl) {
     mainEl.dataset.pollState = state;
   }
-  setShareUrl(
-    view.paymentPageUrl ||
-      (orderId ? `${location.origin}/pay/${encodeURIComponent(orderId)}` : ""),
-  );
   currentView = {
     ...view,
-    paymentPageUrl: shareUrl || view.paymentPageUrl,
+    paymentPageUrl: view.paymentPageUrl,
   };
   currentUiState = state;
   syncQrModeUi();
@@ -921,10 +833,10 @@ function tick(remaining, state) {
     if (timerLabelEl) timerLabelEl.textContent = "Status";
     expiresEl.textContent = "Expired";
     if (mainEl) mainEl.dataset.state = "expired";
-    if (statusEl) statusEl.textContent = statusCopy.expired;
+    setQrStamp("expired", "expired");
     if (confirmNoteEl) {
-      confirmNoteEl.textContent =
-        "This order is no longer open. A late on-chain send will not auto-complete — contact the merchant if you already paid.";
+      confirmNoteEl.textContent = "";
+      confirmNoteEl.hidden = true;
     }
     setTimerTone(0, "expired");
     return;
@@ -936,20 +848,15 @@ function tick(remaining, state) {
 function paintInvalid() {
   markPayReady();
   setSourceBanner("");
-  setShareUrl("");
   currentView = null;
   if (mainEl) {
     mainEl.dataset.state = "invalid";
     delete mainEl.dataset.mode;
   }
-  if (statusEl) statusEl.textContent = statusCopy.invalid;
+  setQrStamp("invalid", "invalid");
   if (timerLabelEl) timerLabelEl.textContent = "Status";
   if (expiresEl) expiresEl.textContent = "Invalid";
   setTimerTone(0, "invalid");
-  if (networkWarn) {
-    networkWarn.hidden = true;
-    networkWarn.textContent = "";
-  }
   if (exactWarn) exactWarn.hidden = true;
   if (memoWarn) memoWarn.hidden = true;
   setQrModeVisible("invalid");
@@ -959,24 +866,20 @@ function paintInvalid() {
 function paintMaintenance(message) {
   markPayReady();
   setSourceBanner("");
-  setShareUrl("");
   currentView = null;
   if (mainEl) {
     mainEl.dataset.state = "maintenance";
     delete mainEl.dataset.mode;
   }
-  if (statusEl) statusEl.textContent = statusCopy.maintenance;
+  setQrStamp("maintenance", "maintenance");
   if (timerLabelEl) timerLabelEl.textContent = "Status";
   if (expiresEl) expiresEl.textContent = "Paused";
   if (confirmNoteEl) {
     confirmNoteEl.textContent =
       message || "This network is temporarily unavailable.";
+    confirmNoteEl.hidden = false;
   }
   setTimerTone(0, "maintenance");
-  if (networkWarn) {
-    networkWarn.hidden = true;
-    networkWarn.textContent = "";
-  }
   if (exactWarn) exactWarn.hidden = true;
   if (memoWarn) memoWarn.hidden = true;
   setQrModeVisible("invalid");
@@ -1081,6 +984,11 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
   });
 });
 
+addressEl?.addEventListener("click", () => {
+  if (window.getSelection()?.toString()) return;
+  addressCopyBtn?.click();
+});
+
 function setCopyButtonVisual(btn, state) {
   const copyIcon = btn.querySelector(".icon-btn__icon--copy");
   const checkIcon = btn.querySelector(".icon-btn__icon--check");
@@ -1128,31 +1036,6 @@ async function copyText(text) {
     return false;
   }
 }
-
-shareBtn?.addEventListener("click", async () => {
-  if (!shareUrl) return;
-  const restore = shareBtn.textContent;
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: "PaymentGate payment",
-        text: "Pay this PaymentGate order",
-        url: shareUrl,
-      });
-      return;
-    }
-    const ok = await copyText(shareUrl);
-    shareBtn.textContent = ok ? "Link copied" : "Copy failed";
-    window.setTimeout(() => {
-      shareBtn.textContent = restore;
-    }, 1200);
-  } catch {
-    shareBtn.textContent = "Copy failed";
-    window.setTimeout(() => {
-      shareBtn.textContent = restore;
-    }, 1200);
-  }
-});
 
 qrModeEl?.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-qr-mode]");

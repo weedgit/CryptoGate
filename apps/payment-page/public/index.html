@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PaymentGate — Pay</title>
     <link rel="preload" as="image" href="/brand/paymentgate-icon.webp" type="image/webp" fetchpriority="high" />
     <link rel="icon" href="/brand/favicon.ico" sizes="any" />
@@ -14,7 +14,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/tokens.css" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=20260928g" />
     <script>
       (function () {
         var m = location.pathname.match(/\/pay\/([^/?#]+)/);
@@ -32,10 +32,6 @@
       </p>
 
       <section class="amount-block" aria-labelledby="amount">
-        <p class="label" id="invoice-label" hidden>Invoice</p>
-        <p class="invoice-usd fund-amount" id="invoice-usd" hidden></p>
-        <p class="rate-evidence muted" id="rate-evidence" hidden></p>
-        <p class="label" id="amount-label">Total payable</p>
         <div class="amount-row">
           <span class="amount-asset-mark" id="asset-mark" aria-hidden="true"></span>
           <p class="amount fund-amount" id="amount">
@@ -96,6 +92,7 @@
               <div class="qr-scan"></div>
             </div>
             <span class="qr-mark" id="qr-mark" hidden aria-hidden="true"></span>
+            <span class="qr-stamp" id="qr-stamp" role="status" hidden></span>
           </div>
         </div>
 
@@ -115,19 +112,12 @@
           </div>
         </section>
 
-        <section class="status-panel" aria-live="polite">
-          <div class="status-panel__badge">
-            <span class="status-panel__dot" aria-hidden="true"></span>
-            <span class="status" id="status">Pending Payment</span>
-          </div>
-        </section>
         <div class="timer-card" id="timer-card">
           <p class="timer-card__label" id="timer-label">Time remaining</p>
           <p class="countdown" id="expires" data-live-field>—:—</p>
         </div>
       </section>
 
-      <p class="warn-network" id="network-warn" hidden></p>
       <p class="warn-exact" id="exact-warn" hidden>
         Pay exactly the amount shown. Do not round or edit in your wallet.
       </p>
@@ -151,36 +141,11 @@
           <p class="pay-progress__confirm-note" id="confirm-note">Awaiting payment</p>
         </div>
 
-        <ol class="pay-flow" id="pay-flow">
-          <li data-step="0">
-            <span class="pay-flow__node" aria-hidden="true"></span>
-            <span class="pay-flow__label">Created</span>
-          </li>
-          <li data-step="1">
-            <span class="pay-flow__node" aria-hidden="true"></span>
-            <span class="pay-flow__label">Detected</span>
-          </li>
-          <li data-step="2">
-            <span class="pay-flow__node" aria-hidden="true"></span>
-            <span class="pay-flow__label">Verifying</span>
-          </li>
-          <li data-step="3">
-            <span class="pay-flow__node" aria-hidden="true"></span>
-            <span class="pay-flow__label">Confirmed</span>
-          </li>
-        </ol>
       </section>
 
-      <div class="status-block">
-        <p class="order-ref">Order <span id="order-ref" data-live-field>—</span></p>
-      </div>
-      <div class="share-row">
-        <button type="button" class="share-btn" id="share-link">
-          Share payment link
-        </button>
-      </div>
-
       <footer class="powered">
+        <span class="order-ref">Order <span id="order-ref" data-live-field>—</span></span>
+        <span class="powered__sep" aria-hidden="true">·</span>
         <span>Powered by</span>
         <img class="gate-mark" src="/brand/paymentgate-icon.webp" alt="" width="18" height="18" decoding="async" fetchpriority="high" />
         <strong>PaymentGate</strong>
@@ -189,6 +154,6 @@
     <script src="/config.js"></script>
     <script src="/api-base.js"></script>
     <script src="/vendor/qrcode.js"></script>
-    <script src="/guest-pay.js" defer></script>
+    <script src="/guest-pay.js?v=20260928g" defer></script>
   </body>
 </html>
