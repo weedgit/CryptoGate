@@ -172,17 +172,9 @@ export function MemberPosPinModal({ email, pin, busy, onGenerate, onClose, onCle
                 onClick={onClear}
               >
                 <ClearIcon />
-                Clear PIN
+                Clear
               </button>
               <div className="pos-pin-modal__actions">
-                <button
-                  type="button"
-                  className="org-edit__cancel"
-                  disabled={busy}
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
                 <button
                   type="button"
                   className="org-edit__save"
@@ -190,7 +182,7 @@ export function MemberPosPinModal({ email, pin, busy, onGenerate, onClose, onCle
                   onClick={onGenerate}
                 >
                   <KeyIcon />
-                  {busy ? "Generating…" : "Generate PIN"}
+                  {busy ? "Generating…" : "Generate"}
                 </button>
               </div>
             </>
