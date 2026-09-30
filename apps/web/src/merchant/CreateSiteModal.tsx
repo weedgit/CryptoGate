@@ -10,6 +10,9 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { merchantRoute } from "../shared/portalRouting";
 import { AuthToast } from "../auth/AuthToast";
+import { OrgEditWaves } from "../shared/OrgEditWaves";
+import { FieldControl } from "../ui/FieldControl";
+import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   ApiError,
   createOrg,
@@ -31,6 +34,8 @@ import {
 } from "../shared/registeredEmails";
 import type { OrgRef, RegisteredEmailRef } from "../shared/registeredEmails";
 import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
+import { onboardInviteCreds, type OnboardInviteCreds } from "../shared/onboardInviteState";
+import { SiteOwnerInvitedModal } from "../shared/SiteOwnerInvitedModal";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,6 +59,11 @@ export function CreateSiteModal({ session, onClose }: Props) {
   >(() => new Map());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invitedSite, setInvitedSite] = useState<{
+    id: string;
+    name: string;
+    creds: OnboardInviteCreds;
+  } | null>(null);
 
   const parentOptions = useMemo(() => {
     if (!merchantId) return [];
@@ -87,11 +97,11 @@ export function CreateSiteModal({ session, onClose }: Props) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") requestClose();
+      if (e.key === "Escape" && !invitedSite) requestClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [requestClose]);
+  }, [requestClose, invitedSite]);
 
   useEffect(() => {
     getMerchantOrgs()
@@ -139,7 +149,7 @@ export function CreateSiteModal({ session, onClose }: Props) {
 
   function validateOwnerEmail(index = registeredEmails): string | null {
     const email = ownerEmail.trim();
-    if (!email) return null;
+    if (!email) return "Site owner email is required.";
     if (!EMAIL_PATTERN.test(email)) return "Enter a valid email address.";
     return ownerOnboardEmailConflict(email, index);
   }
@@ -175,30 +185,42 @@ export function CreateSiteModal({ session, onClose }: Props) {
         name: name.trim(),
         parentId,
       });
-      await refreshMerchantOrgList().catch(() => undefined);
-      if (ownerEmail.trim()) {
-        try {
-          await inviteOwnerOrRollback(site.id, ownerEmail.trim());
-        } catch (inviteErr) {
-          if (inviteErr instanceof ApiError && inviteErr.code === "email_taken") {
-            await refreshMerchantOrgList().catch(() => undefined);
-            setError(REGISTERED_EMAIL_API_MESSAGE);
-            return;
-          }
-          const msg = inviteErr instanceof ApiError ? inviteErr.message : "Invite failed";
-          setError(`Site created, but owner invite failed: ${msg}`);
-          onClose();
-          navigate(merchantRoute(`sites/${site.id}`));
+      const invitedEmail = ownerEmail.trim();
+      try {
+        const invite = await inviteOwnerOrRollback(site.id, invitedEmail);
+        await refreshMerchantOrgList().catch(() => undefined);
+        setInvitedSite({
+          id: site.id,
+          name: site.name,
+          creds: onboardInviteCreds(invitedEmail, invite),
+        });
+      } catch (inviteErr) {
+        await refreshMerchantOrgList().catch(() => undefined);
+        if (inviteErr instanceof ApiError && inviteErr.code === "email_taken") {
+          setError(REGISTERED_EMAIL_API_MESSAGE);
           return;
         }
+        const msg = inviteErr instanceof ApiError ? inviteErr.message : "Invite failed";
+        setError(`Site was not created because the owner invite failed: ${msg}`);
       }
-      onClose();
-      navigate(merchantRoute(`sites/${site.id}`));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create site");
     } finally {
       setBusy(false);
     }
+  }
+
+  if (invitedSite) {
+    return (
+      <SiteOwnerInvitedModal
+        siteName={invitedSite.name}
+        creds={invitedSite.creds}
+        onDone={() => {
+          onClose();
+          navigate(merchantRoute(`sites/${invitedSite.id}`));
+        }}
+      />
+    );
   }
 
   return createPortal(
@@ -216,94 +238,96 @@ export function CreateSiteModal({ session, onClose }: Props) {
           aria-labelledby="create-site-modal-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="b3-commission-modal__head create-site-modal__head">
-            <div className="create-site-modal__titles">
+          <header className="org-edit__head">
+            <span className="org-edit__head-icon" aria-hidden>
+              <SiteMarkIcon />
+            </span>
+            <div className="org-edit__head-copy">
               <h3 id="create-site-modal-title">Add site</h3>
               <p>
-                New location under the merchant or another site. No separate
-                sub-site type — a child site is still a site.
+                A new location under the merchant or another site. A child site is
+                still a site.
               </p>
             </div>
+            <OrgEditWaves />
             <button
               type="button"
-              className="b3-commission-modal__close"
+              className="org-edit__close"
               aria-label="Close"
               disabled={busy}
               onClick={requestClose}
             >
-              ×
+              <CloseIcon />
             </button>
           </header>
 
           <form className="create-site-modal__form" onSubmit={onSubmit}>
-            <div className="b3-commission-modal__body create-site-modal__body">
-              <label className="b3-commission-modal__field">
-                <span className="b3-commission-modal__label">Parent</span>
-                <div className="b3-commission-modal__input-wrap">
-                  <select
-                    className="b3-commission-modal__input"
-                    required
+            <div className="create-site-modal__body">
+              <div className="create-site-modal__field">
+                <span className="create-site-modal__label">Parent</span>
+                <FieldControl leading={<ParentIcon />}>
+                  <SearchableSelect
+                    id="create-site-parent"
                     value={parentId}
-                    onChange={(e) => setParentId(e.target.value)}
+                    options={parentOptions}
+                    onChange={setParentId}
+                    allowEmpty={false}
+                    placeholder={parentOptions.length === 0 ? "Loading…" : "Select parent"}
+                    ariaLabel="Parent"
                     disabled={busy || parentOptions.length === 0}
-                  >
-                    {parentOptions.length === 0 ? (
-                      <option value="">Loading…</option>
-                    ) : (
-                      parentOptions.map((opt) => (
-                        <option key={opt.id} value={opt.id}>
-                          {opt.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </label>
+                  />
+                </FieldControl>
+              </div>
 
-              <label className="b3-commission-modal__field">
-                <span className="b3-commission-modal__label">Site name</span>
-                <div className="b3-commission-modal__input-wrap">
+              <label className="create-site-modal__field">
+                <span className="create-site-modal__label">Site name</span>
+                <FieldControl icon="tag">
                   <input
                     ref={nameRef}
-                    className="b3-commission-modal__input"
+                    className="field-control"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Downtown branch"
                     disabled={busy}
                     autoComplete="off"
+                    maxLength={120}
                   />
-                </div>
+                </FieldControl>
               </label>
 
-              <label className="b3-commission-modal__field">
-                <span className="b3-commission-modal__label">
-                  Invite site owner
-                  <span className="create-site-modal__optional">Optional</span>
-                </span>
-                <div className="b3-commission-modal__input-wrap">
+              <label className="create-site-modal__field">
+                <span className="create-site-modal__label">Site owner</span>
+                <FieldControl icon="mail">
                   <input
-                    className="b3-commission-modal__input"
+                    className="field-control"
                     type="email"
+                    required
                     value={ownerEmail}
                     onChange={(e) => setOwnerEmail(e.target.value)}
                     placeholder="name@company.com"
                     disabled={busy}
                     autoComplete="off"
                   />
-                </div>
+                </FieldControl>
               </label>
 
-              <p className="b3-commission-modal__hint create-site-modal__hint">
-                Sites manage invoices and cashiers only. Wallet, matching,
-                fulfillment, and retention inherit from the parent merchant.
-              </p>
+              <div className="create-site-modal__note" role="note">
+                <span className="create-site-modal__note-icon" aria-hidden>
+                  <InfoIcon />
+                </span>
+                <p>
+                  Sites manage invoices and cashiers only. Wallet, matching,
+                  fulfillment, and retention inherit from the parent merchant.
+                  The owner gets an email invite.
+                </p>
+              </div>
             </div>
 
-            <footer className="b3-commission-modal__foot">
+            <footer className="org-edit__foot create-site-modal__foot">
               <button
                 type="button"
-                className="b3-commission-modal__cancel"
+                className="org-edit__cancel"
                 disabled={busy}
                 onClick={requestClose}
               >
@@ -311,9 +335,10 @@ export function CreateSiteModal({ session, onClose }: Props) {
               </button>
               <button
                 type="submit"
-                className="b3-commission-modal__save"
-                disabled={busy || !name.trim() || !parentId}
+                className="org-edit__save"
+                disabled={busy || !name.trim() || !ownerEmail.trim() || !parentId}
               >
+                <PlusIcon />
                 {busy ? "Creating…" : "Create site"}
               </button>
             </footer>
@@ -322,5 +347,72 @@ export function CreateSiteModal({ session, onClose }: Props) {
       </div>
     </>,
     document.body,
+  );
+}
+
+function SiteMarkIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 10.5 5.4 5.6A1.5 1.5 0 0 1 6.8 4.5h10.4a1.5 1.5 0 0 1 1.4 1.1L20 10.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 10.5c0 1.4 1.1 2.5 2.7 2.5s2.6-1.1 2.6-2.5c0 1.4 1.1 2.5 2.7 2.5s2.7-1.1 2.7-2.5c0 1.4 1 2.5 2.6 2.5S20 11.9 20 10.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.5 13v5.5A1.5 1.5 0 0 0 7 20h10a1.5 1.5 0 0 0 1.5-1.5V13M10 20v-4h4v4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ParentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="9" y="3.5" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="3.5" y="15.5" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="14.5" y="15.5" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M12 8.5v3.5M6.5 15.5V13a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v2.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 11v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="7.9" r="1.05" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    </svg>
   );
 }

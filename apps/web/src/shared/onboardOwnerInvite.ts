@@ -1,10 +1,10 @@
 import { inviteOrgUser, type InviteOrgUserResult } from "../merchant/api";
-import { ApiError } from "./apiCore";
 import { deleteOrg } from "./orgApi";
 
 /**
- * Invite the Owner of an org that was just onboarded. When the email turns out to be
- * registered already, the new org is removed so it is not left without an Owner.
+ * Invite the Owner of an org that was just onboarded. When the invite fails (for
+ * example the email is registered already), the new org is removed so it is not
+ * left without an Owner.
  */
 export async function inviteOwnerOrRollback(
   orgId: string,
@@ -13,9 +13,7 @@ export async function inviteOwnerOrRollback(
   try {
     return await inviteOrgUser(orgId, { email, role: "owner" });
   } catch (err) {
-    if (err instanceof ApiError && err.code === "email_taken") {
-      await deleteOrg(orgId, { cascade: true }).catch(() => undefined);
-    }
+    await deleteOrg(orgId, { cascade: true }).catch(() => undefined);
     throw err;
   }
 }

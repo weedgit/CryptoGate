@@ -25,7 +25,8 @@ import {
 import type { RegisteredEmailRef } from "../shared/registeredEmails";
 import { FieldControl } from "../ui/FieldControl";
 import { platformRoute } from "../shared/portalRouting";
-import { onboardInviteCreds } from "../shared/onboardInviteState";
+import { onboardInviteCreds, type OnboardInviteCreds } from "../shared/onboardInviteState";
+import { SiteOwnerInvitedModal } from "../shared/SiteOwnerInvitedModal";
 import { inviteOwnerOrRollback } from "../shared/onboardOwnerInvite";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import {
@@ -47,6 +48,20 @@ type FormState = {
 /** Platform — create a merchant_site under a merchant (or nested site). */
 export function OnboardSitePage({ session }: Props) {
   const navigate = useNavigate();
+  const [invitedSite, setInvitedSite] = useState<{
+    id: string;
+    name: string;
+    creds: OnboardInviteCreds;
+  } | null>(null);
+
+  const openSite = useCallback(
+    (siteId: string) => {
+      navigate(platformRoute(`accounts/merchants/${siteId}`), {
+        state: { invitationSent: true, onboardedOrgId: siteId },
+      });
+    },
+    [navigate],
+  );
   const [searchParams] = useSearchParams();
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const cancelTo = useMemo(
@@ -114,7 +129,7 @@ export function OnboardSitePage({ session }: Props) {
 
   function validateOwnerEmail(index = registeredEmails): string | null {
     const ownerEmail = form.ownerEmail.trim();
-    if (!ownerEmail) return null;
+    if (!ownerEmail) return "Site Owner email is required.";
     if (!EMAIL_PATTERN.test(ownerEmail)) return "Enter a valid email address.";
     return ownerOnboardEmailConflict(ownerEmail, index);
   }
@@ -152,26 +167,17 @@ export function OnboardSitePage({ session }: Props) {
       mergePlatformOrg(created);
 
       const invitedEmail = form.ownerEmail.trim();
-      let inviteCreds = null;
-      if (invitedEmail) {
-        const invite = await inviteOwnerOrRollback(created.id, invitedEmail);
-        inviteCreds = onboardInviteCreds(invitedEmail, invite);
-      }
+      const invite = await inviteOwnerOrRollback(created.id, invitedEmail);
       await refreshPlatformOrgList();
-      navigate(
-        platformRoute(`accounts/merchants/${created.id}`),
-        {
-          state: {
-            invitationSent: Boolean(invitedEmail),
-            onboardedOrgId: created.id,
-            inviteCreds,
-          },
-        },
-      );
+      setInvitedSite({
+        id: created.id,
+        name: created.name,
+        creds: onboardInviteCreds(invitedEmail, invite),
+      });
     } catch (err) {
+      void refreshPlatformOrgList().catch(() => undefined);
       if (err instanceof ApiError && err.code === "email_taken") {
         setError(REGISTERED_EMAIL_API_MESSAGE);
-        void refreshPlatformOrgList().catch(() => undefined);
       } else {
         setError(inviteEmailErrorMessage(err));
       }
@@ -257,6 +263,16 @@ export function OnboardSitePage({ session }: Props) {
   const parentName = parentOrg?.name ?? "Merchant";
   const parentType = parentOrg ? orgTypeLabel(parentOrg.type) : "Merchant";
 
+  if (invitedSite) {
+    return (
+      <SiteOwnerInvitedModal
+        siteName={invitedSite.name}
+        creds={invitedSite.creds}
+        onDone={() => openSite(invitedSite.id)}
+      />
+    );
+  }
+
   return (
     <OnboardWizardPortal>
       <div className="b4-wizard-page">
@@ -317,13 +333,14 @@ export function OnboardSitePage({ session }: Props) {
                   <OnboardFieldHead
                     htmlFor="owner-email"
                     label="Site Owner email"
-                    lede="Optional — invite a site owner after create."
+                    lede="Required — the owner gets an email invite."
                   />
                   <FieldControl icon="mail">
                     <input
                       id="owner-email"
                       className="b4-field__control"
                       type="email"
+                      required
                       value={form.ownerEmail}
                       onChange={(e) => patch("ownerEmail", e.target.value)}
                       placeholder="name@company.com"
@@ -341,7 +358,7 @@ export function OnboardSitePage({ session }: Props) {
                 <button
                   type="submit"
                   className="b4-wizard__continue b4-wizard__continue--gold"
-                  disabled={busy}
+                  disabled={busy || !form.name.trim() || !form.ownerEmail.trim()}
                 >
                   {busy ? "Creating…" : "Create"}
                   {!busy ? <span aria-hidden>→</span> : null}

@@ -1,4 +1,5 @@
 import { formatInZone, formatViewerDateTime } from "../shared/dateTime";
+import { MemberPosPinModal } from "./MemberPosPinModal";
 import { RemoveMemberModal, type RemoveMemberTarget } from "../shared/RemoveMemberModal";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import {
@@ -8,7 +9,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   getMerchantOrgs,
   peekMerchantOrgs,
@@ -771,6 +771,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
           member={editTarget}
           roleOptions={inviteRoleOptions(org?.type)}
           roleLocked={editTarget.role === "owner" && ownerCount <= 1}
+          platformSupport={false}
           onClose={() => setEditTarget(null)}
           onSaved={(next) => {
             setMembers((prev) =>
@@ -778,7 +779,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                 m.userId === next.userId ? { ...m, ...next } : m,
               ),
             );
-            setEditTarget(null);
           }}
         />
       ) : null}
@@ -808,113 +808,19 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         />
       ) : null}
 
-      {posPinTarget
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!busy) setPosPinTarget(null);
-              }}
-            >
-              <div
-                className="b3-commission-modal plat-team__invite-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="merchant-team-pos-pin-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-commission-modal__head">
-                  <div className="plat-team__invite-head-text">
-                    <h3 id="merchant-team-pos-pin-title">Cashier POS PIN</h3>
-                    <p className="plat-team__invite-lede">
-                      Set or clear the unlock PIN for{" "}
-                      <strong>{posPinTarget.email}</strong>. Does not require
-                      their current PIN.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close"
-                    aria-label="Close"
-                    disabled={busy}
-                    onClick={() => setPosPinTarget(null)}
-                  >
-                    ×
-                  </button>
-                </header>
-                <form
-                  className="b3-commission-modal__body plat-team__invite-form"
-                  onSubmit={(e) => void onSaveMemberPosPin(e)}
-                  noValidate
-                >
-                  <label
-                    className="plat-team__field"
-                    htmlFor="merchant-team-pos-pin"
-                  >
-                    <span>New POS PIN</span>
-                    <input
-                      id="merchant-team-pos-pin"
-                      className="plat-team__input"
-                      type="password"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      autoFocus
-                      value={posPinValue}
-                      onChange={(e) => setPosPinValue(e.target.value)}
-                      disabled={busy}
-                      maxLength={8}
-                      placeholder="4–8 digits"
-                    />
-                  </label>
-                  <label
-                    className="plat-team__field"
-                    htmlFor="merchant-team-pos-pin-confirm"
-                  >
-                    <span>Confirm PIN</span>
-                    <input
-                      id="merchant-team-pos-pin-confirm"
-                      className="plat-team__input"
-                      type="password"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      value={posPinConfirm}
-                      onChange={(e) => setPosPinConfirm(e.target.value)}
-                      disabled={busy}
-                      maxLength={8}
-                    />
-                  </label>
-                  <footer className="b3-commission-modal__foot plat-team__invite-foot">
-                    <button
-                      type="button"
-                      className="plat-team__invite-cancel"
-                      disabled={busy}
-                      onClick={() => void onClearMemberPosPin()}
-                    >
-                      Clear PIN
-                    </button>
-                    <button
-                      type="button"
-                      className="plat-team__invite-cancel"
-                      disabled={busy}
-                      onClick={() => setPosPinTarget(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="plat-team__invite-confirm"
-                      disabled={busy || !posPinValue}
-                    >
-                      {busy ? "Saving…" : "Save PIN"}
-                    </button>
-                  </footer>
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {posPinTarget ? (
+        <MemberPosPinModal
+          email={posPinTarget.email}
+          pin={posPinValue}
+          confirm={posPinConfirm}
+          busy={busy}
+          onPinChange={setPosPinValue}
+          onConfirmChange={setPosPinConfirm}
+          onClose={() => setPosPinTarget(null)}
+          onSave={(e) => void onSaveMemberPosPin(e)}
+          onClear={() => void onClearMemberPosPin()}
+        />
+      ) : null}
     </div>
   );
 }

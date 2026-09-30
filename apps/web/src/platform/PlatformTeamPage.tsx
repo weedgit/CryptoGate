@@ -551,6 +551,7 @@ export function PlatformTeamPage({ session }: Props) {
           member={editTarget}
           roleOptions={ROLE_OPTIONS}
           roleLocked={editTarget.role === "owner" && ownerCount <= 1}
+          platformSupport={!portal}
           onClose={() => setEditTarget(null)}
           onSaved={(next) => {
             setMembers((prev) =>
@@ -558,7 +559,6 @@ export function PlatformTeamPage({ session }: Props) {
                 m.userId === next.userId ? { ...m, ...next } : m,
               ),
             );
-            setEditTarget(null);
           }}
         />
       ) : null}

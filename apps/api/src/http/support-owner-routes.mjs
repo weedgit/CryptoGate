@@ -5,6 +5,7 @@ import { normalizePhone } from "../auth/contact-otp-store.mjs";
 import {
   clearUserPhone,
   findUserById,
+  normalizeEmail,
   setUserEmail,
   setUserPhone,
   setUserVerificationStatus,
@@ -24,6 +25,7 @@ import {
   USER_ROLES,
 } from "../orgs/membership-rules.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
+import { canSupportEditMemberAccount } from "../orgs/role-policy.mjs";
 import { isVisibleOrg, listVisibleOrgs } from "../orgs/org-access.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
@@ -297,7 +299,8 @@ function memberProfilePayload(user, membership) {
 /**
  * PATCH /v1/orgs/{orgId}/members/{userId}
  * Platform Owner/Administrator, or the org Owner, edits a team member's
- * contact, avatar, and role.
+ * profile, avatar, and role. Email, phone, password, and verification status:
+ * Platform Owner/Administrator only.
  */
 export async function handlePatchOrgMember(req, res, orgId, userId) {
   const caller = await requireCaller(req, res);
@@ -334,6 +337,19 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
     body = await readJsonBody(req);
   } catch {
     sendError(res, 400, "invalid_json", "Request body must be JSON");
+    return;
+  }
+
+  const wantsVerificationChange =
+    typeof body?.emailVerified === "boolean" || typeof body?.phoneVerified === "boolean";
+  const supportEdit = canSupportEditMemberAccount(caller);
+  if (wantsVerificationChange && !supportEdit) {
+    sendError(
+      res,
+      403,
+      "forbidden",
+      "Only Platform Owner or Administrator may change verification status",
+    );
     return;
   }
 
@@ -390,6 +406,29 @@ export async function handlePatchOrgMember(req, res, orgId, userId) {
 
   const nextPassword =
     typeof body?.password === "string" ? body.password : "";
+
+  if (!supportEdit) {
+    const current = await findUserById(userId);
+    if (!current) {
+      sendError(res, 404, "not_found", "User not found");
+      return;
+    }
+    const emailChanged =
+      typeof body?.email === "string" &&
+      body.email.trim() !== "" &&
+      normalizeEmail(body.email) !== normalizeEmail(current.email ?? "");
+    const phoneChanged =
+      nextPhone !== undefined && (nextPhone ?? null) !== (current.phone ?? null);
+    if (emailChanged || phoneChanged || nextPassword) {
+      sendError(
+        res,
+        403,
+        "forbidden",
+        "Only Platform Owner or Administrator may change a member's email, phone, or password",
+      );
+      return;
+    }
+  }
 
   try {
     if (Object.keys(patch).length > 0) {

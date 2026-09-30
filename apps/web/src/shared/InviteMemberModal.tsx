@@ -101,7 +101,7 @@ export function InviteMemberModal({
                   autoComplete="off"
                   autoFocus
                   maxLength={254}
-                  value={email}
+                  value={creds ? creds.invitedEmail : email}
                   disabled={locked}
                   placeholder="name@company.com"
                   onChange={(e) => onEmailChange(e.target.value)}

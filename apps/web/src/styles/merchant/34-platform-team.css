@@ -1129,6 +1129,10 @@ html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__mem
   border-color: #e2e8f0;
 }
 
+html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__avatar {
+  background: #e2e8f0;
+}
+
 html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__name,
 html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__identity > :only-child {
   color: #0f172a;

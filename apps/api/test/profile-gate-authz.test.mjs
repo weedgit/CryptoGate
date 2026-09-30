@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isPersonProfileComplete } from "../src/auth/org-setup.mjs";
 import {
+  canSupportEditMemberAccount,
   canUpdateAgentPayout,
   canChangeSettlementSettings,
   canOnboardSiteUnderParent,
@@ -32,6 +33,24 @@ describe("person profile completeness", () => {
       }),
       true,
     );
+  });
+});
+
+describe("team member email, phone, password, and verification support-edit", () => {
+  it("platform Owner/Administrator only; org Owners cannot", () => {
+    assert.equal(
+      canSupportEditMemberAccount({ platformOperator: true, memberships: [] }),
+      true,
+    );
+    for (const orgType of ["merchant", "agent", "merchant_site"]) {
+      assert.equal(
+        canSupportEditMemberAccount({
+          platformOperator: false,
+          memberships: [{ orgId: "o1", role: "owner", orgType }],
+        }),
+        false,
+      );
+    }
   });
 });
 

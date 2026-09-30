@@ -109,7 +109,8 @@ html[data-theme="light"] :is(.platform-shell, .profile-settings-modal) .plat-set
 /* Profile edit modal (org-profile-edit / owner-acct) */
 html[data-theme="light"] .b3-commission-modal-backdrop .org-profile-edit-modal,
 html[data-theme="light"] .b3-commission-modal-backdrop .b3-owner-edit.org-profile-edit-modal,
-html[data-theme="light"] .b3-commission-modal-backdrop .b3-settlement-edit-modal {
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-settlement-edit-modal,
+html[data-theme="light"] .b3-commission-modal-backdrop .pos-pin-modal {
   background: #ffffff;
   border-color: #d8dee8;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
@@ -189,6 +190,34 @@ html[data-theme="light"] .owner-acct__save {
   background: #f59e0b;
   color: #0f172a;
   box-shadow: 0 4px 14px rgba(180, 83, 9, 0.2);
+}
+
+html[data-theme="light"] .pos-pin-modal .org-edit__head-copy strong {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .pos-pin-modal__label {
+  color: #64748b;
+}
+
+html[data-theme="light"] .pos-pin-modal__hint {
+  color: #64748b;
+}
+
+html[data-theme="light"] .pos-pin-modal__error {
+  color: #b91c1c;
+}
+
+html[data-theme="light"] .pos-pin-modal__clear {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: #ffffff;
+  color: #b91c1c;
+}
+
+html[data-theme="light"] .pos-pin-modal__clear:hover:not(:disabled) {
+  border-color: rgba(220, 38, 38, 0.6);
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 /* Edit organization — brand rail + form contrast */
@@ -514,58 +543,72 @@ html[data-theme="light"] :is(.platform-shell, .b4-wizard-portal) .b4-wizard__con
   background: #fbbf24;
 }
 
-/* Create site modal (merchant) + shared commission modal chrome */
+/* Create site modal (merchant) */
 html[data-theme="light"] .b3-commission-modal-backdrop .create-site-modal.b3-commission-modal,
 html[data-theme="light"] .create-site-modal.b3-commission-modal {
   background: #ffffff;
   border-color: #d8dee8;
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
   color-scheme: light;
   color: #0f172a;
 }
 
-html[data-theme="light"] .create-site-modal__titles h3,
-html[data-theme="light"] .create-site-modal .b3-commission-modal__head h3 {
+html[data-theme="light"] .create-site-modal__label {
+  color: #64748b;
+}
+
+html[data-theme="light"] .create-site-modal__field .field-shell > input,
+html[data-theme="light"] .create-site-modal__field .field-shell .field-control,
+html[data-theme="light"] .create-site-modal__field .field-shell .searchable-select__trigger {
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html[data-theme="light"] .create-site-modal__field .searchable-select__value-text,
+html[data-theme="light"] .create-site-modal__field .searchable-select__caret {
   color: #0f172a;
 }
 
-html[data-theme="light"] .create-site-modal__titles p {
-  color: #64748b;
+html[data-theme="light"] .create-site-modal__field .field-shell > input::placeholder,
+html[data-theme="light"] .create-site-modal__field .field-shell .field-control::placeholder {
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
 }
 
-html[data-theme="light"] .create-site-modal .b3-commission-modal__head {
-  border-bottom-color: #e2e8f0;
-  background: #f8fafc;
+html[data-theme="light"] .create-site-modal__field .field-shell:focus-within .field-shell__icon {
+  color: #b45309;
+  border-right-color: rgba(180, 83, 9, 0.28);
 }
 
-html[data-theme="light"] .create-site-modal .b3-commission-modal__close {
-  color: #64748b;
+html[data-theme="light"] .create-site-modal__note {
+  border-color: #bae6fd;
+  background: #f0f9ff;
 }
 
-html[data-theme="light"] .create-site-modal .b3-commission-modal__close:hover:not(:disabled) {
-  color: #0f172a;
+html[data-theme="light"] .create-site-modal__note-icon {
+  color: #0284c7;
 }
 
-html[data-theme="light"] .create-site-modal .b3-commission-modal__label {
-  color: #64748b;
+html[data-theme="light"] .create-site-modal__note p {
+  color: #475569;
 }
 
-html[data-theme="light"] .create-site-modal__hint,
-html[data-theme="light"] .create-site-modal .b3-commission-modal__hint {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #64748b;
-}
-
-html[data-theme="light"] .create-site-modal .b3-commission-modal__cancel {
-  border-color: #cbd5e1;
+html[data-theme="light"] .b3-commission-modal-backdrop .site-owner-invited-modal.b3-commission-modal {
   background: #ffffff;
-  color: #334155;
+  border-color: #d8dee8;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+  color-scheme: light;
+  color: #0f172a;
 }
 
-html[data-theme="light"] .create-site-modal .b3-commission-modal__save {
-  background: #f59e0b;
+html[data-theme="light"] .site-owner-invited-modal .org-edit__head-copy strong {
   color: #0f172a;
+}
+
+html[data-theme="light"] .site-owner-invited-modal__note {
+  color: #b45309;
 }
 
 /* Suspend account modal */
@@ -584,6 +627,10 @@ html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__head {
 
 html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__titles h3 {
   color: #0f172a;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal .b3-suspend-modal__body {
+  background: #ffffff;
 }
 
 html[data-theme="light"] .b3-commission-modal-backdrop .b3-suspend-modal__titles p,
@@ -669,6 +716,10 @@ html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__head {
   border-bottom-color: #e2e8f0;
 }
 
+html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal .org-delete-modal__body {
+  background: #ffffff;
+}
+
 html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__mark {
   color: #be123c;
   background: #fff1f2;
@@ -736,6 +787,15 @@ html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__warnin
 
 html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__ack {
   color: #0f172a;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__confirm-field {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__ack input {
+  accent-color: #dc2626;
 }
 
 html[data-theme="light"] .b3-commission-modal-backdrop .org-delete-modal__input-wrap {
@@ -858,6 +918,19 @@ html[data-theme="light"] .owner-acct__label {
 html[data-theme="light"] .owner-acct__field .field-shell {
   background: #ffffff;
   border-color: #d8dee8;
+}
+
+html[data-theme="light"] .owner-acct__field .field-shell:has(.field-control[readonly]) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] .owner-acct__field .field-control[readonly] {
+  color: #475569;
+}
+
+html[data-theme="light"] .owner-acct__locked-note {
+  color: #64748b;
 }
 
 html[data-theme="light"] .owner-acct__field .field-shell__icon {

@@ -17,6 +17,7 @@ import { formatPhoneDisplay } from "../shared/phoneFormat";
 import { RoleBadge } from "../shared/RoleBadge";
 import { PlatformPending } from "./ui/PlatformPending";
 import { TeamMemberEditModal } from "./TeamMemberEditModal";
+import { useAccountsPortal } from "./accountsPortal";
 import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
 import {
   fetchRegisteredEmailIndex,
@@ -157,6 +158,7 @@ export function OrgTeamRoster({
   onMembersChange,
   variant = "all",
 }: Props) {
+  const portal = useAccountsPortal();
   const roleOptions = useMemo(
     () => rolesForOrg(org.type).map((id) => ({ id, label: roleLabel(id) })),
     [org.type],
@@ -413,6 +415,7 @@ export function OrgTeamRoster({
           member={editTarget}
           roleOptions={roleOptions}
           roleLocked={editTarget.role === "owner" && ownerCount <= 1}
+          platformSupport={!portal && canManage}
           onClose={() => setEditTarget(null)}
           onSaved={(next) => {
             onMembersChange(

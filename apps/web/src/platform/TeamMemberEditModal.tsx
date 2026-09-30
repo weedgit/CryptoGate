@@ -13,6 +13,8 @@ type Props = {
   member: OrgMember;
   roleOptions: { id: string; label: string }[];
   roleLocked: boolean;
+  /** Platform Owner/Administrator support: email, phone, password, verification. */
+  platformSupport: boolean;
   onClose: () => void;
   onSaved: (next: OrgMember) => void;
 };
@@ -235,7 +237,7 @@ function VerifyCard({
   verified: boolean;
   busy: boolean;
   disabled: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
 }) {
   return (
     <div className="owner-acct__verify-card">
@@ -249,15 +251,17 @@ function VerifyCard({
           {verified ? "Verified" : "Not verified"}
         </span>
       </div>
-      <button
-        type="button"
-        className={`owner-acct__verify-btn${verified ? "" : " is-mark"}`}
-        disabled={disabled}
-        onClick={onToggle}
-      >
-        {verified ? <CircleGlyph /> : <CheckGlyph />}
-        {busy ? "Saving…" : verified ? "Mark not verified" : "Mark verified"}
-      </button>
+      {onToggle ? (
+        <button
+          type="button"
+          className={`owner-acct__verify-btn${verified ? "" : " is-mark"}`}
+          disabled={disabled}
+          onClick={onToggle}
+        >
+          {verified ? <CircleGlyph /> : <CheckGlyph />}
+          {busy ? "Saving…" : verified ? "Mark not verified" : "Mark verified"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -267,6 +271,7 @@ export function TeamMemberEditModal({
   member,
   roleOptions,
   roleLocked,
+  platformSupport,
   onClose,
   onSaved,
 }: Props) {
@@ -375,14 +380,16 @@ export function TeamMemberEditModal({
       const next = await patchOrgMember(orgId, member.userId, {
         firstName: firstName.trim() || null,
         lastName: lastName.trim() || null,
-        email: nextEmail,
-        phone: phone.trim() || null,
         timezone: timezone.trim() || "UTC",
         avatarUrl,
         role: roleLocked ? member.role : role,
-        emailVerified,
-        phoneVerified: phone.trim() ? phoneVerified : false,
-        ...(password ? { password } : {}),
+        ...(platformSupport
+          ? {
+              email: nextEmail,
+              phone: phone.trim() || null,
+              ...(password ? { password } : {}),
+            }
+          : {}),
       });
       onSaved({ ...member, ...next });
       onClose();
@@ -527,7 +534,11 @@ export function TeamMemberEditModal({
                   <ShieldGlyph />
                   <div>
                     <p>Verification settings</p>
-                    <small>Admin can directly update verification status.</small>
+                    <small>
+                      {platformSupport
+                        ? "Platform Owner or Administrator can directly update verification status."
+                        : "Members verify email and phone from their own profile."}
+                    </small>
                   </div>
                 </div>
                 <VerifyCard
@@ -536,7 +547,9 @@ export function TeamMemberEditModal({
                   verified={emailVerified}
                   busy={verifyBusy === "email"}
                   disabled={saving || verifyBusy === "email"}
-                  onToggle={() => void toggleVerified("emailVerified")}
+                  onToggle={
+                    platformSupport ? () => void toggleVerified("emailVerified") : undefined
+                  }
                 />
                 <VerifyCard
                   icon={<PhoneGlyph />}
@@ -544,7 +557,9 @@ export function TeamMemberEditModal({
                   verified={phoneVerified}
                   busy={verifyBusy === "phone"}
                   disabled={saving || verifyBusy === "phone" || !phone.trim()}
-                  onToggle={() => void toggleVerified("phoneVerified")}
+                  onToggle={
+                    platformSupport ? () => void toggleVerified("phoneVerified") : undefined
+                  }
                 />
               </div>
             </aside>
@@ -587,6 +602,7 @@ export function TeamMemberEditModal({
                     value={email}
                     maxLength={254}
                     disabled={saving}
+                    readOnly={!platformSupport}
                     placeholder="name@company.com"
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -602,13 +618,21 @@ export function TeamMemberEditModal({
                     value={phone}
                     maxLength={24}
                     disabled={saving}
-                    placeholder="+1 (555) 123-4567"
+                    readOnly={!platformSupport}
+                    placeholder={platformSupport ? "+1 (555) 123-4567" : "Not set"}
                     onChange={(e) => setPhone(formatPhoneInput(e.target.value, phone))}
                     autoComplete="tel"
                     inputMode="tel"
                   />
                 </FieldControl>
               </label>
+              {!platformSupport ? (
+                <p className="owner-acct__locked-note owner-acct__field--wide">
+                  Email, phone, and password are managed by the member. They change
+                  their own contact from their profile and use Forgot password to reset
+                  it.
+                </p>
+              ) : null}
               <div className="owner-acct__field owner-acct__field--wide">
                 <span className="owner-acct__label">Timezone</span>
                 <FieldControl leading={<ClockGlyph />}>
@@ -635,6 +659,8 @@ export function TeamMemberEditModal({
                   />
                 </FieldControl>
               </div>
+              {platformSupport ? (
+              <>
               <label className="owner-acct__field owner-acct__field--wide">
                 <span className="owner-acct__label">New password</span>
                 <FieldControl
@@ -675,6 +701,8 @@ export function TeamMemberEditModal({
                   />
                 </FieldControl>
               </label>
+              </>
+              ) : null}
             </div>
           </div>
           <footer className="owner-acct__foot">

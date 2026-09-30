@@ -76,6 +76,16 @@ export function canManagePlatform(caller) {
 }
 
 /**
+ * Support-edit a team member's sign-in identity — email, phone, password, and
+ * verification status: Platform Owner / Administrator only. Org Owners cannot
+ * (members change their own contact by OTP and use Forgot password).
+ * @param {{ platformOperator: boolean }} caller
+ */
+export function canSupportEditMemberAccount(caller) {
+  return caller.platformOperator === true;
+}
+
+/**
  * @param {{ platformOperator: boolean }} caller
  * @param {string | null} parentRole
  */
