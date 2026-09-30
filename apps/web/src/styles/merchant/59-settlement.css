@@ -423,6 +423,44 @@
   margin-top: 2px;
 }
 
+.plat-settlement.plat-settings .plat-settings__submit {
+  border: 0;
+  background: linear-gradient(180deg, var(--stl-gold), var(--stl-gold-deep));
+  color: var(--stl-on-gold, #1a1405);
+  box-shadow: 0 8px 20px rgba(255, 193, 69, 0.18);
+  font-weight: 700;
+  transition:
+    filter var(--motion-micro) var(--ease-inout),
+    box-shadow var(--motion-micro) var(--ease-inout),
+    opacity var(--motion-micro) var(--ease-inout);
+}
+
+.plat-settlement.plat-settings .plat-settings__submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--stl-gold), var(--stl-gold-deep));
+  filter: brightness(1.07);
+  box-shadow: 0 10px 24px rgba(255, 193, 69, 0.28);
+}
+
+.plat-settlement.plat-settings .plat-settings__submit:active:not(:disabled) {
+  background: linear-gradient(180deg, var(--stl-gold), var(--stl-gold-deep));
+  filter: brightness(0.95);
+}
+
+.plat-settlement.plat-settings .plat-settings__submit:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+html[data-theme="light"] .plat-settlement.plat-settings .plat-settings__submit {
+  --stl-on-gold: #ffffff;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+}
+
+html[data-theme="light"] .plat-settlement.plat-settings .plat-settings__submit:hover:not(:disabled) {
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+}
+
 .plat-settlement .plat-settings__card-copy {
   padding: 10px 12px;
   border-radius: 10px;
