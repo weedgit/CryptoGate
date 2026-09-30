@@ -50,6 +50,7 @@ function venues(price, { down = [], calls = [] } = {}) {
 }
 
 const base = { bypassCache: true, minSources: 2 };
+const noop = async () => 0;
 
 afterEach(() => {
   mock.timers.reset();
@@ -213,27 +214,42 @@ describe("feed alerts", () => {
     const bad = venues("1", { down: ["coingecko", "kraken", "coinbase", "bitstamp"] });
     const good = venues("1");
 
-    let h = await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings });
+    let h = await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings, recordSamples: noop });
     assert.equal(h.status, "degraded");
     assert.equal(sent.length, 0);
 
-    h = await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings });
+    h = await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings, recordSamples: noop });
     assert.equal(h.alertOpen, true);
     assert.equal(sent.length, 1);
     assert.match(sent[0], /^Rate feed degraded — /);
     assert.match(sent[0], /USDT/);
 
-    await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings });
+    await refreshRatesOnce({ fetchImpl: bad, notify, loadSettings: settings, recordSamples: noop });
     assert.equal(sent.length, 1);
 
     clearUsdPriceCache();
     clearEurUsdPriceCache();
-    h = await refreshRatesOnce({ fetchImpl: good, notify, loadSettings: settings });
+    h = await refreshRatesOnce({ fetchImpl: good, notify, loadSettings: settings, recordSamples: noop });
     assert.equal(h.status, "ok");
     assert.equal(sent.length, 1);
-    h = await refreshRatesOnce({ fetchImpl: good, notify, loadSettings: settings });
+    h = await refreshRatesOnce({ fetchImpl: good, notify, loadSettings: settings, recordSamples: noop });
     assert.equal(h.alertOpen, false);
     assert.deepEqual(sent.slice(1), ["Rate feed recovered"]);
+  });
+
+  it("samples live medians for the dashboard, never stale or EUR/USD", async () => {
+    const recorded = [];
+    await refreshRatesOnce({
+      fetchImpl: venues("1"),
+      notify: () => {},
+      loadSettings: settings,
+      recordSamples: async (rows) => {
+        recorded.push(...rows);
+        return rows.length;
+      },
+    });
+    assert.deepEqual(recorded.map((r) => r.asset).sort(), ["ETH", "TRX", "USDC", "USDT"]);
+    assert.ok(recorded.every((r) => r.rate === "1" && r.source.startsWith("median:")));
   });
 
   it("reports off and stays quiet when rates are disabled", async () => {
@@ -242,6 +258,7 @@ describe("feed alerts", () => {
       fetchImpl: venues("1"),
       notify: () => sent.push(1),
       loadSettings: async () => ({ ...(await settings()), ratesEnabled: false }),
+      recordSamples: noop,
     });
     assert.equal(h.status, "off");
     assert.equal(sent.length, 0);

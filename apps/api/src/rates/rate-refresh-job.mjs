@@ -7,6 +7,7 @@
 import { notifyPlatform, PlatformNotificationEventType } from "../notifications/notify.mjs";
 import { getEurUsdPrice } from "./eur-usd.mjs";
 import { getPlatformPricingSettings } from "./pricing-settings-store.mjs";
+import { recordRateSamples } from "./rate-samples-store.mjs";
 import { RATE_ASSETS, STALE_MAX_AGE_MS, getUsdPrice } from "./usd-price.mjs";
 
 export const RATE_REFRESH_INTERVAL_MS = 20_000;
@@ -19,6 +20,8 @@ export const ALERT_AFTER_TICKS = 2;
  *   state: "ok" | "stale" | "down" | "rejected",
  *   sources: number,
  *   detail: string | null,
+ *   rate?: string,
+ *   source?: string,
  * }} FeedAssetHealth
  */
 /**
@@ -43,7 +46,7 @@ export function getRateFeedHealth() {
 
 /**
  * @param {string} asset
- * @param {() => Promise<{ sources: unknown[], stale?: boolean, rateWarning?: string | null }>} load
+ * @param {() => Promise<{ rate: string, source: string, sources: unknown[], stale?: boolean, rateWarning?: string | null }>} load
  * @returns {Promise<FeedAssetHealth>}
  */
 async function checkOne(asset, load) {
@@ -52,7 +55,7 @@ async function checkOne(asset, load) {
     if (q.stale) {
       return { asset, state: "stale", sources: 0, detail: q.rateWarning ?? "stale_rate" };
     }
-    return { asset, state: "ok", sources: q.sources.length, detail: null };
+    return { asset, state: "ok", sources: q.sources.length, detail: null, rate: q.rate, source: q.source };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {
@@ -119,6 +122,7 @@ function evaluateAlert(next, notify) {
  *   fetchImpl?: typeof fetch,
  *   notify?: (eventType: string, message: { subject: string, lines: string[], path?: string }) => void,
  *   loadSettings?: typeof getPlatformPricingSettings,
+ *   recordSamples?: typeof recordRateSamples,
  * }} [opts]
  */
 export async function refreshRatesOnce(opts = {}) {
@@ -152,11 +156,19 @@ export async function refreshRatesOnce(opts = {}) {
       }),
     ),
   ]);
+  const live = assets.filter((a) => a.state === "ok" && a.rate && a.asset !== "EUR/USD");
+  try {
+    await (opts.recordSamples ?? recordRateSamples)(
+      live.map((a) => ({ asset: a.asset, rate: String(a.rate), source: String(a.source) })),
+    );
+  } catch (err) {
+    if (process.env.NODE_ENV !== "test") console.error("rate sample insert failed", err);
+  }
   /** @type {RateFeedHealth} */
   const next = {
     status: assets.every((a) => a.state === "ok") ? "ok" : "degraded",
     checkedAt,
-    assets,
+    assets: assets.map(({ rate: _r, source: _s, ...a }) => a),
     alertOpen: health.alertOpen,
     alertSince: health.alertSince,
   };

@@ -95,6 +95,8 @@ export type DashboardRates = {
     series: number[];
     source?: "quotes" | "market";
   }[];
+  /** Sampled live market median per asset, for pairs with no quotes. */
+  livePrices?: { asset: string; latest: number | null; series: number[] }[];
 };
 
 export type DashboardOrgCards = {

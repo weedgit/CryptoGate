@@ -11,6 +11,7 @@ import { getPool } from "../src/db/pool.mjs";
 import { insertMembership } from "../src/orgs/membership-store.mjs";
 import { findPlatformOrg, insertOrgAccount } from "../src/orgs/org-store.mjs";
 import { clearDashboardCache } from "../src/dashboard/dashboard-cache.mjs";
+import { recordRateSamples, resetRateSampleClock } from "../src/rates/rate-samples-store.mjs";
 import {
   apiFetch,
   closePool,
@@ -300,6 +301,34 @@ describePg("dashboard aggregates (Postgres integration)", () => {
     assert.equal(eth.source, "market");
     assert.equal(eth.quoteCount, null);
     assert.ok(eth.latest > 0);
+  });
+
+  it("live price samples give every asset a held series, seeded from before the window", async () => {
+    const pool = getPool();
+    await pool.query(
+      `INSERT INTO fx_rate_samples (asset, sampled_at, rate, source) VALUES
+         ('TRX', '2026-05-01T12:00:00Z', 0.2, 'median:test'),
+         ('TRX', '2026-05-12T12:00:00Z', 0.3, 'median:test')
+       ON CONFLICT DO NOTHING`,
+    );
+    resetRateSampleClock();
+    await recordRateSamples(
+      [{ asset: "TRX", rate: "0.4", source: "median:test" }],
+      Date.parse("2026-05-14T12:00:00Z"),
+    );
+    try {
+      clearDashboardCache();
+      const { status, json } = await get("platform", `/v1/dashboard/rates?${WEEK}`);
+      assert.equal(status, 200);
+      const trx = json.livePrices.find((p) => p.asset === "TRX");
+      assert.equal(trx.latest, 0.4);
+      assert.deepEqual(trx.series, [0.2, 0.2, 0.3, 0.3, 0.4, 0.4, 0.4]);
+    } finally {
+      await pool.query(
+        `DELETE FROM fx_rate_samples WHERE asset = 'TRX' AND source = 'median:test'`,
+      );
+      clearDashboardCache();
+    }
   });
 
   it("org cards sum subtree volume and paid fees", async () => {

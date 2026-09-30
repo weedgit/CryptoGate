@@ -409,7 +409,76 @@ export async function dashboardRates(scope, range) {
       pairs.push({ ...p, quoteCount: null, source: "market" });
     }
   }
-  return { interval: range.interval, keys, pairs };
+  const livePrices = await cachedDashboard(
+    `rates-live|${range.from}|${range.to}|${range.tz}`,
+    () => livePriceSeries(range, keys, cur),
+    { ttlMs: MARKET_RATES_TTL_MS },
+  );
+  return { interval: range.interval, keys, pairs, livePrices };
+}
+
+/**
+ * Sampled live market median per asset (not per network) for pairs nobody has
+ * quoted yet. Buckets average their samples; gaps hold the previous value,
+ * seeded from the last sample before the window.
+ */
+async function livePriceSeries(range, keys, cur) {
+  const key = bucketKeySql(range.interval, "s.sampled_at", 3, 4);
+  let rows;
+  let seeds;
+  try {
+    ({ rows } = await getPool().query(
+      `SELECT s.asset, ${key} AS k, avg(s.rate) AS avg_rate,
+         (array_agg(s.rate ORDER BY s.sampled_at DESC))[1] AS last_rate
+       FROM fx_rate_samples s
+       WHERE s.sampled_at >= $1::timestamptz AND s.sampled_at < $2::timestamptz
+         AND $4::date IS NOT NULL
+       GROUP BY 1, 2`,
+      [cur.lo, cur.hi, range.tz, range.from],
+    ));
+    ({ rows: seeds } = await getPool().query(
+      `SELECT DISTINCT ON (asset) asset, rate
+         FROM fx_rate_samples
+        WHERE sampled_at < $1::timestamptz
+        ORDER BY asset, sampled_at DESC`,
+      [cur.lo],
+    ));
+  } catch (err) {
+    if (/fx_rate_samples/.test(err?.message ?? "")) return [];
+    throw err;
+  }
+  /** @type {Map<string, { avg: Map<string, number>, last: Map<string, number> }>} */
+  const byAsset = new Map();
+  for (const r of rows) {
+    let a = byAsset.get(r.asset);
+    if (!a) {
+      a = { avg: new Map(), last: new Map() };
+      byAsset.set(r.asset, a);
+    }
+    a.avg.set(r.k, Number(r.avg_rate) || 0);
+    a.last.set(r.k, Number(r.last_rate) || 0);
+  }
+  const seedBy = new Map(seeds.map((s) => [s.asset, Number(s.rate) || 0]));
+  const out = [];
+  for (const [asset, a] of byAsset) {
+    let hold = seedBy.get(asset) ?? 0;
+    let latest = null;
+    const series = keys.map((k) => {
+      const v = a.avg.get(k);
+      if (v && v > 0) {
+        hold = v;
+        latest = a.last.get(k) ?? v;
+        return v;
+      }
+      return hold;
+    });
+    out.push({
+      asset,
+      latest,
+      series: series.map((n) => Math.round(n * 1e8) / 1e8),
+    });
+  }
+  return out;
 }
 
 async function ratePairs(orderFilter, range, keys, cur) {

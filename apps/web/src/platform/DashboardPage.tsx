@@ -821,15 +821,19 @@ export function DashboardPage({ session }: Props) {
     const byPair = new Map(
       (rates?.pairs ?? []).map((p) => [`${p.asset}:${p.network}`, p]),
     );
+    const liveByAsset = new Map((rates?.livePrices ?? []).map((p) => [p.asset, p]));
 
     return RATE_PAIRS.map((row) => {
       const asset = row.asset;
       const network = row.network;
       const netLabel = networkShortLabel(network);
-      const pair = byPair.get(`${asset}:${network}`);
+      const quoted = byPair.get(`${asset}:${network}`);
+      const live = quoted ? undefined : liveByAsset.get(asset);
+      const pair = quoted ?? (live ? { ...live, quoteCount: null, source: "live" as const } : undefined);
       const latest = pair?.latest ?? null;
       const quoteCount = pair?.quoteCount ?? 0;
-      const market = pair?.source === "market";
+      const market = pair?.source === "market" || pair?.source === "live";
+      const liveOnly = pair?.source === "live";
       const empty = latest == null;
       const money = (n: number) => (
         <span className="fund-amount">
@@ -842,13 +846,17 @@ export function DashboardPage({ session }: Props) {
         id: rateOverviewId(asset, network),
         category: portal ? "Rates" : "Platform",
         title: `${asset} · ${netLabel}`,
-        help: market
+        help: liveOnly
+          ? `Live market price of 1 ${asset} in USD: the median of the exchanges the platform checks, sampled every 5 minutes. Shown until orders are quoted for this pair; the rate a customer pays is locked on each order.`
+          : market
           ? `Market USD convert rate for 1 ${asset} on ${row.displayNetwork} across the platform in the selected period. Shown until your merchants have quotes for this pair.`
           : `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
         value: empty ? "—" : money(latest),
         compareLabel: empty
           ? `No quotes · ${periodLabel}`
-          : market
+          : liveOnly
+            ? `Live market price · ${periodLabel}`
+            : market
             ? `Market rate · ${periodLabel}`
             : `${quoteCount.toLocaleString()} quote${quoteCount === 1 ? "" : "s"} · ${periodLabel}`,
         trendPercent: empty ? null : trendFromRateSeries(rateSeries),
