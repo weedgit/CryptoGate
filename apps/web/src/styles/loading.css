@@ -203,8 +203,9 @@
   /* Match platform main field — not a flat near-black void */
   background-color: #0a1220;
   background-image:
-    radial-gradient(ellipse 70% 55% at 12% 0%, rgba(240, 180, 41, 0.07) 0%, transparent 68%),
-    radial-gradient(ellipse 55% 50% at 92% 8%, rgba(56, 189, 248, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 45% at 10% 0%, rgba(240, 180, 41, 0.04) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 50% at 92% 6%, rgba(56, 189, 248, 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 45% at 80% 96%, rgba(45, 212, 191, 0.05) 0%, transparent 70%),
     linear-gradient(165deg, #0d1728 0%, #0a1220 45%, #070e18 100%);
   color: #e2e8f0;
   font-family: "IBM Plex Sans", system-ui, sans-serif;
@@ -484,10 +485,10 @@
 
 /* —— Light color mode —— */
 html[data-theme="light"] {
-  --cg-load-accent: #d97706;
-  --cg-load-accent-bright: #f59e0b;
-  --cg-load-accent-dim: rgba(245, 158, 11, 0.1);
-  --cg-load-accent-ring: rgba(180, 83, 9, 0.28);
+  --cg-load-accent: #2563eb;
+  --cg-load-accent-bright: #3b82f6;
+  --cg-load-accent-dim: rgba(59, 130, 246, 0.08);
+  --cg-load-accent-ring: rgba(59, 130, 246, 0.26);
 }
 
 html[data-theme="light"] .cg-pending__mark {
@@ -510,12 +511,13 @@ html[data-theme="light"] .cg-pending__track {
 
 html[data-theme="light"] .page-pending--full,
 html[data-theme="light"] .portal-shell-boot {
-  background-color: #f8fafc;
+  background-color: #f4f7fc;
   background-image:
-    radial-gradient(ellipse 70% 55% at 12% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 68%),
-    radial-gradient(ellipse 55% 50% at 92% 8%, rgba(14, 165, 233, 0.06) 0%, transparent 65%),
-    linear-gradient(165deg, #ffffff 0%, #f8fafc 45%, #f1f5f9 100%);
-  color: #0f172a;
+    radial-gradient(ellipse 60% 45% at 8% 0%, rgba(125, 211, 252, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 42% at 96% 6%, rgba(167, 139, 250, 0.1) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 45% at 82% 96%, rgba(94, 234, 212, 0.12) 0%, transparent 70%),
+    linear-gradient(170deg, #f5f9ff 0%, #f3f6fc 50%, #f2f8f7 100%);
+  color: #13203a;
 }
 
 html[data-theme="light"] .page-pending--full .cg-pending__mark,
@@ -577,17 +579,17 @@ html[data-theme="light"] .route-load-error .route-load-error__tips svg {
 }
 
 html[data-theme="light"] .route-load-error__btn {
-  background: #f59e0b;
-  color: #0f172a;
-  box-shadow: 0 8px 22px rgba(180, 83, 9, 0.2);
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.2);
 }
 
 html[data-theme="light"] .route-load-error__btn:hover {
-  background: #fbbf24;
+  background: linear-gradient(180deg, #2f76ee 0%, #1d4ed8 100%);
 }
 
 html[data-theme="light"] .route-load-error__btn:active {
-  background: #d97706;
+  background: #1d4ed8;
 }
 
 html[data-theme="light"] .route-load-error__back {

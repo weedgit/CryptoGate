@@ -2105,6 +2105,19 @@ export function AccountsPage({ session }: { session: Session }) {
     [navigate, searchParams, accountsView, route],
   );
 
+  const detailPaneRef = useRef<HTMLElement | null>(null);
+
+  const onTreePick = useCallback(
+    (id: string) => {
+      onSelect(id);
+      if (!window.matchMedia("(max-width: 900px)").matches) return;
+      requestAnimationFrame(() => {
+        detailPaneRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [onSelect],
+  );
+
   useEffect(() => {
     if (selectedRouteId) {
       if (forest.byId.has(selectedRouteId) && selectedId !== selectedRouteId) {
@@ -2445,7 +2458,7 @@ export function AccountsPage({ session }: { session: Session }) {
                     depth={0}
                     expanded={expanded}
                     selectedId={selectedId}
-                    onSelect={onSelect}
+                    onSelect={onTreePick}
                     onToggle={onToggle}
                     budgets={treeBudgets}
                     canManage={canManage}
@@ -2476,7 +2489,11 @@ export function AccountsPage({ session }: { session: Session }) {
             </footer>
           </section>
 
-          <aside className="org-architecture__detail-pane" aria-label="Account detail">
+          <aside
+            ref={detailPaneRef}
+            className="org-architecture__detail-pane"
+            aria-label="Account detail"
+          >
             <div className="org-architecture__detail-scroll">
               {selectedNode &&
               selectedNode.type === "agent" &&

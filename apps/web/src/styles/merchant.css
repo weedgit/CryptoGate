@@ -66,3 +66,11 @@
 @import "./merchant/61-cashier-terminal.css";
 @import "./merchant/62-integrations.css";
 @import "./merchant/63-confirm-action.css";
+@import "./merchant/64-motion.css";
+@import "./merchant/65-palette.css";
+@import "./merchant/66-light-accents.css";
+@import "./merchant/67-popups.css";
+@import "./merchant/68-merchant-light.css";
+@import "./merchant/69-cashier.css";
+@import "./merchant/70-access-gate.css";
+@import "./merchant/71-mobile.css";

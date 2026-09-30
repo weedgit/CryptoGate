@@ -1,24 +1,30 @@
 /* Dashboard hero — light: soft gradients (dark base stays locked) */
 html[data-theme="light"] .platform-shell .pg-dash__hero {
-  background-color: #f8fafc;
+  /* Cool wave lines in the hero only; modals keep the shared gold tokens. */
+  --gw-hi: 56 189 248;
+  --gw-base: 59 130 246;
+  --gw-deep: 13 148 136;
+  background-color: #f1f6fd;
   background-image:
     radial-gradient(
-      ellipse 42% 95% at 6% 48%,
-      rgba(251, 191, 36, 0.12) 0%,
-      rgba(245, 158, 11, 0.05) 42%,
+      ellipse 42% 110% at 6% 50%,
+      rgba(56, 189, 248, 0.14) 0%,
+      rgba(59, 130, 246, 0.05) 42%,
       transparent 72%
     ),
     radial-gradient(
-      ellipse 46% 120% at 100% 40%,
-      rgba(96, 165, 250, 0.08) 0%,
-      rgba(148, 163, 184, 0.04) 40%,
+      ellipse 40% 120% at 100% 90%,
+      rgba(20, 184, 166, 0.12) 0%,
+      rgba(45, 212, 191, 0.05) 40%,
       transparent 72%
     ),
     linear-gradient(
-      180deg,
-      #ffffff 0%,
-      #f5f7fa 48%,
-      #eef1f5 100%
+      100deg,
+      #eef6ff 0%,
+      #eef2fe 30%,
+      #f2f0fd 52%,
+      #ebf5fc 76%,
+      #e3f5f1 100%
     );
 }
 
@@ -26,9 +32,9 @@ html[data-theme="light"] .platform-shell .pg-dash__hero::before {
   display: block;
   background:
     radial-gradient(
-      ellipse 70% 60% at 40% 45%,
-      rgba(251, 191, 36, 0.16) 0%,
-      rgba(245, 158, 11, 0.06) 42%,
+      ellipse 60% 70% at 42% 40%,
+      rgba(129, 140, 248, 0.1) 0%,
+      rgba(165, 180, 252, 0.04) 42%,
       transparent 72%
     );
 }
@@ -36,27 +42,31 @@ html[data-theme="light"] .platform-shell .pg-dash__hero::before {
 html[data-theme="light"] .platform-shell .pg-dash__hero::after {
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.22) 0%,
-    rgba(245, 158, 11, 0.4) 50%,
-    rgba(251, 191, 36, 0.28) 78%,
-    rgba(148, 163, 184, 0.18) 100%
+    rgba(56, 189, 248, 0.12) 0%,
+    rgba(59, 130, 246, 0.4) 30%,
+    rgba(129, 140, 248, 0.32) 55%,
+    rgba(13, 148, 136, 0.35) 82%,
+    rgba(13, 148, 136, 0.1) 100%
   );
 }
 
+/* Soft daylight glow behind the highlights. */
 html[data-theme="light"] .platform-shell .pg-dash__hero-aura {
   display: block;
   background:
     radial-gradient(
-      ellipse 62% 100% at 86% 26%,
-      rgba(251, 191, 36, 0.12) 0%,
-      rgba(245, 158, 11, 0.05) 40%,
-      transparent 72%
-    );
+      ellipse 34% 90% at 84% 0%,
+      rgba(255, 255, 255, 0.85) 0%,
+      rgba(186, 230, 253, 0.4) 30%,
+      rgba(165, 180, 252, 0.12) 55%,
+      transparent 78%
+    ),
+    linear-gradient(200deg, rgba(186, 230, 253, 0.18) 0%, transparent 45%);
 }
 
 html[data-theme="light"] .platform-shell .pg-dash__mark {
   mix-blend-mode: normal;
-  filter: drop-shadow(0 6px 16px rgba(180, 83, 9, 0.14));
+  filter: drop-shadow(0 6px 16px rgba(30, 64, 175, 0.12));
 }
 
 html[data-theme="light"] .platform-shell .pg-dash__eyebrow {

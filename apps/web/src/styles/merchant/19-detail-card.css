@@ -167,6 +167,7 @@
 
 .org-edit__head {
   position: relative;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -694,6 +695,15 @@ button.nav-item--action {
   .org-edit__layout,
   .org-edit__grid {
     grid-template-columns: 1fr;
+  }
+
+  .org-edit__brand {
+    min-height: auto;
+    padding: 14px 12px 12px;
+  }
+
+  .org-edit__wordmark {
+    display: none;
   }
 }
 
@@ -1440,7 +1450,9 @@ html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-val
   gap: 6px;
 }
 
-.platform-shell .b3-settlement__icon-btn {
+/* The edit modal is portaled outside .platform-shell but reuses the copy button. */
+:is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn {
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
   display: inline-grid;
@@ -1452,18 +1464,18 @@ html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-val
   cursor: pointer;
 }
 
-.platform-shell .b3-settlement__icon-btn svg {
+:is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn svg {
   width: 14px;
   height: 14px;
 }
 
-.platform-shell .b3-settlement__icon-btn:hover {
+:is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn:hover {
   border-color: rgba(240, 180, 41, 0.95);
   color: #ffd36a;
   background: rgba(240, 180, 41, 0.1);
 }
 
-.platform-shell .b3-settlement__icon-btn.is-copied {
+:is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn.is-copied {
   border-color: rgba(52, 211, 153, 0.55);
   color: #6ee7b7;
 }
@@ -1649,6 +1661,19 @@ html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-val
   .pos-pin-modal__hint,
   .pos-pin-modal__error {
     padding-left: 0;
+  }
+
+  .pos-pin-modal .org-edit__foot {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pos-pin-modal .org-edit__foot button {
+    white-space: nowrap;
+  }
+
+  .pos-pin-modal__actions {
+    margin-left: auto;
   }
 }
 

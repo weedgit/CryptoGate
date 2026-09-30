@@ -200,6 +200,16 @@ html[data-theme="light"] .pos-pin-modal__label {
   color: #64748b;
 }
 
+html[data-theme="light"] .pos-pin-modal__field .field-shell > input {
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+}
+
+html[data-theme="light"] .pos-pin-modal__field .field-shell > input::placeholder {
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
+}
+
 html[data-theme="light"] .pos-pin-modal__hint {
   color: #64748b;
 }
@@ -575,6 +585,25 @@ html[data-theme="light"] .create-site-modal__field .field-shell > input::placeho
 html[data-theme="light"] .create-site-modal__field .field-shell .field-control::placeholder {
   color: #94a3b8;
   -webkit-text-fill-color: #94a3b8;
+}
+
+html[data-theme="light"] .b3-settlement-edit-modal__field .field-shell > input {
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+}
+
+html[data-theme="light"] .b3-settlement-edit-modal__field .field-shell > input[readonly] {
+  color: #475569;
+  -webkit-text-fill-color: #475569;
+}
+
+html[data-theme="light"] .b3-settlement-edit-modal__field .field-shell > input::placeholder {
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
+}
+
+html[data-theme="light"] .b3-settlement-edit-modal__label {
+  color: #64748b;
 }
 
 html[data-theme="light"] .create-site-modal__field .field-shell:focus-within .field-shell__icon {

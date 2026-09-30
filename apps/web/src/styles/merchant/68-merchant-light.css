@@ -1,0 +1,181 @@
+/*
+ * Merchant portal — light-mode accents (Networks, Integrations, Settlement,
+ * Invoice). Same rule as 66-light-accents: decorative gold becomes daylight
+ * blue; warning / status chips stay amber.
+ */
+
+html:not([data-theme="light"]) .plat-settlement.plat-settings,
+html:not([data-theme="light"]) .plat-settings.plat-int {
+  --stl-gold: #f5c451;
+  --stl-gold-deep: #e0a126;
+}
+
+html[data-theme="light"]:root .plat-settlement.plat-settings,
+html[data-theme="light"]:root .plat-settings.plat-int {
+  --stl-gold: #2563eb;
+  --stl-gold-deep: #3b82f6;
+  --stl-panel-on: #f3f7ff;
+  --stl-border-on: rgba(59, 130, 246, 0.38);
+  --int-on-gold: #ffffff;
+}
+
+/* ── Section icons ───────────────────────────────────────────────── */
+html[data-theme="light"]:root .stl-head__icon,
+html[data-theme="light"]:root .stl-subhead__icon {
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+html[data-theme="light"]:root .plat-settlement .plat-settlement__card .stl-head__icon {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__intro-icon {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .plat-int__empty-icon {
+  color: #2563eb;
+  background: #eff5ff;
+}
+
+/* ── Settlement ──────────────────────────────────────────────────── */
+html[data-theme="light"]:root .stl-seg__btn.is-active {
+  color: #ffffff;
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+}
+
+html[data-theme="light"]:root .plat-settlement .plat-settings__card-copy {
+  background: #f3f7ff;
+  border-left-color: rgba(59, 130, 246, 0.45);
+}
+
+html[data-theme="light"]:root .stl-chip--gold {
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.34);
+}
+
+html[data-theme="light"]:root .plat-settlement .plat-settlement__stat-selected-tag {
+  background: #e8f0ff;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+html[data-theme="light"]:root .platform-shell .b3-settlement__asset-badge {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: #eff5ff;
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root :is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: #eff5ff;
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root :is(.platform-shell, .b3-settlement-edit-modal) .b3-settlement__icon-btn:hover {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #e2ecff;
+  color: #1e40af;
+}
+
+/* ── Integrations (API keys / webhooks) ──────────────────────────── */
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__budget {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: #eff5ff;
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__budget.is-full {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: #fef2f2;
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__budget.is-full strong {
+  color: #dc2626;
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__check:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__check input:checked {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__check input:focus-visible {
+  outline-color: rgba(59, 130, 246, 0.5);
+}
+
+html[data-theme="light"]:root .plat-settings.plat-int .plat-int__form .plat-settings__submit {
+  color: #ffffff;
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+}
+
+/* ── Networks (confirmations / minimums) ─────────────────────────── */
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__count,
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__badge:not(.is-override) {
+  border-color: rgba(59, 130, 246, 0.32);
+  background: #eff5ff;
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    90deg,
+    #3b82f6 0%,
+    #3b82f6 var(--plat-slider-pct),
+    #e2e8f0 var(--plat-slider-pct),
+    #e2e8f0 100%
+  );
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__slider::-webkit-slider-thumb {
+  background: #2563eb;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 1px 3px rgba(15, 23, 42, 0.15);
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__slider::-moz-range-thumb {
+  background: #2563eb;
+  border-color: #ffffff;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__slider::-moz-range-progress {
+  background: #3b82f6;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__min-input:focus,
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__num-input:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__save {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: #eff5ff;
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__save:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #e2ecff;
+  color: #1e40af;
+}
+
+html[data-theme="light"]:root .platform-shell .org-network-rail-panel__save:disabled {
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* ── Invoice list ────────────────────────────────────────────────── */
+html[data-theme="light"]:root .invoice-list__btn--primary {
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  color: #ffffff;
+}
+
+html[data-theme="light"]:root .invoice-list__btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2f76ee, #1d4ed8);
+  color: #ffffff;
+}

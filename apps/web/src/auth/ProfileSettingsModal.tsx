@@ -771,7 +771,6 @@ export function ProfileSettingsModal({
                     placeholder="Enter first name"
                     onChange={(e) => setFirstName(e.target.value)}
                     autoComplete="given-name"
-                    autoFocus
                   />
                 </FieldControl>
               </label>

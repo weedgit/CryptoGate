@@ -1840,13 +1840,13 @@ html[data-theme="light"] .order-channel-tag--api {
   gap: 14px;
   width: min(400px, calc(100vw - 32px));
   padding: 16px 40px 16px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(148, 178, 220, 0.14);
   border-radius: 12px;
   background:
-    radial-gradient(ellipse 40% 90% at 88% 20%, rgba(255, 208, 96, 0.06), transparent 70%),
-    #111827;
-  color: #f8fafc;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+    radial-gradient(ellipse 40% 90% at 88% 20%, rgba(245, 196, 81, 0.05), transparent 70%),
+    linear-gradient(180deg, #111e33 0%, #0d1828 100%);
+  color: #eef3fa;
+  box-shadow: 0 18px 48px rgba(2, 8, 20, 0.5);
   font-family: var(--font-ui);
   color-scheme: dark;
   animation: tz-prompt-in 220ms ease-out;
@@ -1859,12 +1859,9 @@ html[data-theme="light"] .order-channel-tag--api {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  color: #ffd060;
-  background: #0b1018;
-  border: 1.5px solid #ffd060;
-  box-shadow:
-    0 0 0 1px rgba(255, 208, 96, 0.18),
-    inset 0 0 12px rgba(255, 208, 96, 0.1);
+  color: #f5c451;
+  background: rgba(245, 196, 81, 0.08);
+  border: 1px solid rgba(245, 196, 81, 0.28);
 }
 
 .tz-prompt__icon svg {
@@ -1916,24 +1913,24 @@ html[data-theme="light"] .order-channel-tag--api {
 
 .tz-prompt__btn.is-primary {
   border: 0;
-  background: #ffc145;
-  color: #0b0f14;
-  box-shadow: 0 8px 20px rgba(255, 193, 69, 0.28);
+  background: linear-gradient(180deg, #f5c451 0%, #e0a126 100%);
+  color: #1a1204;
+  box-shadow: 0 6px 18px rgba(224, 161, 38, 0.18);
 }
 
 .tz-prompt__btn.is-primary:hover:not(:disabled) {
-  background: #ffd06a;
+  filter: brightness(1.05);
 }
 
 .tz-prompt__btn.is-ghost {
-  border: 1px solid rgba(226, 232, 240, 0.35);
-  background: transparent;
-  color: #f8fafc;
+  border: 1px solid rgba(148, 178, 220, 0.24);
+  background: rgba(148, 178, 220, 0.05);
+  color: #dbe5f3;
 }
 
 .tz-prompt__btn.is-ghost:hover:not(:disabled) {
-  border-color: rgba(226, 232, 240, 0.6);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(148, 178, 220, 0.36);
+  background: rgba(148, 178, 220, 0.1);
 }
 
 .tz-prompt__btn:disabled {
@@ -1962,46 +1959,51 @@ html[data-theme="light"] .order-channel-tag--api {
 }
 
 html[data-theme="light"] .tz-prompt {
-  border-color: #d8dee8;
+  border-color: #e0e7f1;
   background:
-    radial-gradient(ellipse 40% 90% at 88% 20%, rgba(245, 158, 11, 0.07), transparent 70%),
+    radial-gradient(ellipse 40% 90% at 88% 20%, rgba(125, 211, 252, 0.12), transparent 70%),
     #ffffff;
-  color: #0f172a;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+  color: #13203a;
+  box-shadow: 0 18px 48px rgba(30, 58, 95, 0.14);
   color-scheme: light;
 }
 
 html[data-theme="light"] .tz-prompt__icon {
-  color: #b45309;
-  background: #fffbeb;
-  border-color: rgba(180, 83, 9, 0.45);
+  color: #2563eb;
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.28);
   box-shadow: none;
 }
 
 html[data-theme="light"] .tz-prompt__title,
 html[data-theme="light"] .tz-prompt__text strong {
-  color: #0f172a;
+  color: #13203a;
 }
 
 html[data-theme="light"] .tz-prompt__text {
-  color: #475569;
+  color: #5a6a84;
 }
 
 html[data-theme="light"] .tz-prompt__btn.is-primary {
-  background: #f59e0b;
-  color: #0f172a;
-  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.2);
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
+  filter: none;
+}
+
+html[data-theme="light"] .tz-prompt__btn.is-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2f76ee 0%, #1d4ed8 100%);
 }
 
 html[data-theme="light"] .tz-prompt__btn.is-ghost {
-  border-color: #cbd5e1;
+  border-color: rgba(59, 130, 246, 0.34);
   background: #ffffff;
-  color: #334155;
+  color: #1d4ed8;
 }
 
 html[data-theme="light"] .tz-prompt__btn.is-ghost:hover:not(:disabled) {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #eff5ff;
+  color: #1e40af;
 }
 
 html[data-theme="light"] .tz-prompt__close:hover {

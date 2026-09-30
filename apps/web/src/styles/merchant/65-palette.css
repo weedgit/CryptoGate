@@ -1,0 +1,244 @@
+/*
+ * Portal palette — aligns every shell (platform / agent / merchant / cashier)
+ * with the login scene: deep navy + soft gold/teal in dark, sky / lavender /
+ * mint daylight in light. Loaded last so it wins at equal specificity.
+ */
+
+/* ── Dark: navy tokens (replace charcoal) ─────────────────────────── */
+html:not([data-theme="light"]) .platform-shell {
+  --bg: #0a1220;
+  --canvas: #0a1220;
+  --surface: #101b2d;
+  --surface-elevated: #152238;
+  --sidebar: #0a1320;
+  --border: #1d2a40;
+  --border-strong: #2a3a55;
+  --glass: rgba(148, 178, 220, 0.07);
+  --muted: #8fa1ba;
+  --footer: #5f7089;
+  --text: #eef3fa;
+  --ink: #eef3fa;
+  --topbar-control: rgba(148, 178, 220, 0.06);
+  --topbar-control-border: rgba(148, 178, 220, 0.14);
+  --plat-gold-bright: #f5c451;
+}
+
+html:not([data-theme="light"]) .platform-shell .topbar.topbar--chrome {
+  --tb-text: #eef3fa;
+  --tb-search-bg: rgba(16, 30, 52, 0.72);
+  --tb-search-border: rgba(148, 178, 220, 0.16);
+  --tb-bar-bg: rgba(9, 20, 38, 0.86);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow:
+    inset 0 -1px 0 rgba(148, 178, 220, 0.12),
+    0 6px 22px rgba(2, 8, 20, 0.28);
+}
+
+html:not([data-theme="light"]) .platform-shell .sidebar {
+  border-right-color: rgba(148, 178, 220, 0.09);
+  box-shadow: 8px 0 28px rgba(2, 8, 20, 0.34);
+}
+
+html:not([data-theme="light"]) .platform-shell .logo-title {
+  color: #f4f7fc;
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-label {
+  color: #5d6f8a;
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-item,
+html:not([data-theme="light"]) .platform-shell .nav-item .nav-item-icon {
+  color: #9fb0c8;
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-item:hover:not(.active) {
+  background: rgba(148, 178, 220, 0.06);
+  border-color: rgba(148, 178, 220, 0.08);
+  color: #eef3fa;
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-item:hover:not(.active) .nav-item-icon {
+  color: #eef3fa;
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-item.active {
+  background: linear-gradient(
+    90deg,
+    rgba(240, 180, 41, 0.13) 0%,
+    rgba(240, 180, 41, 0.05) 55%,
+    rgba(45, 212, 191, 0.03) 100%
+  );
+  border-color: rgba(240, 180, 41, 0.3);
+}
+
+html:not([data-theme="light"]) .platform-shell .nav-item.active .nav-item-icon {
+  color: #f7c948;
+  filter: drop-shadow(0 0 5px rgba(240, 180, 41, 0.3));
+}
+
+/* ── Light: daylight tokens ───────────────────────────────────────── */
+html[data-theme="light"] .platform-shell {
+  --bg: #f4f7fc;
+  --canvas: #f4f7fc;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --sidebar: #ffffff;
+  --border: #e0e7f1;
+  --border-strong: #cad5e5;
+  --glass: rgba(30, 58, 95, 0.05);
+  --muted: #5a6a84;
+  --footer: #93a2b8;
+  --text: #13203a;
+  --ink: #13203a;
+  --topbar-control: #ffffff;
+  --topbar-control-border: #e0e7f1;
+}
+
+html[data-theme="light"] .platform-shell .main {
+  background-color: #f4f7fc;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 8% 0%, rgba(125, 211, 252, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 42% at 96% 6%, rgba(167, 139, 250, 0.1) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 45% at 82% 96%, rgba(94, 234, 212, 0.12) 0%, transparent 70%),
+    linear-gradient(170deg, #f5f9ff 0%, #f3f6fc 50%, #f2f8f7 100%);
+  background-repeat: no-repeat;
+  background-size: auto;
+}
+
+html[data-theme="light"] .platform-shell .sidebar {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(ellipse 110% 26% at 50% 0%, rgba(125, 211, 252, 0.12) 0%, transparent 75%),
+    radial-gradient(ellipse 90% 22% at 50% 100%, rgba(94, 234, 212, 0.1) 0%, transparent 75%),
+    linear-gradient(180deg, #ffffff 0%, #fbfcff 55%, #f8fbfb 100%);
+  border-right: 1px solid #e4eaf3;
+  box-shadow: 6px 0 24px rgba(30, 58, 95, 0.05);
+}
+
+html[data-theme="light"] .platform-shell .topbar.topbar--chrome {
+  --tb-icon: #3b4a63;
+  --tb-icon-muted: #6b7a92;
+  --tb-text: #13203a;
+  --tb-muted: #6b7a92;
+  --tb-search-bg: #f3f6fb;
+  --tb-search-border: #e0e7f1;
+  --tb-bar-bg: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.8);
+  background-image: none;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    inset 0 -1px 0 #e4eaf3,
+    0 4px 18px rgba(30, 58, 95, 0.04);
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-search:focus-within {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+html[data-theme="light"] .platform-shell .topbar--chrome .topbar-divider {
+  background: #e4eaf3;
+}
+
+html[data-theme="light"] .platform-shell .logo-title {
+  color: #13203a;
+}
+
+html[data-theme="light"] .platform-shell .logo-tagline {
+  color: #6b7a92;
+}
+
+html[data-theme="light"] .platform-shell .nav-label {
+  color: #9aa8bf;
+}
+
+html[data-theme="light"] .platform-shell .nav-item,
+html[data-theme="light"] .platform-shell .nav-sub__item {
+  color: #3f4d66;
+}
+
+html[data-theme="light"] .platform-shell .nav-item .nav-item-icon,
+html[data-theme="light"] .platform-shell .nav-sub__item .nav-item-icon {
+  color: #6b7a92;
+}
+
+html[data-theme="light"] .platform-shell .nav-item:hover:not(.active),
+html[data-theme="light"] .platform-shell .nav-sub__item:hover:not(.is-active) {
+  color: #13203a;
+  background: #f1f5fc;
+  border-color: #e4eaf3;
+}
+
+html[data-theme="light"] .platform-shell .nav-item:hover:not(.active) .nav-item-icon,
+html[data-theme="light"] .platform-shell .nav-sub__item:hover:not(.is-active) .nav-item-icon {
+  color: #13203a;
+}
+
+html[data-theme="light"] .platform-shell .nav-item.active,
+html[data-theme="light"] .platform-shell .nav-sub__item.is-active {
+  color: #1e40af;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.06) 60%,
+    rgba(45, 212, 191, 0.04) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.26);
+  box-shadow: 0 1px 2px rgba(30, 64, 175, 0.06);
+}
+
+html[data-theme="light"] .platform-shell .nav-item.active .nav-item-icon,
+html[data-theme="light"] .platform-shell .nav-sub__item.is-active .nav-item-icon {
+  color: #2563eb;
+  filter: none;
+}
+
+html[data-theme="light"] .platform-shell .nav-sub {
+  border-left-color: #e4eaf3;
+}
+
+html[data-theme="light"] .platform-shell .nav-sub__dot {
+  background: #cbd5e6;
+}
+
+html[data-theme="light"] .platform-shell .nav-sub__item.is-active .nav-sub__dot,
+html[data-theme="light"] .platform-shell .nav-sub__item.is-active::before {
+  background: #3b82f6;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .platform-shell .sidebar-toggle {
+  background: #f6f8fc;
+  border-color: #e0e7f1;
+  color: #6b7a92;
+}
+
+html[data-theme="light"] .platform-shell .sidebar-toggle:hover {
+  color: #1e40af;
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+html:not([data-theme="light"]) .platform-shell .pg-dash__period-pill.is-active {
+  color: #1a1204;
+  background: linear-gradient(180deg, #f5c451 0%, #e0a126 100%);
+  box-shadow: 0 2px 8px rgba(240, 180, 41, 0.18);
+}
+
+html[data-theme="light"] .platform-shell .pg-dash__period-pill.is-active {
+  color: #1e40af;
+  background: linear-gradient(180deg, #eaf2ff 0%, #dde9ff 100%);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.28);
+}
+
+html[data-theme="light"] .sidebar-profile__menu {
+  border-color: #e0e7f1;
+  box-shadow: 0 14px 32px rgba(30, 58, 95, 0.12);
+}
+
+html[data-theme="light"] .sidebar-profile__menu-item:hover {
+  background: #f1f5fc;
+}

@@ -277,7 +277,9 @@ export function Sparkline({
   );
   const xLabelStep = Math.max(1, Math.ceil(pts.length / maxXLabels));
   const showXAt = (idx: number) =>
-    idx === 0 || idx === pts.length - 1 || idx % xLabelStep === 0;
+    idx === 0 ||
+    idx === pts.length - 1 ||
+    (idx % xLabelStep === 0 && pts.length - 1 - idx >= xLabelStep);
   const { svgRef, hover, onMouseMove, onMouseLeave } = useLineChartHover(pts);
   const seriesAnimKey = `${labels?.[0] ?? ""}|${labels && labels.length > 0 ? labels[labels.length - 1] : ""}|${safe.length}|${Math.round(safe[0] ?? 0)}|${Math.round(safe[safe.length - 1] ?? 0)}|${size}`;
   const prevSeriesAnimKey = useRef("");

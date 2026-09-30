@@ -1,0 +1,190 @@
+/*
+ * Cashier terminal — aligns the tablet shell with the portal palette:
+ * navy + soft gold in dark, sky / lavender / mint with blue actions in light.
+ */
+
+/* ── Dark ────────────────────────────────────────────────────────── */
+html:not([data-theme="light"]) .cashier-shell {
+  background-color: #0a1220;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 10% 0%, rgba(240, 180, 41, 0.05) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 50% at 92% 6%, rgba(56, 189, 248, 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 45% at 80% 96%, rgba(45, 212, 191, 0.05) 0%, transparent 70%),
+    linear-gradient(165deg, #0d1728 0%, #0a1220 45%, #070e18 100%);
+}
+
+html:not([data-theme="light"]) .cashier-shell__bar {
+  background: rgba(9, 20, 38, 0.86);
+  border-bottom-color: rgba(148, 178, 220, 0.12);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+html:not([data-theme="light"]) .cashier-pad {
+  --pad-gold: #e8ad35;
+  --pad-gold-hover: #f0b944;
+  --pad-gold-tint: rgba(245, 196, 81, 0.08);
+}
+
+html:not([data-theme="light"]) .cashier-pad__entry,
+html:not([data-theme="light"]) .cashier-pad__side {
+  background: linear-gradient(180deg, #111e33 0%, #0e192b 100%);
+  border-color: rgba(148, 178, 220, 0.12);
+  box-shadow: 0 10px 30px rgba(2, 8, 20, 0.3);
+}
+
+html:not([data-theme="light"]) .cashier-pad__digits {
+  color: #f5c451;
+}
+
+html:not([data-theme="light"]) .cashier-pad__pill.is-active,
+html:not([data-theme="light"]) .cashier-pad__charge {
+  background: linear-gradient(180deg, #f5c451 0%, #e0a126 100%);
+  color: #1a1204;
+}
+
+html:not([data-theme="light"]) .cashier-pad__charge:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f8cf6a 0%, #e8ab33 100%);
+}
+
+html:not([data-theme="light"]) .cashier-pad__charge:disabled {
+  opacity: 1;
+  background: rgba(148, 178, 220, 0.1);
+  color: #6f809a;
+}
+
+/* ── Light ───────────────────────────────────────────────────────── */
+html[data-theme="light"]:root .cashier-shell {
+  --bg: #f4f7fc;
+  --canvas: #f4f7fc;
+  --surface-elevated: #f3f6fb;
+  --border: #e0e7f1;
+  --border-strong: #cad5e5;
+  --muted: #5a6a84;
+  --text: #13203a;
+  --btn-primary-bg: #eff5ff;
+  --btn-primary-border: rgba(59, 130, 246, 0.34);
+  --btn-primary-border-hover: rgba(37, 99, 235, 0.5);
+  --btn-primary-fg: #1d4ed8;
+  background-color: #f4f7fc;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 8% 0%, rgba(125, 211, 252, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 42% at 96% 6%, rgba(167, 139, 250, 0.1) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 45% at 82% 96%, rgba(94, 234, 212, 0.12) 0%, transparent 70%),
+    linear-gradient(170deg, #f5f9ff 0%, #f3f6fc 50%, #f2f8f7 100%);
+}
+
+html[data-theme="light"]:root .cashier-shell__bar {
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom-color: #e4eaf3;
+  box-shadow: 0 4px 18px rgba(30, 58, 95, 0.04);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+html[data-theme="light"]:root .cashier-shell__tabs {
+  background: #f3f6fb;
+  border-color: #e0e7f1;
+}
+
+html[data-theme="light"]:root .cashier-shell__tab.is-active {
+  color: #ffffff;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+html[data-theme="light"]:root .cashier-pad {
+  --pad-gold: #2563eb;
+  --pad-gold-hover: #1d4ed8;
+  --pad-gold-tint: #f3f7ff;
+  --pad-back-key: #e8eef8;
+}
+
+html[data-theme="light"]:root .cashier-pad__entry,
+html[data-theme="light"]:root .cashier-pad__side {
+  border-color: #e6ecf5;
+  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.06);
+}
+
+html[data-theme="light"]:root .cashier-pad__digits {
+  color: #1e3a8a;
+}
+
+html[data-theme="light"]:root .cashier-pad__pill.is-active,
+html[data-theme="light"]:root .cashier-pad__charge {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+html[data-theme="light"]:root .cashier-pad__charge:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2f76ee 0%, #1d4ed8 100%);
+}
+
+html[data-theme="light"]:root .cashier-pad__charge:disabled {
+  opacity: 1;
+  background: #dbe5f4;
+  color: #8a9ab3;
+}
+
+/* Network status lamps — light default (panel-specific rules still win) */
+html[data-theme="light"] .network-status-lamp {
+  color: #475569;
+  border-color: #d8dee8;
+  background: #f8fafc;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+html[data-theme="light"] .network-status-lamp--open {
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: #ecfdf5;
+}
+
+html[data-theme="light"] .network-status-lamp--paused {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: #fffbeb;
+}
+
+html[data-theme="light"] .network-status-lamp--down {
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: #fef2f2;
+}
+
+html[data-theme="light"] .network-status-lamp--off,
+html[data-theme="light"] .network-status-lamp--checking {
+  color: #64748b;
+}
+
+/* Live payment + shift pages */
+html[data-theme="light"]:root .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-label,
+html[data-theme="light"]:root .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-detail {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .cashier-live .cashier-live__timeline .plat-bill-detail__step.is-current .plat-bill-detail__step-dot::after {
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+html[data-theme="light"]:root .cashier-live .cashier-live__actions > .cashier-live__next:hover:not(:disabled),
+html[data-theme="light"]:root .cashier-live .cashier-live__actions > .cashier-live__next:focus-visible {
+  background: #e2ecff;
+  border-color: rgba(37, 99, 235, 0.5);
+}
+
+html[data-theme="light"]:root .cashier-live .cashier-live__actions .btn-ghost:hover:not(:disabled) {
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.34);
+}
+
+html[data-theme="light"]:root .cashier-shift .cashier-shift__total.is-completed strong {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .cashier-shift__row:hover,
+html[data-theme="light"]:root .cashier-shift__row:focus-visible {
+  background: #f3f7ff;
+}

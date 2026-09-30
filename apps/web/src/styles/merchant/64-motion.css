@@ -1,0 +1,212 @@
+/*
+ * Global motion layer — soft entrances and micro-interactions.
+ *
+ * Every selector is wrapped in :where() (zero specificity) so any component
+ * that already defines its own animation or transition keeps it.
+ * Entrance animations use `backwards` fill only: a `forwards`/`both` fill would
+ * leave a transform in effect and break position: fixed / sticky descendants.
+ */
+
+:root {
+  --motion-soft: 420ms;
+  --motion-stagger: 55ms;
+}
+
+@keyframes motion-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motion-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motion-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motion-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motion-menu {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* —— Page entrance: each routed page root inside the shell content pane —— */
+:where(.body) > :where(:not(.page-pending)) {
+  animation: motion-page-in var(--motion-soft) var(--ease-out) backwards;
+}
+
+/* —— Cards & panels rise in, staggered by position —— */
+:where(.body)
+  :where(
+    .b3-card,
+    .panel,
+    .plat-settings__card,
+    .plat-bills__panel,
+    .plat-rates__panel,
+    .plat-bill-detail__card,
+    .plat-settlement__card,
+    .pg-dash__panel,
+    .pg-networks-panel
+  ) {
+  animation: motion-rise 480ms var(--ease-out) backwards;
+  animation-delay: 60ms;
+}
+
+:where(.body)
+  :where(
+    .pg-dash__kpi-row,
+    .pg-dash__status-row,
+    .b3-agent-detail__kpis,
+    .merchant-dash__kpi-row
+  )
+  > :where(*) {
+  animation: motion-rise 480ms var(--ease-out) backwards;
+}
+
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(1)) { animation-delay: calc(var(--motion-stagger) * 1); }
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(2)) { animation-delay: calc(var(--motion-stagger) * 2); }
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(3)) { animation-delay: calc(var(--motion-stagger) * 3); }
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(4)) { animation-delay: calc(var(--motion-stagger) * 4); }
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(5)) { animation-delay: calc(var(--motion-stagger) * 5); }
+:where(.body) :where(.pg-dash__kpi-row, .pg-dash__status-row, .b3-agent-detail__kpis, .merchant-dash__kpi-row) > :where(:nth-child(n + 6)) { animation-delay: calc(var(--motion-stagger) * 6); }
+
+/* —— Table rows fade in gently (only first rows are staggered) —— */
+:where(.body) :where(tbody) > :where(tr) {
+  animation: motion-fade 320ms var(--ease-out) backwards;
+}
+
+:where(.body) :where(tbody) > :where(tr:nth-child(2)) { animation-delay: 20ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(3)) { animation-delay: 40ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(4)) { animation-delay: 60ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(5)) { animation-delay: 80ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(6)) { animation-delay: 100ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(7)) { animation-delay: 120ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(8)) { animation-delay: 140ms; }
+:where(.body) :where(tbody) > :where(tr:nth-child(n + 9)) { animation-delay: 160ms; }
+
+/* —— Modals & overlays —— */
+:where(
+    .b3-commission-modal-backdrop,
+    .b4-wizard-backdrop,
+    .mfa-stepup-backdrop,
+    .mfa-setup-backdrop,
+    .plat-int-secret-backdrop,
+    .create-site-modal-backdrop,
+    .confirm-action-backdrop,
+    .b7-override-backdrop,
+    .alerts-drawer-backdrop
+  ) {
+  animation: motion-fade 220ms var(--ease-inout) backwards;
+}
+
+:where(
+    .b3-commission-modal,
+    .create-site-modal,
+    .confirm-action-modal,
+    .b7-override-modal,
+    .plat-int-secret-modal
+  ) {
+  animation: motion-pop 340ms var(--ease-out) backwards;
+}
+
+/* —— Menus & popovers —— */
+:where(.workspace-menu, .plat-bill-actions--menu, .sidebar-profile__menu) {
+  animation: motion-menu 180ms var(--ease-out) backwards;
+  transform-origin: top center;
+}
+
+/* —— Micro-interactions: smooth state changes on controls —— */
+:where(button, a, [role="button"], [role="tab"], input, select, textarea, summary, label) {
+  transition-property: color, background-color, border-color, box-shadow, opacity, scale, filter;
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-out);
+}
+
+:where(button, [role="button"]):where(:not(:disabled, [aria-disabled="true"])):active {
+  scale: 0.98;
+  transition-duration: 90ms;
+}
+
+:where(.body) :where(tbody) > :where(tr) {
+  transition-property: background-color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+
+/* —— Login hero: brand, headline and feature cards settle in —— */
+:where(.login-hero__brand, .login-hero__copy, .login-hero__feature) {
+  animation: motion-rise 640ms var(--ease-out) backwards;
+}
+
+:where(.login-hero__copy) { animation-delay: 90ms; }
+:where(.login-hero__feature:nth-child(1)) { animation-delay: 220ms; }
+:where(.login-hero__feature:nth-child(2)) { animation-delay: 290ms; }
+:where(.login-hero__feature:nth-child(3)) { animation-delay: 360ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.body) *,
+  :where(.body) > *,
+  :where(
+      .b3-commission-modal-backdrop,
+      .b4-wizard-backdrop,
+      .mfa-stepup-backdrop,
+      .mfa-setup-backdrop,
+      .plat-int-secret-backdrop,
+      .create-site-modal-backdrop,
+      .confirm-action-backdrop,
+      .b7-override-backdrop,
+      .alerts-drawer-backdrop,
+      .b3-commission-modal,
+      .create-site-modal,
+      .confirm-action-modal,
+      .b7-override-modal,
+      .plat-int-secret-modal,
+      .workspace-menu,
+      .plat-bill-actions--menu,
+      .sidebar-profile__menu,
+      .login-hero__brand,
+      .login-hero__copy,
+      .login-hero__feature
+    ) {
+    animation-name: none;
+  }
+
+  :where(button, [role="button"]):active {
+    scale: none;
+  }
+}

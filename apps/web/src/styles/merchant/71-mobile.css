@@ -1,0 +1,449 @@
+/* Phone layout fixes — loaded last so desktop grid rules don't win on small screens. */
+
+body:has(.portal-shell--nav-open) .unresolved-alerts-dock {
+  visibility: hidden;
+}
+
+/* iOS Safari zooms the page when focusing a field whose text is under 16px. */
+@media (max-width: 900px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not(.login-mfa-slot),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .login-wrap--split .login-hero {
+    padding: 18px 20px 14px;
+  }
+
+  .login-wrap--split .login-hero__copy,
+  .login-wrap--split .login-hero__features {
+    display: none;
+  }
+
+  .login-wrap--split .login-hero__top {
+    gap: 0;
+  }
+
+  .login-wrap--split .login-stage--split {
+    padding: 24px 20px 28px;
+  }
+
+  .login-wrap--split .login-stage {
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  body:has(.cashier-shell) .unresolved-alerts-dock {
+    display: none;
+  }
+
+  .platform-shell .dash-split,
+  .platform-shell .pg-dash__split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-shell .dash-split .plat-health-card {
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .platform-shell .pg-dash__split > .pg-chart-panel {
+    height: auto;
+    min-height: 0;
+  }
+
+  .cashier-pad,
+  .cashier-live {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cashier-pad > *,
+  .cashier-live > * {
+    min-width: 0;
+  }
+
+  .platform-shell .main:is(:has(.plat-bills), :has(.invoice-list), :has(.org-architecture), :has(.org-agents--split)) .main__scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .platform-shell .main__scroll > .body:is(:has(> .plat-bills), :has(> .org-architecture), :has(> .org-agents--split)),
+  .platform-shell .body:has(.plat-bills) .plat-bills,
+  .platform-shell .plat-bills__panel,
+  .platform-shell .plat-bills__main,
+  .platform-shell .plat-bills__table-wrap,
+  .platform-shell .org-architecture,
+  .platform-shell .org-architecture__workspace,
+  .platform-shell .org-architecture__map,
+  .platform-shell .org-architecture__detail-pane,
+  .platform-shell .org-architecture__detail-scroll,
+  .platform-shell .org-architecture__detail-scroll > .platform-detail {
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .platform-shell .plat-bills__panel,
+  .platform-shell .org-architecture__map {
+    grid-template-rows: auto !important;
+    grid-auto-rows: auto;
+  }
+
+  .platform-shell .plat-bills__status-rail {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .platform-shell .plat-bills__table-scroll,
+  .platform-shell .plat-audit__table-wrap {
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+  }
+
+  .platform-shell .org-architecture__tree-scroll {
+    flex: none;
+    height: auto;
+    max-height: 55vh;
+  }
+
+  .platform-shell .org-architecture__pane-head--row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .platform-shell .org-architecture__pane-head--row > .org-architecture__pane-title-cluster {
+    flex: 1 1 100%;
+  }
+
+  .platform-shell .org-architecture__pane-head--row > .org-architecture__pane-toolbar {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .platform-shell .platform-detail__hero-top .platform-detail__hero-actions {
+    position: static;
+    transform: none;
+    align-self: stretch;
+    margin-top: 12px;
+  }
+
+  .platform-shell .main__scroll > .body:has(> .invoice-list),
+  .platform-shell .invoice-list,
+  .platform-shell .invoice-list__workspace,
+  .platform-shell .invoice-list__filters-panel,
+  .platform-shell .invoice-list__main {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .platform-shell .invoice-list,
+  .platform-shell .invoice-list__workspace {
+    flex: none;
+  }
+
+  .platform-shell .invoice-list__workspace {
+    grid-template-rows: auto auto;
+    align-content: start;
+  }
+
+  .platform-shell .invoice-list__filters-panel {
+    min-height: auto;
+  }
+
+  .platform-shell .invoice-list__main {
+    min-height: 420px;
+  }
+
+  .platform-shell .invoice-list__status {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .platform-shell .invoice-list__status::-webkit-scrollbar {
+    display: none;
+  }
+
+  .platform-shell .invoice-list__status > * {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-shell .dash-chart-panel__title-row {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 10px;
+  }
+
+  .platform-shell .dash-chart-panel__title-row > .pg-chart-panel__heading {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .platform-shell .pg-chart-panel__heading-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .platform-shell .dash-chart-panel__filters {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    justify-content: flex-start;
+  }
+
+  .platform-shell .dash-chart-panel__filters .plat-volume-filter {
+    position: static;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .platform-shell .dash-chart-panel__tools {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .platform-shell .pg-dash__hero-highlights {
+    display: none;
+  }
+
+  .cashier-shell__bar {
+    gap: 10px 8px;
+    padding: 8px 12px;
+  }
+
+  .cashier-shell__brand {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .cashier-shell__org {
+    max-width: none;
+  }
+
+  .cashier-shell__utils {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .cashier-shell__tab {
+    min-height: 40px;
+    padding: 0 8px;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .cashier-pad__key {
+    min-height: 52px;
+  }
+
+  .invoice-list__header .invoice-list__total {
+    margin-left: 0;
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .cashier-pad__charge {
+    min-height: 56px;
+  }
+
+  .platform-shell .plat-bills__kpi-carousel.is-fit .plat-bills__kpi {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .platform-shell .plat-bills__kpi-carousel.is-fit .plat-bills__kpi-card {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .platform-shell .b3-agent-detail__kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-shell .b3-agent-detail__kpis .b3-card--kpi {
+    column-gap: 14px;
+    padding: 12px 14px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .platform-shell .b3-agent-detail__kpis .b3-card--kpi:last-child {
+    border-bottom: 0;
+  }
+
+  .platform-shell .pg-dash__period {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .platform-shell .pg-dash__period-dates {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .platform-shell .pg-dash__period-date {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .platform-shell .pg-dash__period-date input[type="date"] {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .platform-shell .pg-dash__kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .platform-shell .pg-dash__kpi-row > .pg-feature {
+    grid-column: 1 / -1;
+  }
+
+  .platform-shell .pg-dash__kpi-row > .pg-kpi {
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 12px 12px 10px;
+    gap: 8px;
+  }
+
+  .platform-shell .pg-kpi__top {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .platform-shell .pg-kpi__icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+  }
+
+  .platform-shell .pg-kpi__icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .platform-shell .pg-kpi__label {
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .platform-shell .pg-kpi__value {
+    font-size: 22px;
+  }
+
+  .platform-shell .pg-kpi__hint {
+    font-size: 11px;
+  }
+
+  .platform-shell .pg-kpi__link {
+    font-size: 11px;
+  }
+
+  .platform-shell .invoice-list__asset-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-shell .invoice-list__asset-card {
+    min-width: 0;
+    height: auto;
+    padding: 10px 12px;
+  }
+
+  .platform-shell .org-network-rail-panel__row .org-network-rail-panel__slider-wrap {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .platform-shell .org-network-rail-panel__row .org-network-rail-panel__slider-wrap .org-network-rail-panel__slider {
+    width: 100%;
+  }
+
+  .platform-shell .org-network-rail-panel__row .org-network-rail-panel__min-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .platform-shell .org-network-rail-panel__row .org-network-rail-panel__min {
+    min-width: 0;
+  }
+
+  .platform-shell .org-network-rail-panel__row .org-network-rail-panel__min .org-network-rail-panel__min-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .platform-shell .invoice-list__filters-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .platform-shell .invoice-list__filters-panel > .invoice-list__filters-head,
+  .platform-shell .invoice-list__filters-panel > .invoice-list__filters-rule {
+    grid-column: 1 / -1;
+  }
+
+  .platform-shell .invoice-list__filters-panel > .invoice-list__field {
+    min-width: 0;
+  }
+
+  .platform-shell .main__scroll > .body {
+    padding-bottom: 96px;
+  }
+
+  .platform-shell .plat-card-help .plat-card-help__tip {
+    position: fixed !important;
+    left: 16px !important;
+    right: 16px !important;
+    top: auto !important;
+    bottom: 96px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+    z-index: 120 !important;
+    white-space: normal;
+  }
+
+  .platform-shell .b3-settlement,
+  .platform-shell .b3-card:has(> .b3-settlement) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .unresolved-alerts-dock .unresolved-alerts-dock__card.is-collapsed {
+    width: 64px;
+    height: 64px;
+    padding: 12px;
+    justify-content: center;
+  }
+
+  .unresolved-alerts-dock__card.is-collapsed .unresolved-alerts-dock__copy,
+  .unresolved-alerts-dock__card.is-collapsed .unresolved-alerts-dock__action {
+    max-height: 0;
+  }
+}

@@ -1,0 +1,319 @@
+/*
+ * Light-mode accents — decorative gold (page icons, selected rows, action
+ * buttons, toggles) becomes the login daylight blue/lavender. Status and
+ * category colours (issued / pending / merchant badge / gold KPI tone) stay.
+ * `:root` lifts each rule one step above the per-page light overrides.
+ */
+
+html[data-theme="light"]:root .platform-shell {
+  --btn-primary-bg: #eff5ff;
+  --btn-primary-bg-hover: #e2ecff;
+  --btn-primary-border: rgba(59, 130, 246, 0.34);
+  --btn-primary-border-hover: rgba(37, 99, 235, 0.5);
+  --btn-primary-fg: #1d4ed8;
+  --btn-primary-fg-hover: #1e40af;
+  --plat-gold-bright: #b45309;
+}
+
+html[data-theme="light"]:root .platform-shell .b3-card__value .fund-amount {
+  color: inherit;
+}
+
+html[data-theme="light"]:root .platform-shell .b3-agent-detail .b3-profile__head-icon {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .platform-shell .b3-profile__verify.is-pending,
+html[data-theme="light"]:root .plat-settings .b3-profile__verify.is-pending,
+html[data-theme="light"]:root .settings-panel .b3-profile__verify.is-pending,
+html[data-theme="light"]:root .platform-shell .b3-profile__mfa:not(.is-on) {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills,
+html[data-theme="light"]:root .platform-shell .plat-bill-detail,
+html[data-theme="light"]:root .plat-issue-pop,
+html[data-theme="light"]:root .plat-waivers-pop,
+html[data-theme="light"]:root .org-setup-modal {
+  --bills-gold: #2563eb;
+  --bills-gold-bright: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__review,
+html[data-theme="light"]:root .platform-shell .b3-kpi__more {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__review:hover,
+html[data-theme="light"]:root .platform-shell .b3-kpi__more:hover {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__empty-icon {
+  color: #2563eb;
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.06);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-rates {
+  --rates-gold: #2563eb;
+  --rates-gold-bright: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-fees {
+  --fees-gold: #2563eb;
+  --fees-gold-bright: #1d4ed8;
+  --fees-formula-border: rgba(59, 130, 246, 0.26);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-fee-billing__shell--address .field-shell__copy-btn {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-fee-billing__shell--address .field-shell__copy-btn:hover:not(:disabled) {
+  color: #1e40af;
+  background: #eff5ff;
+}
+
+html[data-theme="light"]:root .plat-alerts__row.is-on .plat-alerts__icon {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+html[data-theme="light"]:root .plat-settings.plat-alerts {
+  --al-gold: #2563eb;
+  --al-gold-deep: #3b82f6;
+  --al-row-on: #f3f7ff;
+  --al-border-on: rgba(59, 130, 246, 0.32);
+}
+
+/* ── Outline-tint action buttons ─────────────────────────────────── */
+html[data-theme="light"]:root .platform-shell .plat-bills__more-summary.btn-secondary,
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard,
+html[data-theme="light"]:root .platform-shell .platform-detail__hero-actions .pg-dash__onboard,
+html[data-theme="light"]:root .platform-shell .platform-detail__team-link,
+html[data-theme="light"]:root .platform-shell .b3-agent-detail__onboard,
+html[data-theme="light"]:root .platform-shell .b3-settlement__head-actions .b3-agent-detail__onboard,
+html[data-theme="light"]:root .platform-shell .plat-team.plat-bills .plat-team__invite-cta.plat-bills__action-btn,
+html[data-theme="light"]:root .platform-shell .b3-agent-detail__view-all,
+html[data-theme="light"]:root .platform-shell .plat-audit__export-cta.plat-bills__action-btn,
+html[data-theme="light"]:root .platform-shell .plat-fee-bands__save.btn-primary,
+html[data-theme="light"]:root .platform-shell .plat-fees__save,
+html[data-theme="light"]:root .platform-shell .b3-profile__edit-btn,
+html[data-theme="light"]:root .platform-shell .b3-agent-detail .b3-profile__head .b3-profile__edit-btn,
+html[data-theme="light"]:root .plat-alerts__save.btn-primary,
+html[data-theme="light"]:root :is(.platform-shell, .shell) .plat-team__action--icon:not(.is-danger) {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: #eff5ff;
+  color: #1d4ed8;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__more[open] .plat-bills__more-summary.btn-secondary,
+html[data-theme="light"]:root .platform-shell .plat-bills__more-summary.btn-secondary:hover,
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard:hover,
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard:focus-visible,
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard-wrap.is-open .pg-dash__onboard,
+html[data-theme="light"]:root .platform-shell .platform-detail__hero-actions .pg-dash__onboard:hover,
+html[data-theme="light"]:root .platform-shell .platform-detail__team-link:hover,
+html[data-theme="light"]:root .platform-shell .platform-detail__team-link:focus-visible,
+html[data-theme="light"]:root .platform-shell .b3-agent-detail__onboard:hover,
+html[data-theme="light"]:root .platform-shell .b3-settlement__head-actions .b3-agent-detail__onboard:hover,
+html[data-theme="light"]:root .platform-shell .plat-team.plat-bills .plat-team__invite-cta.plat-bills__action-btn:hover:not(:disabled),
+html[data-theme="light"]:root .platform-shell .b3-agent-detail__view-all:hover,
+html[data-theme="light"]:root .platform-shell .plat-audit__export-cta.plat-bills__action-btn:hover:not(:disabled),
+html[data-theme="light"]:root .platform-shell .plat-fee-bands__save.btn-primary:hover:not(:disabled),
+html[data-theme="light"]:root .platform-shell .plat-fees__save:hover:not(:disabled),
+html[data-theme="light"]:root .platform-shell .b3-profile__edit-btn:hover:not(:disabled),
+html[data-theme="light"]:root .plat-alerts__save.btn-primary:hover:not(:disabled),
+html[data-theme="light"]:root :is(.platform-shell, .shell) .plat-team__action--icon:not(.is-danger):hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #e2ecff;
+  color: #1e40af;
+}
+
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard-menu {
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard-option:hover,
+html[data-theme="light"]:root .platform-shell .pg-dash__onboard-option:focus-visible {
+  background: #eff5ff;
+  color: #1e40af;
+}
+
+/* Filled save (Rates) */
+html[data-theme="light"]:root .platform-shell .plat-rates__save {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-rates__save:hover:not(:disabled) {
+  border-color: #1d4ed8;
+  background: linear-gradient(180deg, #2f76ee 0%, #1d4ed8 100%);
+  color: #ffffff;
+}
+
+/* ── Page title / section icons ──────────────────────────────────── */
+html[data-theme="light"]:root .platform-shell .plat-commissions__period-icon,
+html[data-theme="light"]:root .platform-shell .plat-bills__schedule-icon {
+  color: #2563eb;
+  background: #e8f0ff;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-fees__icon {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-rates__icon {
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.28);
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .plat-alerts__head-icon {
+  background: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+html[data-theme="light"]:root .plat-alerts__head::before {
+  background: radial-gradient(
+    ellipse 26% 90% at 74% 45%,
+    rgba(125, 211, 252, 0.12) 0%,
+    rgba(167, 139, 250, 0.04) 45%,
+    transparent 70%
+  );
+}
+
+/* Gold wave strokes are inline SVG; rotate them into the blue range. */
+html[data-theme="light"]:root .plat-alerts__waves svg {
+  filter: hue-rotate(180deg) saturate(0.8);
+}
+
+/* ── Selected rows ───────────────────────────────────────────────── */
+html[data-theme="light"]:root .platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row.is-selected,
+html[data-theme="light"]:root .platform-shell .plat-bills__status-rail .b3-accounts__row.plat-bills__status-row.is-parent-active {
+  color: #1e40af;
+  border-color: rgba(59, 130, 246, 0.28);
+  background: #eff5ff;
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__status-rail .b3-accounts__row.is-selected .plat-bills__status-item-count {
+  background: #dfe9ff;
+  color: #1e40af;
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-bills__status-rail .b3-accounts__children .plat-bills__status-row.is-selected::before {
+  background: #3b82f6;
+  box-shadow: none;
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active th,
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active td {
+  color: #1e3a8a;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active td {
+  box-shadow: inset -3px 0 0 #3b82f6;
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active.is-clickable:hover th,
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active.is-clickable:hover td,
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active.is-clickable:focus-within th,
+html[data-theme="light"]:root .platform-shell .platform-detail__tr.is-active.is-clickable:focus-within td {
+  color: #1e3a8a;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__band-link {
+  color: #2563eb;
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__band-link:hover,
+html[data-theme="light"]:root .platform-shell .platform-detail__band-link:focus-visible {
+  color: #1e40af;
+}
+
+html[data-theme="light"]:root .platform-shell .b3-agent-detail__tab.is-active {
+  border-bottom-color: #3b82f6;
+}
+
+/* ── Account detail hero (Accounts right pane) ───────────────────── */
+html[data-theme="light"]:root .platform-shell .platform-detail__hero {
+  background-color: #f5f9ff;
+  background-image:
+    radial-gradient(ellipse 42% 100% at 6% 50%, rgba(125, 211, 252, 0.16) 0%, transparent 72%),
+    radial-gradient(ellipse 48% 120% at 100% 40%, rgba(167, 139, 250, 0.1) 0%, transparent 72%),
+    linear-gradient(180deg, #f3f8ff 0%, #ffffff 100%);
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__hero::before {
+  background: radial-gradient(
+    ellipse 70% 60% at 40% 45%,
+    rgba(125, 211, 252, 0.18) 0%,
+    rgba(94, 234, 212, 0.06) 42%,
+    transparent 72%
+  );
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__hero::after {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(96, 165, 250, 0.45) 35%,
+    rgba(167, 139, 250, 0.4) 65%,
+    rgba(148, 163, 184, 0.16) 100%
+  );
+}
+
+html[data-theme="light"]:root .platform-shell .platform-detail__hero-aura-svg {
+  filter: hue-rotate(180deg) saturate(0.8) drop-shadow(0 0 6px rgba(59, 130, 246, 0.16));
+}
+
+html[data-theme="light"]:root .searchable-select__option.is-on,
+html[data-theme="light"]:root .b3-team-role-menu .searchable-select__option.is-on {
+  background: #eff5ff;
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+html[data-theme="light"]:root .b3-team-role-menu .searchable-select__option.is-on .searchable-select__option-copy::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M2.5 7.2 5.4 10.1 11.5 3.8' stroke='%232563eb' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+html[data-theme="light"]:root .platform-shell .b3-team__head-icon {
+  color: #2563eb;
+}
+
+/* ── Toggles / meters ────────────────────────────────────────────── */
+html[data-theme="light"]:root .plat-alerts__toggle input:checked + .plat-alerts__switch {
+  background: linear-gradient(180deg, #60a5fa, #3b82f6);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
+}
+
+html[data-theme="light"]:root .plat-alerts__meter span {
+  background: linear-gradient(90deg, #3b82f6, #818cf8);
+}
+
+html[data-theme="light"]:root .plat-alerts__pill--warn {
+  color: #b45309;
+}
+
+html[data-theme="light"]:root .plat-alerts__pill-dot {
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+/* ── Fees enterprise tier ────────────────────────────────────────── */
+html[data-theme="light"]:root .platform-shell .plat-fees__tier--enterprise {
+  border-color: rgba(139, 92, 246, 0.3);
+  background: linear-gradient(180deg, #f6f3ff 0%, #f8fafc 100%);
+}
+
+html[data-theme="light"]:root .platform-shell .plat-fees__tier--enterprise .plat-fees__tier-head h3 {
+  color: #6d28d9;
+}

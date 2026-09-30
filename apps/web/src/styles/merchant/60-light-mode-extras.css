@@ -8,9 +8,13 @@ html[data-theme="light"] {
   --gw-red-pale: 248 113 113;
 }
 
-html[data-theme="light"] .platform-shell .pg-dash__hero-aura-svg,
 html[data-theme="light"] .platform-shell .platform-detail__hero-aura-svg {
   filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.18));
+  opacity: 0.9;
+}
+
+html[data-theme="light"] .platform-shell .pg-dash__hero-aura-svg {
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.16));
   opacity: 0.9;
 }
 
@@ -69,6 +73,39 @@ html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .s
 }
 
 html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__role-picker .searchable-select__caret {
+  color: #64748b;
+  border-top-color: #64748b;
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__trigger {
+  background: #ffffff;
+  border-color: #d8dee8;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__trigger:hover {
+  background: #fffbeb;
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__trigger:focus-visible,
+html[data-theme="light"] .platform-shell .b3-team .searchable-select.is-open .searchable-select__trigger {
+  background: #fffbeb;
+  border-color: rgba(217, 119, 6, 0.6);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__trigger:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__value-text {
+  color: inherit;
+}
+
+html[data-theme="light"] .platform-shell .b3-team .searchable-select__caret {
   color: #64748b;
   border-top-color: #64748b;
 }

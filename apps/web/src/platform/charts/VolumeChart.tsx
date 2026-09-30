@@ -379,7 +379,13 @@ export function VolumeChart({
     [pts, padLeft, w, padRight],
   );
 
-  const xLabelStep = Math.max(1, Math.ceil(inPlotPts.length / (fullscreen ? 10 : 7)));
+  const maxXLabels = Math.max(2, Math.min(fullscreen ? 10 : 7, Math.floor(plotW / 58)));
+  const xLabelStep = Math.max(1, Math.ceil(inPlotPts.length / maxXLabels));
+  const showXLabel = (idx: number) => {
+    const last = inPlotPts.length - 1;
+    if (inPlotPts.length <= maxXLabels || idx === 0 || idx === last) return true;
+    return idx % xLabelStep === 0 && last - idx >= xLabelStep;
+  };
 
   const formatPrimaryAxis = (n: number) =>
     valueUnit === "usd" ? formatAxisUsd(n) : formatAxisAsset(n, valueUnit);
@@ -740,12 +746,7 @@ export function VolumeChart({
         </g>
         <g clipPath={`url(#platVolLabelClip-${reactId})`}>
           {inPlotPts.map((p, idx) => {
-            const show =
-              inPlotPts.length <= 8 ||
-              idx === 0 ||
-              idx === inPlotPts.length - 1 ||
-              idx % xLabelStep === 0;
-            if (!show) return null;
+            if (!showXLabel(idx)) return null;
             const label = labels[p.i] ?? "";
             const nearLeft = p.x <= padLeft + 18;
             const nearRight = p.x >= w - padRight - 18;

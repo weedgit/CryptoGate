@@ -1970,9 +1970,13 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: rgba(0, 0, 0, 0.55);
 }
 
+/* Auto margins centre the modal but, unlike align-self: center, never push a
+ * taller-than-viewport modal above the scrollable top of the backdrop. */
 .platform-shell .b3-commission-modal,
 .b3-commission-modal {
   box-sizing: border-box;
@@ -1980,7 +1984,8 @@
   max-width: calc(100vw - 32px);
   height: auto;
   flex: 0 0 auto;
-  align-self: center;
+  align-self: flex-start;
+  margin-block: auto;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: #111827;
