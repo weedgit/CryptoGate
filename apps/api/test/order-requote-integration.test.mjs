@@ -364,4 +364,15 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
       /Binance has no USDT\/USD market/,
     );
   });
+
+  it("saves every merchant pricing mode", async () => {
+    for (const pricingMode of ["pegged_1to1", "market", "token_to_usd", "usd_to_token"]) {
+      const res = await api(`/v1/orgs/${merchantId}/pricing`, {
+        method: "PUT",
+        body: { pricingMode, quoteLockSeconds: 900 },
+      });
+      assert.equal(res.status, 200, `${pricingMode}: ${JSON.stringify(res.json)}`);
+      assert.equal(res.json.pricingMode, pricingMode);
+    }
+  });
 });
