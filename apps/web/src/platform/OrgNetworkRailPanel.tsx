@@ -17,6 +17,7 @@ import {
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { sessionCanManagePlatform } from "./org";
 import { PlatformPending } from "./ui/PlatformPending";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Scope = "merchant" | "site";
 
@@ -134,6 +135,7 @@ export function OrgNetworkRailPanel({ session, scope, scopeId }: Props) {
       setLoading(false);
     }
   }, [scope, scopeId, syncDrafts]);
+  usePageRefresh(load);
 
   useEffect(() => {
     void load();
@@ -263,16 +265,6 @@ export function OrgNetworkRailPanel({ session, scope, scopeId }: Props) {
         <div className="org-network-rail-panel__intro-main">
           <div className="org-network-rail-panel__intro-title-row">
             <h2 className="org-network-rail-panel__intro-title">Networks</h2>
-            <button
-              type="button"
-              className="org-network-rail-panel__refresh"
-              onClick={() => void load()}
-              disabled={loading}
-              aria-label="Refresh network rails"
-              title="Refresh"
-            >
-              {loading ? "…" : "↻"}
-            </button>
           </div>
           <p className="org-network-rail-panel__intro-sub">
             Optional overrides above the {parentShort} minimum. New orders only.

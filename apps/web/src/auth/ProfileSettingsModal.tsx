@@ -301,6 +301,7 @@ export function ProfileSettingsModal({
   const [mfaReplacePassword, setMfaReplacePassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const closeAfterPhoneVerifyRef = useRef(false);
 
   useEffect(() => {
     setLive(session);
@@ -359,7 +360,7 @@ export function ProfileSettingsModal({
     }
   }
 
-  async function sendContact(channel: "email" | "phone") {
+  async function sendContact(channel: "email" | "phone", phoneValue: string = phone) {
     if (contactBusy) return;
     setContactBusy(channel);
     setError(null);
@@ -386,7 +387,7 @@ export function ProfileSettingsModal({
           initialCode: result.devCode,
         });
       } else {
-        const normalized = phone.trim();
+        const normalized = phoneValue.trim();
         if (normalized.length < 8) {
           setError("Enter a valid mobile number with country code");
           return;
@@ -405,16 +406,18 @@ export function ProfileSettingsModal({
           pendingChange: result.pendingChange === true,
           initialCode: result.devCode,
         });
+        return true;
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not send code");
     } finally {
       setContactBusy(null);
     }
+    return false;
   }
 
   async function onMfaAction() {
-    if (!canEnroll) return;
+    if (!canEnroll || contactBusy) return;
     if (enrolled) {
       setMfaReplaceOpen(true);
       setError(null);
@@ -443,6 +446,10 @@ export function ProfileSettingsModal({
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (saving) return;
+    const typedPhone = phone.trim();
+    const phoneChanged =
+      typedPhone !== "" && formatPhoneInput(typedPhone) !== formatPhoneInput(live.phone ?? "");
+    let verifyPhoneAfter = false;
     setBusy(true);
     setError(null);
     setOk(null);
@@ -478,12 +485,23 @@ export function ProfileSettingsModal({
         setConfirmPassword("");
       }
 
-      showToast("Profile saved.", { tone: "ok" });
-      onClose();
+      if (phoneChanged) {
+        verifyPhoneAfter = true;
+      } else {
+        showToast("Profile saved.", { tone: "ok" });
+        onClose();
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save profile");
     } finally {
       setBusy(false);
+    }
+    if (verifyPhoneAfter) {
+      setPhone(formatPhoneInput(typedPhone));
+      if (await sendContact("phone", typedPhone)) {
+        closeAfterPhoneVerifyRef.current = true;
+        setOk("Profile saved. Verify the new phone number to finish changing it.");
+      }
     }
   }
 
@@ -652,7 +670,7 @@ export function ProfileSettingsModal({
                         : "Verify email"
                   }
                   busy={contactBusy === "email"}
-                  disabled={saving || contactBusy !== null}
+                  disabled={saving || contactBusy === "email"}
                   onAction={() => void sendContact("email")}
                 />
                 <ActionCard
@@ -668,7 +686,7 @@ export function ProfileSettingsModal({
                         : "Verify phone"
                   }
                   busy={contactBusy === "phone"}
-                  disabled={saving || contactBusy !== null}
+                  disabled={saving || contactBusy === "phone"}
                   onAction={() => void sendContact("phone")}
                 />
                 {canEnroll ? (
@@ -687,7 +705,7 @@ export function ProfileSettingsModal({
                           : "Set up"
                     }
                     busy={contactBusy === "mfa"}
-                    disabled={saving || contactBusy !== null}
+                    disabled={saving || contactBusy === "mfa"}
                     onAction={() => void onMfaAction()}
                   />
                 ) : null}
@@ -907,7 +925,10 @@ export function ProfileSettingsModal({
           destination={otpModal.destination}
           pendingChange={otpModal.pendingChange}
           initialCode={otpModal.initialCode}
-          onClose={() => setOtpModal(null)}
+          onClose={() => {
+            closeAfterPhoneVerifyRef.current = false;
+            setOtpModal(null);
+          }}
           onVerify={async (code) => {
             try {
               if (otpModal.channel === "email") {
@@ -915,6 +936,12 @@ export function ProfileSettingsModal({
                 setOk("Email verified.");
               } else {
                 applySession(await verifyPhoneOtp(code));
+                if (closeAfterPhoneVerifyRef.current) {
+                  closeAfterPhoneVerifyRef.current = false;
+                  showToast("Profile saved. Phone verified.", { tone: "ok" });
+                  onClose();
+                  return;
+                }
                 setOk("Phone verified.");
               }
             } catch (err) {

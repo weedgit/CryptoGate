@@ -1,6 +1,7 @@
 import { formatInZone, formatViewerDateTime } from "../shared/dateTime";
+import { useSetupGate } from "../auth/useSetupGate";
+import { RemoveMemberModal, type RemoveMemberTarget } from "../shared/RemoveMemberModal";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, peekOrgUsers, primeOrgUsers } from "../shared/orgUsersCache";
 import {
   ApiError,
@@ -38,6 +39,7 @@ import {
 } from "../shared/registeredEmails";
 import type { OrgRef } from "../shared/registeredEmails";
 import { useTeamPortal } from "./teamPortal";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
@@ -71,7 +73,6 @@ function formatRelativeLogin(iso: string | null | undefined): string {
   return formatInZone(d, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
-type RemoveTarget = { userId: string; email: string };
 
 /** B15 — Platform team (Figma `b15-platform-team`). */
 export function PlatformTeamPage({ session }: Props) {
@@ -109,7 +110,7 @@ export function PlatformTeamPage({ session }: Props) {
   >(null);
   const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(null);
   const [orgs, setOrgs] = useState<OrgRef[]>(() => peekOrgs() ?? []);
-  const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<RemoveMemberTarget | null>(null);
   const [editTarget, setEditTarget] = useState<OrgMember | null>(null);
 
   const dismissToast = useCallback(() => setToast(null), []);
@@ -119,6 +120,7 @@ export function PlatformTeamPage({ session }: Props) {
   const showErr = useCallback((message: string) => {
     setToast({ message, tone: "error" });
   }, []);
+  const requireSetup = useSetupGate(session, showErr);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!platformOrgId) {
@@ -148,6 +150,7 @@ export function PlatformTeamPage({ session }: Props) {
       setLoading(false);
     }
   }, [platformOrgId, portal, peekOrgs, orgLabel]);
+  usePageRefresh(() => load({ force: true }));
 
   useEffect(() => {
     void load();
@@ -318,22 +321,14 @@ export function PlatformTeamPage({ session }: Props) {
           </div>
         </div>
         <div className="plat-bills__period-tools">
-          <button
-            type="button"
-            className="pg-dash__period-refresh"
-            onClick={() => void load({ force: true })}
-            disabled={loading || busy}
-            aria-label="Refresh team"
-            title="Refresh"
-          >
-            {loading ? "…" : "↻"}
-          </button>
           {canManage ? (
             <button
               type="button"
               className="btn-primary plat-bills__action-btn plat-team__invite-cta"
-              onClick={openInvite}
-              disabled={busy || portal?.inviteLockedHint != null}
+              onClick={() => {
+                if (portal?.inviteLockedHint == null || requireSetup()) openInvite();
+              }}
+              disabled={busy}
               title={portal?.inviteLockedHint ?? undefined}
             >
               <span className="plat-team__invite-cta-plus" aria-hidden>
@@ -517,6 +512,9 @@ export function PlatformTeamPage({ session }: Props) {
                                           setRemoveTarget({
                                             userId: m.userId,
                                             email: m.email,
+                                            name: memberDisplayName(m),
+                                            role: m.role,
+                                            avatarUrl: m.avatarUrl,
                                           })
                                         }
                                       >
@@ -580,70 +578,15 @@ export function PlatformTeamPage({ session }: Props) {
         />
       ) : null}
 
-      {removeTarget
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!busy) setRemoveTarget(null);
-              }}
-            >
-              <div
-                className="b3-commission-modal b3-suspend-modal plat-team__remove-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="plat-team-remove-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-commission-modal__head">
-                  <h3 id="plat-team-remove-title">Remove team member</h3>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close"
-                    aria-label="Close"
-                    disabled={busy}
-                    onClick={() => setRemoveTarget(null)}
-                  >
-                    ×
-                  </button>
-                </header>
-                <div className="b3-commission-modal__body">
-                  <p className="plat-team__remove-copy">
-                    Remove{" "}
-                    <strong className="b3-suspend-modal__name">
-                      {removeTarget.email}
-                    </strong>{" "}
-                    from the {orgLabel} org?
-                  </p>
-                  <p className="plat-team__remove-warn">
-                    They lose portal access immediately. This cannot be undone
-                    from this dialog.
-                  </p>
-                </div>
-                <footer className="b3-commission-modal__foot plat-team__remove-foot">
-                  <button
-                    type="button"
-                    className="b3-commission-modal__cancel"
-                    disabled={busy}
-                    onClick={() => setRemoveTarget(null)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="plat-team__remove-confirm"
-                    disabled={busy}
-                    onClick={() => void confirmRemove()}
-                  >
-                    {busy ? "Removing…" : "Remove"}
-                  </button>
-                </footer>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {removeTarget ? (
+        <RemoveMemberModal
+          target={removeTarget}
+          orgLabel={orgLabel}
+          busy={busy}
+          onClose={() => setRemoveTarget(null)}
+          onConfirm={() => void confirmRemove()}
+        />
+      ) : null}
     </div>
   );
 }

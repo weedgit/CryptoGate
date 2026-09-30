@@ -444,38 +444,6 @@
   background: rgba(240, 180, 41, 0.08);
 }
 
-.platform-shell .pg-dash__period-refresh {
-  appearance: none;
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 2px 0 0;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease;
-}
-
-.platform-shell .pg-dash__period-refresh:hover:not(:disabled),
-.platform-shell .pg-dash__period-refresh:focus-visible {
-  color: #fde68a;
-  background: rgba(240, 180, 41, 0.12);
-  outline: none;
-}
-
-.platform-shell .pg-dash__period-refresh:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
 .platform-shell .pg-dash__onboard-wrap {
   position: relative;
   flex-shrink: 0;
@@ -1921,5 +1889,4 @@ html[data-theme="light"] .platform-shell .pg-commission-bill.is-ok {
 html[data-theme="light"] .platform-shell .pg-commission-bill.is-warn {
   color: #b45309;
 }
-
 

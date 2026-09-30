@@ -2,13 +2,10 @@ import { formatInZone } from "../shared/dateTime";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type MutableRefObject,
 } from "react";
-import { createPortal } from "react-dom";
 import { NetworkId } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
 import { networkShortLabel } from "../shared/assetNetworks";
@@ -22,18 +19,11 @@ import {
 } from "./api";
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
-
-export type WatcherLoadFn = (opts?: { silent?: boolean }) => Promise<void>;
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = {
   /** Live catalog from Network page — keeps lamps in sync with maintenance toggles. */
   catalog: NetworkCatalog | null;
-  /** Parent registers watcher reload for unified Network Refresh. */
-  loadRef?: MutableRefObject<WatcherLoadFn | null>;
-  /** When true, parent owns the topbar Refresh control. */
-  hideTopbarRefresh?: boolean;
-  /** Report watcher loading so parent can disable unified Refresh. */
-  onLoadingChange?: (loading: boolean) => void;
 };
 
 type TableRow = {
@@ -69,24 +59,10 @@ function heartbeatForNetwork(
 /** B17 — Connected networks (embedded under Network catalog). */
 export function SystemHealthPage({
   catalog,
-  loadRef,
-  hideTopbarRefresh = false,
-  onLoadingChange,
 }: Props) {
   const [watcher, setWatcher] = useState<WatcherHealthList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
-    null,
-  );
-
-  useLayoutEffect(() => {
-    if (hideTopbarRefresh) {
-      setTopbarActionsSlot(null);
-      return;
-    }
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
-  }, [hideTopbarRefresh]);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -101,17 +77,7 @@ export function SystemHealthPage({
     }
   }, []);
 
-  useEffect(() => {
-    if (!loadRef) return;
-    loadRef.current = load;
-    return () => {
-      loadRef.current = null;
-    };
-  }, [load, loadRef]);
-
-  useEffect(() => {
-    onLoadingChange?.(loading);
-  }, [loading, onLoadingChange]);
+  usePageRefresh(() => load({ silent: true }));
 
   useEffect(() => {
     void load();
@@ -168,21 +134,6 @@ export function SystemHealthPage({
       className={`plat-ops-health${enterMotion ? " is-enter" : ""}`}
     >
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      {topbarActionsSlot && !hideTopbarRefresh
-        ? createPortal(
-            <div className="plat-ops-health__topbar-actions">
-              <button
-                type="button"
-                className="plat-ops-health__topbar-btn"
-                onClick={() => void load()}
-                disabled={loading}
-              >
-                Refresh
-              </button>
-            </div>,
-            topbarActionsSlot,
-          )
-        : null}
 
       <div className="plat-ops-health__panels">
         <div className="plat-ops-health__stack">

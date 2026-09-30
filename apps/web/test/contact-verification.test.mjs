@@ -22,7 +22,7 @@ describe("contact / org setup UI", () => {
     assert.match(src, /missingSetupPartsLabel/);
   });
 
-  it("shows setup checklist on merchant settings; agent steps open the org window", () => {
+  it("gates team invites with the setup modal; agent steps open the org window", () => {
     const agentLinks = readFileSync(
       join(root, "src/auth/contactVerification.ts"),
       "utf8",
@@ -37,8 +37,12 @@ describe("contact / org setup UI", () => {
     );
     assert.match(agentLinks, /ORG_EDIT_PARAM/);
     assert.match(agentLinks, /PROFILE_EDIT_PARAM/);
-    assert.match(team, /SetupChecklistCard/);
-    assert.match(team, /sessionLiveActionsUnlocked/);
+    assert.doesNotMatch(team, /SetupChecklistCard/);
+    assert.match(team, /useSetupGate/);
+    assert.match(team, /requireSetup\(\)\) openInvite\(\)/);
+    const gate = readFileSync(join(root, "src/auth/useSetupGate.ts"), "utf8");
+    assert.match(gate, /SETUP_QUERY_PARAM/);
+    assert.match(gate, /sessionNeedsOrgSetup/);
     assert.match(integrations, /SetupChecklistCard/);
     assert.match(integrations, /canWrite/);
   });

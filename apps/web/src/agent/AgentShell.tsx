@@ -5,8 +5,7 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
+  type WheelEvent as ReactWheelEvent, Fragment } from "react";
 import type { OrgAccount, Session } from "./api";
 import { SidebarProfileMenu } from "../auth/SidebarProfileMenu";
 import { SidebarRoleCard } from "../shared/SidebarRoleCard";
@@ -25,6 +24,8 @@ import {
   subscribePlatformAlerts,
 } from "../platform/platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { PageRefreshButton } from "../shared/PageRefreshButton";
+import { usePageRemountKey } from "../shared/pageRefresh";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
@@ -142,6 +143,7 @@ export function AgentShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
+  const pageRemountKey = usePageRemountKey();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -301,6 +303,7 @@ export function AgentShell({
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
             <div className="topbar-utils" role="group" aria-label="Utilities">
+              <PageRefreshButton />
               <AlertsBellButton
                 open={alertsOpen}
                 unreadCount={unreadAlerts}
@@ -331,7 +334,7 @@ export function AgentShell({
                 portal="agent"
               />
             ) : null}
-            {children}
+            <Fragment key={pageRemountKey}>{children}</Fragment>
           </div>
         </div>
       </div>

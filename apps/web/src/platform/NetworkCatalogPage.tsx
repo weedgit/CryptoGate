@@ -1,6 +1,5 @@
 import { formatViewerDateTime } from "../shared/dateTime";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AuthToast } from "../auth/AuthToast";
 import { NetworkStatusLamp } from "../shared/NetworkStatusLamp";
 import { NumberStepper } from "../ui/NumberStepper";
@@ -15,7 +14,8 @@ import {
 } from "./api";
 import { AssetIcon, NetworkIcon } from "./cryptoIcons";
 import { PagePending } from "./ui/PlatformPending";
-import { SystemHealthPage, type WatcherLoadFn } from "./SystemHealthPage";
+import { SystemHealthPage } from "./SystemHealthPage";
+import { usePageRefresh } from "../shared/pageRefresh";
 import {
   sessionCanManagePlatform,
 } from "./org";
@@ -96,23 +96,13 @@ export function NetworkCatalogPage({ session }: Props) {
   const canManage = useMemo(() => sessionCanManagePlatform(session), [session]);
   const [catalog, setCatalog] = useState<NetworkCatalog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [watcherLoading, setWatcherLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [busyNetwork, setBusyNetwork] = useState<string | null>(null);
   const [savingRail, setSavingRail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftConfirms, setDraftConfirms] = useState<Record<string, string>>({});
   const [draftMin, setDraftMin] = useState<Record<string, string>>({});
-  const [topbarActionsSlot, setTopbarActionsSlot] = useState<HTMLElement | null>(
-    null,
-  );
   const loadGen = useRef(0);
   const toggleBusyRef = useRef<string | null>(null);
-  const watcherLoadRef = useRef<WatcherLoadFn | null>(null);
-
-  useLayoutEffect(() => {
-    setTopbarActionsSlot(document.getElementById("platform-topbar-actions"));
-  }, []);
 
   const syncDrafts = useCallback((data: NetworkCatalog) => {
     const confirms: Record<string, string> = {};
@@ -160,20 +150,7 @@ export function NetworkCatalogPage({ session }: Props) {
     void load();
   }, [load]);
 
-  const refreshAll = useCallback(async () => {
-    setRefreshing(true);
-    setError(null);
-    try {
-      await Promise.all([
-        load({ silent: true }),
-        watcherLoadRef.current?.({ silent: true }) ?? Promise.resolve(),
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [load]);
-
-  const refreshBusy = refreshing || loading || watcherLoading;
+  usePageRefresh(() => load({ silent: true }));
 
   async function onToggleMaintenance(network: string) {
     if (!canManage || toggleBusyRef.current === network) return;
@@ -403,21 +380,6 @@ export function NetworkCatalogPage({ session }: Props) {
   return (
     <div className="dash-page plat-network-catalog">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-      {topbarActionsSlot
-        ? createPortal(
-            <div className="plat-ops-health__topbar-actions">
-              <button
-                type="button"
-                className="plat-ops-health__topbar-btn"
-                onClick={() => void refreshAll()}
-                disabled={refreshBusy}
-              >
-                Refresh
-              </button>
-            </div>,
-            topbarActionsSlot,
-          )
-        : null}
 
       <section className="plat-network-settings">
         <header className="plat-network-settings__head">
@@ -690,9 +652,6 @@ export function NetworkCatalogPage({ session }: Props) {
 
       <SystemHealthPage
         catalog={catalog}
-        loadRef={watcherLoadRef}
-        hideTopbarRefresh
-        onLoadingChange={setWatcherLoading}
       />
     </div>
   );

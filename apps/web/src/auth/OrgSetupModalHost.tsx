@@ -52,7 +52,7 @@ export function OrgSetupModalHost({ session, onSession, portal }: Props) {
   const profilePath =
     portal === "agent"
       ? withEditParam(location.pathname, ORG_EDIT_PARAM)
-      : merchantRoute("settings/team");
+      : withEditParam(merchantRoute("settings/team"), ORG_EDIT_PARAM);
   const personPath =
     portal === "agent"
       ? withEditParam(location.pathname, PROFILE_EDIT_PARAM)
@@ -105,7 +105,7 @@ function OrgSetupModal({
   const profileDone = session.profileComplete !== false;
   const walletDone = session.walletSet !== false;
 
-  const walletLabel = portal === "agent" ? "Payout" : "Settlement";
+  const walletLabel = portal === "agent" ? "Payout" : "Tron settlement";
   const doneFlags = [contactDone, personDone, profileDone, walletDone];
   const doneCount = doneFlags.filter(Boolean).length;
   const activeStep = doneFlags.findIndex((d) => !d) + 1;
@@ -217,7 +217,11 @@ function OrgSetupModal({
               active={activeStep === 4}
               open={openStep === 4}
               onToggle={() => toggleStep(4)}
-              description={`Add the receive address for ${portal === "agent" ? "commission payouts" : "settlements"}.`}
+              description={
+                portal === "agent"
+                  ? "Add the receive address for commission payouts."
+                  : "Add a Tron (USDT) settlement wallet. It is required; other networks are optional."
+              }
             >
               <Link className="org-setup-step__link" to={walletPath} onClick={dismiss}>
                 Open wallet settings →

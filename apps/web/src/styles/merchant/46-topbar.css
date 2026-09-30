@@ -219,6 +219,36 @@
   stroke: currentColor;
 }
 
+.page-refresh-btn {
+  flex-shrink: 0;
+}
+
+.page-refresh-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.page-refresh-btn.is-spinning {
+  cursor: progress;
+}
+
+.page-refresh-btn.is-spinning svg {
+  animation: page-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes page-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-refresh-btn.is-spinning svg {
+    animation-duration: 2.4s;
+  }
+}
+
 .platform-shell .topbar--chrome .alerts-bell.has-unread,
 .platform-shell .topbar--chrome .alerts-bell.has-unread .alerts-bell-icon {
   color: var(--tb-icon) !important;

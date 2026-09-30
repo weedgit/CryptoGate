@@ -69,6 +69,7 @@ import {
 } from "../shared/serviceBillsServer";
 import type { ServerPage } from "../shared/serverListApi";
 import { useDebouncedValue } from "../shared/useDebouncedValue";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
@@ -963,6 +964,7 @@ export function ServiceBillsListPage({ session }: Props) {
       loadOrgs(),
     ]);
   }, [loadList, loadSummary, loadOrgs, listParams, summaryParams]);
+  usePageRefresh(load);
 
   const loading = pageData == null;
 
@@ -1186,16 +1188,6 @@ export function ServiceBillsListPage({ session }: Props) {
                 />
               </label>
             </div>
-            <button
-              type="button"
-              className="pg-dash__period-refresh"
-              onClick={() => void load()}
-              disabled={fetching}
-              aria-label="Refresh service bills"
-              title="Refresh"
-            >
-              {fetching ? "…" : "↻"}
-            </button>
           </div>
           {canIssue ? (
             <details ref={moreMenuRef} className="plat-bills__more">
@@ -1801,7 +1793,7 @@ export function ServiceBillsListPage({ session }: Props) {
                             >
                               {serviceBillStatusLabel(bill.status)}
                             </span>
-                            {activation ? (
+                            {openActivation ? (
                               <Link
                                 className="plat-bills__kind-chip is-action"
                                 to={href}

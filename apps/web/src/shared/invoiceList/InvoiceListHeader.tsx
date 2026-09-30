@@ -6,7 +6,7 @@ import {
 } from "../../merchant/api";
 import { FundAmount } from "../../platform/FundAmount";
 import { merchantRoute } from "../portalRouting";
-import { DownloadIcon, PlusIcon, RefreshIcon } from "./InvoiceListIcons";
+import { DownloadIcon, PlusIcon } from "./InvoiceListIcons";
 import { ChargeLink } from "../../merchant/chargeLink";
 
 type Props = {
@@ -19,9 +19,6 @@ type Props = {
   exportBusy: boolean;
   exportHref: string | null;
   requestAsyncExport: () => Promise<void>;
-  loading: boolean;
-  refreshing: boolean;
-  onRefresh: () => Promise<void>;
 };
 
 export function InvoiceListHeader({
@@ -34,9 +31,6 @@ export function InvoiceListHeader({
   exportBusy,
   exportHref,
   requestAsyncExport,
-  loading,
-  refreshing,
-  onRefresh,
 }: Props) {
   return (
     <header className="invoice-list__header">
@@ -95,18 +89,6 @@ export function InvoiceListHeader({
             <DownloadIcon />
           </a>
         ) : null}
-        <button
-          type="button"
-          className={`invoice-list__btn invoice-list__btn--icon${
-            refreshing ? " is-spinning" : ""
-          }`}
-          onClick={() => void onRefresh()}
-          disabled={loading || refreshing}
-          aria-label="Refresh"
-          title="Refresh"
-        >
-          <RefreshIcon />
-        </button>
         {canCreate ? (
           <ChargeLink className="invoice-list__btn invoice-list__btn--primary">
             <PlusIcon />

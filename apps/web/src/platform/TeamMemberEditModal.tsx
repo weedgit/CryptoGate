@@ -535,7 +535,7 @@ export function TeamMemberEditModal({
                   title="Email verification"
                   verified={emailVerified}
                   busy={verifyBusy === "email"}
-                  disabled={saving || verifyBusy !== null}
+                  disabled={saving || verifyBusy === "email"}
                   onToggle={() => void toggleVerified("emailVerified")}
                 />
                 <VerifyCard
@@ -543,7 +543,7 @@ export function TeamMemberEditModal({
                   title="Phone verification"
                   verified={phoneVerified}
                   busy={verifyBusy === "phone"}
-                  disabled={saving || verifyBusy !== null || !phone.trim()}
+                  disabled={saving || verifyBusy === "phone" || !phone.trim()}
                   onToggle={() => void toggleVerified("phoneVerified")}
                 />
               </div>

@@ -53,6 +53,7 @@ import {
   type DashboardPeriodId,
 } from "../shared/dashboardPeriod";
 import { ChargeLink } from "./chargeLink";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
@@ -210,6 +211,7 @@ export function SiteHomePage({ session }: Props) {
     void loadQueues();
     void loadNetworks();
   }, [loadPeriod, loadQueues, loadNetworks]);
+  usePageRefresh(refresh);
 
   useDashboardLiveEvents({
     enabled: hasLoaded,
@@ -322,9 +324,6 @@ export function SiteHomePage({ session }: Props) {
                 onPeriodSelect={onPeriodSelect}
                 onStartDateChange={onStartDateChange}
                 onEndDateChange={onEndDateChange}
-                onRefresh={refresh}
-                refreshing={loading && hasLoaded}
-                disabled={loading}
               />
             </div>
           </div>

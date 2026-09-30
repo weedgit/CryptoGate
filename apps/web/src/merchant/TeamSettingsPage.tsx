@@ -1,4 +1,5 @@
 import { formatInZone, formatViewerDateTime } from "../shared/dateTime";
+import { RemoveMemberModal, type RemoveMemberTarget } from "../shared/RemoveMemberModal";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import {
   FormEvent,
@@ -45,7 +46,8 @@ import {
   sessionCanManageMemberPosPin,
   sessionCanManageTeam,
 } from "./org";
-import { SetupChecklistCard } from "../auth/SetupChecklistCard";
+import { useSetupGate } from "../auth/useSetupGate";
+import { ORG_EDIT_PARAM, useOpenOnEditParam } from "../shared/modalLinks";
 import {
   liveActionLockedHint,
   sessionLiveActionsUnlocked,
@@ -65,6 +67,7 @@ import {
   inviteEmailErrorMessage,
 } from "../shared/registeredEmails";
 import type { OrgRef } from "../shared/registeredEmails";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = {
   session: Session;
@@ -101,7 +104,6 @@ function formatRelativeLogin(iso: string | null | undefined): string {
   return formatInZone(d, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
-type RemoveTarget = { userId: string; email: string };
 type PosPinTarget = { userId: string; email: string };
 
 function PinPadIcon() {
@@ -161,12 +163,14 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
     (InviteOrgUserResult & { invitedEmail: string }) | null
   >(null);
   const [orgs, setOrgs] = useState<OrgRef[]>([]);
-  const [removeTarget, setRemoveTarget] = useState<RemoveTarget | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<RemoveMemberTarget | null>(null);
   const [editTarget, setEditTarget] = useState<OrgMember | null>(null);
   const [posPinTarget, setPosPinTarget] = useState<PosPinTarget | null>(null);
   const [posPinValue, setPosPinValue] = useState("");
   const [posPinConfirm, setPosPinConfirm] = useState("");
   const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileEditRequested, setProfileEditRequested] = useState(false);
+  useOpenOnEditParam(ORG_EDIT_PARAM, () => setProfileEditRequested(true));
   const [profileEditBusy, setProfileEditBusy] = useState(false);
   const [profileEditError, setProfileEditError] = useState<string | null>(null);
 
@@ -177,6 +181,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const showErr = useCallback((message: string) => {
     setToast({ message, tone: "error" });
   }, []);
+  const requireSetup = useSetupGate(session, showErr);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!orgId) {
@@ -202,6 +207,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
       setLoading(false);
     }
   }, [orgId]);
+  usePageRefresh(() => load({ force: true }));
 
   useEffect(() => {
     void getMerchantOrgs()
@@ -409,6 +415,14 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
     }
   }
 
+  useEffect(() => {
+    if (!profileEditRequested || !org) return;
+    setProfileEditRequested(false);
+    if (!canEditProfile) return;
+    setProfileEditError(null);
+    setProfileEditOpen(true);
+  }, [profileEditRequested, org, canEditProfile]);
+
   const showActions = canManage || canManagePosPin;
   const liveUnlocked = sessionLiveActionsUnlocked(session);
   const setupLockHint = liveActionLockedHint(session);
@@ -423,8 +437,6 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
           setError(null);
         }}
       />
-
-      <SetupChecklistCard session={session} portal="merchant" />
 
       <div className="plat-bills__period-bar">
         <div className="plat-bills__intro">
@@ -454,22 +466,14 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
           </div>
         </div>
         <div className="plat-bills__period-tools">
-          <button
-            type="button"
-            className="pg-dash__period-refresh"
-            onClick={() => void load({ force: true })}
-            disabled={loading || busy}
-            aria-label="Refresh team"
-            title="Refresh"
-          >
-            {loading ? "…" : "↻"}
-          </button>
           {canManage ? (
             <button
               type="button"
               className="btn-primary plat-bills__action-btn plat-team__invite-cta"
-              onClick={openInvite}
-              disabled={busy || !liveUnlocked}
+              onClick={() => {
+                if (requireSetup()) openInvite();
+              }}
+              disabled={busy}
               title={!liveUnlocked ? setupLockHint : undefined}
             >
               <span className="plat-team__invite-cta-plus" aria-hidden>
@@ -728,6 +732,9 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                                           setRemoveTarget({
                                             userId: m.userId,
                                             email: m.email,
+                                            name: memberDisplayName(m),
+                                            role: m.role,
+                                            avatarUrl: m.avatarUrl,
                                           })
                                         }
                                       >
@@ -791,70 +798,15 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         />
       ) : null}
 
-      {removeTarget
-        ? createPortal(
-            <div
-              className="b3-commission-modal-backdrop"
-              role="presentation"
-              onClick={() => {
-                if (!busy) setRemoveTarget(null);
-              }}
-            >
-              <div
-                className="b3-commission-modal b3-suspend-modal plat-team__remove-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="merchant-team-remove-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <header className="b3-commission-modal__head">
-                  <h3 id="merchant-team-remove-title">Remove team member</h3>
-                  <button
-                    type="button"
-                    className="b3-commission-modal__close"
-                    aria-label="Close"
-                    disabled={busy}
-                    onClick={() => setRemoveTarget(null)}
-                  >
-                    ×
-                  </button>
-                </header>
-                <div className="b3-commission-modal__body">
-                  <p className="plat-team__remove-copy">
-                    Remove{" "}
-                    <strong className="b3-suspend-modal__name">
-                      {removeTarget.email}
-                    </strong>{" "}
-                    from this merchant org?
-                  </p>
-                  <p className="plat-team__remove-warn">
-                    They lose portal access immediately. This cannot be undone
-                    from this dialog.
-                  </p>
-                </div>
-                <footer className="b3-commission-modal__foot plat-team__remove-foot">
-                  <button
-                    type="button"
-                    className="b3-commission-modal__cancel"
-                    disabled={busy}
-                    onClick={() => setRemoveTarget(null)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="plat-team__remove-confirm"
-                    disabled={busy}
-                    onClick={() => void confirmRemove()}
-                  >
-                    {busy ? "Removing…" : "Remove"}
-                  </button>
-                </footer>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {removeTarget ? (
+        <RemoveMemberModal
+          target={removeTarget}
+          orgLabel="merchant"
+          busy={busy}
+          onClose={() => setRemoveTarget(null)}
+          onConfirm={() => void confirmRemove()}
+        />
+      ) : null}
 
       {posPinTarget
         ? createPortal(

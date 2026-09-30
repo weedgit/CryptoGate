@@ -17,6 +17,7 @@ import {
 import { PlatformPending } from "../platform/ui/PlatformPending";
 import { NumberStepper } from "../ui/NumberStepper";
 import { IntegrationsPage } from "./IntegrationsPage";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
@@ -78,6 +79,7 @@ function NetworkRailsPanel({ session }: Props) {
       setLoading(false);
     }
   }, [orgId]);
+  usePageRefresh(load);
 
   useEffect(() => {
     void load();
@@ -187,16 +189,6 @@ function NetworkRailsPanel({ session }: Props) {
         <div className="org-network-rail-panel__intro-main">
           <div className="org-network-rail-panel__intro-title-row">
             <h1 className="org-network-rail-panel__intro-title">Networks</h1>
-            <button
-              type="button"
-              className="org-network-rail-panel__refresh"
-              onClick={() => void load()}
-              disabled={loading}
-              aria-label="Refresh network rails"
-              title="Refresh"
-            >
-              {loading ? "…" : "↻"}
-            </button>
           </div>
           <p className="org-network-rail-panel__intro-sub">
             Platform sets the confirmation floor. You may require more for new

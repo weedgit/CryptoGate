@@ -52,6 +52,7 @@ import {
   toDateInputValue,
   type DashboardPeriodId,
 } from "../shared/dashboardPeriod";
+import { usePageRefresh } from "../shared/pageRefresh";
 type Props = { session: Session };
 
 function tierLabel(tier: string | undefined): string {
@@ -208,6 +209,7 @@ export function DashboardPage({ session }: Props) {
     setChartReloadToken((n) => n + 1);
     setPairsReloadToken((n) => n + 1);
   }, [loadKpis, load]);
+  usePageRefresh(refreshDashboard);
 
   const softRevalidateLiveSlices = useCallback(
     async (slices: DashboardLiveSlice[]) => {
@@ -343,9 +345,6 @@ export function DashboardPage({ session }: Props) {
                 onPeriodSelect={onPeriodSelect}
                 onStartDateChange={onStartDateChange}
                 onEndDateChange={onEndDateChange}
-                onRefresh={refreshDashboard}
-                refreshing={loading && hasLoaded}
-                disabled={loading}
               />
             </div>
           </div>

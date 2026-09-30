@@ -5,7 +5,8 @@ import { readOrgIconFile } from "./orgBrand";
 import { ONBOARD_COUNTRY_OPTIONS } from "./onboardMerchantUi";
 import { isTronReceiveAddress } from "@paymentgate/domain";
 import { AssetIcon } from "../platform/cryptoIcons";
-import { platformFeeAsset } from "./platformFeePair";
+import { platformFeeAsset, platformFeeNetwork } from "./platformFeePair";
+import { NETWORK_SHORT_LABEL } from "./assetNetworks";
 import { FieldControl } from "../ui/FieldControl";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { CopyGlyph } from "./CopyGlyph";
@@ -901,7 +902,9 @@ export function OrgProfileEditModal({
                   <span className="org-edit__field-head">
                     <FieldLabel>Payout address</FieldLabel>
                     <span className="org-edit__aside-note">
-                      {readOnly ? "USDT · Tron" : "A change asks for your authenticator code"}
+                      {readOnly
+                        ? `${platformFeeAsset()} · ${NETWORK_SHORT_LABEL[platformFeeNetwork()] ?? platformFeeNetwork()}`
+                        : "A change asks for your authenticator code"}
                     </span>
                   </span>
                   <FieldControl leading={<AssetIcon asset={platformFeeAsset()} />}>

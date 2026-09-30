@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { addDaysYmd, addMonthsYmd, formatInZone, zonedYmd } from "../shared/dateTime";
+import { addDaysYmd, addMonthsYmd, zonedYmd } from "../shared/dateTime";
 import { useViewerTimeZone } from "../shared/useViewerTimeZone";
 import { Link } from "react-router-dom";
 import { AuthToast } from "../auth/AuthToast";
@@ -78,6 +78,7 @@ import {
 } from "./org";
 import { visibleRegistry, networkShortLabel } from "../shared/assetNetworks";
 import { useDashboardPortal } from "./dashboardPortal";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
@@ -388,10 +389,6 @@ function formatUsd(n: number): string {
   return `${formatMoneyFigure(n)} USD`;
 }
 
-function formatUpdatedClock(ts: number): string {
-  return formatInZone(new Date(ts), { hour: "numeric", minute: "2-digit" });
-}
-
 function formatAxisUsd(n: number): string {
   return formatAxisNumber(n, true);
 }
@@ -536,7 +533,6 @@ export function DashboardPage({ session }: Props) {
   const [hasLoaded, setHasLoaded] = useState(() => kpis != null && totalSeries != null);
   const loadGen = useRef(0);
   const lastFetchAt = useRef(0);
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [pairsReloadToken, setPairsReloadToken] = useState(0);
   const [chartReloadToken, setChartReloadToken] = useState(0);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
@@ -649,9 +645,7 @@ export function DashboardPage({ session }: Props) {
     if (!current()) return;
     setLoading(false);
     setHasLoaded(true);
-    const now = Date.now();
-    lastFetchAt.current = now;
-    setUpdatedAt(now);
+    lastFetchAt.current = Date.now();
   }, [startDate, endDate, query, portal, sources, commissionOrgId]);
 
   const softRevalidateLiveSlices = useCallback(
@@ -681,7 +675,6 @@ export function DashboardPage({ session }: Props) {
         if (slices.includes("networks")) {
           setPairsReloadToken((n) => n + 1);
         }
-        setUpdatedAt(Date.now());
       } catch {
         // Keep last good snapshot.
       }
@@ -716,6 +709,7 @@ export function DashboardPage({ session }: Props) {
     setChartReloadToken((n) => n + 1);
     void load({ force: true });
   }, [load]);
+  usePageRefresh(refreshDashboard);
 
   useEffect(() => {
     if (portal) return;
@@ -1009,10 +1003,6 @@ export function DashboardPage({ session }: Props) {
       onPeriodSelect={onPeriodSelect}
       onStartDateChange={onStartDateChange}
       onEndDateChange={onEndDateChange}
-      onRefresh={refreshDashboard}
-      refreshing={loading && hasLoaded}
-      disabled={loading}
-      refreshTitle={updatedAt ? `Updated ${formatUpdatedClock(updatedAt)}` : undefined}
     />
   );
 

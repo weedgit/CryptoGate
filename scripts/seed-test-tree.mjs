@@ -21,6 +21,7 @@ import { hashPassword } from "../apps/api/src/auth/password-hash.mjs";
 import { closePool, getPool } from "../apps/api/src/db/pool.mjs";
 import { SEED_PASSWORD, SEED_PLATFORM_OWNER_EMAIL } from "./seed-constants.mjs";
 import { loadSeedEnv } from "./seed-env.mjs";
+import { resolvePlatformFeeNetwork } from "../packages/domain/dist/index.js";
 
 const AGENTS = 100;
 const MERCHANTS = 100;
@@ -133,8 +134,8 @@ async function main() {
         passwordHash,
       });
       await client.query(
-        `INSERT INTO agent_payout_addresses (org_id, asset, network, address) VALUES ($1, 'USDT', 'tron', $2)`,
-        [agentId, WALLET],
+        `INSERT INTO agent_payout_addresses (org_id, asset, network, address) VALUES ($1, 'USDT', $2, $3)`,
+        [agentId, resolvePlatformFeeNetwork(), WALLET],
       );
 
       if (i > MERCHANTS) continue;
@@ -153,8 +154,8 @@ async function main() {
         passwordHash,
       });
       await client.query(
-        `INSERT INTO settlement_addresses (org_id, asset, network, address) VALUES ($1, 'USDT', 'tron', $2)`,
-        [merchantId, WALLET],
+        `INSERT INTO settlement_addresses (org_id, asset, network, address) VALUES ($1, 'USDT', $2, $3)`,
+        [merchantId, resolvePlatformFeeNetwork(), WALLET],
       );
       await client.query(
         `INSERT INTO merchant_commercial (

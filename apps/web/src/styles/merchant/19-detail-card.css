@@ -1469,72 +1469,13 @@ html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-val
 }
 
 .b3-settlement-edit-modal {
-  width: min(520px, calc(100vw - 32px));
+  width: min(600px, calc(100vw - 32px));
   max-width: none;
-  background: #0a1724;
-  border: 1px solid rgba(110, 160, 196, 0.28);
-  border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-}
-
-.b3-settlement-edit-modal__head {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 16px 16px 14px;
-  border-bottom: 1px solid rgba(110, 160, 196, 0.16);
-}
-
-.b3-settlement-edit-modal__mark {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: #b7d7ea;
-}
-
-.b3-settlement-edit-modal__titles {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.b3-settlement-edit-modal__head h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #f4f7fb;
-}
-
-.b3-settlement-edit-modal__head p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: #8ea0b3;
-}
-
-.b3-settlement-edit-modal__close {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  margin: -2px -2px 0 0;
-  padding: 0;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: transparent;
-  color: #d5dee8;
-  cursor: pointer;
-}
-
-.b3-settlement-edit-modal__close:hover:not(:disabled) {
-  border-color: rgba(183, 215, 234, 0.7);
-  color: #fff;
-}
-
-.b3-settlement-edit-modal__close:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background: #0d1b2c;
+  border: 1px solid rgba(110, 176, 204, 0.28);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .b3-settlement-edit-modal__body {
@@ -1590,55 +1531,8 @@ html[data-theme="light"] .platform-shell .b3-settlement__pending-addr .chain-val
   color: #fca5a5;
 }
 
-.b3-settlement-edit-modal__foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 16px 16px;
-  border-top: 1px solid rgba(110, 160, 196, 0.16);
-}
-
-.b3-settlement-edit-modal__cancel,
-.b3-settlement-edit-modal__save {
-  width: auto;
-  min-width: 96px;
-  height: 38px;
-  padding: 0 18px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.b3-settlement-edit-modal__cancel {
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: transparent;
-  color: #d5dee8;
-}
-
-.b3-settlement-edit-modal__cancel:hover:not(:disabled) {
-  border-color: rgba(213, 222, 232, 0.7);
-}
-
-.b3-settlement-edit-modal__save {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #c7992e;
-  background: #c7992e;
-  color: #1a1406;
-  box-shadow: none;
-}
-
-.b3-settlement-edit-modal__save:hover:not(:disabled) {
-  background: #d4a73a;
-  border-color: #d4a73a;
-}
-
-.b3-settlement-edit-modal__cancel:disabled,
-.b3-settlement-edit-modal__save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.b3-settlement-edit-modal .org-edit__foot {
+  margin-top: 0;
 }
 
 @media (max-width: 520px) {

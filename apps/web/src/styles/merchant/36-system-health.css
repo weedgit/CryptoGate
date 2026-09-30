@@ -113,59 +113,6 @@
   }
 }
 
-.platform-shell .plat-ops-health__topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.platform-shell .plat-ops-health__topbar-btn {
-  margin: 0;
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #e2e8f0;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-
-.platform-shell .plat-ops-health__topbar-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-.platform-shell .plat-ops-health__topbar-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn {
-  border-color: rgba(180, 83, 9, 0.4);
-  background: #fffbeb;
-  color: #b45309;
-}
-
-html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn:hover:not(:disabled) {
-  border-color: rgba(180, 83, 9, 0.6);
-  background: #fef3c7;
-  color: #92400e;
-}
-
-html[data-theme="light"] .platform-shell .plat-ops-health__topbar-btn:disabled {
-  opacity: 0.6;
-}
-
 .platform-shell .plat-ops-health__panels {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -4,10 +4,11 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
-} from "react";
+  useState, Fragment } from "react";
 import { AlertsDrawer } from "../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { PageRefreshButton } from "../shared/PageRefreshButton";
+import { usePageRemountKey } from "../shared/pageRefresh";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
@@ -138,6 +139,7 @@ export function MerchantShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
+  const pageRemountKey = usePageRemountKey();
   const merchantId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -339,6 +341,7 @@ export function MerchantShell({
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
             <div className="topbar-utils" role="group" aria-label="Utilities">
+              <PageRefreshButton />
               <AlertsBellButton
                 open={alertsOpen}
                 unreadCount={unreadAlerts}
@@ -370,7 +373,7 @@ export function MerchantShell({
                 portal="merchant"
               />
             ) : null}
-            {children}
+            <Fragment key={pageRemountKey}>{children}</Fragment>
           </div>
         </div>
       </div>

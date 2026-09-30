@@ -45,6 +45,7 @@ import {
 } from "../shared/auditServer";
 import type { ServerPage } from "../shared/serverListApi";
 import { useDebouncedValue } from "../shared/useDebouncedValue";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 const PAGE_SIZE = 10;
 
@@ -324,6 +325,7 @@ export function AuditLogPage() {
     setError(null);
     await Promise.all([loadList(listParams), loadOrgs()]);
   }, [loadList, loadOrgs, listParams]);
+  usePageRefresh(load);
 
   const loading = pageData == null;
   const paged = pageData?.items ?? [];
@@ -395,16 +397,6 @@ export function AuditLogPage() {
           </div>
         </div>
         <div className="plat-bills__period-tools">
-          <button
-            type="button"
-            className="pg-dash__period-refresh"
-            onClick={() => void load()}
-            disabled={fetching}
-            aria-label="Refresh audit log"
-            title="Refresh"
-          >
-            {fetching ? "…" : "↻"}
-          </button>
           <button
             type="button"
             className="btn-primary plat-bills__action-btn plat-audit__export-cta"

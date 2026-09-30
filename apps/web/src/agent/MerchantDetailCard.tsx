@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { platformFeeNetwork } from "../shared/platformFeePair";
 import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { zonedYmd } from "../shared/dateTime";
 import { Link } from "react-router-dom";
@@ -358,7 +359,7 @@ export function MerchantDetailCard({
         () => [] as AuditLogEntry[],
       ),
       listOrgUsers(org.id).catch(() => [] as OrgMember[]),
-      listSettlement(org.id).catch(() => [] as { address?: string }[]),
+      listSettlement(org.id).catch(() => [] as { address?: string; network?: string }[]),
     ])
       .then(([comm, period, allTime, aud, teamRows, settlement]) => {
         if (cancelled) return;
@@ -374,7 +375,10 @@ export function MerchantDetailCard({
         setPrimaryOwner(primaryOwnerFromTeam(teamRows));
         setWalletSet(
           settlement.some(
-            (r) => typeof r.address === "string" && r.address.trim().length > 0,
+            (r) =>
+              r.network === platformFeeNetwork() &&
+              typeof r.address === "string" &&
+              r.address.trim().length > 0,
           ),
         );
       })

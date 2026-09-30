@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { OrgEditWaves } from "../shared/OrgEditWaves";
 import { ChainEnvironment, isTronReceiveAddress } from "@paymentgate/domain";
 import { ApiError, type SettlementAddress } from "./api";
 import { putSettlement, type Session } from "../merchant/api";
@@ -200,15 +201,25 @@ function WalletModalMarkIcon() {
   );
 }
 
-function ModalCloseIcon() {
+function SaveIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M6 6l12 12M18 6 6 18"
+        d="M5 5.5A1.5 1.5 0 0 1 6.5 4h9.2L19.5 7.8V18.5A1.5 1.5 0 0 1 18 20H6.5A1.5 1.5 0 0 1 5 18.5v-13Z"
         stroke="currentColor"
         strokeWidth="1.8"
-        strokeLinecap="round"
+        strokeLinejoin="round"
       />
+      <path d="M8 4.5V9h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M8 20v-5.2h8V20" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ModalCloseIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
     </svg>
   );
 }
@@ -480,11 +491,11 @@ export function MerchantSettlementPanel({
                 aria-labelledby={titleId}
                 onClick={(e) => e.stopPropagation()}
               >
-                <header className="b3-settlement-edit-modal__head">
-                  <span className="b3-settlement-edit-modal__mark" aria-hidden>
+                <header className="org-edit__head b3-settlement-edit-modal__head">
+                  <span className="org-edit__head-icon" aria-hidden>
                     <WalletModalMarkIcon />
                   </span>
-                  <div className="b3-settlement-edit-modal__titles">
+                  <div className="org-edit__head-copy">
                     <h3 id={titleId}>
                       {editTarget.mode === "edit"
                         ? "Edit wallet address"
@@ -496,9 +507,10 @@ export function MerchantSettlementPanel({
                       {editDef.assets.join(", ")}.
                     </p>
                   </div>
+                  <OrgEditWaves />
                   <button
                     type="button"
-                    className="b3-settlement-edit-modal__close"
+                    className="org-edit__close"
                     aria-label="Close"
                     disabled={saving}
                     onClick={() => setEditTarget(null)}
@@ -555,10 +567,10 @@ export function MerchantSettlementPanel({
                     </p>
                   )}
                 </div>
-                <footer className="b3-settlement-edit-modal__foot">
+                <footer className="org-edit__foot b3-settlement-edit-modal__foot">
                   <button
                     type="button"
-                    className="b3-settlement-edit-modal__cancel"
+                    className="org-edit__cancel"
                     disabled={saving}
                     onClick={() => setEditTarget(null)}
                   >
@@ -566,10 +578,11 @@ export function MerchantSettlementPanel({
                   </button>
                   <button
                     type="button"
-                    className="b3-settlement-edit-modal__save"
+                    className="org-edit__save"
                     disabled={saving || !draftAddress.trim()}
                     onClick={requestSave}
                   >
+                    <SaveIcon />
                     {saving ? "Saving…" : "Save"}
                   </button>
                 </footer>

@@ -1315,11 +1315,6 @@ html[data-theme="light"] .platform-shell .org-network-rail-panel__count {
   color: #92400e;
 }
 
-html[data-theme="light"] .platform-shell .org-network-rail-panel__refresh:hover:not(:disabled) {
-  color: #b45309;
-  background: #fffbeb;
-}
-
 html[data-theme="light"] .platform-shell .org-network-rail-panel__row:hover {
   background: #f8fafc;
 }

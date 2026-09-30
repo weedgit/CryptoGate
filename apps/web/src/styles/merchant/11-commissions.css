@@ -308,10 +308,6 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
-.platform-shell .plat-commissions__period-group .plat-commissions__period-picker {
-  border-right: 1px solid var(--bills-divider, rgba(120, 160, 190, 0.12));
-}
-
 .platform-shell .plat-commissions__period-field {
   appearance: none;
   display: inline-flex;
@@ -322,7 +318,7 @@
   margin: 0;
   padding: 0 12px 0 11px;
   border: 0;
-  border-radius: 10px 0 0 10px;
+  border-radius: 10px;
   background: transparent;
   color: var(--bills-text, #f1f5f9);
   font: inherit;
@@ -393,67 +389,14 @@
   transform: rotate(180deg);
 }
 
-.platform-shell .plat-commissions__refresh {
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0 10px 10px 0;
-  background: transparent;
-  color: var(--bills-muted, #8b9bb0);
-  cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
-}
-
-.platform-shell .plat-commissions__period-group > .plat-commissions__refresh:only-child {
-  border-radius: 10px;
-}
-
-.platform-shell .plat-commissions__refresh:hover:not(:disabled) {
-  background: rgba(245, 197, 66, 0.08);
-  color: var(--bills-gold-bright, #fbbf24);
-}
-
-.platform-shell .plat-commissions__refresh:focus-visible {
-  outline: 2px solid rgba(245, 197, 66, 0.5);
-  outline-offset: -2px;
-}
-
-.platform-shell .plat-commissions__refresh:disabled {
-  cursor: progress;
-}
-
-.platform-shell .plat-commissions__refresh.is-spinning svg {
-  animation: plat-commissions-refresh-spin 0.9s linear infinite;
-}
-
-@keyframes plat-commissions-refresh-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .platform-shell .plat-commissions__refresh.is-spinning svg {
-    animation: none;
-  }
-}
-
 html[data-theme="light"] .platform-shell .plat-commissions__period-group {
   border-color: #d8dee8;
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-html[data-theme="light"] .platform-shell .plat-commissions__period-group .plat-commissions__period-picker {
-  border-right-color: #e2e8f0;
-}
-
 html[data-theme="light"] .platform-shell .plat-commissions__period-field:hover,
-html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open,
-html[data-theme="light"] .platform-shell .plat-commissions__refresh:hover:not(:disabled) {
+html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open {
   background: #fffbeb;
 }
 
@@ -470,8 +413,7 @@ html[data-theme="light"] .platform-shell .plat-commissions__period-label {
   color: #0f172a;
 }
 
-html[data-theme="light"] .platform-shell .plat-commissions__period-chevron,
-html[data-theme="light"] .platform-shell .plat-commissions__refresh {
+html[data-theme="light"] .platform-shell .plat-commissions__period-chevron {
   color: #64748b;
 }
 
@@ -517,8 +459,7 @@ html[data-theme="light"] .platform-shell .plat-commissions__period-foot-btn:hove
 }
 
 html[data-theme="light"] .platform-shell .plat-commissions__period-field:hover .plat-commissions__period-chevron,
-html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open .plat-commissions__period-chevron,
-html[data-theme="light"] .platform-shell .plat-commissions__refresh:hover:not(:disabled) {
+html[data-theme="light"] .platform-shell .plat-commissions__period-field.is-open .plat-commissions__period-chevron {
   color: #b45309;
 }
 

@@ -1,4 +1,8 @@
-import { ServiceBillKind, ServiceBillStatus } from "@paymentgate/domain";
+import {
+  ServiceBillKind,
+  ServiceBillStatus,
+  resolvePlatformFeeNetwork,
+} from "@paymentgate/domain";
 import { findOrgById } from "../orgs/org-store.mjs";
 import { loadOrgSetupStatus } from "../auth/org-setup.mjs";
 import {
@@ -50,7 +54,12 @@ async function merchantSetupReadyForActivation(merchantOrgId) {
     typeof org.country === "string" && org.country.trim().length > 0;
   if (!(nameOk && billingOk && countryOk)) return false;
   const settlements = await listSettlementAddresses(merchantOrgId);
-  if (!settlements.some((r) => typeof r.address === "string" && r.address.trim())) {
+  const feeNetwork = resolvePlatformFeeNetwork();
+  if (
+    !settlements.some(
+      (r) => r.network === feeNetwork && typeof r.address === "string" && r.address.trim(),
+    )
+  ) {
     return false;
   }
   const owner = await findOrgOwnerUser(merchantOrgId);

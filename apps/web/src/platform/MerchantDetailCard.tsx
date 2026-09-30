@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { platformFeeNetwork } from "../shared/platformFeePair";
 import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import { createPortal } from "react-dom";
@@ -858,7 +859,10 @@ export function MerchantDetailCard({
                 canEditOwner={canSupportOwner}
                 setupKind="merchant"
                 walletSet={settlement.some(
-                  (r) => typeof r.address === "string" && r.address.trim().length > 0,
+                  (r) =>
+                    r.network === platformFeeNetwork() &&
+                    typeof r.address === "string" &&
+                    r.address.trim().length > 0,
                 )}
                 onEditOrg={() => {
                   setProfileEditError(null);

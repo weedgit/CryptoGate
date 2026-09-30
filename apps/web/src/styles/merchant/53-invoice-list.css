@@ -609,16 +609,6 @@
   justify-content: center;
 }
 
-.invoice-list__btn.is-spinning svg {
-  animation: invoice-list-spin 0.9s linear infinite;
-}
-
-@keyframes invoice-list-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .invoice-list__header-actions {
   display: inline-flex;
   align-items: center;

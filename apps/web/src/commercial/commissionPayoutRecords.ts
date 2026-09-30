@@ -1,4 +1,5 @@
 import type { CommissionStatementRow } from "./commissionStatements";
+import { platformFeeNetwork } from "../shared/platformFeePair";
 import { apiFetch } from "../auth/apiFetch";
 import { API_BASE, parseError } from "../shared/apiCore";
 import {
@@ -239,7 +240,7 @@ export function commissionPayoutRemittanceUri(opts: {
   const address = opts.address.trim();
   if (!address) return "";
   const asset = (opts.asset ?? "USDT").trim().toUpperCase() || "USDT";
-  const network = (opts.network ?? "tron").trim().toLowerCase() || "tron";
+  const network = opts.network?.trim().toLowerCase() || platformFeeNetwork();
   const amount = String(opts.amount).trim();
   if (network === "tron" || network === "tron_nile") {
     if (address.startsWith("T") && address.length >= 30) {

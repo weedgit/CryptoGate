@@ -1,7 +1,9 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { AlertsDrawer } from "../../platform/ui/AlertsDrawer";
 import { AlertsBellButton } from "../../shared/AlertsBellButton";
+import { PageRefreshButton } from "../../shared/PageRefreshButton";
+import { usePageRemountKey } from "../../shared/pageRefresh";
 import { ThemeToggleButton } from "../../shared/ThemeToggleButton";
 import { UnresolvedAlertsBanner } from "../../shared/UnresolvedAlertsBanner";
 import { OrgBrandMark } from "../../shared/OrgBrandMark";
@@ -62,6 +64,7 @@ export function CashierShell({
   onSessionRefresh,
   backTo,
 }: Props) {
+  const pageRemountKey = usePageRemountKey();
   const orgId = primaryMerchantOrgId(session);
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -149,6 +152,7 @@ export function CashierShell({
           ))}
         </nav>
         <div className="cashier-shell__utils">
+          <PageRefreshButton />
           <AlertsBellButton
             open={alertsOpen}
             unreadCount={unreadAlerts}
@@ -200,7 +204,7 @@ export function CashierShell({
             portal="merchant"
           />
         ) : null}
-        {children}
+        <Fragment key={pageRemountKey}>{children}</Fragment>
       </main>
       <AlertsDrawer
         open={alertsOpen}

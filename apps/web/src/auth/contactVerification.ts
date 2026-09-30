@@ -106,7 +106,7 @@ export function setupChecklistItems(
   const profilePath =
     portal === "agent"
       ? withEditParam(agentRoute(), ORG_EDIT_PARAM)
-      : merchantRoute("settings/team");
+      : withEditParam(merchantRoute("settings/team"), ORG_EDIT_PARAM);
   const walletPath =
     portal === "agent"
       ? withEditParam(agentRoute(), ORG_EDIT_PARAM)
@@ -143,7 +143,7 @@ export function setupChecklistItems(
       label:
         portal === "agent"
           ? "Commission payout wallet"
-          : "Settlement wallet",
+          : "Tron settlement wallet",
       done: walletDone(session),
       href: walletPath,
       cta: "Open wallet settings",

@@ -9,12 +9,14 @@ import { OpenInvoicesPane } from "./commissions/OpenInvoicesPane";
 import { SettledPayoutsPane } from "./commissions/SettledPayoutsPane";
 import { PAGE_SIZE } from "./commissions/commissionsShared";
 import { useCommissionsData } from "./commissions/useCommissionsData";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 type Props = { session: Session };
 
 /** B12 — Platform → agent monthly commission invoices & payout history. */
 export function PlatformCommissionsPage({ session }: Props) {
   const data = useCommissionsData(session);
+  usePageRefresh(data.load);
   const {
     portal,
     route,
@@ -50,8 +52,6 @@ export function PlatformCommissionsPage({ session }: Props) {
         canPay={canPay}
         generatePeriod={data.generatePeriod}
         onGeneratePeriodChange={data.setGeneratePeriod}
-        fetching={data.fetching}
-        onRefresh={() => void data.load()}
         busy={data.busy}
         onGenerate={() => void data.onGenerateInvoices()}
       />

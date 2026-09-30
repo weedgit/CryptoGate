@@ -12,6 +12,7 @@ import { InvoiceListHeader } from "./invoiceList/InvoiceListHeader";
 import { InvoiceStatusTabs } from "./invoiceList/InvoiceStatusTabs";
 import { InvoiceTable } from "./invoiceList/InvoiceTable";
 import { useInvoiceListData } from "./invoiceList/useInvoiceListData";
+import { usePageRefresh } from "./pageRefresh";
 
 type Props = {
   session: Session;
@@ -20,6 +21,7 @@ type Props = {
 
 export function InvoiceListPage({ session, variant }: Props) {
   const list = useInvoiceListData(session, variant);
+  usePageRefresh(list.load);
   const {
     canExport,
     statusFilter,
@@ -67,9 +69,6 @@ export function InvoiceListPage({ session, variant }: Props) {
         exportBusy={list.exportBusy}
         exportHref={list.exportHref}
         requestAsyncExport={list.requestAsyncExport}
-        loading={loading}
-        refreshing={refreshing}
-        onRefresh={list.load}
       />
 
       <InvoiceAssetStrip byAsset={list.summary.byAsset} />

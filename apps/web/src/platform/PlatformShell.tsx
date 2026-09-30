@@ -3,8 +3,7 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
+  type WheelEvent as ReactWheelEvent, Fragment } from "react";
 import type { Session } from "./api";
 import { PortalNav, type PortalNavGroup } from "../shared/PortalNav";
 import { AlertsNavIcon } from "../merchant/NavIcons";
@@ -30,6 +29,8 @@ import {
   subscribePlatformAlerts,
 } from "./platformAlerts";
 import { AlertsBellButton } from "../shared/AlertsBellButton";
+import { PageRefreshButton } from "../shared/PageRefreshButton";
+import { usePageRemountKey } from "../shared/pageRefresh";
 import { MobileNavToggle } from "../shared/MobileNavToggle";
 import { ThemeToggleButton } from "../shared/ThemeToggleButton";
 import { TopbarSearch } from "../shared/TopbarSearch";
@@ -213,6 +214,7 @@ export function PlatformShell({
   onSignOut,
   onSessionRefresh,
 }: Props) {
+  const pageRemountKey = usePageRemountKey();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "1";
@@ -341,6 +343,7 @@ export function PlatformShell({
           <div className="topbar-right">
             <div className="topbar-actions" id="platform-topbar-actions" />
             <div className="topbar-utils" role="group" aria-label="Utilities">
+              <PageRefreshButton />
               <AlertsBellButton
                 open={alertsOpen}
                 unreadCount={unreadAlerts}
@@ -364,7 +367,7 @@ export function PlatformShell({
             onOpenAlerts={() => setAlertsOpen(true)}
           />
           <div className="body">
-            {children}
+            <Fragment key={pageRemountKey}>{children}</Fragment>
           </div>
         </div>
       </div>

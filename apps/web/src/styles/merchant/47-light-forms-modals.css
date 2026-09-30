@@ -108,7 +108,8 @@ html[data-theme="light"] :is(.platform-shell, .profile-settings-modal) .plat-set
 
 /* Profile edit modal (org-profile-edit / owner-acct) */
 html[data-theme="light"] .b3-commission-modal-backdrop .org-profile-edit-modal,
-html[data-theme="light"] .b3-commission-modal-backdrop .b3-owner-edit.org-profile-edit-modal {
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-owner-edit.org-profile-edit-modal,
+html[data-theme="light"] .b3-commission-modal-backdrop .b3-settlement-edit-modal {
   background: #ffffff;
   border-color: #d8dee8;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);

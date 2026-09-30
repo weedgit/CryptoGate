@@ -40,31 +40,6 @@
   letter-spacing: -0.01em;
 }
 
-.platform-shell .org-network-rail-panel__refresh {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-left: 2px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--nr-muted);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.platform-shell .org-network-rail-panel__refresh:hover:not(:disabled) {
-  color: var(--nr-gold-bright);
-  background: rgba(240, 180, 41, 0.08);
-}
-
-.platform-shell .org-network-rail-panel__refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .platform-shell .org-network-rail-panel__intro-sub {
   margin: 6px 0 0;
   max-width: 44rem;

@@ -68,7 +68,7 @@ export function destForInvoice(
     return {
       address: slip.payoutAddress,
       asset: slip.asset ?? "USDT",
-      network: slip.network ?? "tron",
+      network: slip.network ?? platformFeeNetwork(),
     };
   }
   return fallback ?? null;

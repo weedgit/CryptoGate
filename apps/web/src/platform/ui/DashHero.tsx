@@ -11,10 +11,6 @@ type PeriodControlsProps<Id extends string> = {
   onPeriodSelect: (id: Id) => void;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
-  onRefresh: () => void;
-  refreshing: boolean;
-  disabled?: boolean;
-  refreshTitle?: string;
 };
 
 export function DashPeriodControls<Id extends string>({
@@ -25,10 +21,6 @@ export function DashPeriodControls<Id extends string>({
   onPeriodSelect,
   onStartDateChange,
   onEndDateChange,
-  onRefresh,
-  refreshing,
-  disabled,
-  refreshTitle = "Refresh dashboard",
 }: PeriodControlsProps<Id>) {
   const tz = useViewerTimeZone();
   return (
@@ -76,16 +68,6 @@ export function DashPeriodControls<Id extends string>({
       >
         {zoneAbbrev(tz)}
       </span>
-      <button
-        type="button"
-        className="pg-dash__period-refresh"
-        onClick={onRefresh}
-        disabled={disabled}
-        aria-label="Refresh dashboard"
-        title={refreshTitle}
-      >
-        {refreshing ? "…" : "↻"}
-      </button>
     </div>
   );
 }

@@ -2,7 +2,7 @@
  * Platform → agent commission invoices from paid merchant service fees.
  * Auto-created at 00:00 UTC on agent pay day C (billing calendar).
  */
-import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
+import { PLATFORM_FEE_ASSET, resolvePlatformFeeNetwork } from "@paymentgate/domain";
 import { listOrgsInSubtree } from "../orgs/org-scope.mjs";
 import { listOrgAccounts } from "../orgs/org-store.mjs";
 import { getPool } from "../db/pool.mjs";
@@ -269,9 +269,10 @@ export async function buildInvoiceForAgent(
     platformFeeCollected: feeCollected,
     commissionPercent: String(commissionPercent),
     commissionAmount,
-    payoutAddress: payout?.address ?? null,
-    asset: payout?.asset ?? "USDT",
-    network: payout?.network ?? resolvePlatformFeeNetwork(),
+    payoutAddress:
+      payout?.network === resolvePlatformFeeNetwork() ? (payout.address ?? null) : null,
+    asset: PLATFORM_FEE_ASSET,
+    network: resolvePlatformFeeNetwork(),
     paymentLink,
     treeSnapshot: {
       periodKey,

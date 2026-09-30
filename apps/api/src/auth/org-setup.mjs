@@ -2,6 +2,7 @@ import { findOrgById } from "../orgs/org-store.mjs";
 import { findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
 import { listSettlementAddresses } from "../settlement/settlement-store.mjs";
 import { findAgentPayoutAddress } from "../commercial/agent-payout-store.mjs";
+import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
 
 const AGENT_TYPES = new Set(["agent"]);
 
@@ -111,16 +112,21 @@ export function orgProfileMissingLabels(org, kind) {
 }
 
 /**
+ * Agents need a payout address; merchants need a settlement wallet on the
+ * platform-fee network (Tron, or Tron Nile on testnet). Other networks do not count.
  * @param {"agent" | "merchant"} kind
  * @param {string} orgId
  */
 async function isWalletSet(kind, orgId) {
   if (kind === "agent") {
     const payout = await findAgentPayoutAddress(orgId);
-    return Boolean(payout?.address);
+    return Boolean(payout?.address?.trim()) && payout.network === resolvePlatformFeeNetwork();
   }
+  const feeNetwork = resolvePlatformFeeNetwork();
   const rows = await listSettlementAddresses(orgId);
-  return rows.some((r) => typeof r.address === "string" && r.address.trim());
+  return rows.some(
+    (r) => r.network === feeNetwork && typeof r.address === "string" && r.address.trim(),
+  );
 }
 
 /**
@@ -189,7 +195,7 @@ export async function loadOrgSetupStatus(memberships, user) {
   }
   if (!walletSet) {
     missing.push(
-      resolved.kind === "agent" ? "payout wallet address" : "settlement wallet",
+      resolved.kind === "agent" ? "payout wallet address" : "Tron settlement wallet",
     );
   }
 

@@ -1,4 +1,5 @@
 import { type ReactNode, type Ref } from "react";
+import { platformFeeNetwork } from "../shared/platformFeePair";
 import { Link } from "react-router-dom";
 import { platformInvoiceSeller } from "../billing/ServiceBillInvoiceFace";
 import {
@@ -97,7 +98,7 @@ export function CommissionInvoiceFace({
   invoiceRef,
 }: Props) {
   const asset = dest?.asset ?? slip.asset ?? "USDT";
-  const network = dest?.network ?? slip.network ?? "tron";
+  const network = dest?.network ?? slip.network ?? platformFeeNetwork();
   const payoutNetwork = remittanceNetwork({ network });
   const txNetwork = remittanceNetwork(slip);
   const qrPayload = dest?.address

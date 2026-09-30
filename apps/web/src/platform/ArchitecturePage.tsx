@@ -71,6 +71,7 @@ import {
   ArchitectureNavIcon,
   MerchantsNavIcon,
 } from "./NavIcons";
+import { usePageRefresh } from "../shared/pageRefresh";
 
 const STATUS_FILTERS: {
   id: OrgTreeFilter["status"];
@@ -202,41 +203,6 @@ function CtxTrashIcon() {
         />
       </svg>
     </span>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 4.5v5h-5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 14.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 19.5v-5h5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -1857,6 +1823,7 @@ export function AccountsPage({ session }: { session: Session }) {
       setLoading(false);
     }
   }, [accountsView, sources, scopeOrgs, buildForest]);
+  usePageRefresh(load);
 
   useEffect(() => {
     void load();
@@ -2421,16 +2388,6 @@ export function AccountsPage({ session }: { session: Session }) {
                   role="group"
                   aria-label="Tree expand collapse"
                 >
-                  <button
-                    type="button"
-                    className="org-architecture__pane-icon-btn"
-                    onClick={() => void load()}
-                    disabled={loading}
-                    title="Refresh org list"
-                    aria-label="Refresh org list"
-                  >
-                    <RefreshIcon />
-                  </button>
                   <button
                     type="button"
                     className="org-architecture__pane-icon-btn"

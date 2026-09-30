@@ -87,13 +87,3 @@ export function DownloadIcon() {
   );
 }
 
-export function RefreshIcon() {
-  return (
-    <svg {...ACTION_ICON}>
-      <path d="M20 11a8 8 0 0 0-14.9-3.5" />
-      <path d="M4 4v4h4" />
-      <path d="M4 13a8 8 0 0 0 14.9 3.5" />
-      <path d="M20 20v-4h-4" />
-    </svg>
-  );
-}
