@@ -491,7 +491,7 @@ private fun QrModeToggle(mode: QrMode, onChange: (QrMode) -> Unit) {
 @Composable
 private fun RowScope.QrModeOption(label: String, selected: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(
-        targetValue = if (selected) Color.White else Color.Transparent,
+        targetValue = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
         animationSpec = tween(PosMotion.Fast),
         label = "qr-mode-bg",
     )
@@ -508,7 +508,7 @@ private fun RowScope.QrModeOption(label: String, selected: Boolean, onClick: () 
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (selected) Color(0xFF0B0F14) else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

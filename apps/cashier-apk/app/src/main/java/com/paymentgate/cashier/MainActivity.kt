@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
@@ -63,6 +64,7 @@ import com.paymentgate.cashier.ui.formatReceiptPrintedAt
 import com.paymentgate.cashier.ui.printerStatusLabel
 import com.paymentgate.cashier.ui.LocalPosOrg
 import com.paymentgate.cashier.ui.theme.CashierTheme
+import com.paymentgate.cashier.ui.theme.PosBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -92,7 +94,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             var darkTheme by remember { mutableStateOf(app.posPrefs.darkTheme) }
             CashierTheme(darkTheme = darkTheme) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                    contentColor = MaterialTheme.colorScheme.onBackground,
+                ) {
+                    PosBackdrop()
                     val scope = rememberCoroutineScope()
                     var showSplash by remember { mutableStateOf(true) }
                     var startupDone by remember { mutableStateOf(false) }
@@ -314,9 +321,11 @@ class MainActivity : ComponentActivity() {
                     // Heartbeat: refresh org name and notice a revoke from the web while locked or in use.
                     LaunchedEffect(bound, startupDone) {
                         if (!bound || !startupDone) return@LaunchedEffect
+                        var iconFetched = false
                         while (true) {
                             try {
-                                terminalOrg = app.api.getTerminal().org
+                                terminalOrg = app.api.getTerminal(includeIcon = !iconFetched).org
+                                iconFetched = true
                             } catch (e: Exception) {
                                 if (e is ApiError && e.code == PaymentGateClient.CODE_TERMINAL_REVOKED) {
                                     wipeToSetup(CashierPosSurface.TERMINAL_REVOKED)
@@ -507,6 +516,11 @@ class MainActivity : ComponentActivity() {
                                     error = pinError,
                                     busy = pinBusy,
                                     lockedSeconds = lockedSeconds,
+                                    darkTheme = darkTheme,
+                                    onToggleTheme = {
+                                        darkTheme = !darkTheme
+                                        app.posPrefs.darkTheme = darkTheme
+                                    },
                                     onClearError = {
                                         pinError = null
                                         lockedSeconds = 0
@@ -571,6 +585,11 @@ class MainActivity : ComponentActivity() {
                                                         orgName = orgName,
                                                         operatorName = op.displayName,
                                                         roleLabel = roleLabel(op.role),
+                                                        darkTheme = darkTheme,
+                                                        onToggleTheme = {
+                                                            darkTheme = !darkTheme
+                                                            app.posPrefs.darkTheme = darkTheme
+                                                        },
                                                         onLock = { lockPos() },
                                                     )
                                                 },

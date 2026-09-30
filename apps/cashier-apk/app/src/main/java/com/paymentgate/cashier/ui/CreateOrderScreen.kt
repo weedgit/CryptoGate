@@ -360,7 +360,7 @@ fun CreateOrderScreen(
                         .padding(top = 8.dp, bottom = 8.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(20.dp),
-                tonalElevation = 1.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),

@@ -1,5 +1,6 @@
 package com.paymentgate.cashier.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -84,7 +85,7 @@ fun TodayOrdersScreen(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
@@ -144,7 +145,7 @@ fun TodayOrdersScreen(
                                         .fillMaxWidth()
                                         .clickable { onSelect(order) },
                                 shape = RoundedCornerShape(14.dp),
-                                tonalElevation = 1.dp,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                             ) {
                                 Row(
                                     modifier =

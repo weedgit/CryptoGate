@@ -1,5 +1,6 @@
 package com.paymentgate.cashier.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +51,7 @@ fun HardwareDock(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 4.dp,
     ) {
         Row(
@@ -110,36 +111,39 @@ fun OperatorBar(
     orgName: String,
     operatorName: String,
     roleLabel: String,
+    darkTheme: Boolean,
+    onToggleTheme: () -> Unit,
     onLock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OrgBrandMark(
             iconKey = LocalPosOrg.current?.iconKey,
-            size = 36.dp,
-            modifier = Modifier.padding(end = 10.dp),
+            size = 44.dp,
+            modifier = Modifier.padding(end = 12.dp),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = orgName,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = "$operatorName · $roleLabel",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        PosThemeToggle(darkTheme = darkTheme, onToggle = onToggleTheme, modifier = Modifier.padding(end = 4.dp))
         Row(
             modifier = Modifier
                 .clickable(onClick = onLock)
@@ -176,7 +180,6 @@ fun PosShell(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {

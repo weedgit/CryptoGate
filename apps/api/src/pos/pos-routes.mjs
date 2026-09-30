@@ -229,6 +229,7 @@ export async function handleBindTerminal(req, res) {
 
 /**
  * GET /v1/pos/terminal — terminal + org for the PIN pad. Also a heartbeat.
+ * `?include=icon` adds the org icon (the APK asks once at start-up, not every beat).
  * @param {import("node:http").IncomingMessage} req
  * @param {import("node:http").ServerResponse} res
  */
@@ -236,6 +237,7 @@ export async function handleGetTerminal(req, res) {
   const terminal = await requireTerminal(req, res);
   if (!terminal) return;
   await touchTerminal(terminal.id, requestIp(req));
+  const withIcon = new URL(req.url ?? "/", "http://localhost").searchParams.get("include") === "icon";
   sendJson(res, 200, {
     terminal: {
       id: terminal.id,
@@ -244,7 +246,7 @@ export async function handleGetTerminal(req, res) {
       appVersion: terminal.appVersion,
       createdAt: terminal.createdAt,
     },
-    ...(await terminalOrgPayload(terminal)),
+    ...(await terminalOrgPayload(terminal, { withIcon })),
   });
 }
 

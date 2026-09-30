@@ -276,6 +276,9 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal(info.status, 200);
     assert.equal(info.json.org.id, merchantId);
     assert.ok(!("iconKey" in info.json.org), "heartbeat leaves the icon out");
+    const withIcon = await api("/v1/pos/terminal?include=icon", { terminal: bound.json.terminalToken });
+    assert.equal(withIcon.status, 200);
+    assert.ok("iconKey" in withIcon.json.org, "start-up fetch asks for the icon");
     assert.equal((await api("/v1/pos/terminal", { terminal: "pgt_nope" })).status, 401);
   });
 

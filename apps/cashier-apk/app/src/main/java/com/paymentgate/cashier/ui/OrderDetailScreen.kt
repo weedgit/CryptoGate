@@ -1,5 +1,6 @@
 package com.paymentgate.cashier.ui
 
+import androidx.compose.foundation.BorderStroke
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -148,7 +149,7 @@ fun OrderDetailScreen(
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(

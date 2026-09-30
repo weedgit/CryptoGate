@@ -108,9 +108,10 @@ class PaymentGateClient(
     // --- Bound terminal -------------------------------------------------------
 
     /** Heartbeat + org refresh. `401 terminal_revoked` wipes the binding. */
-    suspend fun getTerminal(): TerminalStatus =
+    suspend fun getTerminal(includeIcon: Boolean = false): TerminalStatus =
         withContext(Dispatchers.IO) {
-            val req = authed("/pos/terminal", withSession = false).get().build()
+            val path = if (includeIcon) "/pos/terminal?include=icon" else "/pos/terminal"
+            val req = authed(path, withSession = false).get().build()
             val status = execute(req) { JsonParsers.parseTerminalStatus(it) }
             status.copy(org = terminalStore.updateOrg(status.org, status.businessTimezone))
         }

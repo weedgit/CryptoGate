@@ -1,6 +1,12 @@
 package com.paymentgate.cashier.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,11 +16,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,9 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.paymentgate.cashier.api.CashierPosSurface
@@ -52,6 +67,8 @@ fun PinUnlockScreen(
     error: String?,
     busy: Boolean,
     lockedSeconds: Int,
+    darkTheme: Boolean,
+    onToggleTheme: () -> Unit,
     onPinSubmit: (String) -> Unit,
     onClearError: () -> Unit,
 ) {
@@ -59,6 +76,7 @@ fun PinUnlockScreen(
     var remaining by remember(lockedSeconds) { mutableIntStateOf(lockedSeconds) }
     val locked = remaining > 0
     val enabled = !busy && !locked
+    val shake = remember { Animatable(0f) }
 
     LaunchedEffect(lockedSeconds) {
         while (remaining > 0) {
@@ -71,6 +89,17 @@ fun PinUnlockScreen(
     LaunchedEffect(error) {
         if (error != null) {
             digits = ""
+            shake.animateTo(
+                0f,
+                keyframes {
+                    durationMillis = 420
+                    -14f at 60
+                    12f at 140
+                    -8f at 220
+                    5f at 300
+                    0f at 420
+                },
+            )
             if (lockedSeconds <= 0) {
                 delay(2000)
                 onClearError()
@@ -82,158 +111,217 @@ fun PinUnlockScreen(
         if (enabled && digits.length >= PIN_MIN_LENGTH) onPinSubmit(digits)
     }
 
-    PosScreenFrame {
-        Column(modifier = Modifier.fillMaxSize()) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = posHorizontalPadding(), vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(colors.surface.copy(alpha = if (darkTheme) 0.6f else 1f))
+                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                Icon(Icons.Outlined.Lock, null, tint = colors.primary, modifier = Modifier.size(16.dp))
                 Text(
-                    text = "POS LOCKED",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = orgTypeLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "POS locked",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurfaceVariant,
                 )
             }
-            Spacer(modifier = Modifier.height(20.dp))
-            OrgBrandMark(
-                iconKey = LocalPosOrg.current?.iconKey,
-                size = 72.dp,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(
-                text = orgName,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "Enter your PIN",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            val notice =
-                when {
-                    locked -> CashierPosSurface.unlockLockedMessage(remaining)
-                    else -> error
-                }
-            Box(
-                modifier = Modifier.fillMaxWidth().height(44.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (!notice.isNullOrBlank()) {
-                    Text(
-                        text = notice,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().height(24.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (busy) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    repeat(maxOf(PIN_MIN_LENGTH, digits.length)) { i ->
-                        Box(
-                            modifier =
-                                Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .size(14.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (i < digits.length) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline,
-                                    ),
-                        )
-                    }
+            PosThemeToggle(darkTheme = darkTheme, onToggle = onToggleTheme)
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        OrgBrandMark(iconKey = LocalPosOrg.current?.iconKey, size = 112.dp)
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = orgName,
+            fontSize = 34.sp,
+            lineHeight = 40.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.6).sp,
+            color = colors.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = orgTypeLabel.uppercase(),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.6.sp,
+            color = colors.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(colors.primaryContainer)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        Text(
+            text = "Enter your PIN",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color = colors.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier
+                .height(28.dp)
+                .graphicsLayer { translationX = shake.value.dp.toPx() },
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    color = colors.primary,
+                    modifier = Modifier.size(26.dp),
+                    strokeWidth = 2.5.dp,
+                )
+            } else {
+                repeat(maxOf(PIN_MIN_LENGTH, digits.length)) { i ->
+                    PinDot(filled = i < digits.length, error = error != null && !locked)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+        }
+
+        val notice = if (locked) CashierPosSurface.unlockLockedMessage(remaining) else error
+        Box(
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!notice.isNullOrBlank()) {
+                Text(
+                    text = notice,
+                    color = colors.error,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = colors.surface.copy(alpha = if (darkTheme) 0.72f else 0.9f),
+            border = BorderStroke(1.dp, colors.outlineVariant),
+            shadowElevation = if (darkTheme) 0.dp else 6.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    listOf(
-                        listOf("1", "2", "3"),
-                        listOf("4", "5", "6"),
-                        listOf("7", "8", "9"),
-                        listOf(KEY_BACK, "0", KEY_ENTER),
-                    ).forEach { row ->
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            row.forEach { key ->
-                                val isEnter = key == KEY_ENTER
-                                val keyEnabled =
-                                    enabled && (!isEnter || digits.length >= PIN_MIN_LENGTH)
-                                Surface(
-                                    modifier =
-                                        Modifier
-                                            .weight(1f)
-                                            .height(64.dp)
-                                            .clickable(enabled = keyEnabled) {
-                                                when (key) {
-                                                    KEY_BACK -> digits = digits.dropLast(1)
-                                                    KEY_ENTER -> submit()
-                                                    else ->
-                                                        if (digits.length < PIN_MAX_LENGTH) digits += key
-                                                }
-                                            },
-                                    shape = RoundedCornerShape(14.dp),
-                                    color =
-                                        if (isEnter && keyEnabled) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant,
-                                ) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            text = key,
-                                            fontSize = 22.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textAlign = TextAlign.Center,
-                                            color =
-                                                when {
-                                                    isEnter && keyEnabled -> MaterialTheme.colorScheme.onPrimary
-                                                    keyEnabled -> MaterialTheme.colorScheme.onSurface
-                                                    else -> MaterialTheme.colorScheme.outline
-                                                },
-                                        )
-                                    }
+                listOf(
+                    listOf("1", "2", "3"),
+                    listOf("4", "5", "6"),
+                    listOf("7", "8", "9"),
+                    listOf(KEY_BACK, "0", KEY_ENTER),
+                ).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { key ->
+                            val isEnter = key == KEY_ENTER
+                            val keyEnabled = enabled && (!isEnter || digits.length >= PIN_MIN_LENGTH)
+                            PinKey(
+                                key = key,
+                                enabled = keyEnabled,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                when (key) {
+                                    KEY_BACK -> digits = digits.dropLast(1)
+                                    KEY_ENTER -> submit()
+                                    else -> if (digits.length < PIN_MAX_LENGTH) digits += key
                                 }
                             }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
-            SecuredByPaymentGate(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 4.dp),
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        SecuredByPaymentGate(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    }
+}
+
+@Composable
+private fun PinDot(filled: Boolean, error: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val fill by animateColorAsState(
+        targetValue = when {
+            error -> colors.error
+            filled -> colors.primary
+            else -> Color.Transparent
+        },
+        animationSpec = tween(140),
+        label = "pin-dot",
+    )
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(fill)
+            .border(2.dp, if (filled || error) fill else colors.outline, CircleShape),
+    )
+}
+
+@Composable
+private fun PinKey(
+    key: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val isEnter = key == KEY_ENTER
+    val bg = when {
+        isEnter && enabled -> colors.primary
+        isEnter -> colors.surfaceVariant.copy(alpha = 0.6f)
+        else -> colors.surfaceVariant
+    }
+    val fg = when {
+        isEnter && enabled -> colors.onPrimary
+        enabled -> colors.onSurface
+        else -> colors.outline
+    }
+    Box(
+        modifier = modifier
+            .height(70.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (key == KEY_BACK) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Backspace,
+                contentDescription = "Delete",
+                tint = fg,
+                modifier = Modifier.size(26.dp),
+            )
+        } else {
+            Text(
+                text = key,
+                fontSize = if (isEnter) 20.sp else 28.sp,
+                fontWeight = if (isEnter) FontWeight.Bold else FontWeight.SemiBold,
+                color = fg,
             )
         }
     }
