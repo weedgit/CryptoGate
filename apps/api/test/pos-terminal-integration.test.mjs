@@ -265,7 +265,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal(bound.status, 201, JSON.stringify(bound.json));
     assert.match(bound.json.terminalToken, /^pgt_/);
     assert.equal(bound.json.org.id, merchantId);
-    assert.ok("iconKey" in bound.json.org, "bind carries the org icon (null when none)");
+    assert.strictEqual(bound.json.org.iconKey, null, "bind carries the org icon (null when none)");
     const after = await api("/v1/auth/session", { session: login });
     assert.equal(after.status, 401);
 
@@ -278,7 +278,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.ok(!("iconKey" in info.json.org), "heartbeat leaves the icon out");
     const withIcon = await api("/v1/pos/terminal?include=icon", { terminal: bound.json.terminalToken });
     assert.equal(withIcon.status, 200);
-    assert.ok("iconKey" in withIcon.json.org, "start-up fetch asks for the icon");
+    assert.strictEqual(withIcon.json.org.iconKey, null, "start-up fetch carries the icon (null when none)");
     assert.equal((await api("/v1/pos/terminal", { terminal: "pgt_nope" })).status, 401);
   });
 
@@ -289,7 +289,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
     assert.equal(ok.json.operator.role, "cashier");
     assert.equal(ok.json.liveActionsUnlocked, true);
-    assert.ok("iconKey" in ok.json.org, "unlock carries the org icon (null when none)");
+    assert.strictEqual(ok.json.org.iconKey, null, "unlock carries the org icon (null when none)");
     assert.ok(ok.cookie);
     assert.equal(await auditCount("pos_unlock_success", terminal.id), 1);
 
