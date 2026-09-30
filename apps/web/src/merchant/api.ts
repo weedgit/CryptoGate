@@ -1416,12 +1416,11 @@ export async function clearPosPin(currentPin: string): Promise<{ configured: boo
   return (await res.json()) as { configured: boolean };
 }
 
-/** Owner/Admin sets a team member's Cashier POS PIN (no current PIN required). */
-export async function adminSetMemberPosPin(
+/** Owner/Admin generates a new POS PIN for a member; the PIN is returned only this once. */
+export async function adminGenerateMemberPosPin(
   orgId: string,
   userId: string,
-  pin: string,
-): Promise<{ configured: boolean }> {
+): Promise<{ configured: boolean; pin: string }> {
   const res = await apiFetch(
     `${API_BASE}/orgs/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/pos-pin`,
     {
@@ -1431,11 +1430,11 @@ export async function adminSetMemberPosPin(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ pin }),
+      body: JSON.stringify({ generate: true }),
     },
   );
   if (!res.ok) await parseError(res);
-  return (await res.json()) as { configured: boolean };
+  return (await res.json()) as { configured: boolean; pin: string };
 }
 
 /** Owner/Admin clears a team member's Cashier POS PIN. */

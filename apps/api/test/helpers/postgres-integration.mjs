@@ -14,6 +14,8 @@ import { insertServiceBill } from "../../src/service-bills/service-bill-store.mj
 
 export const apiRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
+process.env.POS_PIN_PEPPER ??= "integration-test-pos-pin-pepper-0123456789abcdef";
+
 export function hasPostgres() {
   return Boolean(process.env.DATABASE_URL?.trim());
 }

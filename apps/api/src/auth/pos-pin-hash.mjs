@@ -1,23 +1,67 @@
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 const scryptAsync = promisify(scrypt);
 const KEYLEN = 64;
 const SCRYPT_OPTS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
+/** Generated PINs are 6 digits; verification accepts 6–8 so longer PINs can come later. */
+export const GENERATED_POS_PIN_LENGTH = 6;
+const MIN_PEPPER_BYTES = 32;
+
 /**
  * @param {string} pin
  * @returns {{ ok: true } | { ok: false, code: string, message: string }}
  */
 export function validatePosPin(pin) {
-  if (typeof pin !== "string" || !/^\d{4,8}$/.test(pin)) {
+  if (typeof pin !== "string" || !/^\d{6,8}$/.test(pin)) {
     return {
       ok: false,
       code: "pos_pin_invalid",
-      message: "POS PIN must be 4–8 digits",
+      message: "POS PIN must be 6–8 digits",
     };
   }
   return { ok: true };
+}
+
+export function generatePosPin() {
+  return String(randomInt(0, 10 ** GENERATED_POS_PIN_LENGTH)).padStart(
+    GENERATED_POS_PIN_LENGTH,
+    "0",
+  );
+}
+
+/** @returns {string | null} */
+function posPinPepper() {
+  const raw = process.env.POS_PIN_PEPPER;
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  return Buffer.byteLength(value, "utf8") >= MIN_PEPPER_BYTES ? value : null;
+}
+
+/** API start-up guard: PIN-only unlock cannot work without the lookup secret. */
+export function assertPosPinPepperEnv() {
+  if (!posPinPepper()) {
+    throw new Error(
+      `POS_PIN_PEPPER must be set to a random value of at least ${MIN_PEPPER_BYTES} bytes (base64url; plain hex is refused as a possible private key)`,
+    );
+  }
+}
+
+/**
+ * Searchable PIN key, unique within the org: HMAC-SHA256(pepper, orgId + ":" + pin).
+ * Changing the pepper invalidates every PIN (they must all be generated again).
+ * @param {string} orgId
+ * @param {string} pin
+ */
+export function posPinLookup(orgId, pin) {
+  const pepper = posPinPepper();
+  if (!pepper) {
+    const err = new Error("POS_PIN_PEPPER is not configured");
+    err.code = "pos_pin_pepper_missing";
+    throw err;
+  }
+  return createHmac("sha256", pepper).update(`${orgId}:${pin}`, "utf8").digest("hex");
 }
 
 /**

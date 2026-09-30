@@ -1,17 +1,14 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { OrgEditWaves } from "../shared/OrgEditWaves";
-import { FieldControl } from "../ui/FieldControl";
 
 type Props = {
   email: string;
-  pin: string;
-  confirm: string;
+  /** Freshly generated PIN; shown only while the modal stays open. */
+  pin: string | null;
   busy: boolean;
-  onPinChange: (value: string) => void;
-  onConfirmChange: (value: string) => void;
+  onGenerate: () => void;
   onClose: () => void;
-  onSave: (e: FormEvent) => void;
   onClear: () => void;
 };
 
@@ -26,21 +23,6 @@ function PinPadIcon() {
       <circle cx="8.6" cy="15.4" r="1" fill="currentColor" />
       <circle cx="12" cy="15.4" r="1" fill="currentColor" />
       <circle cx="15.4" cy="15.4" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M5 5.5A1.5 1.5 0 0 1 6.5 4h9.2L19.5 7.8V18.5A1.5 1.5 0 0 1 18 20H6.5A1.5 1.5 0 0 1 5 18.5v-13Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M8 4.5V9h6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M8 20v-5.2h8V20" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -67,33 +49,49 @@ function CloseIcon() {
   );
 }
 
-const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 8);
+function KeyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="8" cy="15" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-/** Owner/Admin sets or clears a member's Cashier POS PIN. */
-export function MemberPosPinModal({
-  email,
-  pin,
-  confirm,
-  busy,
-  onPinChange,
-  onConfirmChange,
-  onClose,
-  onSave,
-  onClear,
-}: Props) {
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+/** Owner/Admin generates or clears a member's POS PIN. The server returns the PIN once. */
+export function MemberPosPinModal({ email, pin, busy, onGenerate, onClose, onClear }: Props) {
   const titleId = useId();
-  const pinId = useId();
-  const confirmId = useId();
-  const [showPin, setShowPin] = useState(false);
-  const mismatch = confirm.length > 0 && pin.length > 0 && confirm !== pin;
-  const tooShort = pin.length > 0 && pin.length < 4;
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setCopied(false);
+  }, [pin]);
+
+  async function copyPin() {
+    if (!pin) return;
+    try {
+      await navigator.clipboard.writeText(pin);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return createPortal(
     <div
       className="b3-commission-modal-backdrop"
       role="presentation"
       onClick={() => {
-        if (!busy) onClose();
+        if (!busy && !pin) onClose();
       }}
     >
       <div
@@ -108,10 +106,17 @@ export function MemberPosPinModal({
             <PinPadIcon />
           </span>
           <div className="org-edit__head-copy">
-            <h3 id={titleId}>Cashier POS PIN</h3>
+            <h3 id={titleId}>{pin ? "New POS PIN" : "Generate PIN"}</h3>
             <p>
-              Set or clear the terminal unlock PIN for <strong>{email}</strong>. Their
-              current PIN is not required.
+              {pin ? (
+                <>
+                  POS unlock PIN for <strong>{email}</strong>.
+                </>
+              ) : (
+                <>
+                  Create a new POS unlock PIN for <strong>{email}</strong>.
+                </>
+              )}
             </p>
           </div>
           <OrgEditWaves />
@@ -125,87 +130,72 @@ export function MemberPosPinModal({
             <CloseIcon />
           </button>
         </header>
-        <form onSubmit={onSave} noValidate>
-          <div className="pos-pin-modal__body">
-            <label className="pos-pin-modal__field" htmlFor={pinId}>
-              <span className="pos-pin-modal__label">New PIN</span>
-              <FieldControl
-                icon="lock"
-                invalid={tooShort}
-                showPassword={showPin}
-                onTogglePassword={() => setShowPin((v) => !v)}
-                toggleDisabled={busy}
-              >
-                <input
-                  id={pinId}
-                  className="field-control pos-pin-modal__input"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  autoFocus
-                  value={pin}
-                  onChange={(e) => onPinChange(digitsOnly(e.target.value))}
-                  disabled={busy}
-                  maxLength={8}
-                  placeholder="4–8 digits"
-                />
-              </FieldControl>
-            </label>
-            <label className="pos-pin-modal__field" htmlFor={confirmId}>
-              <span className="pos-pin-modal__label">Confirm PIN</span>
-              <FieldControl icon="lock" invalid={mismatch}>
-                <input
-                  id={confirmId}
-                  className="field-control pos-pin-modal__input"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={confirm}
-                  onChange={(e) => onConfirmChange(digitsOnly(e.target.value))}
-                  disabled={busy}
-                  maxLength={8}
-                  placeholder="Repeat the PIN"
-                />
-              </FieldControl>
-            </label>
-            {mismatch ? (
-              <p className="pos-pin-modal__error">PINs do not match.</p>
-            ) : (
-              <p className="pos-pin-modal__hint">
-                The cashier enters this PIN to unlock the POS terminal.
+        <div className="pos-pin-modal__body">
+          {pin ? (
+            <>
+              <output className="pos-pin-modal__pin" aria-label="Generated PIN">
+                {pin}
+              </output>
+              <p className="pos-pin-modal__notice">
+                This PIN is shown only once. Give it to the team member now. It can&apos;t be
+                viewed again; generate a new one if it&apos;s lost.
               </p>
-            )}
-          </div>
-          <footer className="org-edit__foot pos-pin-modal__foot">
-            <button
-              type="button"
-              className="org-edit__cancel pos-pin-modal__clear"
-              disabled={busy}
-              onClick={onClear}
-            >
-              <ClearIcon />
-              Clear PIN
-            </button>
-            <div className="pos-pin-modal__actions">
+            </>
+          ) : (
+            <p className="pos-pin-modal__notice">
+              The server creates a 6-digit PIN. Any PIN this member already has stops working
+              right away.
+            </p>
+          )}
+        </div>
+        <footer className="org-edit__foot pos-pin-modal__foot">
+          {pin ? (
+            <div className="pos-pin-modal__actions pos-pin-modal__actions--end">
               <button
                 type="button"
-                className="org-edit__cancel"
-                disabled={busy}
-                onClick={onClose}
+                className="org-edit__cancel pos-pin-modal__copy"
+                onClick={() => void copyPin()}
               >
-                Cancel
+                <CopyIcon />
+                {copied ? "Copied" : "Copy"}
               </button>
-              <button
-                type="submit"
-                className="org-edit__save"
-                disabled={busy || pin.length < 4 || pin !== confirm}
-              >
-                <SaveIcon />
-                {busy ? "Saving…" : "Save PIN"}
+              <button type="button" className="org-edit__save" onClick={onClose}>
+                Done
               </button>
             </div>
-          </footer>
-        </form>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="org-edit__cancel pos-pin-modal__clear"
+                disabled={busy}
+                onClick={onClear}
+              >
+                <ClearIcon />
+                Clear PIN
+              </button>
+              <div className="pos-pin-modal__actions">
+                <button
+                  type="button"
+                  className="org-edit__cancel"
+                  disabled={busy}
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="org-edit__save"
+                  disabled={busy}
+                  onClick={onGenerate}
+                >
+                  <KeyIcon />
+                  {busy ? "Generating…" : "Generate PIN"}
+                </button>
+              </div>
+            </>
+          )}
+        </footer>
       </div>
     </div>,
     document.body,

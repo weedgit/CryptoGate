@@ -476,6 +476,7 @@ export async function tombstoneUsersWithoutMemberships(userIds, client) {
          mfa_enrolled_at = NULL,
          avatar_url = NULL,
          pos_pin_hash = NULL,
+         pos_pin_lookup = NULL,
          must_change_password = false,
          updated_at = now()
      FROM gone
@@ -605,18 +606,57 @@ export async function userHasPosPin(userId) {
   return Boolean(rows[0]?.has_pin);
 }
 
+const GENERATE_PIN_ATTEMPTS = 20;
+
 /**
+ * Replace the member's POS PIN with a fresh server-generated one, unique within `orgId`
+ * (the member's own org). Returns the PIN once; only hashes are stored.
  * @param {string} userId
- * @param {string} pin
+ * @param {string} orgId
+ * @returns {Promise<string>}
  */
-export async function setUserPosPin(userId, pin) {
-  const { hashPosPin } = await import("./pos-pin-hash.mjs");
-  const posPinHash = await hashPosPin(pin);
+export async function generateUserPosPin(userId, orgId) {
+  const { generatePosPin, hashPosPin, posPinLookup } = await import("./pos-pin-hash.mjs");
   const pool = getPool();
-  await pool.query(
-    `UPDATE users SET pos_pin_hash = $2, updated_at = now() WHERE id = $1`,
-    [userId, posPinHash],
+  for (let attempt = 0; attempt < GENERATE_PIN_ATTEMPTS; attempt += 1) {
+    const pin = generatePosPin();
+    const lookup = posPinLookup(orgId, pin);
+    const posPinHash = await hashPosPin(pin);
+    try {
+      await pool.query(
+        `UPDATE users SET pos_pin_hash = $2, pos_pin_lookup = $3, updated_at = now()
+         WHERE id = $1`,
+        [userId, posPinHash, lookup],
+      );
+      return pin;
+    } catch (err) {
+      if (err && err.code === "23505") continue;
+      throw err;
+    }
+  }
+  const err = new Error("Could not generate a unique POS PIN");
+  err.code = "pos_pin_generate_failed";
+  throw err;
+}
+
+/**
+ * PIN-only unlock: the member of `orgId` whose PIN this is, after the scrypt check.
+ * @param {string} orgId
+ * @param {string} pin
+ * @returns {Promise<string | null>} user id
+ */
+export async function findUserIdByPosPin(orgId, pin) {
+  const { posPinLookup, validatePosPin, verifyPosPin } = await import("./pos-pin-hash.mjs");
+  if (!validatePosPin(pin).ok) return null;
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, pos_pin_hash FROM users
+     WHERE pos_pin_lookup = $1 AND deleted_at IS NULL`,
+    [posPinLookup(orgId, pin)],
   );
+  const row = rows[0];
+  if (!row?.pos_pin_hash) return null;
+  return (await verifyPosPin(pin, row.pos_pin_hash)) ? row.id : null;
 }
 
 /**
@@ -637,13 +677,13 @@ export async function verifyUserPosPin(userId, pin) {
 }
 
 /**
- * Clear dashboard POS PIN (falls back to device-local until set again).
  * @param {string} userId
  */
 export async function clearUserPosPin(userId) {
   const pool = getPool();
   await pool.query(
-    `UPDATE users SET pos_pin_hash = NULL, updated_at = now() WHERE id = $1`,
+    `UPDATE users SET pos_pin_hash = NULL, pos_pin_lookup = NULL, updated_at = now()
+     WHERE id = $1`,
     [userId],
   );
 }

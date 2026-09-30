@@ -204,6 +204,15 @@ import { applyCorsHeaders, handleCorsPreflight } from "./cors.mjs";
 import { sendError, sendJson } from "./json.mjs";
 import { applyRateLimits } from "../rate-limit/apply-rate-limits.mjs";
 import { rejectUnverifiedLiveAction } from "../auth/contact-verification.mjs";
+import {
+  handleBindTerminal,
+  handleGetTerminal,
+  handleListOrgTerminals,
+  handleLock,
+  handleRevokeOrgTerminal,
+  handleUnbind,
+  handleUnlock,
+} from "../pos/pos-routes.mjs";
 
 /**
  * `X-Server-Time` = epoch ms (UTC, zone-independent) taken when headers are
@@ -328,7 +337,49 @@ export async function handleRequest(req, res) {
     return;
   }
 
+  // POS PIN-pad routes: unverified operators may still unlock (orders stay gated).
+  if (method === "GET" && path === "/v1/pos/terminal") {
+    await handleGetTerminal(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/pos/unlock") {
+    await handleUnlock(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/pos/lock") {
+    await handleLock(req, res);
+    return;
+  }
+  if (method === "POST" && path === "/v1/pos/unbind") {
+    await handleUnbind(req, res);
+    return;
+  }
+
   if (await rejectUnverifiedLiveAction(req, res, method, path)) return;
+
+  if (method === "POST" && path === "/v1/pos/terminals") {
+    await handleBindTerminal(req, res);
+    return;
+  }
+
+  const orgTerminalsMatch = path.match(/^\/v1\/orgs\/([^/]+)\/pos-terminals$/);
+  if (method === "GET" && orgTerminalsMatch) {
+    await handleListOrgTerminals(req, res, decodeURIComponent(orgTerminalsMatch[1]));
+    return;
+  }
+
+  const orgTerminalRevokeMatch = path.match(
+    /^\/v1\/orgs\/([^/]+)\/pos-terminals\/([^/]+)\/revoke$/,
+  );
+  if (method === "POST" && orgTerminalRevokeMatch) {
+    await handleRevokeOrgTerminal(
+      req,
+      res,
+      decodeURIComponent(orgTerminalRevokeMatch[1]),
+      decodeURIComponent(orgTerminalRevokeMatch[2]),
+    );
+    return;
+  }
 
   if (method === "GET" && path === "/v1/orgs") {
     await handleListOrgs(req, res);

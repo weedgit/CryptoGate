@@ -259,3 +259,23 @@ describe("merchant portal experiences", () => {
     assert.match(read("src/merchant/DashboardPage.tsx"), /orgId: scopeOrgId, tz \}/);
   });
 });
+
+describe("member POS PIN", () => {
+  it("asks the server to generate the PIN and shows it once with Copy and Done", () => {
+    const api = read("src/merchant/api.ts");
+    assert.match(api, /export async function adminGenerateMemberPosPin/);
+    assert.match(api, /JSON\.stringify\(\{ generate: true \}\)/);
+    assert.doesNotMatch(api, /adminSetMemberPosPin/);
+    const modal = read("src/merchant/MemberPosPinModal.tsx");
+    assert.match(modal, /Generate PIN/);
+    assert.match(modal, /shown only once/);
+    assert.match(modal, /"Copy"/);
+    assert.match(modal, />\s*Done\s*</);
+    assert.doesNotMatch(modal, /Confirm PIN/);
+  });
+
+  it("lets owners and admins open the PIN modal for their own row", () => {
+    const page = read("src/merchant/TeamSettingsPage.tsx");
+    assert.match(page, /\{canManagePosPin \|\| \(!isSelf && canManage\) \? \(/);
+  });
+});

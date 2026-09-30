@@ -86,5 +86,9 @@ export async function requireCaller(req, res) {
   }
 
   const caller = await loadCaller(session.userId);
+  if (session.terminalId) {
+    const memberships = caller.memberships.filter((m) => m.orgId === session.terminalOrgId);
+    return { ...session, memberships, platformOwner: false, platformOperator: false };
+  }
   return { ...session, ...caller };
 }

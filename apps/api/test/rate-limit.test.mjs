@@ -86,6 +86,9 @@ describe("rate-limit rules (M3-11)", () => {
     assert.equal(isPosPinVerifyPath("POST", "/v1/auth/pos-pin/verify"), true);
     assert.equal(isContactOtpPath("POST", "/v1/auth/contact/email/send"), true);
     assert.equal(isPosPinVerifyPath("GET", "/v1/auth/pos-pin"), false);
+    assert.equal(isPosPinVerifyPath("POST", "/v1/pos/unlock"), true);
+    assert.equal(isPosPinVerifyPath("POST", "/v1/pos/terminals"), true);
+    assert.equal(isPosPinVerifyPath("POST", "/v1/pos/lock"), false);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1/payment"), true);
     assert.equal(isGuestPaymentPath("GET", "/v1/orders/ord-1"), false);
   });

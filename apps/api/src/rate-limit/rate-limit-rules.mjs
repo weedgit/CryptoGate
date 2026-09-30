@@ -82,7 +82,10 @@ export function isLoginPath(method, path) {
 
 /** Brute-force sensitive — same bucket intensity as login. */
 export function isPosPinVerifyPath(method, path) {
-  return method === "POST" && path === "/v1/auth/pos-pin/verify";
+  return (
+    method === "POST" &&
+    (path === "/v1/auth/pos-pin/verify" || path === "/v1/pos/unlock" || path === "/v1/pos/terminals")
+  );
 }
 
 /** Email / SMS OTP send+verify — same bucket intensity as login. */

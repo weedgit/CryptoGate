@@ -127,10 +127,16 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
-  const createdVia = resolveOrderChannel({
-    apiKey: Boolean(caller.apiKeyScopes),
-    clientHeader: req.headers["x-paymentgate-client"],
-  });
+  if (caller.terminalId && scope.orgId !== caller.terminalOrgId) {
+    sendError(res, 403, "pos_session_scope", "A POS terminal charges only for its own org");
+    return;
+  }
+  const createdVia = caller.terminalId
+    ? "pos"
+    : resolveOrderChannel({
+        apiKey: Boolean(caller.apiKeyScopes),
+        clientHeader: req.headers["x-paymentgate-client"],
+      });
   const roleOnOrg =
     caller.memberships.find((m) => m.orgId === scope.orgId)?.role ?? null;
   if (roleOnOrg === "cashier" && createdVia === "web") {
@@ -270,6 +276,7 @@ export async function handleCreatePaymentOrder(req, res) {
             orgId: scope.orgId,
             createdBy: caller.userId,
             createdVia,
+            terminalId: caller.terminalId ?? null,
             status: OrderStatus.PendingPayment,
             matchingMode: assigned.assign.matchingMode,
             payableAmount: assigned.assign.payableAmount.amount,

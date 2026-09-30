@@ -63,19 +63,31 @@ export async function rejectUnverifiedLiveAction(req, res, method, path) {
   const { requireCaller } = await import("../http/require-caller.mjs");
   const caller = await requireCaller(req, res);
   if (!caller) return true;
-  if (caller.apiKeyScopes || caller.platformOperator) return false;
+  const block = await liveActionBlock(caller, method, path);
+  if (!block) return false;
+  sendError(res, block.status, block.code, block.message);
+  return true;
+}
+
+/**
+ * Why a gated live action would be refused for this caller, or null when allowed.
+ * @param {{ userId: string, memberships?: object[], apiKeyScopes?: string[], platformOperator?: boolean }} caller
+ * @param {string} method
+ * @param {string} path
+ * @returns {Promise<{ status: number, code: string, message: string } | null>}
+ */
+export async function liveActionBlock(caller, method, path) {
+  if (caller.apiKeyScopes || caller.platformOperator) return null;
 
   const user = await findUserById(caller.userId);
   const setup = await loadOrgSetupStatus(caller.memberships ?? [], user);
   if (!setup.setupReady) {
     if (!setup.contactVerified) {
-      sendError(
-        res,
-        403,
-        "contact_unverified",
-        "Verify email and phone before this action",
-      );
-      return true;
+      return {
+        status: 403,
+        code: "contact_unverified",
+        message: "Verify email and phone before this action",
+      };
     }
 
     const missing =
@@ -88,13 +100,11 @@ export async function rejectUnverifiedLiveAction(req, res, method, path) {
             ...(!setup.profileComplete ? ["org profile"] : []),
             ...(!setup.walletSet ? ["wallet address"] : []),
           ];
-    sendError(
-      res,
-      403,
-      "org_setup_incomplete",
-      `Finish account setup before this action (${missing.join("; ")})`,
-    );
-    return true;
+    return {
+      status: 403,
+      code: "org_setup_incomplete",
+      message: `Finish account setup before this action (${missing.join("; ")})`,
+    };
   }
 
   // Merchants must pay activation before live actions (except viewing / setup).
@@ -108,17 +118,15 @@ export async function rejectUnverifiedLiveAction(req, res, method, path) {
     );
     const paid = await merchantHasBillingAnchor(setup.setupOrgId);
     if (!paid) {
-      sendError(
-        res,
-        403,
-        "activation_payment_required",
-        "Pay the account activation fee before using merchant features",
-      );
-      return true;
+      return {
+        status: 403,
+        code: "activation_payment_required",
+        message: "Pay the account activation fee before using merchant features",
+      };
     }
   }
 
-  return false;
+  return null;
 }
 
 /**

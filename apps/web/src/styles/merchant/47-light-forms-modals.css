@@ -196,26 +196,14 @@ html[data-theme="light"] .pos-pin-modal .org-edit__head-copy strong {
   color: #0f172a;
 }
 
-html[data-theme="light"] .pos-pin-modal__label {
-  color: #64748b;
-}
-
-html[data-theme="light"] .pos-pin-modal__field .field-shell > input {
+html[data-theme="light"] .pos-pin-modal__pin {
+  border-color: rgba(15, 118, 110, 0.3);
+  background: #f8fafc;
   color: #0f172a;
-  -webkit-text-fill-color: #0f172a;
 }
 
-html[data-theme="light"] .pos-pin-modal__field .field-shell > input::placeholder {
-  color: #94a3b8;
-  -webkit-text-fill-color: #94a3b8;
-}
-
-html[data-theme="light"] .pos-pin-modal__hint {
+html[data-theme="light"] .pos-pin-modal__notice {
   color: #64748b;
-}
-
-html[data-theme="light"] .pos-pin-modal__error {
-  color: #b91c1c;
 }
 
 html[data-theme="light"] .pos-pin-modal__clear {

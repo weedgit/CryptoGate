@@ -12,8 +12,10 @@ import { startAuditArchiveJob } from "./retention/audit-archive-job.mjs";
 import { startRateRefreshJob } from "./rates/rate-refresh-job.mjs";
 import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
 import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mjs";
+import { assertPosPinPepperEnv } from "./auth/pos-pin-hash.mjs";
 
 assertWatchOnlyEnv();
+assertPosPinPepperEnv();
 
 /**
  * HTTP entry. Background: order expiry (M2-14), service bill overdue + daily

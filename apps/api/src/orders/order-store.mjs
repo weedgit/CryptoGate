@@ -484,6 +484,7 @@ export async function hasModeSSameAmountConflict(client, query) {
  *   underpayTolerance?: string,
  *   fulfillmentPolicy?: string,
  *   createdVia?: "web" | "pos" | "api" | null,
+ *   terminalId?: string | null,
  * }} input
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */
@@ -500,14 +501,14 @@ export async function insertPaymentOrder(input, client) {
          pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
          pay_amount_base_units, asset_decimals,
          rate_sources, reference_rate, reference_source, rate_warning,
-         invoice_amount, invoice_denomination, created_via, validity_seconds
+         invoice_amount, invoice_denomination, created_via, validity_seconds, terminal_id
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
          $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
          $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-         $29::jsonb, $30, $31, $32, $33, $34, $35, $36
+         $29::jsonb, $30, $31, $32, $33, $34, $35, $36, $37
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -547,6 +548,7 @@ export async function insertPaymentOrder(input, client) {
         input.invoiceDenomination ?? "fiat",
         input.createdVia ?? null,
         input.validitySeconds ?? null,
+        input.terminalId ?? null,
       ],
     );
     return { ok: true, row: rows[0] };

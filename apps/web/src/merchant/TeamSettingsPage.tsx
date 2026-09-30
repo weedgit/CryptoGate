@@ -18,7 +18,7 @@ import { getOrgUsers, invalidateOrgUsers, mergeOrgMember, orgMemberFromInvite, p
 import {
   ApiError,
   adminClearMemberPosPin,
-  adminSetMemberPosPin,
+  adminGenerateMemberPosPin,
   assignOrgUserRole,
   inviteOrgUser,
   listOrgMemberEmails,
@@ -168,8 +168,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
   const [removeTarget, setRemoveTarget] = useState<RemoveMemberTarget | null>(null);
   const [editTarget, setEditTarget] = useState<OrgMember | null>(null);
   const [posPinTarget, setPosPinTarget] = useState<PosPinTarget | null>(null);
-  const [posPinValue, setPosPinValue] = useState("");
-  const [posPinConfirm, setPosPinConfirm] = useState("");
+  const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [profileEditRequested, setProfileEditRequested] = useState(false);
   useOpenOnEditParam(ORG_EDIT_PARAM, () => setProfileEditRequested(true));
@@ -372,30 +371,22 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
 
   function openPosPin(target: PosPinTarget) {
     setPosPinTarget(target);
-    setPosPinValue("");
-    setPosPinConfirm("");
+    setGeneratedPin(null);
   }
 
-  async function onSaveMemberPosPin(e: FormEvent) {
-    e.preventDefault();
+  function closePosPin() {
+    setPosPinTarget(null);
+    setGeneratedPin(null);
+  }
+
+  async function onGenerateMemberPosPin() {
     if (!orgId || !canManagePosPin || !posPinTarget) return;
-    if (!/^\d{4,8}$/.test(posPinValue)) {
-      showErr("POS PIN must be 4–8 digits");
-      return;
-    }
-    if (posPinValue !== posPinConfirm) {
-      showErr("PINs do not match");
-      return;
-    }
     setBusy(true);
     try {
-      await adminSetMemberPosPin(orgId, posPinTarget.userId, posPinValue);
-      showOk(`POS PIN set for ${posPinTarget.email}.`);
-      setPosPinTarget(null);
-      setPosPinValue("");
-      setPosPinConfirm("");
+      const result = await adminGenerateMemberPosPin(orgId, posPinTarget.userId);
+      setGeneratedPin(result.pin);
     } catch (err) {
-      showErr(err instanceof ApiError ? err.message : "Could not set POS PIN");
+      showErr(err instanceof ApiError ? err.message : "Could not generate a POS PIN");
     } finally {
       setBusy(false);
     }
@@ -407,9 +398,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
     try {
       await adminClearMemberPosPin(orgId, posPinTarget.userId);
       showOk(`POS PIN cleared for ${posPinTarget.email}.`);
-      setPosPinTarget(null);
-      setPosPinValue("");
-      setPosPinConfirm("");
+      closePosPin();
     } catch (err) {
       showErr(err instanceof ApiError ? err.message : "Could not clear POS PIN");
     } finally {
@@ -672,7 +661,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                       </td>
                       {showActions ? (
                         <td className="plat-team__td-actions">
-                          {!isSelf || canEditRow ? (
+                          {!isSelf || canEditRow || canManagePosPin ? (
                             <div className="plat-team__actions">
                               {canEditRow ? (
                                 <button
@@ -685,7 +674,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                                   <PencilIcon />
                                 </button>
                               ) : null}
-                              {!isSelf && (canManagePosPin || canManage) ? (
+                              {canManagePosPin || (!isSelf && canManage) ? (
                                 <>
                                   {canManagePosPin ? (
                                     <button
@@ -704,7 +693,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                                       <PinPadIcon />
                                     </button>
                                   ) : null}
-                                  {canManage ? (
+                                  {!isSelf && canManage ? (
                                     <>
                                       {paused ? (
                                         <button
@@ -822,13 +811,10 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
       {posPinTarget ? (
         <MemberPosPinModal
           email={posPinTarget.email}
-          pin={posPinValue}
-          confirm={posPinConfirm}
+          pin={generatedPin}
           busy={busy}
-          onPinChange={setPosPinValue}
-          onConfirmChange={setPosPinConfirm}
-          onClose={() => setPosPinTarget(null)}
-          onSave={(e) => void onSaveMemberPosPin(e)}
+          onGenerate={() => void onGenerateMemberPosPin()}
+          onClose={closePosPin}
           onClear={() => void onClearMemberPosPin()}
         />
       ) : null}

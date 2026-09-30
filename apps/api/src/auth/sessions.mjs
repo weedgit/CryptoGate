@@ -7,7 +7,7 @@ export { hashSessionToken };
 export const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * @param {{ userId: string, ttlMs?: number, mfaVerified?: boolean }} input
+ * @param {{ userId: string, ttlMs?: number, mfaVerified?: boolean, terminalId?: string | null }} input
  * @returns {Promise<{ token: string, sessionId: string, expiresAt: Date }>}
  */
 export async function createSession(input) {
@@ -18,10 +18,10 @@ export async function createSession(input) {
   const mfaVerifiedAt = input.mfaVerified ? new Date().toISOString() : null;
   const pool = getPool();
   const { rows } = await pool.query(
-    `INSERT INTO sessions (user_id, token_hash, expires_at, mfa_verified_at)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO sessions (user_id, token_hash, expires_at, mfa_verified_at, terminal_id)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [input.userId, tokenHash, expiresAt.toISOString(), mfaVerifiedAt],
+    [input.userId, tokenHash, expiresAt.toISOString(), mfaVerifiedAt, input.terminalId ?? null],
   );
   return {
     token,
@@ -31,18 +31,29 @@ export async function createSession(input) {
 }
 
 /**
+ * PIN sessions carry the POS terminal they were unlocked on.
  * @param {string} token
- * @returns {Promise<{ sessionId: string, userId: string, mfaVerified: boolean } | null>}
+ * @returns {Promise<{
+ *   sessionId: string,
+ *   userId: string,
+ *   mfaVerified: boolean,
+ *   expiresAt: Date,
+ *   terminalId: string | null,
+ *   terminalOrgId: string | null,
+ *   terminalActive: boolean,
+ * } | null>}
  */
 export async function findActiveSessionByToken(token) {
   const tokenHash = hashSessionToken(token);
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, user_id, mfa_verified_at, expires_at
-     FROM sessions
-     WHERE token_hash = $1
-       AND revoked_at IS NULL
-       AND expires_at > now()`,
+    `SELECT s.id, s.user_id, s.mfa_verified_at, s.expires_at, s.terminal_id,
+            t.org_id AS terminal_org_id, t.status AS terminal_status
+     FROM sessions s
+     LEFT JOIN pos_terminals t ON t.id = s.terminal_id
+     WHERE s.token_hash = $1
+       AND s.revoked_at IS NULL
+       AND s.expires_at > now()`,
     [tokenHash],
   );
   const row = rows[0];
@@ -51,6 +62,9 @@ export async function findActiveSessionByToken(token) {
     sessionId: row.id,
     userId: row.user_id,
     mfaVerified: row.mfa_verified_at != null,
+    terminalId: row.terminal_id ?? null,
+    terminalOrgId: row.terminal_org_id ?? null,
+    terminalActive: row.terminal_status === "active",
     expiresAt:
       row.expires_at instanceof Date
         ? row.expires_at
@@ -90,6 +104,7 @@ export async function extendSessionByToken(token, opts = {}) {
      SET expires_at = $2
      WHERE token_hash = $1
        AND revoked_at IS NULL
+       AND terminal_id IS NULL
        AND expires_at > now()`,
     [tokenHash, expiresAt.toISOString()],
   );
@@ -112,6 +127,20 @@ export async function revokeSessionByToken(token) {
     [tokenHash],
   );
   return (rowCount ?? 0) > 0;
+}
+
+/**
+ * @param {string} terminalId
+ */
+export async function revokeTerminalSessions(terminalId) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE sessions
+     SET revoked_at = now()
+     WHERE terminal_id = $1
+       AND revoked_at IS NULL`,
+    [terminalId],
+  );
 }
 
 /**
