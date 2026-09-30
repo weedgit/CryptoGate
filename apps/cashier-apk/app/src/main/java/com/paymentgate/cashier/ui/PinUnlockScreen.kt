@@ -3,7 +3,13 @@ package com.paymentgate.cashier.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.shadow
+import com.paymentgate.cashier.ui.theme.LocalPosDark
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,8 +58,8 @@ import androidx.compose.ui.unit.sp
 import com.paymentgate.cashier.api.CashierPosSurface
 import kotlinx.coroutines.delay
 
-const val PIN_MIN_LENGTH = 6
-const val PIN_MAX_LENGTH = 8
+/** Server-generated PINs are 6 digits; the 6th digit signs in (no OK key). */
+const val PIN_LENGTH = 6
 
 /**
  * PIN-only unlock for a bound POS. The server identifies the person inside
@@ -108,7 +115,7 @@ fun PinUnlockScreen(
     }
 
     fun submit() {
-        if (enabled && digits.length >= PIN_MIN_LENGTH) onPinSubmit(digits)
+        if (enabled && digits.length == PIN_LENGTH) onPinSubmit(digits)
     }
 
     val colors = MaterialTheme.colorScheme
@@ -161,22 +168,27 @@ fun PinUnlockScreen(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = orgTypeLabel.uppercase(),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.6.sp,
-            color = colors.primary,
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .background(colors.primaryContainer)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-        )
+                .padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Icon(Icons.Filled.Verified, contentDescription = null, tint = colors.primary, modifier = Modifier.size(16.dp))
+            Text(
+                text = orgTypeLabel,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.primary,
+            )
+        }
         Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = "Enter your PIN",
-            fontSize = 18.sp,
+            fontSize = 21.sp,
             fontWeight = FontWeight.Medium,
             color = colors.onSurfaceVariant,
         )
@@ -196,7 +208,7 @@ fun PinUnlockScreen(
                     strokeWidth = 2.5.dp,
                 )
             } else {
-                repeat(maxOf(PIN_MIN_LENGTH, digits.length)) { i ->
+                repeat(PIN_LENGTH) { i ->
                     PinDot(filled = i < digits.length, error = error != null && !locked)
                 }
             }
@@ -218,13 +230,7 @@ fun PinUnlockScreen(
             }
         }
 
-        Surface(
-            modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = colors.surface.copy(alpha = if (darkTheme) 0.72f else 0.9f),
-            border = BorderStroke(1.dp, colors.outlineVariant),
-            shadowElevation = if (darkTheme) 0.dp else 6.dp,
-        ) {
+        Box(modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -233,21 +239,23 @@ fun PinUnlockScreen(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
                     listOf("7", "8", "9"),
-                    listOf(KEY_BACK, "0", KEY_ENTER),
+                    listOf(KEY_CLEAR, "0", KEY_BACK),
                 ).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         row.forEach { key ->
-                            val isEnter = key == KEY_ENTER
-                            val keyEnabled = enabled && (!isEnter || digits.length >= PIN_MIN_LENGTH)
+                            val isEdit = key == KEY_BACK || key == KEY_CLEAR
                             PinKey(
                                 key = key,
-                                enabled = keyEnabled,
+                                enabled = enabled && (!isEdit || digits.isNotEmpty()),
                                 modifier = Modifier.weight(1f),
                             ) {
                                 when (key) {
                                     KEY_BACK -> digits = digits.dropLast(1)
-                                    KEY_ENTER -> submit()
-                                    else -> if (digits.length < PIN_MAX_LENGTH) digits += key
+                                    KEY_CLEAR -> digits = ""
+                                    else -> if (digits.length < PIN_LENGTH) {
+                                        digits += key
+                                        if (digits.length == PIN_LENGTH) submit()
+                                    }
                                 }
                             }
                         }
@@ -290,23 +298,40 @@ private fun PinKey(
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val isEnter = key == KEY_ENTER
+    val isClear = key == KEY_CLEAR
+    val dark = LocalPosDark.current
+    val isEdit = isClear || key == KEY_BACK
     val bg = when {
-        isEnter && enabled -> colors.primary
-        isEnter -> colors.surfaceVariant.copy(alpha = 0.6f)
-        else -> colors.surfaceVariant
+        dark -> if (isEdit) colors.surfaceVariant.copy(alpha = 0.55f) else colors.surfaceVariant
+        isEdit -> colors.surface.copy(alpha = 0.7f)
+        else -> colors.surface
     }
     val fg = when {
-        isEnter && enabled -> colors.onPrimary
-        enabled -> colors.onSurface
-        else -> colors.outline
+        !enabled -> colors.outline
+        isClear -> colors.error
+        else -> colors.onSurface
     }
+    val shape = RoundedCornerShape(18.dp)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val elevation by animateDpAsState(
+        targetValue = when {
+            !enabled -> 0.dp
+            pressed -> 1.dp
+            else -> 6.dp
+        },
+        animationSpec = tween(120),
+        label = "pin-key-shadow",
+    )
+    val shadowTint = if (dark) Color.Black.copy(alpha = 0.55f) else Color(0xFF1E3A8A).copy(alpha = 0.22f)
     Box(
         modifier = modifier
             .height(70.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .shadow(elevation, shape, ambientColor = shadowTint, spotColor = shadowTint)
+            .clip(shape)
             .background(bg)
-            .clickable(enabled = enabled, onClick = onClick),
+            .border(1.dp, posKeyBorder(), shape)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (key == KEY_BACK) {
@@ -319,8 +344,8 @@ private fun PinKey(
         } else {
             Text(
                 text = key,
-                fontSize = if (isEnter) 20.sp else 28.sp,
-                fontWeight = if (isEnter) FontWeight.Bold else FontWeight.SemiBold,
+                fontSize = if (isClear) 18.sp else 28.sp,
+                fontWeight = if (isClear) FontWeight.Bold else FontWeight.SemiBold,
                 color = fg,
             )
         }
@@ -328,4 +353,4 @@ private fun PinKey(
 }
 
 private const val KEY_BACK = "⌫"
-private const val KEY_ENTER = "OK"
+private const val KEY_CLEAR = "Clear"

@@ -36,6 +36,7 @@ object JsonParsers {
             timezoneConfirmed = obj.optBoolean("timezoneConfirmed", false),
             firstName = obj.optNullableString("firstName"),
             lastName = obj.optNullableString("lastName"),
+            avatarUrl = obj.optNullableString("avatarUrl")?.takeIf { it.startsWith("data:image/") },
         )
     }
 
@@ -189,7 +190,31 @@ object JsonParsers {
             expiresAt = obj.getString("expiresAt"),
             memoOrTag = obj.optNullableString("memoOrTag"),
             merchantReference = obj.optNullableString("merchantReference"),
+            createdAt = obj.optNullableString("createdAt"),
+            createdByName = obj.optNullableString("createdByName"),
+            invoice = parseInvoice(obj),
+            rate = parseRate(obj),
         )
+
+    /** Fiat side of the invoice: the typed fiat amount, else its USD value. */
+    private fun parseInvoice(obj: JSONObject): Money? {
+        val currency = obj.optNullableString("invoiceCurrency") ?: "USD"
+        val fiat = obj.optNullableString("invoiceDenomination") != "crypto"
+        val typed = obj.optNullableString("invoiceAmount")
+        if (fiat && typed != null) return Money(typed, currency)
+        val usd = obj.optNullableString("invoiceAmountUsd") ?: return null
+        return Money(usd, currency)
+    }
+
+    private fun parseRate(obj: JSONObject): OrderRate? {
+        val value = obj.optNullableString("pricingRate") ?: return null
+        return OrderRate(
+            value = value,
+            quote = "USD",
+            source = obj.optNullableString("rateSource"),
+            fetchedAt = obj.optNullableString("rateFetchedAt"),
+        )
+    }
 
     fun parsePaymentDetails(body: String): PaymentDetails {
         val obj = JSONObject(body)
@@ -215,6 +240,10 @@ object JsonParsers {
             requiredConfirmations = obj.optInt("requiredConfirmations", 1),
             txHash = obj.optNullableString("txHash"),
             businessTimezone = obj.optNullableString("businessTimezone"),
+            createdAt = obj.optNullableString("createdAt"),
+            confirmedAt = obj.optNullableString("confirmedAt"),
+            invoice = parseInvoice(obj),
+            rate = parseRate(obj),
         )
     }
 

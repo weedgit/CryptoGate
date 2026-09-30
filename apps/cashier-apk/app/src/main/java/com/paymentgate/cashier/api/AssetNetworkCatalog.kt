@@ -19,7 +19,7 @@ data class AssetNetworkPair(
     val shortNetworkLabel: String
         get() =
             when (network) {
-                "tron" -> "TRON · TRC-20"
+                "tron" -> if (asset == "TRX") "TRON · Native" else "TRON · TRC-20"
                 "tron_nile" -> "TRON · Nile"
                 "ethereum" ->
                     when (asset) {

@@ -28,6 +28,23 @@ class PaymentGateClient(
     private val config = ApiConfig(baseUrl)
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
+    private val probeHttp: OkHttpClient =
+        http.newBuilder()
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(4, TimeUnit.SECONDS)
+            .callTimeout(5, TimeUnit.SECONDS)
+            .build()
+
+    /**
+     * True when the PaymentGate server answers at all (any HTTP status). A VPN or Wi-Fi without
+     * upstream internet still reports INTERNET capability, so the OS check alone is not enough.
+     */
+    suspend fun isServerReachable(): Boolean =
+        withContext(Dispatchers.IO) {
+            val req = Request.Builder().url(config.url("/")).head().build()
+            runCatching { probeHttp.newCall(req).execute().use { true } }.getOrDefault(false)
+        }
+
     fun isBound(): Boolean = terminalStore.isBound()
 
     fun hasSession(): Boolean = !sessionStore.sessionToken.isNullOrBlank()
@@ -198,10 +215,22 @@ class PaymentGateClient(
             }
         }
 
-    /** GET /v1/orders — cashier scope returns own orders only. */
-    suspend fun listOrders(limit: Int = 40): List<PaymentOrder> =
+    /**
+     * GET /v1/orders — newest first. Cashier scope returns own orders only; [createdBy] narrows an
+     * Owner/Admin to one user, [createdFrom] bounds the period.
+     */
+    suspend fun listOrders(
+        limit: Int = 40,
+        createdBy: String? = null,
+        createdFrom: java.time.Instant? = null,
+    ): List<PaymentOrder> =
         withContext(Dispatchers.IO) {
-            val req = authed("/orders?limit=$limit").get().build()
+            val query = buildString {
+                append("limit=").append(limit)
+                createdBy?.let { append("&createdBy=").append(java.net.URLEncoder.encode(it, "UTF-8")) }
+                createdFrom?.let { append("&createdFrom=").append(java.net.URLEncoder.encode(it.toString(), "UTF-8")) }
+            }
+            val req = authed("/orders?$query").get().build()
             execute(req) { JsonParsers.parsePaymentOrderList(it) }
         }
 

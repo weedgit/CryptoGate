@@ -47,7 +47,7 @@ private val ORG_ICON_PRESETS: Map<String, Pair<String, List<Color>>> = mapOf(
     "grid" to ("▦" to listOf(Color(0xFFC4B5FD), Color(0xFF8B5CF6))),
 )
 
-private fun decodeOrgImage(iconKey: String): ImageBitmap? {
+internal fun decodeDataImage(iconKey: String): ImageBitmap? {
     if (!iconKey.startsWith("data:image/")) return null
     val base64 = iconKey.substringAfter("base64,", "").ifEmpty { return null }
     return runCatching {
@@ -64,7 +64,7 @@ fun OrgBrandMark(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(size * 0.28f)
-    val image = remember(iconKey) { iconKey?.let(::decodeOrgImage) }
+    val image = remember(iconKey) { iconKey?.let(::decodeDataImage) }
     val preset = iconKey?.let { ORG_ICON_PRESETS[it] }
     when {
         image != null ->

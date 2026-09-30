@@ -33,6 +33,8 @@ data class Session(
     val timezoneConfirmed: Boolean = false,
     val firstName: String? = null,
     val lastName: String? = null,
+    /** Profile photo as a `data:image/...` URL; null → initials. */
+    val avatarUrl: String? = null,
 )
 
 data class LoginResult(
@@ -105,6 +107,18 @@ data class PaymentOrder(
     val expiresAt: String,
     val memoOrTag: String?,
     val merchantReference: String? = null,
+    val createdAt: String? = null,
+    val createdByName: String? = null,
+    val invoice: Money? = null,
+    val rate: OrderRate? = null,
+)
+
+/** Price the order was quoted at: 1 [asset] = [value] [quote]. */
+data class OrderRate(
+    val value: String,
+    val quote: String,
+    val source: String? = null,
+    val fetchedAt: String? = null,
 )
 
 data class PaymentDetails(
@@ -131,6 +145,10 @@ data class PaymentDetails(
     val txHash: String? = null,
     /** Merchant/site zone for customer receipts; null when not set. */
     val businessTimezone: String? = null,
+    val createdAt: String? = null,
+    val confirmedAt: String? = null,
+    val invoice: Money? = null,
+    val rate: OrderRate? = null,
 )
 
 /** What the typed amount means: a fiat invoice converted at the live rate, or the exact token amount. */

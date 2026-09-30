@@ -66,7 +66,6 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Top,
         ) {
-            OrgBrand(iconSize = 36.dp)
             Text(
                 text = "Cashier POS",
                 style = MaterialTheme.typography.titleMedium,

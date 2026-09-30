@@ -1,6 +1,13 @@
 package com.paymentgate.cashier.hardware
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.DashPathEffect
+import android.graphics.Paint
 import android.text.Layout
+import android.util.Base64
 import android.util.Log
 import com.zcs.sdk.DriverManager
 import com.zcs.sdk.Printer
@@ -127,7 +134,22 @@ class ZcsSmartPosPrinter private constructor(
         Log.d(TAG, "Printing receipt widthHint=$paperPx is80=${printer.is80MMPrinter}")
 
         for (line in ReceiptLines.build(job)) {
-            printer.setPrintAppendString(line.text, formatFor(line.style))
+            when (line.style) {
+                ReceiptStyle.Qr -> {
+                    printer.setPrintAppendString("", formatFor(ReceiptStyle.Spacer))
+                    printer.setPrintAppendQRCode(line.text, QR_SIZE_PX, QR_SIZE_PX, Layout.Alignment.ALIGN_CENTER)
+                }
+                ReceiptStyle.Logo ->
+                    decodeLogo(line.text)?.let { printer.setPrintAppendBitmap(it, Layout.Alignment.ALIGN_CENTER) }
+                ReceiptStyle.Rule -> printer.setPrintAppendBitmap(ruleBitmap(dashed = true), Layout.Alignment.ALIGN_CENTER)
+                ReceiptStyle.DoubleRule -> printer.setPrintAppendBitmap(ruleBitmap(dashed = false, double = true), Layout.Alignment.ALIGN_CENTER)
+                ReceiptStyle.KeyValue, ReceiptStyle.KeyValueStrong, ReceiptStyle.Total -> {
+                    val (left, right) = columnFormats(line.style)
+                    val weights = if (line.style == ReceiptStyle.Total) intArrayOf(1, 2) else intArrayOf(2, 3)
+                    printer.setPrintAppendStrings(arrayOf(line.text, line.value.orEmpty()), weights, arrayOf(left, right))
+                }
+                else -> printer.setPrintAppendString(line.text, formatFor(line.style))
+            }
         }
         val start = printer.setPrintStart()
         if (start == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
@@ -142,38 +164,77 @@ class ZcsSmartPosPrinter private constructor(
         return PrintOutcome.Ok
     }
 
-    private fun formatFor(style: ReceiptStyle): PrnStrFormat {
-        val format = PrnStrFormat()
-        format.font = PrnTextFont.SANS_SERIF
-        when (style) {
-            ReceiptStyle.Title -> {
-                format.textSize = 30
-                format.style = PrnTextStyle.BOLD
-                format.ali = Layout.Alignment.ALIGN_CENTER
-            }
-            ReceiptStyle.Subtitle -> {
-                format.textSize = 24
-                format.style = PrnTextStyle.BOLD
-                format.ali = Layout.Alignment.ALIGN_CENTER
-            }
-            ReceiptStyle.Emphasis -> {
-                format.textSize = 26
-                format.style = PrnTextStyle.BOLD
-                format.ali = Layout.Alignment.ALIGN_NORMAL
-            }
-            ReceiptStyle.Mono, ReceiptStyle.Body, ReceiptStyle.Rule -> {
-                format.textSize = 22
-                format.style = PrnTextStyle.NORMAL
-                format.ali = Layout.Alignment.ALIGN_NORMAL
-            }
-            ReceiptStyle.Footer -> {
-                format.textSize = 18
-                format.style = PrnTextStyle.NORMAL
-                format.ali = Layout.Alignment.ALIGN_CENTER
-            }
+    private fun format(size: Int, bold: Boolean, align: Layout.Alignment): PrnStrFormat =
+        PrnStrFormat().apply {
+            font = PrnTextFont.SANS_SERIF
+            textSize = size
+            style = if (bold) PrnTextStyle.BOLD else PrnTextStyle.NORMAL
+            ali = align
         }
-        return format
+
+    private fun formatFor(style: ReceiptStyle): PrnStrFormat =
+        when (style) {
+            ReceiptStyle.Title -> format(34, bold = true, align = Layout.Alignment.ALIGN_CENTER)
+            ReceiptStyle.Subtitle -> format(26, bold = true, align = Layout.Alignment.ALIGN_CENTER)
+            ReceiptStyle.Emphasis -> format(26, bold = true, align = Layout.Alignment.ALIGN_NORMAL)
+            ReceiptStyle.Body -> format(22, bold = false, align = Layout.Alignment.ALIGN_CENTER)
+            ReceiptStyle.Footer -> format(18, bold = false, align = Layout.Alignment.ALIGN_CENTER)
+            ReceiptStyle.Spacer -> format(12, bold = false, align = Layout.Alignment.ALIGN_NORMAL)
+            ReceiptStyle.Mono -> format(20, bold = false, align = Layout.Alignment.ALIGN_CENTER).apply {
+                font = PrnTextFont.MONOSPACE
+            }
+            else -> format(22, bold = false, align = Layout.Alignment.ALIGN_NORMAL)
+        }
+
+    private fun columnFormats(style: ReceiptStyle): Pair<PrnStrFormat, PrnStrFormat> =
+        when (style) {
+            ReceiptStyle.Total ->
+                format(32, bold = true, align = Layout.Alignment.ALIGN_NORMAL) to
+                    format(32, bold = true, align = Layout.Alignment.ALIGN_OPPOSITE)
+            ReceiptStyle.KeyValueStrong ->
+                format(22, bold = false, align = Layout.Alignment.ALIGN_NORMAL) to
+                    format(22, bold = true, align = Layout.Alignment.ALIGN_OPPOSITE)
+            else ->
+                format(22, bold = false, align = Layout.Alignment.ALIGN_NORMAL) to
+                    format(22, bold = false, align = Layout.Alignment.ALIGN_OPPOSITE)
+        }
+
+    /** Full-width divider drawn as pixels, so it spans the paper regardless of font metrics. */
+    private fun ruleBitmap(dashed: Boolean, double: Boolean = false): Bitmap {
+        val width = ReceiptPaper.WIDTH_80MM_PX
+        val height = if (double) 14 else 10
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        val paint = Paint().apply {
+            color = Color.BLACK
+            strokeWidth = 2f
+            if (dashed) pathEffect = DashPathEffect(floatArrayOf(10f, 6f), 0f)
+        }
+        if (double) {
+            canvas.drawLine(0f, 3f, width.toFloat(), 3f, paint)
+            canvas.drawLine(0f, 10f, width.toFloat(), 10f, paint)
+        } else {
+            canvas.drawLine(0f, height / 2f, width.toFloat(), height / 2f, paint)
+        }
+        return bitmap
     }
+
+    /** Org logo from a data URL, flattened on white and scaled to fit the header. */
+    private fun decodeLogo(dataUrl: String): Bitmap? =
+        runCatching {
+            val bytes = Base64.decode(dataUrl.substringAfter(','), Base64.DEFAULT)
+            val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            val scale = minOf(LOGO_MAX_PX.toFloat() / source.width, LOGO_MAX_PX.toFloat() / source.height, 1f)
+            val w = (source.width * scale).toInt().coerceAtLeast(1)
+            val h = (source.height * scale).toInt().coerceAtLeast(1)
+            val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            Canvas(out).apply {
+                drawColor(Color.WHITE)
+                drawBitmap(Bitmap.createScaledBitmap(source, w, h, true), 0f, 0f, null)
+            }
+            out
+        }.getOrNull()
 
     private fun mapStatus(code: Int): PrinterHwStatus =
         when (code) {
@@ -187,6 +248,11 @@ class ZcsSmartPosPrinter private constructor(
 
     companion object {
         private const val TAG = "ZcsSmartPosPrinter"
+
+        /** ~40% of the 576 px 80 mm head — large enough for phone cameras at arm's length. */
+        private const val QR_SIZE_PX = 240
+
+        private const val LOGO_MAX_PX = 150
 
         fun create(): ThermalPrinter {
             val driver = DriverManager.getInstance()

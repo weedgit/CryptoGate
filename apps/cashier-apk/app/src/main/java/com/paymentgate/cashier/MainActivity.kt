@@ -1,5 +1,11 @@
 package com.paymentgate.cashier
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.content.ContextCompat
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -41,6 +47,7 @@ import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.Session
 import com.paymentgate.cashier.api.SessionRules
 import com.paymentgate.cashier.hardware.PrintOutcome
+import com.paymentgate.cashier.hardware.ReceiptJob
 import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.hardware.toCustomerPayContent
 import com.paymentgate.cashier.hardware.toReceiptJob
@@ -49,7 +56,12 @@ import com.paymentgate.cashier.ui.CreateOrderScreen
 import com.paymentgate.cashier.ui.HardwareDockTab
 import com.paymentgate.cashier.ui.KeepScreenOnWhile
 import com.paymentgate.cashier.ui.LoginScreen
+import com.paymentgate.cashier.ui.DockTopBar
 import com.paymentgate.cashier.ui.OperatorBar
+import com.paymentgate.cashier.ui.PageTopBar
+import com.paymentgate.cashier.ui.todayDateLabel
+import com.paymentgate.cashier.ui.LockPosButton
+import com.paymentgate.cashier.ui.AlertsButton
 import com.paymentgate.cashier.ui.OrderDetailScreen
 import com.paymentgate.cashier.ui.OrderPayScreen
 import com.paymentgate.cashier.ui.OrdersScreen
@@ -67,6 +79,8 @@ import com.paymentgate.cashier.ui.theme.CashierTheme
 import com.paymentgate.cashier.ui.theme.PosBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -74,6 +88,9 @@ import kotlinx.coroutines.withContext
 private enum class PosScreen { Splash, Create, Today, Orders, More, Pay, OrderDetail }
 
 private const val HEARTBEAT_MS = 60_000L
+
+/** API max page; Today totals need every invoice of the day, not just the recent list. */
+private const val ORDERS_FETCH_LIMIT = 200
 
 private fun roleLabel(role: String): String =
     when (role) {
@@ -109,6 +126,7 @@ class MainActivity : ComponentActivity() {
                     var terminalOrg by remember { mutableStateOf(app.terminalStore.binding()?.org) }
                     var operator by remember { mutableStateOf<Operator?>(null) }
                     var session by remember { mutableStateOf<Session?>(null) }
+                    var openedOrder by remember { mutableStateOf<PaymentOrder?>(null) }
                     var chargeBlocked by remember { mutableStateOf(false) }
 
                     // Owner/Admin setup.
@@ -146,6 +164,7 @@ class MainActivity : ComponentActivity() {
                     var qrMode by remember(watchingOrderId) { mutableStateOf(QrMode.WithAmount) }
                     var blockingOrder by remember { mutableStateOf<BlockingOrder?>(null) }
                     var todayOrders by remember { mutableStateOf<List<PaymentOrder>>(emptyList()) }
+                    var invoiceOrders by remember { mutableStateOf<List<PaymentOrder>>(emptyList()) }
                     var todayLoading by remember { mutableStateOf(false) }
                     var todayError by remember { mutableStateOf<String?>(null) }
                     var cancelling by remember { mutableStateOf(false) }
@@ -168,6 +187,7 @@ class MainActivity : ComponentActivity() {
                         payment = null
                         watchingOrderId = null
                         todayOrders = emptyList()
+                        invoiceOrders = emptyList()
                         todayError = null
                         resetCreateForm()
                         screen = PosScreen.Create
@@ -216,12 +236,41 @@ class MainActivity : ComponentActivity() {
                         return false
                     }
 
+                    fun receiptJobFor(details: PaymentDetails): ReceiptJob {
+                        val zone = PosTime.receiptZone(session, details.businessTimezone)
+                        return details.toReceiptJob(
+                            merchantReference = merchantReference.trim().ifEmpty { null },
+                            printedAtIso = formatReceiptPrintedAt(zone),
+                            zone = zone,
+                            orgName = terminalOrg?.name,
+                            cashierName = operator?.displayName,
+                            terminalLabel = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID),
+                            logoDataUrl = terminalOrg?.iconKey,
+                        )
+                    }
+
                     fun loadOrders() {
                         todayLoading = true
                         todayError = null
                         scope.launch {
                             try {
-                                todayOrders = app.api.listOrders()
+                                val zone = PosTime.staffZone(session)
+                                val midnight = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant()
+                                val dayAgo = java.time.Instant.now().minus(java.time.Duration.ofHours(24))
+                                coroutineScope {
+                                    val mine = async {
+                                        app.api.listOrders(
+                                            limit = ORDERS_FETCH_LIMIT,
+                                            createdBy = session?.userId,
+                                            createdFrom = midnight,
+                                        )
+                                    }
+                                    val recent = async {
+                                        app.api.listOrders(limit = ORDERS_FETCH_LIMIT, createdFrom = dayAgo)
+                                    }
+                                    todayOrders = mine.await()
+                                    invoiceOrders = recent.await()
+                                }
                             } catch (e: Exception) {
                                 if (!handleAuthFailure(e)) todayError = CashierPosSurface.userMessage(e)
                             } finally {
@@ -231,6 +280,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     fun openOrder(orderId: String, preferDetail: Boolean = false) {
+                        openedOrder = (todayOrders + invoiceOrders).firstOrNull { it.id == orderId }
                         scope.launch {
                             todayLoading = true
                             try {
@@ -312,9 +362,18 @@ class MainActivity : ComponentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
+                        var misses = 0
                         while (true) {
-                            online = NetworkReachability.isOnline(this@MainActivity)
-                            delay(2_000)
+                            if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                misses = 0
+                                online = false
+                            } else if (app.api.isServerReachable()) {
+                                misses = 0
+                                online = true
+                            } else if (++misses >= 2) {
+                                online = false
+                            }
+                            delay(if (online) 3_000 else 2_000)
                         }
                     }
 
@@ -351,6 +410,26 @@ class MainActivity : ComponentActivity() {
                                 break
                             }
                         }
+                    }
+
+                    LaunchedEffect(operator) {
+                        if (operator != null) loadOrders()
+                    }
+
+                    // Power button (screen off) locks the POS so the next person needs their PIN.
+                    DisposableEffect(Unit) {
+                        val receiver = object : BroadcastReceiver() {
+                            override fun onReceive(context: Context, intent: Intent) {
+                                if (operator != null) lockPos()
+                            }
+                        }
+                        ContextCompat.registerReceiver(
+                            this@MainActivity,
+                            receiver,
+                            IntentFilter(Intent.ACTION_SCREEN_OFF),
+                            ContextCompat.RECEIVER_NOT_EXPORTED,
+                        )
+                        onDispose { unregisterReceiver(receiver) }
                     }
 
                     LaunchedEffect(screen, watchingOrderId) {
@@ -579,19 +658,58 @@ class MainActivity : ComponentActivity() {
                                             PosShell(
                                                 dockTab = dockTab,
                                                 onDockSelect = { selectDock(it) },
-                                                showDock = true,
+                                                showDock = false,
                                                 topBar = {
-                                                    OperatorBar(
-                                                        orgName = orgName,
-                                                        operatorName = op.displayName,
-                                                        roleLabel = roleLabel(op.role),
-                                                        darkTheme = darkTheme,
-                                                        onToggleTheme = {
-                                                            darkTheme = !darkTheme
-                                                            app.posPrefs.darkTheme = darkTheme
-                                                        },
-                                                        onLock = { lockPos() },
-                                                    )
+                                                    if (current == PosScreen.Create) {
+                                                        DockTopBar(
+                                                            active = dockTab,
+                                                            onSelect = { selectDock(it) },
+                                                            online = online,
+                                                            alerts = todayOrders,
+                                                            zone = PosTime.staffZone(session),
+                                                            onAlertsOpened = { loadOrders() },
+                                                            onOpenAlert = { openOrder(it.id, preferDetail = true) },
+                                                        )
+                                                    } else if (current == PosScreen.More) {
+                                                        PageTopBar(
+                                                            title = "Settings",
+                                                            onBack = { selectDock(HardwareDockTab.Create) },
+                                                        ) { LockPosButton(onLock = { lockPos() }) }
+                                                    } else if (current == PosScreen.Today) {
+                                                        PageTopBar(
+                                                            title = "Today",
+                                                            subtitle = todayDateLabel(PosTime.staffZone(session)),
+                                                            onBack = { selectDock(HardwareDockTab.Create) },
+                                                        ) {
+                                                            AlertsButton(
+                                                                alerts = todayOrders,
+                                                                zone = PosTime.staffZone(session),
+                                                                onOpened = { loadOrders() },
+                                                                onOpenAlert = { openOrder(it.id, preferDetail = true) },
+                                                            )
+                                                        }
+                                                    } else if (current == PosScreen.Orders) {
+                                                        PageTopBar(
+                                                            title = "Invoices",
+                                                            onBack = { selectDock(HardwareDockTab.Create) },
+                                                        ) {
+                                                            AlertsButton(
+                                                                alerts = todayOrders,
+                                                                zone = PosTime.staffZone(session),
+                                                                onOpened = { loadOrders() },
+                                                                onOpenAlert = { openOrder(it.id, preferDetail = true) },
+                                                                boxed = true,
+                                                            )
+                                                        }
+                                                    } else {
+                                                        OperatorBar(
+                                                            operatorName = op.displayName,
+                                                            roleLabel = "$orgTypeLabel-${roleLabel(op.role).lowercase()}",
+                                                            avatarUrl = session?.avatarUrl,
+                                                            onBack = { selectDock(HardwareDockTab.Create) },
+                                                            onLock = { lockPos() },
+                                                        )
+                                                    }
                                                 },
                                             ) {
                                                 when (current) {
@@ -733,10 +851,11 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     PosScreen.Orders ->
                                                         OrdersScreen(
-                                                            orders = todayOrders,
+                                                            orders = invoiceOrders,
                                                             loading = todayLoading,
                                                             error = todayError,
                                                             onSelect = { openOrder(it.id, preferDetail = true) },
+                                                            zone = PosTime.staffZone(session),
                                                         )
                                                     PosScreen.More -> {
                                                         var printerLabel by remember {
@@ -774,7 +893,6 @@ class MainActivity : ComponentActivity() {
                                                             },
                                                             printerAvailable = app.thermalPrinter.isAvailable(),
                                                             printerStatusLabel = printerLabel,
-                                                            customerDisplayAvailable = app.customerDisplay.isAvailable(),
                                                             lastReceipt = app.lastReceiptStore.last,
                                                             onReprint = {
                                                                 val job =
@@ -792,11 +910,12 @@ class MainActivity : ComponentActivity() {
                                                                     app.thermalPrinter.printTestFeed()
                                                                 }
                                                             },
-                                                            onBack = { selectDock(HardwareDockTab.Create) },
                                                             orgName = orgName,
                                                             orgTypeLabel = orgTypeLabel,
+                                                            orgIconKey = terminalOrg?.iconKey,
                                                             operatorName = op.displayName,
-                                                            operatorRoleLabel = roleLabel(op.role),
+                                                            operatorRoleLabel = "$orgTypeLabel ${roleLabel(op.role).lowercase()}",
+                                                            operatorAvatarUrl = session?.avatarUrl,
                                                             canUnbind = op.isManager,
                                                             onUnbind = {
                                                                 try {
@@ -811,7 +930,6 @@ class MainActivity : ComponentActivity() {
                                                                     }
                                                                 }
                                                             },
-                                                            onLockNow = { lockPos() },
                                                             idleLockMinutes = idleLockMinutes,
                                                             onIdleLockMinutesChange = {
                                                                 idleLockMinutes = it
@@ -835,18 +953,11 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 OrderDetailScreen(
                                                     details = details,
-                                                    cashierName = op.displayName,
+                                                    order = openedOrder?.takeIf { it.orderNumber == details.orderNumber },
+                                                    zone = PosTime.staffZone(session),
                                                     merchantReference = merchantReference.trim().ifEmpty { null },
                                                     onPrintReceipt = {
-                                                        val job =
-                                                            details.toReceiptJob(
-                                                                merchantReference =
-                                                                    merchantReference.trim().ifEmpty { null },
-                                                                printedAtIso =
-                                                                    formatReceiptPrintedAt(
-                                                                        PosTime.receiptZone(session, details.businessTimezone),
-                                                                    ),
-                                                            )
+                                                        val job = receiptJobFor(details)
                                                         val outcome =
                                                             withContext(Dispatchers.IO) {
                                                                 app.thermalPrinter.printReceipt(job)
@@ -884,6 +995,14 @@ class MainActivity : ComponentActivity() {
                                                     cancelling = cancelling,
                                                     qrMode = qrMode,
                                                     onQrModeChange = { qrMode = it },
+                                                    topBarTrailing = {
+                                                        AlertsButton(
+                                                            alerts = todayOrders,
+                                                            zone = PosTime.staffZone(session),
+                                                            onOpened = { loadOrders() },
+                                                            onOpenAlert = { openOrder(it.id, preferDetail = true) },
+                                                        )
+                                                    },
                                                     onCancel = {
                                                         val id = watchingOrderId ?: return@OrderPayScreen
                                                         scope.launch {
@@ -901,15 +1020,7 @@ class MainActivity : ComponentActivity() {
                                                         }
                                                     },
                                                     onPrintReceipt = {
-                                                        val job =
-                                                            details.toReceiptJob(
-                                                                merchantReference =
-                                                                    merchantReference.trim().ifEmpty { null },
-                                                                printedAtIso =
-                                                                    formatReceiptPrintedAt(
-                                                                        PosTime.receiptZone(session, details.businessTimezone),
-                                                                    ),
-                                                            )
+                                                        val job = receiptJobFor(details)
                                                         val outcome =
                                                             withContext(Dispatchers.IO) {
                                                                 app.thermalPrinter.printReceipt(job)
