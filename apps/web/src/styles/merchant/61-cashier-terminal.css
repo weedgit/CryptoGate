@@ -1091,6 +1091,29 @@ html[data-theme="light"] .cashier-live .cashier-live__timeline .plat-bill-detail
   min-height: 0;
 }
 
+.cashier-live .cashier-live__actions .btn-ghost {
+  width: 100%;
+  border-color: var(--border-strong);
+  border-radius: 12px;
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__cancel {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.cashier-live .cashier-live__actions > .cashier-live__share {
+  border-color: rgba(0, 212, 200, 0.6);
+  font-size: 15px;
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__actions > .cashier-live__cancel {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+html[data-theme="light"] .cashier-live .cashier-live__actions > .cashier-live__share {
+  border-color: #00b8ad;
+}
+
 .cashier-live .cashier-live__actions > .cashier-live__next {
   min-height: 60px;
   font-size: 17px;

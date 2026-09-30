@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 function LineIcon({ children }: { children: ReactNode }) {
   return (
@@ -210,5 +211,64 @@ export function SharePayLink({ className, ...props }: Props) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * "Share" button that opens the Send payment link card in a pop-up
+ * (keeps the cashier screen short while the QR is showing).
+ */
+export function SharePayLinkButton({
+  buttonClassName,
+  ...props
+}: Props & { buttonClassName?: string }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`share-pay-link__open${buttonClassName ? ` ${buttonClassName}` : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
+        <ShareIcon />
+        Share
+      </button>
+      {open
+        ? createPortal(
+            <div className="share-pay-modal" role="presentation" onClick={() => setOpen(false)}>
+              <div
+                className="share-pay-modal__panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Send payment link"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="share-pay-modal__close"
+                  aria-label="Close"
+                  onClick={() => setOpen(false)}
+                >
+                  ×
+                </button>
+                <SharePayLink {...props} />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

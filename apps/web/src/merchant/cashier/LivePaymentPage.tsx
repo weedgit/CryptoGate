@@ -23,7 +23,7 @@ import { anomalyExplain, orderStatusLabel } from "../orderStatus";
 import { AuthToast } from "../../auth/AuthToast";
 import { displayNetworkForPair } from "../../shared/assetNetworks";
 import { PaymentQrCanvas } from "../../shared/PaymentQrCanvas";
-import { SharePayLink } from "../../shared/SharePayLink";
+import { SharePayLinkButton } from "../../shared/SharePayLink";
 import { merchantRoute } from "../../shared/portalRouting";
 import { serverNow } from "../../shared/serverClock";
 import { AssetIcon, NetworkIcon, QrCenterNetworkMark } from "../../platform/cryptoIcons";
@@ -379,21 +379,6 @@ export function LivePaymentPage({ session }: Props) {
           })}
         </ol>
 
-        {phase === "waiting" && pay?.paymentPageUrl ? (
-          <SharePayLink
-            className="cashier-live__share"
-            url={pay.paymentPageUrl}
-            amountLabel={
-              invoiceAmount && order?.invoiceDenomination !== "crypto"
-                ? `${invoiceAmount} ${invoiceCurrency}`
-                : `${payable} ${asset}`
-            }
-            merchantName={pay.merchantName ?? order?.orgName}
-            expiresAt={expiresAt}
-            timeZone={pay.businessTimezone ?? order?.businessTimezone}
-          />
-        ) : null}
-
         {phase === "attention" ? (
           <p className="cashier-live__note">
             Ask a manager to review this order before completing the sale — they can
@@ -413,6 +398,20 @@ export function LivePaymentPage({ session }: Props) {
                 </button>
               ) : null}
             </div>
+          ) : null}
+          {phase === "waiting" && pay?.paymentPageUrl ? (
+            <SharePayLinkButton
+              buttonClassName="cashier-live__share"
+              url={pay.paymentPageUrl}
+              amountLabel={
+                invoiceAmount && order?.invoiceDenomination !== "crypto"
+                  ? `${invoiceAmount} ${invoiceCurrency}`
+                  : `${payable} ${asset}`
+              }
+              merchantName={pay.merchantName ?? order?.orgName}
+              expiresAt={expiresAt}
+              timeZone={pay.businessTimezone ?? order?.businessTimezone}
+            />
           ) : null}
           {phase === "waiting" ? (
             <button type="button" className="btn-ghost" onClick={() => void toggleCustomerView()}>

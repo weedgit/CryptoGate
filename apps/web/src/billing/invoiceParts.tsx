@@ -31,6 +31,8 @@ export type InvoiceSeller = {
   name: string;
   email?: string | null;
   phone?: string | null;
+  /** Seller org's own icon; the platform mark when unset. */
+  iconKey?: string | null;
 };
 
 export type InvoiceFact = {
@@ -251,6 +253,7 @@ export function InvoiceBrandHead({
         <div className="sb-invoice__brand-title">
           <OrgBrandMark
             name={seller.name}
+            iconKey={seller.iconKey ?? null}
             size={36}
             className="sb-invoice__brand-mark"
           />

@@ -2175,3 +2175,75 @@ html[data-theme="light"] .tz-prompt__close:hover {
 .share-pay-link__app .share-pay-link__icon--telegram {
   color: #26a5e4;
 }
+
+/* Share button → Send payment link pop-up (cashier live screen) */
+.share-pay-link__open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--accent, #00d4c8);
+  color: #0b0f14;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.share-pay-link__open:hover {
+  filter: brightness(1.06);
+}
+
+.share-pay-link__open:focus-visible {
+  outline: 2px solid var(--accent, #00d4c8);
+  outline-offset: 2px;
+}
+
+.share-pay-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.share-pay-modal__panel {
+  position: relative;
+  width: min(420px, 100%);
+}
+
+.share-pay-modal__panel .share-pay-link {
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.share-pay-modal__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.share-pay-modal__close:hover {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  color: var(--text, inherit);
+}

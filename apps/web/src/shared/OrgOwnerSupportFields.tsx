@@ -376,14 +376,12 @@ function OwnerVerifyCard({
   icon,
   title,
   verified,
-  busy,
   disabled,
   onToggle,
 }: {
   icon: ReactNode;
   title: string;
   verified: boolean;
-  busy: boolean;
   disabled: boolean;
   onToggle: () => void;
 }) {
@@ -406,7 +404,7 @@ function OwnerVerifyCard({
         onClick={onToggle}
       >
         {verified ? <CircleGlyph /> : <CheckGlyph />}
-        {busy ? "Saving…" : verified ? "Mark not verified" : "Mark verified"}
+        {verified ? "Mark not verified" : "Mark verified"}
       </button>
     </div>
   );
@@ -440,7 +438,6 @@ function OwnerProfileEditModal({
   const [phoneVerified, setPhoneVerified] = useState(owner.phoneVerified);
   const [busy, setBusy] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
-  const [verifyBusy, setVerifyBusy] = useState<"email" | "phone" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -471,25 +468,10 @@ function OwnerProfileEditModal({
     }
   }
 
-  async function toggleVerified(field: "emailVerified" | "phoneVerified") {
-    if (busy || verifyBusy) return;
-    const nextValue = field === "emailVerified" ? !emailVerified : !phoneVerified;
-    setVerifyBusy(field === "emailVerified" ? "email" : "phone");
-    setError(null);
-    try {
-      const next = await putOrgOwnerVerification(orgId, {
-        [field]: nextValue,
-      });
-      if (field === "emailVerified") setEmailVerified(next.emailVerified);
-      else setPhoneVerified(next.phoneVerified);
-      onVerified({ ...owner, ...next });
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Could not update verification",
-      );
-    } finally {
-      setVerifyBusy(null);
-    }
+  function toggleVerified(field: "emailVerified" | "phoneVerified") {
+    if (busy) return;
+    if (field === "emailVerified") setEmailVerified((v) => !v);
+    else setPhoneVerified((v) => !v);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -522,7 +504,25 @@ function OwnerProfileEditModal({
         avatarUrl,
         ...(password ? { password } : {}),
       });
-      onSaved(next);
+      const flags: { emailVerified?: boolean; phoneVerified?: boolean } = {};
+      if (emailVerified !== owner.emailVerified) flags.emailVerified = emailVerified;
+      if (phoneVerified !== owner.phoneVerified && next.phone) {
+        flags.phoneVerified = phoneVerified;
+      }
+      if (flags.emailVerified === undefined && flags.phoneVerified === undefined) {
+        onSaved(next);
+        return;
+      }
+      try {
+        onSaved({ ...next, ...(await putOrgOwnerVerification(orgId, flags)) });
+      } catch (err) {
+        onVerified(next);
+        setError(
+          err instanceof ApiError
+            ? `Profile saved, but verification was not updated: ${err.message}`
+            : "Profile saved, but verification was not updated",
+        );
+      }
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Could not update owner profile",
@@ -652,17 +652,15 @@ function OwnerProfileEditModal({
                   icon={<MailGlyph />}
                   title="Email verification"
                   verified={emailVerified}
-                  busy={verifyBusy === "email"}
-                  disabled={saving || verifyBusy === "email"}
-                  onToggle={() => void toggleVerified("emailVerified")}
+                  disabled={saving}
+                  onToggle={() => toggleVerified("emailVerified")}
                 />
                 <OwnerVerifyCard
                   icon={<PhoneGlyph />}
                   title="Phone verification"
                   verified={phoneVerified}
-                  busy={verifyBusy === "phone"}
-                  disabled={saving || verifyBusy === "phone" || !phone.trim()}
-                  onToggle={() => void toggleVerified("phoneVerified")}
+                  disabled={saving || !phone.trim()}
+                  onToggle={() => toggleVerified("phoneVerified")}
                 />
               </div>
             </aside>

@@ -228,14 +228,12 @@ function VerifyCard({
   icon,
   title,
   verified,
-  busy,
   disabled,
   onToggle,
 }: {
   icon: ReactNode;
   title: string;
   verified: boolean;
-  busy: boolean;
   disabled: boolean;
   onToggle?: () => void;
 }) {
@@ -259,7 +257,7 @@ function VerifyCard({
           onClick={onToggle}
         >
           {verified ? <CircleGlyph /> : <CheckGlyph />}
-          {busy ? "Saving…" : verified ? "Mark not verified" : "Mark verified"}
+          {verified ? "Mark not verified" : "Mark verified"}
         </button>
       ) : null}
     </div>
@@ -291,7 +289,6 @@ export function TeamMemberEditModal({
   const [phoneVerified, setPhoneVerified] = useState(member.phoneVerified === true);
   const [busy, setBusy] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
-  const [verifyBusy, setVerifyBusy] = useState<"email" | "phone" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -337,23 +334,10 @@ export function TeamMemberEditModal({
     }
   }
 
-  async function toggleVerified(field: "emailVerified" | "phoneVerified") {
-    if (busy || verifyBusy) return;
-    const nextValue = field === "emailVerified" ? !emailVerified : !phoneVerified;
-    setVerifyBusy(field === "emailVerified" ? "email" : "phone");
-    setError(null);
-    try {
-      const next = await patchOrgMember(orgId, member.userId, {
-        [field]: nextValue,
-      });
-      setEmailVerified(next.emailVerified === true);
-      setPhoneVerified(next.phoneVerified === true);
-      onSaved({ ...member, ...next });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not update verification");
-    } finally {
-      setVerifyBusy(null);
-    }
+  function toggleVerified(field: "emailVerified" | "phoneVerified") {
+    if (busy) return;
+    if (field === "emailVerified") setEmailVerified((v) => !v);
+    else setPhoneVerified((v) => !v);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -388,6 +372,8 @@ export function TeamMemberEditModal({
               email: nextEmail,
               phone: phone.trim() || null,
               ...(password ? { password } : {}),
+              ...(emailVerified !== (member.emailVerified === true) ? { emailVerified } : {}),
+              ...(phoneVerified !== (member.phoneVerified === true) ? { phoneVerified } : {}),
             }
           : {}),
       });
@@ -545,21 +531,15 @@ export function TeamMemberEditModal({
                   icon={<MailGlyph />}
                   title="Email verification"
                   verified={emailVerified}
-                  busy={verifyBusy === "email"}
-                  disabled={saving || verifyBusy === "email"}
-                  onToggle={
-                    platformSupport ? () => void toggleVerified("emailVerified") : undefined
-                  }
+                  disabled={saving}
+                  onToggle={platformSupport ? () => toggleVerified("emailVerified") : undefined}
                 />
                 <VerifyCard
                   icon={<PhoneGlyph />}
                   title="Phone verification"
                   verified={phoneVerified}
-                  busy={verifyBusy === "phone"}
-                  disabled={saving || verifyBusy === "phone" || !phone.trim()}
-                  onToggle={
-                    platformSupport ? () => void toggleVerified("phoneVerified") : undefined
-                  }
+                  disabled={saving || !phone.trim()}
+                  onToggle={platformSupport ? () => toggleVerified("phoneVerified") : undefined}
                 />
               </div>
             </aside>

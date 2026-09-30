@@ -595,7 +595,9 @@ describe("Charge page (merchant + cashier)", () => {
     assert.match(share, /Open link/);
     assert.doesNotMatch(share, />\s*Copy link\s*</);
     const live = readFileSync(join(root, "src/merchant/cashier/LivePaymentPage.tsx"), "utf8");
-    assert.match(live, /phase === "waiting" && pay\?\.paymentPageUrl \? \(\s*<SharePayLink/);
+    assert.match(live, /phase === "waiting" && pay\?\.paymentPageUrl \? \(\s*<SharePayLinkButton/);
+    assert.match(share, /export function SharePayLinkButton/);
+    assert.match(share, /aria-modal="true"/);
     const head = readFileSync(join(root, "src/merchant/orderDetail/OrderDetailHeader.tsx"), "utf8");
     assert.match(head, /<SharePayLink/);
     assert.match(head, /order\.status === "pending_payment"/);

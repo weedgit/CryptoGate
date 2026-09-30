@@ -104,6 +104,7 @@ export function OrderInvoice({
         name: sellerOrg?.name ?? "Merchant",
         legalName: sellerOrg?.legalName,
         contactEmail: sellerContactEmail,
+        iconKey: sellerOrg?.iconKey ?? null,
         orgId: sellerOrgId,
       }}
       onChain={

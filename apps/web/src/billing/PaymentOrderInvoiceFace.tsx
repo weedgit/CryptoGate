@@ -75,6 +75,7 @@ export type PoInvoiceSeller = {
   legalName?: string | null;
   contactEmail?: string | null;
   phone?: string | null;
+  iconKey?: string | null;
   orgId: string;
 };
 
@@ -163,19 +164,68 @@ function fiatCell(order: PoInvoiceOrder): { value: string; note: string | null }
   };
 }
 
-function rateNote(order: PoInvoiceOrder): string | null {
-  const parts = [
-    order.rateSource,
-    order.pricingMode,
-    order.referenceRate
-      ? `ref $${order.referenceRate}${order.referenceSource ? ` (${order.referenceSource})` : ""}`
-      : null,
-    order.rateWarning,
+const RATE_VENUE_LABEL: Record<string, string> = {
+  binance: "Binance",
+  coingecko: "CoinGecko",
+  kraken: "Kraken",
+  coinbase: "Coinbase",
+  bitstamp: "Bitstamp",
+};
+
+function ageMinutes(seconds: string): string {
+  const n = Math.max(1, Math.round(Number(seconds) / 60));
+  return `${n} min old`;
+}
+
+/** Plain-words rate warning; null for notes that don't matter to the reader. */
+function rateWarningLabel(warning: string | null | undefined): string | null {
+  if (!warning) return null;
+  let m = /^stale_rate:(\d+)s$/.exec(warning);
+  if (m) return `last good price used (${ageMinutes(m[1])})`;
+  m = /^peg_fallback_last_known:(\d+)s$/.exec(warning);
+  if (m) return `peg confirmed by last known price (${ageMinutes(m[1])})`;
+  if (warning === "peg_fallback_chainlink") return "peg confirmed by Chainlink";
+  m = /^median_vs_chainlink_(\d+)bps$/.exec(warning);
+  if (m) return `${(Number(m[1]) / 100).toFixed(2)}% from Chainlink`;
+  if (warning === "chainlink_unavailable" || warning.startsWith("eurusd")) return null;
+  return warning;
+}
+
+/** How the rate was set (first row) and how long it holds (second row). */
+function rateNoteLines(order: PoInvoiceOrder): string[] {
+  const venues = order.rateSource?.startsWith("median:")
+    ? order.rateSource
+        .slice("median:".length)
+        .split(",")
+        .map((v) => RATE_VENUE_LABEL[v] ?? v)
+        .join(", ")
+    : null;
+  const market = venues ? `Market price (median of ${venues})` : "Market price";
+  let how: string;
+  switch (order.pricingMode) {
+    case "pegged_1to1":
+      how = `Fixed 1 ${order.asset} = $1 (stablecoin peg)`;
+      break;
+    case "depeg_market":
+      how = `${market}: ${order.asset} is off its $1 peg`;
+      break;
+    case "crypto_exact":
+      how = "Exact crypto amount; rate shown for reference";
+      break;
+    case "market":
+      how = market;
+      break;
+    default:
+      how = [order.pricingMode, order.rateSource].filter(Boolean).join(" · ");
+  }
+  const detail = [
     order.quoteExpiresAt && order.status === "pending_payment"
-      ? `quote until ${docDate(order.quoteExpiresAt, order.businessTimezone)}`
+      ? `Price locked until ${docDate(order.quoteExpiresAt, order.businessTimezone)}`
       : null,
+    rateWarningLabel(order.rateWarning),
+    order.referenceRate ? `Chainlink $${order.referenceRate}` : null,
   ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : null;
+  return [how, detail.join(" · ")].filter(Boolean);
 }
 
 type Props = {
@@ -273,7 +323,12 @@ export function PaymentOrderInvoiceFace({
   return (
     <InvoicePaper invoiceRef={invoiceRef} toolbar={toolbar} className="po-invoice">
       <InvoiceBrandHead
-        seller={{ name: seller.name, email: seller.contactEmail, phone: seller.phone }}
+        seller={{
+          name: seller.name,
+          email: seller.contactEmail,
+          phone: seller.phone,
+          iconKey: seller.iconKey,
+        }}
         subtitle={documentSubtitle(order.status)}
         docLabel={settled ? "Receipt" : "Invoice"}
         docId={`#${order.orderNumber}`}
@@ -314,9 +369,11 @@ export function PaymentOrderInvoiceFace({
           </td>
           <td>
             {order.pricingRate ? `$${order.pricingRate}` : "—"}
-            {rateNote(order) ? (
-              <span className="sb-invoice__line-note">{rateNote(order)}</span>
-            ) : null}
+            {rateNoteLines(order).map((line) => (
+              <span key={line} className="sb-invoice__line-note">
+                {line}
+              </span>
+            ))}
           </td>
           <td className="sb-invoice__amt">{cryptoAmount(payable, order.asset)}</td>
         </tr>
