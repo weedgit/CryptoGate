@@ -67,8 +67,6 @@ fun OrdersScreen(
 
     PosScreenFrame(applySystemBars = false) {
     Column(modifier = Modifier.fillMaxSize()) {
-        PaymentGateBrand()
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Invoices",
             style = MaterialTheme.typography.headlineMedium,

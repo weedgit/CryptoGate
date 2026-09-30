@@ -203,7 +203,7 @@ fun OrderPayScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PaymentGateBrand()
+            OrgBrand()
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = details.orderNumber,

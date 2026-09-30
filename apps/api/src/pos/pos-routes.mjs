@@ -16,6 +16,7 @@ import { sessionPayload } from "../http/auth-routes.mjs";
 import { NotificationEventType } from "@paymentgate/domain";
 import { notifyMerchantOrg } from "../notifications/notify.mjs";
 import { findMembership, listMembershipsForUser } from "../orgs/membership-store.mjs";
+import { isOrgIconValue } from "../orgs/org-accounts.mjs";
 import { listVisibleOrgs, isVisibleOrg } from "../orgs/org-access.mjs";
 import { findOrgById, resolveBusinessTimezone } from "../orgs/org-store.mjs";
 import { effectiveRoleOnOrg, mustEnrollMfa } from "../orgs/role-policy.mjs";
@@ -103,11 +104,19 @@ async function requireTerminal(req, res) {
 }
 
 /**
+ * The org icon can be a data URL (up to ~180 KB), so the 60s heartbeat leaves it out;
+ * unlock and bind carry it and the APK keeps the last one it saw.
  * @param {Awaited<ReturnType<typeof findTerminalByToken>>} terminal
+ * @param {{ withIcon?: boolean }} [opts]
  */
-async function terminalOrgPayload(terminal) {
+async function terminalOrgPayload(terminal, { withIcon = false } = {}) {
   return {
-    org: { id: terminal.orgId, type: terminal.orgType, name: terminal.orgName },
+    org: {
+      id: terminal.orgId,
+      type: terminal.orgType,
+      name: terminal.orgName,
+      ...(withIcon ? { iconKey: terminal.orgIconKey ?? null } : {}),
+    },
     businessTimezone: (await resolveBusinessTimezone(terminal.orgId).catch(() => null)) ?? null,
   };
 }
@@ -208,7 +217,12 @@ export async function handleBindTerminal(req, res) {
   sendJson(res, 201, {
     terminalToken: created.token,
     terminal: { id: created.terminalId },
-    org: { id: org.id, type: org.type, name: org.name },
+    org: {
+      id: org.id,
+      type: org.type,
+      name: org.name,
+      iconKey: isOrgIconValue(org.icon_key) ? org.icon_key : null,
+    },
     businessTimezone: (await resolveBusinessTimezone(org.id).catch(() => null)) ?? null,
   });
 }
@@ -343,7 +357,7 @@ export async function handleUnlock(req, res) {
     liveActionsUnlocked: block === null,
     ...(block ? { liveActionsBlockedReason: block.code } : {}),
     expiresAt: created.expiresAt.toISOString(),
-    ...(await terminalOrgPayload(terminal)),
+    ...(await terminalOrgPayload(terminal, { withIcon: true })),
   });
 }
 

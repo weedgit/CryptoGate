@@ -99,7 +99,7 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
     assert.match(main, /customerDisplay/);
     assert.match(main, /toCustomerPayContent/);
     assert.match(main, /KeepScreenOnWhile/);
-    assert.match(main, /PosScreen\.Settings/);
+    assert.match(main, /PosScreen\.More/);
     assert.match(main, /apiBaseUrl/);
     assert.match(main, /Crossfade/);
     assert.match(main, /Modifier.fillMaxSize\(\)/);
@@ -108,13 +108,15 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
       "utf8",
     );
     assert.match(surface, /MFA_REQUIRED_POS/);
-    assert.match(surface, /NOT_CASHIER_POS/);
-    assert.match(surface, /error\.code == "mfa_required"/);
+    assert.match(surface, /NOT_POS_MANAGER/);
+    assert.match(surface, /TERMINAL_REVOKED/);
+    assert.match(surface, /"mfa_required"/);
     const login = readFileSync(
       join(root, "app/src/main/java/com/paymentgate/cashier/ui/LoginScreen.kt"),
       "utf8",
     );
-    assert.match(login, /TEST BUILD — staging API/);
+    assert.match(login, /LoginSceneBackground/);
+    assert.doesNotMatch(login, /TEST BUILD/);
     const create = readFileSync(
       join(root, "app/src/main/java/com/paymentgate/cashier/ui/CreateOrderScreen.kt"),
       "utf8",
@@ -137,6 +139,27 @@ describe("@paymentgate/cashier-apk scaffold (M2–M5)", () => {
     );
     assert.match(theme, /darkTheme: Boolean = false/);
     assert.match(theme, /lightColorScheme/);
+  });
+
+  it("binds the POS once, then unlocks by PIN only", () => {
+    const client = readFileSync(
+      join(root, "app/src/main/java/com/paymentgate/cashier/api/PaymentGateClient.kt"),
+      "utf8",
+    );
+    assert.match(client, /"\/pos\/terminals"/);
+    assert.match(client, /"\/pos\/unlock"/);
+    assert.match(client, /"\/pos\/lock"/);
+    assert.match(client, /"\/pos\/unbind"/);
+    assert.match(client, /"Terminal \$it"/);
+    assert.doesNotMatch(client, /\/auth\/pos-pin/);
+    assert.equal(
+      existsSync(join(root, "app/src/main/java/com/paymentgate/cashier/api/DevicePinStore.kt")),
+      false,
+    );
+    assert.equal(
+      existsSync(join(root, "app/src/main/java/com/paymentgate/cashier/api/TerminalStore.kt")),
+      true,
+    );
   });
 
   it("starts POS after device boot (kiosk)", () => {

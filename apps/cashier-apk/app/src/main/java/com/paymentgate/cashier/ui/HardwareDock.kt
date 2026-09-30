@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.Icon
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -102,12 +104,72 @@ private fun DockItem(
     }
 }
 
+/** Who is on the POS: bound org and the PIN-unlocked operator. */
+@Composable
+fun OperatorBar(
+    orgName: String,
+    operatorName: String,
+    roleLabel: String,
+    onLock: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OrgBrandMark(
+            iconKey = LocalPosOrg.current?.iconKey,
+            size = 36.dp,
+            modifier = Modifier.padding(end = 10.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = orgName,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "$operatorName · $roleLabel",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onLock)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.Lock,
+                contentDescription = "Lock",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = "Lock",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+    }
+}
+
 /** Shell with V3 Hardware Dock under tab screens. Children keep [PosScreenFrame]. */
 @Composable
 fun PosShell(
     dockTab: HardwareDockTab,
     onDockSelect: (HardwareDockTab) -> Unit,
     showDock: Boolean = true,
+    topBar: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -118,6 +180,7 @@ fun PosShell(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
+        topBar?.invoke()
         Box(modifier = Modifier.weight(1f, fill = true)) {
             content()
         }

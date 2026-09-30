@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +50,12 @@ fun SettingsScreen(
     onReprint: suspend () -> PrintOutcome,
     onTestPrint: (suspend () -> PrintOutcome)? = null,
     onBack: () -> Unit,
-    onSignOut: () -> Unit,
+    orgName: String,
+    orgTypeLabel: String,
+    operatorName: String,
+    operatorRoleLabel: String,
+    canUnbind: Boolean,
+    onUnbind: suspend () -> String?,
     onLockNow: (() -> Unit)? = null,
     idleLockMinutes: Int = 5,
     onIdleLockMinutesChange: ((Int) -> Unit)? = null,
@@ -58,6 +64,51 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var reprinting by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
+    var confirmUnbind by remember { mutableStateOf(false) }
+    var unbinding by remember { mutableStateOf(false) }
+    var unbindError by remember { mutableStateOf<String?>(null) }
+
+    if (confirmUnbind) {
+        AlertDialog(
+            onDismissRequest = { if (!unbinding) confirmUnbind = false },
+            title = { Text("Unbind this POS?") },
+            text = {
+                Column {
+                    Text(
+                        "This POS stops charging for $orgName. PINs stop working here " +
+                            "until an Owner or Admin sets it up again with email and password.",
+                    )
+                    if (unbindError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(unbindError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !unbinding,
+                    onClick = {
+                        scope.launch {
+                            unbinding = true
+                            unbindError = onUnbind()
+                            unbinding = false
+                            if (unbindError == null) confirmUnbind = false
+                        }
+                    },
+                ) {
+                    Text(
+                        if (unbinding) "Unbinding…" else "Unbind",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !unbinding, onClick = { confirmUnbind = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 
     PosScreenFrame(applySystemBars = false) {
         Column(
@@ -74,16 +125,27 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "SITE & SESSION",
+                text = "POS & OPERATOR",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
             )
+            Text(
+                text = "$orgName · $orgTypeLabel",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Signed in: $operatorName · $operatorRoleLabel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             if (onLockNow != null) {
                 OutlinedButton(
                     onClick = onLockNow,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Lock now")
+                    Text("Lock / switch user")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -108,7 +170,7 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "After register, only the site PIN unlocks this terminal — including after restart. Manage the PIN on the web dashboard (Security).",
+                text = "Each person unlocks with their own PIN — including after restart. Owners and Admins generate PINs on the web dashboard (Team).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -258,15 +320,23 @@ fun SettingsScreen(
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                 Text("Back")
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
-                Text("Unpair this terminal")
+            if (canUnbind) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = {
+                        unbindError = null
+                        confirmUnbind = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Unbind this POS", color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    text = "Owner/Admin only. Removes this POS from $orgName. Setting it up again needs Owner/Admin email and password.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                )
             }
-            Text(
-                text = "Removes the merchant binding. Owner/admin email + password are required to register again. Restart alone never asks for email.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-            )
         }
     }
 }

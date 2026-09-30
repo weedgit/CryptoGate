@@ -31,11 +31,61 @@ data class Session(
     /** Profile IANA zone; only trusted once [timezoneConfirmed] (else it is the UTC default). */
     val timezone: String? = null,
     val timezoneConfirmed: Boolean = false,
+    val firstName: String? = null,
+    val lastName: String? = null,
 )
 
 data class LoginResult(
     val session: Session,
     val mfaRequired: Boolean,
+)
+
+data class OrgInfo(
+    val id: String,
+    val type: String?,
+    val name: String,
+    /** Preset mark id (`store`, `hex`, …) or a `data:image/...` logo; null → platform mark. */
+    val iconKey: String? = null,
+    /** False when the response had no `iconKey` field (the heartbeat omits it). */
+    val iconSent: Boolean = false,
+)
+
+data class TerminalBinding(
+    val terminalId: String,
+    val token: String,
+    val org: OrgInfo,
+    val businessTimezone: String?,
+)
+
+data class TerminalStatus(
+    val org: OrgInfo,
+    val businessTimezone: String?,
+)
+
+/** Person who unlocked the POS with their PIN. */
+data class Operator(
+    val firstName: String?,
+    val lastName: String?,
+    val role: String,
+) {
+    val displayName: String
+        get() = listOfNotNull(firstName?.trim(), lastName?.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .ifEmpty { role.replaceFirstChar { it.uppercase() } }
+
+    /** Owner or Administrator — may unbind the POS. */
+    val isManager: Boolean
+        get() = role == SessionRules.ROLE_OWNER || role == SessionRules.ROLE_ADMINISTRATOR
+}
+
+data class UnlockResult(
+    val session: Session,
+    val operator: Operator,
+    val liveActionsUnlocked: Boolean,
+    val liveActionsBlockedReason: String?,
+    val org: OrgInfo,
+    val businessTimezone: String?,
 )
 
 data class Money(
@@ -97,16 +147,25 @@ object OrderDefaults {
 }
 
 object SessionRules {
+    const val ROLE_OWNER = "owner"
+    const val ROLE_ADMINISTRATOR = "administrator"
     const val ROLE_CASHIER = "cashier"
     const val ORG_MERCHANT = "merchant"
     const val ORG_MERCHANT_SITE = "merchant_site"
 
-    /** POS allows only Cashier on merchant / merchant_site. */
-    fun hasCashierMembership(session: Session): Boolean =
-        session.memberships.any { m ->
-            m.role == ROLE_CASHIER &&
-                (m.orgType == null ||
-                    m.orgType == ORG_MERCHANT ||
-                    m.orgType == ORG_MERCHANT_SITE)
+    /** The membership that binds this POS: Owner/Administrator of their own merchant or site. */
+    fun bindMembership(session: Session): OrgMembership? =
+        session.memberships.firstOrNull { m ->
+            (m.role == ROLE_OWNER || m.role == ROLE_ADMINISTRATOR) &&
+                (m.orgType == ORG_MERCHANT || m.orgType == ORG_MERCHANT_SITE)
+        }
+
+    fun canBindPos(session: Session): Boolean = bindMembership(session) != null
+
+    fun orgTypeLabel(orgType: String?): String =
+        when (orgType) {
+            ORG_MERCHANT -> "Merchant"
+            ORG_MERCHANT_SITE -> "Site"
+            else -> "Org"
         }
 }

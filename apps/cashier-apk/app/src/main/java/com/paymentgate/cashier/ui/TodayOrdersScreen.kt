@@ -61,7 +61,6 @@ fun TodayOrdersScreen(
 
     PosScreenFrame(applySystemBars = false) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PaymentGateBrand()
             if (!cashierName.isNullOrBlank()) {
                 Text(
                     text = cashierName,

@@ -2,4 +2,6 @@
 <resources>
     <color name="ic_launcher_background">#0B0F14</color>
     <color name="ic_launcher_foreground">#D4AF37</color>
+    <!-- Top of the web login hero gradient (light / dark). -->
+    <color name="splash_background">#F3F8FF</color>
 </resources>

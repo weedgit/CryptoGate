@@ -34,29 +34,20 @@ object CashierPosSurface {
     fun userMessage(error: Throwable, context: ErrorContext = ErrorContext.General): String {
         when (error) {
             is ApiError -> {
-                if (error.code == "invalid_pos_pin") {
-                    return "Incorrect PIN. Try again."
-                }
-                if (error.code == "pos_pin_not_configured") {
-                    return "Set a POS PIN on the web dashboard (Security), then try again."
-                }
-                if (error.code == "asset_network_disabled" || error.code == "invalid_asset_network") {
-                    return UNSUPPORTED_RAIL
-                }
-                if (error.code == "invalid_credentials") {
-                    return INVALID_LOGIN
-                }
-                if (error.code == "not_authenticated") {
-                    return INVALID_LOGIN
-                }
-                if (error.code == "session_cookie_missing") {
-                    return error.message.trim().ifEmpty { INVALID_LOGIN }
-                }
-                if (error.code == "mfa_required") {
-                    return MFA_REQUIRED_POS
-                }
-                if (error.code == "not_cashier") {
-                    return NOT_CASHIER_POS
+                when (error.code) {
+                    "invalid_pos_pin" -> return INVALID_PIN
+                    "pos_unlock_locked" -> return unlockLockedMessage(JsonParsers.retryAfterSeconds(error))
+                    "terminal_revoked" -> return TERMINAL_REVOKED
+                    "pos_session_scope" -> return FORBIDDEN_POS
+                    "contact_unverified", "org_setup_incomplete" -> return CONTACT_UNVERIFIED
+                    "invalid_mfa" -> return INVALID_MFA
+                    "mfa_enrollment_required" -> return MFA_ENROLL_ON_WEB
+                    "not_pos_manager" -> return NOT_POS_MANAGER
+                    "rate_limited" -> return RATE_LIMITED
+                    "invalid_credentials", "not_authenticated" -> return INVALID_LOGIN
+                    "mfa_required" -> return MFA_REQUIRED_POS
+                    "session_cookie_missing" -> return error.message.trim().ifEmpty { INVALID_LOGIN }
+                    "asset_network_disabled", "invalid_asset_network" -> return UNSUPPORTED_RAIL
                 }
                 if (error.code == "mode_b_amount_in_use" || error.code == "mode_d_memo_in_use") {
                     return error.message.trim().ifEmpty {
@@ -67,7 +58,7 @@ object CashierPosSurface {
                     return FORBIDDEN_POS
                 }
                 if (error.httpStatus == 401) {
-                    return INVALID_LOGIN
+                    return if (context == ErrorContext.Setup) INVALID_LOGIN else SESSION_ENDED
                 }
                 val msg = error.message.trim()
                 return msg.ifEmpty { "Request failed (${error.httpStatus})" }
@@ -77,7 +68,7 @@ object CashierPosSurface {
                     return when (context) {
                         ErrorContext.PinUnlock -> OFFLINE_PIN_UNLOCK
                         ErrorContext.CreateOrder -> OFFLINE_CREATE
-                        ErrorContext.General -> OFFLINE_GENERIC
+                        ErrorContext.General, ErrorContext.Setup -> OFFLINE_GENERIC
                     }
                 }
                 return error.message?.trim()?.ifEmpty { null } ?: "Something went wrong"
@@ -89,19 +80,47 @@ object CashierPosSurface {
     fun unsupportedRailMessage(asset: String, networkLabel: String): String =
         "$asset cannot use $networkLabel · Choose a compatible rail"
 
-    enum class ErrorContext { General, PinUnlock, CreateOrder }
+    enum class ErrorContext { General, Setup, PinUnlock, CreateOrder }
+
+    /** Countdown text for `423 pos_unlock_locked`. */
+    fun unlockLockedMessage(retryAfterSeconds: Int?): String {
+        val s = retryAfterSeconds ?: return "Too many wrong PINs. Wait, then try again."
+        val wait = if (s >= 60) "${(s + 59) / 60} min" else "$s s"
+        return "Too many wrong PINs. Try again in $wait."
+    }
 
     const val INVALID_LOGIN =
         "Owner/admin email or password is incorrect."
 
-    const val SESSION_EXPIRED =
-        "Terminal binding expired — register again with owner/admin credentials."
+    const val INVALID_PIN =
+        "Incorrect PIN. Try again."
+
+    const val SESSION_ENDED =
+        "Your session ended. Enter your PIN again."
+
+    const val TERMINAL_REVOKED =
+        "This POS was removed from its account. An Owner or Admin must set it up again."
 
     const val MFA_REQUIRED_POS =
-        "This account requires MFA. Sign in on the web portal — POS cannot complete authenticator step-up."
+        "Enter the code from your authenticator app."
 
-    const val NOT_CASHIER_POS =
-        "Cashier role on a merchant account is required for POS."
+    const val INVALID_MFA =
+        "That code is not correct. Try again."
+
+    const val MFA_ENROLL_ON_WEB =
+        "Turn on two-factor authentication for this account on the web dashboard, then set up the POS."
+
+    const val NOT_POS_MANAGER =
+        "Only an Owner or Admin can set up this POS. Cashiers unlock it with their PIN after setup."
+
+    const val CONTACT_UNVERIFIED =
+        "Finish verifying the account's contact details on the web dashboard, then set up the POS."
+
+    const val RATE_LIMITED =
+        "Too many setup attempts. Wait a while and try again."
+
+    const val CHARGE_BLOCKED =
+        "Charging is paused for this account. An Owner or Admin must finish account setup on the web dashboard."
 
     const val FORBIDDEN_POS =
         "Not allowed on POS. Settlement address, xPub, and matching mode can only be changed by Owner/Admin on the web portal."
@@ -113,13 +132,10 @@ object CashierPosSurface {
         "Offline — create order is disabled until the device is online."
 
     const val OFFLINE_PIN_UNLOCK =
-        "Offline — connect to verify your dashboard PIN, or use the PIN cached on this terminal."
+        "Offline — connect to the network to unlock with your PIN."
 
     const val OFFLINE_GENERIC =
         "Network unavailable. Check Wi‑Fi or mobile data."
-
-    const val OFFLINE_PIN_NO_CACHE =
-        "Connect to the network to verify your dashboard PIN."
 
     const val UNSUPPORTED_RAIL =
         "That asset and network are not supported on this terminal. Choose a Phase 1 rail."

@@ -1,5 +1,6 @@
 package com.paymentgate.cashier
 
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -23,16 +25,20 @@ import androidx.compose.ui.Modifier
 import com.paymentgate.cashier.api.ApiError
 import com.paymentgate.cashier.api.AssetNetworkCatalog
 import com.paymentgate.cashier.api.BlockingOrder
-import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.CashierPosSurface
 import com.paymentgate.cashier.api.ChargeCurrency
 import com.paymentgate.cashier.api.JsonParsers
 import com.paymentgate.cashier.api.NetworkReachability
+import com.paymentgate.cashier.api.Operator
 import com.paymentgate.cashier.api.OrderDefaults
 import com.paymentgate.cashier.api.OrderStatusUi
+import com.paymentgate.cashier.api.OrgInfo
 import com.paymentgate.cashier.api.PaymentDetails
+import com.paymentgate.cashier.api.PaymentGateClient
 import com.paymentgate.cashier.api.PaymentOrder
+import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.Session
+import com.paymentgate.cashier.api.SessionRules
 import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.hardware.toCustomerPayContent
@@ -42,18 +48,20 @@ import com.paymentgate.cashier.ui.CreateOrderScreen
 import com.paymentgate.cashier.ui.HardwareDockTab
 import com.paymentgate.cashier.ui.KeepScreenOnWhile
 import com.paymentgate.cashier.ui.LoginScreen
+import com.paymentgate.cashier.ui.OperatorBar
 import com.paymentgate.cashier.ui.OrderDetailScreen
 import com.paymentgate.cashier.ui.OrderPayScreen
 import com.paymentgate.cashier.ui.OrdersScreen
-import com.paymentgate.cashier.ui.PinScreenMode
 import com.paymentgate.cashier.ui.PinUnlockScreen
 import com.paymentgate.cashier.ui.PosMotion
 import com.paymentgate.cashier.ui.PosShell
 import com.paymentgate.cashier.ui.SettingsScreen
+import com.paymentgate.cashier.ui.SetupStep
 import com.paymentgate.cashier.ui.SplashScreen
 import com.paymentgate.cashier.ui.TodayOrdersScreen
 import com.paymentgate.cashier.ui.formatReceiptPrintedAt
 import com.paymentgate.cashier.ui.printerStatusLabel
+import com.paymentgate.cashier.ui.LocalPosOrg
 import com.paymentgate.cashier.ui.theme.CashierTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -62,6 +70,16 @@ import kotlinx.coroutines.withContext
 
 /** V3 POS flows — Create is home after PIN unlock (Hardware Dock). */
 private enum class PosScreen { Splash, Create, Today, Orders, More, Pay, OrderDetail }
+
+private const val HEARTBEAT_MS = 60_000L
+
+private fun roleLabel(role: String): String =
+    when (role) {
+        SessionRules.ROLE_OWNER -> "Owner"
+        SessionRules.ROLE_ADMINISTRATOR -> "Admin"
+        SessionRules.ROLE_CASHIER -> "Cashier"
+        else -> role.replaceFirstChar { it.uppercase() }
+    }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,32 +95,36 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val scope = rememberCoroutineScope()
                     var showSplash by remember { mutableStateOf(true) }
-                    var signedIn by remember { mutableStateOf(app.api.isSignedIn()) }
-                    var pinUnlocked by remember { mutableStateOf(false) }
-                    var pinMode by remember {
-                        mutableStateOf(
-                            if (
-                                app.devicePin.dashboardPinConfigured() ||
-                                app.devicePin.hasPin()
-                            ) {
-                                PinScreenMode.Unlock
-                            } else {
-                                PinScreenMode.Set
-                            },
-                        )
-                    }
-                    var pendingPin by remember { mutableStateOf<String?>(null) }
+                    var startupDone by remember { mutableStateOf(false) }
+
+                    // Terminal binding (survives restart) and the PIN-unlocked operator (never does).
+                    var bound by remember { mutableStateOf(app.api.isBound()) }
+                    var terminalOrg by remember { mutableStateOf(app.terminalStore.binding()?.org) }
+                    var operator by remember { mutableStateOf<Operator?>(null) }
+                    var session by remember { mutableStateOf<Session?>(null) }
+                    var chargeBlocked by remember { mutableStateOf(false) }
+
+                    // Owner/Admin setup.
+                    var setupStep by remember { mutableStateOf(SetupStep.Credentials) }
+                    var email by remember { mutableStateOf("") }
+                    var password by remember { mutableStateOf("") }
+                    var mfaCode by remember { mutableStateOf("") }
+                    var setupOrg by remember { mutableStateOf<OrgInfo?>(null) }
+                    var setupError by remember { mutableStateOf<String?>(null) }
+                    var setupLoading by remember { mutableStateOf(false) }
+
+                    // PIN pad.
                     var pinError by remember { mutableStateOf<String?>(null) }
+                    var pinBusy by remember { mutableStateOf(false) }
+                    var lockedSeconds by remember { mutableIntStateOf(0) }
+
                     var lastActivityAt by remember { mutableStateOf(System.currentTimeMillis()) }
                     var idleLockMinutes by remember { mutableIntStateOf(app.posPrefs.idleLockMinutes) }
-                    var session by remember { mutableStateOf<Session?>(null) }
 
                     fun touchActivity() {
                         lastActivityAt = System.currentTimeMillis()
                     }
 
-                    var email by remember { mutableStateOf("") }
-                    var password by remember { mutableStateOf("") }
                     var error by remember { mutableStateOf<String?>(null) }
                     var loading by remember { mutableStateOf(false) }
                     var screen by remember { mutableStateOf(PosScreen.Create) }
@@ -132,6 +154,61 @@ class MainActivity : ComponentActivity() {
                         network = pair.network
                     }
 
+                    fun clearOperatorState() {
+                        operator = null
+                        session = null
+                        chargeBlocked = false
+                        payment = null
+                        watchingOrderId = null
+                        todayOrders = emptyList()
+                        todayError = null
+                        resetCreateForm()
+                        screen = PosScreen.Create
+                    }
+
+                    /** Back to the PIN pad; the terminal stays bound. */
+                    fun lockPos(message: String? = null) {
+                        clearOperatorState()
+                        pinError = message
+                        scope.launch { app.api.lock() }
+                    }
+
+                    fun resetSetup() {
+                        setupStep = SetupStep.Credentials
+                        password = ""
+                        mfaCode = ""
+                        setupOrg = null
+                        setupLoading = false
+                    }
+
+                    /** Binding gone (unbound here, or revoked on the web): back to Owner/Admin setup. */
+                    fun wipeToSetup(message: String?) {
+                        clearOperatorState()
+                        app.sessionStore.clear()
+                        app.terminalStore.clear()
+                        bound = false
+                        terminalOrg = null
+                        pinError = null
+                        lockedSeconds = 0
+                        resetSetup()
+                        email = ""
+                        setupError = message
+                    }
+
+                    /** Revoked terminal or ended PIN session. Returns true when handled. */
+                    fun handleAuthFailure(e: Throwable): Boolean {
+                        if (e !is ApiError) return false
+                        if (e.code == PaymentGateClient.CODE_TERMINAL_REVOKED) {
+                            wipeToSetup(CashierPosSurface.TERMINAL_REVOKED)
+                            return true
+                        }
+                        if (e.httpStatus == 401) {
+                            lockPos(CashierPosSurface.SESSION_ENDED)
+                            return true
+                        }
+                        return false
+                    }
+
                     fun loadOrders() {
                         todayLoading = true
                         todayError = null
@@ -139,7 +216,7 @@ class MainActivity : ComponentActivity() {
                             try {
                                 todayOrders = app.api.listOrders()
                             } catch (e: Exception) {
-                                todayError = CashierPosSurface.userMessage(e)
+                                if (!handleAuthFailure(e)) todayError = CashierPosSurface.userMessage(e)
                             } finally {
                                 todayLoading = false
                             }
@@ -192,6 +269,26 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    fun showBindConfirmation(signedIn: Session) {
+                        val membership = SessionRules.bindMembership(signedIn)
+                        if (membership == null) {
+                            setupError = CashierPosSurface.NOT_POS_MANAGER
+                            scope.launch { app.api.cancelSetup() }
+                            resetSetup()
+                            return
+                        }
+                        setupStep = SetupStep.Confirm
+                        setupOrg = null
+                        scope.launch {
+                            try {
+                                setupOrg = app.api.getOrg(membership.orgId)
+                            } catch (e: Exception) {
+                                setupError =
+                                    CashierPosSurface.userMessage(e, CashierPosSurface.ErrorContext.Setup)
+                            }
+                        }
+                    }
+
                     val dockTab =
                         when (screen) {
                             PosScreen.Create -> HardwareDockTab.Create
@@ -201,6 +298,12 @@ class MainActivity : ComponentActivity() {
                             else -> HardwareDockTab.Create
                         }
 
+                    // Cold start: a PIN session never survives a restart, and a half-finished setup is dropped.
+                    LaunchedEffect(Unit) {
+                        if (app.api.isBound()) app.api.lock() else app.api.cancelSetup()
+                        startupDone = true
+                    }
+
                     LaunchedEffect(Unit) {
                         while (true) {
                             online = NetworkReachability.isOnline(this@MainActivity)
@@ -208,30 +311,36 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // V3 idle lock — Off / 5 / 10 / 15 / 30 min
-                    LaunchedEffect(pinUnlocked, idleLockMinutes, lastActivityAt) {
-                        if (!pinUnlocked || idleLockMinutes <= 0) return@LaunchedEffect
+                    // Heartbeat: refresh org name and notice a revoke from the web while locked or in use.
+                    LaunchedEffect(bound, startupDone) {
+                        if (!bound || !startupDone) return@LaunchedEffect
                         while (true) {
-                            delay(15_000)
-                            val idleMs = System.currentTimeMillis() - lastActivityAt
-                            if (idleMs >= idleLockMinutes * 60_000L) {
-                                pinUnlocked = false
-                                pinMode = PinScreenMode.Unlock
-                                pinError = null
-                                break
+                            try {
+                                terminalOrg = app.api.getTerminal().org
+                            } catch (e: Exception) {
+                                if (e is ApiError && e.code == PaymentGateClient.CODE_TERMINAL_REVOKED) {
+                                    wipeToSetup(CashierPosSurface.TERMINAL_REVOKED)
+                                    break
+                                }
                             }
+                            delay(HEARTBEAT_MS)
                         }
                     }
 
-                    LaunchedEffect(signedIn) {
-                        if (signedIn && session == null) {
-                            runCatching { session = app.api.getSession() }
-                                .onFailure {
-                                    error = CashierPosSurface.SESSION_EXPIRED
-                                    signedIn = false
-                                    session = null
-                                    screen = PosScreen.Create
-                                }
+                    // V3 idle lock — Off / 5 / 10 / 15 / 30 min; never while a payment is open on Pay.
+                    LaunchedEffect(operator, idleLockMinutes, lastActivityAt) {
+                        if (operator == null || idleLockMinutes <= 0) return@LaunchedEffect
+                        while (true) {
+                            delay(15_000)
+                            val paying =
+                                screen == PosScreen.Pay &&
+                                    payment?.let { OrderStatusUi.isOpenPaymentOrder(it.status) } == true
+                            if (paying) continue
+                            val idleMs = System.currentTimeMillis() - lastActivityAt
+                            if (idleMs >= idleLockMinutes * 60_000L) {
+                                lockPos()
+                                break
+                            }
                         }
                     }
 
@@ -282,562 +391,559 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val keepAwake =
-                        signedIn &&
+                        operator != null &&
                             screen == PosScreen.Pay &&
                             payment != null &&
                             OrderStatusUi.isOpenPaymentOrder(payment!!.status)
                     KeepScreenOnWhile(enabled = keepAwake)
 
-                    when {
-                        showSplash -> {
-                            SplashScreen(onFinished = { showSplash = false })
-                        }
-                        !signedIn -> {
-                            LoginScreen(
-                                email = email,
-                                password = password,
-                                error = error,
-                                loading = loading,
-                                appEnv = BuildConfig.APP_ENV,
-                                onEmailChange = { email = it; error = null },
-                                onPasswordChange = { password = it; error = null },
-                                onSignIn = {
-                                    scope.launch {
-                                        loading = true
-                                        error = null
-                                        try {
+                    val orgName = terminalOrg?.name?.ifBlank { null } ?: "This POS"
+                    val orgTypeLabel = SessionRules.orgTypeLabel(terminalOrg?.type)
+
+                    CompositionLocalProvider(LocalPosOrg provides terminalOrg.takeIf { bound }) {
+                        when {
+                            showSplash || !startupDone -> {
+                                SplashScreen(darkTheme = darkTheme, onFinished = { showSplash = false })
+                            }
+                            !bound -> {
+                                LoginScreen(
+                                    step = setupStep,
+                                    email = email,
+                                    password = password,
+                                    mfaCode = mfaCode,
+                                    orgName = setupOrg?.name,
+                                    orgTypeLabel = setupOrg?.let { SessionRules.orgTypeLabel(it.type) },
+                                    orgIconKey = setupOrg?.iconKey,
+                                    error = setupError,
+                                    loading = setupLoading,
+                                    darkTheme = darkTheme,
+                                    onToggleTheme = {
+                                        darkTheme = !darkTheme
+                                        app.posPrefs.darkTheme = darkTheme
+                                    },
+                                    onEmailChange = { email = it; setupError = null },
+                                    onPasswordChange = { password = it; setupError = null },
+                                    onMfaCodeChange = { mfaCode = it; setupError = null },
+                                    onSignIn = {
+                                        scope.launch {
                                             if (!NetworkReachability.isOnline(this@MainActivity)) {
-                                                error = CashierPosSurface.OFFLINE_GENERIC
+                                                setupError = CashierPosSurface.OFFLINE_GENERIC
                                                 return@launch
                                             }
-                                            val result = app.api.login(email.trim(), password)
-                                            session = result.session
-                                            password = ""
-                                            signedIn = true
-                                            pinUnlocked = false
-                                            val dashboardPin =
-                                                runCatching { app.api.getPosPinStatus() }
-                                                    .onSuccess { app.devicePin.setDashboardPinConfigured(it) }
-                                                    .getOrElse { app.devicePin.dashboardPinConfigured() }
-                                            pinMode =
-                                                when {
-                                                    dashboardPin || app.devicePin.hasPin() -> PinScreenMode.Unlock
-                                                    else -> PinScreenMode.Set
+                                            setupLoading = true
+                                            setupError = null
+                                            try {
+                                                val result = app.api.login(email.trim(), password)
+                                                password = ""
+                                                if (result.mfaRequired) {
+                                                    mfaCode = ""
+                                                    setupStep = SetupStep.Mfa
+                                                } else {
+                                                    showBindConfirmation(result.session)
                                                 }
-                                            pendingPin = null
-                                            resetCreateForm()
-                                            screen = PosScreen.Create
-                                            touchActivity()
-                                        } catch (e: Exception) {
-                                            error =
-                                                CashierPosSurface.userMessage(
-                                                    e,
-                                                    CashierPosSurface.ErrorContext.General,
-                                                )
-                                            signedIn = false
-                                        } finally {
-                                            loading = false
-                                        }
-                                    }
-                                },
-                            )
-                        }
-                        !pinUnlocked -> {
-                            PinUnlockScreen(
-                                mode = pinMode,
-                                error = pinError,
-                                onClearError = { pinError = null },
-                                onPinComplete = { pin ->
-                                    when (pinMode) {
-                                        PinScreenMode.Unlock -> {
-                                            scope.launch {
-                                                try {
-                                                    val onlineNow =
-                                                        NetworkReachability.isOnline(this@MainActivity)
-                                                    val dashboardConfigured =
-                                                        if (onlineNow) {
-                                                            runCatching { app.api.getPosPinStatus() }
-                                                                .onSuccess {
-                                                                    app.devicePin.setDashboardPinConfigured(it)
-                                                                }
-                                                                .getOrElse {
-                                                                    app.devicePin.dashboardPinConfigured()
-                                                                }
-                                                        } else {
-                                                            app.devicePin.dashboardPinConfigured()
-                                                        }
-
-                                                    if (dashboardConfigured && onlineNow) {
-                                                        try {
-                                                            app.api.verifyPosPin(pin)
-                                                            runCatching { app.devicePin.setPin(pin) }
-                                                            app.devicePin.setDashboardPinConfigured(true)
-                                                            pinUnlocked = true
-                                                            pinError = null
-                                                            touchActivity()
-                                                        } catch (e: Exception) {
-                                                            if (
-                                                                CashierPosSurface.isNetworkFailure(e) &&
-                                                                app.devicePin.hasPin()
-                                                            ) {
-                                                                if (app.devicePin.verify(pin)) {
-                                                                    pinUnlocked = true
-                                                                    pinError = null
-                                                                    touchActivity()
-                                                                } else {
-                                                                    pinError = "Incorrect PIN. Try again."
-                                                                }
-                                                            } else if (CashierPosSurface.isNetworkFailure(e)) {
-                                                                pinError =
-                                                                    CashierPosSurface.OFFLINE_PIN_NO_CACHE
-                                                            } else {
-                                                                pinError =
-                                                                    CashierPosSurface.userMessage(
-                                                                        e,
-                                                                        CashierPosSurface.ErrorContext.PinUnlock,
-                                                                    )
-                                                            }
-                                                        }
-                                                    } else if (dashboardConfigured && !onlineNow) {
-                                                        if (app.devicePin.hasPin()) {
-                                                            if (app.devicePin.verify(pin)) {
-                                                                pinUnlocked = true
-                                                                pinError = null
-                                                                touchActivity()
-                                                            } else {
-                                                                pinError = "Incorrect PIN. Try again."
-                                                            }
-                                                        } else {
-                                                            pinError =
-                                                                CashierPosSurface.OFFLINE_PIN_NO_CACHE
-                                                        }
-                                                    } else if (app.devicePin.hasPin()) {
-                                                        if (app.devicePin.verify(pin)) {
-                                                            pinUnlocked = true
-                                                            pinError = null
-                                                            touchActivity()
-                                                        } else {
-                                                            pinError = "Incorrect PIN. Try again."
-                                                        }
-                                                    } else {
-                                                        pinError =
-                                                            "Set a POS PIN on the web dashboard (Security), then try again."
-                                                    }
-                                                } catch (e: Exception) {
-                                                    pinError =
-                                                        CashierPosSurface.userMessage(
-                                                            e,
-                                                            CashierPosSurface.ErrorContext.PinUnlock,
-                                                        )
-                                                }
+                                            } catch (e: Exception) {
+                                                setupError =
+                                                    CashierPosSurface.userMessage(e, CashierPosSurface.ErrorContext.Setup)
+                                            } finally {
+                                                setupLoading = false
                                             }
                                         }
-                                        PinScreenMode.Set -> {
-                                            pendingPin = pin
-                                            pinMode = PinScreenMode.Confirm
+                                    },
+                                    onVerifyMfa = {
+                                        scope.launch {
+                                            setupLoading = true
+                                            setupError = null
+                                            try {
+                                                showBindConfirmation(app.api.verifyMfa(mfaCode.trim()))
+                                            } catch (e: Exception) {
+                                                mfaCode = ""
+                                                setupError =
+                                                    CashierPosSurface.userMessage(e, CashierPosSurface.ErrorContext.Setup)
+                                                if (e is ApiError && e.httpStatus == 401 && e.code != "invalid_mfa") {
+                                                    resetSetup()
+                                                }
+                                            } finally {
+                                                setupLoading = false
+                                            }
+                                        }
+                                    },
+                                    onConfirmBind = {
+                                        scope.launch {
+                                            setupLoading = true
+                                            setupError = null
+                                            try {
+                                                val binding =
+                                                    app.api.bindTerminal(
+                                                        deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+                                                        appVersion = BuildConfig.VERSION_NAME,
+                                                        orgIconKey = setupOrg?.iconKey,
+                                                    )
+                                                terminalOrg = binding.org
+                                                resetSetup()
+                                                email = ""
+                                                pinError = null
+                                                lockedSeconds = 0
+                                                bound = true
+                                            } catch (e: Exception) {
+                                                setupError =
+                                                    CashierPosSurface.userMessage(e, CashierPosSurface.ErrorContext.Setup)
+                                                if (e is ApiError && e.httpStatus == 401) resetSetup()
+                                            } finally {
+                                                setupLoading = false
+                                            }
+                                        }
+                                    },
+                                    onCancel = {
+                                        scope.launch { app.api.cancelSetup() }
+                                        resetSetup()
+                                        setupError = null
+                                    },
+                                )
+                            }
+                            operator == null -> {
+                                PinUnlockScreen(
+                                    orgName = orgName,
+                                    orgTypeLabel = orgTypeLabel,
+                                    error = pinError,
+                                    busy = pinBusy,
+                                    lockedSeconds = lockedSeconds,
+                                    onClearError = {
+                                        pinError = null
+                                        lockedSeconds = 0
+                                    },
+                                    onPinSubmit = { pin ->
+                                        scope.launch {
+                                            if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                                pinError = CashierPosSurface.OFFLINE_PIN_UNLOCK
+                                                return@launch
+                                            }
+                                            pinBusy = true
                                             pinError = null
-                                        }
-                                        PinScreenMode.Confirm -> {
-                                            if (pin == pendingPin) {
-                                                runCatching { app.devicePin.setPin(pin) }
-                                                    .onSuccess {
-                                                        pendingPin = null
-                                                        pinUnlocked = true
-                                                        pinError = null
-                                                        touchActivity()
-                                                    }
-                                                    .onFailure {
-                                                        pinError = "Could not save PIN"
-                                                        pinMode = PinScreenMode.Set
-                                                        pendingPin = null
-                                                    }
-                                            } else {
-                                                pinError = "PINs did not match. Try again."
-                                                pinMode = PinScreenMode.Set
-                                                pendingPin = null
+                                            try {
+                                                val result = app.api.unlock(pin)
+                                                terminalOrg = result.org
+                                                session = result.session
+                                                chargeBlocked = !result.liveActionsUnlocked
+                                                resetCreateForm()
+                                                screen = PosScreen.Create
+                                                lockedSeconds = 0
+                                                touchActivity()
+                                                operator = result.operator
+                                            } catch (e: Exception) {
+                                                when {
+                                                    e is ApiError &&
+                                                        e.code == PaymentGateClient.CODE_TERMINAL_REVOKED ->
+                                                        wipeToSetup(CashierPosSurface.TERMINAL_REVOKED)
+                                                    e is ApiError &&
+                                                        e.code == PaymentGateClient.CODE_UNLOCK_LOCKED ->
+                                                        lockedSeconds = JsonParsers.retryAfterSeconds(e) ?: 30
+                                                    else ->
+                                                        pinError =
+                                                            CashierPosSurface.userMessage(
+                                                                e,
+                                                                CashierPosSurface.ErrorContext.PinUnlock,
+                                                            )
+                                                }
+                                            } finally {
+                                                pinBusy = false
                                             }
                                         }
-                                    }
-                                },
-                            )
-                        }
-                        else -> {
-                            Crossfade(
-                                targetState = screen,
-                                modifier = Modifier.fillMaxSize(),
-                                animationSpec = tween(PosMotion.Fast),
-                                label = "pos-screen",
-                            ) { current ->
-                                when (current) {
-                                    PosScreen.Splash -> Unit
-                                    PosScreen.Create, PosScreen.Today, PosScreen.Orders, PosScreen.More -> {
-                                        PosShell(
-                                            dockTab = dockTab,
-                                            onDockSelect = { selectDock(it) },
-                                            showDock = true,
-                                        ) {
-                                            when (current) {
-                                                PosScreen.Create ->
-                                                    CreateOrderScreen(
-                                                        amount = amount,
-                                                        asset = asset,
-                                                        network = network,
-                                                        chainEnv = chainEnv,
-                                                        merchantReference = merchantReference,
-                                                        validitySeconds = validitySeconds,
-                                                        chargeIn = chargeIn,
-                                                        onChargeInChange = {
-                                                            chargeIn = it
-                                                            error = null
-                                                            blockingOrder = null
-                                                        },
-                                                        error = error,
-                                                        loading = loading,
-                                                        online = online,
-                                                        blockingOrder = blockingOrder,
-                                                        onOpenBlockingOrder = { block ->
-                                                            openOrder(block.id)
-                                                        },
-                                                        onAmountChange = {
-                                                            amount = it
-                                                            error = null
-                                                            blockingOrder = null
-                                                        },
-                                                        onPairChange = {
-                                                            asset = it.asset
-                                                            network = it.network
-                                                            error = null
-                                                        },
-                                                        onAssetSelect = { nextAsset ->
-                                                            asset = nextAsset
-                                                            // Keep network so incompatible rails surface V3 error UX.
-                                                            if (
-                                                                AssetNetworkCatalog.find(
-                                                                    nextAsset,
-                                                                    network,
-                                                                    chainEnv,
-                                                                ) != null
-                                                            ) {
-                                                                error = null
-                                                            }
-                                                        },
-                                                        onMerchantReferenceChange = {
-                                                            merchantReference = it
-                                                            error = null
-                                                        },
-                                                        onValidityChange = { validitySeconds = it },
-                                                        onSubmit = {
-                                                            scope.launch {
-                                                                if (!NetworkReachability.isOnline(this@MainActivity)) {
-                                                                    online = false
-                                                                    error = CashierPosSurface.OFFLINE_CREATE
-                                                                    return@launch
-                                                                }
-                                                                if (
-                                                                    !AssetNetworkCatalog.isSupported(
-                                                                        asset,
-                                                                        network,
-                                                                        chainEnv,
-                                                                    )
-                                                                ) {
-                                                                    error =
-                                                                        CashierPosSurface.unsupportedRailMessage(
-                                                                            asset,
-                                                                            AssetNetworkCatalog.networkLabelFor(
-                                                                                asset,
-                                                                                network,
-                                                                                chainEnv,
-                                                                            ),
-                                                                        )
-                                                                    return@launch
-                                                                }
-                                                                loading = true
+                                    },
+                                )
+                            }
+                            else -> {
+                                val op = operator!!
+                                Crossfade(
+                                    targetState = screen,
+                                    modifier = Modifier.fillMaxSize(),
+                                    animationSpec = tween(PosMotion.Fast),
+                                    label = "pos-screen",
+                                ) { current ->
+                                    when (current) {
+                                        PosScreen.Splash -> Unit
+                                        PosScreen.Create, PosScreen.Today, PosScreen.Orders, PosScreen.More -> {
+                                            PosShell(
+                                                dockTab = dockTab,
+                                                onDockSelect = { selectDock(it) },
+                                                showDock = true,
+                                                topBar = {
+                                                    OperatorBar(
+                                                        orgName = orgName,
+                                                        operatorName = op.displayName,
+                                                        roleLabel = roleLabel(op.role),
+                                                        onLock = { lockPos() },
+                                                    )
+                                                },
+                                            ) {
+                                                when (current) {
+                                                    PosScreen.Create ->
+                                                        CreateOrderScreen(
+                                                            amount = amount,
+                                                            asset = asset,
+                                                            network = network,
+                                                            chainEnv = chainEnv,
+                                                            merchantReference = merchantReference,
+                                                            validitySeconds = validitySeconds,
+                                                            chargeIn = chargeIn,
+                                                            onChargeInChange = {
+                                                                chargeIn = it
                                                                 error = null
                                                                 blockingOrder = null
-                                                                try {
-                                                                    val order =
-                                                                        app.api.createOrder(
-                                                                            amount = amount.trim(),
-                                                                            asset = asset,
-                                                                            network = network,
-                                                                            validitySeconds = validitySeconds,
-                                                                            merchantReference =
-                                                                                merchantReference.trim()
-                                                                                    .ifEmpty { null },
-                                                                            chargeIn = chargeIn,
-                                                                        )
-                                                                    payment = app.api.getPaymentDetails(order.id)
-                                                                    watchingOrderId = order.id
-                                                                    screen = PosScreen.Pay
-                                                                } catch (e: Exception) {
-                                                                    if (
-                                                                        e is ApiError &&
-                                                                        (
-                                                                            e.code == "mode_b_amount_in_use" ||
-                                                                                e.code == "mode_d_memo_in_use"
-                                                                            )
-                                                                    ) {
-                                                                        blockingOrder =
-                                                                            JsonParsers.parseBlockingOrder(e.details)
-                                                                        error = null
-                                                                    } else {
-                                                                        error =
-                                                                            CashierPosSurface.userMessage(
-                                                                                e,
-                                                                                CashierPosSurface.ErrorContext.CreateOrder,
-                                                                            )
-                                                                    }
-                                                                } finally {
-                                                                    loading = false
+                                                            },
+                                                            error = error,
+                                                            loading = loading,
+                                                            online = online,
+                                                            blockingOrder = blockingOrder,
+                                                            chargeBlockedNotice =
+                                                                if (chargeBlocked) CashierPosSurface.CHARGE_BLOCKED else null,
+                                                            onOpenBlockingOrder = { block ->
+                                                                openOrder(block.id)
+                                                            },
+                                                            onAmountChange = {
+                                                                amount = it
+                                                                error = null
+                                                                blockingOrder = null
+                                                                touchActivity()
+                                                            },
+                                                            onPairChange = {
+                                                                asset = it.asset
+                                                                network = it.network
+                                                                error = null
+                                                            },
+                                                            onAssetSelect = { nextAsset ->
+                                                                asset = nextAsset
+                                                                // Keep network so incompatible rails surface V3 error UX.
+                                                                if (
+                                                                    AssetNetworkCatalog.find(
+                                                                        nextAsset,
+                                                                        network,
+                                                                        chainEnv,
+                                                                    ) != null
+                                                                ) {
+                                                                    error = null
                                                                 }
-                                                            }
-                                                        },
-                                                        onBack = {
-                                                            // Create is home — back clears form.
-                                                            resetCreateForm()
-                                                        },
-                                                    )
-                                                PosScreen.Today ->
-                                                    TodayOrdersScreen(
-                                                        orders = todayOrders,
-                                                        loading = todayLoading,
-                                                        error = todayError,
-                                                        cashierName = session?.email?.substringBefore("@"),
-                                                        zone = PosTime.staffZone(session),
-                                                        onSelect = { openOrder(it.id, preferDetail = true) },
-                                                        onSeeAllOrders = { selectDock(HardwareDockTab.Orders) },
-                                                    )
-                                                PosScreen.Orders ->
-                                                    OrdersScreen(
-                                                        orders = todayOrders,
-                                                        loading = todayLoading,
-                                                        error = todayError,
-                                                        onSelect = { openOrder(it.id, preferDetail = true) },
-                                                    )
-                                                PosScreen.More -> {
-                                                    var printerLabel by remember {
-                                                        mutableStateOf(
-                                                            if (app.thermalPrinter.isAvailable()) "Checking…"
-                                                            else "Unavailable",
+                                                            },
+                                                            onMerchantReferenceChange = {
+                                                                merchantReference = it
+                                                                error = null
+                                                            },
+                                                            onValidityChange = { validitySeconds = it },
+                                                            onSubmit = {
+                                                                touchActivity()
+                                                                scope.launch {
+                                                                    if (!NetworkReachability.isOnline(this@MainActivity)) {
+                                                                        online = false
+                                                                        error = CashierPosSurface.OFFLINE_CREATE
+                                                                        return@launch
+                                                                    }
+                                                                    if (
+                                                                        !AssetNetworkCatalog.isSupported(
+                                                                            asset,
+                                                                            network,
+                                                                            chainEnv,
+                                                                        )
+                                                                    ) {
+                                                                        error =
+                                                                            CashierPosSurface.unsupportedRailMessage(
+                                                                                asset,
+                                                                                AssetNetworkCatalog.networkLabelFor(
+                                                                                    asset,
+                                                                                    network,
+                                                                                    chainEnv,
+                                                                                ),
+                                                                            )
+                                                                        return@launch
+                                                                    }
+                                                                    loading = true
+                                                                    error = null
+                                                                    blockingOrder = null
+                                                                    try {
+                                                                        val order =
+                                                                            app.api.createOrder(
+                                                                                amount = amount.trim(),
+                                                                                asset = asset,
+                                                                                network = network,
+                                                                                validitySeconds = validitySeconds,
+                                                                                merchantReference =
+                                                                                    merchantReference.trim()
+                                                                                        .ifEmpty { null },
+                                                                                chargeIn = chargeIn,
+                                                                            )
+                                                                        payment = app.api.getPaymentDetails(order.id)
+                                                                        watchingOrderId = order.id
+                                                                        screen = PosScreen.Pay
+                                                                    } catch (e: Exception) {
+                                                                        if (handleAuthFailure(e)) {
+                                                                            // Back on the PIN pad or setup.
+                                                                        } else if (
+                                                                            e is ApiError &&
+                                                                            (
+                                                                                e.code == "mode_b_amount_in_use" ||
+                                                                                    e.code == "mode_d_memo_in_use"
+                                                                                )
+                                                                        ) {
+                                                                            blockingOrder =
+                                                                                JsonParsers.parseBlockingOrder(e.details)
+                                                                            error = null
+                                                                        } else {
+                                                                            error =
+                                                                                CashierPosSurface.userMessage(
+                                                                                    e,
+                                                                                    CashierPosSurface.ErrorContext.CreateOrder,
+                                                                                )
+                                                                        }
+                                                                    } finally {
+                                                                        loading = false
+                                                                    }
+                                                                }
+                                                            },
+                                                            onBack = {
+                                                                // Create is home — back clears form.
+                                                                resetCreateForm()
+                                                            },
+                                                        )
+                                                    PosScreen.Today ->
+                                                        TodayOrdersScreen(
+                                                            orders = todayOrders,
+                                                            loading = todayLoading,
+                                                            error = todayError,
+                                                            cashierName = op.displayName,
+                                                            zone = PosTime.staffZone(session),
+                                                            onSelect = { openOrder(it.id, preferDetail = true) },
+                                                            onSeeAllOrders = { selectDock(HardwareDockTab.Orders) },
+                                                        )
+                                                    PosScreen.Orders ->
+                                                        OrdersScreen(
+                                                            orders = todayOrders,
+                                                            loading = todayLoading,
+                                                            error = todayError,
+                                                            onSelect = { openOrder(it.id, preferDetail = true) },
+                                                        )
+                                                    PosScreen.More -> {
+                                                        var printerLabel by remember {
+                                                            mutableStateOf(
+                                                                if (app.thermalPrinter.isAvailable()) "Checking…"
+                                                                else "Unavailable",
+                                                            )
+                                                        }
+                                                        LaunchedEffect(Unit) {
+                                                            printerLabel =
+                                                                withContext(Dispatchers.IO) {
+                                                                    if (!app.thermalPrinter.isAvailable()) {
+                                                                        printerStatusLabel(PrinterHwStatus.Unavailable)
+                                                                    } else {
+                                                                        printerStatusLabel(
+                                                                            runCatching { app.thermalPrinter.status() }
+                                                                                .getOrDefault(PrinterHwStatus.Unknown),
+                                                                        )
+                                                                    }
+                                                                }
+                                                        }
+                                                        SettingsScreen(
+                                                            appVersion = BuildConfig.VERSION_NAME,
+                                                            appEnv = BuildConfig.APP_ENV,
+                                                            apiBaseUrl = BuildConfig.API_BASE_URL,
+                                                            deviceId =
+                                                                Settings.Secure.getString(
+                                                                    contentResolver,
+                                                                    Settings.Secure.ANDROID_ID,
+                                                                ) ?: "unknown",
+                                                            darkTheme = darkTheme,
+                                                            onDarkThemeChange = {
+                                                                darkTheme = it
+                                                                app.posPrefs.darkTheme = it
+                                                            },
+                                                            printerAvailable = app.thermalPrinter.isAvailable(),
+                                                            printerStatusLabel = printerLabel,
+                                                            customerDisplayAvailable = app.customerDisplay.isAvailable(),
+                                                            lastReceipt = app.lastReceiptStore.last,
+                                                            onReprint = {
+                                                                val job =
+                                                                    app.lastReceiptStore.last
+                                                                        ?: return@SettingsScreen PrintOutcome.Failed(
+                                                                            PrinterHwStatus.Unavailable,
+                                                                            "No receipt to reprint",
+                                                                        )
+                                                                withContext(Dispatchers.IO) {
+                                                                    app.thermalPrinter.printReceipt(job)
+                                                                }
+                                                            },
+                                                            onTestPrint = {
+                                                                withContext(Dispatchers.IO) {
+                                                                    app.thermalPrinter.printTestFeed()
+                                                                }
+                                                            },
+                                                            onBack = { selectDock(HardwareDockTab.Create) },
+                                                            orgName = orgName,
+                                                            orgTypeLabel = orgTypeLabel,
+                                                            operatorName = op.displayName,
+                                                            operatorRoleLabel = roleLabel(op.role),
+                                                            canUnbind = op.isManager,
+                                                            onUnbind = {
+                                                                try {
+                                                                    app.api.unbind()
+                                                                    wipeToSetup(null)
+                                                                    null
+                                                                } catch (e: Exception) {
+                                                                    if (handleAuthFailure(e)) {
+                                                                        null
+                                                                    } else {
+                                                                        CashierPosSurface.userMessage(e)
+                                                                    }
+                                                                }
+                                                            },
+                                                            onLockNow = { lockPos() },
+                                                            idleLockMinutes = idleLockMinutes,
+                                                            onIdleLockMinutesChange = {
+                                                                idleLockMinutes = it
+                                                                app.posPrefs.idleLockMinutes = it
+                                                                touchActivity()
+                                                            },
                                                         )
                                                     }
-                                                    LaunchedEffect(Unit) {
-                                                        printerLabel =
-                                                            withContext(Dispatchers.IO) {
-                                                                if (!app.thermalPrinter.isAvailable()) {
-                                                                    printerStatusLabel(PrinterHwStatus.Unavailable)
-                                                                } else {
-                                                                    printerStatusLabel(
-                                                                        runCatching { app.thermalPrinter.status() }
-                                                                            .getOrDefault(PrinterHwStatus.Unknown),
-                                                                    )
-                                                                }
-                                                            }
-                                                    }
-                                                    SettingsScreen(
-                                                        appVersion = BuildConfig.VERSION_NAME,
-                                                        appEnv = BuildConfig.APP_ENV,
-                                                        apiBaseUrl = BuildConfig.API_BASE_URL,
-                                                        deviceId =
-                                                            Settings.Secure.getString(
-                                                                contentResolver,
-                                                                Settings.Secure.ANDROID_ID,
-                                                            ) ?: "unknown",
-                                                        darkTheme = darkTheme,
-                                                        onDarkThemeChange = {
-                                                            darkTheme = it
-                                                            app.posPrefs.darkTheme = it
-                                                        },
-                                                        printerAvailable = app.thermalPrinter.isAvailable(),
-                                                        printerStatusLabel = printerLabel,
-                                                        customerDisplayAvailable = app.customerDisplay.isAvailable(),
-                                                        lastReceipt = app.lastReceiptStore.last,
-                                                        onReprint = {
-                                                            val job =
-                                                                app.lastReceiptStore.last
-                                                                    ?: return@SettingsScreen PrintOutcome.Failed(
-                                                                        PrinterHwStatus.Unavailable,
-                                                                        "No receipt to reprint",
-                                                                    )
+                                                    else -> Unit
+                                                }
+                                            }
+                                        }
+                                        PosScreen.OrderDetail -> {
+                                            val details = payment
+                                            if (details == null) {
+                                                LaunchedEffect(Unit) { screen = PosScreen.Orders }
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center,
+                                                ) { CircularProgressIndicator() }
+                                            } else {
+                                                OrderDetailScreen(
+                                                    details = details,
+                                                    cashierName = op.displayName,
+                                                    merchantReference = merchantReference.trim().ifEmpty { null },
+                                                    onPrintReceipt = {
+                                                        val job =
+                                                            details.toReceiptJob(
+                                                                merchantReference =
+                                                                    merchantReference.trim().ifEmpty { null },
+                                                                printedAtIso =
+                                                                    formatReceiptPrintedAt(
+                                                                        PosTime.receiptZone(session, details.businessTimezone),
+                                                                    ),
+                                                            )
+                                                        val outcome =
                                                             withContext(Dispatchers.IO) {
                                                                 app.thermalPrinter.printReceipt(job)
                                                             }
-                                                        },
-                                                        onTestPrint = {
-                                                            withContext(Dispatchers.IO) {
-                                                                app.thermalPrinter.printTestFeed()
-                                                            }
-                                                        },
-                                                        onBack = { selectDock(HardwareDockTab.Create) },
-                                                        onLockNow = {
-                                                            pinUnlocked = false
-                                                            pinMode = PinScreenMode.Unlock
-                                                            pinError = null
-                                                            screen = PosScreen.Create
-                                                        },
-                                                        idleLockMinutes = idleLockMinutes,
-                                                        onIdleLockMinutesChange = {
-                                                            idleLockMinutes = it
-                                                            app.posPrefs.idleLockMinutes = it
-                                                            touchActivity()
-                                                        },
-                                                        onSignOut = {
-                                                            scope.launch {
-                                                                app.api.logout()
-                                                                app.devicePin.clear()
-                                                                session = null
-                                                                payment = null
-                                                                watchingOrderId = null
-                                                                signedIn = false
-                                                                pinUnlocked = false
-                                                                pinMode = PinScreenMode.Set
-                                                                pendingPin = null
-                                                                pinError = null
-                                                                email = ""
-                                                                password = ""
-                                                                error = null
-                                                                screen = PosScreen.Create
-                                                            }
-                                                        },
-                                                    )
+                                                        if (outcome is PrintOutcome.Ok) {
+                                                            app.lastReceiptStore.remember(job)
+                                                        }
+                                                        outcome
+                                                    },
+                                                    onResumePayment = {
+                                                        screen = PosScreen.Pay
+                                                    },
+                                                    onBack = {
+                                                        screen = PosScreen.Orders
+                                                        loadOrders()
+                                                    },
+                                                )
+                                            }
+                                        }
+                                        PosScreen.Pay -> {
+                                            val details = payment
+                                            if (details == null) {
+                                                LaunchedEffect(Unit) { screen = PosScreen.Create }
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    CircularProgressIndicator()
                                                 }
-                                                else -> Unit
+                                            } else {
+                                                OrderPayScreen(
+                                                    details = details,
+                                                    merchantReference = merchantReference.trim().ifEmpty { null },
+                                                    canCancel = details.status == OrderStatusUi.PENDING,
+                                                    cancelling = cancelling,
+                                                    qrMode = qrMode,
+                                                    onQrModeChange = { qrMode = it },
+                                                    onCancel = {
+                                                        val id = watchingOrderId ?: return@OrderPayScreen
+                                                        scope.launch {
+                                                            cancelling = true
+                                                            try {
+                                                                app.api.cancelOrder(id)
+                                                                payment = app.api.getPaymentDetails(id)
+                                                            } catch (e: Exception) {
+                                                                if (!handleAuthFailure(e)) {
+                                                                    error = CashierPosSurface.userMessage(e)
+                                                                }
+                                                            } finally {
+                                                                cancelling = false
+                                                            }
+                                                        }
+                                                    },
+                                                    onPrintReceipt = {
+                                                        val job =
+                                                            details.toReceiptJob(
+                                                                merchantReference =
+                                                                    merchantReference.trim().ifEmpty { null },
+                                                                printedAtIso =
+                                                                    formatReceiptPrintedAt(
+                                                                        PosTime.receiptZone(session, details.businessTimezone),
+                                                                    ),
+                                                            )
+                                                        val outcome =
+                                                            withContext(Dispatchers.IO) {
+                                                                app.thermalPrinter.printReceipt(job)
+                                                            }
+                                                        if (outcome is PrintOutcome.Ok) {
+                                                            app.lastReceiptStore.remember(job)
+                                                        }
+                                                        outcome
+                                                    },
+                                                    onDone = {
+                                                        payment = null
+                                                        watchingOrderId = null
+                                                        resetCreateForm()
+                                                        screen = PosScreen.Create
+                                                        touchActivity()
+                                                    },
+                                                    onViewReceipt = {
+                                                        screen = PosScreen.OrderDetail
+                                                    },
+                                                    onRetryPayment = {
+                                                        val expired = payment ?: return@OrderPayScreen
+                                                        scope.launch {
+                                                            loading = true
+                                                            error = null
+                                                            try {
+                                                                amount = expired.payableAmount.amount
+                                                                asset = expired.asset
+                                                                network = expired.network
+                                                                val order =
+                                                                    app.api.createOrder(
+                                                                        amount = expired.payableAmount.amount,
+                                                                        asset = expired.asset,
+                                                                        network = expired.network,
+                                                                        validitySeconds = validitySeconds,
+                                                                        merchantReference =
+                                                                            merchantReference.trim().ifEmpty { null },
+                                                                        chargeIn = ChargeCurrency.TOKEN,
+                                                                    )
+                                                                payment = app.api.getPaymentDetails(order.id)
+                                                                watchingOrderId = order.id
+                                                                screen = PosScreen.Pay
+                                                                touchActivity()
+                                                            } catch (e: Exception) {
+                                                                if (!handleAuthFailure(e)) {
+                                                                    error = CashierPosSurface.userMessage(e)
+                                                                }
+                                                            } finally {
+                                                                loading = false
+                                                            }
+                                                        }
+                                                    },
+                                                )
                                             }
-                                        }
-                                    }
-                                    PosScreen.OrderDetail -> {
-                                        val details = payment
-                                        if (details == null) {
-                                            LaunchedEffect(Unit) { screen = PosScreen.Orders }
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center,
-                                            ) { CircularProgressIndicator() }
-                                        } else {
-                                            OrderDetailScreen(
-                                                details = details,
-                                                cashierName = session?.email?.substringBefore("@"),
-                                                merchantReference = merchantReference.trim().ifEmpty { null },
-                                                onPrintReceipt = {
-                                                    val job =
-                                                        details.toReceiptJob(
-                                                            merchantReference =
-                                                                merchantReference.trim().ifEmpty { null },
-                                                            printedAtIso =
-                                                                formatReceiptPrintedAt(
-                                                                    PosTime.receiptZone(session, details.businessTimezone),
-                                                                ),
-                                                        )
-                                                    val outcome =
-                                                        withContext(Dispatchers.IO) {
-                                                            app.thermalPrinter.printReceipt(job)
-                                                        }
-                                                    if (outcome is PrintOutcome.Ok) {
-                                                        app.lastReceiptStore.remember(job)
-                                                    }
-                                                    outcome
-                                                },
-                                                onResumePayment = {
-                                                    screen = PosScreen.Pay
-                                                },
-                                                onBack = {
-                                                    screen = PosScreen.Orders
-                                                    loadOrders()
-                                                },
-                                            )
-                                        }
-                                    }
-                                    PosScreen.Pay -> {
-                                        val details = payment
-                                        if (details == null) {
-                                            LaunchedEffect(Unit) { screen = PosScreen.Create }
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                CircularProgressIndicator()
-                                            }
-                                        } else {
-                                            OrderPayScreen(
-                                                details = details,
-                                                merchantReference = merchantReference.trim().ifEmpty { null },
-                                                canCancel = details.status == OrderStatusUi.PENDING,
-                                                cancelling = cancelling,
-                                                qrMode = qrMode,
-                                                onQrModeChange = { qrMode = it },
-                                                onCancel = {
-                                                    val id = watchingOrderId ?: return@OrderPayScreen
-                                                    scope.launch {
-                                                        cancelling = true
-                                                        try {
-                                                            app.api.cancelOrder(id)
-                                                            payment = app.api.getPaymentDetails(id)
-                                                        } catch (e: Exception) {
-                                                            error = CashierPosSurface.userMessage(e)
-                                                        } finally {
-                                                            cancelling = false
-                                                        }
-                                                    }
-                                                },
-                                                onPrintReceipt = {
-                                                    val job =
-                                                        details.toReceiptJob(
-                                                            merchantReference =
-                                                                merchantReference.trim().ifEmpty { null },
-                                                            printedAtIso =
-                                                                formatReceiptPrintedAt(
-                                                                    PosTime.receiptZone(session, details.businessTimezone),
-                                                                ),
-                                                        )
-                                                    val outcome =
-                                                        withContext(Dispatchers.IO) {
-                                                            app.thermalPrinter.printReceipt(job)
-                                                        }
-                                                    if (outcome is PrintOutcome.Ok) {
-                                                        app.lastReceiptStore.remember(job)
-                                                    }
-                                                    outcome
-                                                },
-                                                onDone = {
-                                                    payment = null
-                                                    watchingOrderId = null
-                                                    resetCreateForm()
-                                                    screen = PosScreen.Create
-                                                },
-                                                onViewReceipt = {
-                                                    screen = PosScreen.OrderDetail
-                                                },
-                                                onRetryPayment = {
-                                                    val expired = payment ?: return@OrderPayScreen
-                                                    scope.launch {
-                                                        loading = true
-                                                        error = null
-                                                        try {
-                                                            amount = expired.payableAmount.amount
-                                                            asset = expired.asset
-                                                            network = expired.network
-                                                            val order =
-                                                                app.api.createOrder(
-                                                                    amount = expired.payableAmount.amount,
-                                                                    asset = expired.asset,
-                                                                    network = expired.network,
-                                                                    validitySeconds = validitySeconds,
-                                                                    merchantReference =
-                                                                        merchantReference.trim().ifEmpty { null },
-                                                                    chargeIn = ChargeCurrency.TOKEN,
-                                                                )
-                                                            payment = app.api.getPaymentDetails(order.id)
-                                                            watchingOrderId = order.id
-                                                            screen = PosScreen.Pay
-                                                            touchActivity()
-                                                        } catch (e: Exception) {
-                                                            error = CashierPosSurface.userMessage(e)
-                                                        } finally {
-                                                            loading = false
-                                                        }
-                                                    }
-                                                },
-                                            )
                                         }
                                     }
                                 }

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getPool } from "../db/pool.mjs";
 import { hashSessionToken } from "../auth/session-token.mjs";
+import { isOrgIconValue } from "../orgs/org-accounts.mjs";
 
 export const TERMINAL_TOKEN_PREFIX = "pgt_";
 /** Wrong PINs in a row before the terminal locks. */
@@ -10,7 +11,7 @@ export const UNLOCK_LOCKOUT_MAX_SECONDS = 15 * 60;
 
 const TERMINAL_COLUMNS = `t.id, t.org_id, t.status, t.device_model, t.app_version,
   t.last_seen_at, t.created_at, t.bound_by, t.revoked_at, t.revoke_reason,
-  t.locked_until, o.name AS org_name, o.type AS org_type,
+  t.locked_until, o.name AS org_name, o.type AS org_type, o.icon_key AS org_icon_key,
   b.email AS bound_by_email, b.first_name AS bound_by_first_name, b.last_name AS bound_by_last_name`;
 
 const TERMINAL_FROM = `pos_terminals t
@@ -26,6 +27,7 @@ function mapTerminal(row) {
     orgId: row.org_id,
     orgName: row.org_name ?? null,
     orgType: row.org_type ?? null,
+    orgIconKey: isOrgIconValue(row.org_icon_key) ? row.org_icon_key : null,
     status: row.status,
     deviceModel: row.device_model ?? null,
     appVersion: row.app_version ?? null,

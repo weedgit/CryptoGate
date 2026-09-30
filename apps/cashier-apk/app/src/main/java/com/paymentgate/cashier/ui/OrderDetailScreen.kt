@@ -87,8 +87,6 @@ fun OrderDetailScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            PaymentGateBrand()
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "ORDER DETAIL",
                 fontFamily = FontFamily.Monospace,

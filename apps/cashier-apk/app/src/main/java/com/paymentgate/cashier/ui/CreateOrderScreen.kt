@@ -90,6 +90,8 @@ fun CreateOrderScreen(
     loading: Boolean,
     online: Boolean,
     blockingOrder: BlockingOrder? = null,
+    /** Set when the unlock said `liveActionsUnlocked = false`; disables Charge. */
+    chargeBlockedNotice: String? = null,
     onOpenBlockingOrder: ((BlockingOrder) -> Unit)? = null,
     onAmountChange: (String) -> Unit,
     onPairChange: (AssetNetworkPair) -> Unit,
@@ -119,7 +121,9 @@ fun CreateOrderScreen(
             amount.isNotBlank() &&
             amount != "0." &&
             selected != null &&
-            blockingOrder == null
+            blockingOrder == null &&
+            chargeBlockedNotice == null
+    val shownError = chargeBlockedNotice ?: error
     val amountPulse = rememberAmountPulse(amount)
     var showRailSheet by remember { mutableStateOf(false) }
     var showNoteSheet by remember { mutableStateOf(false) }
@@ -333,8 +337,6 @@ fun CreateOrderScreen(
 
     PosScreenFrame(applySystemBars = false) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PaymentGateBrand()
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Charge",
                 style = MaterialTheme.typography.headlineMedium,
@@ -693,13 +695,13 @@ fun CreateOrderScreen(
                     }
                 }
                 AnimatedVisibility(
-                    visible = !error.isNullOrBlank(),
+                    visible = !shownError.isNullOrBlank(),
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                        Text(text = shownError.orEmpty(), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

@@ -8,7 +8,7 @@ import org.junit.Test
 
 class JsonParsersTest {
     @Test
-    fun parseLogin_cashierMembership() {
+    fun cashierCannotBindPos() {
         val body =
             """
             {
@@ -24,13 +24,13 @@ class JsonParsersTest {
             """.trimIndent()
         val result = JsonParsers.parseLoginResponse(body)
         assertFalse(result.mfaRequired)
-        assertTrue(SessionRules.hasCashierMembership(result.session))
+        assertFalse(SessionRules.canBindPos(result.session))
         assertEquals("cashier@example.com", result.session.email)
     }
 
     @Test
-    fun rejectOwnerWithoutCashier() {
-        val session = JsonParsers.parseSession(
+    fun ownerAndSiteAdminCanBindPos() {
+        val owner = JsonParsers.parseSession(
             JSONObject(
                 """
                 {
@@ -43,7 +43,153 @@ class JsonParsersTest {
                 """.trimIndent(),
             ),
         )
-        assertFalse(SessionRules.hasCashierMembership(session))
+        assertEquals("m1", SessionRules.bindMembership(owner)?.orgId)
+        val siteAdmin = JsonParsers.parseSession(
+            JSONObject(
+                """
+                {
+                  "userId": "u2",
+                  "email": "admin@example.com",
+                  "memberships": [
+                    { "orgId": "s1", "userId": "u2", "role": "administrator", "orgType": "merchant_site" }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+        assertEquals("s1", SessionRules.bindMembership(siteAdmin)?.orgId)
+        assertEquals("Site", SessionRules.orgTypeLabel("merchant_site"))
+    }
+
+    @Test
+    fun platformAdminCannotBindPos() {
+        val session = JsonParsers.parseSession(
+            JSONObject(
+                """
+                {
+                  "userId": "u3",
+                  "email": "ops@example.com",
+                  "memberships": [
+                    { "orgId": "p1", "userId": "u3", "role": "owner", "orgType": "platform" }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+        assertFalse(SessionRules.canBindPos(session))
+    }
+
+    @Test
+    fun parseBindResponse() {
+        val binding = JsonParsers.parseBindResponse(
+            """
+            {
+              "terminalToken": "tok_abc",
+              "terminal": { "id": "t1" },
+              "org": { "id": "s1", "type": "merchant_site", "name": "North Annex" },
+              "businessTimezone": "Asia/Seoul"
+            }
+            """.trimIndent(),
+        )
+        assertEquals("tok_abc", binding.token)
+        assertEquals("t1", binding.terminalId)
+        assertEquals("North Annex", binding.org.name)
+        assertEquals("merchant_site", binding.org.type)
+        assertEquals("Asia/Seoul", binding.businessTimezone)
+    }
+
+    @Test
+    fun parseTerminalStatus() {
+        val status = JsonParsers.parseTerminalStatus(
+            """
+            {
+              "terminal": { "id": "t1", "status": "active" },
+              "org": { "id": "m1", "type": "merchant", "name": "Main Store" },
+              "businessTimezone": null
+            }
+            """.trimIndent(),
+        )
+        assertEquals("Main Store", status.org.name)
+        assertEquals(null, status.org.iconKey)
+        assertEquals(null, status.businessTimezone)
+    }
+
+    @Test
+    fun parseOrgIconKey() {
+        val preset = JsonParsers.parseOrg(JSONObject("""{"id":"m1","type":"merchant","name":"Shop","iconKey":"store"}"""))
+        assertEquals("store", preset.iconKey)
+        assertEquals(true, preset.iconSent)
+        val cleared = JsonParsers.parseOrg(JSONObject("""{"id":"m1","name":"Shop","iconKey":null}"""))
+        assertEquals(null, cleared.iconKey)
+        assertEquals(true, cleared.iconSent)
+        val heartbeat = JsonParsers.parseOrg(JSONObject("""{"id":"m1","name":"Shop"}"""))
+        assertEquals(false, heartbeat.iconSent)
+    }
+
+    @Test
+    fun parseUnlockResponse() {
+        val result = JsonParsers.parseUnlockResponse(
+            """
+            {
+              "session": {
+                "userId": "u9",
+                "email": "kim@example.com",
+                "firstName": "Min",
+                "lastName": "Kim",
+                "memberships": [
+                  { "orgId": "s1", "userId": "u9", "role": "cashier", "orgType": "merchant_site" }
+                ]
+              },
+              "operator": { "firstName": "Min", "lastName": "Kim", "role": "cashier" },
+              "liveActionsUnlocked": false,
+              "liveActionsBlockedReason": "contact_unverified",
+              "expiresAt": "2026-09-30T20:00:00.000Z",
+              "org": { "id": "s1", "type": "merchant_site", "name": "North Annex" },
+              "businessTimezone": "Asia/Seoul"
+            }
+            """.trimIndent(),
+        )
+        assertEquals("Min Kim", result.operator.displayName)
+        assertFalse(result.operator.isManager)
+        assertFalse(result.liveActionsUnlocked)
+        assertEquals("contact_unverified", result.liveActionsBlockedReason)
+        assertEquals("North Annex", result.org.name)
+        assertEquals("u9", result.session.userId)
+    }
+
+    @Test
+    fun operatorWithoutNameFallsBackToRole() {
+        val op = Operator(firstName = null, lastName = " ", role = "administrator")
+        assertEquals("Administrator", op.displayName)
+        assertTrue(op.isManager)
+    }
+
+    @Test
+    fun unlockLockoutReadsRetryAfter() {
+        val body = """{"code":"pos_unlock_locked","message":"Locked","details":{"retryAfterSeconds":120}}"""
+        val error = JsonParsers.parseError(body, 423)
+        assertEquals("pos_unlock_locked", error.code)
+        assertEquals(120, JsonParsers.retryAfterSeconds(error))
+        assertEquals(
+            "Too many wrong PINs. Try again in 2 min.",
+            CashierPosSurface.userMessage(error),
+        )
+    }
+
+    @Test
+    fun mapsTerminalRevoked() {
+        val msg = CashierPosSurface.userMessage(ApiError("terminal_revoked", "Revoked", 401))
+        assertEquals(CashierPosSurface.TERMINAL_REVOKED, msg)
+    }
+
+    @Test
+    fun maps401OutsideSetupToSessionEnded() {
+        val error = ApiError("unauthenticated", "Sign in", 401)
+        assertEquals(CashierPosSurface.SESSION_ENDED, CashierPosSurface.userMessage(error))
+        assertEquals(
+            CashierPosSurface.INVALID_LOGIN,
+            CashierPosSurface.userMessage(error, CashierPosSurface.ErrorContext.Setup),
+        )
     }
 
     @Test
@@ -236,22 +382,24 @@ class CashierPosSurfaceTest {
     }
 
     @Test
-    fun mapsMfaRequiredToWebPortalMessage() {
+    fun mapsMfaRequiredToAuthenticatorPrompt() {
         val msg = CashierPosSurface.userMessage(
-            ApiError("mfa_required", "This account requires MFA. Sign in on the web portal.", 403),
+            ApiError("mfa_required", "MFA required", 401),
         )
         assertEquals(CashierPosSurface.MFA_REQUIRED_POS, msg)
-        assertTrue(msg.contains("web portal"))
         assertFalse(msg.contains("xPub"))
     }
 
     @Test
-    fun mapsNotCashierToRoleMessage() {
-        val msg = CashierPosSurface.userMessage(
-            ApiError("not_cashier", "Cashier role on a merchant account is required for POS.", 403),
+    fun mapsMfaEnrollmentAndNonManager() {
+        assertEquals(
+            CashierPosSurface.MFA_ENROLL_ON_WEB,
+            CashierPosSurface.userMessage(ApiError("mfa_enrollment_required", "Enroll", 403)),
         )
-        assertEquals(CashierPosSurface.NOT_CASHIER_POS, msg)
-        assertFalse(msg.contains("xPub"))
+        assertEquals(
+            CashierPosSurface.NOT_POS_MANAGER,
+            CashierPosSurface.userMessage(ApiError("not_pos_manager", "", 403)),
+        )
     }
 
     @Test

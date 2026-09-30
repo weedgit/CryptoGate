@@ -1,10 +1,10 @@
 package com.paymentgate.cashier
 
 import android.app.Application
-import com.paymentgate.cashier.api.DevicePinStore
 import com.paymentgate.cashier.api.PaymentGateClient
 import com.paymentgate.cashier.api.PosPreferences
 import com.paymentgate.cashier.api.SessionStore
+import com.paymentgate.cashier.api.TerminalStore
 import com.paymentgate.cashier.hardware.CustomerDisplay
 import com.paymentgate.cashier.hardware.CustomerDisplayFactory
 import com.paymentgate.cashier.hardware.LastReceiptStore
@@ -13,6 +13,8 @@ import com.paymentgate.cashier.hardware.ThermalPrinterFactory
 
 class CashierApplication : Application() {
     lateinit var sessionStore: SessionStore
+        private set
+    lateinit var terminalStore: TerminalStore
         private set
     lateinit var api: PaymentGateClient
         private set
@@ -24,19 +26,18 @@ class CashierApplication : Application() {
         private set
     lateinit var posPrefs: PosPreferences
         private set
-    lateinit var devicePin: DevicePinStore
-        private set
 
     override fun onCreate() {
         super.onCreate()
         sessionStore = SessionStore(this)
+        terminalStore = TerminalStore(this)
         api = PaymentGateClient(
             baseUrl = BuildConfig.API_BASE_URL,
             sessionStore = sessionStore,
+            terminalStore = terminalStore,
         )
         lastReceiptStore = LastReceiptStore()
         posPrefs = PosPreferences(this)
-        devicePin = DevicePinStore(this)
         thermalPrinter = ThermalPrinterFactory.create()
         customerDisplay = CustomerDisplayFactory.create()
     }

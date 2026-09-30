@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,43 +33,53 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.paymentgate.cashier.api.CashierPosSurface
 import kotlinx.coroutines.delay
 
-/**
- * V3 DEVICE UNLOCK — Enter PIN.
- * @param mode Unlock existing PIN, or Set/Confirm when provisioning the device.
- */
-enum class PinScreenMode { Unlock, Set, Confirm }
+const val PIN_MIN_LENGTH = 6
+const val PIN_MAX_LENGTH = 8
 
+/**
+ * PIN-only unlock for a bound POS. The server identifies the person inside
+ * [orgName]'s org from the PIN alone — there is no name picker.
+ *
+ * @param lockedSeconds Seconds left on a `pos_unlock_locked` lockout; the pad is disabled until 0.
+ */
 @Composable
 fun PinUnlockScreen(
-    mode: PinScreenMode,
-    siteName: String = "North Annex",
+    orgName: String,
+    orgTypeLabel: String,
     error: String?,
-    pinLength: Int = 6,
-    onPinComplete: (String) -> Unit,
+    busy: Boolean,
+    lockedSeconds: Int,
+    onPinSubmit: (String) -> Unit,
     onClearError: () -> Unit,
 ) {
     var digits by remember { mutableStateOf("") }
-    val title =
-        when (mode) {
-            PinScreenMode.Unlock -> "Enter PIN"
-            PinScreenMode.Set -> "Set device PIN"
-            PinScreenMode.Confirm -> "Confirm PIN"
+    var remaining by remember(lockedSeconds) { mutableIntStateOf(lockedSeconds) }
+    val locked = remaining > 0
+    val enabled = !busy && !locked
+
+    LaunchedEffect(lockedSeconds) {
+        while (remaining > 0) {
+            delay(1000)
+            remaining -= 1
         }
-    val subtitle =
-        when (mode) {
-            PinScreenMode.Unlock -> "Site PIN unlocks this terminal"
-            PinScreenMode.Set -> "Choose a 6-digit PIN for this terminal"
-            PinScreenMode.Confirm -> "Enter the same PIN again"
-        }
+        if (lockedSeconds > 0) onClearError()
+    }
 
     LaunchedEffect(error) {
         if (error != null) {
-            delay(1200)
             digits = ""
-            onClearError()
+            if (lockedSeconds <= 0) {
+                delay(2000)
+                onClearError()
+            }
         }
+    }
+
+    fun submit() {
+        if (enabled && digits.length >= PIN_MIN_LENGTH) onPinSubmit(digits)
     }
 
     PosScreenFrame {
@@ -75,67 +87,84 @@ fun PinUnlockScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "DEVICE UNLOCK",
+                    text = "POS LOCKED",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = siteName,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = orgTypeLabel,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(modifier = Modifier.height(28.dp))
-            PaymentGateBrand(iconSize = 36.dp)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+            OrgBrandMark(
+                iconKey = LocalPosOrg.current?.iconKey,
+                size = 72.dp,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = title,
+                text = orgName,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Enter your PIN",
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (!error.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            Spacer(modifier = Modifier.height(28.dp))
-            Row(
+                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+            )
+            val notice =
+                when {
+                    locked -> CashierPosSurface.unlockLockedMessage(remaining)
+                    else -> error
+                }
+            Box(
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                repeat(pinLength) { i ->
-                    Box(
-                        modifier =
-                            Modifier
-                                .padding(horizontal = 8.dp)
-                                .size(14.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (i < digits.length) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outline,
-                                ),
+                if (!notice.isNullOrBlank()) {
+                    Text(
+                        text = notice,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(28.dp))
-            Text(
-                text = "PIN PAD",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().height(24.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    repeat(maxOf(PIN_MIN_LENGTH, digits.length)) { i ->
+                        Box(
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .size(14.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (i < digits.length) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outline,
+                                    ),
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
@@ -146,7 +175,7 @@ fun PinUnlockScreen(
                         listOf("1", "2", "3"),
                         listOf("4", "5", "6"),
                         listOf("7", "8", "9"),
-                        listOf("⌫", "0", "×"),
+                        listOf(KEY_BACK, "0", KEY_ENTER),
                     ).forEach { row ->
                         Row(
                             modifier =
@@ -156,27 +185,26 @@ fun PinUnlockScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             row.forEach { key ->
+                                val isEnter = key == KEY_ENTER
+                                val keyEnabled =
+                                    enabled && (!isEnter || digits.length >= PIN_MIN_LENGTH)
                                 Surface(
                                     modifier =
                                         Modifier
                                             .weight(1f)
                                             .height(64.dp)
-                                            .clickable {
+                                            .clickable(enabled = keyEnabled) {
                                                 when (key) {
-                                                    "×" -> digits = ""
-                                                    "⌫" -> if (digits.isNotEmpty()) digits = digits.dropLast(1)
-                                                    else -> {
-                                                        if (digits.length < pinLength) {
-                                                            digits += key
-                                                            if (digits.length == pinLength) {
-                                                                onPinComplete(digits)
-                                                            }
-                                                        }
-                                                    }
+                                                    KEY_BACK -> digits = digits.dropLast(1)
+                                                    KEY_ENTER -> submit()
+                                                    else ->
+                                                        if (digits.length < PIN_MAX_LENGTH) digits += key
                                                 }
                                             },
                                     shape = RoundedCornerShape(14.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    color =
+                                        if (isEnter && keyEnabled) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant,
                                 ) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -187,6 +215,12 @@ fun PinUnlockScreen(
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             textAlign = TextAlign.Center,
+                                            color =
+                                                when {
+                                                    isEnter && keyEnabled -> MaterialTheme.colorScheme.onPrimary
+                                                    keyEnabled -> MaterialTheme.colorScheme.onSurface
+                                                    else -> MaterialTheme.colorScheme.outline
+                                                },
                                         )
                                     }
                                 }
@@ -196,13 +230,14 @@ fun PinUnlockScreen(
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "Restart keeps this PIN screen. Reset PIN on the web dashboard (Security).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+            SecuredByPaymentGate(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 4.dp),
             )
         }
     }
 }
+
+private const val KEY_BACK = "⌫"
+private const val KEY_ENTER = "OK"

@@ -265,6 +265,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal(bound.status, 201, JSON.stringify(bound.json));
     assert.match(bound.json.terminalToken, /^pgt_/);
     assert.equal(bound.json.org.id, merchantId);
+    assert.ok("iconKey" in bound.json.org, "bind carries the org icon (null when none)");
     const after = await api("/v1/auth/session", { session: login });
     assert.equal(after.status, 401);
 
@@ -274,6 +275,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     const info = await api("/v1/pos/terminal", { terminal: bound.json.terminalToken });
     assert.equal(info.status, 200);
     assert.equal(info.json.org.id, merchantId);
+    assert.ok(!("iconKey" in info.json.org), "heartbeat leaves the icon out");
     assert.equal((await api("/v1/pos/terminal", { terminal: "pgt_nope" })).status, 401);
   });
 
@@ -284,6 +286,7 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
     assert.equal(ok.json.operator.role, "cashier");
     assert.equal(ok.json.liveActionsUnlocked, true);
+    assert.ok("iconKey" in ok.json.org, "unlock carries the org icon (null when none)");
     assert.ok(ok.cookie);
     assert.equal(await auditCount("pos_unlock_success", terminal.id), 1);
 

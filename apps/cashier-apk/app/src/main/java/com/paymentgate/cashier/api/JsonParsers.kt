@@ -34,7 +34,68 @@ object JsonParsers {
             memberships = memberships,
             timezone = obj.optNullableString("timezone"),
             timezoneConfirmed = obj.optBoolean("timezoneConfirmed", false),
+            firstName = obj.optNullableString("firstName"),
+            lastName = obj.optNullableString("lastName"),
         )
+    }
+
+    fun parseOrg(obj: JSONObject): OrgInfo =
+        OrgInfo(
+            id = obj.getString("id"),
+            type = obj.optNullableString("type"),
+            name = obj.optNullableString("name").orEmpty(),
+            iconKey = obj.optNullableString("iconKey")?.takeIf { it.isNotBlank() },
+            iconSent = obj.has("iconKey"),
+        )
+
+    /** `POST /v1/pos/terminals` 201. */
+    fun parseBindResponse(body: String): TerminalBinding {
+        val root = JSONObject(body)
+        return TerminalBinding(
+            terminalId = root.getJSONObject("terminal").getString("id"),
+            token = root.getString("terminalToken"),
+            org = parseOrg(root.getJSONObject("org")),
+            businessTimezone = root.optNullableString("businessTimezone"),
+        )
+    }
+
+    /** `GET /v1/pos/terminal`. */
+    fun parseTerminalStatus(body: String): TerminalStatus {
+        val root = JSONObject(body)
+        return TerminalStatus(
+            org = parseOrg(root.getJSONObject("org")),
+            businessTimezone = root.optNullableString("businessTimezone"),
+        )
+    }
+
+    /** `POST /v1/pos/unlock` 200. */
+    fun parseUnlockResponse(body: String): UnlockResult {
+        val root = JSONObject(body)
+        val op = root.getJSONObject("operator")
+        return UnlockResult(
+            session = parseSession(root.getJSONObject("session")),
+            operator = Operator(
+                firstName = op.optNullableString("firstName"),
+                lastName = op.optNullableString("lastName"),
+                role = op.optString("role", SessionRules.ROLE_CASHIER),
+            ),
+            liveActionsUnlocked = root.optBoolean("liveActionsUnlocked", true),
+            liveActionsBlockedReason = root.optNullableString("liveActionsBlockedReason"),
+            org = parseOrg(root.getJSONObject("org")),
+            businessTimezone = root.optNullableString("businessTimezone"),
+        )
+    }
+
+    fun bindRequestJson(deviceModel: String, appVersion: String): String =
+        JSONObject()
+            .put("deviceModel", deviceModel.take(80))
+            .put("appVersion", appVersion.take(80))
+            .toString()
+
+    /** Seconds left on a `423 pos_unlock_locked`. */
+    fun retryAfterSeconds(error: ApiError): Int? {
+        val fromDetails = error.details?.optInt("retryAfterSeconds", 0) ?: 0
+        return fromDetails.takeIf { it > 0 }
     }
 
     fun parseError(body: String, httpStatus: Int): ApiError {

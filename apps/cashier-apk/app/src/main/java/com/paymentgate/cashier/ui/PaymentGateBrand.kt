@@ -29,7 +29,7 @@ fun PaymentGateBrand(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Image(
-            painter = painterResource(id = R.drawable.pg_app_icon),
+            painter = painterResource(id = R.drawable.pg_brand_gate),
             contentDescription = "PaymentGate",
             modifier = Modifier.size(iconSize),
         )
