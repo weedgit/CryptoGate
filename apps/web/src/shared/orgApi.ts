@@ -1,5 +1,6 @@
 import { apiFetch } from "../auth/apiFetch";
 import { API_BASE, parseError } from "./apiCore";
+import { requestSessionRefresh } from "./sessionRefresh";
 
 export type OrgAccount = {
   id: string;
@@ -156,7 +157,9 @@ export async function patchOrgProfile(
     body: JSON.stringify(payload),
   });
   if (!res.ok) await parseError(res);
-  return (await res.json()) as OrgAccount;
+  const updated = (await res.json()) as OrgAccount;
+  requestSessionRefresh();
+  return updated;
 }
 
 export async function getMerchantCommercial(

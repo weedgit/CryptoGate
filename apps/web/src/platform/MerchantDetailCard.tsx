@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -410,6 +411,8 @@ export function MerchantDetailCard({
     }
   }
 
+  const profileTick = useProfileUpdatedTick();
+
   useEffect(() => {
     let cancelled = false;
     setOverviewLoading(true);
@@ -451,7 +454,7 @@ export function MerchantDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id, portal]);
+  }, [org.id, portal, profileTick]);
 
   useEffect(() => {
     let cancelled = false;

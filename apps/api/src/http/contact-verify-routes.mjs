@@ -16,7 +16,13 @@ import {
 } from "../auth/contact-otp-store.mjs";
 import { sessionFromUserWithSetup } from "../auth/session-payload.mjs";
 import { sendEmailChangeNotice, sendEmailOtp } from "../mail/auth-mail.mjs";
-import { sendPhoneChangeNotice, sendSms } from "../sms/sms-send.mjs";
+import {
+  checkPhoneVerification,
+  sendPhoneChangeNotice,
+  sendSms,
+  startPhoneVerification,
+  usesTwilioVerify,
+} from "../sms/sms-send.mjs";
 import { AUDIT_ACTIONS } from "../audit/audit-rules.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { listMembershipsForUser } from "../orgs/membership-store.mjs";
@@ -319,10 +325,13 @@ export async function handleSendPhoneOtp(req, res) {
     return;
   }
 
-  const sent = await sendSms({
-    to: destination,
-    text: `PaymentGate code: ${issued.code}. It expires in 10 minutes.`,
-  });
+  const viaVerify = usesTwilioVerify();
+  const sent = viaVerify
+    ? await startPhoneVerification(destination)
+    : await sendSms({
+        to: destination,
+        text: `PaymentGate code: ${issued.code}. It expires in 10 minutes.`,
+      });
   if (await rejectUndelivered(res, user.id, "phone", sent)) return;
   if (isChange && user.phoneVerified && current) {
     await notifyOldPhone(current, "requested");
@@ -342,7 +351,7 @@ export async function handleSendPhoneOtp(req, res) {
     pendingChange: isChange,
     expiresAt: issued.expiresAt.toISOString(),
     session: await sessionJson(user),
-    ...otpEcho(issued),
+    ...(viaVerify ? {} : otpEcho(issued)),
   });
 }
 
@@ -363,7 +372,27 @@ export async function handleVerifyPhoneOtp(req, res) {
     return;
   }
   const code = typeof body?.code === "string" ? body.code : "";
-  const result = await consumeContactOtp(caller.userId, "phone", code);
+  let result;
+  try {
+    result = await consumeContactOtp(
+      caller.userId,
+      "phone",
+      code,
+      usesTwilioVerify() ? { check: checkPhoneVerification } : {},
+    );
+  } catch (err) {
+    if (err && err.code === "sms_verify_unavailable") {
+      console.error(err.message);
+      sendError(
+        res,
+        503,
+        "otp_check_unavailable",
+        "We couldn't check the code right now. Try again in a minute.",
+      );
+      return;
+    }
+    throw err;
+  }
   if (result.status === "ok") {
     const destination = normalizePhone(result.destination);
     if (!destination) {

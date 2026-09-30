@@ -10,6 +10,8 @@ import {
 } from "./apiFetch";
 import { clearChunkReloadFlag } from "../shared/lazyChunkRecovery";
 import { readCachedSession, writeCachedSession } from "./sessionCache";
+import { notifyProfileUpdated, profileSignature } from "../shared/profileUpdated";
+import { SESSION_REFRESH_EVENT } from "../shared/sessionRefresh";
 
 const DEFAULT_TIMEOUT_MIN = 120;
 
@@ -67,14 +69,22 @@ export function usePortalBoot() {
   const [mfaPending, setMfaPending] = useState(false);
   const [booting, setBooting] = useState(() => readCachedSession() == null);
 
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
   const setSession = useCallback((next: Session | null) => {
-    setSessionState((prev) => {
-      if (prev?.userId !== next?.userId) {
+    const prev = sessionRef.current;
+    const sameUser = Boolean(prev && next && prev.userId === next.userId);
+    const profileChanged = sameUser && profileSignature(prev) !== profileSignature(next);
+    sessionRef.current = next;
+    setSessionState((current) => {
+      if (current?.userId !== next?.userId) {
         invalidateAllPortalDataCaches();
       }
       return next;
     });
     writeCachedSession(next);
+    if (profileChanged) notifyProfileUpdated();
   }, []);
 
   useEffect(() => {
@@ -120,6 +130,21 @@ export function usePortalBoot() {
   }, [session]);
 
   useSessionKeepAlive(session, setSession);
+
+  useEffect(() => {
+    let seq = 0;
+    const onRefresh = () => {
+      if (!sessionRef.current) return;
+      const mine = ++seq;
+      void getSession()
+        .then((next) => {
+          if (mine === seq && sessionRef.current) setSession(next);
+        })
+        .catch(() => {});
+    };
+    window.addEventListener(SESSION_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(SESSION_REFRESH_EVENT, onRefresh);
+  }, [setSession]);
 
   // Before children render so their first date math and fetches use the profile zone.
   setViewerTimeZone(session?.timezone, session?.timezoneConfirmed === true);

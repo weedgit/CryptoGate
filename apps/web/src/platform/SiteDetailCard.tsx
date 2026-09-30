@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import { Link } from "react-router-dom";
 import { ordersReviewQuery, volumeReviewQuery } from "./accountReviewLinks";
@@ -208,6 +209,8 @@ export function SiteDetailCard({
     setPrimaryOwner(null);
   }, [org.id, initialTab]);
 
+  const profileTick = useProfileUpdatedTick();
+
   useEffect(() => {
     let cancelled = false;
     setOverviewLoading(true);
@@ -248,7 +251,7 @@ export function SiteDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id, portal]);
+  }, [org.id, portal, profileTick]);
 
   return (
     <aside className="platform-detail b3-agent-detail" aria-label="Site detail">

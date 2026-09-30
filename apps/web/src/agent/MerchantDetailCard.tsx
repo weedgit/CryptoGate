@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { zonedYmd } from "../shared/dateTime";
 import { Link } from "react-router-dom";
 import { agentRoute } from "../shared/portalRouting";
@@ -340,6 +341,8 @@ export function MerchantDetailCard({
     setWalletSet(false);
   }, [org.id, initialTab]);
 
+  const profileTick = useProfileUpdatedTick();
+
   useEffect(() => {
     let cancelled = false;
     setOverviewLoading(true);
@@ -381,7 +384,7 @@ export function MerchantDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id, periodStart]);
+  }, [org.id, periodStart, profileTick]);
 
   useEffect(() => {
     if (tab !== "sites" || sites.length === 0) {

@@ -1,6 +1,7 @@
 import { apiFetch, setLoginInProgress } from "../auth/apiFetch";
 import { API_BASE, ApiError, parseError } from "../shared/apiCore";
 import { getViewerTimeZone } from "../shared/dateTime";
+import { requestSessionRefresh } from "../shared/sessionRefresh";
 import {
   listActiveNetworkMaintenance,
   getNetworksStatus,
@@ -875,7 +876,9 @@ export async function putSettlement(
     body: JSON.stringify(body),
   });
   if (!res.ok) await parseError(res);
-  return (await res.json()) as SettlementAddress & { items?: SettlementAddress[] };
+  const saved = (await res.json()) as SettlementAddress & { items?: SettlementAddress[] };
+  requestSessionRefresh();
+  return saved;
 }
 
 export async function listXpub(orgId: string): Promise<XpubSettings[]> {

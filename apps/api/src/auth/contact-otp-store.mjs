@@ -106,12 +106,14 @@ export async function issueContactOtp(userId, channel, destination) {
  * @param {string} userId
  * @param {"email" | "phone"} channel
  * @param {string} code
+ * @param {{ check?: (destination: string, code: string) => Promise<boolean> }} [opts]
+ *   `check` replaces the local hash comparison (codes issued by Twilio Verify)
  * @returns {Promise<
  *   | { status: "ok", destination: string }
  *   | { status: "invalid" | "expired" | "locked" }
  * >}
  */
-export async function consumeContactOtp(userId, channel, code) {
+export async function consumeContactOtp(userId, channel, code, opts = {}) {
   const trimmed = typeof code === "string" ? code.trim() : "";
   if (!/^\d{6}$/.test(trimmed)) return { status: "invalid" };
 
@@ -136,7 +138,9 @@ export async function consumeContactOtp(userId, channel, code) {
     return { status: "locked" };
   }
 
-  const ok = hashSessionToken(trimmed) === row.code_hash;
+  const ok = opts.check
+    ? await opts.check(String(row.destination ?? ""), trimmed)
+    : hashSessionToken(trimmed) === row.code_hash;
   if (!ok) {
     const { rows: updated } = await pool.query(
       `UPDATE contact_otps

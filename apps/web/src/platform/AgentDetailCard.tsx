@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProfileUpdatedTick } from "../shared/profileUpdated";
 import { Link } from "react-router-dom";
 import { DEFAULT_FEE_TIER_BANDS, PLATFORM_FEE_ASSET } from "@paymentgate/domain";
 import { AuthToast } from "../auth/AuthToast";
@@ -414,6 +415,8 @@ export function AgentDetailCard({
     }
   }
 
+  const profileTick = useProfileUpdatedTick();
+
   useEffect(() => {
     let cancelled = false;
     setOverviewLoading(true);
@@ -452,7 +455,7 @@ export function AgentDetailCard({
     return () => {
       cancelled = true;
     };
-  }, [org.id]);
+  }, [org.id, profileTick]);
 
   useEffect(() => {
     setTab("overview");

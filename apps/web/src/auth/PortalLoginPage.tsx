@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ApiError,
   login,
+  logout,
   requestPasswordReset,
   resetPasswordWithToken,
   verifyMfa,
@@ -263,6 +264,18 @@ export function PortalLoginPage({
     }
   }
 
+  /** Drops the password-verified session waiting on MFA so a reload does not reopen this step. */
+  async function cancelMfa() {
+    setLoading(true);
+    try {
+      await logout();
+    } finally {
+      setLoading(false);
+      setPassword("");
+      backToLogin();
+    }
+  }
+
   function goToForgot() {
     setForgotEmail(email);
     setForgotSent(false);
@@ -458,6 +471,15 @@ export function PortalLoginPage({
 
             <button className="login-submit" type="submit" disabled={loading || mfaCode.length !== 6}>
               {loading ? "Please wait…" : "Verify"}
+            </button>
+
+            <button
+              type="button"
+              className="login-text-link login-back-link"
+              onClick={() => void cancelMfa()}
+              disabled={loading}
+            >
+              Back to login
             </button>
           </form>
       </AuthLayout>

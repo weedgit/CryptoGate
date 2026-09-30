@@ -1,5 +1,6 @@
 import { apiFetch } from "../auth/apiFetch";
 import { API_BASE, parseError } from "./apiCore";
+import { requestSessionRefresh } from "./sessionRefresh";
 
 export type AgentCommissionSettings = {
   orgId: string;
@@ -94,7 +95,9 @@ export async function putAgentPayout(
     },
   );
   if (!res.ok) await parseError(res);
-  return (await res.json()) as AgentPayoutAddress;
+  const saved = (await res.json()) as AgentPayoutAddress;
+  requestSessionRefresh();
+  return saved;
 }
 
 /** Batch list — commissions board (avoids N× getAgentPayout). */
