@@ -98,7 +98,7 @@ export async function fetchChainlinkUsd(asset, fetchImpl = fetch) {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(5_000),
   });
   if (!res.ok) throw new Error(`chainlink_rpc_http_${res.status}`);
   const json = await res.json();

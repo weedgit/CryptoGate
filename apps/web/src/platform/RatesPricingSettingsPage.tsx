@@ -10,11 +10,13 @@ import {
 } from "../merchant/api";
 import { sessionIsPlatformOwner } from "./org";
 import { PagePending } from "./ui/PlatformPending";
+import { RateFeedStatusPanel, RateTestQuotePanel } from "./RateFeedDiagnostics";
+import { RATE_VENUES, VENUE_LABEL, thinnestAsset } from "./rateVenues";
 
 type Props = { session: Session };
 
 const LOCK_OPTIONS = [300, 600, 900, 1800] as const;
-const VENUE_OPTIONS = ["binance", "coingecko", "kraken"] as const;
+const VENUE_OPTIONS = RATE_VENUES;
 
 function lockLabel(seconds: number): string {
   return `${seconds / 60} min`;
@@ -243,9 +245,10 @@ export function RatesPricingSettingsPage({ session }: Props) {
       setError("Minimum sources cannot exceed enabled venues.");
       return;
     }
-    if (minRateSources > rateVenues.filter((v) => v !== "binance").length) {
+    const thin = thinnestAsset(rateVenues);
+    if (minRateSources > thin.count) {
       setError(
-        "Minimum sources is too high: Binance has no USDT/USD market, so USDT is priced by the other enabled venues only.",
+        `Minimum sources is too high: only ${thin.count} enabled venue${thin.count === 1 ? "" : "s"} can price ${thin.asset} (Binance has no USDT/USD market; Coinbase has no TRX or USDC market).`,
       );
       return;
     }
@@ -305,6 +308,9 @@ export function RatesPricingSettingsPage({ session }: Props) {
           Platform rate feed, venues, and merchant pricing modes.
         </p>
       </header>
+
+      <RateFeedStatusPanel />
+      <RateTestQuotePanel />
 
       <form
         id="platform-pricing-form"
@@ -495,8 +501,8 @@ export function RatesPricingSettingsPage({ session }: Props) {
           />
           <aside className="plat-rates__info">
             <span>
-              Fail closed with rates_unavailable when fewer venues succeed.
-              Default: 2.
+              When fewer venues answer, quotes reuse the last good price for
+              up to 10 minutes, then fail with rates_unavailable. Default: 2.
             </span>
           </aside>
         </section>
@@ -560,7 +566,7 @@ export function RatesPricingSettingsPage({ session }: Props) {
                     disabled={!canEdit || locked}
                     onChange={(e) => toggleVenue(v, e.target.checked)}
                   />
-                  <span>{v}</span>
+                  <span>{VENUE_LABEL[v] ?? v}</span>
                 </label>
               );
             })}

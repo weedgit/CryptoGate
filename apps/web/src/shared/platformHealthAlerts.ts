@@ -9,7 +9,33 @@ export type PlatformHealthSnapshot = {
   api: boolean;
   database: boolean;
   webhook: boolean;
+  /** False when an FX rate feed is stale or down (platform only). */
+  rates?: boolean;
+  ratesDetail?: string;
 };
+
+const RATES_HREF = platformRoute("settings/rates");
+
+function syncRatesAlert(health: PlatformHealthSnapshot): void {
+  if (health.rates !== false) {
+    clearPlatformAlert("sys-rates");
+    return;
+  }
+  upsertPlatformAlert({
+    id: "sys-rates",
+    category: "system",
+    title: "FX rate feed degraded",
+    body: `Not enough exchanges are answering${health.ratesDetail ? ` (${health.ratesDetail})` : ""}. Quotes reuse the last good price for up to 10 minutes, then market-priced orders fail.`,
+    at: relativeAlertTime(),
+    href: RATES_HREF,
+    hrefLabel: "Rates",
+    unread: true,
+    tone: "warn",
+    urgent: true,
+    unresolved: true,
+    actionable: true,
+  });
+}
 
 const HEALTH_HREF = platformRoute("settings/networks");
 
@@ -52,6 +78,8 @@ export function syncPlatformHealthAlerts(
     clearPlatformAlert("sys-webhook");
     return;
   }
+
+  syncRatesAlert(health);
 
   if (health.api && health.database && health.webhook) {
     clearPlatformAlert("sys-api");

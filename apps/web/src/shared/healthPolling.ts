@@ -23,6 +23,8 @@ async function probeHealth(): Promise<PlatformHealthSnapshot | "unreachable"> {
       status?: string;
       db?: string;
       webhook?: string;
+      rates?: string;
+      ratesDetail?: string;
     };
     if (payload.status !== "ok" && payload.status !== "degraded") {
       return "unreachable";
@@ -31,6 +33,8 @@ async function probeHealth(): Promise<PlatformHealthSnapshot | "unreachable"> {
       api: payload.status === "ok" || payload.status === "degraded",
       database: payload.db === "ok",
       webhook: payload.webhook === "ok",
+      rates: payload.rates !== "degraded",
+      ratesDetail: payload.ratesDetail,
     };
   } catch {
     return "unreachable";

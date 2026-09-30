@@ -60,7 +60,7 @@ import {
 } from "./platformConditionAlerts";
 import { prefetchPlatformRoute } from "./prefetchRoutes";
 
-const HEALTHY: PlatformHealthSnapshot = { api: true, database: true, webhook: true };
+const HEALTHY: PlatformHealthSnapshot = { api: true, database: true, webhook: true, rates: true };
 
 function PlatformHealthBeacon({ orgId }: { orgId: string | null }) {
   useEffect(() => {

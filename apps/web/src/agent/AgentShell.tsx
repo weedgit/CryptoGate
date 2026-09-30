@@ -125,7 +125,7 @@ function AgentHealthBeacon() {
   useEffect(() => {
     ensureHealthPolling(true);
     const sync = (next: Awaited<ReturnType<typeof fetchPlatformHealth>>) => {
-      syncPlatformHealthAlerts(next);
+      syncPlatformHealthAlerts(next === "unreachable" ? next : { ...next, rates: true });
     };
     const unsub = subscribeSharedHealth(sync);
     void fetchPlatformHealth().then(sync);

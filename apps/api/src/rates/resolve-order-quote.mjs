@@ -2,17 +2,21 @@
  * Resolve FX quote for an invoice (USD/EUR fiat or exact crypto) + asset pair.
  */
 import { amountToMinor } from "../orders/order-rules.mjs";
-import { getUsdPrice } from "./usd-price.mjs";
+import { getPegFallbackPrice, getUsdPrice } from "./usd-price.mjs";
 import { getEurUsdPrice } from "./eur-usd.mjs";
 import { buildLockedQuote, multiplyDecimals } from "./pricing.mjs";
 import {
   getMerchantPricingSettings,
   getPlatformPricingSettings,
+  resolveEffectiveMerchantPricing,
 } from "./pricing-settings-store.mjs";
 
 /**
+ * `pricing` replaces the merchant's stored settings (platform test quote);
+ * platform kill switches and lock limits still apply.
  * @param {{
- *   orgId: string,
+ *   orgId?: string,
+ *   pricing?: { pricingMode: string, quoteLockSeconds: number },
  *   amountUsd?: string,
  *   invoiceAmount?: string,
  *   invoiceCurrency?: string,
@@ -25,9 +29,10 @@ import {
  * }} args
  */
 export async function resolveOrderQuote(args) {
-  const merchant = await getMerchantPricingSettings(args.orgId);
   const platform = await getPlatformPricingSettings();
-  const eff = merchant.effective;
+  const eff = args.pricing
+    ? resolveEffectiveMerchantPricing(args.pricing, platform)
+    : (await getMerchantPricingSettings(/** @type {string} */ (args.orgId))).effective;
   if (!eff.ratesEnabled) {
     return {
       ok: false,
@@ -66,12 +71,21 @@ export async function resolveOrderQuote(args) {
       err?.code === "rate_reference_rejected"
         ? "rate_reference_rejected"
         : "rates_unavailable";
-    return {
-      ok: false,
-      status: code === "rate_reference_rejected" ? 422 : 503,
-      code,
-      message: err instanceof Error ? err.message : "Unable to fetch USD price",
-    };
+    const fallback =
+      code === "rates_unavailable" && eff.pricingMode === "pegged_1to1"
+        ? await getPegFallbackPrice(args.asset, {
+            depegThresholdBps: eff.depegThresholdBps,
+          })
+        : null;
+    if (!fallback) {
+      return {
+        ok: false,
+        status: code === "rate_reference_rejected" ? 422 : 503,
+        code,
+        message: err instanceof Error ? err.message : "Unable to fetch USD price",
+      };
+    }
+    price = fallback;
   }
 
   if (denomination === "crypto") {
@@ -137,7 +151,9 @@ export async function resolveOrderQuote(args) {
         minSources: Math.min(2, platform.minRateSources),
       });
       invoiceUsd = multiplyDecimals(invoiceAmount, eur.rate);
-      fxWarning = `eurusd:${eur.source}`;
+      fxWarning = eur.stale
+        ? `eurusd_${eur.rateWarning}:${eur.source}`
+        : `eurusd:${eur.source}`;
     } catch (err) {
       return {
         ok: false,

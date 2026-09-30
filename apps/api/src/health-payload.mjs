@@ -4,6 +4,7 @@ import {
   resolveBackupStatus,
 } from "./ops/backup-status.mjs";
 import { getWebhookDeliveryWorkerSnapshot } from "./webhooks/webhook-delivery-job.mjs";
+import { getRateFeedHealth } from "./rates/rate-refresh-job.mjs";
 
 /**
  * Resolve webhook worker + queue health for the topbar / Health checklist.
@@ -164,6 +165,15 @@ export async function getHealthPayload(opts = {}) {
   }
   if (webhook.lastTickAt !== undefined) {
     payload.webhookLastTickAt = webhook.lastTickAt;
+  }
+
+  const rates = getRateFeedHealth();
+  payload.rates = rates.status;
+  if (rates.status === "degraded") {
+    payload.ratesDetail = rates.assets
+      .filter((a) => a.state !== "ok")
+      .map((a) => `${a.asset} ${a.state}`)
+      .join(", ");
   }
 
   const backup = await resolveBackupStatus();

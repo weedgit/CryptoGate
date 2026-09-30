@@ -178,12 +178,16 @@ Payment matching modes: [Phase1-Project-Plan.md](Phase1-Project-Plan.md) Section
 
 ### FX quotes (USD / EUR invoices)
 
-- **Rate:** median of live venues (Binance, CoinGecko, Kraken); fewer healthy venues than the platform minimum → no quote (fail closed). Binance has no USDT/USD market, so USDT is priced by the other venues and the minimum can't exceed what every asset can reach. EUR invoices convert through a median EUR/USD, every source a true USD value.
+- **Rate:** median of live venues (Binance, CoinGecko, Kraken, Coinbase, Bitstamp), all free public APIs. Binance has no USDT/USD market and Coinbase has no TRX or USDC market, so each asset has four venues and the minimum can't exceed that. EUR invoices convert through a median EUR/USD (Binance, CoinGecko, Kraken, Bitstamp), every source a true USD value.
+- **Outages:** fewer healthy venues than the platform minimum → quotes reuse the last good median for up to 10 minutes (the order records `stale_rate`), then fail closed with rates_unavailable. Pegged 1:1 merchants keep quoting stablecoins at 1:1 while a last known median (up to 1 hour old) or Chainlink confirms the peg (`peg_fallback_*`). Each source gets 3 s; one that fails three times in a row is skipped for a minute.
+- **Background refresh:** the API refreshes every price every 20 s, so checkout never waits on the venues. CoinGecko is one batched call reused for 1 minute (5 minutes with a Demo key, to stay inside its monthly cap). When an asset stays below the minimum for two runs, platform staff get a System health email and an in-app alert, and another email when every feed is live again.
 - **Optional Chainlink check:** median vs Chainlink beyond the band → volatile assets rejected, stablecoins flagged. Stale or unreachable feeds never block quotes.
 - **Pricing modes:** Market; Pegged 1:1 for stablecoins strictly within the depeg threshold (otherwise market, recorded as depeg market); exact crypto invoices need no rate.
 - **Lock:** a quote holds for the merchant's lock (5/10/15/30 min). The order's payment window ends at the lock or the requested validity, whichever is first.
 - **Re-quote** (pending, unexpired orders; users who may create orders): new rate and matching run again exactly as on create, so receive address, payable amount and memo are re-assigned; the old HD address cools down. Asset/network may change for USD/EUR invoices only; exact crypto invoices keep their pair. The window re-opens for the requested validity, never past the new lock. Expired orders cannot be revived.
 - **Kill switches:** turning rates or a pricing mode off ends open orders priced that way immediately (they move to Expired; later payments follow the late-payment path). Exact crypto invoices are unaffected.
+- **Feed status (platform staff):** Rates & pricing shows a live check of every venue per asset and for EUR/USD — price, error, response time, distance from the median, whether enough venues answer to quote — plus Chainlink for comparison even when the check is off. It also shows sources paused by the breaker, when quotes are running on a stale price, and the latest background-refresh result; results are shared for 15 s and a forced refresh runs at most every 5 s.
+- **Test quote (platform staff):** prices a sample invoice (pair, amount, USD / EUR / exact crypto, market or pegged) through the same path as a new order, with the current platform settings and rate cache, and shows the pay amount, rates used and sources. No order is created.
 
 ## Fund flow
 

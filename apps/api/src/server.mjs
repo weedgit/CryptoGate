@@ -9,6 +9,7 @@ import { startWebhookDeliveryJob } from "./webhooks/webhook-delivery-job.mjs";
 import { startInvoiceExportJob } from "./orders/order-export-job.mjs";
 import { startOrderRetentionPurgeJob } from "./retention/order-retention-purge-job.mjs";
 import { startAuditArchiveJob } from "./retention/audit-archive-job.mjs";
+import { startRateRefreshJob } from "./rates/rate-refresh-job.mjs";
 import { assertWatchOnlyEnv } from "./security/spend-material.mjs";
 import { ensureDefaultFeeTierBands } from "./platform-settings/fee-tier-store.mjs";
 
@@ -17,7 +18,7 @@ assertWatchOnlyEnv();
 /**
  * HTTP entry. Background: order expiry (M2-14), service bill overdue + daily
  * invoices, agent commission day-C invoices, webhook fan-out + delivery (M3-14),
- * invoice CSV export jobs, order retention purge, audit hot→archive.
+ * invoice CSV export jobs, order retention purge, audit hot→archive, FX rate refresh.
  */
 
 const host = process.env.API_HOST ?? "0.0.0.0";
@@ -52,6 +53,8 @@ let dailyAgentCommissionInvoiceJob = null;
 let orderRetentionPurgeJob = null;
 /** @type {{ stop: () => void } | null} */
 let auditArchiveJob = null;
+/** @type {{ stop: () => void } | null} */
+let rateRefreshJob = null;
 
 server.listen(port, host, () => {
   console.log(`paymentgate-api listening on http://${host}:${port}`);
@@ -65,6 +68,7 @@ server.listen(port, host, () => {
   webhookJob = startWebhookDeliveryJob();
   invoiceExportJob = startInvoiceExportJob();
   orderRetentionPurgeJob = startOrderRetentionPurgeJob();
+  rateRefreshJob = startRateRefreshJob();
   void import("./retention/audit-archive.mjs")
     .then(async ({ ensureAuditArchiveSchema }) => {
       await ensureAuditArchiveSchema();
@@ -92,6 +96,8 @@ function shutdown() {
   orderRetentionPurgeJob = null;
   auditArchiveJob?.stop();
   auditArchiveJob = null;
+  rateRefreshJob?.stop();
+  rateRefreshJob = null;
   server.close(async () => {
     await closePool();
     process.exit(0);

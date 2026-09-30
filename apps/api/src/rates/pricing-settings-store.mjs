@@ -145,7 +145,7 @@ export async function updatePlatformPricingSettings(patch) {
   if (next.minRateSources > minVenueCoverage(next.rateVenues)) {
     throw Object.assign(
       new Error(
-        "Minimum sources exceeds the venues that can price every asset (Binance has no USDT/USD market)",
+        "Minimum sources exceeds the venues that can price every asset (Binance has no USDT/USD market; Coinbase has no TRX or USDC market)",
       ),
       { code: "invalid_request" },
     );

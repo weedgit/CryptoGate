@@ -40,6 +40,8 @@ const prices = { USDT: "1", USDC: "1", ETH: "4000", TRX: "0.25" };
 const COINGECKO_TO_ASSET = { tether: "USDT", "usd-coin": "USDC", ethereum: "ETH", tron: "TRX" };
 const KRAKEN_TO_ASSET = { USDTZUSD: "USDT", USDCUSD: "USDC", XETHZUSD: "ETH", TRXUSD: "TRX" };
 const BINANCE_TO_ASSET = { USDCUSDT: "USDC", ETHUSDT: "ETH", TRXUSDT: "TRX" };
+const COINBASE_TO_ASSET = { "ETH-USD": "ETH", "USDT-USD": "USDT" };
+const BITSTAMP_TO_ASSET = { ethusd: "ETH", trxusd: "TRX", usdtusd: "USDT", usdcusd: "USDC" };
 
 const realFetch = globalThis.fetch;
 function stubFetch(input, init) {
@@ -51,8 +53,18 @@ function stubFetch(input, init) {
     return asset ? json({ price: prices[asset] }) : Promise.resolve(new Response("{}", { status: 400 }));
   }
   if (url.hostname === "api.coingecko.com") {
-    const id = url.searchParams.get("ids");
-    return json({ [id]: { usd: Number(prices[COINGECKO_TO_ASSET[id]]) } });
+    const ids = String(url.searchParams.get("ids")).split(",");
+    return json(
+      Object.fromEntries(ids.map((id) => [id, { usd: Number(prices[COINGECKO_TO_ASSET[id]]) }])),
+    );
+  }
+  if (url.hostname === "api.exchange.coinbase.com") {
+    const asset = COINBASE_TO_ASSET[url.pathname.split("/")[2]];
+    return asset ? json({ price: prices[asset] }) : Promise.resolve(new Response("{}", { status: 404 }));
+  }
+  if (url.hostname === "www.bitstamp.net") {
+    const asset = BITSTAMP_TO_ASSET[url.pathname.split("/")[4]];
+    return asset ? json({ last: prices[asset] }) : Promise.resolve(new Response("{}", { status: 404 }));
   }
   if (url.hostname === "api.kraken.com") {
     const pair = url.searchParams.get("pair");

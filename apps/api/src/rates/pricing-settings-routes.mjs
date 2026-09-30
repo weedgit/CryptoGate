@@ -8,20 +8,64 @@ import {
   updateMerchantPricingSettings,
   updatePlatformPricingSettings,
 } from "./pricing-settings-store.mjs";
+import { getRateFeedStatus, runTestQuote } from "./rate-feed-status.mjs";
+
+/** @returns {Promise<object | null>} */
+async function requirePlatformMember(req, res) {
+  const caller = await requireCaller(req, res);
+  if (!caller) return null;
+  if (!assertApiKeyScope(caller, res, "platform")) return null;
+  if (!caller.memberships.some((m) => m.orgType === "platform")) {
+    sendError(res, 403, "forbidden", "Platform membership required");
+    return null;
+  }
+  return caller;
+}
 
 /**
  * GET /v1/platform/settings/pricing
  */
 export async function handleGetPlatformPricingSettings(req, res) {
-  const caller = await requireCaller(req, res);
-  if (!caller) return;
-  if (!assertApiKeyScope(caller, res, "platform")) return;
-  const isPlatform = caller.memberships.some((m) => m.orgType === "platform");
-  if (!isPlatform) {
-    sendError(res, 403, "forbidden", "Platform membership required");
+  if (!(await requirePlatformMember(req, res))) return;
+  sendJson(res, 200, await getPlatformPricingSettings());
+}
+
+/**
+ * GET /v1/platform/rates/status[?refresh=1]
+ */
+export async function handleGetRateFeedStatus(req, res, url) {
+  if (!(await requirePlatformMember(req, res))) return;
+  try {
+    const refresh = url?.searchParams?.get("refresh") === "1";
+    sendJson(res, 200, await getRateFeedStatus({ refresh }));
+  } catch (err) {
+    sendError(
+      res,
+      500,
+      "internal_error",
+      err instanceof Error ? err.message : "Rate feed probe failed",
+    );
+  }
+}
+
+/**
+ * POST /v1/platform/rates/test-quote — dry run, no order is created.
+ */
+export async function handlePostRateTestQuote(req, res) {
+  if (!(await requirePlatformMember(req, res))) return;
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    sendError(res, 400, "invalid_json", "Request body must be JSON");
     return;
   }
-  sendJson(res, 200, await getPlatformPricingSettings());
+  const out = await runTestQuote(body ?? {});
+  if (!out.ok) {
+    sendError(res, out.status, out.code, out.message);
+    return;
+  }
+  sendJson(res, 200, out.result);
 }
 
 /**

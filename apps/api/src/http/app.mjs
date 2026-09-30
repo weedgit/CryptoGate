@@ -150,6 +150,8 @@ import {
 import {
   handleGetMerchantPricingSettings,
   handleGetPlatformPricingSettings,
+  handleGetRateFeedStatus,
+  handlePostRateTestQuote,
   handlePutMerchantPricingSettings,
   handlePutPlatformPricingSettings,
 } from "../rates/pricing-settings-routes.mjs";
@@ -919,6 +921,16 @@ export async function handleRequest(req, res) {
       await handlePutPlatformPricingSettings(req, res);
       return;
     }
+  }
+
+  if (path === "/v1/platform/rates/status" && method === "GET") {
+    await handleGetRateFeedStatus(req, res, url);
+    return;
+  }
+
+  if (path === "/v1/platform/rates/test-quote" && method === "POST") {
+    await handlePostRateTestQuote(req, res);
+    return;
   }
 
   if (path === "/v1/platform/watcher-health" && method === "GET") {

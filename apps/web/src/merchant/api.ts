@@ -1586,6 +1586,135 @@ export async function putPlatformPricingSettings(body: {
   return res.json();
 }
 
+export type RateFeedVenueRow = {
+  venue: string;
+  enabled: boolean;
+  supported: boolean;
+  rate: string | null;
+  error: string | null;
+  latencyMs: number | null;
+  deviationBps: number | null;
+  /** Set while the circuit breaker skips this source after repeated failures. */
+  pausedUntil?: string | null;
+};
+
+export type RateFeedAssetStatus = {
+  asset: string;
+  median: string | null;
+  lastGoodAgeSeconds?: number | null;
+  healthyCount: number;
+  requiredSources: number;
+  quotable: boolean;
+  venues: RateFeedVenueRow[];
+  chainlink: {
+    rate: string | null;
+    error: string | null;
+    latencyMs: number;
+    deviationBps: number | null;
+    withinBand: boolean | null;
+  } | null;
+};
+
+export type RateFeedStatus = {
+  checkedAt: string;
+  cached: boolean;
+  settings: {
+    ratesEnabled: boolean;
+    minRateSources: number;
+    rateVenues: string[];
+    chainlinkReferenceEnabled: boolean;
+    referenceDeviationBps: number;
+    staleMaxSeconds?: number;
+    pegLastKnownMaxSeconds?: number;
+    refreshIntervalSeconds?: number;
+    coinGeckoIntervalSeconds?: number;
+  };
+  monitor?: {
+    status: "ok" | "degraded" | "off" | "unknown";
+    checkedAt: string | null;
+    assets: Array<{
+      asset: string;
+      state: "ok" | "stale" | "down" | "rejected";
+      sources: number;
+      detail: string | null;
+    }>;
+    alertOpen: boolean;
+    alertSince: string | null;
+  };
+  assets: RateFeedAssetStatus[];
+  eurUsd: {
+    median: string | null;
+    healthyCount: number;
+    requiredSources: number;
+    quotable: boolean;
+    latencyMs: number;
+    venues: Array<{
+      venue: string;
+      supported?: boolean;
+      rate: string | null;
+      error: string | null;
+      deviationBps: number | null;
+    }>;
+  };
+};
+
+export async function getRateFeedStatus(refresh = false): Promise<RateFeedStatus> {
+  const res = await apiFetch(
+    `${API_BASE}/platform/rates/status${refresh ? "?refresh=1" : ""}`,
+    { credentials: "include", headers: { Accept: "application/json" } },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as RateFeedStatus;
+}
+
+export type RateTestQuoteResult = {
+  asset: string;
+  network: string;
+  decimals: number;
+  minAmount: string;
+  pricingMode: string;
+  minRateSources: number;
+  quote: {
+    invoiceAmountUsd: string;
+    invoiceAmount: string;
+    invoiceCurrency: string;
+    invoiceDenomination: string;
+    marketRate: string;
+    pricingRate: string;
+    pricingMode: string;
+    rateSource: string;
+    rateFetchedAt: string;
+    rateSources: Array<{ source: string; rate: string }> | null;
+    referenceRate: string | null;
+    referenceSource: string | null;
+    rateWarning: string | null;
+    quoteExpiresAt: string;
+    payAmount: string;
+    payAmountBaseUnits: string;
+    assetDecimals: number;
+  };
+};
+
+export async function postRateTestQuote(body: {
+  asset: string;
+  network: string;
+  amount: string;
+  currency: "USD" | "EUR" | "CRYPTO";
+  pricingMode: "market" | "pegged_1to1";
+}): Promise<RateTestQuoteResult> {
+  const res = await apiFetch(`${API_BASE}/platform/rates/test-quote`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as RateTestQuoteResult;
+}
+
 export async function getMerchantPricingSettings(orgId: string): Promise<{
   pricingMode: string;
   quoteLockSeconds: number;

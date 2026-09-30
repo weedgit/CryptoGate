@@ -59,7 +59,7 @@ export const PLATFORM_NOTIFICATION_META: {
     eventType: "platform_system_health",
     icon: "health",
     label: "System health",
-    blurb: "API, database, or webhook worker health checks fail.",
+    blurb: "API, database, webhook worker, or FX rate feed health checks fail (rate feed emails include the recovery).",
     email: false,
     inApp: true,
   },
