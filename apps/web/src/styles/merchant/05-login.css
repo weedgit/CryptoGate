@@ -65,26 +65,6 @@
   opacity: 0.35;
 }
 
-.login-scene__wave {
-  animation: login-wave-drift 14s ease-in-out infinite alternate;
-  transform-origin: center;
-}
-
-@keyframes login-wave-drift {
-  from {
-    transform: translate3d(-12px, 6px, 0);
-  }
-  to {
-    transform: translate3d(12px, -6px, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-scene__wave {
-    animation: none;
-  }
-}
-
 .login-hero__top {
   position: relative;
   z-index: 2;

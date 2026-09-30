@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createUser, findUserById } from "../src/auth/users.mjs";
 import { createPasswordResetToken } from "../src/auth/password-reset-store.mjs";
@@ -38,6 +38,23 @@ describe("contact gated paths", () => {
 });
 
 describe("contact verification HTTP", { skip: !hasPostgres() }, () => {
+  // Never reach real mail/SMS providers from tests; dev mode echoes the code instead.
+  const ISOLATED_ENV = ["NODE_ENV", "MAIL_TRANSPORT", "SMS_TRANSPORT"];
+  /** @type {Record<string, string | undefined>} */
+  let savedEnv = {};
+  beforeEach(() => {
+    savedEnv = Object.fromEntries(ISOLATED_ENV.map((k) => [k, process.env[k]]));
+    process.env.NODE_ENV = "test";
+    delete process.env.MAIL_TRANSPORT;
+    delete process.env.SMS_TRANSPORT;
+  });
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
   it("invite URL proves email; live actions wait for phone too", async () => {
     runMigrations();
     const stamp = Date.now();

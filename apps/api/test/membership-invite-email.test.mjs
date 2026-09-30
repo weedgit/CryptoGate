@@ -4,6 +4,7 @@
  */
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { resolvePlatformFeeNetwork } from "@paymentgate/domain";
 import { createSession } from "../src/auth/sessions.mjs";
 import { createUser } from "../src/auth/users.mjs";
 import { getPool } from "../src/db/pool.mjs";
@@ -186,8 +187,8 @@ describePg("org invite — platform-wide email uniqueness", () => {
     ]);
     await pool.query(
       `INSERT INTO agent_payout_addresses (org_id, asset, network, address)
-       VALUES ($1, 'USDT', 'tron', 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf')`,
-      [agent.row.id],
+       VALUES ($1, 'USDT', $2, 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf')`,
+      [agent.row.id, resolvePlatformFeeNetwork()],
     );
 
     const agentSession = await createSession({

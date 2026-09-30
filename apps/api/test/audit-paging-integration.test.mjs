@@ -182,7 +182,7 @@ describePg("audit log paging (Postgres integration)", () => {
     const [header, ...rows] = csvRows(res.text);
     assert.deepEqual(header, [
       "createdAt", "action", "actorUserId", "actorEmail", "orgId",
-      "orgName", "role", "ip", "resource", "metadata",
+      "orgName", "role", "ip", "resource", "metadata", "createdAtLocal (UTC)",
     ]);
     assert.equal(rows.length, 2300);
     const seqs = rows.map((r) => JSON.parse(r[9]).seq);

@@ -1,17 +1,69 @@
+import { useEffect, useRef } from "react";
+
 /**
  * Soft gradient wave lines — decorative background for the login hero.
+ * Each line is a sum of travelling sine waves, redrawn per animation frame.
  */
 const WAVES = [
-  { d: "M-100 520 C 180 440, 360 620, 640 540 S 1080 420, 1300 500", w: 1.6, o: 0.9 },
-  { d: "M-100 560 C 200 480, 380 660, 660 580 S 1100 460, 1300 545", w: 1.2, o: 0.7 },
-  { d: "M-100 600 C 220 520, 400 700, 680 620 S 1120 500, 1300 590", w: 1, o: 0.55 },
-  { d: "M-100 640 C 240 560, 420 740, 700 660 S 1140 540, 1300 635", w: 0.9, o: 0.42 },
-  { d: "M-100 680 C 260 600, 440 780, 720 700 S 1160 580, 1300 680", w: 0.8, o: 0.32 },
-  { d: "M-100 720 C 280 640, 460 820, 740 740 S 1180 620, 1300 725", w: 0.7, o: 0.24 },
-  { d: "M-100 760 C 300 680, 480 860, 760 780 S 1200 660, 1300 770", w: 0.6, o: 0.18 },
+  { y: 540, w: 1.6, o: 0.9 },
+  { y: 580, w: 1.2, o: 0.7 },
+  { y: 620, w: 1, o: 0.55 },
+  { y: 660, w: 0.9, o: 0.42 },
+  { y: 700, w: 0.8, o: 0.32 },
+  { y: 740, w: 0.7, o: 0.24 },
+  { y: 780, w: 0.6, o: 0.18 },
 ];
 
+const X_START = -100;
+const X_END = 1300;
+const STEP = 25;
+
+function wavePath(baseY: number, index: number, t: number): string {
+  const lag = index * 0.35;
+  const yAt = (x: number) =>
+    baseY +
+    70 * Math.sin(x * 0.0055 - t * 0.45 + lag) +
+    28 * Math.sin(x * 0.011 + t * 0.3 + lag * 1.7) +
+    12 * Math.sin(x * 0.019 - t * 0.8 + lag * 0.6);
+
+  const pts: [number, number][] = [];
+  for (let x = X_START; x <= X_END; x += STEP) pts.push([x, yAt(x)]);
+
+  // Quadratic segments through midpoints keep the line smooth with few points.
+  let d = `M${pts[0][0]} ${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [cx, cy] = pts[i];
+    const mx = (cx + pts[i + 1][0]) / 2;
+    const my = (cy + pts[i + 1][1]) / 2;
+    d += ` Q${cx} ${cy.toFixed(1)} ${mx} ${my.toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L${last[0]} ${last[1].toFixed(1)}`;
+  return d;
+}
+
 export function LoginSceneBg() {
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+  const haloRef = useRef<SVGPathElement | null>(null);
+
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = (now - start) / 1000;
+      WAVES.forEach((wave, i) => {
+        const d = wavePath(wave.y, i, t);
+        pathRefs.current[i]?.setAttribute("d", d);
+        if (i === 0) haloRef.current?.setAttribute("d", d);
+      });
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   return (
     <div className="login-scene login-scene--waves" aria-hidden>
       <div className="login-scene__glow" />
@@ -32,8 +84,9 @@ export function LoginSceneBg() {
           </filter>
         </defs>
         <path
+          ref={haloRef}
           className="login-scene__wave-halo"
-          d={WAVES[0].d}
+          d={wavePath(WAVES[0].y, 0, 0)}
           stroke="url(#login-wave-grad)"
           strokeWidth={10}
           fill="none"
@@ -42,9 +95,11 @@ export function LoginSceneBg() {
         {WAVES.map((wave, i) => (
           <path
             key={i}
+            ref={(el) => {
+              pathRefs.current[i] = el;
+            }}
             className="login-scene__wave"
-            style={{ animationDelay: `${i * -1.4}s` }}
-            d={wave.d}
+            d={wavePath(wave.y, i, 0)}
             stroke="url(#login-wave-grad)"
             strokeWidth={wave.w}
             strokeOpacity={wave.o}

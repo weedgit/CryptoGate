@@ -29,6 +29,7 @@ describe("mail-config", () => {
     process.env.SMTP_FROM = "ops@paymentgate.local";
     delete process.env.SMTP_USER;
     delete process.env.SMTP_PASS;
+    delete process.env.SMTP_SECURE;
     try {
       assert.equal(isOutboundMailConfigured(), true);
       assert.deepEqual(getSmtpConfig(), {

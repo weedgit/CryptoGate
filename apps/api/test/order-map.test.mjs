@@ -23,7 +23,15 @@ const row = {
 
 describe("payment details mapper", () => {
   it("builds guest payload without keys or fees", () => {
-    const details = toPaymentDetails(row);
+    const prevBase = process.env.PAYMENT_PAGE_BASE_URL;
+    delete process.env.PAYMENT_PAGE_BASE_URL;
+    let details;
+    try {
+      details = toPaymentDetails(row);
+    } finally {
+      if (prevBase === undefined) delete process.env.PAYMENT_PAGE_BASE_URL;
+      else process.env.PAYMENT_PAGE_BASE_URL = prevBase;
+    }
     assert.equal(details.merchantName, "Hotel Marrakech");
     assert.equal(details.copyAmount, "245.00");
     assert.equal(details.paymentPageUrl, "http://localhost:5173/pay/ord-1");
