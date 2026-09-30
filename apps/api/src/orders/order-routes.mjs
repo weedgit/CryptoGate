@@ -4,7 +4,8 @@ import { readJsonBody, sendError, sendJson } from "../http/json.mjs";
 import { requireCaller, assertApiKeyScope } from "../http/require-caller.mjs";
 import { canCancelPaymentOrder, canResolvePaymentAnomaly, resolveOrderOrgId } from "../orgs/role-policy.mjs";
 import { findOrgById } from "../orgs/org-store.mjs";
-import { collectAncestorOrgIds, findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
+import { findBillingMerchantOrg } from "../orgs/org-ancestry.mjs";
+import { checkMerchantMayCreateOrders, checkNetworkMaintenance } from "./order-create-guards.mjs";
 import { insertAuditEvent } from "../audit/audit-store.mjs";
 import { callerCanReadPaymentOrder } from "./order-list-routes.mjs";
 import {
@@ -103,27 +104,10 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
 
-  try {
-    const maint = await getEffectiveNetworkMaintenance(validated.parsed.network);
-    if (maint) {
-      const until = maint.endsAt
-        ? ` until ${new Date(maint.endsAt).toISOString()}`
-        : "";
-      sendError(
-        res,
-        422,
-        "network_maintenance",
-        maint.message ||
-          `Network ${validated.parsed.network} is in maintenance${until}`,
-      );
-      return;
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!/network_maintenance|does not exist/i.test(message)) {
-      sendError(res, 500, "internal_error", "Failed to check network maintenance");
-      return;
-    }
+  const maintBlock = await checkNetworkMaintenance(validated.parsed.network);
+  if (maintBlock) {
+    sendError(res, maintBlock.status, maintBlock.code, maintBlock.message);
+    return;
   }
 
   const scope = resolveOrderOrgId(caller.memberships, validated.parsed.orgId);
@@ -137,22 +121,9 @@ export async function handleCreatePaymentOrder(req, res) {
     sendError(res, 404, "not_found", "Merchant org not found");
     return;
   }
-  if (merchantOrg.status === "paused") {
-    sendError(
-      res,
-      403,
-      "org_paused",
-      "Merchant account is paused; payment orders cannot be created",
-    );
-    return;
-  }
-  if (merchantOrg.order_create_suspended === true) {
-    sendError(
-      res,
-      403,
-      "order_create_suspended",
-      "Platform compliance has suspended payment order creation for this merchant",
-    );
+  const orgBlock = await checkMerchantMayCreateOrders(merchantOrg);
+  if (orgBlock) {
+    sendError(res, orgBlock.status, orgBlock.code, orgBlock.message);
     return;
   }
 
@@ -196,25 +167,6 @@ export async function handleCreatePaymentOrder(req, res) {
     return;
   }
   validated.parsed.config = effectiveConfig;
-  if (merchantOrg.type === "merchant_site") {
-    const ancestors = await collectAncestorOrgIds(merchantOrg);
-    for (const ancestorId of ancestors) {
-      const ancestor = await findOrgById(ancestorId);
-      if (!ancestor) continue;
-      if (ancestor.status === "paused" || ancestor.order_create_suspended === true) {
-        sendError(
-          res,
-          403,
-          ancestor.order_create_suspended ? "order_create_suspended" : "org_paused",
-          ancestor.order_create_suspended
-            ? "Platform compliance has suspended payment order creation for an ancestor merchant"
-            : "An ancestor merchant or site account is paused; payment orders cannot be created",
-        );
-        return;
-      }
-      if (ancestor.type === "merchant") break;
-    }
-  }
 
   const bodyHash = hashBody(idempotencyBodyHashPayload(validated.parsed));
   const existingOutside = await findOrderByIdempotency(scope.orgId, idempotencyKey);
@@ -328,6 +280,7 @@ export async function handleCreatePaymentOrder(req, res) {
             asset: validated.parsed.asset,
             network: validated.parsed.network,
             expiresAt: effectiveExpires,
+            validitySeconds: validated.parsed.validitySeconds,
             requiredConfirmations: validated.parsed.config.requiredConfirmations,
             idempotencyKey,
             idempotencyBodyHash: bodyHash,

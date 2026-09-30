@@ -175,6 +175,26 @@ export async function cooldownHdPoolForFinalOrders(client) {
 }
 
 /**
+ * IN_USE → COOLDOWN for the address an order held before a re-quote moved it.
+ * Run before binding the new address so only the old row matches.
+ * @param {import("pg").PoolClient} client
+ * @param {string} orderId
+ */
+export async function cooldownHdPoolAddressOfOrder(client, orderId) {
+  const until = new Date(Date.now() + hdPoolCooldownMs());
+  const { rowCount } = await client.query(
+    `UPDATE hd_pool_addresses
+     SET status = 'COOLDOWN',
+         cooldown_until = $2,
+         updated_at = now()
+     WHERE last_order_id = $1
+       AND status = 'IN_USE'`,
+    [orderId, until.toISOString()],
+  );
+  return rowCount ?? 0;
+}
+
+/**
  * COOLDOWN → FREE after the late-payment window.
  * @param {import("pg").Pool | import("pg").PoolClient} [client]
  */

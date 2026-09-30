@@ -15,7 +15,7 @@ const ORDER_SELECT = `
   pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
   pay_amount_base_units, asset_decimals,
   rate_sources, reference_rate, reference_source, rate_warning,
-  invoice_amount, invoice_denomination, created_via,
+  invoice_amount, invoice_denomination, created_via, validity_seconds,
   created_at, updated_at
 `;
 
@@ -302,6 +302,15 @@ function merchantIdsOf(query) {
   return [query.merchantId];
 }
 
+/**
+ * Re-quote runs matching for an order that already holds a reservation;
+ * it must not collide with itself.
+ * @param {{ excludeOrderId?: string | null }} query
+ */
+function excludeIdOf(query) {
+  return query.excludeOrderId ?? null;
+}
+
 export async function listReservedPayableAmounts(client, query) {
   const ids = merchantIdsOf(query);
   const { rows } = await client.query(
@@ -311,13 +320,15 @@ export async function listReservedPayableAmounts(client, query) {
        AND asset = $2
        AND network = $3
        AND receive_address = $4
-       AND status = ANY($5::text[])`,
+       AND status = ANY($5::text[])
+       AND ($6::uuid IS NULL OR id <> $6::uuid)`,
     [
       ids,
       query.asset,
       query.network,
       query.receiveAddress,
       [...query.statuses],
+      excludeIdOf(query),
     ],
   );
   return rows.map((row) => row.payable_amount);
@@ -344,13 +355,15 @@ export async function listReservedMemoOrTags(client, query) {
        AND network = $3
        AND receive_address = $4
        AND memo_or_tag IS NOT NULL
-       AND status = ANY($5::text[])`,
+       AND status = ANY($5::text[])
+       AND ($6::uuid IS NULL OR id <> $6::uuid)`,
     [
       ids,
       query.asset,
       query.network,
       query.receiveAddress,
       [...query.statuses],
+      excludeIdOf(query),
     ],
   );
   return rows.map((row) => row.memo_or_tag);
@@ -383,6 +396,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
        AND o.receive_address = $4
        AND o.payable_amount::numeric = $5::numeric
        AND o.status = ANY($6::text[])
+       AND ($7::uuid IS NULL OR o.id <> $7::uuid)
      ORDER BY o.created_at ASC
      LIMIT 1`,
     [
@@ -392,6 +406,7 @@ export async function findModeBSameAmountCreateConflict(client, query) {
       query.receiveAddress,
       query.payableAmount,
       [...query.statuses],
+      excludeIdOf(query),
     ],
   );
   const row = rows[0];
@@ -434,6 +449,7 @@ export async function hasModeSSameAmountConflict(client, query) {
        AND network = $3
        AND payable_amount = $4
        AND status = ANY($5::text[])
+       AND ($6::uuid IS NULL OR id <> $6::uuid)
      LIMIT 1`,
     [
       ids,
@@ -441,6 +457,7 @@ export async function hasModeSSameAmountConflict(client, query) {
       query.network,
       query.payableAmount,
       [...query.statuses],
+      excludeIdOf(query),
     ],
   );
   return rows.length > 0;
@@ -483,14 +500,14 @@ export async function insertPaymentOrder(input, client) {
          pricing_mode, rate_source, rate_fetched_at, quote_expires_at,
          pay_amount_base_units, asset_decimals,
          rate_sources, reference_rate, reference_source, rate_warning,
-         invoice_amount, invoice_denomination, created_via
+         invoice_amount, invoice_denomination, created_via, validity_seconds
        ) VALUES (
          $1, $2,
          'CG-' || to_char(now() AT TIME ZONE 'utc', 'YYYY') || '-' ||
            lpad(nextval('payment_orders_order_number_seq')::text, 6, '0'),
          $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
          $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
-         $29::jsonb, $30, $31, $32, $33, $34, $35
+         $29::jsonb, $30, $31, $32, $33, $34, $35, $36
        )
        RETURNING ${ORDER_SELECT}`,
       [
@@ -529,6 +546,7 @@ export async function insertPaymentOrder(input, client) {
         input.invoiceAmount ?? input.invoiceAmountUsd ?? input.payableAmount,
         input.invoiceDenomination ?? "fiat",
         input.createdVia ?? null,
+        input.validitySeconds ?? null,
       ],
     );
     return { ok: true, row: rows[0] };
@@ -541,6 +559,117 @@ export async function insertPaymentOrder(input, client) {
     }
     throw err;
   }
+}
+
+/**
+ * Lock a pending, unexpired order row for re-quote.
+ * @param {import("pg").PoolClient} client
+ * @param {string} orderId
+ */
+export async function lockQuotableOrder(client, orderId) {
+  const { rows } = await client.query(
+    `SELECT ${ORDER_SELECT}
+     FROM payment_orders
+     WHERE id = $1::uuid
+       AND status = 'pending_payment'
+       AND expires_at > now()
+     FOR UPDATE`,
+    [orderId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Replace the quote and the matching assignment of a pending order.
+ * @param {import("pg").PoolClient} client
+ * @param {string} orderId
+ * @param {{
+ *   asset: string,
+ *   network: string,
+ *   matchingMode: string,
+ *   payableAmount: string,
+ *   receiveAddress: string,
+ *   addressSource: string,
+ *   hdIndex: number | null,
+ *   memoOrTag: string | null,
+ *   requiredConfirmations: number,
+ *   expiresAt: Date,
+ *   quote: {
+ *     invoiceAmountUsd: string,
+ *     marketRate: string,
+ *     pricingRate: string,
+ *     pricingMode: string,
+ *     rateSource: string,
+ *     rateFetchedAt: string,
+ *     quoteExpiresAt: string,
+ *     payAmountBaseUnits: string,
+ *     assetDecimals: number,
+ *     rateSources?: unknown,
+ *     referenceRate?: string | null,
+ *     referenceSource?: string | null,
+ *     rateWarning?: string | null,
+ *   },
+ * }} input
+ */
+export async function applyOrderRequote(client, orderId, input) {
+  const q = input.quote;
+  const { rows } = await client.query(
+    `UPDATE payment_orders
+     SET asset = $2,
+         network = $3,
+         matching_mode = $4,
+         payable_amount = $5,
+         receive_address = $6,
+         address_source = $7,
+         hd_index = $8,
+         memo_or_tag = $9,
+         required_confirmations = $10,
+         expires_at = $11,
+         invoice_amount_usd = $12,
+         market_rate = $13,
+         pricing_rate = $14,
+         pricing_mode = $15,
+         rate_source = $16,
+         rate_fetched_at = $17::timestamptz,
+         quote_expires_at = $18::timestamptz,
+         pay_amount_base_units = $19,
+         asset_decimals = $20,
+         rate_sources = $21::jsonb,
+         reference_rate = $22,
+         reference_source = $23,
+         rate_warning = $24,
+         updated_at = now()
+     WHERE id = $1::uuid
+       AND status = 'pending_payment'
+     RETURNING ${ORDER_SELECT}`,
+    [
+      orderId,
+      input.asset,
+      input.network,
+      input.matchingMode,
+      input.payableAmount,
+      input.receiveAddress,
+      input.addressSource,
+      input.hdIndex,
+      input.memoOrTag,
+      input.requiredConfirmations,
+      input.expiresAt,
+      q.invoiceAmountUsd,
+      q.marketRate,
+      q.pricingRate,
+      q.pricingMode,
+      q.rateSource,
+      q.rateFetchedAt,
+      q.quoteExpiresAt,
+      q.payAmountBaseUnits,
+      q.assetDecimals,
+      q.rateSources ? JSON.stringify(q.rateSources) : null,
+      q.referenceRate ?? null,
+      q.referenceSource ?? null,
+      q.rateWarning ?? null,
+    ],
+  );
+  return rows[0] ?? null;
 }
 
 /**
@@ -612,6 +741,7 @@ export async function findModeDSameMemoCreateConflict(client, query) {
        AND o.receive_address = $4
        AND o.memo_or_tag = $5
        AND o.status = ANY($6::text[])
+       AND ($7::uuid IS NULL OR o.id <> $7::uuid)
      ORDER BY o.created_at ASC
      LIMIT 1`,
     [
@@ -621,6 +751,7 @@ export async function findModeDSameMemoCreateConflict(client, query) {
       query.receiveAddress,
       memo,
       [...query.statuses],
+      excludeIdOf(query),
     ],
   );
   const row = rows[0];

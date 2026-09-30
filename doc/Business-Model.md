@@ -176,6 +176,15 @@ Wrong network, underpay, overpay, duplicate pay, or late pay → explicit order 
 
 Payment matching modes: [Phase1-Project-Plan.md](Phase1-Project-Plan.md) Section II · acceptance freeze: [Phase1-Acceptance-Pack.md](Phase1-Acceptance-Pack.md).
 
+### FX quotes (USD / EUR invoices)
+
+- **Rate:** median of live venues (Binance, CoinGecko, Kraken); fewer healthy venues than the platform minimum → no quote (fail closed). Binance has no USDT/USD market, so USDT is priced by the other venues and the minimum can't exceed what every asset can reach. EUR invoices convert through a median EUR/USD, every source a true USD value.
+- **Optional Chainlink check:** median vs Chainlink beyond the band → volatile assets rejected, stablecoins flagged. Stale or unreachable feeds never block quotes.
+- **Pricing modes:** Market; Pegged 1:1 for stablecoins strictly within the depeg threshold (otherwise market, recorded as depeg market); exact crypto invoices need no rate.
+- **Lock:** a quote holds for the merchant's lock (5/10/15/30 min). The order's payment window ends at the lock or the requested validity, whichever is first.
+- **Re-quote** (pending, unexpired orders; users who may create orders): new rate and matching run again exactly as on create, so receive address, payable amount and memo are re-assigned; the old HD address cools down. Asset/network may change for USD/EUR invoices only; exact crypto invoices keep their pair. The window re-opens for the requested validity, never past the new lock. Expired orders cannot be revived.
+- **Kill switches:** turning rates or a pricing mode off ends open orders priced that way immediately (they move to Expired; later payments follow the late-payment path). Exact crypto invoices are unaffected.
+
 ## Fund flow
 
 ### Rail A — Payer payment (non-custodial)

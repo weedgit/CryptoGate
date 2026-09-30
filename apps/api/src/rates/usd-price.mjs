@@ -28,10 +28,13 @@ export const RATE_VENUES = ["binance", "coingecko", "kraken"];
 /** @type {Map<string, { quote: UsdPriceQuote, expiresAt: number }>} */
 const cache = new Map();
 
+/**
+ * Binance quotes in USDT. It has no USDT/USD market, so USDT is priced only by
+ * venues with a real USD quote (a constant would fake a healthy source).
+ */
 const BINANCE_SYMBOL = {
   ETH: "ETHUSDT",
   TRX: "TRXUSDT",
-  USDT: "USDTUSD",
   USDC: "USDCUSDT",
 };
 
@@ -66,19 +69,6 @@ function nowIso() {
 async function fetchBinance(asset, fetchImpl) {
   const symbol = BINANCE_SYMBOL[asset];
   if (!symbol) throw new Error(`binance_unsupported:${asset}`);
-
-  if (asset === "USDT") {
-    try {
-      const url = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`;
-      const res = await fetchImpl(url, { signal: AbortSignal.timeout(8_000) });
-      if (!res.ok) throw new Error(`binance_http_${res.status}`);
-      const body = await res.json();
-      return { source: "binance", rate: normalizeRate(body.price) };
-    } catch {
-      return { source: "binance", rate: "1" };
-    }
-  }
-
   const url = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`;
   const res = await fetchImpl(url, { signal: AbortSignal.timeout(8_000) });
   if (!res.ok) throw new Error(`binance_http_${res.status}`);
@@ -124,6 +114,27 @@ async function fetchKraken(asset, fetchImpl) {
   const entry = result[pair] ?? Object.values(result)[0];
   const last = entry?.c?.[0];
   return { source: "kraken", rate: normalizeRate(last) };
+}
+
+const VENUE_SYMBOLS = {
+  binance: BINANCE_SYMBOL,
+  coingecko: COINGECKO_ID,
+  kraken: KRAKEN_PAIR,
+};
+
+/**
+ * Fewest selected venues that can price any single supported asset
+ * (a higher minimum would fail every quote for that asset).
+ * @param {string[]} venues
+ */
+export function minVenueCoverage(venues) {
+  const selected = venues.map((v) => String(v).toLowerCase()).filter((v) => v in VENUE_SYMBOLS);
+  let min = Infinity;
+  for (const asset of Object.keys(COINGECKO_ID)) {
+    const n = selected.filter((v) => asset in VENUE_SYMBOLS[v]).length;
+    if (n < min) min = n;
+  }
+  return Number.isFinite(min) ? min : 0;
 }
 
 const FETCHERS = {

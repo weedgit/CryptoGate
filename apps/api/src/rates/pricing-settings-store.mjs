@@ -10,6 +10,7 @@ import {
   DEFAULT_RATE_VENUES,
   DEFAULT_REFERENCE_DEVIATION_BPS,
   RATE_VENUES,
+  minVenueCoverage,
 } from "./usd-price.mjs";
 
 const DEFAULT_PLATFORM = {
@@ -141,6 +142,14 @@ export async function updatePlatformPricingSettings(patch) {
       code: "invalid_request",
     });
   }
+  if (next.minRateSources > minVenueCoverage(next.rateVenues)) {
+    throw Object.assign(
+      new Error(
+        "Minimum sources exceeds the venues that can price every asset (Binance has no USDT/USD market)",
+      ),
+      { code: "invalid_request" },
+    );
+  }
   const allowed = new Set(ALLOWED_QUOTE_LOCK_SECONDS);
   for (const s of next.allowedQuoteLockSeconds) {
     if (!allowed.has(s)) {
@@ -183,38 +192,56 @@ export async function updatePlatformPricingSettings(patch) {
     ],
   );
 
-  // Expire in-flight quotes for modes (or the whole rate feed) just disabled.
-  /** @type {string[]} */
-  const expireModes = [];
-  if (cur.modePegged1to1Enabled && !next.modePegged1to1Enabled) {
-    expireModes.push("pegged_1to1");
-  }
-  if (cur.modeMarketEnabled && !next.modeMarketEnabled) {
-    expireModes.push("market", "depeg_market");
-  }
-  if ((cur.ratesEnabled && !next.ratesEnabled) || expireModes.length > 0) {
-    if (!next.ratesEnabled) {
-      await pool.query(
-        `UPDATE payment_orders
-            SET quote_expires_at = now(), updated_at = now()
-          WHERE status = 'pending_payment'
-            AND quote_expires_at IS NOT NULL
-            AND quote_expires_at > now()`,
-      );
-    } else if (expireModes.length > 0) {
-      await pool.query(
-        `UPDATE payment_orders
-            SET quote_expires_at = now(), updated_at = now()
-          WHERE status = 'pending_payment'
-            AND pricing_mode = ANY($1::text[])
-            AND quote_expires_at IS NOT NULL
-            AND quote_expires_at > now()`,
-        [expireModes],
-      );
-    }
+  const killModes = killSwitchPricingModes(cur, next);
+  if (killModes.length > 0) {
+    await expireOpenOrdersForPricingModes(pool, killModes);
   }
 
   return getPlatformPricingSettings();
+}
+
+const RATE_PRICED_MODES = ["market", "pegged_1to1", "depeg_market"];
+
+/**
+ * Pricing modes whose open orders must stop being payable after this settings change.
+ * crypto_exact orders carry no rate exposure and are never listed.
+ * @param {{ ratesEnabled: boolean, modePegged1to1Enabled: boolean, modeMarketEnabled: boolean }} cur
+ * @param {{ ratesEnabled: boolean, modePegged1to1Enabled: boolean, modeMarketEnabled: boolean }} next
+ * @returns {string[]}
+ */
+export function killSwitchPricingModes(cur, next) {
+  if (cur.ratesEnabled && !next.ratesEnabled) return [...RATE_PRICED_MODES];
+  /** @type {string[]} */
+  const modes = [];
+  if (cur.modePegged1to1Enabled && !next.modePegged1to1Enabled) {
+    modes.push("pegged_1to1");
+  }
+  if (cur.modeMarketEnabled && !next.modeMarketEnabled) {
+    modes.push("market", "depeg_market");
+  }
+  return modes;
+}
+
+/**
+ * End the quote and the payment window together; the expiry job then moves the
+ * orders to Expired (and cools down HD addresses). Payments that still arrive
+ * follow the normal late-payment path instead of settling at a disabled rate.
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @param {string[]} modes
+ */
+export async function expireOpenOrdersForPricingModes(db, modes) {
+  const { rowCount } = await db.query(
+    `UPDATE payment_orders
+        SET quote_expires_at = LEAST(quote_expires_at, now()),
+            expires_at = LEAST(expires_at, now()),
+            updated_at = now()
+      WHERE status = 'pending_payment'
+        AND quote_expires_at IS NOT NULL
+        AND expires_at > now()
+        AND pricing_mode = ANY($1::text[])`,
+    [modes],
+  );
+  return rowCount ?? 0;
 }
 
 /**

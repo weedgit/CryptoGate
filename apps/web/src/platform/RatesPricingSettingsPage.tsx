@@ -243,6 +243,12 @@ export function RatesPricingSettingsPage({ session }: Props) {
       setError("Minimum sources cannot exceed enabled venues.");
       return;
     }
+    if (minRateSources > rateVenues.filter((v) => v !== "binance").length) {
+      setError(
+        "Minimum sources is too high: Binance has no USDT/USD market, so USDT is priced by the other enabled venues only.",
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     setOkMsg(null);
@@ -337,11 +343,11 @@ export function RatesPricingSettingsPage({ session }: Props) {
                   <ChartHelpButton
                     openOnHover
                     label="Rates enabled help"
-                    text="Master kill switch for the USD rate feed. When off, create-order and quotes return rates_unavailable."
+                    text="Master kill switch for the USD rate feed. When off, create-order and quotes return rates_unavailable, and open rate-priced orders expire immediately."
                   />
                 </span>
                 <span className="plat-rates__toggle-hint">
-                  When off, new quotes fail with rates_unavailable.
+                  When off, new quotes fail and open rate-priced orders expire.
                 </span>
               </span>
             </label>
@@ -362,7 +368,7 @@ export function RatesPricingSettingsPage({ session }: Props) {
                   <ChartHelpButton
                     openOnHover
                     label="Always market mode help"
-                    text="Allows merchants to force live multi-venue market rates instead of pegged pricing."
+                    text="Allows merchants to force live multi-venue market rates instead of pegged pricing. Turning it off expires open market-priced orders."
                   />
                 </span>
                 <span className="plat-rates__toggle-hint">
@@ -387,7 +393,7 @@ export function RatesPricingSettingsPage({ session }: Props) {
                   <ChartHelpButton
                     openOnHover
                     label="Pegged 1:1 mode help"
-                    text="Allows merchants to price stablecoins 1:1 until the depeg threshold is breached."
+                    text="Allows merchants to price stablecoins 1:1 until the depeg threshold is breached. Turning it off expires open pegged orders."
                   />
                 </span>
                 <span className="plat-rates__toggle-hint">

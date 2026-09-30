@@ -5,20 +5,25 @@
 
 import { normalizeRate } from "./median.mjs";
 
-/** Ethereum mainnet aggregators (USD, 8 decimals). */
-const FEEDS = {
+/**
+ * Ethereum mainnet aggregators (USD, 8 decimals), as registered under
+ * `<pair>.data.eth`. maxAgeSeconds = feed heartbeat plus margin.
+ */
+export const FEEDS = {
   ETH: {
     address: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
     decimals: 8,
+    maxAgeSeconds: 2 * 3600,
   },
   USDC: {
-    address: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576414f",
+    address: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
     decimals: 8,
+    maxAgeSeconds: 26 * 3600,
   },
-  // USDT/USD on Ethereum
   USDT: {
     address: "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D",
     decimals: 8,
+    maxAgeSeconds: 26 * 3600,
   },
 };
 
@@ -34,9 +39,16 @@ function rpcUrl() {
  * Decode int256 answer from eth_call return (second 32-byte word of latestRoundData).
  * @param {string} hex
  * @param {number} decimals
+ * @param {number | null} [maxAgeSeconds] reject when updatedAt (4th word) is older
+ * @param {number} [nowSeconds]
  * @returns {string}
  */
-export function decodeChainlinkAnswer(hex, decimals) {
+export function decodeChainlinkAnswer(
+  hex,
+  decimals,
+  maxAgeSeconds = null,
+  nowSeconds = Math.floor(Date.now() / 1000),
+) {
   const h = String(hex ?? "").replace(/^0x/i, "");
   if (h.length < 128) throw new Error("chainlink_bad_payload");
   // roundId (0..63), answer (64..127), …
@@ -48,6 +60,14 @@ export function decodeChainlinkAnswer(hex, decimals) {
     answer -= 1n << 256n;
   }
   if (answer <= 0n) throw new Error("chainlink_non_positive");
+  if (maxAgeSeconds != null) {
+    if (h.length < 256) throw new Error("chainlink_bad_payload");
+    const updatedAt = Number(BigInt(`0x${h.slice(192, 256)}`));
+    const ageSeconds = nowSeconds - updatedAt;
+    if (!Number.isFinite(ageSeconds) || ageSeconds > maxAgeSeconds) {
+      throw new Error(`chainlink_stale:${ageSeconds}s`);
+    }
+  }
   const base = 10n ** BigInt(decimals);
   const whole = answer / base;
   const frac = answer % base;
@@ -83,6 +103,6 @@ export async function fetchChainlinkUsd(asset, fetchImpl = fetch) {
   if (!res.ok) throw new Error(`chainlink_rpc_http_${res.status}`);
   const json = await res.json();
   if (json?.error) throw new Error(`chainlink_rpc:${json.error.message ?? "error"}`);
-  const rate = decodeChainlinkAnswer(json.result, feed.decimals);
+  const rate = decodeChainlinkAnswer(json.result, feed.decimals, feed.maxAgeSeconds);
   return { rate, source: "chainlink" };
 }

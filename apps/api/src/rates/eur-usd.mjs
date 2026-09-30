@@ -1,7 +1,10 @@
 /**
  * EUR/USD median feed (same venues + cache pattern as asset USD prices).
+ * Every source is a real EUR/USD value: Binance only lists EUR/USDT, so it is
+ * converted with a USDT/USD price from a venue that quotes USD.
  */
 import { medianRate, normalizeRate } from "./median.mjs";
+import { divideDecimals, multiplyDecimals } from "./pricing.mjs";
 
 const CACHE_TTL_MS = 45_000;
 
@@ -12,17 +15,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-async function fetchBinanceEurUsd(fetchImpl) {
+/** EUR price in USDT (not USD). */
+async function fetchBinanceEurUsdt(fetchImpl) {
   const url = "https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT";
   const res = await fetchImpl(url, { signal: AbortSignal.timeout(8_000) });
   if (!res.ok) throw new Error(`binance_http_${res.status}`);
   const body = await res.json();
-  return { source: "binance", rate: normalizeRate(body.price) };
+  return normalizeRate(body.price);
 }
 
-async function fetchCoinGeckoEurUsd(fetchImpl) {
+/** Tether priced in both USD and EUR; usd/eur is EUR/USD and usd is USDT/USD. */
+async function fetchCoinGeckoTether(fetchImpl) {
   const url =
-    "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=eur";
+    "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd,eur";
   const headers = { Accept: "application/json" };
   const demoKey = (process.env.COINGECKO_DEMO_API_KEY ?? "").trim();
   if (demoKey) headers["x-cg-demo-api-key"] = demoKey;
@@ -32,21 +37,33 @@ async function fetchCoinGeckoEurUsd(fetchImpl) {
   });
   if (!res.ok) throw new Error(`coingecko_http_${res.status}`);
   const body = await res.json();
-  // tether priced in EUR → EUR per 1 USDT ≈ EURUSD inverse... use 1/eur
-  const eurPerUsdt = body?.tether?.eur;
-  if (!eurPerUsdt) throw new Error("coingecko_eur_missing");
-  const eurusd = normalizeRate(1 / Number(eurPerUsdt));
-  return { source: "coingecko", rate: eurusd };
+  const usd = body?.tether?.usd;
+  const eur = body?.tether?.eur;
+  if (!usd || !eur) throw new Error("coingecko_tether_missing");
+  return { usd: normalizeRate(usd), eur: normalizeRate(eur) };
 }
 
-async function fetchKrakenEurUsd(fetchImpl) {
-  const url = "https://api.kraken.com/0/public/Ticker?pair=ZEURZUSD";
+/**
+ * @param {typeof fetch} fetchImpl
+ * @param {string} pair
+ */
+async function fetchKrakenLast(fetchImpl, pair) {
+  const url = `https://api.kraken.com/0/public/Ticker?pair=${pair}`;
   const res = await fetchImpl(url, { signal: AbortSignal.timeout(8_000) });
   if (!res.ok) throw new Error(`kraken_http_${res.status}`);
   const body = await res.json();
   if (body?.error?.length) throw new Error(`kraken_error:${body.error[0]}`);
-  const entry = body?.result?.ZEURZUSD ?? Object.values(body?.result ?? {})[0];
-  return { source: "kraken", rate: normalizeRate(entry?.c?.[0]) };
+  const entry = body?.result?.[pair] ?? Object.values(body?.result ?? {})[0];
+  return normalizeRate(entry?.c?.[0]);
+}
+
+/**
+ * @param {PromiseSettledResult<T>} r
+ * @template T
+ * @returns {T | null}
+ */
+function valueOf(r) {
+  return r.status === "fulfilled" ? r.value : null;
 }
 
 /**
@@ -60,15 +77,28 @@ export async function getEurUsdPrice(opts = {}) {
   const minSources = Number.isFinite(opts.minSources)
     ? Math.max(1, Number(opts.minSources))
     : 2;
-  const settled = await Promise.allSettled([
-    fetchBinanceEurUsd(fetchImpl),
-    fetchCoinGeckoEurUsd(fetchImpl),
-    fetchKrakenEurUsd(fetchImpl),
-  ]);
+  const [binanceEurUsdt, gecko, krakenEurUsd, krakenUsdtUsd] = (
+    await Promise.allSettled([
+      fetchBinanceEurUsdt(fetchImpl),
+      fetchCoinGeckoTether(fetchImpl),
+      fetchKrakenLast(fetchImpl, "ZEURZUSD"),
+      fetchKrakenLast(fetchImpl, "USDTZUSD"),
+    ])
+  ).map(valueOf);
+
+  /** @type {Array<{ source: string, rate: string }>} */
   const healthy = [];
-  for (const r of settled) {
-    if (r.status === "fulfilled" && r.value?.rate) healthy.push(r.value);
+  if (gecko) {
+    healthy.push({ source: "coingecko", rate: divideDecimals(gecko.usd, gecko.eur) });
   }
+  if (krakenEurUsd) {
+    healthy.push({ source: "kraken", rate: krakenEurUsd });
+  }
+  const usdtUsd = krakenUsdtUsd ?? gecko?.usd ?? null;
+  if (binanceEurUsdt && usdtUsd) {
+    healthy.push({ source: "binance", rate: multiplyDecimals(binanceEurUsdt, usdtUsd) });
+  }
+
   if (healthy.length < minSources) {
     const e = new Error("rates_unavailable");
     e.code = "rates_unavailable";

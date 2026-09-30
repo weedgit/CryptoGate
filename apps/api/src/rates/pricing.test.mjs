@@ -6,9 +6,23 @@ import {
   quotePayAmount,
   toBaseUnits,
 } from "./pricing.mjs";
-import { clearUsdPriceCache, getUsdPrice } from "./usd-price.mjs";
+import { clearUsdPriceCache, getUsdPrice, minVenueCoverage } from "./usd-price.mjs";
 import { deviationBps, medianRate } from "./median.mjs";
-import { decodeChainlinkAnswer } from "./chainlink-reference.mjs";
+import { FEEDS, decodeChainlinkAnswer } from "./chainlink-reference.mjs";
+import { clearEurUsdPriceCache, getEurUsdPrice } from "./eur-usd.mjs";
+import { isWithinPeg } from "./pricing.mjs";
+
+const nowSec = () => Math.floor(Date.now() / 1000);
+
+/** latestRoundData() return: roundId, answer, startedAt, updatedAt, answeredInRound. */
+function roundData(answer, updatedAt) {
+  const w = (n) => BigInt(n).toString(16).padStart(64, "0");
+  return `0x${w(1)}${w(answer)}${w(updatedAt)}${w(updatedAt)}${w(1)}`;
+}
+
+function jsonRes(body, ok = true) {
+  return { ok, status: ok ? 200 : 500, json: async () => body };
+}
 
 describe("pricing engine", () => {
   it("converts major units to base units", () => {
@@ -127,6 +141,133 @@ describe("chainlink decode", () => {
     const hex = `0x${roundId}${answer}${rest}`;
     assert.equal(decodeChainlinkAnswer(hex, 8), "2500");
   });
+
+  it("rejects answers older than the feed's max age", () => {
+    const now = 1_800_000_000;
+    const fresh = roundData(99_990_000n, now - 3600);
+    const stale = roundData(99_990_000n, now - 27 * 3600);
+    assert.equal(decodeChainlinkAnswer(fresh, 8, 26 * 3600, now), "0.9999");
+    assert.throws(() => decodeChainlinkAnswer(stale, 8, 26 * 3600, now), /chainlink_stale/);
+  });
+
+  it("every feed address is a 20-byte hex address with a max age", () => {
+    for (const [asset, feed] of Object.entries(FEEDS)) {
+      assert.match(feed.address, /^0x[0-9a-fA-F]{40}$/, asset);
+      assert.ok(feed.maxAgeSeconds > 0, asset);
+    }
+    assert.equal(FEEDS.USDC.address.toLowerCase(), "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6");
+  });
+});
+
+describe("exact peg check", () => {
+  it("pegs strictly inside the threshold, no float rounding at the edge", () => {
+    assert.equal(isWithinPeg("0.99", 100), false);
+    assert.equal(isWithinPeg("1.01", 100), false);
+    assert.equal(isWithinPeg("0.990000000000000001", 100), true);
+    assert.equal(isWithinPeg("1.009999999999999999", 100), true);
+    assert.equal(isWithinPeg("1", 0), false);
+    assert.equal(isWithinPeg("not-a-rate", 100), false);
+  });
+
+  it("applyPricingPolicy uses the exact edge", () => {
+    const edge = applyPricingPolicy({
+      asset: "USDT",
+      merchantMode: "pegged_1to1",
+      marketRate: "0.99",
+      depegThresholdBps: 100,
+    });
+    assert.equal(edge.pricingMode, "depeg_market");
+    const inside = applyPricingPolicy({
+      asset: "USDT",
+      merchantMode: "pegged_1to1",
+      marketRate: "0.9900001",
+      depegThresholdBps: 100,
+    });
+    assert.equal(inside.pricingMode, "pegged_1to1");
+  });
+});
+
+describe("USDT sources", () => {
+  it("never counts Binance for USDT (no fake constant source)", async () => {
+    clearUsdPriceCache();
+    const seen = [];
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      seen.push(u);
+      if (u.includes("binance")) return jsonRes({ price: "1" });
+      if (u.includes("coingecko")) return jsonRes({ tether: { usd: 0.9990 } });
+      if (u.includes("kraken")) return jsonRes({ result: { USDTZUSD: { c: ["0.9994", "1"] } }, error: [] });
+      throw new Error(`unexpected:${u}`);
+    };
+    const q = await getUsdPrice("USDT", { fetchImpl, bypassCache: true, minSources: 2 });
+    assert.deepEqual(q.sources.map((s) => s.source).sort(), ["coingecko", "kraken"]);
+    assert.equal(q.rate, "0.9992");
+    assert.ok(!seen.some((u) => u.includes("binance")));
+  });
+
+  it("fails closed when only one real USDT source answers", async () => {
+    clearUsdPriceCache();
+    const fetchImpl = async (url) => {
+      const u = String(url);
+      if (u.includes("kraken")) return jsonRes({ result: { USDTZUSD: { c: ["0.9994", "1"] } }, error: [] });
+      return jsonRes({}, false);
+    };
+    await assert.rejects(
+      () => getUsdPrice("USDT", { fetchImpl, bypassCache: true, minSources: 2 }),
+      (err) => err?.code === "rates_unavailable",
+    );
+  });
+
+  it("venue coverage limits the minimum source count", () => {
+    assert.equal(minVenueCoverage(["binance", "coingecko", "kraken"]), 2);
+    assert.equal(minVenueCoverage(["binance", "kraken"]), 1);
+    assert.equal(minVenueCoverage(["coingecko", "kraken"]), 2);
+  });
+});
+
+describe("EUR/USD feed", () => {
+  const eurFetch = ({ binance = true, gecko = true, krakenEur = true, krakenUsdt = true } = {}) =>
+    async (url) => {
+      const u = String(url);
+      if (u.includes("binance")) return binance ? jsonRes({ price: "1.1300" }) : jsonRes({}, false);
+      if (u.includes("coingecko")) {
+        return gecko ? jsonRes({ tether: { usd: 0.999, eur: 0.9 } }) : jsonRes({}, false);
+      }
+      if (u.includes("ZEURZUSD")) {
+        return krakenEur ? jsonRes({ result: { ZEURZUSD: { c: ["1.1100", "1"] } }, error: [] }) : jsonRes({}, false);
+      }
+      if (u.includes("USDTZUSD")) {
+        return krakenUsdt ? jsonRes({ result: { USDTZUSD: { c: ["0.9980", "1"] } }, error: [] }) : jsonRes({}, false);
+      }
+      throw new Error(`unexpected:${u}`);
+    };
+
+  it("uses true EUR/USD from each venue", async () => {
+    clearEurUsdPriceCache();
+    const q = await getEurUsdPrice({ fetchImpl: eurFetch(), bypassCache: true });
+    const by = Object.fromEntries(q.sources.map((s) => [s.source, s.rate]));
+    assert.equal(by.coingecko, "1.11");
+    assert.equal(by.kraken, "1.11");
+    assert.equal(by.binance, "1.12774");
+    assert.equal(q.rate, "1.11");
+  });
+
+  it("converts Binance with CoinGecko USDT/USD when Kraken USDT is down", async () => {
+    clearEurUsdPriceCache();
+    const q = await getEurUsdPrice({ fetchImpl: eurFetch({ krakenUsdt: false }), bypassCache: true });
+    const by = Object.fromEntries(q.sources.map((s) => [s.source, s.rate]));
+    assert.equal(by.binance, "1.12887");
+  });
+
+  it("drops Binance when no USDT/USD price is available", async () => {
+    clearEurUsdPriceCache();
+    const q = await getEurUsdPrice({
+      fetchImpl: eurFetch({ gecko: false, krakenUsdt: false }),
+      bypassCache: true,
+      minSources: 1,
+    });
+    assert.deepEqual(q.sources.map((s) => s.source), ["kraken"]);
+  });
 });
 
 describe("usd price feed", () => {
@@ -224,15 +365,12 @@ describe("usd price feed", () => {
           }),
         };
       }
-      // eth_call RPC — return answer=2500 USD (8 decimals)
+      // eth_call RPC — return answer=2500 USD (8 decimals), updated just now
       if (init?.method === "POST") {
-        const roundId = "0".repeat(63) + "1";
-        const answer = (2500n * 10n ** 8n).toString(16).padStart(64, "0");
-        const rest = "0".repeat(64 * 3);
         return {
           ok: true,
           status: 200,
-          json: async () => ({ result: `0x${roundId}${answer}${rest}` }),
+          json: async () => ({ result: roundData(2500n * 10n ** 8n, nowSec()) }),
         };
       }
       throw new Error(`unexpected:${u}`);

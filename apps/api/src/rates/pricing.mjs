@@ -96,6 +96,25 @@ export function quotePayAmount(invoiceUsd, pricingRate, decimals) {
 }
 
 /**
+ * |rate − 1| strictly below thresholdBps, compared exactly (no float, no bps rounding).
+ * @param {string} marketRate
+ * @param {number} thresholdBps
+ */
+export function isWithinPeg(marketRate, thresholdBps) {
+  const WORK = 18;
+  let rate;
+  try {
+    rate = parseDecimalToScaled(marketRate, WORK);
+  } catch {
+    return false;
+  }
+  if (rate <= 0n) return false;
+  const one = 10n ** BigInt(WORK);
+  const diff = rate > one ? rate - one : one - rate;
+  return diff * 10_000n < BigInt(thresholdBps) * one;
+}
+
+/**
  * @param {{
  *   asset: string,
  *   merchantMode: 'pegged_1to1' | 'market',
@@ -105,10 +124,9 @@ export function quotePayAmount(invoiceUsd, pricingRate, decimals) {
  */
 export function applyPricingPolicy(args) {
   const marketRate = String(args.marketRate);
-  const thresholdBps = Number.isFinite(args.depegThresholdBps)
+  const thresholdBps = Number.isInteger(args.depegThresholdBps)
     ? args.depegThresholdBps
     : 100;
-  const threshold = thresholdBps / 10_000;
 
   if (args.merchantMode === "market" || !isStablecoinAsset(args.asset)) {
     return {
@@ -118,10 +136,7 @@ export function applyPricingPolicy(args) {
     };
   }
 
-  // pegged_1to1 for stables
-  const rateNum = Number(marketRate);
-  const deviation = Math.abs(rateNum - 1);
-  if (Number.isFinite(rateNum) && deviation < threshold) {
+  if (isWithinPeg(marketRate, thresholdBps)) {
     return {
       pricingRate: "1",
       pricingMode: "pegged_1to1",
@@ -150,6 +165,22 @@ export function multiplyDecimals(a, b) {
   }
   const prod = (x * y) / 10n ** BigInt(WORK);
   return scaledToDecimal(prod, WORK);
+}
+
+/**
+ * Divide two positive decimal strings (WORK=18 scale, floor).
+ * @param {string} a
+ * @param {string} b
+ * @returns {string}
+ */
+export function divideDecimals(a, b) {
+  const WORK = 18;
+  const x = parseDecimalToScaled(a, WORK);
+  const y = parseDecimalToScaled(b, WORK);
+  if (x < 0n || y <= 0n) {
+    throw Object.assign(new Error("invalid_division"), { code: "invalid_request" });
+  }
+  return scaledToDecimal(divScaled(x, y, WORK), WORK);
 }
 
 /**

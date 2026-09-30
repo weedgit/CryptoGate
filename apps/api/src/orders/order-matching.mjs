@@ -75,12 +75,14 @@ function blockingCreateError(blocking, code, message) {
  *   amount: string,
  *   idempotencyKey: string,
  *   requiredConfirmations: number,
+ *   excludeOrderId?: string | null,
  * }} input
  */
 export async function assignOnOrderCreate(input) {
   const settlementOrgId = input.settlementOrgId ?? input.orgId;
   const xpubOrgId = input.xpubOrgId ?? input.orgId;
   const walletGroupOrgIds = input.walletGroupOrgIds ?? [settlementOrgId];
+  const excludeOrderId = input.excludeOrderId ?? null;
 
   const settlement = await findNetworkSettlementAddress(
     settlementOrgId,
@@ -108,6 +110,7 @@ export async function assignOnOrderCreate(input) {
       receiveAddress: mainSettlementAddress,
       payableAmount: input.amount.trim(),
       statuses: MODE_B_CREATE_BLOCK_STATUSES,
+      excludeOrderId,
     });
     if (blocking) {
       return blockingCreateError(
@@ -131,6 +134,7 @@ export async function assignOnOrderCreate(input) {
       ...query,
       merchantIds: walletGroupOrgIds,
       statuses: MODE_C_RESERVED_STATUSES,
+      excludeOrderId,
     });
   /** @type {import("@paymentgate/matching").ListReservedMemoOrTags} */
   const listMemos = (query) =>
@@ -138,6 +142,7 @@ export async function assignOnOrderCreate(input) {
       ...query,
       merchantIds: walletGroupOrgIds,
       statuses: MODE_D_RESERVED_STATUSES,
+      excludeOrderId,
     });
   /** @type {import("@paymentgate/matching").HasModeSSameAmountConflict} */
   const hasConflict = (query) =>
@@ -145,6 +150,7 @@ export async function assignOnOrderCreate(input) {
       ...query,
       merchantIds: walletGroupOrgIds,
       statuses: MODE_S_CONFLICT_STATUSES,
+      excludeOrderId,
     });
 
   try {
@@ -176,6 +182,7 @@ export async function assignOnOrderCreate(input) {
         receiveAddress: result.receiveAddress,
         memoOrTag: result.memoOrTag,
         statuses: MODE_D_CREATE_BLOCK_STATUSES,
+        excludeOrderId,
       });
       if (memoBlocking) {
         return blockingCreateError(
