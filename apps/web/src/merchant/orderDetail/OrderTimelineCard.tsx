@@ -6,6 +6,7 @@ import {
   type StateTimelineStep,
 } from "../../billing/StateTimelineCard";
 import type { OrderDetailView } from "./orderDetailView";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   order: PaymentOrder | null;
@@ -110,5 +111,9 @@ function buildOrderTimeline({ order, pay, chain, view }: Props): StateTimelineSt
 }
 
 export function OrderTimelineCard(props: Props) {
-  return <StateTimelineCard title="Order state timeline" steps={buildOrderTimeline(props)} />;
+  return <StateTimelineCard
+      title="Order state timeline"
+      steps={buildOrderTimeline(props)}
+      help={CARD_HELP.orderTimeline}
+    />;
 }

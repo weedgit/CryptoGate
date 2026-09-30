@@ -829,3 +829,23 @@ html[data-theme="light"] .plat-settlement .plat-settings__card-copy {
   }
 }
 
+
+/* "?" help next to Settlement labels */
+.stl-lock__label,
+.plat-settlement .plat-settlement__stat-label,
+.plat-settlement .b3-settlement__head .b3-card__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plat-settlement .b3-settlement__table th .chart-help {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.plat-settlement .chart-help__btn {
+  text-transform: none;
+  letter-spacing: 0;
+}

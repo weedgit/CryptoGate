@@ -18,6 +18,8 @@ import { PlatformPending } from "../platform/ui/PlatformPending";
 import { NumberStepper } from "../ui/NumberStepper";
 import { IntegrationsPage } from "./IntegrationsPage";
 import { usePageRefresh } from "../shared/pageRefresh";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "./cardHelp";
 
 type Props = { session: Session };
 
@@ -189,6 +191,7 @@ function NetworkRailsPanel({ session }: Props) {
         <div className="org-network-rail-panel__intro-main">
           <div className="org-network-rail-panel__intro-title-row">
             <h1 className="org-network-rail-panel__intro-title">Networks</h1>
+            <ChartHelpButton openOnHover label="About networks" text={CARD_HELP.networks} />
           </div>
           <p className="org-network-rail-panel__intro-sub">
             Platform sets the confirmation floor. You may require more for new
@@ -223,10 +226,16 @@ function NetworkRailsPanel({ session }: Props) {
 
       {!loading && items.length > 0 ? (
         <div className="org-network-rail-panel__table-shell">
-          <div className="org-network-rail-panel__cols" aria-hidden="true">
+          <div className="org-network-rail-panel__cols">
             <span>Network</span>
-            <span>Confirmations</span>
-            <span>Min amounts</span>
+            <span>
+              Confirmations
+              <ChartHelpButton openOnHover label="About confirmations" text={CARD_HELP.confirmations} />
+            </span>
+            <span>
+              Min amounts
+              <ChartHelpButton openOnHover label="About minimum amounts" text={CARD_HELP.minAmounts} />
+            </span>
             <span />
           </div>
 

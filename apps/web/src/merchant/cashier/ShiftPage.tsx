@@ -14,6 +14,8 @@ import { useDashboardLiveEvents } from "../../shared/useDashboardLiveEvents";
 import { NetworkIcon } from "../../platform/cryptoIcons";
 import { OPEN_ORDER_STATUSES, shiftTotals } from "./cashierLogic";
 import { AlertIcon, CheckIcon, ChevronRightIcon, ClockIcon } from "./cashierIcons";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = { session: Session; notice?: string };
 
@@ -85,7 +87,10 @@ export function ShiftPage({ session, notice }: Props) {
       <div className="cashier-shift__totals">
         <div className="cashier-shift__total is-completed">
           <div className="cashier-shift__total-copy">
-            <span>Completed</span>
+            <span>
+              Completed
+              <ChartHelpButton openOnHover label="About completed orders" text={CARD_HELP.shiftCompleted} />
+            </span>
             <strong className="fund-amount">{formatShiftUsd(totals.completedUsd)}</strong>
             <small>{totals.completed} paid</small>
           </div>
@@ -95,7 +100,10 @@ export function ShiftPage({ session, notice }: Props) {
         </div>
         <div className="cashier-shift__total is-open">
           <div className="cashier-shift__total-copy">
-            <span>Open</span>
+            <span>
+              Open
+              <ChartHelpButton openOnHover label="About open orders" text={CARD_HELP.shiftOpen} />
+            </span>
             <strong>{totals.open}</strong>
             <small>waiting or confirming</small>
           </div>
@@ -107,7 +115,10 @@ export function ShiftPage({ session, notice }: Props) {
           className={`cashier-shift__total${totals.attention > 0 ? " is-attention" : " is-clear"}`}
         >
           <div className="cashier-shift__total-copy">
-            <span>Attention</span>
+            <span>
+              Attention
+              <ChartHelpButton openOnHover label="About attention orders" text={CARD_HELP.shiftAttention} />
+            </span>
             <strong>{totals.attention}</strong>
             <small>{totals.attention > 0 ? "ask a manager" : "all clear"}</small>
           </div>

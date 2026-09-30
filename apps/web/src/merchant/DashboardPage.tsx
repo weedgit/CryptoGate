@@ -40,6 +40,7 @@ import { merchantRoute } from "../shared/portalRouting";
 import { AnimatedMetric } from "../shared/AnimatedMetric";
 import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { DashKpiCard } from "../platform/ui/DashKpiCard";
+import { CARD_HELP } from "./cardHelp";
 import { DashHeroAura, DashHeroHighlights, DashPeriodControls } from "../platform/ui/DashHero";
 import {
   useDashboardLiveEvents,
@@ -362,6 +363,7 @@ export function DashboardPage({ session, isSite = false }: Props) {
           accent="teal"
           icon={<TransactionsReceiptIcon />}
           label="Total Transactions"
+          help={CARD_HELP.totalTransactions}
           value={<AnimatedMetric value={kpis.completedCount} />}
           trend={kpis.settledTrend}
           hint={`Settled · ${activePeriodLabel}`}
@@ -372,6 +374,7 @@ export function DashboardPage({ session, isSite = false }: Props) {
           accent="warn"
           icon={<OpenOrdersIcon />}
           label="Open Orders"
+          help={CARD_HELP.openOrders}
           value={<AnimatedMetric value={kpis.openWork} />}
           hint={
             kpis.expiringSoon > 0
@@ -385,6 +388,7 @@ export function DashboardPage({ session, isSite = false }: Props) {
           accent={kpis.anomalies > 0 ? "danger" : "ok"}
           icon={kpis.anomalies > 0 ? undefined : <AllClearIcon />}
           label="Attention"
+          help={CARD_HELP.attention}
           value={<AnimatedMetric value={kpis.anomalies} />}
           hint={
             kpis.anomalies > 0
@@ -407,6 +411,7 @@ export function DashboardPage({ session, isSite = false }: Props) {
             accent={kpis.expiringSoon > 0 ? "gold" : "slate"}
             icon={<ExpiringIcon />}
             label="Expiring Soon"
+            help={CARD_HELP.expiringSoon}
             value={<AnimatedMetric value={kpis.expiringSoon} />}
             hint={
               kpis.expiringSoon > 0 ? "Customer may need a new QR" : "Nothing about to expire"
@@ -418,6 +423,7 @@ export function DashboardPage({ session, isSite = false }: Props) {
         <DashKpiCard
           accent="gold"
           label="Platform Fee"
+          help={CARD_HELP.platformFee}
           value={
             <span className="pg-kpi__money">
               $<AnimatedMetric value={kpis.platformFee} decimals={2} />

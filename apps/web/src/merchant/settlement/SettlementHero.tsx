@@ -1,4 +1,6 @@
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
 import { SETTLEMENT_ICONS } from "../SettlementSectionHead";
+import { SETTLEMENT_HELP } from "./settlementHelp";
 import { formatCountdown, truncateAddress } from "../org";
 import type { SettlementAddress } from "../api";
 
@@ -29,6 +31,7 @@ export function SettlementHero({ addresses, lockChip }: Props) {
               {SETTLEMENT_ICONS.shield}
             </span>
             MFA protected
+            <ChartHelpButton openOnHover label="About MFA protection" text={SETTLEMENT_HELP.mfa} />
           </span>
           {lockChip ? <span className="stl-chip">{lockChip}</span> : null}
         </div>

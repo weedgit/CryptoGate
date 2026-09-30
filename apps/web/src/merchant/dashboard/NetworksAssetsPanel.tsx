@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { AssetNetworkTables } from "../../platform/AssetNetworkTables";
 import { merchantRoute } from "../../shared/portalRouting";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   /** Bump (dashboard Refresh / live events) to reload lamps. */
@@ -35,6 +37,7 @@ export function NetworksAssetsPanel({ reloadToken = 0 }: Props) {
                 </svg>
               </span>
               Networks &amp; Assets
+              <ChartHelpButton openOnHover label="About networks and assets" text={CARD_HELP.networksAssets} />
             </h2>
           </div>
           <Link to={merchantRoute("networks")} className="pg-networks-panel__more">

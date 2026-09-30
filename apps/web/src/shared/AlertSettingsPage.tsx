@@ -6,6 +6,8 @@ import {
 } from "../merchant/api";
 import { AuthToast } from "../auth/AuthToast";
 import { GoldWaves } from "./GoldWaves";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../merchant/cardHelp";
 
 export type AlertIconKind =
   | "payment"
@@ -232,7 +234,10 @@ export function AlertSettingsPage({
             {ICONS.bell}
           </span>
           <div className="plat-alerts__head-copy">
-            <h1 className="plat-alerts__title">Alerts</h1>
+            <h1 className="plat-alerts__title">
+              Alerts
+              <ChartHelpButton openOnHover label="About alerts" text={CARD_HELP.alerts} />
+            </h1>
             <p className="plat-alerts__subtitle">
               Your personal settings — teammates choose their own.
             </p>

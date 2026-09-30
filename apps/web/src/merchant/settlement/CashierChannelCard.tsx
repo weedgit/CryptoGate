@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
 import { SettlementSectionHead } from "../SettlementSectionHead";
+import { SETTLEMENT_HELP } from "./settlementHelp";
 import { ApiError, getPosSettings, putPosSettings, type PosSettings } from "../api";
 import { SettlementOptionGroup, type SettlementOption } from "./SettlementOptionGroup";
 import type { SettlementNotify } from "./useSettlementData";
@@ -19,12 +21,16 @@ const OPTIONS: SettlementOption[] = [
     eyebrow: "Cashiers",
     value: "Web + POS app",
     hint: "Cashiers can charge from the web terminal or the POS app.",
+    tip: SETTLEMENT_HELP.cashierWebAndPos,
+    tipLabel: "About Web + POS app",
   },
   {
     id: POS_ONLY,
     eyebrow: "Cashiers",
     value: "POS app only",
     hint: "The web terminal shows My shift and Orders; charging happens in the POS app.",
+    tip: SETTLEMENT_HELP.cashierPosOnly,
+    tipLabel: "About POS app only",
   },
 ];
 
@@ -81,6 +87,13 @@ export function CashierChannelCard({ orgId, canManage, notify }: Props) {
         icon="terminal"
         title="Cashier channel"
         subtitle="Where cashiers create orders."
+        help={
+          <ChartHelpButton
+            openOnHover
+            label="About cashier channel"
+            text={SETTLEMENT_HELP.cashierChannel}
+          />
+        }
       >
         <span className={`plat-settlement__mode-pill${dirty ? " is-stale" : ""}`}>
           {settings.cashierWebOrders ? "Web + POS app" : "POS app only"}
@@ -100,6 +113,7 @@ export function CashierChannelCard({ orgId, canManage, notify }: Props) {
           onSelect={setDraft}
           duo
           locked={locked}
+          tipIdPrefix="cashier-channel-tip"
         />
         {!locked ? (
           <div className="plat-settlement__form">

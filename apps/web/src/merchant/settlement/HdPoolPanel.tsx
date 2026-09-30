@@ -2,7 +2,9 @@ import { FormEvent, useState } from "react";
 import { MfaStepUpGate } from "../../auth/MfaStepUpGate";
 import { AnimatedText } from "../../shared/AnimatedText";
 import { displayNetworkForPair, xpubMaterialHint } from "../../shared/assetNetworks";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
 import { SETTLEMENT_ICONS } from "../SettlementSectionHead";
+import { SETTLEMENT_HELP } from "./settlementHelp";
 import {
   ApiError,
   putXpub,
@@ -94,9 +96,8 @@ export function HdPoolPanel({
               ?
             </button>
             <span className="plat-card-help__tip" role="tooltip">
-              Watch-only key per asset/network. Derived pool addresses for{" "}
-              {displayNetworkForPair(picker.asset, picker.network)} on same-amount
-              conflicts. PaymentGate never sweeps or signs.
+              {SETTLEMENT_HELP.hdPool} Showing{" "}
+              {picker.asset} on {displayNetworkForPair(picker.asset, picker.network)}.
             </span>
           </span>
         </div>
@@ -105,7 +106,10 @@ export function HdPoolPanel({
 
       <div className="plat-settlement__stats" aria-label="HD pool summary">
         <div className="plat-settlement__stat">
-          <span className="plat-settlement__stat-label">xPub</span>
+          <span className="plat-settlement__stat-label">
+            xPub
+            <ChartHelpButton openOnHover label="About xPub status" text={SETTLEMENT_HELP.hdXpub} />
+          </span>
           <strong className="plat-settlement__stat-value">
             {activeXpub?.xPubConfigured
               ? activeXpub.pendingXPub
@@ -123,13 +127,16 @@ export function HdPoolPanel({
         </div>
         {(
           [
-            ["Free", "FREE"],
-            ["In use", "IN_USE"],
-            ["Cool-down", "COOLDOWN"],
+            ["Free", "FREE", SETTLEMENT_HELP.hdFree],
+            ["In use", "IN_USE", SETTLEMENT_HELP.hdInUse],
+            ["Cool-down", "COOLDOWN", SETTLEMENT_HELP.hdCooldown],
           ] as const
-        ).map(([label, status]) => (
+        ).map(([label, status, tip]) => (
           <div key={status} className="plat-settlement__stat">
-            <span className="plat-settlement__stat-label">{label}</span>
+            <span className="plat-settlement__stat-label">
+              {label}
+              <ChartHelpButton openOnHover label={`About ${label} addresses`} text={tip} />
+            </span>
             <strong className="plat-settlement__stat-value">
               <AnimatedText text={countBy(status)} />
             </strong>
@@ -166,7 +173,10 @@ export function HdPoolPanel({
           onSubmit={onSubmit}
         >
           <div className="plat-settlement__form-head">
-            <h3 className="plat-settlement__form-title">Register or rotate xPub</h3>
+            <h3 className="plat-settlement__form-title">
+              Register or rotate xPub
+              <ChartHelpButton openOnHover label="About xPub rotation" text={SETTLEMENT_HELP.hdRotate} />
+            </h3>
           </div>
           <AssetNetworkFields
             picker={picker}

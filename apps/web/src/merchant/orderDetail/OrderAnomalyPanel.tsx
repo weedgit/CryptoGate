@@ -2,6 +2,8 @@ import type { PaymentOrder } from "../api";
 import { formatShortTime } from "../orderStatus";
 import { AssetIcon } from "../../platform/cryptoIcons";
 import type { OrderDetailView } from "./orderDetailView";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   order: PaymentOrder | null;
@@ -64,7 +66,10 @@ export function OrderAnomalyPanel({
           <span className="order-detail-anomaly__head-icon" aria-hidden>
             <AlertIcon />
           </span>
-          <h2 className="order-detail-anomaly__title">Needs attention</h2>
+          <h2 className="order-detail-anomaly__title">
+            Needs attention
+            <ChartHelpButton openOnHover label="About needs attention" text={CARD_HELP.orderAttention} />
+          </h2>
           <span className="order-detail-anomaly__pill">Action required</span>
         </header>
 

@@ -1,6 +1,7 @@
 import { useId, useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { animateCardValue } from "../../shared/AnimatedText";
+import { ChartHelpButton } from "./ChartHelpButton";
 
 export function MiniSpark({
   values,
@@ -113,6 +114,7 @@ export function DashKpiCard({
   linkWithTitle = false,
   icon,
   footer,
+  help,
 }: {
   accent: KpiAccent;
   /** Replaces the accent's default icon. */
@@ -128,6 +130,8 @@ export function DashKpiCard({
   linkWithTitle?: boolean;
   /** Bottom-right content beside the link (e.g. bill status). */
   footer?: ReactNode;
+  /** "?" tooltip next to the label. */
+  help?: string;
 }) {
   const meta =
     trend != null ? (
@@ -157,7 +161,10 @@ export function DashKpiCard({
         <span className="pg-kpi__icon" aria-hidden>
           {icon ?? <DashKpiIcon accent={accent} />}
         </span>
-        <span className="pg-kpi__label">{label}</span>
+        <span className="pg-kpi__label">
+          {label}
+          {help ? <ChartHelpButton openOnHover label={`About ${label}`} text={help} /> : null}
+        </span>
         {linkWithTitle ? link : null}
       </div>
       <div className="pg-kpi__metrics">

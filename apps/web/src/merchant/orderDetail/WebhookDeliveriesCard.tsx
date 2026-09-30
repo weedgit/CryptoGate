@@ -1,5 +1,7 @@
 import { formatShortTime } from "../orderStatus";
 import type { OrderWebhookRow } from "./useOrderWebhookDeliveries";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   rows: OrderWebhookRow[];
@@ -19,7 +21,10 @@ export function WebhookDeliveriesCard({
   return (
     <section className="plat-settings__card order-detail-aside-card order-detail-webhooks-card no-print">
       <div className="plat-settings__card-head">
-        <h2 className="plat-settings__card-title">Webhook deliveries</h2>
+        <h2 className="plat-settings__card-title">
+          Webhook deliveries
+          <ChartHelpButton openOnHover label="About webhook deliveries" text={CARD_HELP.webhookDeliveries} />
+        </h2>
       </div>
       <div className="plat-settings__card-body">
         {msg ? (

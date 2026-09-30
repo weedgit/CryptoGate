@@ -10,6 +10,8 @@ import {
   type NetworkLamp,
 } from "../../shared/networkLamp";
 import { merchantRoute } from "../../shared/portalRouting";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   /** null while network status is still loading. */
@@ -37,7 +39,10 @@ export function NetworkStatusStrip({
   return (
     <section className="merchant-dash__networks" aria-label="Network status">
       <div className="plat-dash-merchants__head">
-        <h2>Network status</h2>
+        <h2>
+          Network status
+          <ChartHelpButton openOnHover label="About network status" text={CARD_HELP.networkStatus} />
+        </h2>
         {showNetworksLink ? (
           <Link className="plat-dash-merchants__all" to={merchantRoute("networks")}>
             View networks

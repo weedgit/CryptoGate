@@ -1,5 +1,6 @@
 import { MerchantSettlementPanel } from "../../platform/MerchantSettlementPanel";
 import { getSession, type Session, type SettlementAddress } from "../api";
+import { SETTLEMENT_HELP } from "./settlementHelp";
 import type { SettlementNotify } from "./useSettlementData";
 
 type Props = {
@@ -47,6 +48,7 @@ export function SettlementAddressesCard({
         loading={false}
         onSettlementChange={() => undefined}
         onSaved={() => void onSaved()}
+        help={{ heading: SETTLEMENT_HELP.addresses, status: SETTLEMENT_HELP.addressStatus }}
       />
     </section>
   );

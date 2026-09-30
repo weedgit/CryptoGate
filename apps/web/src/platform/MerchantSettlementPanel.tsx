@@ -10,6 +10,7 @@ import { CopyGlyph } from "../shared/CopyGlyph";
 import { enabledRegistry, networkShortLabel } from "../shared/assetNetworks";
 import { FieldControl } from "../ui/FieldControl";
 import { NetworkIcon } from "./cryptoIcons";
+import { ChartHelpButton } from "./ui/ChartHelpButton";
 
 /** One settlement wallet per network; it receives every listed asset. */
 export type SettlementNetworkRow = {
@@ -238,6 +239,8 @@ type Props = {
   loading: boolean;
   onSettlementChange: (rows: SettlementAddress[]) => void;
   onSaved?: (saved: SettlementAddress) => void;
+  /** Merchant-facing tooltips for the heading and Status column. */
+  help?: { heading: string; status: string };
 };
 
 export function MerchantSettlementPanel({
@@ -248,6 +251,7 @@ export function MerchantSettlementPanel({
   loading,
   onSettlementChange,
   onSaved,
+  help,
 }: Props) {
   const rows = useMemo(() => settlementNetworkRows(), []);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
@@ -348,7 +352,16 @@ export function MerchantSettlementPanel({
             <SettlementHeadIcon />
           </span>
           <div className="b3-profile__head-copy">
-            <h3 className="b3-card__heading">Settlement addresses</h3>
+            <h3 className="b3-card__heading">
+              Settlement addresses
+              {help ? (
+                <ChartHelpButton
+                  openOnHover
+                  label="About settlement addresses"
+                  text={help.heading}
+                />
+              ) : null}
+            </h3>
           </div>
           <div className="b3-settlement__head-actions">
             <span className="b3-settlement__configured-cap">
@@ -362,7 +375,16 @@ export function MerchantSettlementPanel({
             <tr>
               <th>Network</th>
               <th>Wallet address</th>
-              <th>Status</th>
+              <th>
+                Status
+                {help ? (
+                  <ChartHelpButton
+                    openOnHover
+                    label="About address status"
+                    text={help.status}
+                  />
+                ) : null}
+              </th>
               <th>Actions</th>
             </tr>
           </thead>

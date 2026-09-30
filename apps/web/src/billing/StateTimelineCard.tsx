@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
 
 export type StateTimelineStep = {
   id: string;
@@ -27,9 +28,12 @@ function arrowTone(
 export function StateTimelineCard({
   title,
   steps,
+  help,
 }: {
   title: string;
   steps: StateTimelineStep[];
+  /** "?" tooltip next to the title. */
+  help?: string;
 }) {
   return (
     <section className="plat-bill-detail__card plat-bill-detail__timeline-card">
@@ -43,6 +47,7 @@ export function StateTimelineCard({
           </svg>
         </span>
         {title}
+        {help ? <ChartHelpButton openOnHover label={`About ${title}`} text={help} /> : null}
       </h2>
       <ol className="plat-bill-detail__timeline">
         {steps.map((step, i, arr) => {

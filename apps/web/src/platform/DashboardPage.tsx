@@ -79,6 +79,7 @@ import {
 import { visibleRegistry, networkShortLabel } from "../shared/assetNetworks";
 import { useDashboardPortal } from "./dashboardPortal";
 import { usePageRefresh } from "../shared/pageRefresh";
+import { AGENT_KPI_HELP, PLATFORM_KPI_HELP } from "./dashboardHelp";
 
 type Props = { session: Session };
 
@@ -1075,6 +1076,7 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="blue"
           label="Total Merchants"
+          help={portal ? AGENT_KPI_HELP.merchants : PLATFORM_KPI_HELP.merchants}
           value={stats.merchants.total.toLocaleString()}
           hint={
             stats.newMerchants > 0
@@ -1089,6 +1091,7 @@ export function DashboardPage({ session }: Props) {
           <DashKpiCard
             accent="teal"
             label="Total Agents"
+            help={PLATFORM_KPI_HELP.agents}
             value={stats.agents.total.toLocaleString()}
             hint={
               stats.newAgents > 0
@@ -1103,6 +1106,7 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="gold"
           label="Total Transactions"
+          help={portal ? AGENT_KPI_HELP.transactions : PLATFORM_KPI_HELP.transactions}
           value={orderCounts.settled.toLocaleString()}
           trend={kpiSparks.txTrend}
           spark={kpiSparks.transactions}
@@ -1112,6 +1116,7 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="violet"
           label="Total Volume"
+          help={portal ? AGENT_KPI_HELP.volume : PLATFORM_KPI_HELP.volume}
           value={
             <span className="pg-kpi__money">
               <AnimatedText text={"$" + formatMoneyFigureFixed(stats.volume)} />
@@ -1127,6 +1132,7 @@ export function DashboardPage({ session }: Props) {
             accent="teal"
             icon={<MerchantFeesIcon />}
             label="Merchant Fees"
+            help={AGENT_KPI_HELP.merchantFees}
             value={
               <span className="pg-kpi__money">
                 <AnimatedText text={"$" + formatMoneyFigureFixed(stats.collected)} />
@@ -1154,6 +1160,11 @@ export function DashboardPage({ session }: Props) {
             </span>
             <p className="pg-feature__kicker">
               {portal ? "Commission earned" : "Platform fees"}
+              <ChartHelpButton
+                openOnHover
+                label={portal ? "About commission earned" : "About platform fees"}
+                text={portal ? AGENT_KPI_HELP.commission : PLATFORM_KPI_HELP.platformFees}
+              />
             </p>
           </div>
           {portal && period === "mtd" && commissionPreview?.eligible ? (
@@ -1381,12 +1392,14 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="ok"
           label="Successful Payments"
+          help={PLATFORM_KPI_HELP.successfulPayments}
           value={orderCounts.settled.toLocaleString()}
           hint={`${successRate}% success rate`}
         />
         <DashKpiCard
           accent="danger"
           label="Overdue Invoices"
+          help={PLATFORM_KPI_HELP.overdueInvoices}
           value={stats.invoicesOverdue.toLocaleString()}
           hint={
             stats.invoicesOverdue > 0 ? "Needs attention" : "All clear"
@@ -1398,6 +1411,7 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="violet"
           label="Pending Payouts"
+          help={PLATFORM_KPI_HELP.pendingPayouts}
           value={stats.commissionOwed > 0 ? formatMoneyFigure(stats.commissionOwed) : "0"}
           hint={stats.commissionOwed > 0 ? "Commission owed" : "Scheduled"}
           href={route("commissions")}
@@ -1407,6 +1421,7 @@ export function DashboardPage({ session }: Props) {
         <DashKpiCard
           accent="slate"
           label="Flagged for Review"
+          help={PLATFORM_KPI_HELP.flagged}
           value={stats.anomalies.toLocaleString()}
           hint={
             stats.anomalies > 0 ? "Open Attention" : "No action required"
@@ -1428,6 +1443,7 @@ export function DashboardPage({ session }: Props) {
                       : "slate"
             }
             label="DB Backup"
+            help={PLATFORM_KPI_HELP.backup}
             value={
               backupStatus == null
                 ? "—"

@@ -1,4 +1,6 @@
 import type { OrderDetailView } from "./orderDetailView";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   status: string;
@@ -32,7 +34,10 @@ export function ChainConfirmationsCard({
       }`}
     >
       <div className="plat-settings__card-head order-detail-chain__head">
-        <h2 className="plat-settings__card-title">Blockchain confirmations</h2>
+        <h2 className="plat-settings__card-title">
+          Blockchain confirmations
+          <ChartHelpButton openOnHover label="About blockchain confirmations" text={CARD_HELP.chainConfirmations} />
+        </h2>
         <div className="order-detail-chain__head-meta">
           {watching ? (
             <span

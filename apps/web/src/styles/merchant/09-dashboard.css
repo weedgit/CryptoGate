@@ -1220,7 +1220,21 @@ html[data-theme="light"] .profile-avatar-editor__preview {
 
 .platform-shell .chart-help {
   position: relative;
+  display: inline-flex;
   flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Inline "?" after a heading or label */
+.platform-shell :is(h1, h2, h3, th, p, .pg-kpi__label) > .chart-help,
+.platform-shell .cashier-shift__total-copy > span > .chart-help,
+.platform-shell .org-network-rail-panel__cols > span > .chart-help {
+  margin-left: 6px;
+}
+
+.platform-shell .plat-settlement__form-title > .chart-help,
+.platform-shell .plat-settlement .b3-card__heading > .chart-help {
+  margin-left: 0;
 }
 
 .platform-shell .chart-help__btn {

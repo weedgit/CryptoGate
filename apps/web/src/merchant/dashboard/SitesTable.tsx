@@ -4,6 +4,8 @@ import { OrgBrandMark } from "../../shared/OrgBrandMark";
 import { merchantRoute } from "../../shared/portalRouting";
 import { UsdAmount } from "./UsdAmount";
 import { usePagedRows } from "./usePagedRows";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 export type SiteRow = {
   id: string;
@@ -28,6 +30,7 @@ export function SitesTable({ rows, periodLabel }: Props) {
         <div className="overview-charts__heading">
           <h2 id="merchant-dash-sites-title" className="overview-charts__title">
             Sites
+            <ChartHelpButton openOnHover label="About sites" text={CARD_HELP.sites} />
           </h2>
           <p className="overview-charts__subtitle">
             {periodLabel ? `Orders and volume by site · ${periodLabel}` : "Orders and volume by site"}

@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
 import { SettlementSectionHead } from "../SettlementSectionHead";
+import { SETTLEMENT_HELP } from "./settlementHelp";
 import { ApiError, putFulfillmentPolicy } from "../api";
 import {
   FULFILLMENT_POLICY_CARDS,
@@ -57,6 +59,13 @@ export function FulfillmentPolicyCard({ orgId, policy, locked, notify, onSaved }
         icon="release"
         title="Fulfillment policy"
         subtitle="When staff can hand over goods."
+        help={
+          <ChartHelpButton
+            openOnHover
+            label="About fulfillment policy"
+            text={SETTLEMENT_HELP.fulfillment}
+          />
+        }
       >
         <span className={`plat-settlement__mode-pill${dirty ? " is-stale" : ""}`}>
           {fulfillmentPolicyLabel(policy)}

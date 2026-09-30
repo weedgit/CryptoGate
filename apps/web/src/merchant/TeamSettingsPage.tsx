@@ -68,6 +68,8 @@ import {
 } from "../shared/registeredEmails";
 import type { OrgRef } from "../shared/registeredEmails";
 import { usePageRefresh } from "../shared/pageRefresh";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "./cardHelp";
 
 type Props = {
   session: Session;
@@ -458,7 +460,10 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
             </svg>
           </span>
           <div className="plat-bills__intro-copy">
-            <h1 className="plat-bills__intro-title">Team</h1>
+            <h1 className="plat-bills__intro-title">
+              Team
+              <ChartHelpButton openOnHover label="About team roles" text={CARD_HELP.team} />
+            </h1>
             <p className="plat-bills__intro-sub">
               {org ? `${org.name} → ` : "Merchant → "}Owner, Administrator, Viewer,
               and Cashier memberships.
@@ -571,8 +576,14 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
-                  <th>Role</th>
-                  <th>MFA</th>
+                  <th>
+                    Role
+                    <ChartHelpButton openOnHover label="About roles" text={CARD_HELP.teamRole} />
+                  </th>
+                  <th>
+                    MFA
+                    <ChartHelpButton openOnHover label="About MFA" text={CARD_HELP.teamMfa} />
+                  </th>
                   <th className="plat-team__th-login">Last login</th>
                   {showActions ? (
                     <th className="plat-team__th-actions">Actions</th>

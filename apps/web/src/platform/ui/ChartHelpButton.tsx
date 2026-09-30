@@ -24,7 +24,7 @@ export function ChartHelpButton({
   openOnHover = false,
 }: Props) {
   const popoverId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
@@ -127,7 +127,7 @@ export function ChartHelpButton({
   useEffect(() => () => cancelClose(), []);
 
   return (
-    <div ref={rootRef} className="chart-help">
+    <span ref={rootRef} className="chart-help">
       <button
         ref={btnRef}
         type="button"
@@ -135,7 +135,9 @@ export function ChartHelpButton({
         aria-expanded={open}
         aria-controls={popoverId}
         aria-label={label}
-        onClick={() => {
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
           cancelClose();
           setOpen((prev) => !prev);
         }}
@@ -165,6 +167,6 @@ export function ChartHelpButton({
             document.body,
           )
         : null}
-    </div>
+    </span>
   );
 }

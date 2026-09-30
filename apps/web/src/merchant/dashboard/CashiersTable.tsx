@@ -5,6 +5,8 @@ import { merchantRoute } from "../../shared/portalRouting";
 import type { CashierRow } from "./cashierRows";
 import { UsdAmount } from "./UsdAmount";
 import { usePagedRows } from "./usePagedRows";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   rows: CashierRow[];
@@ -34,6 +36,7 @@ export function CashiersTable({ rows, periodLabel, invoicesHref }: Props) {
         <div className="overview-charts__heading">
           <h2 id="merchant-dash-cashiers-title" className="overview-charts__title">
             Cashiers
+            <ChartHelpButton openOnHover label="About cashiers" text={CARD_HELP.cashiers} />
           </h2>
           <p className="overview-charts__subtitle">{`Sales by cashier · ${periodLabel}`}</p>
         </div>

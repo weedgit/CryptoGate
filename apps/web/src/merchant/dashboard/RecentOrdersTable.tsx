@@ -7,6 +7,8 @@ import { networkShortLabel } from "../../shared/assetNetworks";
 import { StatusBadge } from "../../shared/StatusBadge";
 import { merchantRoute } from "../../shared/portalRouting";
 import { orderTime } from "./format";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   orders: PaymentOrder[];
@@ -27,7 +29,10 @@ export function RecentOrdersTable({
   return (
     <section className="merchant-dash-orders">
       <div className="plat-dash-merchants__head">
-        <h2>{title}</h2>
+        <h2>
+          {title}
+          <ChartHelpButton openOnHover label="About recent orders" text={CARD_HELP.recentOrders} />
+        </h2>
         <Link className="plat-dash-merchants__all" to={merchantRoute("orders")}>
           View all
         </Link>

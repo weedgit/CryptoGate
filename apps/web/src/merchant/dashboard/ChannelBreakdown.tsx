@@ -4,6 +4,8 @@ import { OrderChannelTag } from "../../shared/OrderChannelTag";
 import { merchantRoute } from "../../shared/portalRouting";
 import { channelRows } from "./channelRows";
 import { formatUsd } from "./format";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   byChannel: DashboardReports["byChannel"];
@@ -17,7 +19,10 @@ export function ChannelBreakdown({ byChannel, periodLabel }: Props) {
   return (
     <section className="merchant-dash-sites merchant-dash-channels">
       <div className="plat-dash-merchants__head">
-        <h2>Orders by channel</h2>
+        <h2>
+          Orders by channel
+          <ChartHelpButton openOnHover label="About orders by channel" text={CARD_HELP.channels} />
+        </h2>
         <span className="muted merchant-dash-cashiers__period">{periodLabel}</span>
       </div>
       <div className="merchant-dash-orders__scroll">

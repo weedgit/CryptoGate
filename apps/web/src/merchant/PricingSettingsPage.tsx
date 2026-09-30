@@ -8,8 +8,10 @@ import {
 } from "./api";
 import { AuthToast } from "../auth/AuthToast";
 import { showToast } from "../shared/toast";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
 import { SettlementSectionHead } from "./SettlementSectionHead";
 import { SettlementOptionGroup } from "./settlement/SettlementOptionGroup";
+import { SETTLEMENT_HELP } from "./settlement/settlementHelp";
 import {
   primaryMerchantOrgId,
   sessionCanEditOrgSettings,
@@ -24,12 +26,14 @@ const MODE_OPTIONS = [
     value: "1:1",
     blurb:
       "Stablecoins settle at $1.00 when the market rate stays within the platform depeg band; otherwise the live rate is used.",
+    tip: SETTLEMENT_HELP.pricingPegged,
   },
   {
     id: "market",
     label: "Always market",
     value: "FX",
     blurb: "Every asset uses the live USD rate from the rate feed at quote time.",
+    tip: SETTLEMENT_HELP.pricingMarket,
   },
   {
     id: "usd_to_token",
@@ -37,6 +41,7 @@ const MODE_OPTIONS = [
     value: "USD",
     blurb:
       "Enter the USD amount. PaymentGate converts it to the token amount at the cached fund rate.",
+    tip: SETTLEMENT_HELP.pricingUsdToToken,
   },
   {
     id: "token_to_usd",
@@ -44,6 +49,7 @@ const MODE_OPTIONS = [
     value: "USD",
     blurb:
       "Enter the token amount. PaymentGate converts it to USD at the live rate.",
+    tip: SETTLEMENT_HELP.pricingTokenToUsd,
   },
 ] as const;
 
@@ -190,6 +196,13 @@ export function PricingSettingsPage({ session }: Props) {
           icon="fx"
           title="FX pricing mode"
           subtitle="How invoice amounts convert between USD and tokens."
+          help={
+            <ChartHelpButton
+              openOnHover
+              label="About FX pricing mode"
+              text={SETTLEMENT_HELP.pricing}
+            />
+          }
         >
           <span className={`plat-settlement__mode-pill${dirty ? " is-stale" : ""}`}>
             {MODE_OPTIONS.find((o) => o.id === savedMode)?.label ?? savedMode}
@@ -205,6 +218,7 @@ export function PricingSettingsPage({ session }: Props) {
                 variant="radiogroup"
                 duo
                 locked={!canEdit}
+                tipIdPrefix="pricing-mode-tip"
                 selectedId={pricingMode}
                 onSelect={selectMode}
                 options={MODE_OPTIONS.map((opt) => {
@@ -214,6 +228,8 @@ export function PricingSettingsPage({ session }: Props) {
                     eyebrow: opt.label,
                     value: opt.value,
                     hint: off ? `${opt.blurb} (disabled by platform)` : opt.blurb,
+                    tip: opt.tip,
+                    tipLabel: `About ${opt.label} pricing`,
                     disabled: off,
                     className: off || !canEdit ? "is-disabled" : undefined,
                   };
@@ -222,7 +238,14 @@ export function PricingSettingsPage({ session }: Props) {
 
               <div className="stl-lock">
                 <div className="stl-lock__copy">
-                  <span className="stl-lock__label">Quote lock</span>
+                  <span className="stl-lock__label">
+                    Quote lock
+                    <ChartHelpButton
+                      openOnHover
+                      label="About quote lock"
+                      text={SETTLEMENT_HELP.quoteLock}
+                    />
+                  </span>
                   <span className="stl-lock__hint">
                     Rate is locked for this window when a pay method is quoted.
                   </span>

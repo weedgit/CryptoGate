@@ -20,6 +20,8 @@ import {
 } from "./api";
 import { parentMerchantOrgId, sessionCanCheckoutServiceBill } from "./org";
 import { serviceBillStatusLabel, serviceBillStatusTone } from "./serviceBillStatus";
+import { ChartHelpButton } from "../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "./cardHelp";
 
 type Props = { session: Session };
 
@@ -167,12 +169,14 @@ function KpiCard({
   value,
   meta,
   action,
+  help,
 }: {
   accent: BillKpiAccent;
   label: string;
   value: ReactNode;
   meta: string;
   action?: ReactNode;
+  help?: string;
 }) {
   return (
     <div className={`plat-bills__kpi-card is-${accent}`}>
@@ -180,7 +184,10 @@ function KpiCard({
         <span className="plat-bills__kpi-icon" aria-hidden>
           <BillKpiIcon accent={accent} />
         </span>
-        <p className="plat-bills__kpi-label">{label}</p>
+        <p className="plat-bills__kpi-label">
+          {label}
+          {help ? <ChartHelpButton openOnHover label={`About ${label}`} text={help} /> : null}
+        </p>
         {action}
       </div>
       <p className="plat-bills__kpi-value">{animateCardValue(value)}</p>
@@ -400,7 +407,14 @@ export function ServiceBillsListPage({ session }: Props) {
             </svg>
           </span>
           <div className="plat-bills__intro-copy">
-            <h1 className="plat-bills__intro-title">Service Bills</h1>
+            <h1 className="plat-bills__intro-title">
+              Service Bills
+              <ChartHelpButton
+                openOnHover
+                label="About service bills"
+                text={CARD_HELP.serviceBills}
+              />
+            </h1>
             <p className="plat-bills__intro-sub">
               Monthly PaymentGate fees — not deducted from payer on-chain.
             </p>
@@ -448,6 +462,7 @@ export function ServiceBillsListPage({ session }: Props) {
           <KpiCard
             accent="blue"
             label="Next bill"
+            help={CARD_HELP.nextBill}
             value={
               activated && estimate ? (
                 estimate.waived ? (
@@ -476,6 +491,7 @@ export function ServiceBillsListPage({ session }: Props) {
           <KpiCard
             accent={hasOverdue ? "danger" : "warn"}
             label="Due now"
+            help={CARD_HELP.dueNow}
             value={loading ? "—" : <FundAmount animate amount={dueTotal.toFixed(2)} />}
             meta={
               openBills.length === 0
@@ -502,6 +518,7 @@ export function ServiceBillsListPage({ session }: Props) {
           <KpiCard
             accent="violet"
             label="Your plan"
+            help={CARD_HELP.yourPlan}
             value={
               commercial ? (
                 <>

@@ -5,6 +5,8 @@ import { truncateAddress } from "../org";
 import { networkShortLabel } from "../../shared/assetNetworks";
 import { merchantRoute } from "../../shared/portalRouting";
 import { orderTime } from "./format";
+import { ChartHelpButton } from "../../platform/ui/ChartHelpButton";
+import { CARD_HELP } from "../cardHelp";
 
 type Props = {
   orders: PaymentOrder[];
@@ -16,7 +18,10 @@ export function AttentionQueue({ orders, loading }: Props) {
   return (
     <section className="merchant-dash-anomalies">
       <div className="plat-dash-merchants__head">
-        <h2>Open Attention</h2>
+        <h2>
+          Open Attention
+          <ChartHelpButton openOnHover label="About open attention" text={CARD_HELP.openAttention} />
+        </h2>
         <Link className="plat-dash-merchants__all" to={merchantRoute("orders")}>
           View all
         </Link>
