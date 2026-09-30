@@ -30,7 +30,6 @@ import {
   liveActionLockedHint,
   sessionLiveActionsUnlocked,
 } from "../auth/contactVerification";
-import { SetupChecklistCard } from "../auth/SetupChecklistCard";
 import { GoldWaves } from "../shared/GoldWaves";
 import { ConfirmActionModal, type ConfirmRequest } from "../shared/ConfirmActionModal";
 import { formatShortTime } from "./orderStatus";
@@ -552,8 +551,7 @@ export function IntegrationsPage({ session }: Props) {
   return (
     <div className="plat-settings plat-settings--merchant plat-int">
       <AuthToast message={error} tone="error" onDismiss={() => setError(null)} />
-
-      <SetupChecklistCard session={session} portal="merchant" />
+      <AuthToast message={testMsg} tone="ok" onDismiss={() => setTestMsg(null)} />
 
       {confirmReq ? (
         <ConfirmActionModal
@@ -574,12 +572,6 @@ export function IntegrationsPage({ session }: Props) {
           hint={secretOnce.hint}
           onDismiss={() => setSecretOnce(null)}
         />
-      ) : null}
-
-      {testMsg ? (
-        <p className="plat-int__toast-ok" role="status">
-          {testMsg}
-        </p>
       ) : null}
 
       <div className="plat-int__grid">

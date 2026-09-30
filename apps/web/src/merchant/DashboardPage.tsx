@@ -53,7 +53,11 @@ import {
   type DashboardPeriodId,
 } from "../shared/dashboardPeriod";
 import { usePageRefresh } from "../shared/pageRefresh";
-type Props = { session: Session };
+type Props = {
+  session: Session;
+  /** Site portal: same board, without service bills / platform fee; lists child sites. */
+  isSite?: boolean;
+};
 
 function tierLabel(tier: string | undefined): string {
   if (!tier) return "—";
@@ -63,8 +67,8 @@ function tierLabel(tier: string | undefined): string {
   return tier;
 }
 
-/** D1 — Merchant home (HQ ops board). Sites use SiteHomePage; cashiers use the pay pad. */
-export function DashboardPage({ session }: Props) {
+/** D1 — Merchant and site home (ops board). Cashiers use the pay pad. */
+export function DashboardPage({ session, isSite = false }: Props) {
   const orgId = useMemo(() => primaryMerchantOrgId(session), [session]);
   const parentId = useMemo(() => parentMerchantOrgId(session), [session]);
   const scopeOrgId = useWorkspaceScopeOrgId(orgId);
@@ -185,19 +189,19 @@ export function DashboardPage({ session }: Props) {
   const load = useCallback(async () => {
     if (orgId) {
       void Promise.all([
-        getMerchantCommercial(orgId).catch(() => null),
+        isSite ? Promise.resolve(null) : getMerchantCommercial(orgId).catch(() => null),
         getMerchantOrgs().catch(() => [] as OrgAccount[]),
       ])
         .then(([commercialSettings, orgs]) => {
           setCommercial(commercialSettings);
-          setSites(sitesInMerchantSubtree(orgs, parentId ?? orgId));
+          setSites(sitesInMerchantSubtree(orgs, isSite ? orgId : parentId ?? orgId));
         })
         .catch(() => undefined);
     } else {
       setCommercial(null);
       setSites([]);
     }
-  }, [orgId, parentId]);
+  }, [orgId, parentId, isSite]);
 
   useEffect(() => {
     void load();
@@ -311,7 +315,8 @@ export function DashboardPage({ session }: Props) {
     return `${merchantRoute("orders")}?${q.toString()}`;
   };
 
-  const brandName = homeOrg?.name ?? "Merchant";
+  const brandName = homeOrg?.name ?? (isSite ? "Site" : "Merchant");
+  const openBills = isSite ? 0 : kpis.openBills;
 
   return (
     <div className="dash-page plat-dash pg-dash merchant-dash">
@@ -327,7 +332,7 @@ export function DashboardPage({ session }: Props) {
               className="merchant-dash__hero-mark"
             />
             <div className="pg-dash__hero-copy">
-              <p className="pg-dash__eyebrow">Merchant</p>
+              <p className="pg-dash__eyebrow">{isSite ? "Site" : "Merchant"}</p>
               <h1 className="pg-dash__welcome">{brandName}</h1>
               <p className="pg-dash__lede">
                 {`Here’s how your payments are doing · ${activePeriodLabel}.`}
@@ -384,19 +389,32 @@ export function DashboardPage({ session }: Props) {
           hint={
             kpis.anomalies > 0
               ? "Needs review"
-              : kpis.openBills > 0
-                ? `${kpis.openBills} open service bill${kpis.openBills === 1 ? "" : "s"}`
+              : openBills > 0
+                ? `${openBills} open service bill${openBills === 1 ? "" : "s"}`
                 : "All clear"
           }
           href={
             kpis.anomalies > 0
               ? merchantRoute("orders")
-              : kpis.openBills > 0
+              : openBills > 0
                 ? merchantRoute("service-bills")
                 : undefined
           }
           linkLabel={kpis.anomalies > 0 ? "Review" : "View Bills"}
         />
+        {isSite ? (
+          <DashKpiCard
+            accent={kpis.expiringSoon > 0 ? "gold" : "slate"}
+            icon={<ExpiringIcon />}
+            label="Expiring Soon"
+            value={<AnimatedMetric value={kpis.expiringSoon} />}
+            hint={
+              kpis.expiringSoon > 0 ? "Customer may need a new QR" : "Nothing about to expire"
+            }
+            href={merchantRoute("orders")}
+            linkLabel="View Orders"
+          />
+        ) : (
         <DashKpiCard
           accent="gold"
           label="Platform Fee"
@@ -419,6 +437,7 @@ export function DashboardPage({ session }: Props) {
           href={merchantRoute("service-bills")}
           linkLabel="View Bills"
         />
+        )}
         <div className="pg-feature" aria-label="Total volume">
           <div className="pg-feature__top">
             <span className="pg-feature__icon" aria-hidden>
@@ -514,6 +533,15 @@ function OpenOrdersIcon() {
     <svg {...OUTLINE_ICON}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+/** Open orders close to expiry. */
+function ExpiringIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <path d="M7 3h10M7 21h10M8 3c0 5 8 6 8 9s-8 4-8 9M16 3c0 5-8 6-8 9" />
     </svg>
   );
 }

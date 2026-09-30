@@ -39,7 +39,6 @@ const DashboardPage = lazyNamed(
   () => import("./DashboardPage"),
   "DashboardPage",
 );
-const SiteHomePage = lazyNamed(() => import("./SiteHomePage"), "SiteHomePage");
 const CashierHomePage = lazyNamed(
   () => import("./cashier/CashierHomePage"),
   "CashierHomePage",
@@ -319,13 +318,7 @@ function backOfficeRoutes(
     <>
       <Route
         index
-        element={
-          experience === "site" ? (
-            <SiteHomePage session={session} />
-          ) : (
-            <DashboardPage session={session} />
-          )
-        }
+        element={<DashboardPage session={session} isSite={experience === "site"} />}
       />
       <Route
         path="orders/*"

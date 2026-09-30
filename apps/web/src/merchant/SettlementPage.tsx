@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AuthToast } from "../auth/AuthToast";
+import { showToast } from "../shared/toast";
 import { PagePending } from "../platform/ui/PlatformPending";
 import { PricingSettingsPage } from "./PricingSettingsPage";
 import type { Session } from "./api";
@@ -61,6 +62,15 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
           ? "Wallets: Owner only"
           : null;
 
+  const inheritsParent = !loading && (matchingInherited || fulfillmentInherited);
+  useEffect(() => {
+    if (!inheritsParent) return;
+    showToast(
+      "This site inherits settlement, matching, fulfillment, and retention from the parent merchant. Change them on the merchant account.",
+      { tone: "info", durationMs: 8000 },
+    );
+  }, [inheritsParent]);
+
   const toast = (
     <AuthToast
       message={error ?? success}
@@ -94,14 +104,6 @@ export function SettlementPage({ session, onSessionRefresh }: Props) {
       {toast}
 
       <SettlementHero addresses={data.addresses} lockChip={lockChip} />
-
-      {matchingInherited || fulfillmentInherited ? (
-        <p className="plat-settings__notice" role="status">
-          Inheriting billing merchant defaults. This site has no wallet of its own —
-          settlement, matching, fulfillment, and retention come from the parent merchant.
-          Change those on the merchant account.
-        </p>
-      ) : null}
 
       <div className="plat-settlement__layout plat-settlement__layout--cols">
         <div className="plat-settlement__col">

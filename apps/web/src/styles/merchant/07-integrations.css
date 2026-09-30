@@ -228,16 +228,6 @@ html[data-theme="light"] .plat-int-secret-modal__foot-note {
   color: #f8fafc;
 }
 
-.plat-int__toast-ok {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(52, 211, 153, 0.28);
-  background: rgba(52, 211, 153, 0.08);
-  font-size: 12px;
-  color: #a7f3d0;
-}
-
 .plat-int__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

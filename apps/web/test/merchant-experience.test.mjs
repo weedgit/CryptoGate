@@ -136,19 +136,19 @@ describe("merchant portal experiences", () => {
     assert.match(shift, /createdBy: session\.userId/);
   });
 
-  it("gives sites their own home: today, live queue, inherited wallet", () => {
+  it("gives sites the merchant dashboard without service bills or platform fee", () => {
     const app = read("src/merchant/MerchantApp.tsx");
-    assert.match(app, /experience === "site" \? \(\s*<SiteHomePage/);
-    const home = read("src/merchant/SiteHomePage.tsx");
-    assert.match(home, /useState<DashboardPeriodId \| "custom">\("today"\)/);
-    assert.match(home, /listOrders\(\{ status: "open", limit: 8[,}]/);
-    assert.match(home, /listOrders\(\{ status: "payment_anomaly", limit: 8[,}]/);
-    assert.match(home, /site-dash__settlement/);
-    assert.match(home, /sitesInMerchantSubtree\(orgs, siteId\)/);
-    assert.match(home, /cashier: userId/);
-    assert.doesNotMatch(home, /service-bills|getMerchantCommercial|platformFee/);
+    assert.match(app, /<DashboardPage session=\{session\} isSite=\{experience === "site"\} \/>/);
+    const dash = read("src/merchant/DashboardPage.tsx");
+    assert.match(dash, /isSite \? Promise\.resolve\(null\) : getMerchantCommercial/);
+    assert.match(dash, /sitesInMerchantSubtree\(orgs, isSite \? orgId : parentId \?\? orgId\)/);
+    assert.match(dash, /const openBills = isSite \? 0 : kpis\.openBills/);
+    assert.match(dash, /label="Expiring Soon"/);
+    assert.match(dash, /cashier: userId/);
+    assert.doesNotMatch(dash, /site-dash__settlement/);
     const prefetch = read("src/shared/prefetchPortalDashboardData.ts");
-    assert.match(prefetch, /experience === "site" \? "today" : "mtd"/);
+    assert.match(prefetch, /periodWindow\("mtd"\)/);
+    assert.match(prefetch, /experience !== "site"\) void getMerchantCommercial/);
   });
 
   it("hides service bills from site nav, dashboard links, and alerts", () => {
@@ -157,8 +157,8 @@ describe("merchant portal experiences", () => {
     assert.match(shell, /merchantRoute\("service-bills"\)\]\)/);
     const dash = read("src/merchant/DashboardPage.tsx");
     assert.doesNotMatch(dash, /cashierOnly|experience/);
-    const siteHome = read("src/merchant/SiteHomePage.tsx");
-    assert.doesNotMatch(siteHome, /service-bills/);
+    assert.match(dash, /openBills > 0\s*\? merchantRoute\("service-bills"\)/);
+    assert.match(dash, /\{isSite \? \(\s*<DashKpiCard/);
     assert.match(dash, /sitesInMerchantSubtree/);
     const alerts = read("src/merchant/merchantAlerts.ts");
     assert.match(alerts, /showBills \? loadBillingAlerts/);
@@ -255,10 +255,7 @@ describe("merchant portal experiences", () => {
     }
     assert.match(read("src/merchant/cashier/PayPadPage.tsx"), /orgId: primaryMerchantOrgId\(session\)/);
     assert.match(read("src/merchant/MerchantOrdersRoutes.tsx"), /<Navigate to=\{merchantRoute\("charge"\)\} replace \/>/);
-    for (const page of ["src/merchant/DashboardPage.tsx", "src/merchant/SiteHomePage.tsx"]) {
-      assert.match(read(page), /useWorkspaceScopeOrgId\(/);
-    }
-    assert.match(read("src/merchant/SiteHomePage.tsx"), /\.\.\.scope \}\)/);
+    assert.match(read("src/merchant/DashboardPage.tsx"), /useWorkspaceScopeOrgId\(/);
     assert.match(read("src/merchant/DashboardPage.tsx"), /orgId: scopeOrgId, tz \}/);
   });
 });

@@ -1,4 +1,4 @@
-export type ToastTone = "error" | "ok";
+export type ToastTone = "error" | "ok" | "info";
 
 export type ToastEntry = {
   id: number;

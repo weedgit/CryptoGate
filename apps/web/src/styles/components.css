@@ -1097,6 +1097,10 @@ html[data-theme="light"] .unresolved-alerts-dock__card.is-leaving {
   border-left-color: var(--anomaly);
 }
 
+.auth-toast--info {
+  border-left-color: #6eb0cc;
+}
+
 /* —— Figma 03 — Empty / Skeleton / Modal motion / Confirm —— */
 
 .cg-empty {

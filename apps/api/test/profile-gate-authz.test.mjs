@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isPersonProfileComplete } from "../src/auth/org-setup.mjs";
 import {
+  canCompleteEmptySiteOnboarding,
   canSupportEditMemberAccount,
   canUpdateAgentPayout,
   canChangeSettlementSettings,
@@ -51,6 +52,36 @@ describe("team member email, phone, password, and verification support-edit", ()
         false,
       );
     }
+  });
+});
+
+describe("agent completes onboarding of an empty site", () => {
+  const orgs = new Map([
+    ["a1", { id: "a1", type: "agent", parent_id: "p1" }],
+    ["m1", { id: "m1", type: "merchant", parent_id: "a1" }],
+    ["s1", { id: "s1", type: "merchant_site", parent_id: "m1" }],
+    ["m2", { id: "m2", type: "merchant", parent_id: "p1" }],
+  ]);
+  const findOrg = async (id) => orgs.get(id) ?? null;
+  const agentOwner = {
+    platformOperator: false,
+    memberships: [{ orgId: "a1", role: "owner", orgType: "agent" }],
+  };
+  const newSite = (parentId) => ({ id: "new", type: "merchant_site", parent_id: parentId });
+
+  it("allows first Owner invite / rollback under a channel merchant or nested site", async () => {
+    assert.equal(await canCompleteEmptySiteOnboarding(agentOwner, newSite("m1"), 0, findOrg), true);
+    assert.equal(await canCompleteEmptySiteOnboarding(agentOwner, newSite("s1"), 0, findOrg), true);
+  });
+
+  it("denies once the site has members, outside the channel, and for agent Viewers", async () => {
+    assert.equal(await canCompleteEmptySiteOnboarding(agentOwner, newSite("m1"), 1, findOrg), false);
+    assert.equal(await canCompleteEmptySiteOnboarding(agentOwner, newSite("m2"), 0, findOrg), false);
+    const viewer = {
+      platformOperator: false,
+      memberships: [{ orgId: "a1", role: "viewer", orgType: "agent" }],
+    };
+    assert.equal(await canCompleteEmptySiteOnboarding(viewer, newSite("m1"), 0, findOrg), false);
   });
 });
 

@@ -1,8 +1,9 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import type { PaymentDetails, Session } from "./api";
 import { primaryMerchantOrgId, sessionCanManageIntegrations, sessionCanViewIntegrations } from "./org";
 import { AuthToast } from "../auth/AuthToast";
+import { showToast } from "../shared/toast";
 import { merchantRoute, platformRoute } from "../shared/portalRouting";
 import { ChainConfirmationsCard } from "./orderDetail/ChainConfirmationsCard";
 import { OrderAnomalyPanel } from "./orderDetail/OrderAnomalyPanel";
@@ -76,6 +77,14 @@ export function OrderDetailPage({
     onResolveAnomaly,
   } = useOrderDetail({ id, seededPay, session, canViewWebhooks, orgId });
 
+  const fulfillmentHint =
+    !isPlatform && id && order
+      ? deriveOrderDetailView({ id, order, pay, chain, sellerOrg, session }).fulfillmentHint
+      : null;
+  useEffect(() => {
+    if (fulfillmentHint) showToast(fulfillmentHint, { tone: "ok", durationMs: 8000 });
+  }, [id, fulfillmentHint]);
+
   if (!id) {
     return (
       <div className="plat-bill-detail order-detail-bill">
@@ -139,12 +148,6 @@ export function OrderDetailPage({
         </div>
 
         <aside className="plat-bill-detail__side order-detail-bill__side no-print">
-          {view.fulfillmentHint ? (
-            <p className="plat-settings__notice order-detail-fulfillment-hint" role="status">
-              {view.fulfillmentHint}
-            </p>
-          ) : null}
-
           <OrderAnomalyPanel
             order={order}
             view={view}

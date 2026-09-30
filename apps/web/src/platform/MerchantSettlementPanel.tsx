@@ -440,20 +440,19 @@ export function MerchantSettlementPanel({
                   <td>
                     <div className="b3-settlement__actions">
                       {configured ? (
-                        <>
-                          <SettlementCopyButton value={address} />
-                          {canManage ? (
-                            <button
-                              type="button"
-                              className="b3-settlement__icon-btn"
-                              aria-label={`Edit ${row.label} wallet address`}
-                              title="Edit"
-                              onClick={() => openEditor(row, "edit")}
-                            >
-                              <EditGlyph />
-                            </button>
-                          ) : null}
-                        </>
+                        canManage ? (
+                          <button
+                            type="button"
+                            className="b3-settlement__icon-btn"
+                            aria-label={`Edit ${row.label} wallet address`}
+                            title="Edit"
+                            onClick={() => openEditor(row, "edit")}
+                          >
+                            <EditGlyph />
+                          </button>
+                        ) : (
+                          <span className="b3-settlement__status-dash">—</span>
+                        )
                       ) : canManage ? (
                         <button
                           type="button"

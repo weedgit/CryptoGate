@@ -2507,6 +2507,12 @@ html[data-theme="light"] .profile-avatar-editor__preview {
   color: #b8f0d4;
 }
 
+.auth-toast--info {
+  background: #10202e;
+  border: 1px solid rgba(110, 176, 204, 0.5);
+  color: #cfe6f2;
+}
+
 .auth-toast__msg {
   flex: 1;
   font-size: 14px;

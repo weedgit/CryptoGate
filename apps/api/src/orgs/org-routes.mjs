@@ -7,6 +7,7 @@ import { insertMembership } from "./membership-store.mjs";
 import { isVisibleOrg, listVisibleOrgs, roleOnOrg } from "./org-access.mjs";
 import {
   canBootstrapPlatform,
+  canCompleteEmptySiteOnboarding,
   canCreateOrgUnderParent,
   canEditOrgProfile,
   canManageDirectChildOrg,
@@ -64,6 +65,18 @@ function wantsCascadeDelete(req) {
   }
 }
 
+/** Onboarder removing a site it just created whose Owner invite failed (nothing inside yet). */
+async function isEmptySiteOnboardingRollback(caller, row, orgId) {
+  const impact = await summarizeOrgDeleteImpact(orgId);
+  const untouched =
+    impact.orgCount === 1 &&
+    impact.memberCount === 0 &&
+    impact.orderCount === 0 &&
+    impact.billCount === 0;
+  if (!untouched) return false;
+  return canCompleteEmptySiteOnboarding(caller, row, 0, findOrgById);
+}
+
 async function assertMayDeleteOrg(caller, row, orgId, res) {
   const visible = await listVisibleOrgs(caller.platformOperator, caller.memberships);
   if (!isVisibleOrg(visible, orgId)) {
@@ -75,7 +88,10 @@ async function assertMayDeleteOrg(caller, row, orgId, res) {
     return false;
   }
   if (row.type === "merchant_site") {
-    if (!(await canManageMerchantSiteTree(caller, row))) {
+    if (
+      !(await canManageMerchantSiteTree(caller, row)) &&
+      !(await isEmptySiteOnboardingRollback(caller, row, orgId))
+    ) {
       sendError(
         res,
         403,

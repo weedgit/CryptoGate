@@ -43,7 +43,7 @@ describe("contact / org setup UI", () => {
     const gate = readFileSync(join(root, "src/auth/useSetupGate.ts"), "utf8");
     assert.match(gate, /SETUP_QUERY_PARAM/);
     assert.match(gate, /sessionNeedsOrgSetup/);
-    assert.match(integrations, /SetupChecklistCard/);
+    assert.doesNotMatch(integrations, /SetupChecklistCard/);
     assert.match(integrations, /canWrite/);
   });
 
@@ -69,11 +69,9 @@ describe("contact / org setup UI", () => {
       "utf8",
     );
     assert.match(verification, /export function setupAlertHref/);
-    const checklist = readFileSync(
-      join(root, "src/auth/SetupChecklistCard.tsx"),
-      "utf8",
-    );
-    assert.match(checklist, /Watch-only/);
+    const settlement = readFileSync(join(root, "src/merchant/SettlementPage.tsx"), "utf8");
+    assert.doesNotMatch(settlement, /plat-settings__notice/);
+    assert.match(settlement, /tone: "info"/);
     const alerts = readFileSync(
       join(root, "src/merchant/merchantAlerts.ts"),
       "utf8",

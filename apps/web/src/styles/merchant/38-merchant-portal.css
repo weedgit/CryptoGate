@@ -26,50 +26,6 @@
   margin: 4px;
 }
 
-@media (min-width: 1281px) {
-  .merchant-shell.platform-shell .pg-dash__status-row.merchant-dash__status-row--site {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-/* Site home — inherited settlement wallet notice */
-.platform-shell .site-dash__settlement {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 12px;
-  margin: 0 0 16px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(52, 211, 153, 0.22);
-  background: rgba(52, 211, 153, 0.06);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.platform-shell .site-dash__settlement > span:nth-child(2) {
-  flex: 1 1 280px;
-}
-
-.platform-shell .site-dash__settlement-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
-  flex-shrink: 0;
-}
-
-.platform-shell .site-dash__settlement-link {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-html[data-theme="light"] .platform-shell .site-dash__settlement {
-  border-color: rgba(5, 150, 105, 0.25);
-  background: rgba(16, 185, 129, 0.07);
-}
-
 .merchant-shell.platform-shell .cg-empty {
   background: #0e1218;
   border: 1px solid rgba(255, 255, 255, 0.06);

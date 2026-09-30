@@ -565,7 +565,6 @@ describe("Charge page (merchant + cashier)", () => {
     const app = readFileSync(join(root, "src/merchant/MerchantApp.tsx"), "utf8");
     assert.match(app, /const backTo = useChargeReturnTo\(\);/);
     for (const file of [
-      "src/merchant/SiteHomePage.tsx",
       "src/merchant/orderDetail/OrderDetailHeader.tsx",
       "src/shared/invoiceList/InvoiceListHeader.tsx",
     ]) {

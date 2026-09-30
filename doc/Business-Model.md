@@ -292,7 +292,7 @@ No country, billing email, phone, avatar, legal name input, or settlement wallet
 | **Merchant O/A** (activity gate clear) | **Sites** under that merchant (and nested sites under sites they manage) |
 | **Watch-only** agent/merchant | No onboard — self-profile only |
 
-Onboard = create the org + invite Owner (minimal fields). Completing profile / activity gate is then the new Owner’s job (platform may still support-edit).
+Onboard = create the org + invite Owner (minimal fields). Whoever may create a site at that spot (including agent O/A for sites in their channel) may invite its **first** Owner while the site has no members, and may remove it again if that invite fails and the site is still empty; this grants no ongoing team powers on the site. Completing profile / activity gate is then the new Owner’s job (platform may still support-edit).
 
 **Account identity — one email, one account, one org, one role:**
 

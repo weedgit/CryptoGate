@@ -830,6 +830,24 @@ export async function canOnboardSiteUnderParentAsync(caller, parentOrg, findOrg)
   return false;
 }
 
+/**
+ * Whoever may create a site at this spot may finish onboarding it while it is still
+ * empty (no members): invite the first Owner, or roll the site back if that invite fails.
+ * Grants no team powers once the site has an Owner.
+ * @param {typeof canOnboardSiteUnderParent extends Function ? never : any} caller
+ * @param {{ type: string, parent_id?: string | null, parentId?: string | null }} site
+ * @param {number} memberCount
+ * @param {(id: string) => Promise<object | null>} findOrg
+ */
+export async function canCompleteEmptySiteOnboarding(caller, site, memberCount, findOrg) {
+  if (site.type !== "merchant_site" || memberCount !== 0) return false;
+  const parentId = site.parent_id ?? site.parentId ?? null;
+  if (!parentId) return false;
+  const parent = await findOrg(parentId);
+  if (!parent) return false;
+  return canOnboardSiteUnderParentAsync(caller, parent, findOrg);
+}
+
 /** Agent may lifecycle-manage direct children only (not grandchildren). */
 const DIRECT_CHILD_MANAGEABLE_TYPES = new Set(["merchant"]);
 

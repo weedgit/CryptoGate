@@ -7,6 +7,7 @@ import {
   type Session,
 } from "./api";
 import { AuthToast } from "../auth/AuthToast";
+import { showToast } from "../shared/toast";
 import { SettlementSectionHead } from "./SettlementSectionHead";
 import { SettlementOptionGroup } from "./settlement/SettlementOptionGroup";
 import {
@@ -113,6 +114,17 @@ export function PricingSettingsPage({ session }: Props) {
     void load();
   }, [load]);
 
+  const pricingNotice = loading
+    ? null
+    : !ratesEnabled
+      ? "Rate service is temporarily disabled by the platform. Existing pricing preferences are preserved."
+      : !modeAvailable
+        ? "Your saved pricing mode is currently unavailable. Choose another enabled mode, or wait until the platform re-enables it."
+        : null;
+  useEffect(() => {
+    if (pricingNotice) showToast(pricingNotice, { tone: "info", durationMs: 8000 });
+  }, [pricingNotice]);
+
   function modeEnabled(id: string): boolean {
     return id === "pegged_1to1" ? peggedEnabled : marketEnabled;
   }
@@ -188,19 +200,6 @@ export function PricingSettingsPage({ session }: Props) {
             <p className="muted">Loading pricing settings…</p>
           ) : (
             <form id="merchant-pricing-form" onSubmit={(e) => void onSave(e)}>
-              {!ratesEnabled ? (
-                <p className="plat-settings__card-note" role="status">
-                  Rate service is temporarily disabled by the platform. Existing
-                  preferences are preserved.
-                </p>
-              ) : null}
-              {!modeAvailable ? (
-                <p className="plat-settings__card-note" role="status">
-                  Your saved pricing mode is currently unavailable. Prefer another
-                  enabled mode, or wait until the platform re-enables it.
-                </p>
-              ) : null}
-
               <SettlementOptionGroup
                 ariaLabel="Pricing mode"
                 variant="radiogroup"

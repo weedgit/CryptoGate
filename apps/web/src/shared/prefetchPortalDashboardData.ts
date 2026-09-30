@@ -70,7 +70,7 @@ export function prefetchPortalDashboardData(): void {
   if (onDashboard) {
     const session = readCachedSession();
     const experience = session ? resolveMerchantExperience(session) : "merchant";
-    const home = periodWindow(experience === "site" ? "today" : "mtd");
+    const home = periodWindow("mtd");
     void getDashboardKpis({
       from: toDateInputValue(home.from),
       to: toDateInputValue(home.to),
@@ -78,7 +78,7 @@ export function prefetchPortalDashboardData(): void {
     if (session && experience !== "cashier") {
       const orgId = primaryMerchantOrgId(session);
       if (orgId) {
-        void getMerchantCommercial(orgId).catch(() => undefined);
+        if (experience !== "site") void getMerchantCommercial(orgId).catch(() => undefined);
         void listSettlement(orgId).catch(() => undefined);
         void listXpub(orgId).catch(() => undefined);
       }

@@ -42,6 +42,7 @@ import {
   updateOrgBillingEmailIfEmpty,
 } from "./org-store.mjs";
 import {
+  canCompleteEmptySiteOnboarding,
   canListOrgMemberEmailsBulk,
   canManageDirectChildOrg,
   effectiveRoleOnOrg,
@@ -187,16 +188,18 @@ export async function handleInviteOrgUser(req, res, orgId) {
   }
 
   const memberCount = await countOrgMemberships(orgId);
-  if (
-    !canInviteToOrg({
+  const mayInvite =
+    canInviteToOrg({
       platformOwner: caller.platformOwner,
       platformOperator: caller.platformOperator,
       roleOnOrg: await effectiveRoleOnOrg(caller, org),
       roleOnParent: org.parent_id ? roleOnOrg(caller.memberships, org.parent_id) : null,
       memberCount,
       invitedRole: role,
-    })
-  ) {
+    }) ||
+    (role === "owner" &&
+      (await canCompleteEmptySiteOnboarding(caller, org, memberCount, findOrgById)));
+  if (!mayInvite) {
     sendError(res, 403, "forbidden", "Only the org Owner may manage team");
     return;
   }

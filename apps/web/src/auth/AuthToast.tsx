@@ -3,7 +3,7 @@ import { dismissToast, showToast } from "../shared/toast";
 
 type Props = {
   message: string | null;
-  tone?: "error" | "ok";
+  tone?: "error" | "ok" | "info";
   onDismiss: () => void;
   durationMs?: number;
 };
