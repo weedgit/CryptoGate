@@ -1454,6 +1454,48 @@ export async function adminClearMemberPosPin(
   return (await res.json()) as { configured: boolean };
 }
 
+export type PosTerminal = {
+  id: string;
+  status: "active" | "revoked";
+  deviceModel: string | null;
+  appVersion: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  boundBy: string | null;
+  boundByName: string | null;
+  boundByEmail: string | null;
+  revokedAt: string | null;
+  revokeReason: string | null;
+};
+
+export async function listPosTerminals(orgId: string): Promise<PosTerminal[]> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/pos-terminals`,
+    { credentials: "include", headers: { Accept: "application/json" } },
+  );
+  if (!res.ok) await parseError(res);
+  return ((await res.json()) as { items: PosTerminal[] }).items;
+}
+
+/** Signs out whoever is on the device; it must be set up again to be used. */
+export async function revokePosTerminal(
+  orgId: string,
+  terminalId: string,
+  reason?: string,
+): Promise<PosTerminal> {
+  const res = await apiFetch(
+    `${API_BASE}/orgs/${encodeURIComponent(orgId)}/pos-terminals/${encodeURIComponent(terminalId)}/revoke`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  );
+  if (!res.ok) await parseError(res);
+  return (await res.json()) as PosTerminal;
+}
+
 /** A10 — update profile / language / MFA preference / session TTL. */
 export async function updateProfile(body: {
   firstName?: string | null;

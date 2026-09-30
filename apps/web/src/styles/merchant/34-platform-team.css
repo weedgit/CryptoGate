@@ -1189,3 +1189,110 @@ html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__eff
   }
 }
 
+
+/* POS terminals (Team page, Owner/Admin) */
+.platform-shell .plat-team__panel.plat-bills__panel.pos-terminals {
+  flex: 0 0 auto;
+}
+
+.platform-shell .plat-team.plat-bills .pos-terminals .plat-team__table-wrap {
+  max-height: 360px;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(120, 160, 190, 0.12);
+}
+
+:is(.platform-shell, .shell) .pos-terminals__title h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__title p {
+  margin: 4px 0 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8b9bb0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__org {
+  min-width: 220px;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b9bb0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__row--revoked td {
+  opacity: 0.6;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__status {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__status.is-active {
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__status.is-revoked {
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__revoke {
+  padding: 4px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 8px;
+  background: transparent;
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__revoke:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.75);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fecaca;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__revoke:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

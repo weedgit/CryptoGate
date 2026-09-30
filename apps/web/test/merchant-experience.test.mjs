@@ -279,3 +279,17 @@ describe("member POS PIN", () => {
     assert.match(page, /\{canManagePosPin \|\| \(!isSelf && canManage\) \? \(/);
   });
 });
+
+describe("POS terminals on the Team page", () => {
+  it("lists terminals for Owners/Admins with a confirmed Revoke and a site picker for merchants", () => {
+    const api = read("src/merchant/api.ts");
+    assert.match(api, /\/pos-terminals`/);
+    assert.match(api, /\/pos-terminals\/\$\{encodeURIComponent\(terminalId\)\}\/revoke`/);
+    const section = read("src/merchant/PosTerminalsSection.tsx");
+    assert.match(section, /ConfirmActionModal/);
+    assert.match(section, /o\.type === "merchant_site" && o\.parentId === org\.id/);
+    assert.match(section, /Show revoked/);
+    const page = read("src/merchant/TeamSettingsPage.tsx");
+    assert.match(page, /canManagePosPin && org && \(org\.type === "merchant" \|\| org\.type === "merchant_site"\) \?/);
+  });
+});

@@ -10,7 +10,12 @@ export const UNLOCK_LOCKOUT_MAX_SECONDS = 15 * 60;
 
 const TERMINAL_COLUMNS = `t.id, t.org_id, t.status, t.device_model, t.app_version,
   t.last_seen_at, t.created_at, t.bound_by, t.revoked_at, t.revoke_reason,
-  t.locked_until, o.name AS org_name, o.type AS org_type`;
+  t.locked_until, o.name AS org_name, o.type AS org_type,
+  b.email AS bound_by_email, b.first_name AS bound_by_first_name, b.last_name AS bound_by_last_name`;
+
+const TERMINAL_FROM = `pos_terminals t
+     JOIN org_accounts o ON o.id = t.org_id
+     LEFT JOIN users b ON b.id = t.bound_by`;
 
 /**
  * @param {Record<string, any>} row
@@ -27,6 +32,9 @@ function mapTerminal(row) {
     lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at).toISOString() : null,
     createdAt: new Date(row.created_at).toISOString(),
     boundBy: row.bound_by ?? null,
+    boundByEmail: row.bound_by_email ?? null,
+    boundByName:
+      [row.bound_by_first_name, row.bound_by_last_name].filter(Boolean).join(" ").trim() || null,
     revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : null,
     revokeReason: row.revoke_reason ?? null,
     lockedUntil: row.locked_until ? new Date(row.locked_until) : null,
@@ -70,8 +78,7 @@ function safeInet(ip) {
 export async function findTerminalByToken(token) {
   const { rows } = await getPool().query(
     `SELECT ${TERMINAL_COLUMNS}
-     FROM pos_terminals t
-     JOIN org_accounts o ON o.id = t.org_id
+     FROM ${TERMINAL_FROM}
      WHERE t.token_hash = $1`,
     [hashSessionToken(token)],
   );
@@ -85,8 +92,7 @@ export async function findTerminalByToken(token) {
 export async function findTerminalInOrg(orgId, terminalId) {
   const { rows } = await getPool().query(
     `SELECT ${TERMINAL_COLUMNS}
-     FROM pos_terminals t
-     JOIN org_accounts o ON o.id = t.org_id
+     FROM ${TERMINAL_FROM}
      WHERE t.org_id = $1 AND t.id = $2`,
     [orgId, terminalId],
   );
@@ -99,8 +105,7 @@ export async function findTerminalInOrg(orgId, terminalId) {
 export async function listTerminalsForOrg(orgId) {
   const { rows } = await getPool().query(
     `SELECT ${TERMINAL_COLUMNS}
-     FROM pos_terminals t
-     JOIN org_accounts o ON o.id = t.org_id
+     FROM ${TERMINAL_FROM}
      WHERE t.org_id = $1
      ORDER BY t.status = 'active' DESC, t.created_at DESC`,
     [orgId],

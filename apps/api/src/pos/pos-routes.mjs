@@ -442,6 +442,8 @@ function terminalListItem(terminal) {
     lastSeenAt: terminal.lastSeenAt,
     createdAt: terminal.createdAt,
     boundBy: terminal.boundBy,
+    boundByName: terminal.boundByName,
+    boundByEmail: terminal.boundByEmail,
     revokedAt: terminal.revokedAt,
     revokeReason: terminal.revokeReason,
   };

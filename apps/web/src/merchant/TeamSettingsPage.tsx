@@ -1,5 +1,6 @@
-import { formatInZone, formatViewerDateTime } from "../shared/dateTime";
+import { formatRelativeTime } from "../shared/relativeTime";
 import { MemberPosPinModal } from "./MemberPosPinModal";
+import { PosTerminalsSection } from "./PosTerminalsSection";
 import { RemoveMemberModal, type RemoveMemberTarget } from "../shared/RemoveMemberModal";
 import { businessTimezoneField } from "../shared/businessTimezone";
 import {
@@ -88,22 +89,6 @@ function inviteRoleOptions(orgType: string | undefined) {
     id: r,
     label: roleLabel(r),
   }));
-}
-
-function formatRelativeLogin(iso: string | null | undefined): string {
-  if (!iso) return "Never";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
-  if (diffMs < 0) return formatViewerDateTime(iso);
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 14) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return formatInZone(d, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 type PosPinTarget = { userId: string; email: string };
@@ -657,7 +642,7 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
                         </span>
                       </td>
                       <td className="plat-team__login">
-                        {formatRelativeLogin(m.lastLoginAt)}
+                        {formatRelativeTime(m.lastLoginAt)}
                       </td>
                       {showActions ? (
                         <td className="plat-team__td-actions">
@@ -764,6 +749,10 @@ export function TeamSettingsPage({ session, onSessionRefresh }: Props) {
         )}
         </div>
       </div>
+
+      {canManagePosPin && org && (org.type === "merchant" || org.type === "merchant_site") ? (
+        <PosTerminalsSection org={org} onOk={showOk} onError={showErr} />
+      ) : null}
 
       {editTarget && orgId ? (
         <TeamMemberEditModal

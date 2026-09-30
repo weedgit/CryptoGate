@@ -1732,3 +1732,39 @@ html[data-theme="light"] .platform-shell .plat-audit__detail-raw pre {
   }
 }
 
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__head {
+  border-bottom-color: #e2e8f0;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__title h2,
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device {
+  color: #0f172a;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__title p,
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle {
+  color: #64748b;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__status.is-active {
+  border-color: rgba(5, 150, 105, 0.4);
+  color: #047857;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__status.is-revoked {
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__revoke {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: #ffffff;
+  color: #b91c1c;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__revoke:hover:not(:disabled) {
+  border-color: rgba(220, 38, 38, 0.6);
+  background: #fef2f2;
+  color: #991b1b;
+}

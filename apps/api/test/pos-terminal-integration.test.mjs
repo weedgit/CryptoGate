@@ -454,7 +454,10 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     const merchantOwner = await loginToken("mOwner");
     const list = await api(`/v1/orgs/${siteId}/pos-terminals`, { session: merchantOwner });
     assert.equal(list.status, 200);
-    assert.ok(list.json.items.some((t) => t.id === siteTerminal.terminal.id));
+    const listed = list.json.items.find((t) => t.id === siteTerminal.terminal.id);
+    assert.ok(listed);
+    assert.equal(listed.boundByName, "Pos sOwner");
+    assert.match(listed.boundByEmail, /^pos-term-sowner-/);
 
     const cashierList = await api(`/v1/orgs/${siteId}/pos-terminals`, { session: await loginToken("sCashier") });
     assert.equal(cashierList.status, 403);
