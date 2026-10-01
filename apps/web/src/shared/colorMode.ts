@@ -15,12 +15,12 @@ export function readStoredColorMode(): ColorMode {
   } catch {
     /* ignore */
   }
-  return "dark";
+  return "light";
 }
 
 export function getDocumentColorMode(): ColorMode {
   const attr = document.documentElement.getAttribute("data-theme");
-  return isMode(attr) ? attr : "dark";
+  return isMode(attr) ? attr : "light";
 }
 
 /** Apply theme before paint when possible (also called from toggle). */

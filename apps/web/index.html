@@ -29,10 +29,10 @@
           if (m === "light" || m === "dark") {
             document.documentElement.setAttribute("data-theme", m);
           } else {
-            document.documentElement.setAttribute("data-theme", "dark");
+            document.documentElement.setAttribute("data-theme", "light");
           }
         } catch (e) {
-          document.documentElement.setAttribute("data-theme", "dark");
+          document.documentElement.setAttribute("data-theme", "light");
         }
       })();
     </script>
