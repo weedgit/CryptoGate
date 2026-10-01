@@ -108,14 +108,15 @@ export function FulfillmentPolicyCard({ orgId, policy, locked, notify, onSaved }
       {confirmOpen ? (
         <ConfirmChangeDialog
           titleId="merchant-fulfillment-confirm-title"
-          title="Confirm Counter policy"
+          title="Switch fulfillment policy?"
+          subject={fulfillmentPolicyLabel(CONFIRM_POLICY)}
+          confirmLabel="Switch policy"
           busy={saving}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => void save()}
         >
-          Switch to <strong>Counter (release on verifying)</strong>? Staff may release goods
-          when a tx is detected, before confirmations complete. Applies to{" "}
-          <strong>new orders only</strong>.
+          Staff may release goods as soon as a payment is detected, before network
+          confirmations complete. Applies to <strong>new orders only</strong>.
         </ConfirmChangeDialog>
       ) : null}
     </section>

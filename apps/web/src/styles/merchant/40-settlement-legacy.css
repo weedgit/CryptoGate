@@ -692,17 +692,6 @@ html[data-theme="light"] .plat-settlement__cooldown-chip strong {
   color: #8b9bb0;
 }
 
-.plat-settlement__confirm {
-  width: min(440px, 100%);
-}
-
-.plat-settlement__confirm .b3-commission-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-
 .plat-settlement .plat-settings__card-head .plat-settlement__head-badges {
   margin-left: auto;
 }

@@ -130,13 +130,15 @@ export function MatchingModeCard({
       {confirmOpen ? (
         <ConfirmChangeDialog
           titleId="merchant-settlement-confirm-title"
-          title="Confirm matching mode"
+          title="Switch matching mode?"
+          subject={matchingModeLabel(draftMode)}
+          confirmLabel="Switch mode"
           busy={saving}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => void save()}
         >
-          Switch to <strong>{matchingModeLabel(draftMode)}</strong>? Applies to{" "}
-          <strong>new orders only</strong>. Open orders keep their create-time mode.
+          Applies to <strong>new orders only</strong>. Open orders keep the mode they were
+          created with.
         </ConfirmChangeDialog>
       ) : null}
     </section>
