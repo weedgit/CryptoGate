@@ -24,6 +24,7 @@ class AmountEntryTest {
 
     @Test
     fun backspace() {
-        assertEquals("12", AmountEntry.apply("12.5", "del"))
+        assertEquals("12.", AmountEntry.apply("12.5", "del"))
+        assertEquals("12", AmountEntry.apply("12.", "del"))
     }
 }

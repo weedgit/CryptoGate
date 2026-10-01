@@ -174,9 +174,11 @@ fun OrderPayScreen(
         )
     }
     val stamp = payStampFor(details.status, progress.releaseReady)
+    // Counter policy: once goods may be released the customer is done, even while confirmations finish.
+    val awaitingPayment = orderOpen && !progress.releaseReady
 
     fun requestLeave() {
-        if (orderOpen) confirmLeave = true else onDone()
+        if (awaitingPayment) confirmLeave = true else onDone()
     }
 
     fun print() {
@@ -194,7 +196,7 @@ fun OrderPayScreen(
         }
     }
 
-    BackHandler(enabled = orderOpen) { confirmLeave = true }
+    BackHandler(enabled = awaitingPayment) { confirmLeave = true }
 
     LaunchedEffect(details.expiresAt, details.status) {
         while (remainingSec > 0 && details.status == OrderStatusUi.PENDING) {
@@ -298,7 +300,7 @@ fun OrderPayScreen(
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                         }
-                        if (orderOpen) {
+                        if (awaitingPayment) {
                             Spacer(modifier = Modifier.height(12.dp))
                             NetworkWarning("${details.asset} on $networkLabel only")
                         }

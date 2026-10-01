@@ -50,7 +50,7 @@ class CustomerPayContentTest {
         val content =
             sample(status = OrderStatusUi.ANOMALY).toCustomerPayContent()
         assertTrue(content.isAnomaly)
-        assertEquals("PAYMENT ANOMALY", content.phaseTitle)
+        assertEquals("ATTENTION", content.phaseTitle)
         assertEquals("Do not treat as paid", content.progressLabel)
         assertTrue(content.hideQr)
     }

@@ -349,8 +349,8 @@ private data class CustomerStamp(val label: String, val tone: Color, val caption
 
 private fun customerStamp(status: String, releaseReady: Boolean): CustomerStamp? =
     when {
-        OrderStatusUi.showsCompleted(status) || releaseReady ->
-            CustomerStamp("PAID", Color(0xFF22C55E), "Payment received · thank you")
+        OrderStatusUi.showsCompleted(status) -> CustomerStamp("PAID", Color(0xFF22C55E), "Payment received · thank you")
+        releaseReady -> CustomerStamp("RECEIVED", Color(0xFF22C55E), "Payment received · thank you")
         OrderStatusUi.isAnomaly(status) -> CustomerStamp("REVIEW", Amber, "Please wait for the cashier")
         status == OrderStatusUi.EXPIRED -> CustomerStamp("EXPIRED", Color(0xFFEF4444), "This payment request expired")
         status == OrderStatusUi.FAILED -> CustomerStamp("FAILED", Color(0xFFEF4444), "Payment failed")
@@ -377,7 +377,7 @@ private fun CustomerStampMark(stamp: CustomerStamp) {
             .padding(horizontal = 24.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(stamp.label, fontSize = 52.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp, color = stamp.tone)
+        Text(stamp.label, fontSize = if (stamp.label.length > 7) 42.sp else 52.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp, color = stamp.tone)
     }
 }
 
