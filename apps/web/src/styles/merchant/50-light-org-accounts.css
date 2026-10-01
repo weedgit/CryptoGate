@@ -1737,34 +1737,63 @@ html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__head {
   border-bottom-color: #e2e8f0;
 }
 
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__head-icon {
+  border-color: rgba(37, 99, 235, 0.25);
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__title h2,
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device {
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device-name {
   color: #0f172a;
 }
 
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__count,
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device-icon {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
 html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__title p,
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device-version {
+  color: #64748b;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__muted {
+  color: #334155;
+}
+
 html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle {
-  color: #64748b;
-}
-
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__status.is-active {
-  border-color: rgba(5, 150, 105, 0.4);
-  color: #047857;
-}
-
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__status.is-revoked {
   border-color: #cbd5e1;
-  color: #64748b;
-}
-
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__revoke {
-  border-color: rgba(220, 38, 38, 0.35);
   background: #ffffff;
-  color: #b91c1c;
+  color: #475569;
 }
 
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__revoke:hover:not(:disabled) {
-  border-color: rgba(220, 38, 38, 0.6);
-  background: #fef2f2;
-  color: #991b1b;
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle:hover,
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle.is-on {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle-track {
+  background: #cbd5e1;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle-thumb {
+  background: #ffffff;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle.is-on .pos-terminals__toggle-track {
+  background: #2563eb;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle.is-on .pos-terminals__toggle-thumb {
+  background: #ffffff;
+}
+
+html[data-theme="light"] :is(.platform-shell, .shell) .plat-team__mfa.pos-terminals__status.is-revoked {
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }

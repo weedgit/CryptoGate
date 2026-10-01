@@ -29,6 +29,25 @@ function boundByLabel(t: PosTerminal) {
   return t.boundByName || t.boundByEmail || "—";
 }
 
+function PosDeviceIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="6" y="2.5" width="12" height="19" rx="2.4" />
+      <rect x="8.5" y="5.5" width="7" height="5" rx="0.8" />
+      <path d="M9 14h.01M12 14h.01M15 14h.01M9 17h.01M12 17h.01M15 17h.01" />
+    </svg>
+  );
+}
+
+function RevokeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v8" />
+      <path d="M7.1 6.3a7.5 7.5 0 1 0 9.8 0" />
+    </svg>
+  );
+}
+
 /** Owner/Admin: POS devices bound to the org (and, for a merchant, its sites), with Revoke. */
 export function PosTerminalsSection({ org, onOk, onError }: Props) {
   const [sites, setSites] = useState<OrgAccount[]>([]);
@@ -107,16 +126,21 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
     <section className="plat-bills__panel plat-team__panel plat-team__panel--solo pos-terminals">
       <div className="plat-bills__main">
         <header className="pos-terminals__head">
+          <span className="pos-terminals__head-icon" aria-hidden>
+            <PosDeviceIcon />
+          </span>
           <div className="pos-terminals__title">
-            <h2>POS terminals</h2>
-            <p>
-              Devices set up for the POS app. Revoke a lost or retired device to sign it out; it
-              must be set up again by an Owner or Administrator.
-            </p>
+            <h2>
+              POS terminals
+              {terminals !== null && !loadError ? (
+                <span className="pos-terminals__count">{active.length} active</span>
+              ) : null}
+            </h2>
+            <p>Devices signed in to the POS app. Revoke a lost device to sign it out.</p>
           </div>
           <div className="pos-terminals__tools">
             {orgOptions.length > 1 ? (
-              <div className="pos-terminals__org">
+              <div className="plat-team__role-picker pos-terminals__org">
                 <SearchableSelect
                   value={selectedOrgId}
                   options={orgOptions}
@@ -129,14 +153,17 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
               </div>
             ) : null}
             {revokedCount > 0 ? (
-              <label className="pos-terminals__toggle">
-                <input
-                  type="checkbox"
-                  checked={showRevoked}
-                  onChange={(e) => setShowRevoked(e.target.checked)}
-                />
+              <button
+                type="button"
+                className={`pos-terminals__toggle${showRevoked ? " is-on" : ""}`}
+                aria-pressed={showRevoked}
+                onClick={() => setShowRevoked((v) => !v)}
+              >
+                <span className="pos-terminals__toggle-track" aria-hidden>
+                  <span className="pos-terminals__toggle-thumb" />
+                </span>
                 Show revoked ({revokedCount})
-              </label>
+              </button>
             ) : null}
           </div>
         </header>
@@ -152,12 +179,12 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
               : "No POS terminals yet. An Owner or Administrator sets one up by signing in on the POS app."}
           </p>
         ) : (
+          <>
           <div className="plat-team__table-wrap">
             <table className="plat-team__table plat-team__table--dense">
               <thead>
                 <tr>
                   <th>Device</th>
-                  <th>App version</th>
                   <th>Set up by</th>
                   <th>Set up</th>
                   <th>Last seen</th>
@@ -170,24 +197,41 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
                   const revoked = t.status !== "active";
                   return (
                     <tr key={t.id} className={revoked ? "pos-terminals__row--revoked" : undefined}>
-                      <td className="pos-terminals__device">{deviceLabel(t)}</td>
-                      <td>{t.appVersion ?? "—"}</td>
-                      <td title={t.boundByEmail ?? undefined}>{boundByLabel(t)}</td>
-                      <td title={formatViewerDateTime(t.createdAt)}>
+                      <td>
+                        <div className="pos-terminals__device">
+                          <span className="pos-terminals__device-icon" aria-hidden>
+                            <PosDeviceIcon />
+                          </span>
+                          <span className="pos-terminals__device-copy">
+                            <span className="pos-terminals__device-name">{deviceLabel(t)}</span>
+                            {t.appVersion ? (
+                              <span className="pos-terminals__device-version">v{t.appVersion}</span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="pos-terminals__muted" title={t.boundByEmail ?? undefined}>
+                        {boundByLabel(t)}
+                      </td>
+                      <td className="plat-team__login" title={formatViewerDateTime(t.createdAt)}>
                         {formatRelativeTime(t.createdAt)}
                       </td>
-                      <td title={t.lastSeenAt ? formatViewerDateTime(t.lastSeenAt) : undefined}>
+                      <td
+                        className="plat-team__login"
+                        title={t.lastSeenAt ? formatViewerDateTime(t.lastSeenAt) : undefined}
+                      >
                         {formatRelativeTime(t.lastSeenAt)}
                       </td>
                       <td>
                         <span
-                          className={`pos-terminals__status ${revoked ? "is-revoked" : "is-active"}`}
+                          className={`plat-team__mfa pos-terminals__status ${revoked ? "is-revoked" : "is-on"}`}
                           title={
                             revoked && t.revokedAt
                               ? `Revoked ${formatViewerDateTime(t.revokedAt)}${t.revokeReason ? ` (${t.revokeReason})` : ""}`
                               : undefined
                           }
                         >
+                          <span className="plat-team__mfa-dot" aria-hidden />
                           {revoked ? "Revoked" : "Active"}
                         </span>
                       </td>
@@ -195,14 +239,18 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
                         {revoked ? (
                           <span className="plat-team__actions-empty">—</span>
                         ) : (
-                          <button
-                            type="button"
-                            className="pos-terminals__revoke"
-                            disabled={busy}
-                            onClick={() => setRevokeTarget(t)}
-                          >
-                            Revoke
-                          </button>
+                          <div className="plat-team__actions">
+                            <button
+                              type="button"
+                              className="plat-team__action plat-team__action--icon is-danger"
+                              aria-label={`Revoke ${deviceLabel(t)}`}
+                              title="Revoke"
+                              disabled={busy}
+                              onClick={() => setRevokeTarget(t)}
+                            >
+                              <RevokeIcon />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -211,6 +259,10 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
               </tbody>
             </table>
           </div>
+          <p className="plat-team__count">
+            Showing {visible.length} {visible.length === 1 ? "terminal" : "terminals"}
+          </p>
+          </>
         )}
       </div>
 

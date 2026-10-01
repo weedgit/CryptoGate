@@ -1202,23 +1202,58 @@ html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__eff
 :is(.platform-shell, .shell) .pos-terminals__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px 20px;
-  padding: 14px 16px 12px;
+  align-items: center;
+  gap: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(120, 160, 190, 0.12);
 }
 
+:is(.platform-shell, .shell) .pos-terminals__head-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 197, 66, 0.32);
+  background: rgba(245, 197, 66, 0.08);
+  color: #f5c542;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__head-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__title {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
 :is(.platform-shell, .shell) .pos-terminals__title h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: 15px;
-  font-weight: 650;
-  color: #e2e8f0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 160, 190, 0.24);
+  background: #071525;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
 }
 
 :is(.platform-shell, .shell) .pos-terminals__title p {
-  margin: 4px 0 0;
-  max-width: 62ch;
+  margin: 3px 0 0;
   font-size: 12px;
   line-height: 1.45;
   color: #8b9bb0;
@@ -1228,71 +1263,136 @@ html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__eff
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 16px;
+  gap: 10px 12px;
+  margin-left: auto;
 }
 
-:is(.platform-shell, .shell) .pos-terminals__org {
-  min-width: 220px;
+:is(.platform-shell, .shell) .plat-team__role-picker.pos-terminals__org .searchable-select__trigger {
+  min-width: 200px;
+  min-height: 34px;
 }
 
 :is(.platform-shell, .shell) .pos-terminals__toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid rgba(100, 120, 150, 0.28);
+  border-radius: 8px;
+  background: #06192c;
   font-size: 12px;
-  color: #8b9bb0;
+  font-weight: 600;
+  color: #94a3b8;
   cursor: pointer;
   white-space: nowrap;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle:hover {
+  border-color: rgba(100, 140, 175, 0.45);
+  color: #e2e8f0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle-track {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.3);
+  transition: background 140ms ease;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  transition: transform 140ms ease;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle.is-on {
+  color: #f1f5f9;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle.is-on .pos-terminals__toggle-track {
+  background: #f5c542;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__toggle.is-on .pos-terminals__toggle-thumb {
+  transform: translateX(12px);
+  background: #0b0f14;
 }
 
 :is(.platform-shell, .shell) .pos-terminals__device {
-  font-weight: 600;
-  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 160, 190, 0.22);
+  background: #071525;
+  color: #94a3b8;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device-name {
+  font-size: 13px;
+  font-weight: 650;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__device-version {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.platform-shell, .shell) .pos-terminals__muted {
+  font-size: 13px;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :is(.platform-shell, .shell) .pos-terminals__row--revoked td {
   opacity: 0.6;
 }
 
-:is(.platform-shell, .shell) .pos-terminals__status {
-  display: inline-block;
-  padding: 1px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-:is(.platform-shell, .shell) .pos-terminals__status.is-active {
-  border-color: rgba(52, 211, 153, 0.4);
-  color: #6ee7b7;
-}
-
-:is(.platform-shell, .shell) .pos-terminals__status.is-revoked {
-  border-color: rgba(148, 163, 184, 0.35);
+:is(.platform-shell, .shell) .plat-team__mfa.pos-terminals__status.is-revoked {
   color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.22);
 }
 
-:is(.platform-shell, .shell) .pos-terminals__revoke {
-  padding: 4px 12px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  border-radius: 8px;
-  background: transparent;
-  color: #fca5a5;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-:is(.platform-shell, .shell) .pos-terminals__revoke:hover:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.75);
-  background: rgba(248, 113, 113, 0.08);
-  color: #fecaca;
-}
-
-:is(.platform-shell, .shell) .pos-terminals__revoke:disabled {
-  opacity: 0.5;
-  cursor: default;
+:is(.platform-shell, .shell) .plat-team__mfa.pos-terminals__status.is-revoked .plat-team__mfa-dot {
+  box-shadow: none;
 }

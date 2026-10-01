@@ -39,7 +39,8 @@ type Props = {
   menuClassName?: string;
 };
 
-type MenuPos = { top: number; left: number; width: number; maxHeight: number };
+/** Opening upward anchors the menu's bottom edge so short lists sit right above the trigger. */
+type MenuPos = { top?: number; bottom?: number; left: number; width: number; maxHeight: number };
 
 /**
  * Dark-theme combobox — avoids unreadable native &lt;select&gt; popups on Windows.
@@ -101,7 +102,9 @@ export function SearchableSelect({
     const maxLeft = Math.max(8, window.innerWidth - width - 8);
     const left = Math.min(Math.max(8, rect.left), maxLeft);
     setPos({
-      top: preferBelow ? rect.bottom + gap : Math.max(8, rect.top - gap - maxHeight),
+      ...(preferBelow
+        ? { top: rect.bottom + gap }
+        : { bottom: window.innerHeight - rect.top + gap }),
       left,
       width,
       maxHeight,
@@ -154,6 +157,7 @@ export function SearchableSelect({
   const menuStyle: CSSProperties | undefined = pos
     ? {
         top: pos.top,
+        bottom: pos.bottom,
         left: pos.left,
         minWidth: pos.width,
         width: "max-content",
