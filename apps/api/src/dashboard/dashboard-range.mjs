@@ -114,6 +114,7 @@ export function localNow(tz, now = new Date()) {
  *   tz: string,
  *   days: number,
  *   interval: "hour" | "day" | "week",
+ *   hourStep?: number,
  *   prevFrom: string,
  *   prevTo: string,
  * }} DashboardRange
@@ -172,7 +173,7 @@ export function parseDashboardRange(params) {
 
 /**
  * Ordered bucket keys for a range. Hourly keys stop at the current hour for today
- * (no empty future hours).
+ * (no empty future hours); `hourStep` groups hours into blocks keyed by their first hour.
  * @param {DashboardRange} range
  * @param {Date} [now]
  * @returns {string[]}
@@ -180,12 +181,16 @@ export function parseDashboardRange(params) {
 export function bucketKeys(range, now = new Date()) {
   if (range.interval === "hour") {
     const local = localNow(range.tz, now);
-    let lastHour = 23;
-    if (range.from === local.date) lastHour = local.hour;
-    else if (range.from > local.date) lastHour = 0;
+    const step = range.hourStep ?? 1;
     const keys = [];
-    for (let h = 0; h <= lastHour; h++) {
-      keys.push(`${range.from}T${String(h).padStart(2, "0")}`);
+    for (let d = range.from; d <= range.to; d = addDays(d, 1)) {
+      if (d > local.date && d !== range.from) break;
+      let lastHour = 23;
+      if (d === local.date) lastHour = local.hour;
+      else if (d > local.date) lastHour = 0;
+      for (let h = 0; h <= lastHour; h += step) {
+        keys.push(`${d}T${String(h).padStart(2, "0")}`);
+      }
     }
     return keys;
   }
@@ -203,9 +208,14 @@ export function bucketKeys(range, now = new Date()) {
  * @param {string} tsExpr timestamptz column expression
  * @param {number} tzIdx param index holding the IANA tz
  * @param {number} fromIdx param index holding the range start date
+ * @param {number} [hourStep] hours per bucket when interval is "hour"
  */
-export function bucketKeySql(interval, tsExpr, tzIdx, fromIdx) {
+export function bucketKeySql(interval, tsExpr, tzIdx, fromIdx, hourStep = 1) {
   const local = `(${tsExpr} AT TIME ZONE $${tzIdx})`;
+  if (interval === "hour" && hourStep > 1) {
+    const step = Math.trunc(hourStep);
+    return `to_char(date_trunc('day', ${local}) + (floor(extract(hour from ${local}) / ${step}) * ${step}) * interval '1 hour', 'YYYY-MM-DD"T"HH24')`;
+  }
   if (interval === "hour") {
     return `to_char(date_trunc('hour', ${local}), 'YYYY-MM-DD"T"HH24')`;
   }

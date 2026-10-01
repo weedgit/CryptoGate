@@ -284,9 +284,16 @@ describePg("dashboard aggregates (Postgres integration)", () => {
     const eth = json.pairs.find((p) => p.asset === "ETH" && p.network === "ethereum");
     assert.equal(eth.quoteCount, 1);
     assert.equal(eth.latest, 3000);
-    assert.deepEqual(eth.series, [0, 0, 3000, 3000, 3000, 3000, 3000]);
+    // 7-day ranges use 4-hour points; LA is UTC-7 in May, so May 12 12:00Z (05:00 LA) is point 2 * 6 + 1.
+    assert.deepEqual(json.keys.slice(0, 2), ["2026-05-10T00", "2026-05-10T04"]);
+    assert.equal(eth.series.length, 7 * 6);
+    assert.deepEqual(eth.series.slice(0, 13), Array(13).fill(null));
+    assert.deepEqual(eth.series.slice(13), Array(7 * 6 - 13).fill(3000));
     const usdt = json.pairs.find((p) => p.asset === "USDT" && p.network === "tron");
-    assert.equal(usdt.series[0], 1.0002);
+    assert.equal(usdt.series[1], null);
+    assert.equal(usdt.series[2], 1.0001);
+    assert.equal(usdt.series[4], 1.0001);
+    assert.equal(usdt.series[5], 1.0003);
     assert.equal(eth.source, "quotes");
   });
 
@@ -322,7 +329,11 @@ describePg("dashboard aggregates (Postgres integration)", () => {
       assert.equal(status, 200);
       const trx = json.livePrices.find((p) => p.asset === "TRX");
       assert.equal(trx.latest, 0.4);
-      assert.deepEqual(trx.series, [0.2, 0.2, 0.3, 0.3, 0.4, 0.4, 0.4]);
+      assert.deepEqual(trx.series, [
+        ...Array(13).fill(0.2),
+        ...Array(25 - 13).fill(0.3),
+        ...Array(7 * 6 - 25).fill(0.4),
+      ]);
     } finally {
       await pool.query(
         `DELETE FROM fx_rate_samples WHERE asset = 'TRX' AND source = 'median:test'`,

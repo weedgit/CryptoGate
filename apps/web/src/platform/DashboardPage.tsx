@@ -841,7 +841,10 @@ export function DashboardPage({ session }: Props) {
           <span className="plat-fund-currency">USD</span>
         </span>
       );
-      const rateSeries = pair?.series ?? labels.map(() => 0);
+      const firstKnown = pair ? pair.series.findIndex((v) => v != null) : -1;
+      const rateSeries =
+        firstKnown >= 0 ? pair!.series.slice(firstKnown).map((v) => v ?? 0) : [];
+      const rateLabels = firstKnown >= 0 ? labels.slice(firstKnown) : labels;
       return {
         id: rateOverviewId(asset, network),
         category: portal ? "Rates" : "Platform",
@@ -850,7 +853,7 @@ export function DashboardPage({ session }: Props) {
           ? `Live market price of 1 ${asset} in USD: the median of the exchanges the platform checks, sampled every 5 minutes. Shown until orders are quoted for this pair; the rate a customer pays is locked on each order.`
           : market
           ? `Market USD convert rate for 1 ${asset} on ${row.displayNetwork} across the platform in the selected period. Shown until your merchants have quotes for this pair.`
-          : `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Days without quotes hold the last known rate.`,
+          : `Locked USD convert rate for 1 ${asset} on ${row.displayNetwork} from order quotes in the selected period. Stretches without quotes hold the last known rate.`,
         value: empty ? "—" : money(latest),
         compareLabel: empty
           ? `No quotes · ${periodLabel}`
@@ -862,7 +865,8 @@ export function DashboardPage({ session }: Props) {
         trendPercent: empty ? null : trendFromRateSeries(rateSeries),
         trendLabel,
         series: empty ? labels.map(() => 0) : rateSeries,
-        seriesLabels: labels,
+        seriesLabels: empty ? labels : rateLabels,
+        fitSeriesRange: !empty,
         seriesMetric: `${asset} rate`,
         formatSeriesValue: fmtRate,
         chartColor: assetRateChartColor(asset),

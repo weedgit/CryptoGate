@@ -384,14 +384,29 @@ export async function dashboardSeries(scope, range, opts) {
   return { interval: range.interval, keys, series };
 }
 
+/** Rate charts use sub-day points up to this many days (5-minute samples would vanish into daily points). */
+const RATE_HOURLY_MAX_DAYS = 7;
+
+/** Hours per rate point: 1 day → 24, 3 days → 36, 7 days → 42 points. */
+function rateHourStep(days) {
+  if (days <= 1) return 1;
+  if (days <= 3) return 2;
+  return 4;
+}
+
 /**
- * Average locked convert rate per asset/network per bucket; empty buckets hold the last rate.
+ * Average locked convert rate per asset/network per bucket; empty buckets hold the last rate,
+ * and buckets before the first known rate are null.
  * Scoped dashboards (agent / merchant) fall back to the platform-wide rate for pairs with no
  * scoped quotes, flagged `source: "market"` with no `quoteCount` so platform volume stays hidden.
  * @param {import("./dashboard-scope.mjs").DashboardScope} scope
  * @param {import("./dashboard-range.mjs").DashboardRange} range
  */
-export async function dashboardRates(scope, range) {
+export async function dashboardRates(scope, wholeRange) {
+  const range =
+    wholeRange.days <= RATE_HOURLY_MAX_DAYS
+      ? { ...wholeRange, interval: "hour", hourStep: rateHourStep(wholeRange.days) }
+      : wholeRange;
   const keys = bucketKeys(range);
   const cur = await windowInstants(range.from, range.to, range.tz);
   const scoped = await ratePairs(scope.orderFilter, range, keys, cur);
@@ -400,7 +415,7 @@ export async function dashboardRates(scope, range) {
     const have = new Set(scoped.map((p) => `${p.asset}:${p.network}`));
     // One shared entry per period for every scoped viewer; never `fresh` so refreshes stay cheap.
     const market = await cachedDashboard(
-      `rates-market|${range.from}|${range.to}|${range.tz}`,
+      `rates-market|${range.from}|${range.to}|${range.tz}|${range.interval}|${range.hourStep ?? 1}`,
       () => ratePairs({ kind: "all" }, range, keys, cur),
       { ttlMs: MARKET_RATES_TTL_MS },
     );
@@ -410,7 +425,7 @@ export async function dashboardRates(scope, range) {
     }
   }
   const livePrices = await cachedDashboard(
-    `rates-live|${range.from}|${range.to}|${range.tz}`,
+    `rates-live|${range.from}|${range.to}|${range.tz}|${range.interval}|${range.hourStep ?? 1}`,
     () => livePriceSeries(range, keys, cur),
     { ttlMs: MARKET_RATES_TTL_MS },
   );
@@ -423,7 +438,7 @@ export async function dashboardRates(scope, range) {
  * seeded from the last sample before the window.
  */
 async function livePriceSeries(range, keys, cur) {
-  const key = bucketKeySql(range.interval, "s.sampled_at", 3, 4);
+  const key = bucketKeySql(range.interval, "s.sampled_at", 3, 4, range.hourStep);
   let rows;
   let seeds;
   try {
@@ -461,7 +476,8 @@ async function livePriceSeries(range, keys, cur) {
   const seedBy = new Map(seeds.map((s) => [s.asset, Number(s.rate) || 0]));
   const out = [];
   for (const [asset, a] of byAsset) {
-    let hold = seedBy.get(asset) ?? 0;
+    /** @type {number | null} */
+    let hold = seedBy.get(asset) || null;
     let latest = null;
     const series = keys.map((k) => {
       const v = a.avg.get(k);
@@ -475,10 +491,15 @@ async function livePriceSeries(range, keys, cur) {
     out.push({
       asset,
       latest,
-      series: series.map((n) => Math.round(n * 1e8) / 1e8),
+      series: series.map(roundRate),
     });
   }
   return out;
+}
+
+/** @param {number | null} n */
+function roundRate(n) {
+  return n == null ? null : Math.round(n * 1e8) / 1e8;
 }
 
 async function ratePairs(orderFilter, range, keys, cur) {
@@ -486,7 +507,7 @@ async function ratePairs(orderFilter, range, keys, cur) {
   const sc = appendPaymentOrderScope(orderFilter, params);
   if (sc.empty) return [];
   const rate = safeNumericSql("COALESCE(o.pricing_rate, o.market_rate)");
-  const key = bucketKeySql(range.interval, "o.created_at", 3, 4);
+  const key = bucketKeySql(range.interval, "o.created_at", 3, 4, range.hourStep);
   const { rows } = await getPool().query(
     `SELECT o.asset, o.network, ${key} AS k,
        avg(${rate}) AS avg_rate,
@@ -515,23 +536,24 @@ async function ratePairs(orderFilter, range, keys, cur) {
   }
   const pairs = [];
   for (const p of byPair.values()) {
-    const series = keys.map((k) => p.avg.get(k) ?? 0);
     let latest = null;
-    let hold = 0;
-    for (let i = 0; i < series.length; i++) {
-      if (series[i] > 0) {
-        hold = series[i];
-        latest = p.last.get(keys[i]) ?? series[i];
-      } else if (hold > 0) {
-        series[i] = hold;
+    /** @type {number | null} */
+    let hold = null;
+    const series = keys.map((k) => {
+      const v = p.avg.get(k);
+      if (v && v > 0) {
+        hold = v;
+        latest = p.last.get(k) ?? v;
+        return v;
       }
-    }
+      return hold;
+    });
     pairs.push({
       asset: p.asset,
       network: p.network,
       quoteCount: p.n,
       latest,
-      series: series.map((n) => Math.round(n * 1e8) / 1e8),
+      series: series.map(roundRate),
     });
   }
   return pairs;

@@ -92,11 +92,12 @@ export type DashboardRates = {
     /** null when `source` is "market" (platform-wide fallback; count hidden). */
     quoteCount: number | null;
     latest: number | null;
-    series: number[];
+    /** null before the first known rate in the window. */
+    series: (number | null)[];
     source?: "quotes" | "market";
   }[];
   /** Sampled live market median per asset, for pairs with no quotes. */
-  livePrices?: { asset: string; latest: number | null; series: number[] }[];
+  livePrices?: { asset: string; latest: number | null; series: (number | null)[] }[];
 };
 
 export type DashboardOrgCards = {

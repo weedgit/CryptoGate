@@ -96,6 +96,24 @@ describe("dashboard bucket keys", () => {
     assert.equal(bucketKeys(r, new Date("2026-09-27T00:00:00Z")).length, 24);
   });
 
+  it("hourly keys can span several days and stop at the current hour", () => {
+    const r = parseDashboardRange(params("from=2026-09-24&to=2026-09-30&tz=UTC")).range;
+    const keys = bucketKeys({ ...r, interval: "hour" }, new Date("2026-09-30T13:20:00Z"));
+    assert.equal(keys.length, 6 * 24 + 14);
+    assert.equal(keys[0], "2026-09-24T00");
+    assert.equal(keys[24], "2026-09-25T00");
+    assert.equal(keys.at(-1), "2026-09-30T13");
+  });
+
+  it("hourStep groups hours into blocks keyed by their first hour", () => {
+    const r = parseDashboardRange(params("from=2026-09-24&to=2026-09-30&tz=UTC")).range;
+    const keys = bucketKeys({ ...r, interval: "hour", hourStep: 4 }, new Date("2026-09-30T13:20:00Z"));
+    assert.equal(keys.length, 6 * 6 + 4);
+    assert.deepEqual(keys.slice(0, 3), ["2026-09-24T00", "2026-09-24T04", "2026-09-24T08"]);
+    assert.equal(keys.at(-1), "2026-09-30T12");
+    assert.match(bucketKeySql("hour", "s.sampled_at", 3, 4, 4), /floor\(extract\(hour from .*\) \/ 4\) \* 4/);
+  });
+
   it("weekly keys start at the range start and step 7 days", () => {
     const r = parseDashboardRange(params("from=2026-06-27&to=2026-09-27&tz=UTC")).range;
     const keys = bucketKeys(r);

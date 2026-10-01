@@ -87,6 +87,8 @@ export type OverviewChartCard = {
   trendLabel?: string;
   series: number[];
   seriesLabels?: string[];
+  /** Scale the chart to the data's own range (prices) instead of from 0. */
+  fitSeriesRange?: boolean;
   /** Tooltip metric label (e.g. Volume, Fees). */
   seriesMetric?: string;
   /** Format series point value in the hover tooltip. */
@@ -202,6 +204,33 @@ function moveIdBefore(ids: string[], fromId: string, toId: string): string[] {
   return next;
 }
 
+const SPARKLINE_MAX_DOTS = 40;
+const HOUR_LABEL = /^\d{4}-\d{2}-\d{2}T\d{2}$/;
+
+/** Hourly labels over several days: the date where the day changes, the hour otherwise. */
+function hourAxisLabel(labels: string[], idx: number, shown: (i: number) => boolean): string {
+  const day = labels[idx]!.slice(0, 10);
+  let prev = idx - 1;
+  while (prev >= 0 && !shown(prev)) prev -= 1;
+  if (prev < 0 || labels[prev]!.slice(0, 10) !== day) return day.slice(5);
+  return `${labels[idx]!.slice(11, 13)}:00`;
+}
+
+/** Axis around the data's own min/max, with a little headroom; flat series get a thin band. */
+function fittedAxis(values: number[], count: number) {
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const pad = hi > lo ? (hi - lo) * 0.15 : Math.max(Math.abs(hi) * 0.005, 1e-6);
+  const bottom = Math.max(0, lo - pad);
+  const top = hi + pad;
+  const step = (top - bottom) / Math.max(count - 1, 1);
+  const decimals = Math.min(6, Math.max(0, Math.ceil(-Math.log10(step)) + 1));
+  const ticks = Array.from({ length: count }, (_, i) => bottom + step * i);
+  const format = (n: number) =>
+    n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return { bottom, top, ticks, format };
+}
+
 export function Sparkline({
   values,
   labels,
@@ -210,6 +239,7 @@ export function Sparkline({
   metric = "Value",
   formatValue,
   color = "#34d399",
+  fitRange = false,
 }: {
   values: number[];
   labels?: string[];
@@ -219,6 +249,8 @@ export function Sparkline({
   formatValue?: (n: number) => string;
   /** Series accent (line, fill, hover). */
   color?: string;
+  /** Scale the y-axis to the data's own range (prices) instead of starting at 0. */
+  fitRange?: boolean;
 }) {
   const reactId = useId().replace(/:/g, "");
   const fillId = `metricFill-${reactId}`;
@@ -253,17 +285,24 @@ export function Sparkline({
   const baseline = h - padBottom;
   const safe = values.length ? values : [0, 0];
   const max = Math.max(...safe, 0);
-  const yTicks = niceAxisTicks(max, fullscreen ? 6 : 5);
-  const yTop = chartScaleTop(max, fullscreen ? 5 : 4);
+  const fitted = fitRange ? fittedAxis(safe, fullscreen ? 6 : 5) : null;
+  const yTicks = fitted?.ticks ?? niceAxisTicks(max, fullscreen ? 6 : 5);
+  const yBottom = fitted?.bottom ?? 0;
+  const yTop = fitted?.top ?? chartScaleTop(max, fullscreen ? 5 : 4);
+  const yOf = (v: number) => baseline - ((v - yBottom) / (yTop - yBottom)) * plotH;
   const moneyAxis = /fee|volume|\$|usd/i.test(metric);
   const pts = safe.map((v, i) => {
     const x =
       safe.length <= 1
         ? padLeft + plotW / 2
         : padLeft + (i / (safe.length - 1)) * plotW;
-    const y = baseline - (v / yTop) * plotH;
-    return { x, y };
+    return { x, y: yOf(v) };
   });
+  const showPoints = pts.length <= SPARKLINE_MAX_DOTS;
+  const multiDayHours =
+    Boolean(labels && labels.length > 1) &&
+    HOUR_LABEL.test(labels![0]!) &&
+    labels![0]!.slice(0, 10) !== labels![labels!.length - 1]!.slice(0, 10);
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
   const area =
     pts.length > 0
@@ -377,7 +416,7 @@ export function Sparkline({
             </linearGradient>
           </defs>
           {yTicks.map((tick) => {
-            const y = baseline - (tick / yTop) * plotH;
+            const y = yOf(tick);
             return (
               <g key={`yt-${tick}`}>
                 <line
@@ -396,7 +435,7 @@ export function Sparkline({
                   fontSize={fullscreen ? 11 : 9}
                   fontFamily="var(--font-mono)"
                 >
-                  {formatAxisNumber(tick, moneyAxis)}
+                  {fitted ? fitted.format(tick) : formatAxisNumber(tick, moneyAxis)}
                 </text>
               </g>
             );
@@ -438,15 +477,17 @@ export function Sparkline({
               strokeWidth={fullscreen ? 3 : 2.5}
               vectorEffect="non-scaling-stroke"
             />
-            {pts.map((p) => (
-              <circle
-                key={`pt-${p.x}-${p.y}`}
-                className="volume-chart__point"
-                cx={p.x}
-                cy={p.y}
-                r={fullscreen ? 5 : 4.25}
-              />
-            ))}
+            {showPoints
+              ? pts.map((p) => (
+                  <circle
+                    key={`pt-${p.x}-${p.y}`}
+                    className="volume-chart__point"
+                    cx={p.x}
+                    cy={p.y}
+                    r={fullscreen ? 5 : 4.25}
+                  />
+                ))
+              : null}
           </g>
           {active ? (
             <>
@@ -487,7 +528,9 @@ export function Sparkline({
               >
                 {/^(\d{4})-(\d{2})-(\d{2})$/.test(labels[idx]!)
                   ? labels[idx]!.slice(5)
-                  : shortDay(labels[idx]!)}
+                  : multiDayHours
+                    ? hourAxisLabel(labels, idx, showXAt)
+                    : shortDay(labels[idx]!)}
               </text>
             );
           })}
@@ -753,6 +796,7 @@ export function OverviewChartCardView({
             metric={card.seriesMetric ?? card.title}
             formatValue={card.formatSeriesValue}
             color={card.chartColor}
+            fitRange={card.fitSeriesRange}
           />
         )}
 
@@ -843,6 +887,7 @@ export function OverviewChartCardView({
               metric={card.seriesMetric ?? card.title}
               formatValue={card.formatSeriesValue}
               color={card.chartColor}
+              fitRange={card.fitSeriesRange}
             />
           </div>
           <footer className="overview-metric-maximize__foot">
