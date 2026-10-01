@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -91,6 +92,8 @@ fun SettingsScreen(
     onUnbind: suspend () -> String?,
     idleLockMinutes: Int = 5,
     onIdleLockMinutesChange: ((Int) -> Unit)? = null,
+    screenSaverMinutes: Int = 2,
+    onScreenSaverMinutesChange: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -248,6 +251,25 @@ fun SettingsScreen(
                                 enabled = onIdleLockMinutesChange != null,
                                 modifier = Modifier.weight(1f),
                             ) { onIdleLockMinutesChange?.invoke(mins) }
+                        }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                SectionHeader(Icons.Outlined.Wallpaper, "Screen saver", subtitle = "After inactivity")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(0 to "Off", 1 to "1 min", 2 to "2 min", 5 to "5 min", 10 to "10 min")
+                        .forEach { (mins, label) ->
+                            AutoLockOption(
+                                label = label,
+                                selected = screenSaverMinutes == mins,
+                                enabled = onScreenSaverMinutesChange != null,
+                                modifier = Modifier.weight(1f),
+                            ) { onScreenSaverMinutesChange?.invoke(mins) }
                         }
                 }
             }

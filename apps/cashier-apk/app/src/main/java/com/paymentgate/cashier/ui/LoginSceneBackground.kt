@@ -39,6 +39,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
@@ -56,8 +57,10 @@ fun LoginSceneBackground(
     showBlocks: Boolean = true,
     showGradients: Boolean = true,
     waveAmplitude: Float = 1f,
+    centerDip: Boolean = false,
 ) {
     val s = if (dark) DarkScene else LightScene
+    val waves = remember(waveAmplitude, centerDip) { WaveShape(waveAmplitude, centerDip) }
     val context = LocalContext.current
     val animate = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
@@ -88,8 +91,8 @@ fun LoginSceneBackground(
             }) {
                 if (showBlocks) drawBlocks(s, t)
                 if (size.width >= size.height) {
-                    drawWaves(s, t, waveAmplitude)
-                    drawCoins(s, t, coins, waveAmplitude)
+                    drawWaves(s, t, waves)
+                    drawCoins(s, t, coins, waves)
                 }
             }
             if (size.width < size.height) {
@@ -99,8 +102,8 @@ fun LoginSceneBackground(
                     translate(size.width / 2f - 600f * ws, size.height * 0.87f - 704f * ws)
                     scale(ws, ws, pivot = Offset.Zero)
                 }) {
-                    drawWaves(s, t, waveAmplitude)
-                    drawCoins(s, t, coins, waveAmplitude)
+                    drawWaves(s, t, waves)
+                    drawCoins(s, t, coins, waves)
                 }
             }
         }
@@ -291,8 +294,19 @@ private const val X_START = -100f
 private const val X_END = 1300f
 private const val SPAN = X_END - X_START
 
-private fun waveY(i: Int, x: Float, t: Float, amp: Float): Float {
+/** [centerDip]: one soft valley lowest at the middle of the view box, with small ripples. */
+private class WaveShape(val amp: Float, val centerDip: Boolean)
+
+private fun waveY(i: Int, x: Float, t: Float, shape: WaveShape): Float {
+    val amp = shape.amp
     val lag = i * 0.35f
+    if (shape.centerDip) {
+        val valley = 80f * (1f - i * 0.06f) * cos((x - VIEW_W / 2f - i * 18f) * 0.007f)
+        val ripples = 10f * sin(x * 0.0095f + lag * 1.3f) + 4f * sin(x * 0.021f + lag * 0.7f)
+        val d = (x - VIEW_W / 2f) / 220f
+        val sink = 24f * exp(-d * d)
+        return WAVE_Y[i] - 50f + amp * (valley + ripples + sink)
+    }
     return WAVE_Y[i] + amp * (
         70f * sin(x * 0.0055f - t * 0.45f + lag) +
             28f * sin(x * 0.011f + t * 0.3f + lag * 1.7f) +
@@ -300,18 +314,18 @@ private fun waveY(i: Int, x: Float, t: Float, amp: Float): Float {
         )
 }
 
-private fun wavePath(i: Int, t: Float, amp: Float): Path {
+private fun wavePath(i: Int, t: Float, shape: WaveShape): Path {
     val path = Path()
     var x = X_START
-    path.moveTo(x, waveY(i, x, t, amp))
+    path.moveTo(x, waveY(i, x, t, shape))
     x += 25f
     while (x <= X_END) {
-        val y = waveY(i, x, t, amp)
+        val y = waveY(i, x, t, shape)
         val nx = x + 25f
         if (nx > X_END) {
             path.lineTo(x, y)
         } else {
-            val ny = waveY(i, nx, t, amp)
+            val ny = waveY(i, nx, t, shape)
             path.quadraticBezierTo(x, y, (x + nx) / 2f, (y + ny) / 2f)
         }
         x = nx
@@ -329,13 +343,13 @@ private fun waveBrush(s: SceneColors) =
         endX = X_END,
     )
 
-private fun DrawScope.drawWaves(s: SceneColors, t: Float, amp: Float) {
+private fun DrawScope.drawWaves(s: SceneColors, t: Float, shape: WaveShape) {
     val brush = waveBrush(s)
-    val first = wavePath(0, t, amp)
+    val first = wavePath(0, t, shape)
     drawPath(first, brush, alpha = s.haloOpacity * 0.35f, style = Stroke(width = 22f, cap = StrokeCap.Round))
     drawPath(first, brush, alpha = s.haloOpacity * 0.6f, style = Stroke(width = 10f, cap = StrokeCap.Round))
     for (i in WAVE_Y.indices) {
-        val path = if (i == 0) first else wavePath(i, t, amp)
+        val path = if (i == 0) first else wavePath(i, t, shape)
         drawPath(path, brush, alpha = WAVE_O[i], style = Stroke(width = WAVE_W[i], cap = StrokeCap.Round))
     }
 }
@@ -505,7 +519,7 @@ private fun DrawScope.drawCoinGlyph(id: CoinId, art: CoinArt) {
 /** Coins sit behind the form: brand colours kept, slightly softened so they don't compete. */
 private val COIN_MUTE = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.85f) })
 
-private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt, amp: Float) {
+private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt, shape: WaveShape) {
     val halo = Brush.radialGradient(
         0f to s.waveA.copy(alpha = 0.35f),
         1f to s.waveA.copy(alpha = 0f),
@@ -514,8 +528,8 @@ private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt, amp: Flo
     )
     COINS.forEachIndexed { i, c ->
         val x = X_START + (((c.x0 + c.speed * t - X_START) % SPAN) + SPAN) % SPAN
-        val y = waveY(c.wave, x, t, amp) - c.lift * c.size
-        val slope = (waveY(c.wave, x + 4f, t, amp) - waveY(c.wave, x - 4f, t, amp)) / 8f
+        val y = waveY(c.wave, x, t, shape) - c.lift * c.size
+        val slope = (waveY(c.wave, x + 4f, t, shape) - waveY(c.wave, x - 4f, t, shape)) / 8f
         val tilt = (atan(slope) * 180f / PI.toFloat()) * 0.7f
         val flip = 0.25f + 0.75f * abs(cos(t * 0.9f + i * 1.7f))
         val edge = min(x - X_START, X_END - x)

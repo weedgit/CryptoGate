@@ -23,9 +23,18 @@ class PosPreferences(context: Context) {
             prefs.edit().putInt(KEY_IDLE, if (value in allowed) value else 5).apply()
         }
 
+    /** Screen saver minutes — 0 = Off. Off / 1 / 2 / 5 / 10. */
+    var screenSaverMinutes: Int
+        get() = prefs.getInt(KEY_SAVER, 2).coerceIn(0, 10)
+        set(value) {
+            val allowed = setOf(0, 1, 2, 5, 10)
+            prefs.edit().putInt(KEY_SAVER, if (value in allowed) value else 2).apply()
+        }
+
     companion object {
         private const val PREFS = "cg_cashier_ui"
         private const val KEY_DARK = "dark_theme"
         private const val KEY_IDLE = "idle_lock_minutes"
+        private const val KEY_SAVER = "screen_saver_minutes"
     }
 }

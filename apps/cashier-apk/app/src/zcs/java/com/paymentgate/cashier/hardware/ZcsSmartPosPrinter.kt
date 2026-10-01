@@ -96,6 +96,7 @@ class ZcsSmartPosPrinter private constructor(
         printer.setPrintAppendString("Z108S / SmartPos printer OK", body)
         printer.setPrintAppendString("", body)
         printer.setPrintAppendString("", body)
+        appendCutterFeed()
         val start = printer.setPrintStart()
         if (start == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
             return PrintOutcome.Failed(PrinterHwStatus.OutOfPaper, "Out of paper")
@@ -151,6 +152,7 @@ class ZcsSmartPosPrinter private constructor(
                 else -> printer.setPrintAppendString(line.text, formatFor(line.style))
             }
         }
+        appendCutterFeed()
         val start = printer.setPrintStart()
         if (start == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
             return PrintOutcome.Failed(PrinterHwStatus.OutOfPaper, "Out of paper")
@@ -198,6 +200,16 @@ class ZcsSmartPosPrinter private constructor(
                 format(22, bold = false, align = Layout.Alignment.ALIGN_NORMAL) to
                     format(22, bold = false, align = Layout.Alignment.ALIGN_OPPOSITE)
         }
+
+    /**
+     * The cutter sits above the print head: without this blank strip the blade lands inside the
+     * receipt and its last lines come out on top of the next one.
+     */
+    private fun appendCutterFeed() {
+        val blank = Bitmap.createBitmap(ReceiptPaper.WIDTH_80MM_PX, CUTTER_FEED_PX, Bitmap.Config.ARGB_8888)
+        blank.eraseColor(Color.WHITE)
+        printer.setPrintAppendBitmap(blank, Layout.Alignment.ALIGN_CENTER)
+    }
 
     /** Full-width divider drawn as pixels, so it spans the paper regardless of font metrics. */
     private fun ruleBitmap(dashed: Boolean, double: Boolean = false): Bitmap {
@@ -253,6 +265,12 @@ class ZcsSmartPosPrinter private constructor(
         private const val QR_SIZE_PX = 240
 
         private const val LOGO_MAX_PX = 150
+
+        /**
+         * 8 dots/mm head → 64 px ≈ 8 mm; with the receipt's trailing spacers the last line clears the
+         * blade by a small margin. ~3.5 mm cropped the receipt; ~24 mm left a wide blank tail.
+         */
+        private const val CUTTER_FEED_PX = 64
 
         fun create(): ThermalPrinter {
             val driver = DriverManager.getInstance()

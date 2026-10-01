@@ -133,6 +133,7 @@ fun CustomerScreenContent() {
             waveAmplitude = 1.6f,
             showBlocks = false,
             showGradients = false,
+            centerDip = true,
         )
         Box(
             modifier = Modifier

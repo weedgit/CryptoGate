@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.paymentgate.cashier.api.ApiError
@@ -75,6 +76,7 @@ import com.paymentgate.cashier.ui.OrdersScreen
 import com.paymentgate.cashier.ui.PinUnlockScreen
 import com.paymentgate.cashier.ui.PosMotion
 import com.paymentgate.cashier.ui.PosShell
+import com.paymentgate.cashier.ui.ScreenSaver
 import com.paymentgate.cashier.ui.SettingsScreen
 import com.paymentgate.cashier.ui.SetupStep
 import com.paymentgate.cashier.ui.SplashScreen
@@ -86,6 +88,7 @@ import com.paymentgate.cashier.ui.theme.CashierTheme
 import com.paymentgate.cashier.ui.theme.PosBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -172,6 +175,8 @@ class MainActivity : ComponentActivity() {
 
                     var lastActivityAt by remember { mutableStateOf(System.currentTimeMillis()) }
                     var idleLockMinutes by remember { mutableIntStateOf(app.posPrefs.idleLockMinutes) }
+                    var screenSaverMinutes by remember { mutableIntStateOf(app.posPrefs.screenSaverMinutes) }
+                    var screenSaverOn by remember { mutableStateOf(false) }
 
                     fun touchActivity() {
                         lastActivityAt = System.currentTimeMillis()
@@ -436,6 +441,29 @@ class MainActivity : ComponentActivity() {
                                 lockPos()
                                 break
                             }
+                        }
+                    }
+
+                    // Screen saver: on the PIN pad or while unlocked, never on Owner/Admin setup or over
+                    // an open payment QR. Any touch or key restarts the wait and hides it.
+                    val screenSaverAllowed = bound && startupDone && !showSplash
+                    LaunchedEffect(screenSaverAllowed, screenSaverMinutes) {
+                        if (!screenSaverAllowed || screenSaverMinutes <= 0) {
+                            screenSaverOn = false
+                            return@LaunchedEffect
+                        }
+                        snapshotFlow { CustomerScreen.lastInteractionAt }.collectLatest { at ->
+                            screenSaverOn = false
+                            val wait = at + screenSaverMinutes * 60_000L - System.currentTimeMillis()
+                            if (wait > 0) delay(wait)
+                            while (
+                                operator != null &&
+                                screen == PosScreen.Pay &&
+                                payment?.let { OrderStatusUi.isOpenPaymentOrder(it.status) } == true
+                            ) {
+                                delay(5_000)
+                            }
+                            screenSaverOn = true
                         }
                     }
 
@@ -978,6 +1006,11 @@ class MainActivity : ComponentActivity() {
                                                                 app.posPrefs.idleLockMinutes = it
                                                                 touchActivity()
                                                             },
+                                                            screenSaverMinutes = screenSaverMinutes,
+                                                            onScreenSaverMinutesChange = {
+                                                                screenSaverMinutes = it
+                                                                app.posPrefs.screenSaverMinutes = it
+                                                            },
                                                         )
                                                     }
                                                     else -> Unit
@@ -1122,6 +1155,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                    ScreenSaver(
+                        visible = screenSaverOn,
+                        orgName = terminalOrg?.name,
+                        orgIconKey = terminalOrg?.iconKey,
+                        onDismiss = { screenSaverOn = false },
+                    )
                 }
             }
         }
