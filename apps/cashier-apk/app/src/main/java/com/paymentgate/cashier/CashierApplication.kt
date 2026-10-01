@@ -39,6 +39,6 @@ class CashierApplication : Application() {
         lastReceiptStore = LastReceiptStore()
         posPrefs = PosPreferences(this)
         thermalPrinter = ThermalPrinterFactory.create()
-        customerDisplay = CustomerDisplayFactory.create()
+        customerDisplay = CustomerDisplayFactory.create(this)
     }
 }

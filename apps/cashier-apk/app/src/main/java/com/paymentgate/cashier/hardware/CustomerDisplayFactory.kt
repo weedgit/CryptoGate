@@ -1,13 +1,14 @@
 package com.paymentgate.cashier.hardware
 
+import android.content.Context
 import com.paymentgate.cashier.BuildConfig
 
 object CustomerDisplayFactory {
-    fun create(): CustomerDisplay {
+    fun create(context: Context): CustomerDisplay {
         if (!BuildConfig.HAS_SMARTPOS) {
             return UnavailableCustomerDisplay("SmartPos AAR not packaged in this build")
         }
-        return runCatching { ZcsCustomerDisplay.create() }
+        return runCatching { ZcsCustomerDisplay.create(context) }
             .getOrElse { e ->
                 UnavailableCustomerDisplay(e.message ?: "SmartPos customer display init failed")
             }

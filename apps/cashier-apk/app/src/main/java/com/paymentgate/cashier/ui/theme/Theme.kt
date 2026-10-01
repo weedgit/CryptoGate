@@ -122,9 +122,10 @@ fun CashierTheme(
 ) {
     val scheme = if (darkTheme) DarkScheme else LightScheme
     val view = LocalView.current
-    if (!view.isInEditMode) {
+    val activity = view.context as? Activity
+    if (!view.isInEditMode && activity != null) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = activity.window
             window.statusBarColor = (if (darkTheme) Color(0xFF0D1728) else Color(0xFFF5F9FF)).toArgb()
             window.navigationBarColor = (if (darkTheme) Color(0xFF070E18) else Color(0xFFF2F8F7)).toArgb()
             val insets = WindowCompat.getInsetsController(window, view)

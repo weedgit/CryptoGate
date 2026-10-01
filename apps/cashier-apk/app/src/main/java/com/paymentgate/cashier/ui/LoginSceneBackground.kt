@@ -46,17 +46,24 @@ import kotlin.math.sin
 /**
  * Compose port of the web login hero (`LoginSceneBg.tsx` + `05-login.css`): breathing sun with
  * rotating rays, colour glows, flowing gradient waves with chain coins riding them, and drifting
- * linked block shapes. Frozen at t = 0 when system animations are off.
+ * linked block shapes. Frozen at t = 0 when system animations are off or [still] is set.
  */
 @Composable
-fun LoginSceneBackground(dark: Boolean, modifier: Modifier = Modifier) {
+fun LoginSceneBackground(
+    dark: Boolean,
+    modifier: Modifier = Modifier,
+    still: Boolean = false,
+    showBlocks: Boolean = true,
+    showGradients: Boolean = true,
+    waveAmplitude: Float = 1f,
+) {
     val s = if (dark) DarkScene else LightScene
     val context = LocalContext.current
     val animate = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     }
-    val time by produceState(0f, animate) {
-        if (!animate) return@produceState
+    val time by produceState(0f, animate, still) {
+        if (!animate || still) return@produceState
         val start = withFrameNanos { it }
         while (true) {
             withFrameNanos { value = (it - start) / 1_000_000_000f }
@@ -67,9 +74,11 @@ fun LoginSceneBackground(dark: Boolean, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val t = time
-            drawHeroGradient(s)
-            drawSun(s, t)
-            drawGlow(s)
+            if (showGradients) {
+                drawHeroGradient(s)
+                drawSun(s, t)
+                drawGlow(s)
+            }
             val vs = max(size.width / VIEW_W, size.height / VIEW_H)
             val ox = (size.width - VIEW_W * vs) / 2f
             val oy = (size.height - VIEW_H * vs) / 2f
@@ -77,10 +86,10 @@ fun LoginSceneBackground(dark: Boolean, modifier: Modifier = Modifier) {
                 translate(ox, oy)
                 scale(vs, vs, pivot = Offset.Zero)
             }) {
-                drawBlocks(s, t)
+                if (showBlocks) drawBlocks(s, t)
                 if (size.width >= size.height) {
-                    drawWaves(s, t)
-                    drawCoins(s, t, coins)
+                    drawWaves(s, t, waveAmplitude)
+                    drawCoins(s, t, coins, waveAmplitude)
                 }
             }
             if (size.width < size.height) {
@@ -90,8 +99,8 @@ fun LoginSceneBackground(dark: Boolean, modifier: Modifier = Modifier) {
                     translate(size.width / 2f - 600f * ws, size.height * 0.87f - 704f * ws)
                     scale(ws, ws, pivot = Offset.Zero)
                 }) {
-                    drawWaves(s, t)
-                    drawCoins(s, t, coins)
+                    drawWaves(s, t, waveAmplitude)
+                    drawCoins(s, t, coins, waveAmplitude)
                 }
             }
         }
@@ -282,26 +291,27 @@ private const val X_START = -100f
 private const val X_END = 1300f
 private const val SPAN = X_END - X_START
 
-private fun waveY(i: Int, x: Float, t: Float): Float {
+private fun waveY(i: Int, x: Float, t: Float, amp: Float): Float {
     val lag = i * 0.35f
-    return WAVE_Y[i] +
+    return WAVE_Y[i] + amp * (
         70f * sin(x * 0.0055f - t * 0.45f + lag) +
-        28f * sin(x * 0.011f + t * 0.3f + lag * 1.7f) +
-        12f * sin(x * 0.019f - t * 0.8f + lag * 0.6f)
+            28f * sin(x * 0.011f + t * 0.3f + lag * 1.7f) +
+            12f * sin(x * 0.019f - t * 0.8f + lag * 0.6f)
+        )
 }
 
-private fun wavePath(i: Int, t: Float): Path {
+private fun wavePath(i: Int, t: Float, amp: Float): Path {
     val path = Path()
     var x = X_START
-    path.moveTo(x, waveY(i, x, t))
+    path.moveTo(x, waveY(i, x, t, amp))
     x += 25f
     while (x <= X_END) {
-        val y = waveY(i, x, t)
+        val y = waveY(i, x, t, amp)
         val nx = x + 25f
         if (nx > X_END) {
             path.lineTo(x, y)
         } else {
-            val ny = waveY(i, nx, t)
+            val ny = waveY(i, nx, t, amp)
             path.quadraticBezierTo(x, y, (x + nx) / 2f, (y + ny) / 2f)
         }
         x = nx
@@ -319,13 +329,13 @@ private fun waveBrush(s: SceneColors) =
         endX = X_END,
     )
 
-private fun DrawScope.drawWaves(s: SceneColors, t: Float) {
+private fun DrawScope.drawWaves(s: SceneColors, t: Float, amp: Float) {
     val brush = waveBrush(s)
-    val first = wavePath(0, t)
+    val first = wavePath(0, t, amp)
     drawPath(first, brush, alpha = s.haloOpacity * 0.35f, style = Stroke(width = 22f, cap = StrokeCap.Round))
     drawPath(first, brush, alpha = s.haloOpacity * 0.6f, style = Stroke(width = 10f, cap = StrokeCap.Round))
     for (i in WAVE_Y.indices) {
-        val path = if (i == 0) first else wavePath(i, t)
+        val path = if (i == 0) first else wavePath(i, t, amp)
         drawPath(path, brush, alpha = WAVE_O[i], style = Stroke(width = WAVE_W[i], cap = StrokeCap.Round))
     }
 }
@@ -495,7 +505,7 @@ private fun DrawScope.drawCoinGlyph(id: CoinId, art: CoinArt) {
 /** Coins sit behind the form: brand colours kept, slightly softened so they don't compete. */
 private val COIN_MUTE = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.85f) })
 
-private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt) {
+private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt, amp: Float) {
     val halo = Brush.radialGradient(
         0f to s.waveA.copy(alpha = 0.35f),
         1f to s.waveA.copy(alpha = 0f),
@@ -504,8 +514,8 @@ private fun DrawScope.drawCoins(s: SceneColors, t: Float, art: CoinArt) {
     )
     COINS.forEachIndexed { i, c ->
         val x = X_START + (((c.x0 + c.speed * t - X_START) % SPAN) + SPAN) % SPAN
-        val y = waveY(c.wave, x, t) - c.lift * c.size
-        val slope = (waveY(c.wave, x + 4f, t) - waveY(c.wave, x - 4f, t)) / 8f
+        val y = waveY(c.wave, x, t, amp) - c.lift * c.size
+        val slope = (waveY(c.wave, x + 4f, t, amp) - waveY(c.wave, x - 4f, t, amp)) / 8f
         val tilt = (atan(slope) * 180f / PI.toFloat()) * 0.7f
         val flip = 0.25f + 0.75f * abs(cos(t * 0.9f + i * 1.7f))
         val edge = min(x - X_START, X_END - x)

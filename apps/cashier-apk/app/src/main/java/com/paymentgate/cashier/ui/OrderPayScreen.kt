@@ -1,5 +1,7 @@
 package com.paymentgate.cashier.ui
 
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.ui.window.Dialog
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.ImageBitmap
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.ColumnScope
@@ -196,22 +199,12 @@ fun OrderPayScreen(
     }
 
     if (confirmLeave) {
-        AlertDialog(
-            onDismissRequest = { confirmLeave = false },
-            title = { Text("Leave open order?") },
-            text = {
-                Text(
-                    "Payment is still $statusLabel. Leaving hides the QR from this screen — " +
-                        "the order stays open until it expires or completes.",
-                )
+        LeaveOrderDialog(
+            onStay = { confirmLeave = false },
+            onLeave = {
+                confirmLeave = false
+                onDone()
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmLeave = false
-                    onDone()
-                }) { Text("Leave anyway") }
-            },
-            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Stay") } },
         )
     }
 
@@ -302,7 +295,7 @@ fun OrderPayScreen(
                         }
                         if (orderOpen) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            NetworkWarning(details.wrongNetworkWarning.ifBlank { "Send only ${details.asset} on $networkLabel." })
+                            NetworkWarning("${details.asset} on $networkLabel only")
                         }
                         details.memoOrTag?.let {
                             Text("Memo: $it", fontFamily = FontFamily.Monospace, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
@@ -346,13 +339,13 @@ fun OrderPayScreen(
                             Spacer(modifier = Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (showShare) {
-                                    PayOutlinedAction(Icons.Outlined.Link, "Send payment link", colors.primary, Modifier.weight(1.4f)) {
+                                    PayOutlinedAction(Icons.Outlined.Link, "Send link", colors.primary, Modifier.weight(1f)) {
                                         PayLinkShare.share(context, details)
                                     }
                                 }
                                 if (showCancel) {
                                     PayOutlinedAction(
-                                        null,
+                                        Icons.Outlined.Cancel,
                                         if (cancelling) "Cancelling…" else "Cancel order",
                                         colors.error,
                                         Modifier.weight(1f),
@@ -374,6 +367,47 @@ fun OrderPayScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeaveOrderDialog(onStay: () -> Unit, onLeave: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Dialog(onDismissRequest = onStay) {
+        Surface(shape = RoundedCornerShape(20.dp), color = colors.surface, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.Logout,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Text("Leave open order?", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onSurface)
+                }
+                Text(
+                    "The QR will close.\nThe order stays open until paid or expired.",
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = onStay,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.5f)),
+                    ) { Text("Stay", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface) }
+                    Button(
+                        onClick = onLeave,
+                        modifier = Modifier.weight(1.4f).height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                    ) { Text("Leave order open", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
+                }
             }
         }
     }
@@ -627,15 +661,12 @@ private fun NetworkWarning(text: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFFF59E0B).copy(alpha = 0.12f))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = amber, modifier = Modifier.size(28.dp))
-        Spacer(modifier = Modifier.width(14.dp))
-        Column {
-            Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = amber)
-            Text("A different token or network may result in lost funds.", fontSize = 13.sp, color = amber.copy(alpha = 0.85f))
-        }
+        Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = amber, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = amber)
     }
 }
 

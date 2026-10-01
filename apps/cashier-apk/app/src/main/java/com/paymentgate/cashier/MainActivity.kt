@@ -1,5 +1,11 @@
 package com.paymentgate.cashier
 
+import com.paymentgate.cashier.ui.toCustomerView
+import com.paymentgate.cashier.ui.CustomerView
+import com.paymentgate.cashier.ui.CustomerScreen
+import androidx.compose.runtime.SideEffect
+import android.view.MotionEvent
+import android.view.KeyEvent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -46,6 +52,7 @@ import com.paymentgate.cashier.api.PaymentOrder
 import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.Session
 import com.paymentgate.cashier.api.SessionRules
+import com.paymentgate.cashier.hardware.CustomerPresentation
 import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.ReceiptJob
 import com.paymentgate.cashier.hardware.PrinterHwStatus
@@ -101,6 +108,26 @@ private fun roleLabel(role: String): String =
     }
 
 class MainActivity : ComponentActivity() {
+    override fun onStart() {
+        super.onStart()
+        if ((application as CashierApplication).customerDisplay.isAvailable()) CustomerPresentation.attach(this)
+    }
+
+    override fun onStop() {
+        CustomerPresentation.detach()
+        super.onStop()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        CustomerScreen.touch()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        CustomerScreen.touch()
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -430,6 +457,21 @@ class MainActivity : ComponentActivity() {
                             ContextCompat.RECEIVER_NOT_EXPORTED,
                         )
                         onDispose { unregisterReceiver(receiver) }
+                    }
+
+                    val customerView =
+                        when {
+                            operator == null -> CustomerView.Ready
+                            screen == PosScreen.Create -> CustomerView.Charge(amount, chargeIn, asset, network)
+                            screen == PosScreen.Pay || screen == PosScreen.OrderDetail ->
+                                payment?.toCustomerView(if (screen == PosScreen.Pay) qrMode else QrMode.WithAmount)
+                                    ?: CustomerView.Ready
+                            else -> CustomerView.Ready
+                        }
+                    SideEffect {
+                        CustomerScreen.requested = customerView
+                        CustomerScreen.orgName = terminalOrg?.name
+                        CustomerScreen.orgIconKey = terminalOrg?.iconKey
                     }
 
                     LaunchedEffect(screen, watchingOrderId) {

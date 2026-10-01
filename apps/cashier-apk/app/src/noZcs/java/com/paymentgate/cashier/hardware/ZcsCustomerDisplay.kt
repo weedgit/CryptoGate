@@ -13,6 +13,6 @@ class ZcsCustomerDisplay private constructor() : CustomerDisplay {
         CustomerDisplayOutcome.Failed("SmartPos AAR missing — customer display unavailable")
 
     companion object {
-        fun create(): CustomerDisplay = ZcsCustomerDisplay()
+        fun create(@Suppress("UNUSED_PARAMETER") context: android.content.Context): CustomerDisplay = ZcsCustomerDisplay()
     }
 }
