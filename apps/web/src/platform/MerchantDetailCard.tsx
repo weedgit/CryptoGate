@@ -86,8 +86,6 @@ const MERCHANT_TIERS: MerchantTier[] = ["small", "mid", "enterprise"];
 const PRICING_MODE_LABEL: Record<string, string> = {
   pegged_1to1: "Pegged 1:1",
   market: "Always market",
-  token_to_usd: "Token amount to USD",
-  usd_to_token: "USD to token",
 };
 
 function defaultVolumeForTier(tiers: FeeTierBand[], tier: MerchantTier): string {

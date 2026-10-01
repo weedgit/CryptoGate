@@ -210,8 +210,6 @@ export function invoiceFundRate(order: {
 const PRICING_MODE_LABEL: Record<string, string> = {
   pegged_1to1: "Pegged 1:1",
   market: "Market rate",
-  token_to_usd: "Token amount to USD",
-  usd_to_token: "USD to token",
 };
 
 const STABLE_ASSETS = new Set(["USDT", "USDC"]);

@@ -31,12 +31,6 @@ export const SETTLEMENT_HELP = {
   pricingMarket:
     "Every token, including stablecoins, uses the live market rate at the moment the customer is quoted. Customers may pay, for example, 100.12 USDT for a $100 invoice.",
 
-  pricingUsdToToken:
-    "You enter the price in USD and the customer is asked for the matching token amount. Priced the same way as Always market: the live rate when the quote is made.",
-
-  pricingTokenToUsd:
-    "Priced the same way as Always market: the live rate when the quote is made, which also gives the USD value of what the customer paid.",
-
   quoteLock:
     "How long the quoted token amount stays valid, counted from when the order is created or re-quoted. If the customer pays within this time the amount is guaranteed even if the market moves. The payment window closes when the lock ends (or earlier if the order's validity is shorter); an open order can be re-quoted at the new rate before then.",
 

@@ -365,14 +365,21 @@ describe("order re-quote + pricing kill switch (Postgres integration)", { skip }
     );
   });
 
-  it("saves every merchant pricing mode", async () => {
-    for (const pricingMode of ["pegged_1to1", "market", "token_to_usd", "usd_to_token"]) {
+  it("saves both merchant pricing modes and rejects removed ones", async () => {
+    for (const pricingMode of ["pegged_1to1", "market"]) {
       const res = await api(`/v1/orgs/${merchantId}/pricing`, {
         method: "PUT",
         body: { pricingMode, quoteLockSeconds: 900 },
       });
       assert.equal(res.status, 200, `${pricingMode}: ${JSON.stringify(res.json)}`);
       assert.equal(res.json.pricingMode, pricingMode);
+    }
+    for (const pricingMode of ["token_to_usd", "usd_to_token"]) {
+      const res = await api(`/v1/orgs/${merchantId}/pricing`, {
+        method: "PUT",
+        body: { pricingMode, quoteLockSeconds: 900 },
+      });
+      assert.equal(res.status, 400, pricingMode);
     }
   });
 });

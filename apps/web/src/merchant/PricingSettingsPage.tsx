@@ -35,22 +35,6 @@ const MODE_OPTIONS = [
     blurb: "Every asset uses the live USD rate from the rate feed at quote time.",
     tip: SETTLEMENT_HELP.pricingMarket,
   },
-  {
-    id: "usd_to_token",
-    label: "USD to token",
-    value: "USD",
-    blurb:
-      "Enter the USD amount. PaymentGate converts it to the token amount at the cached fund rate.",
-    tip: SETTLEMENT_HELP.pricingUsdToToken,
-  },
-  {
-    id: "token_to_usd",
-    label: "Token amount to USD",
-    value: "USD",
-    blurb:
-      "Enter the token amount. PaymentGate converts it to USD at the live rate.",
-    tip: SETTLEMENT_HELP.pricingTokenToUsd,
-  },
 ] as const;
 
 function lockLabel(seconds: number): string {

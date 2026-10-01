@@ -181,8 +181,6 @@ function tierForVolumeFeePercent(
 const PRICING_MODE_OPTIONS = [
   { id: "pegged_1to1", label: "Pegged 1:1" },
   { id: "market", label: "Always market" },
-  { id: "usd_to_token", label: "USD to token" },
-  { id: "token_to_usd", label: "Token amount to USD" },
 ];
 
 function BuildingIcon() {

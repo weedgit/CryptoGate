@@ -632,10 +632,6 @@ export type PaymentOrderAssignFields = {
 export const PricingMode = {
   Pegged1to1: "pegged_1to1",
   Market: "market",
-  /** Token amount entered by the merchant, converted to USD at the live rate. */
-  TokenToUsd: "token_to_usd",
-  /** USD amount converted to the token amount at the cached fund rate. */
-  UsdToToken: "usd_to_token",
 } as const;
 
 export type PricingMode = (typeof PricingMode)[keyof typeof PricingMode];
