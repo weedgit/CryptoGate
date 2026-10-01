@@ -464,6 +464,10 @@ describe("POS terminals (Postgres integration)", { skip }, () => {
     assert.ok(listed);
     assert.equal(listed.boundByName, "Pos sOwner");
     assert.match(listed.boundByEmail, /^pos-term-sowner-/);
+    assert.equal(listed.boundByAvatarUrl, null);
+    assert.equal(listed.orgId, siteId);
+    assert.equal(listed.orgType, "merchant_site");
+    assert.equal(typeof listed.orgName, "string");
 
     const cashierList = await api(`/v1/orgs/${siteId}/pos-terminals`, { session: await loginToken("sCashier") });
     assert.equal(cashierList.status, 403);

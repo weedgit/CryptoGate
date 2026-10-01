@@ -7,7 +7,9 @@ import {
   type PosTerminal,
 } from "./api";
 import { getMerchantOrgs } from "./merchantOrgList";
+import { DefaultUserAvatar } from "../auth/DefaultUserAvatar";
 import { ConfirmActionModal } from "../shared/ConfirmActionModal";
+import { OrgBrandMark } from "../shared/OrgBrandMark";
 import { formatRelativeTime } from "../shared/relativeTime";
 import { formatViewerDateTime } from "../shared/dateTime";
 import { SearchableSelect } from "../ui/SearchableSelect";
@@ -112,7 +114,7 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
     setBusy(true);
     try {
       const updated = await revokePosTerminal(selectedOrgId, target.id, "revoked from web");
-      setTerminals((prev) => (prev ?? []).map((t) => (t.id === updated.id ? updated : t)));
+      setTerminals((prev) => (prev ?? []).map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
       onOk(`${deviceLabel(target)} was revoked and signed out.`);
       setRevokeTarget(null);
     } catch (err) {
@@ -185,7 +187,7 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
               <thead>
                 <tr>
                   <th>Device</th>
-                  <th>Set up by</th>
+                  <th>{org.type === "merchant" ? "Merchant & set up by" : "Site & set up by"}</th>
                   <th>Set up</th>
                   <th>Last seen</th>
                   <th>Status</th>
@@ -195,6 +197,10 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
               <tbody>
                 {visible.map((t) => {
                   const revoked = t.status !== "active";
+                  const isSite = t.orgType === "merchant_site";
+                  const siteUnderMerchant = isSite && org.type === "merchant";
+                  const partyName = siteUnderMerchant ? org.name : t.orgName || org.name;
+                  const partyIcon = t.orgIconKey ?? (siteUnderMerchant ? org.iconKey : null) ?? null;
                   return (
                     <tr key={t.id} className={revoked ? "pos-terminals__row--revoked" : undefined}>
                       <td>
@@ -210,8 +216,33 @@ export function PosTerminalsSection({ org, onOk, onError }: Props) {
                           </span>
                         </div>
                       </td>
-                      <td className="pos-terminals__muted" title={t.boundByEmail ?? undefined}>
-                        {boundByLabel(t)}
+                      <td>
+                        <div className="invoice-list__party">
+                          <OrgBrandMark
+                            name={partyName}
+                            iconKey={partyIcon}
+                            size={40}
+                            className="invoice-list__party-mark"
+                          />
+                          <div className="invoice-list__party-body">
+                            <div className="invoice-list__party-merchant">
+                              <span className="invoice-list__party-name">{partyName}</span>
+                              {siteUnderMerchant && t.orgName ? (
+                                <span className="invoice-list__site"> · {t.orgName}</span>
+                              ) : null}
+                            </div>
+                            <div className="invoice-list__party-cashier" title={t.boundByEmail ?? undefined}>
+                              <span className="invoice-list__user-avatar" aria-hidden>
+                                {t.boundByAvatarUrl ? (
+                                  <img src={t.boundByAvatarUrl} alt="" />
+                                ) : (
+                                  <DefaultUserAvatar className="invoice-list__user-avatar-default" />
+                                )}
+                              </span>
+                              <span className="invoice-list__cashier-name">{boundByLabel(t)}</span>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="plat-team__login" title={formatViewerDateTime(t.createdAt)}>
                         {formatRelativeTime(t.createdAt)}

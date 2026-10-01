@@ -1464,6 +1464,12 @@ export type PosTerminal = {
   boundBy: string | null;
   boundByName: string | null;
   boundByEmail: string | null;
+  /** List responses only. */
+  boundByAvatarUrl?: string | null;
+  orgId: string;
+  orgName: string | null;
+  orgType: string | null;
+  orgIconKey: string | null;
   revokedAt: string | null;
   revokeReason: string | null;
 };

@@ -1375,14 +1375,6 @@ html[data-theme="light"] .b3-commission-modal-backdrop .remove-member-modal__eff
   text-overflow: ellipsis;
 }
 
-:is(.platform-shell, .shell) .pos-terminals__muted {
-  font-size: 13px;
-  color: #cbd5e1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 :is(.platform-shell, .shell) .pos-terminals__row--revoked td {
   opacity: 0.6;
 }

@@ -1760,10 +1760,6 @@ html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__device-ver
   color: #64748b;
 }
 
-html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__muted {
-  color: #334155;
-}
-
 html[data-theme="light"] :is(.platform-shell, .shell) .pos-terminals__toggle {
   border-color: #cbd5e1;
   background: #ffffff;

@@ -39,6 +39,9 @@ function mapTerminal(row) {
       [row.bound_by_first_name, row.bound_by_last_name].filter(Boolean).join(" ").trim() || null,
     revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : null,
     revokeReason: row.revoke_reason ?? null,
+    ...(row.bound_by_avatar_url !== undefined
+      ? { boundByAvatarUrl: row.bound_by_avatar_url?.trim() || null }
+      : {}),
     lockedUntil: row.locked_until ? new Date(row.locked_until) : null,
   };
 }
@@ -102,11 +105,12 @@ export async function findTerminalInOrg(orgId, terminalId) {
 }
 
 /**
+ * Web list only; avatars stay out of the per-request terminal lookups.
  * @param {string} orgId
  */
 export async function listTerminalsForOrg(orgId) {
   const { rows } = await getPool().query(
-    `SELECT ${TERMINAL_COLUMNS}
+    `SELECT ${TERMINAL_COLUMNS}, b.avatar_url AS bound_by_avatar_url
      FROM ${TERMINAL_FROM}
      WHERE t.org_id = $1
      ORDER BY t.status = 'active' DESC, t.created_at DESC`,

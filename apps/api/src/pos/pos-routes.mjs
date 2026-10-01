@@ -460,6 +460,13 @@ function terminalListItem(terminal) {
     boundBy: terminal.boundBy,
     boundByName: terminal.boundByName,
     boundByEmail: terminal.boundByEmail,
+    ...(terminal.boundByAvatarUrl !== undefined
+      ? { boundByAvatarUrl: terminal.boundByAvatarUrl }
+      : {}),
+    orgId: terminal.orgId,
+    orgName: terminal.orgName,
+    orgType: terminal.orgType,
+    orgIconKey: terminal.orgIconKey,
     revokedAt: terminal.revokedAt,
     revokeReason: terminal.revokeReason,
   };
