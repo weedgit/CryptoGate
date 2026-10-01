@@ -33,7 +33,6 @@ type Props = {
 
 type View = "login" | "forgot" | "reset" | "mfa";
 
-const RESEND_SECONDS = 30;
 const SHAKE_MS = 480;
 
 export function PortalLoginPage({
@@ -65,7 +64,6 @@ export function PortalLoginPage({
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
-  const [resendSeconds, setResendSeconds] = useState(RESEND_SECONDS);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [shaking, setShaking] = useState(false);
@@ -132,16 +130,6 @@ export function PortalLoginPage({
     }
   }, [location.pathname, resetToken]);
 
-  useEffect(() => {
-    if (view !== "mfa" || resendSeconds <= 0) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setResendSeconds((current) => (current > 0 ? current - 1 : 0));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [view, resendSeconds]);
-
   const completeMfa = useCallback(
     async (code: string) => {
       if (loading || code.length !== 6) {
@@ -175,7 +163,6 @@ export function PortalLoginPage({
       if (result.mfaRequired) {
         setView("mfa");
         setMfaCode("");
-        setResendSeconds(RESEND_SECONDS);
         return;
       }
       onSignedIn();
@@ -444,24 +431,8 @@ export function PortalLoginPage({
             />
 
             <div className="login-mfa-meta">
-              <p className="login-mfa-resend">
-                {resendSeconds > 0 ? (
-                  <>
-                    Resend code in <strong>{resendSeconds}s</strong>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="login-text-link"
-                    onClick={() => setResendSeconds(RESEND_SECONDS)}
-                  >
-                    Resend code
-                  </button>
-                )}
-              </p>
               <p className="login-mfa-hint" style={{ margin: 0 }}>
-                Lost authenticator? Ask a platform Operator to clear MFA for
-                your account, then re-enroll from Profile.
+                Lost your authenticator? Ask an Operator to reset your MFA.
               </p>
             </div>
 

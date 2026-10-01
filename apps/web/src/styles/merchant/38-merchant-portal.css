@@ -26,6 +26,19 @@
   margin: 4px;
 }
 
+/* Uploaded logos sit directly on the page: no frame or fill behind transparent PNGs. */
+.platform-shell .logo-mark.org-brand-mark--image,
+.merchant-shell.platform-shell .merchant-dash__hero-mark.org-brand-mark--image {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+
+.platform-shell .logo-mark.org-brand-mark--image img,
+.merchant-shell.platform-shell .merchant-dash__hero-mark.org-brand-mark--image img {
+  object-fit: contain;
+}
+
 .merchant-shell.platform-shell .cg-empty {
   background: #0e1218;
   border: 1px solid rgba(255, 255, 255, 0.06);

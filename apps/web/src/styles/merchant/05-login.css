@@ -569,12 +569,6 @@
   text-align: center;
 }
 
-.login-footer__access {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: #94a3b8;
-}
-
 .login-footer__copy {
   margin: 0;
   padding-top: 16px;
@@ -850,10 +844,6 @@ html[data-theme="light"] .login-verify-note {
 
 html[data-theme="light"] .login-verify-note__icon {
   color: #94a3b8;
-}
-
-html[data-theme="light"] .login-footer__access {
-  color: #64748b;
 }
 
 html[data-theme="light"] .login-footer__copy {
@@ -2029,5 +2019,174 @@ html[data-theme="light"] .login-wrap--split .mfa-enroll-secret-box code {
   outline: 1px solid rgba(0, 212, 200, 0.55);
   outline-offset: 3px;
   border-radius: 2px;
+}
+
+/* —— Centered login: full-screen scene, brand above a centered card ——
+   Keeps .login-wrap--split for the shared field / button styles; only layout is overridden. */
+.login-wrap--split.login-wrap--center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(172deg, #0b1a33 0%, #031428 40%, #001425 72%, #00161f 100%);
+}
+
+.login-center {
+  position: relative;
+  z-index: 2;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  padding: 56px 20px 24px;
+  box-sizing: border-box;
+}
+
+.login-wrap--center .login-column {
+  width: min(440px, 100%);
+  margin: 0;
+  padding: 32px 32px 28px;
+  border: 1px solid rgba(148, 197, 233, 0.14);
+  border-radius: 18px;
+  background: rgba(3, 18, 36, 0.8);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 24px 60px rgba(0, 6, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+.login-wrap--center .login-column--wide {
+  width: min(560px, 100%);
+}
+
+.login-wrap--center .login-card-head--welcome {
+  margin-bottom: 22px;
+}
+
+.login-wrap--center .login-card-head--welcome h1 {
+  font-size: 26px;
+}
+
+/* Brand lockup stacked and centered over the card. */
+.login-wrap--center .login-hero__brand {
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.login-wrap--center .login-hero__mark {
+  width: 56px;
+  height: 56px;
+}
+
+.login-wrap--center .login-hero__brand-copy {
+  align-items: center;
+  gap: 8px;
+}
+
+.login-wrap--center .login-hero__name {
+  font-size: 24px;
+}
+
+.login-wrap--center .login-hero__chains {
+  margin-top: 0;
+}
+
+.login-center__features.login-hero__features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 20px 14px;
+}
+
+.login-center__features .login-hero__feature {
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.login-center__features .login-hero__feature-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.login-center__features .login-hero__feature-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.login-center__features .login-hero__feature-title {
+  font-size: 12.5px;
+}
+
+.login-center__features .login-hero__feature-caption {
+  display: none;
+}
+
+.login-wrap--center .login-center__footer {
+  position: relative;
+  z-index: 2;
+  width: min(540px, 100%);
+  margin: 0;
+  padding: 0 20px 20px;
+  box-sizing: border-box;
+}
+
+.login-wrap--center .login-footer__copy {
+  padding-top: 12px;
+}
+
+@media (max-width: 1099px), (max-height: 760px) {
+  .login-center__features.login-hero__features {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .login-center {
+    padding: 56px 16px 18px;
+    gap: 16px;
+  }
+
+  .login-wrap--center .login-column {
+    padding: 24px 20px 22px;
+    border-radius: 16px;
+  }
+
+  .login-wrap--center .login-hero__brand {
+    gap: 8px;
+  }
+
+  .login-wrap--center .login-hero__name {
+    font-size: 21px;
+  }
+
+  .login-wrap--center .login-hero__chains-label {
+    display: none;
+  }
+}
+
+html[data-theme="light"] .login-wrap--split.login-wrap--center {
+  background: linear-gradient(172deg, #f3f8ff 0%, #eef3fe 24%, #f1f2fd 50%, #ebf5fb 74%, #e5f5f1 100%);
+}
+
+html[data-theme="light"] .login-wrap--center .login-column {
+  border-color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.1),
+    0 2px 6px rgba(15, 23, 42, 0.04);
 }
 

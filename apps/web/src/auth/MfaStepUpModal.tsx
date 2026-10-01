@@ -4,8 +4,6 @@ import { AuthToast } from "./AuthToast";
 import { MfaCodeInput } from "./MfaCodeInput";
 import { ShieldIcon } from "./LoginIcons";
 
-const RESEND_SECONDS = 30;
-
 export type MfaStepUpModalProps = {
   onClose: () => void;
   /** Throw or reject on failure; resolve on success. TOTP only (Phase 1). */
@@ -22,13 +20,6 @@ export function MfaStepUpModal({ onClose, onVerify, onSuccess }: MfaStepUpModalP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
-  const [resendSeconds, setResendSeconds] = useState(RESEND_SECONDS);
-
-  useEffect(() => {
-    if (resendSeconds <= 0) return;
-    const t = window.setTimeout(() => setResendSeconds((s) => s - 1), 1000);
-    return () => window.clearTimeout(t);
-  }, [resendSeconds]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -101,24 +92,6 @@ export function MfaStepUpModal({ onClose, onVerify, onSuccess }: MfaStepUpModalP
           disabled={busy}
           submitOnComplete
         />
-
-        <div className="login-mfa-meta">
-          <p className="login-mfa-resend">
-            {resendSeconds > 0 ? (
-              <>
-                Resend code in <strong>{resendSeconds}s</strong>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="login-text-link"
-                onClick={() => setResendSeconds(RESEND_SECONDS)}
-              >
-                Resend code
-              </button>
-            )}
-          </p>
-        </div>
 
         {error ? (
           <p className="login-mfa-hint">Check that your device time is correct.</p>

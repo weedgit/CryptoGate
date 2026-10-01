@@ -22,20 +22,61 @@ const FEATURES = [
   { icon: ClockIcon, title: "Real-time tracking", caption: "Live status for every payment" },
 ];
 
-/** Left marketing pane — soft settlement atmosphere + brand copy. */
+export function LoginBrand({ productLine = "MERCHANT POS" }: Props) {
+  return (
+    <div className="login-hero__brand">
+      <GateLogoMark size={48} className="login-hero__mark" alt="" />
+      <div className="login-hero__brand-copy">
+        <span className="login-hero__name">PaymentGate</span>
+        <span className="login-hero__product">{productLine}</span>
+      </div>
+    </div>
+  );
+}
+
+export function LoginChains() {
+  return (
+    <div className="login-hero__chains">
+      <span className="login-hero__chain-stack" aria-hidden>
+        {CHAINS.map((c) => (
+          <svg key={c.id} className="login-hero__chain" viewBox="-24 -24 48 48">
+            <use href={`#login-coin-${c.id}`} />
+          </svg>
+        ))}
+      </span>
+      <span className="login-hero__chains-label">
+        {CHAINS.map((c) => c.label).join(" · ")}
+      </span>
+    </div>
+  );
+}
+
+export function LoginFeatures({ className = "" }: { className?: string }) {
+  return (
+    <ul className={`login-hero__features${className ? ` ${className}` : ""}`}>
+      {FEATURES.map(({ icon: Icon, title, caption }) => (
+        <li key={title} className="login-hero__feature">
+          <span className="login-hero__feature-badge">
+            <Icon className="login-hero__feature-icon" />
+          </span>
+          <span className="login-hero__feature-copy">
+            <span className="login-hero__feature-title">{title}</span>
+            <span className="login-hero__feature-caption">{caption}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Left marketing pane (split layout) — soft settlement atmosphere + brand copy. */
 export function LoginHero({ productLine = "MERCHANT POS" }: Props) {
   return (
     <aside className="login-hero" aria-label="Product highlight">
       <LoginSceneBg />
 
       <div className="login-hero__top">
-        <div className="login-hero__brand">
-          <GateLogoMark size={48} className="login-hero__mark" alt="" />
-          <div className="login-hero__brand-copy">
-            <span className="login-hero__name">PaymentGate</span>
-            <span className="login-hero__product">{productLine}</span>
-          </div>
-        </div>
+        <LoginBrand productLine={productLine} />
 
         <div className="login-hero__copy">
           <p className="login-hero__eyebrow">
@@ -47,35 +88,11 @@ export function LoginHero({ productLine = "MERCHANT POS" }: Props) {
             <span className="login-hero__headline-accent">ready for your counter.</span>
           </h1>
           <p className="login-hero__sub">Accept USDT directly into your merchant wallet.</p>
-
-          <div className="login-hero__chains">
-            <span className="login-hero__chain-stack" aria-hidden>
-              {CHAINS.map((c) => (
-                <svg key={c.id} className="login-hero__chain" viewBox="-24 -24 48 48">
-                  <use href={`#login-coin-${c.id}`} />
-                </svg>
-              ))}
-            </span>
-            <span className="login-hero__chains-label">
-              {CHAINS.map((c) => c.label).join(" · ")}
-            </span>
-          </div>
+          <LoginChains />
         </div>
       </div>
 
-      <ul className="login-hero__features">
-        {FEATURES.map(({ icon: Icon, title, caption }) => (
-          <li key={title} className="login-hero__feature">
-            <span className="login-hero__feature-badge">
-              <Icon className="login-hero__feature-icon" />
-            </span>
-            <span className="login-hero__feature-copy">
-              <span className="login-hero__feature-title">{title}</span>
-              <span className="login-hero__feature-caption">{caption}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <LoginFeatures />
     </aside>
   );
 }
