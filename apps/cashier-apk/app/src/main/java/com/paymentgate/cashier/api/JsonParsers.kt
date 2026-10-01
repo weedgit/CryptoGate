@@ -194,6 +194,7 @@ object JsonParsers {
             createdByName = obj.optNullableString("createdByName"),
             invoice = parseInvoice(obj),
             rate = parseRate(obj),
+            fulfillmentPolicy = obj.optNullableString("fulfillmentPolicy") ?: FulfillmentPolicy.ON_COMPLETED,
         )
 
     /** Fiat side of the invoice: the typed fiat amount, else its USD value. */

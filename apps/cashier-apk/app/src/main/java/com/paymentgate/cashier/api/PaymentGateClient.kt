@@ -8,6 +8,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
@@ -197,10 +198,13 @@ class PaymentGateClient(
                 )
                 .header("Idempotency-Key", idempotencyKey)
                 .build()
-            execute(req) { JsonParsers.parsePaymentOrder(it) }
+            execute(req) { JsonParsers.parsePaymentOrder(it) }.also(::rememberPolicy)
         }
 
-    /** Public GET /v1/orders/{id}/payment — same payload as the guest pay page. */
+    /**
+     * Public GET /v1/orders/{id}/payment — same payload as the guest pay page. The fulfillment
+     * policy is attached from the last authenticated create / list response for this order.
+     */
     suspend fun getPaymentDetails(orderId: String): PaymentDetails =
         withContext(Dispatchers.IO) {
             val req = Request.Builder()
@@ -211,7 +215,8 @@ class PaymentGateClient(
             http.newCall(req).execute().use { res ->
                 val body = res.body?.string().orEmpty()
                 if (!res.isSuccessful) throw JsonParsers.parseError(body, res.code)
-                JsonParsers.parsePaymentDetails(body)
+                val details = JsonParsers.parsePaymentDetails(body)
+                policyByOrderId[orderId.trim()]?.let { details.copy(fulfillmentPolicy = it) } ?: details
             }
         }
 
@@ -231,7 +236,7 @@ class PaymentGateClient(
                 createdFrom?.let { append("&createdFrom=").append(java.net.URLEncoder.encode(it.toString(), "UTF-8")) }
             }
             val req = authed("/orders?$query").get().build()
-            execute(req) { JsonParsers.parsePaymentOrderList(it) }
+            execute(req) { JsonParsers.parsePaymentOrderList(it) }.onEach(::rememberPolicy)
         }
 
     /** POST /v1/orders/{id}/cancel — pending orders only (cashier own). */
@@ -244,6 +249,12 @@ class PaymentGateClient(
         }
 
     // --- Plumbing ---------------------------------------------------------------
+
+    private val policyByOrderId = ConcurrentHashMap<String, String>()
+
+    private fun rememberPolicy(order: PaymentOrder) {
+        policyByOrderId[order.id] = order.fulfillmentPolicy
+    }
 
     private fun authed(path: String, withSession: Boolean = true): Request.Builder {
         val builder = Request.Builder()

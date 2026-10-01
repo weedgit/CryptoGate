@@ -1,7 +1,10 @@
 package com.paymentgate.cashier.ui
 
+import com.paymentgate.cashier.api.FulfillmentPolicy
 import com.paymentgate.cashier.api.OrderStatusUi
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfirmationProgressTest {
@@ -23,6 +26,29 @@ class ConfirmationProgressTest {
         val m = confirmationProgress(OrderStatusUi.VERIFYING, 2, 3)
         assertEquals(ConfirmationPhase.Confirming, m.phase)
         assertEquals("Confirming · 2/3", m.title)
+    }
+
+    @Test
+    fun counterPolicyVerifyingIsReleaseReady() {
+        val m = confirmationProgress(OrderStatusUi.VERIFYING, 3, 19, FulfillmentPolicy.ON_VERIFYING)
+        assertTrue(m.releaseReady)
+        assertEquals(ConfirmationPhase.Confirming, m.phase)
+        assertEquals("OK to release goods", m.title)
+        assertEquals("Payment detected · finalizing 3/19 on chain", m.detail)
+    }
+
+    @Test
+    fun counterPolicyWaitsForPayment() {
+        val m = confirmationProgress(OrderStatusUi.PENDING, 0, 19, FulfillmentPolicy.ON_VERIFYING)
+        assertFalse(m.releaseReady)
+        assertEquals(ConfirmationPhase.Requested, m.phase)
+    }
+
+    @Test
+    fun standardPolicyVerifyingIsNotReleaseReady() {
+        val m = confirmationProgress(OrderStatusUi.VERIFYING, 3, 19, FulfillmentPolicy.ON_COMPLETED)
+        assertFalse(m.releaseReady)
+        assertEquals("Confirming · 3/19", m.title)
     }
 
     @Test

@@ -111,7 +111,18 @@ data class PaymentOrder(
     val createdByName: String? = null,
     val invoice: Money? = null,
     val rate: OrderRate? = null,
+    /** Stamped on the order at create time; see [FulfillmentPolicy]. */
+    val fulfillmentPolicy: String = FulfillmentPolicy.ON_COMPLETED,
 )
+
+/** When staff may hand over goods (merchant Settlement → Fulfillment policy). */
+object FulfillmentPolicy {
+    /** Standard: release once the order is Completed (confirmations met). */
+    const val ON_COMPLETED = "on_completed"
+
+    /** Counter: release as soon as the payment is seen (Verifying). */
+    const val ON_VERIFYING = "on_verifying"
+}
 
 /** Price the order was quoted at: 1 [asset] = [value] [quote]. */
 data class OrderRate(
@@ -149,6 +160,11 @@ data class PaymentDetails(
     val confirmedAt: String? = null,
     val invoice: Money? = null,
     val rate: OrderRate? = null,
+    /**
+     * Not in the public payment payload; [PaymentGateClient] fills it from the authenticated
+     * order responses so the guest pay page never learns the merchant's release policy.
+     */
+    val fulfillmentPolicy: String = FulfillmentPolicy.ON_COMPLETED,
 )
 
 /** What the typed amount means: a fiat invoice converted at the live rate, or the exact token amount. */

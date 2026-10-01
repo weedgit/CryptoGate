@@ -165,10 +165,15 @@ fun OrderPayScreen(
     val networkLabel = pair?.shortNetworkLabel ?: details.network.uppercase()
     val testnet = pair?.chainEnv == "testnet" || details.network.contains("nile") || details.network.contains("sepolia") ||
         details.network.contains("devnet")
-    val progress = remember(details.status, details.confirmations, details.requiredConfirmations) {
-        confirmationProgress(details.status, details.confirmations, details.requiredConfirmations)
+    val progress = remember(details.status, details.confirmations, details.requiredConfirmations, details.fulfillmentPolicy) {
+        confirmationProgress(
+            details.status,
+            details.confirmations,
+            details.requiredConfirmations,
+            details.fulfillmentPolicy,
+        )
     }
-    val stamp = payStampFor(details.status)
+    val stamp = payStampFor(details.status, progress.releaseReady)
 
     fun requestLeave() {
         if (orderOpen) confirmLeave = true else onDone()
@@ -442,34 +447,29 @@ private fun PayChip(label: String, tone: Color) {
 @Composable
 private fun PayStatusHeader(model: ConfirmationProgressModel, status: String) {
     val colors = MaterialTheme.colorScheme
-    val (title, subtitle) = when (model.phase) {
-        ConfirmationPhase.Requested -> "Waiting for payment" to "Customer scans the QR code to pay"
-        ConfirmationPhase.Detected -> "Payment detected" to "Transaction found · waiting for confirmations"
-        ConfirmationPhase.Confirming ->
-            "Confirming ${model.confirmations}/${model.requiredConfirmations}" to "Almost there — keep this screen open"
-        ConfirmationPhase.Paid -> "Payment complete" to "Confirmed on-chain · thank you"
-        ConfirmationPhase.Anomaly -> "Needs review" to "Do not treat as completed"
-        ConfirmationPhase.Expired ->
-            (if (status == OrderStatusUi.EXPIRED) "Payment expired" else "Payment failed") to "Create a new charge to collect again"
-        ConfirmationPhase.Other -> OrderStatusUi.label(status) to ""
+    val (title, subtitle) = when {
+        model.releaseReady -> model.title to model.detail
+        else -> statusCopy(model, status)
     }
-    val tone = when (model.phase) {
-        ConfirmationPhase.Paid -> PayGreen
-        ConfirmationPhase.Anomaly, ConfirmationPhase.Expired -> colors.error
+    val tone = when {
+        model.phase == ConfirmationPhase.Paid || model.releaseReady -> PayGreen
+        model.phase == ConfirmationPhase.Anomaly || model.phase == ConfirmationPhase.Expired -> colors.error
         else -> colors.primary
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(30.dp), contentAlignment = Alignment.Center) {
             AnimatedContent(
-                targetState = model.phase,
+                targetState = model.phase to model.releaseReady,
                 transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.6f)) togetherWith fadeOut() },
                 label = "pay-status-icon",
-            ) { phase ->
-                when (phase) {
-                    ConfirmationPhase.Requested, ConfirmationPhase.Detected, ConfirmationPhase.Confirming ->
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = tone)
-                    ConfirmationPhase.Paid ->
+            ) { (phase, releaseReady) ->
+                when {
+                    releaseReady || phase == ConfirmationPhase.Paid ->
                         Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = tone, modifier = Modifier.size(30.dp))
+                    phase == ConfirmationPhase.Requested ||
+                        phase == ConfirmationPhase.Detected ||
+                        phase == ConfirmationPhase.Confirming ->
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = tone)
                     else -> Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = tone, modifier = Modifier.size(30.dp))
                 }
             }
@@ -489,6 +489,19 @@ private fun PayStatusHeader(model: ConfirmationProgressModel, status: String) {
         }
     }
 }
+
+private fun statusCopy(model: ConfirmationProgressModel, status: String): Pair<String, String> =
+    when (model.phase) {
+        ConfirmationPhase.Requested -> "Waiting for payment" to "Customer scans the QR code to pay"
+        ConfirmationPhase.Detected -> "Payment detected" to "Transaction found · waiting for confirmations"
+        ConfirmationPhase.Confirming ->
+            "Confirming ${model.confirmations}/${model.requiredConfirmations}" to "Almost there — keep this screen open"
+        ConfirmationPhase.Paid -> "Payment complete" to "Confirmed on-chain · thank you"
+        ConfirmationPhase.Anomaly -> "Needs review" to "Do not treat as completed"
+        ConfirmationPhase.Expired ->
+            (if (status == OrderStatusUi.EXPIRED) "Payment expired" else "Payment failed") to "Create a new charge to collect again"
+        ConfirmationPhase.Other -> OrderStatusUi.label(status) to ""
+    }
 
 @Composable
 private fun PayStepper(model: ConfirmationProgressModel) {
@@ -559,9 +572,10 @@ private val PayGreen = Color(0xFF16A34A)
 
 private data class PayStamp(val label: String, val tone: Color, val caption: String)
 
-private fun payStampFor(status: String): PayStamp? =
+private fun payStampFor(status: String, releaseReady: Boolean = false): PayStamp? =
     when {
         OrderStatusUi.showsCompleted(status) -> PayStamp("PAID", PayGreen, "Payment received — this QR is closed")
+        releaseReady -> PayStamp("RECEIVED", PayGreen, "Payment detected — OK to release goods")
         OrderStatusUi.isAnomaly(status) -> PayStamp("REVIEW", Color(0xFFD97706), "Needs review before treating as paid")
         status == OrderStatusUi.EXPIRED -> PayStamp("EXPIRED", Color(0xFFDC2626), "This QR is no longer valid")
         status == OrderStatusUi.FAILED -> PayStamp("FAILED", Color(0xFFDC2626), "This QR is no longer valid")

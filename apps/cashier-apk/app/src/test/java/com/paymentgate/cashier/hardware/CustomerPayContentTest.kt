@@ -1,5 +1,6 @@
 package com.paymentgate.cashier.hardware
 
+import com.paymentgate.cashier.api.FulfillmentPolicy
 import com.paymentgate.cashier.api.Money
 import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentDetails
@@ -31,6 +32,17 @@ class CustomerPayContentTest {
         assertEquals("Confirming payment", content.progressLabel)
         assertEquals(2, content.confirmations)
         assertEquals(3, content.requiredConfirmations)
+    }
+
+    @Test
+    fun counterPolicyVerifying_showsReceivedAndHidesQr() {
+        val content =
+            sample(status = OrderStatusUi.VERIFYING, confirmations = 1)
+                .copy(fulfillmentPolicy = FulfillmentPolicy.ON_VERIFYING)
+                .toCustomerPayContent()
+        assertEquals("PAYMENT RECEIVED", content.phaseTitle)
+        assertEquals("Payment received", content.progressLabel)
+        assertTrue(content.hideQr)
     }
 
     @Test

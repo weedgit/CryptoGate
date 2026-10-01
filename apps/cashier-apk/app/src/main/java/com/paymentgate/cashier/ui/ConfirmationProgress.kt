@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.paymentgate.cashier.api.FulfillmentPolicy
 import com.paymentgate.cashier.api.OrderStatusUi
 
 /**
@@ -51,6 +52,8 @@ data class ConfirmationProgressModel(
     val requiredConfirmations: Int,
     val title: String,
     val detail: String,
+    /** Counter policy and the payment is seen: staff may hand over goods while confirmations finish. */
+    val releaseReady: Boolean = false,
 ) {
     val progressFraction: Float
         get() =
@@ -70,8 +73,10 @@ fun confirmationProgress(
     status: String,
     confirmations: Int,
     requiredConfirmations: Int,
+    fulfillmentPolicy: String = FulfillmentPolicy.ON_COMPLETED,
 ): ConfirmationProgressModel {
     val req = requiredConfirmations.coerceAtLeast(1)
+    val counter = fulfillmentPolicy == FulfillmentPolicy.ON_VERIFYING
     return when {
         OrderStatusUi.showsCompleted(status) ->
             ConfirmationProgressModel(
@@ -106,22 +111,33 @@ fun confirmationProgress(
                 detail = "Waiting for payment",
             )
         status == OrderStatusUi.VERIFYING || status == OrderStatusUi.CONFIRMED -> {
-            if (confirmations <= 0) {
-                ConfirmationProgressModel(
-                    phase = ConfirmationPhase.Detected,
-                    confirmations = 0,
-                    requiredConfirmations = req,
-                    title = "Detected",
-                    detail = "Transaction found · not paid yet",
-                )
-            } else {
-                ConfirmationProgressModel(
-                    phase = ConfirmationPhase.Confirming,
-                    confirmations = confirmations.coerceAtMost(req),
-                    requiredConfirmations = req,
-                    title = "Confirming · $confirmations/$req",
-                    detail = "Confirmations $confirmations / $req",
-                )
+            val shown = confirmations.coerceIn(0, req)
+            when {
+                counter ->
+                    ConfirmationProgressModel(
+                        phase = if (shown <= 0) ConfirmationPhase.Detected else ConfirmationPhase.Confirming,
+                        confirmations = shown,
+                        requiredConfirmations = req,
+                        title = "OK to release goods",
+                        detail = "Payment detected · finalizing $shown/$req on chain",
+                        releaseReady = true,
+                    )
+                shown <= 0 ->
+                    ConfirmationProgressModel(
+                        phase = ConfirmationPhase.Detected,
+                        confirmations = 0,
+                        requiredConfirmations = req,
+                        title = "Detected",
+                        detail = "Transaction found · not paid yet",
+                    )
+                else ->
+                    ConfirmationProgressModel(
+                        phase = ConfirmationPhase.Confirming,
+                        confirmations = shown,
+                        requiredConfirmations = req,
+                        title = "Confirming · $confirmations/$req",
+                        detail = "Confirmations $confirmations / $req",
+                    )
             }
         }
         else ->
@@ -148,9 +164,10 @@ fun ConfirmationProgressCard(
         label = "confirm-progress",
     )
     val accent =
-        when (model.phase) {
-            ConfirmationPhase.Paid -> Color(0xFF16A34A)
-            ConfirmationPhase.Anomaly, ConfirmationPhase.Expired -> MaterialTheme.colorScheme.error
+        when {
+            model.phase == ConfirmationPhase.Paid || model.releaseReady -> Color(0xFF16A34A)
+            model.phase == ConfirmationPhase.Anomaly || model.phase == ConfirmationPhase.Expired ->
+                MaterialTheme.colorScheme.error
             else -> MaterialTheme.colorScheme.primary
         }
 

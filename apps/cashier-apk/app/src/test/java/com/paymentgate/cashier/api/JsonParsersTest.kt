@@ -267,6 +267,28 @@ class JsonParsersTest {
     }
 
     @Test
+    fun parsePaymentOrder_readsFulfillmentPolicy() {
+        val order =
+            JsonParsers.parsePaymentOrder(
+                """
+                {
+                  "id": "ord-2",
+                  "orderNumber": "CG-2",
+                  "status": "verifying",
+                  "matchingMode": "B",
+                  "payableAmount": { "amount": "10.00", "currency": "USDT" },
+                  "receiveAddress": "TMain",
+                  "asset": "USDT",
+                  "network": "tron",
+                  "expiresAt": "2026-08-24T12:00:00.000Z",
+                  "fulfillmentPolicy": "on_verifying"
+                }
+                """.trimIndent(),
+            )
+        assertEquals(FulfillmentPolicy.ON_VERIFYING, order.fulfillmentPolicy)
+    }
+
+    @Test
     fun parsePaymentOrderAndDetails() {
         val order =
             JsonParsers.parsePaymentOrder(
@@ -291,6 +313,7 @@ class JsonParsersTest {
         assertEquals("ord-1", order.id)
         assertEquals("50.00", order.payableAmount.amount)
         assertEquals("TMain", order.receiveAddress)
+        assertEquals(FulfillmentPolicy.ON_COMPLETED, order.fulfillmentPolicy)
 
         val pay =
             JsonParsers.parsePaymentDetails(

@@ -7,6 +7,7 @@ import com.paymentgate.cashier.api.PaymentDetails
 import com.paymentgate.cashier.qr.QrMode
 import com.paymentgate.cashier.qr.qrPayloadFor
 import com.paymentgate.cashier.ui.ConfirmationPhase
+import com.paymentgate.cashier.ui.ConfirmationProgressModel
 import com.paymentgate.cashier.ui.confirmationProgress
 
 /**
@@ -59,18 +60,15 @@ fun PaymentDetails.toCustomerPayContent(qrMode: QrMode = QrMode.WithAmount): Cus
             status = status,
             confirmations = confirmations,
             requiredConfirmations = requiredConfirmations.coerceAtLeast(1),
+            fulfillmentPolicy = fulfillmentPolicy,
         )
     val shortNet =
         AssetNetworkCatalog.find(asset, network, null)?.shortNetworkLabel
             ?: network.uppercase()
     val phaseTitle =
-        when (progress.phase) {
-            ConfirmationPhase.Paid -> "PAYMENT CONFIRMED"
-            ConfirmationPhase.Anomaly -> "ATTENTION"
-            ConfirmationPhase.Expired -> "PAYMENT EXPIRED"
-            ConfirmationPhase.Detected -> "PAYMENT DETECTED"
-            ConfirmationPhase.Confirming -> "CONFIRMING PAYMENT"
-            else -> "PAYMENT REQUESTED"
+        when {
+            progress.releaseReady -> "PAYMENT RECEIVED"
+            else -> phaseTitleFor(progress.phase)
         }
     return CustomerPayContent(
         amountLine = "${payableAmount.amount} $asset",
@@ -82,19 +80,35 @@ fun PaymentDetails.toCustomerPayContent(qrMode: QrMode = QrMode.WithAmount): Cus
         qrPayload = qrPayloadFor(qrMode),
         network = network,
         isAnomaly = OrderStatusUi.isAnomaly(status),
-        statusHint = progress.detail.ifBlank { null },
+        statusHint = if (progress.releaseReady) "Thank you" else progress.detail.ifBlank { null },
         phaseTitle = phaseTitle,
         progressLabel =
-            when (progress.phase) {
-                ConfirmationPhase.Confirming -> "Confirming payment"
-                ConfirmationPhase.Detected -> "Transaction found"
-                ConfirmationPhase.Paid -> "Paid"
-                ConfirmationPhase.Anomaly -> "Do not treat as paid"
-                ConfirmationPhase.Expired -> progress.title
-                else -> "Waiting for transaction"
+            when {
+                progress.releaseReady -> "Payment received"
+                else -> progressLabelFor(progress)
             },
         confirmations = progress.confirmations,
         requiredConfirmations = progress.requiredConfirmations,
-        hideQr = OrderStatusUi.showsCompleted(status) || OrderStatusUi.isAnomaly(status),
+        hideQr = progress.releaseReady || OrderStatusUi.showsCompleted(status) || OrderStatusUi.isAnomaly(status),
     )
 }
+
+private fun phaseTitleFor(phase: ConfirmationPhase): String =
+    when (phase) {
+        ConfirmationPhase.Paid -> "PAYMENT CONFIRMED"
+        ConfirmationPhase.Anomaly -> "ATTENTION"
+        ConfirmationPhase.Expired -> "PAYMENT EXPIRED"
+        ConfirmationPhase.Detected -> "PAYMENT DETECTED"
+        ConfirmationPhase.Confirming -> "CONFIRMING PAYMENT"
+        else -> "PAYMENT REQUESTED"
+    }
+
+private fun progressLabelFor(progress: ConfirmationProgressModel): String =
+    when (progress.phase) {
+        ConfirmationPhase.Confirming -> "Confirming payment"
+        ConfirmationPhase.Detected -> "Transaction found"
+        ConfirmationPhase.Paid -> "Paid"
+        ConfirmationPhase.Anomaly -> "Do not treat as paid"
+        ConfirmationPhase.Expired -> progress.title
+        else -> "Waiting for transaction"
+    }

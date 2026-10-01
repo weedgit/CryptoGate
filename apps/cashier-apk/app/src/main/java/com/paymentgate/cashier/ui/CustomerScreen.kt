@@ -75,6 +75,8 @@ sealed interface CustomerView {
         val expiresAt: String?,
         val confirmations: Int,
         val requiredConfirmations: Int,
+        /** Counter policy and the payment is seen; the customer is done. */
+        val releaseReady: Boolean = false,
     ) : CustomerView
 }
 
@@ -88,6 +90,8 @@ fun PaymentDetails.toCustomerView(qrMode: QrMode): CustomerView.Payment =
         expiresAt = expiresAt,
         confirmations = confirmations,
         requiredConfirmations = requiredConfirmations,
+        releaseReady =
+            confirmationProgress(status, confirmations, requiredConfirmations, fulfillmentPolicy).releaseReady,
     )
 
 object CustomerScreen {
@@ -269,8 +273,8 @@ private fun PaymentView(view: CustomerView.Payment, now: Long) {
     val qr = remember(view.qrPayload) {
         runCatching { QrBitmaps.encode(view.qrPayload, errorCorrection = ErrorCorrectionLevel.H) }.getOrNull()?.asImageBitmap()
     }
-    val stamp = customerStamp(view.status)
-    val open = OrderStatusUi.isOpenPaymentOrder(view.status)
+    val stamp = customerStamp(view.status, view.releaseReady)
+    val open = OrderStatusUi.isOpenPaymentOrder(view.status) && stamp == null
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AssetBadge(view.asset, view.network, 34)
@@ -343,9 +347,10 @@ private fun PaymentView(view: CustomerView.Payment, now: Long) {
 
 private data class CustomerStamp(val label: String, val tone: Color, val caption: String)
 
-private fun customerStamp(status: String): CustomerStamp? =
+private fun customerStamp(status: String, releaseReady: Boolean): CustomerStamp? =
     when {
-        OrderStatusUi.showsCompleted(status) -> CustomerStamp("PAID", Color(0xFF22C55E), "Payment received · thank you")
+        OrderStatusUi.showsCompleted(status) || releaseReady ->
+            CustomerStamp("PAID", Color(0xFF22C55E), "Payment received · thank you")
         OrderStatusUi.isAnomaly(status) -> CustomerStamp("REVIEW", Amber, "Please wait for the cashier")
         status == OrderStatusUi.EXPIRED -> CustomerStamp("EXPIRED", Color(0xFFEF4444), "This payment request expired")
         status == OrderStatusUi.FAILED -> CustomerStamp("FAILED", Color(0xFFEF4444), "Payment failed")
