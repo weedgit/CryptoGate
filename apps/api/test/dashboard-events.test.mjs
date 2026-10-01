@@ -36,13 +36,23 @@ describe("dashboardEventFromOutboxRow", () => {
     assert.deepEqual(ev?.slices, ["anomalies"]);
   });
 
-  it("skips verifying / created", () => {
+  it("maps other status changes → order.updated with no dashboard slice", () => {
+    for (const eventType of [
+      "payment_order.created",
+      "payment_order.verifying",
+      "payment_order.expired",
+      "payment_order.failed",
+    ]) {
+      const ev = dashboardEventFromOutboxRow({ event_type: eventType, org_id: "o", order_id: "x" });
+      assert.equal(ev?.type, "order.updated", eventType);
+      assert.deepEqual(ev?.slices, []);
+      assert.equal(ev?.orgId, "o");
+    }
+  });
+
+  it("skips unknown event types", () => {
     assert.equal(
-      dashboardEventFromOutboxRow({
-        event_type: "payment_order.verifying",
-        org_id: "o",
-        order_id: "x",
-      }),
+      dashboardEventFromOutboxRow({ event_type: "payment_order.requoted", org_id: "o", order_id: "x" }),
       null,
     );
   });

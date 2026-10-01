@@ -174,5 +174,24 @@ export function dashboardEventFromOutboxRow(row) {
     };
   }
 
+  // Other status changes refresh POS order lists; no dashboard slice, so portals ignore them.
+  if (ORDER_UPDATE_EVENTS.has(row.event_type)) {
+    return {
+      type: "order.updated",
+      slices: [],
+      orgId: String(row.org_id),
+      orderId: String(row.order_id),
+      orderNumber: row.order_number ? String(row.order_number) : undefined,
+      at,
+    };
+  }
+
   return null;
 }
+
+const ORDER_UPDATE_EVENTS = new Set([
+  "payment_order.created",
+  "payment_order.verifying",
+  "payment_order.expired",
+  "payment_order.failed",
+]);

@@ -25,6 +25,7 @@ export function isPosSessionPathAllowed(method, path, terminalOrgId) {
     if (orderIdPath(path) || orderIdPath(path, "/payment")) return true;
     if (path === "/v1/pos/terminal") return true;
     if (path === "/v1/network-maintenance") return true;
+    if (path === "/v1/events") return true;
     if (terminalOrgId && path === `/v1/orgs/${terminalOrgId}/pos-settings`) return true;
     return false;
   }

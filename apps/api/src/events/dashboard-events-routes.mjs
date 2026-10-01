@@ -8,6 +8,8 @@ import { resolveDashboardEventAudience } from "./dashboard-events-scope.mjs";
 
 let pingTimer = null;
 
+const POS_STREAM_MAX_MS = 5 * 60_000;
+
 function ensurePingTimer() {
   if (pingTimer != null) return;
   pingTimer = setInterval(() => {
@@ -25,7 +27,9 @@ export async function handleGetDashboardEvents(req, res) {
   const caller = await requireCaller(req, res);
   if (!caller) return;
 
-  const audience = await resolveDashboardEventAudience(caller);
+  const audience = caller.terminalId
+    ? { kind: "orgs", orgIds: new Set([caller.terminalOrgId]), treeRootIds: new Set() }
+    : await resolveDashboardEventAudience(caller);
   if (audience.kind === "none") {
     sendError(res, 403, "forbidden", "No dashboard event scope for this caller");
     return;
@@ -47,7 +51,14 @@ export async function handleGetDashboardEvents(req, res) {
   });
   ensurePingTimer();
 
+  // PIN sessions are checked per request: end POS streams regularly so the reconnect
+  // re-validates the session, terminal and membership.
+  const posCutoff = caller.terminalId
+    ? setTimeout(() => res.end(), POS_STREAM_MAX_MS)
+    : null;
+
   const onClose = () => {
+    if (posCutoff) clearTimeout(posCutoff);
     unsubscribe();
     req.off("close", onClose);
     res.off("close", onClose);

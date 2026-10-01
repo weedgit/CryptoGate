@@ -21,6 +21,7 @@ describe("POS session allowlist", () => {
       ["POST", "/v1/pos/lock"],
       ["POST", "/v1/pos/unbind"],
       ["GET", "/v1/network-maintenance"],
+      ["GET", "/v1/events"],
     ]) {
       assert.equal(allowed(method, path), true, `${method} ${path}`);
     }
