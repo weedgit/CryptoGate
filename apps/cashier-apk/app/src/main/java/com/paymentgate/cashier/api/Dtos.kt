@@ -9,6 +9,9 @@ data class ApiError(
     val details: JSONObject? = null,
 ) : Exception(message)
 
+/** A pushed order change (`order.settled`, `order.anomaly`, `order.updated`). */
+data class OrderEvent(val orderId: String?)
+
 data class BlockingOrder(
     val id: String,
     val orderNumber: String,

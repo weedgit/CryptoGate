@@ -6,6 +6,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -94,6 +95,8 @@ fun SettingsScreen(
     onIdleLockMinutesChange: ((Int) -> Unit)? = null,
     screenSaverMinutes: Int = 2,
     onScreenSaverMinutesChange: ((Int) -> Unit)? = null,
+    soundLevel: Int = 3,
+    onSoundLevelChange: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -270,6 +273,29 @@ fun SettingsScreen(
                                 enabled = onScreenSaverMinutesChange != null,
                                 modifier = Modifier.weight(1f),
                             ) { onScreenSaverMinutesChange?.invoke(mins) }
+                        }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                SectionHeader(
+                    Icons.AutoMirrored.Outlined.VolumeUp,
+                    "Sounds",
+                    subtitle = "Paid, problem and new orders",
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(0 to "Off", 1 to "Low", 2 to "Medium", 3 to "High")
+                        .forEach { (level, label) ->
+                            AutoLockOption(
+                                label = label,
+                                selected = soundLevel == level,
+                                enabled = onSoundLevelChange != null,
+                                modifier = Modifier.weight(1f),
+                            ) { onSoundLevelChange?.invoke(level) }
                         }
                 }
             }

@@ -365,6 +365,20 @@ class JsonParsersTest {
             )
         assertEquals("0xabc123deadbeef", paid.txHash)
     }
+
+    @Test
+    fun parseOrderEvent_readsOrderChangesOnly() {
+        val updated =
+            JsonParsers.parseOrderEvent(
+                """{"type":"order.updated","slices":[],"orgId":"o","orderId":"ord-9","at":"2026-09-30T10:00:00Z"}""",
+            )
+        assertEquals("ord-9", updated?.orderId)
+        assertEquals("ord-3", JsonParsers.parseOrderEvent("""{"type":"order.settled","orderId":"ord-3"}""")?.orderId)
+        assertEquals(null, JsonParsers.parseOrderEvent("""{"type":"order.anomaly"}""")?.orderId)
+        assertTrue(JsonParsers.parseOrderEvent("""{"type":"order.anomaly"}""") != null)
+        assertEquals(null, JsonParsers.parseOrderEvent("""{"type":"settings.changed"}"""))
+        assertEquals(null, JsonParsers.parseOrderEvent("not json"))
+    }
 }
 
 class OrderStatusUiTest {

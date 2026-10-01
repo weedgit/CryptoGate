@@ -258,6 +258,13 @@ object JsonParsers {
         return out
     }
 
+    /** Data of an SSE `dashboard` event; null unless it is an `order.*` change. */
+    fun parseOrderEvent(data: String): OrderEvent? {
+        val root = runCatching { JSONObject(data) }.getOrNull() ?: return null
+        if (!root.optString("type", "").startsWith("order.")) return null
+        return OrderEvent(orderId = root.optNullableString("orderId"))
+    }
+
     private fun JSONObject.optNullableString(key: String): String? {
         if (!has(key) || isNull(key)) return null
         val value = getString(key).trim()

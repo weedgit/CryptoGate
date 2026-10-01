@@ -45,7 +45,9 @@ import com.paymentgate.cashier.api.JsonParsers
 import com.paymentgate.cashier.api.NetworkReachability
 import com.paymentgate.cashier.api.Operator
 import com.paymentgate.cashier.api.OrderDefaults
+import com.paymentgate.cashier.api.OrderSoundTracker
 import com.paymentgate.cashier.api.OrderStatusUi
+import com.paymentgate.cashier.api.PosSound
 import com.paymentgate.cashier.api.OrgInfo
 import com.paymentgate.cashier.api.PaymentDetails
 import com.paymentgate.cashier.api.PaymentGateClient
@@ -54,6 +56,7 @@ import com.paymentgate.cashier.api.PosTime
 import com.paymentgate.cashier.api.Session
 import com.paymentgate.cashier.api.SessionRules
 import com.paymentgate.cashier.hardware.CustomerPresentation
+import com.paymentgate.cashier.hardware.PosSoundPlayer
 import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.ReceiptJob
 import com.paymentgate.cashier.hardware.PrinterHwStatus
@@ -86,7 +89,10 @@ import com.paymentgate.cashier.ui.printerStatusLabel
 import com.paymentgate.cashier.ui.LocalPosOrg
 import com.paymentgate.cashier.ui.theme.CashierTheme
 import com.paymentgate.cashier.ui.theme.PosBackdrop
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.coroutineScope
@@ -97,7 +103,10 @@ import kotlinx.coroutines.withContext
 /** V3 POS flows — Create is home after PIN unlock (Hardware Dock). */
 private enum class PosScreen { Splash, Create, Today, Orders, More, Pay, OrderDetail }
 
-private const val HEARTBEAT_MS = 60_000L
+private const val HEARTBEAT_MS = 30_000L
+
+/** Fallback refresh of the order lists while unlocked; pushed events usually arrive first. */
+private const val ORDERS_REFRESH_MS = 15_000L
 
 /** API max page; Today totals need every invoice of the day, not just the recent list. */
 private const val ORDERS_FETCH_LIMIT = 200
@@ -111,12 +120,16 @@ private fun roleLabel(role: String): String =
     }
 
 class MainActivity : ComponentActivity() {
+    private val inForeground = mutableStateOf(false)
+
     override fun onStart() {
         super.onStart()
+        inForeground.value = true
         if ((application as CashierApplication).customerDisplay.isAvailable()) CustomerPresentation.attach(this)
     }
 
     override fun onStop() {
+        inForeground.value = false
         CustomerPresentation.detach()
         super.onStop()
     }
@@ -136,7 +149,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as CashierApplication
         val chainEnv = BuildConfig.CHAIN_ENV
-        val defaultPair = AssetNetworkCatalog.defaultPair(chainEnv)
+        // Last valid pair charged on this POS; falls back to the default for this chain env.
+        fun startPair() =
+            app.posPrefs.lastAsset?.let { a ->
+                app.posPrefs.lastNetwork?.let { n -> AssetNetworkCatalog.find(a, n, chainEnv) }
+            } ?: AssetNetworkCatalog.defaultPair(chainEnv)
+        val initialPair = startPair()
 
         setContent {
             var darkTheme by remember { mutableStateOf(app.posPrefs.darkTheme) }
@@ -176,6 +194,13 @@ class MainActivity : ComponentActivity() {
                     var lastActivityAt by remember { mutableStateOf(System.currentTimeMillis()) }
                     var idleLockMinutes by remember { mutableIntStateOf(app.posPrefs.idleLockMinutes) }
                     var screenSaverMinutes by remember { mutableIntStateOf(app.posPrefs.screenSaverMinutes) }
+                    var soundLevel by remember { mutableIntStateOf(app.posPrefs.soundLevel) }
+                    val soundPlayer = remember { PosSoundPlayer() }
+                    val soundTracker = remember { OrderSoundTracker() }
+
+                    fun playSound(sound: PosSound?) {
+                        if (sound != null) soundPlayer.play(sound, soundLevel)
+                    }
                     var screenSaverOn by remember { mutableStateOf(false) }
 
                     fun touchActivity() {
@@ -186,8 +211,13 @@ class MainActivity : ComponentActivity() {
                     var loading by remember { mutableStateOf(false) }
                     var screen by remember { mutableStateOf(PosScreen.Create) }
                     var amount by remember { mutableStateOf("") }
-                    var asset by remember { mutableStateOf(defaultPair.asset) }
-                    var network by remember { mutableStateOf(defaultPair.network) }
+                    var asset by remember { mutableStateOf(initialPair.asset) }
+                    var network by remember { mutableStateOf(initialPair.network) }
+                    LaunchedEffect(asset, network) {
+                        if (AssetNetworkCatalog.find(asset, network, chainEnv) != null) {
+                            app.posPrefs.rememberPair(asset, network)
+                        }
+                    }
                     var merchantReference by remember { mutableStateOf("") }
                     var validitySeconds by remember { mutableIntStateOf(OrderDefaults.VALIDITY_SECONDS) }
                     var chargeIn by remember { mutableStateOf(ChargeCurrency.USD) }
@@ -199,6 +229,8 @@ class MainActivity : ComponentActivity() {
                     var invoiceOrders by remember { mutableStateOf<List<PaymentOrder>>(emptyList()) }
                     var todayLoading by remember { mutableStateOf(false) }
                     var todayError by remember { mutableStateOf<String?>(null) }
+                    var ordersJob by remember { mutableStateOf<Job?>(null) }
+                    val foreground by inForeground
                     var cancelling by remember { mutableStateOf(false) }
                     var online by remember { mutableStateOf(NetworkReachability.isOnline(this@MainActivity)) }
 
@@ -207,7 +239,7 @@ class MainActivity : ComponentActivity() {
                         blockingOrder = null
                         amount = ""
                         merchantReference = ""
-                        val pair = AssetNetworkCatalog.defaultPair(chainEnv)
+                        val pair = startPair()
                         asset = pair.asset
                         network = pair.network
                     }
@@ -218,6 +250,7 @@ class MainActivity : ComponentActivity() {
                         chargeBlocked = false
                         payment = null
                         watchingOrderId = null
+                        soundTracker.reset()
                         todayOrders = emptyList()
                         invoiceOrders = emptyList()
                         todayError = null
@@ -281,10 +314,14 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    fun loadOrders() {
-                        todayLoading = true
-                        todayError = null
-                        scope.launch {
+                    /** [quiet]: background refresh — no spinner, keeps the last lists on a network error. */
+                    fun loadOrders(quiet: Boolean = false) {
+                        if (quiet && ordersJob?.isActive == true) return
+                        if (!quiet) {
+                            todayLoading = true
+                            todayError = null
+                        }
+                        ordersJob = scope.launch {
                             try {
                                 val zone = PosTime.staffZone(session)
                                 val midnight = java.time.LocalDate.now(zone).atStartOfDay(zone).toInstant()
@@ -303,11 +340,27 @@ class MainActivity : ComponentActivity() {
                                     todayOrders = mine.await()
                                     invoiceOrders = recent.await()
                                 }
+                                playSound(soundTracker.onList((invoiceOrders + todayOrders).distinctBy { it.id }))
+                                todayError = null
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
-                                if (!handleAuthFailure(e)) todayError = CashierPosSurface.userMessage(e)
+                                if (!handleAuthFailure(e) && !quiet) todayError = CashierPosSurface.userMessage(e)
                             } finally {
-                                todayLoading = false
+                                if (!quiet) todayLoading = false
                             }
+                        }
+                    }
+
+                    /** Pulls fresh lists; also the open order when [orderChanged] says it may have moved. */
+                    fun refreshLive(orderChanged: Boolean) {
+                        if (operator == null) return
+                        loadOrders(quiet = true)
+                        val id = watchingOrderId ?: return
+                        if (!orderChanged || (screen != PosScreen.Pay && screen != PosScreen.OrderDetail)) return
+                        scope.launch {
+                            val latest = runCatching { app.api.getPaymentDetails(id) }.getOrNull() ?: return@launch
+                            if (watchingOrderId == id) payment = latest
                         }
                     }
 
@@ -471,6 +524,51 @@ class MainActivity : ComponentActivity() {
                         if (operator != null) loadOrders()
                     }
 
+                    val unlocked = operator != null
+
+                    // Back from another app or the screen being off: catch up at once.
+                    LaunchedEffect(foreground) {
+                        if (foreground) refreshLive(orderChanged = true)
+                    }
+
+                    LaunchedEffect(unlocked, foreground) {
+                        if (!unlocked || !foreground) return@LaunchedEffect
+                        while (true) {
+                            delay(ORDERS_REFRESH_MS)
+                            refreshLive(orderChanged = false)
+                        }
+                    }
+
+                    // Live push: the server streams order changes for this org; the server closes the
+                    // stream every few minutes, so reconnect, backing off only when it keeps failing.
+                    LaunchedEffect(unlocked, foreground) {
+                        if (!unlocked || !foreground) return@LaunchedEffect
+                        val pushes = Channel<String>(Channel.UNLIMITED)
+                        launch {
+                            for (first in pushes) {
+                                delay(400)
+                                val ids = mutableSetOf(first)
+                                while (true) ids += pushes.tryReceive().getOrNull() ?: break
+                                refreshLive(orderChanged = ids.any { it.isEmpty() || it == watchingOrderId })
+                            }
+                        }
+                        var backoffMs = 1_000L
+                        while (true) {
+                            val openedAt = System.currentTimeMillis()
+                            try {
+                                app.api.streamOrderEvents { pushes.trySend(it.orEmpty()) }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                if (handleAuthFailure(e)) break
+                            }
+                            backoffMs =
+                                if (System.currentTimeMillis() - openedAt > 60_000) 1_000L
+                                else (backoffMs * 2).coerceAtMost(30_000L)
+                            delay(backoffMs)
+                        }
+                    }
+
                     // Power button (screen off) locks the POS so the next person needs their PIN.
                     DisposableEffect(Unit) {
                         val receiver = object : BroadcastReceiver() {
@@ -500,6 +598,12 @@ class MainActivity : ComponentActivity() {
                         CustomerScreen.requested = customerView
                         CustomerScreen.orgName = terminalOrg?.name
                         CustomerScreen.orgIconKey = terminalOrg?.iconKey
+                    }
+
+                    LaunchedEffect(watchingOrderId, payment?.status) {
+                        val id = watchingOrderId ?: return@LaunchedEffect
+                        val details = payment ?: return@LaunchedEffect
+                        playSound(soundTracker.onOrder(id, details.status, details.fulfillmentPolicy))
                     }
 
                     LaunchedEffect(screen, watchingOrderId) {
@@ -1011,6 +1115,12 @@ class MainActivity : ComponentActivity() {
                                                                 screenSaverMinutes = it
                                                                 app.posPrefs.screenSaverMinutes = it
                                                             },
+                                                            soundLevel = soundLevel,
+                                                            onSoundLevelChange = {
+                                                                soundLevel = it
+                                                                app.posPrefs.soundLevel = it
+                                                                soundPlayer.play(PosSound.Paid, it)
+                                                            },
                                                         )
                                                     }
                                                     else -> Unit
@@ -1159,7 +1269,10 @@ class MainActivity : ComponentActivity() {
                         visible = screenSaverOn,
                         orgName = terminalOrg?.name,
                         orgIconKey = terminalOrg?.iconKey,
-                        onDismiss = { screenSaverOn = false },
+                        onDismiss = {
+                            screenSaverOn = false
+                            refreshLive(orderChanged = true)
+                        },
                     )
                 }
             }

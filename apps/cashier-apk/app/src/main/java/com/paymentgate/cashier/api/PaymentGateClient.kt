@@ -1,6 +1,7 @@
 package com.paymentgate.cashier.api
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -247,6 +248,50 @@ class PaymentGateClient(
                 .build()
             execute(req) { JsonParsers.parsePaymentOrder(it) }
         }
+
+    /**
+     * GET /v1/events (SSE) — order changes for this terminal's org, pushed by the server.
+     * Blocks while the stream is open and calls [onOrderEvent] with the order id of each
+     * order event. Returns when the server ends the stream (it does every few minutes);
+     * cancelling the coroutine closes the connection.
+     */
+    suspend fun streamOrderEvents(onOrderEvent: (orderId: String?) -> Unit) =
+        withContext(Dispatchers.IO) {
+            val req = authed("/events").header("Accept", "text/event-stream").get().build()
+            val call = streamHttp.newCall(req)
+            val job = coroutineContext[Job]
+            val cancelHook = job?.invokeOnCompletion { call.cancel() }
+            try {
+                call.execute().use { res ->
+                    if (!res.isSuccessful) throw failure(res.body?.string().orEmpty(), res.code)
+                    val source = res.body?.source() ?: return@use
+                    var event = ""
+                    val data = StringBuilder()
+                    while (job?.isActive != false) {
+                        val line = source.readUtf8Line() ?: break
+                        when {
+                            line.isEmpty() -> {
+                                if (event == "dashboard" && data.isNotEmpty()) {
+                                    JsonParsers.parseOrderEvent(data.toString())?.let { onOrderEvent(it.orderId) }
+                                }
+                                event = ""
+                                data.clear()
+                            }
+                            line.startsWith("event:") -> event = line.substringAfter(':').trim()
+                            line.startsWith("data:") -> data.append(line.substringAfter(':').trim())
+                        }
+                    }
+                }
+            } finally {
+                cancelHook?.dispose()
+            }
+        }
+
+    /** The server pings idle streams about every 30 s; a longer silence means the link is dead. */
+    private val streamHttp: OkHttpClient =
+        http.newBuilder()
+            .readTimeout(75, TimeUnit.SECONDS)
+            .build()
 
     // --- Plumbing ---------------------------------------------------------------
 
