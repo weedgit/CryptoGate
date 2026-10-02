@@ -1,24 +1,17 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { sessionFromUser } from "../src/auth/session-payload.mjs";
 import { toOrgAccount } from "../src/orgs/org-accounts.mjs";
 import { toPaymentDetails } from "../src/orders/order-map.mjs";
 import { auditCsvHeaderLine, auditCsvLine } from "../src/audit/audit-csv.mjs";
 
 describe("time zone fields", () => {
-  it("session carries whether the profile zone was confirmed", () => {
+  it("session prefers businessTimezone over the legacy person zone", () => {
     const base = { id: "u1", email: "a@example.com", timezone: "UTC" };
-    assert.equal(sessionFromUser(base).timezoneConfirmed, false);
-    assert.equal(
-      sessionFromUser({ ...base, timezone: "Asia/Seoul", timezoneConfirmed: true }).timezoneConfirmed,
-      true,
-    );
-  });
-
-  it("auth route session payload forwards the confirmed flag", () => {
-    const src = readFileSync(new URL("../src/http/auth-routes.mjs", import.meta.url), "utf8");
-    assert.match(src, /timezoneConfirmed: user\.timezoneConfirmed === true/);
+    assert.equal(sessionFromUser(base).businessTimezone, null);
+    assert.equal(sessionFromUser(base, [], "Asia/Seoul").businessTimezone, "Asia/Seoul");
+    assert.equal(sessionFromUser(base, [], "Asia/Seoul").timezone, "Asia/Seoul");
+    assert.equal(sessionFromUser(base, [], "Asia/Seoul").timezoneConfirmed, true);
   });
 
   it("org account exposes its own business time zone only when set", () => {

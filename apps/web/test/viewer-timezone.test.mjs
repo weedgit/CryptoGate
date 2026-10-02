@@ -15,7 +15,6 @@ import {
 } from "../src/shared/dateTime.ts";
 import { periodWindow, buildDayKeys } from "../src/shared/dashboardPeriod.ts";
 import { periodToRange } from "../src/shared/invoiceListModel.ts";
-import { timeZonePrompt, mismatchPairKey } from "../src/auth/timeZonePrompt.ts";
 import {
   businessTimezoneField,
   effectiveBusinessTimezone,
@@ -37,16 +36,15 @@ describe("viewer time zone", () => {
     assert.equal(zoneAbbrev("UTC"), "UTC");
   });
 
-  it("ignores an unconfirmed profile zone (the UTC default)", () => {
-    setViewerTimeZone("Asia/Seoul", true);
+  it("uses the business zone when set, else UTC (not the browser)", () => {
+    setViewerTimeZone("Asia/Seoul");
     assert.equal(getViewerTimeZone(), "Asia/Seoul");
-    setViewerTimeZone("UTC", false);
-    assert.notEqual(getViewerTimeZone(), "Asia/Seoul");
-    assert.equal(getViewerTimeZone(), Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    setViewerTimeZone(null);
+    assert.equal(getViewerTimeZone(), "UTC");
   });
 
   it("dashboard periods and order filters follow the viewer zone", () => {
-    setViewerTimeZone("Pacific/Kiritimati", true);
+    setViewerTimeZone("Pacific/Kiritimati");
     const today = zonedYmd();
     const mtd = periodWindow("mtd");
     assert.equal(mtd.from.toISOString(), zonedStartOfDay(`${today.slice(0, 8)}01`).toISOString());
@@ -60,39 +58,13 @@ describe("viewer time zone", () => {
     setViewerTimeZone(null);
   });
 
-  it("asks unconfirmed users to confirm, and hints once per mismatched pair", () => {
-    assert.deepEqual(
-      timeZonePrompt({ profileTimeZone: "UTC", confirmed: false, deviceTimeZone: "Asia/Seoul" }),
-      { kind: "confirm", detected: "Asia/Seoul" },
-    );
-    assert.equal(
-      timeZonePrompt({ profileTimeZone: "Asia/Seoul", confirmed: true, deviceTimeZone: "Asia/Tokyo" }),
-      null,
-      "same UTC offset is not a mismatch",
-    );
-    const hint = timeZonePrompt({
-      profileTimeZone: "Asia/Seoul",
-      confirmed: true,
-      deviceTimeZone: "Europe/London",
-    });
-    assert.equal(hint?.kind, "mismatch");
-    assert.equal(
-      timeZonePrompt({
-        profileTimeZone: "Asia/Seoul",
-        confirmed: true,
-        deviceTimeZone: "Europe/London",
-        dismissedPair: mismatchPairKey("Europe/London", "Asia/Seoul"),
-      }),
-      null,
-    );
-  });
-
   it("sites inherit the merchant business zone for customer documents", () => {
     const merchant = { id: "m", type: "merchant", name: "Kevin Co", parentId: "a", businessTimezone: "Asia/Seoul" };
     const site = { id: "s", type: "merchant_site", name: "Store", parentId: "m", businessTimezone: null };
     assert.equal(effectiveBusinessTimezone(site, [merchant, site]), "Asia/Seoul");
     assert.match(businessTimezoneField(site, [merchant])?.inheritLabel ?? "", /Same as Kevin Co · Asia\/Seoul/);
     assert.equal(businessTimezoneField({ ...merchant, type: "agent" }, []), null);
+    assert.match(businessTimezoneField(merchant, [])?.inheritLabel ?? "", /Not set · UTC/);
     assert.match(formatDocumentDateTime("2026-09-28T05:00:00Z", "Asia/Seoul"), /2:00\s?PM GMT\+9$/);
     const rows = receiptRows({
       merchantName: "Kevin Co",
@@ -110,12 +82,13 @@ describe("viewer time zone", () => {
     assert.match(rows.find((r) => r.label === "Paid")?.value ?? "", /GMT\+9$/);
   });
 
-  it("wires the zone into shells, dashboards, lists and exports", () => {
-    assert.match(read("src/auth/usePortalBoot.ts"), /setViewerTimeZone\(session\?\.timezone, session\?\.timezoneConfirmed === true\)/);
+  it("wires business zone into boot, dashboards, lists and exports; no account TZ prompt", () => {
+    assert.match(read("src/auth/usePortalBoot.ts"), /setViewerTimeZone\(session\?\.businessTimezone\)/);
+    assert.match(read("src/auth/usePortalBoot.ts"), /toastBusinessTzMismatch/);
+    assert.doesNotMatch(read("src/auth/SidebarProfileMenu.tsx"), /TimeZonePromptCard/);
     for (const shell of ["agent/AgentShell.tsx", "platform/PlatformShell.tsx", "merchant/MerchantShell.tsx", "merchant/cashier/CashierShell.tsx"]) {
       assert.doesNotMatch(read(`src/${shell}`), /setViewerTimeZone/, shell);
     }
-    assert.match(read("src/auth/SidebarProfileMenu.tsx"), /<TimeZonePromptCard/);
     assert.match(read("src/platform/ui/DashHero.tsx"), /pg-dash__period-zone/);
     assert.match(read("src/shared/invoiceList/InvoiceFiltersPanel.tsx"), /From \(\{zoneTag\}\)/);
     assert.match(read("src/merchant/api.ts"), /q\.set\("tz", getViewerTimeZone\(\)\)/);

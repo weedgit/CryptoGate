@@ -1,10 +1,9 @@
 /**
  * Timezone policy:
- * - Viewer-facing timestamps, date filters and "today" → the signed-in user's profile
- *   zone (browser zone until the user confirms one).
+ * - Portal day cuts, lists, dashboards → the org's business zone (UTC when unset).
+ * - Customer documents / receipts → order businessTimezone (site → merchant inherit).
  * - Platform Owner/Admin schedules & billing calendar days → UTC (labeled in UI).
- * - Date-only billing anchors (YYYY-MM-DD) → UTC calendar day.
- * - Customer documents → the merchant's business zone (see `formatInZone`).
+ * - Person profiles no longer store a timezone.
  */
 
 let viewerTimeZone: string | null = null;
@@ -29,15 +28,15 @@ export function isValidTimeZone(tz: string | null | undefined): tz is string {
 }
 
 /**
- * Call when the session loads / changes. An unconfirmed profile zone is the untouched
- * UTC default, so the browser zone is used until the user confirms.
+ * Call when the session loads / changes. Pass the org business timezone
+ * (null clears back to UTC for day cuts).
  */
 export function setViewerTimeZone(
   tz: string | null | undefined,
-  confirmed = true,
+  _confirmed = true,
 ): void {
   const trimmed = tz?.trim();
-  const next = confirmed && isValidTimeZone(trimmed) ? trimmed! : null;
+  const next = isValidTimeZone(trimmed) ? trimmed! : null;
   if (next === viewerTimeZone) return;
   viewerTimeZone = next;
   // Callers may run during render; subscribers re-render afterwards.
@@ -53,8 +52,9 @@ export function subscribeViewerTimeZone(fn: () => void): () => void {
   };
 }
 
+/** Business zone when set; otherwise UTC (not the browser zone). */
 export function getViewerTimeZone(): string {
-  return viewerTimeZone || browserTimeZone();
+  return viewerTimeZone || "UTC";
 }
 
 export function resolveViewerTimeZone(

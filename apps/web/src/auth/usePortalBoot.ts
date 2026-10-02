@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSession, loadPortalSession, type Session } from "../merchant/api";
-import { setViewerTimeZone } from "../shared/dateTime";
+import {
+  browserTimeZone,
+  isValidTimeZone,
+  setViewerTimeZone,
+} from "../shared/dateTime";
+import { showToast } from "../shared/toast";
+import { timeZoneShortLabel } from "../shared/timeZoneOptions";
 import { prefetchCurrentPortalRoute } from "../shared/prefetchCurrentRoute";
 import { prefetchPortalDashboardData } from "../shared/prefetchPortalDashboardData";
 import { invalidateAllPortalDataCaches } from "../shared/portalDataCaches";
@@ -14,6 +20,18 @@ import { notifyProfileUpdated, profileSignature } from "../shared/profileUpdated
 import { SESSION_REFRESH_EVENT } from "../shared/sessionRefresh";
 
 const DEFAULT_TIMEOUT_MIN = 120;
+
+/** Once per signed-in user: toast when the browser zone differs from business. */
+function toastBusinessTzMismatch(session: Session) {
+  const business = session.businessTimezone?.trim();
+  if (!isValidTimeZone(business)) return;
+  const device = browserTimeZone();
+  if (device === business) return;
+  showToast(
+    `Your device is ${timeZoneShortLabel(device)}; times use business zone ${timeZoneShortLabel(business)}.`,
+    { tone: "info", durationMs: 8000 },
+  );
+}
 
 /**
  * Sliding keep-alive: refresh session TTL on an interval derived from
@@ -146,8 +164,17 @@ export function usePortalBoot() {
     return () => window.removeEventListener(SESSION_REFRESH_EVENT, onRefresh);
   }, [setSession]);
 
-  // Before children render so their first date math and fetches use the profile zone.
-  setViewerTimeZone(session?.timezone, session?.timezoneConfirmed === true);
+  // Before children render so their first date math and fetches use the business zone.
+  setViewerTimeZone(session?.businessTimezone);
+
+  const signedInUserId = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = session?.userId ?? null;
+    if (uid && uid !== signedInUserId.current) {
+      toastBusinessTzMismatch(session!);
+    }
+    signedInUserId.current = uid;
+  }, [session]);
 
   function completeSignIn() {
     setMfaPending(false);

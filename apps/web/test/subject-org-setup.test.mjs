@@ -8,10 +8,9 @@ describe("subjectOrgSetupStatus", () => {
     phoneVerified: true,
     firstName: "Ada",
     lastName: "Lovelace",
-    timezone: "UTC",
   };
 
-  it("agent ready when 7 fields present (no country)", () => {
+  it("agent ready when 6 fields present (no country, no person timezone)", () => {
     const r = subjectOrgSetupStatus({
       kind: "agent",
       name: "Acme Agent",
@@ -20,13 +19,13 @@ describe("subjectOrgSetupStatus", () => {
       owner: completeOwner,
       walletSet: true,
     });
-    assert.equal(r.total, 7);
-    assert.equal(r.done, 7);
+    assert.equal(r.total, 6);
+    assert.equal(r.done, 6);
     assert.equal(r.ready, true);
     assert.deepEqual(r.missing, []);
   });
 
-  it("merchant requires country as 8th check", () => {
+  it("merchant requires country as 7th check", () => {
     const incomplete = subjectOrgSetupStatus({
       kind: "merchant",
       name: "Shop",
@@ -35,7 +34,7 @@ describe("subjectOrgSetupStatus", () => {
       owner: completeOwner,
       walletSet: true,
     });
-    assert.equal(incomplete.total, 8);
+    assert.equal(incomplete.total, 7);
     assert.equal(incomplete.ready, false);
     assert.ok(incomplete.missing.includes("Country"));
 
@@ -48,10 +47,10 @@ describe("subjectOrgSetupStatus", () => {
       walletSet: true,
     });
     assert.equal(ready.ready, true);
-    assert.equal(ready.done, 8);
+    assert.equal(ready.done, 7);
   });
 
-  it("lists missing labels for wallet, billing, and timezone", () => {
+  it("lists missing labels for wallet, billing, and owner name", () => {
     const r = subjectOrgSetupStatus({
       kind: "agent",
       name: "Acme",
@@ -61,14 +60,13 @@ describe("subjectOrgSetupStatus", () => {
         phoneVerified: true,
         firstName: "Ada",
         lastName: "",
-        timezone: "",
       },
       walletSet: false,
     });
     assert.equal(r.ready, false);
     assert.equal(r.missing.filter((m) => m === "Email").length, 2);
     assert.ok(r.missing.includes("Owner"));
-    assert.ok(r.missing.includes("Timezone"));
+    assert.ok(!r.missing.includes("Timezone"));
     assert.ok(r.missing.includes("Wallet"));
   });
 });

@@ -31,8 +31,11 @@ data class Session(
     val userId: String,
     val email: String,
     val memberships: List<OrgMembership>,
-    /** Profile IANA zone; only trusted once [timezoneConfirmed] (else it is the UTC default). */
+    /** Org business IANA zone; drives staff “today” and falls back for receipts. */
+    val businessTimezone: String? = null,
+    /** @deprecated Prefer [businessTimezone]. */
     val timezone: String? = null,
+    /** @deprecated Prefer [businessTimezone]. */
     val timezoneConfirmed: Boolean = false,
     val firstName: String? = null,
     val lastName: String? = null,

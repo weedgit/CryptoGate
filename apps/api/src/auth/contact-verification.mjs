@@ -96,7 +96,7 @@ export async function liveActionBlock(caller, method, path) {
             (m) => m !== "email and phone verification",
           )
         : [
-            ...(!setup.personComplete ? ["first name, last name, timezone"] : []),
+            ...(!setup.personComplete ? ["first name, last name"] : []),
             ...(!setup.profileComplete ? ["org profile"] : []),
             ...(!setup.walletSet ? ["wallet address"] : []),
           ];

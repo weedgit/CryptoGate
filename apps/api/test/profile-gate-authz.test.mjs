@@ -10,12 +10,11 @@ import {
 } from "../src/orgs/role-policy.mjs";
 
 describe("person profile completeness", () => {
-  it("requires first, last, and timezone", () => {
+  it("requires first and last name (business timezone is on the org)", () => {
     assert.equal(
       isPersonProfileComplete({
         firstName: "Ada",
         lastName: "Lovelace",
-        timezone: "UTC",
       }),
       true,
     );
@@ -23,14 +22,12 @@ describe("person profile completeness", () => {
       isPersonProfileComplete({
         firstName: "Ada",
         lastName: "",
-        timezone: "UTC",
       }),
       false,
     );
     assert.equal(
       isPersonProfileComplete({
         displayName: "Ada Lovelace",
-        timezone: "UTC",
       }),
       true,
     );

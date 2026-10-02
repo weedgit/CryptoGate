@@ -15,7 +15,6 @@ export type SubjectSetupInput = {
     phoneVerified?: boolean;
     firstName?: string | null;
     lastName?: string | null;
-    timezone?: string | null;
   } | null;
   walletSet: boolean;
 };
@@ -64,11 +63,6 @@ export function subjectOrgSetupStatus(
     label: "owner phone verified",
     short: "Phone",
     ok: owner?.phoneVerified === true,
-  });
-  checks.push({
-    label: "owner timezone",
-    short: "Timezone",
-    ok: Boolean(owner && hasText(owner.timezone)),
   });
   checks.push({
     label: input.kind === "agent" ? "payout wallet" : "settlement wallet",

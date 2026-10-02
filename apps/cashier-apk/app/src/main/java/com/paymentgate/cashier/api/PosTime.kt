@@ -3,14 +3,17 @@ package com.paymentgate.cashier.api
 import java.time.ZoneId
 
 /**
- * Time zones on the POS match the web portals: staff screens use the cashier's
- * confirmed profile zone, customer receipts the merchant's business zone.
- * Both fall back to the device zone.
+ * POS times use the org business zone (same as web day cuts / invoices).
+ * Falls back to the device zone when the business zone is unset.
  */
 object PosTime {
     fun staffZone(session: Session?, device: ZoneId = ZoneId.systemDefault()): ZoneId {
-        if (session?.timezoneConfirmed != true) return device
-        return parse(session.timezone) ?: device
+        parse(session?.businessTimezone)?.let { return it }
+        // Legacy session fields from older APIs.
+        if (session?.timezoneConfirmed == true) {
+            parse(session.timezone)?.let { return it }
+        }
+        return device
     }
 
     fun receiptZone(

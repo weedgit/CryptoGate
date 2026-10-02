@@ -1,13 +1,11 @@
 import {
   FormEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { browserTimeZone } from "../shared/dateTime";
-import { timeZoneSelectOptions } from "../shared/timeZoneOptions";
+import { timeZoneShortLabel } from "../shared/timeZoneOptions";
 import { createPortal } from "react-dom";
 import {
   ApiError,
@@ -25,7 +23,6 @@ import { readOrgIconFile } from "../shared/orgBrand";
 import { formatPhoneInput } from "../shared/phoneFormat";
 import { showToast } from "../shared/toast";
 import { FieldControl } from "../ui/FieldControl";
-import { SearchableSelect } from "../ui/SearchableSelect";
 import { AuthToast } from "./AuthToast";
 import { ContactOtpModal } from "./ContactOtpModal";
 import { DefaultUserAvatar } from "./DefaultUserAvatar";
@@ -45,12 +42,6 @@ type Props = {
   startMfa?: boolean;
 };
 
-
-/** Unconfirmed profiles still hold the UTC default; start from the device zone instead. */
-function profileTimeZoneDefault(session: Session): string {
-  if (session.timezoneConfirmed === true && session.timezone) return session.timezone;
-  return browserTimeZone();
-}
 
 function HeadUser() {
   return (
@@ -278,7 +269,6 @@ export function ProfileSettingsModal({
   const [lastName, setLastName] = useState(session.lastName ?? "");
   const [email, setEmail] = useState(session.email);
   const [phone, setPhone] = useState(formatPhoneInput(session.phone ?? ""));
-  const [timezone, setTimezone] = useState(() => profileTimeZoneDefault(session));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
@@ -309,7 +299,6 @@ export function ProfileSettingsModal({
     setLastName(session.lastName ?? "");
     setEmail(session.email);
     setPhone(formatPhoneInput(session.phone ?? ""));
-    setTimezone(profileTimeZoneDefault(session));
     setAvatarUrl(sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null);
   }, [
     session.userId,
@@ -317,8 +306,7 @@ export function ProfileSettingsModal({
     session.lastName,
     session.email,
     session.phone,
-    session.timezone,
-    session.timezoneConfirmed,
+    session.businessTimezone,
     session.avatarUrl,
     session.emailVerified,
     session.phoneVerified,
@@ -335,8 +323,6 @@ export function ProfileSettingsModal({
   const phoneVerified =
     live.phoneVerified === true &&
     formatPhoneInput(phone) === formatPhoneInput(live.phone ?? "");
-
-  const timezoneOptions = useMemo(() => timeZoneSelectOptions(timezone.trim() || "UTC"), [timezone]);
 
   const passwordPolicy = evaluatePasswordPolicy(newPassword);
   const saving = busy || readingFile;
@@ -458,7 +444,6 @@ export function ProfileSettingsModal({
         firstName: firstName.trim() || null,
         lastName: lastName.trim() || null,
         avatarUrl,
-        timezone: timezone.trim() || "UTC",
       });
       applySession(next);
 
@@ -819,17 +804,23 @@ export function ProfileSettingsModal({
                 </FieldControl>
               </label>
               <div className="owner-acct__field owner-acct__field--wide">
-                <span className="owner-acct__label">Timezone</span>
+                <span className="owner-acct__label">Business time zone</span>
                 <FieldControl leading={<ClockGlyph />}>
-                  <SearchableSelect
-                    value={timezone}
-                    options={timezoneOptions}
-                    allowEmpty={false}
-                    disabled={saving}
-                    ariaLabel="Timezone"
-                    onChange={setTimezone}
+                  <input
+                    className="field-control"
+                    value={
+                      live.businessTimezone
+                        ? timeZoneShortLabel(live.businessTimezone)
+                        : "Not set · UTC"
+                    }
+                    readOnly
+                    disabled
+                    aria-label="Business time zone"
                   />
                 </FieldControl>
+                <p className="owner-acct__locked-note">
+                  Set on the organization profile. Portal times and invoices use this zone.
+                </p>
               </div>
               <label className="owner-acct__field owner-acct__field--wide">
                 <span className="owner-acct__label">Current password</span>

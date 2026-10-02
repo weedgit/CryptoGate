@@ -357,6 +357,110 @@ html[data-theme="light"] .platform-shell .order-detail-share__pop {
   color: #64748b;
 }
 
+/* Light: readable status, visible empty segments, dark hash text (dark palette was washing out). */
+html[data-theme="light"] .order-detail-chain__live {
+  border-color: rgba(13, 148, 136, 0.28);
+  background: rgba(13, 148, 136, 0.08);
+  color: #0f766e;
+}
+
+html[data-theme="light"] .order-detail-chain__live-dot {
+  background: #0d9488;
+  box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.35);
+}
+
+html[data-theme="light"] .order-detail-chain__badge {
+  border-color: rgba(13, 148, 136, 0.28);
+  background: rgba(13, 148, 136, 0.08);
+  color: #64748b;
+}
+
+html[data-theme="light"] .order-detail-chain__badge-fill {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .order-detail-chain.is-complete .order-detail-chain__badge {
+  border-color: rgba(22, 163, 74, 0.3);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+html[data-theme="light"] .order-detail-chain.is-complete .order-detail-chain__badge-fill {
+  color: #15803d;
+}
+
+html[data-theme="light"] .order-detail-chain.is-verifying .order-detail-chain__badge {
+  border-color: rgba(13, 148, 136, 0.42);
+}
+
+html[data-theme="light"] .order-detail-chain__block {
+  background: #e8eef5;
+  border-color: #d8dee8;
+}
+
+html[data-theme="light"] .order-detail-chain__block.is-filled {
+  --seg-hue: calc(168 + (var(--fill-t, 0) * 42));
+  background: hsl(var(--seg-hue) 72% 38%);
+  border-color: hsla(var(--seg-hue) 72% 32% / 0.35);
+  box-shadow: 0 0 6px hsla(var(--seg-hue) 70% 40% / 0.18);
+}
+
+html[data-theme="light"] .order-detail-chain__blocks.is-complete .order-detail-chain__block.is-filled {
+  --seg-hue: calc(145 + (var(--fill-t, 0) * 30));
+  background: hsl(var(--seg-hue) 70% 38%);
+  border-color: hsla(var(--seg-hue) 70% 32% / 0.35);
+  box-shadow: 0 0 6px hsla(var(--seg-hue) 70% 40% / 0.18);
+}
+
+html[data-theme="light"] .order-detail-chain__block.is-next {
+  border-color: rgba(13, 148, 136, 0.45);
+  background: rgba(13, 148, 136, 0.12);
+}
+
+html[data-theme="light"] .order-detail-chain__status {
+  color: #64748b;
+}
+
+html[data-theme="light"] .order-detail-chain__status-count {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .order-detail-chain__status-note {
+  color: #475569;
+}
+
+html[data-theme="light"] .order-detail-chain.is-verifying .order-detail-chain__status-note {
+  color: #0f766e;
+}
+
+html[data-theme="light"] .order-detail-chain__tx {
+  border-top-color: #e2e8f0;
+}
+
+html[data-theme="light"] .order-detail-chain__tx span {
+  color: #64748b;
+}
+
+html[data-theme="light"] .order-detail-chain__tx .field-shell {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .order-detail-chain__tx .field-shell .plat-settings__input,
+html[data-theme="light"] .order-detail-chain__tx .field-shell > input {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .order-detail-chain__tx .field-shell__copy-btn {
+  border-left-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+html[data-theme="light"] .order-detail-chain__tx .field-shell__copy-btn:hover:not(:disabled) {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
 @keyframes order-conf-next {
   0%,
   100% {

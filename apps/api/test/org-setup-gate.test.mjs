@@ -49,7 +49,6 @@ describe("person profile gate fields", () => {
       isPersonProfileComplete({
         firstName: "Ada",
         lastName: "Lovelace",
-        timezone: "UTC",
       }),
       true,
     );
@@ -57,14 +56,12 @@ describe("person profile gate fields", () => {
       isPersonProfileComplete({
         firstName: "Ada",
         lastName: "",
-        timezone: "UTC",
       }),
       false,
     );
     assert.equal(
       isPersonProfileComplete({
         displayName: "Ada",
-        timezone: "UTC",
       }),
       false,
     );

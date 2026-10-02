@@ -78,10 +78,12 @@ export type Session = {
   avatarUrl?: string | null;
   /** UI language preference (A10). */
   locale?: string;
-  /** IANA timezone (A10). */
+  /** @deprecated Prefer businessTimezone. */
   timezone?: string;
-  /** False while `timezone` is still the untouched UTC default. */
+  /** @deprecated Unused; day cuts use businessTimezone. */
   timezoneConfirmed?: boolean;
+  /** Org business IANA zone (site → merchant inherit); drives portal day cuts. */
+  businessTimezone?: string | null;
   mustChangePassword?: boolean;
   /** True after invite-reset token use or email OTP. */
   emailVerified?: boolean;
@@ -90,7 +92,7 @@ export type Session = {
   phoneVerified?: boolean;
   /** emailVerified AND phoneVerified. */
   contactVerified?: boolean;
-  /** Person first+last+timezone complete for activity gate. */
+  /** Person first+last complete for activity gate. */
   personComplete?: boolean;
   /** Org registration fields complete for activity gate. */
   profileComplete?: boolean;

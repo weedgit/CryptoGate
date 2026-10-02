@@ -19,22 +19,6 @@ type Props = {
   onSaved: (next: OrgMember) => void;
 };
 
-const MEMBER_TIMEZONES = [
-  "UTC",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Taipei",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Bangkok",
-  "Asia/Jakarta",
-  "Asia/Manila",
-  "Australia/Sydney",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-];
 
 function HeadPencil() {
   return (
@@ -278,7 +262,6 @@ export function TeamMemberEditModal({
   const [lastName, setLastName] = useState(member.lastName ?? "");
   const [email, setEmail] = useState(member.email);
   const [phone, setPhone] = useState(formatPhoneInput(member.phone ?? ""));
-  const [timezone, setTimezone] = useState(member.timezone?.trim() || "UTC");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(member.avatarUrl ?? null);
   const [role, setRole] = useState(member.role);
   const [password, setPassword] = useState("");
@@ -296,7 +279,6 @@ export function TeamMemberEditModal({
     setLastName(member.lastName ?? "");
     setEmail(member.email);
     setPhone(formatPhoneInput(member.phone ?? ""));
-    setTimezone(member.timezone?.trim() || "UTC");
     setAvatarUrl(member.avatarUrl ?? null);
     setRole(member.role);
     setPassword("");
@@ -310,7 +292,6 @@ export function TeamMemberEditModal({
     member.lastName,
     member.email,
     member.phone,
-    member.timezone,
     member.avatarUrl,
     member.role,
   ]);
@@ -364,7 +345,6 @@ export function TeamMemberEditModal({
       const next = await patchOrgMember(orgId, member.userId, {
         firstName: firstName.trim() || null,
         lastName: lastName.trim() || null,
-        timezone: timezone.trim() || "UTC",
         avatarUrl,
         role: roleLocked ? member.role : role,
         ...(platformSupport
@@ -387,9 +367,6 @@ export function TeamMemberEditModal({
   }
 
   const saving = busy || readingFile;
-  const timezoneOptions = [...new Set([timezone.trim() || "UTC", ...MEMBER_TIMEZONES])].map(
-    (id) => ({ id, label: id }),
-  );
 
   return createPortal(
     <div
@@ -614,15 +591,14 @@ export function TeamMemberEditModal({
                 </p>
               ) : null}
               <div className="owner-acct__field owner-acct__field--wide">
-                <span className="owner-acct__label">Timezone</span>
+                <span className="owner-acct__label">Business time zone</span>
                 <FieldControl leading={<ClockGlyph />}>
-                  <SearchableSelect
-                    value={timezone}
-                    options={timezoneOptions}
-                    allowEmpty={false}
-                    disabled={saving}
-                    ariaLabel="Timezone"
-                    onChange={setTimezone}
+                  <input
+                    className="field-control"
+                    value="Uses the organization business time zone"
+                    readOnly
+                    disabled
+                    aria-label="Business time zone"
                   />
                 </FieldControl>
               </div>

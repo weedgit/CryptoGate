@@ -685,16 +685,13 @@ export async function handleAdminDeleteMemberPosPin(req, res, orgId, userId) {
 }
 
 /**
- * New invitees start in the org's business time zone, else the inviter's confirmed zone.
+ * New invitees inherit the org's business time zone when set (person profiles no longer store a zone).
  * @param {string} orgId
- * @param {string} inviterUserId
+ * @param {string} _inviterUserId
  */
-async function inviteDefaultTimezone(orgId, inviterUserId) {
+async function inviteDefaultTimezone(orgId, _inviterUserId) {
   try {
-    const business = await resolveBusinessTimezone(orgId);
-    if (business) return business;
-    const inviter = await findUserById(inviterUserId);
-    return inviter?.timezoneConfirmed ? inviter.timezone : null;
+    return (await resolveBusinessTimezone(orgId)) || null;
   } catch {
     return null;
   }

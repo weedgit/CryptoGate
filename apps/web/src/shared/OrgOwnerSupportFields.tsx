@@ -6,7 +6,6 @@ import { CopyGlyph } from "./CopyGlyph";
 import { readOrgIconFile } from "./orgBrand";
 import { formatPhoneDisplay, formatPhoneInput } from "./phoneFormat";
 import { FieldControl } from "../ui/FieldControl";
-import { SearchableSelect } from "../ui/SearchableSelect";
 import {
   ApiError,
   patchOrgOwnerProfile,
@@ -174,10 +173,6 @@ export function OrgOwnerSupportFields({
           ) : null}
         </div>
       </div>
-      <div className="b3-profile__field">
-        <p className="b3-profile__label">Timezone</p>
-        <p className="b3-profile__value">{dash(owner?.timezone, loading)}</p>
-      </div>
       {editOpen && owner ? (
         <OwnerProfileEditModal
           orgId={orgId}
@@ -231,23 +226,6 @@ export function OrgOwnerSupportFields({
     </section>
   );
 }
-
-const OWNER_TIMEZONES = [
-  "UTC",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Taipei",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Bangkok",
-  "Asia/Jakarta",
-  "Asia/Manila",
-  "Australia/Sydney",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-];
 
 function OwnerHeadPencil() {
   return (
@@ -428,7 +406,6 @@ function OwnerProfileEditModal({
   const [lastName, setLastName] = useState(owner.lastName ?? "");
   const [email, setEmail] = useState(owner.email ?? "");
   const [phone, setPhone] = useState(formatPhoneInput(owner.phone ?? ""));
-  const [timezone, setTimezone] = useState(owner.timezone || "UTC");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(owner.avatarUrl ?? null);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -445,9 +422,8 @@ function OwnerProfileEditModal({
     setLastName(owner.lastName ?? "");
     setEmail(owner.email ?? "");
     setPhone(formatPhoneInput(owner.phone ?? ""));
-    setTimezone(owner.timezone || "UTC");
     setAvatarUrl(owner.avatarUrl ?? null);
-  }, [owner.firstName, owner.lastName, owner.email, owner.phone, owner.timezone, owner.avatarUrl]);
+  }, [owner.firstName, owner.lastName, owner.email, owner.phone, owner.avatarUrl]);
 
   useEffect(() => {
     setEmailVerified(owner.emailVerified);
@@ -500,7 +476,6 @@ function OwnerProfileEditModal({
         lastName: lastName.trim() || null,
         email: nextEmail,
         phone: phone.trim() || null,
-        timezone: timezone.trim() || "UTC",
         avatarUrl,
         ...(password ? { password } : {}),
       });
@@ -533,9 +508,6 @@ function OwnerProfileEditModal({
   }
 
   const saving = busy || readingFile;
-  const timezoneOptions = [
-    ...new Set([timezone.trim() || "UTC", ...OWNER_TIMEZONES]),
-  ].map((id) => ({ id, label: id }));
 
   return createPortal(
     <div
@@ -723,15 +695,14 @@ function OwnerProfileEditModal({
                 </FieldControl>
               </label>
               <div className="owner-acct__field owner-acct__field--wide">
-                <span className="owner-acct__label">Timezone</span>
+                <span className="owner-acct__label">Business time zone</span>
                 <FieldControl leading={<ClockGlyph />}>
-                  <SearchableSelect
-                    value={timezone}
-                    options={timezoneOptions}
-                    allowEmpty={false}
-                    disabled={saving}
-                    ariaLabel="Timezone"
-                    onChange={setTimezone}
+                  <input
+                    className="field-control"
+                    value="Set on the organization profile"
+                    readOnly
+                    disabled
+                    aria-label="Business time zone"
                   />
                 </FieldControl>
               </div>

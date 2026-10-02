@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { browserTimeZone } from "../shared/dateTime";
-import { allTimeZones } from "../shared/timeZoneOptions";
+import { timeZoneShortLabel } from "../shared/timeZoneOptions";
 import {
   ApiError,
   changePassword,
@@ -41,26 +40,6 @@ type Props = {
 };
 
 /** Unconfirmed profiles still hold the UTC default; start from the device zone instead. */
-function profileTimeZoneDefault(session: Session): string {
-  if (session.timezoneConfirmed === true && session.timezone) return session.timezone;
-  return browserTimeZone();
-}
-
-function formatTimezoneLabel(tz: string): string {
-  if (tz === "UTC") return "UTC — Coordinated Universal Time";
-  try {
-    const offset = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      timeZoneName: "shortOffset",
-    })
-      .formatToParts(new Date())
-      .find((part) => part.type === "timeZoneName")?.value;
-    const label = tz.replace(/_/g, " ");
-    return offset ? `${label} (${offset})` : label;
-  } catch {
-    return tz.replace(/_/g, " ");
-  }
-}
 
 function ContactVerifyBadge({ verified }: { verified: boolean }) {
   return (
@@ -537,7 +516,6 @@ function ProfileForm({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
   );
-  const [timezone, setTimezone] = useState(() => profileTimeZoneDefault(session));
   const [busy, setBusy] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -549,8 +527,7 @@ function ProfileForm({
     setAvatarUrl(
       sessionHasAvatar(session) ? (session.avatarUrl ?? null) : null,
     );
-    setTimezone(profileTimeZoneDefault(session));
-  }, [session.firstName, session.lastName, session.avatarUrl, session.timezone, session.timezoneConfirmed]);
+  }, [session.firstName, session.lastName, session.avatarUrl, session.businessTimezone]);
 
   const savedAvatar = sessionHasAvatar(session)
     ? (session.avatarUrl ?? null)
@@ -560,16 +537,9 @@ function ProfileForm({
     return (
       firstName.trim() !== (session.firstName ?? "").trim() ||
       lastName.trim() !== (session.lastName ?? "").trim() ||
-      avatarUrl !== savedAvatar ||
-      timezone !== (session.timezone || "UTC") ||
-      session.timezoneConfirmed !== true
+      avatarUrl !== savedAvatar
     );
-  }, [firstName, lastName, avatarUrl, timezone, session, savedAvatar]);
-
-  const timezoneChoices = useMemo(() => {
-    const zones = allTimeZones();
-    return timezone && !zones.includes(timezone) ? [timezone, ...zones] : zones;
-  }, [timezone]);
+  }, [firstName, lastName, avatarUrl, session, savedAvatar]);
 
   async function onPickFile(file: File | undefined) {
     if (!file) return;
@@ -598,7 +568,6 @@ function ProfileForm({
         firstName: firstName.trim() || null,
         lastName: lastName.trim() || null,
         avatarUrl,
-        timezone,
       });
       onSessionRefresh?.(next);
       setOk("Profile saved.");
@@ -707,24 +676,25 @@ function ProfileForm({
           onSessionRefresh={onSessionRefresh}
         />
         <div className="plat-settings__row plat-settings__row--stack">
-          <label className="plat-settings__field" htmlFor="profile-timezone">
-            <span>Timezone</span>
+          <div className="plat-settings__field">
+            <span>Business time zone</span>
             <FieldControl icon="clock">
-              <select
-                id="profile-timezone"
-                className="plat-settings__select plat-settings__select--block"
-                value={timezone}
-                disabled={saving}
-                onChange={(e) => setTimezone(e.target.value)}
-              >
-                {timezoneChoices.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {formatTimezoneLabel(tz)}
-                  </option>
-                ))}
-              </select>
+              <input
+                className="plat-settings__input"
+                value={
+                  session.businessTimezone
+                    ? timeZoneShortLabel(session.businessTimezone)
+                    : "Not set · UTC"
+                }
+                readOnly
+                disabled
+                aria-label="Business time zone"
+              />
             </FieldControl>
-          </label>
+            <p className="plat-settings__hint">
+              Set on the organization profile. Portal times and invoices use this zone.
+            </p>
+          </div>
         </div>
         {ok ? <p className="plat-settings__flash" role="status">{ok}</p> : null}
         <div className="profile-settings-card__actions">
@@ -779,19 +749,21 @@ function ProfileForm({
         onSessionRefresh={onSessionRefresh}
       />
       <label className="field">
-        <span>Timezone</span>
-        <select
+        <span>Business time zone</span>
+        <input
           className="field-control"
-          value={timezone}
-          disabled={saving}
-          onChange={(e) => setTimezone(e.target.value)}
-        >
-          {timezoneChoices.map((tz) => (
-            <option key={tz} value={tz}>
-              {formatTimezoneLabel(tz)}
-            </option>
-          ))}
-        </select>
+          value={
+            session.businessTimezone
+              ? timeZoneShortLabel(session.businessTimezone)
+              : "Not set · UTC"
+          }
+          readOnly
+          disabled
+          aria-label="Business time zone"
+        />
+        <span className="field-hint">
+          Set on the organization profile. Portal times and invoices use this zone.
+        </span>
       </label>
       <AuthToast message={ok} tone="ok" onDismiss={() => setOk(null)} />
       <button type="submit" className="btn-primary" disabled={saving || !dirty}>

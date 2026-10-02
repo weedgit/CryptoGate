@@ -32,6 +32,7 @@ object JsonParsers {
             userId = obj.getString("userId"),
             email = obj.getString("email"),
             memberships = memberships,
+            businessTimezone = obj.optNullableString("businessTimezone"),
             timezone = obj.optNullableString("timezone"),
             timezoneConfirmed = obj.optBoolean("timezoneConfirmed", false),
             firstName = obj.optNullableString("firstName"),

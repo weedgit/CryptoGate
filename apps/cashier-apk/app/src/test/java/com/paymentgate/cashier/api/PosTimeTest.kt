@@ -9,32 +9,44 @@ import java.time.ZoneId
 class PosTimeTest {
     private val device = ZoneId.of("Europe/Sofia")
 
-    private fun session(tz: String?, confirmed: Boolean) =
-        Session(
-            userId = "u1",
-            email = "c@example.com",
-            memberships = emptyList(),
-            timezone = tz,
-            timezoneConfirmed = confirmed,
-        )
+    private fun session(
+        businessTimezone: String? = null,
+        timezone: String? = null,
+        confirmed: Boolean = false,
+    ) = Session(
+        userId = "u1",
+        email = "c@example.com",
+        memberships = emptyList(),
+        businessTimezone = businessTimezone,
+        timezone = timezone,
+        timezoneConfirmed = confirmed,
+    )
 
     @Test
-    fun unconfirmedProfileUsesDeviceZone() {
-        assertEquals(device, PosTime.staffZone(session("UTC", confirmed = false), device))
+    fun unsetBusinessUsesDeviceZone() {
+        assertEquals(device, PosTime.staffZone(session(), device))
         assertEquals(device, PosTime.staffZone(null, device))
     }
 
     @Test
-    fun confirmedProfileWins() {
+    fun businessZoneWins() {
         assertEquals(
             ZoneId.of("Asia/Seoul"),
-            PosTime.staffZone(session("Asia/Seoul", confirmed = true), device),
+            PosTime.staffZone(session(businessTimezone = "Asia/Seoul"), device),
+        )
+    }
+
+    @Test
+    fun legacyConfirmedProfileStillWorks() {
+        assertEquals(
+            ZoneId.of("Asia/Seoul"),
+            PosTime.staffZone(session(timezone = "Asia/Seoul", confirmed = true), device),
         )
     }
 
     @Test
     fun receiptPrefersBusinessZone() {
-        val s = session("Asia/Seoul", confirmed = true)
+        val s = session(businessTimezone = "Asia/Seoul")
         assertEquals(ZoneId.of("Asia/Bangkok"), PosTime.receiptZone(s, "Asia/Bangkok", device))
         assertEquals(ZoneId.of("Asia/Seoul"), PosTime.receiptZone(s, null, device))
         assertEquals(ZoneId.of("Asia/Seoul"), PosTime.receiptZone(s, "Not/AZone", device))

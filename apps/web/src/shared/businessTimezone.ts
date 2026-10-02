@@ -20,7 +20,7 @@ export function businessTimezoneField(
 ): { value: string | null; inheritLabel: string } | null {
   if (!org || (org.type !== "merchant" && org.type !== "merchant_site")) return null;
   if (org.type === "merchant") {
-    return { value: org.businessTimezone ?? null, inheritLabel: "Not set · each viewer's own zone" };
+    return { value: org.businessTimezone ?? null, inheritLabel: "Not set · UTC" };
   }
   const parent = org.parentId ? orgs.find((o) => o.id === org.parentId) : undefined;
   const inherited = parent?.businessTimezone;

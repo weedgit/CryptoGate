@@ -1,6 +1,26 @@
 import { normalizeSessionTimeoutMinutes } from "../http/session-ttl.mjs";
 import { mustEnrollMfa } from "../orgs/role-policy.mjs";
+import { resolveBusinessTimezone } from "../orgs/org-store.mjs";
 import { loadOrgSetupStatus } from "./org-setup.mjs";
+
+/**
+ * Most-specific membership org for business-timezone resolution
+ * (site → merchant → agent → platform).
+ * @param {{ orgId: string, orgType?: string | null }[]} memberships
+ * @returns {string | null}
+ */
+function primaryTimezoneOrgId(memberships) {
+  const list = Array.isArray(memberships) ? memberships : [];
+  const pick = (type) => list.find((m) => m.orgType === type)?.orgId ?? null;
+  return (
+    pick("merchant_site") ||
+    pick("merchant") ||
+    pick("agent_sub") ||
+    pick("agent") ||
+    pick("platform") ||
+    null
+  );
+}
 
 /**
  * OpenAPI Session.
@@ -21,8 +41,9 @@ import { loadOrgSetupStatus } from "./org-setup.mjs";
  *   phoneVerified?: boolean,
  * }} user
  * @param {{ orgId: string, userId: string, role: string, orgType: string }[]} [memberships]
+ * @param {string | null} [businessTimezone]
  */
-export function sessionFromUser(user, memberships = []) {
+export function sessionFromUser(user, memberships = [], businessTimezone = null) {
   return {
     userId: user.id,
     email: user.email,
@@ -31,8 +52,11 @@ export function sessionFromUser(user, memberships = []) {
     displayName: user.displayName ?? null,
     avatarUrl: user.avatarUrl ?? null,
     locale: user.locale || "en",
-    timezone: user.timezone || "UTC",
-    timezoneConfirmed: user.timezoneConfirmed === true,
+    /** @deprecated Prefer businessTimezone; kept for older clients. */
+    timezone: businessTimezone || user.timezone || "UTC",
+    /** @deprecated Always true when businessTimezone is set. */
+    timezoneConfirmed: Boolean(businessTimezone) || user.timezoneConfirmed === true,
+    businessTimezone: businessTimezone || null,
     mustChangePassword: user.mustChangePassword === true,
     emailVerified: user.emailVerified === true,
     phone: user.phone ?? null,
@@ -55,7 +79,11 @@ export function sessionFromUser(user, memberships = []) {
  * @param {Parameters<typeof sessionFromUser>[1]} [memberships]
  */
 export async function sessionFromUserWithSetup(user, memberships = []) {
-  const base = sessionFromUser(user, memberships);
+  const orgId = primaryTimezoneOrgId(memberships);
+  const businessTimezone = orgId
+    ? await resolveBusinessTimezone(orgId).catch(() => null)
+    : null;
+  const base = sessionFromUser(user, memberships, businessTimezone);
   const setup = await loadOrgSetupStatus(memberships, user);
   /** @type {boolean | undefined} */
   let activationPaid;

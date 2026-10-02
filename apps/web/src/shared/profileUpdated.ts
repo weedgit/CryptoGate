@@ -11,6 +11,7 @@ type ProfileFields = {
   emailVerified?: boolean;
   phoneVerified?: boolean;
   timezone?: string;
+  businessTimezone?: string | null;
   avatarUrl?: string | null;
 };
 
@@ -25,7 +26,7 @@ export function profileSignature(s: ProfileFields | null | undefined): string {
     s.phone ?? null,
     s.emailVerified === true,
     s.phoneVerified === true,
-    s.timezone ?? null,
+    s.businessTimezone ?? s.timezone ?? null,
     s.avatarUrl ?? null,
   ]);
 }

@@ -81,8 +81,7 @@ function personDone(session: Session): boolean {
   if (session.personComplete === true) return true;
   return (
     Boolean(session.firstName?.trim()) &&
-    Boolean(session.lastName?.trim()) &&
-    Boolean(session.timezone?.trim())
+    Boolean(session.lastName?.trim())
   );
 }
 
@@ -123,7 +122,7 @@ export function setupChecklistItems(
     },
     {
       id: "person",
-      label: "First name, last name, timezone",
+      label: "First name & last name",
       done: personDone(session),
       href: personPath,
       cta: "Open profile",
@@ -164,7 +163,7 @@ export function missingSetupPartsLabel(
         if (session.phoneVerified === true) return "email";
         return "email and phone";
       }
-      if (i.id === "person") return "name / timezone";
+      if (i.id === "person") return "name";
       if (i.id === "org") {
         return portal === "merchant"
           ? "org profile (billing / country)"

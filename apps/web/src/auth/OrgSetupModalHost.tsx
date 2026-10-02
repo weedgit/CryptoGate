@@ -100,8 +100,7 @@ function OrgSetupModal({
   const personDone =
     session.personComplete === true ||
     (Boolean(session.firstName?.trim()) &&
-      Boolean(session.lastName?.trim()) &&
-      Boolean(session.timezone?.trim()));
+      Boolean(session.lastName?.trim()));
   const profileDone = session.profileComplete !== false;
   const walletDone = session.walletSet !== false;
 

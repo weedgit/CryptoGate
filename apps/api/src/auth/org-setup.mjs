@@ -15,8 +15,9 @@ function hasNamePart(value) {
 }
 
 /**
- * Person fields required for activity gate (first + last + timezone).
- * @param {{ firstName?: string | null, lastName?: string | null, timezone?: string | null, displayName?: string | null }} user
+ * Person fields required for activity gate (first + last name).
+ * Business time zone lives on the org, not the person profile.
+ * @param {{ firstName?: string | null, lastName?: string | null, displayName?: string | null }} user
  */
 export function isPersonProfileComplete(user) {
   const first = hasNamePart(user?.firstName);
@@ -29,9 +30,7 @@ export function isPersonProfileComplete(user) {
     hasNamePart(user?.displayName) &&
     String(user.displayName).trim().includes(" ");
   const namesOk = (first && last) || legacyOk;
-  const tzOk =
-    typeof user?.timezone === "string" && user.timezone.trim().length > 0;
-  return namesOk && tzOk;
+  return namesOk;
 }
 
 /**
@@ -159,12 +158,9 @@ export async function loadOrgSetupStatus(memberships, user) {
         ...(!user?.phoneVerified ? ["phone verification"] : []),
         ...(!hasNamePart(user?.firstName) ? ["first name"] : []),
         ...(!hasNamePart(user?.lastName) ? ["last name"] : []),
-        ...(!(typeof user?.timezone === "string" && user.timezone.trim())
-          ? ["timezone"]
-          : []),
       ].filter((item, i, arr) => {
         if (contactVerified && item.endsWith("verification")) return false;
-        if (personComplete && ["first name", "last name", "timezone"].includes(item)) {
+        if (personComplete && ["first name", "last name"].includes(item)) {
           return false;
         }
         return arr.indexOf(item) === i;
@@ -185,9 +181,6 @@ export async function loadOrgSetupStatus(memberships, user) {
     }
     if (!hasNamePart(user?.lastName) && !String(user?.displayName ?? "").trim().includes(" ")) {
       missing.push("last name");
-    }
-    if (!(typeof user?.timezone === "string" && user.timezone.trim().length > 0)) {
-      missing.push("timezone");
     }
   }
   if (!profileComplete) {
