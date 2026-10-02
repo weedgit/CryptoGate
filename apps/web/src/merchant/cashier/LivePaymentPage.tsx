@@ -32,7 +32,7 @@ import { holdCashierIdle } from "./cashierIdle";
 
 type Props = { session: Session };
 
-const POLL_MS = 3000;
+const POLL_MS = 2000;
 
 type StepTone = "done" | "current" | "muted";
 

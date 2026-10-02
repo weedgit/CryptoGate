@@ -32,8 +32,34 @@ function readMultiNetwork() {
 }
 
 export function loadWatcherConfig() {
+  const pollIntervalMs = readInt("WATCHER_POLL_INTERVAL_MS", 5000);
+  const pendingPollIntervalMs = readInt(
+    "WATCHER_PENDING_POLL_INTERVAL_MS",
+    Math.min(2000, pollIntervalMs),
+  );
+  const idlePollIntervalMs = readInt(
+    "WATCHER_IDLE_POLL_INTERVAL_MS",
+    Math.max(15_000, pollIntervalMs),
+  );
+
   return {
-    pollIntervalMs: readInt("WATCHER_POLL_INTERVAL_MS", 5000),
+    /** Sleep when only confirmations are in flight (no pending Detected work). */
+    pollIntervalMs,
+    /** Sleep while any pending_payment orders exist (Detected hot path). All networks. */
+    pendingPollIntervalMs,
+    /** Sleep when nothing is open (pending or verifying). */
+    idlePollIntervalMs,
+    /**
+     * Max distinct receive addresses polled for transfers per asset+network scope/tick.
+     * Pending addresses are preferred; remainder rotate fairly. 0 = poll none (tests).
+     */
+    addressPollBudget: readInt("WATCHER_ADDRESS_POLL_BUDGET", 64),
+    /**
+     * When pending work exists, run this many match-only ticks after each full tick
+     * (confirmations skipped) before the next full tick. Speeds Detected without
+     * multiplying confirmation RPCs.
+     */
+    pendingFastTicks: readInt("WATCHER_PENDING_FAST_TICKS", 1),
     defaultAsset: process.env.DEFAULT_ASSET ?? "USDT",
     defaultNetwork: process.env.DEFAULT_NETWORK ?? "tron",
     databaseUrl: process.env.DATABASE_URL ?? null,
@@ -96,3 +122,5 @@ export function resolveWatchScopes(config, openScopes) {
   );
   return scopes;
 }
+
+export { resolveNextPollIntervalMs } from "./ingest/address-budget.mjs";

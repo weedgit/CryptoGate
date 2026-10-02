@@ -233,6 +233,28 @@ export async function listAllOrdersAwaitingConfirmations(db) {
 }
 
 /**
+ * Cheap counts for adaptive poll cadence (Detected hot path vs idle).
+ * @param {import("pg").Pool | import("pg").PoolClient} db
+ * @returns {Promise<{ pendingPaymentOrders: number, awaitingConfirmations: number }>}
+ */
+export async function countWatcherWorkload(db) {
+  const { rows } = await db.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'pending_payment')::int AS pending_payment_orders,
+       COUNT(*) FILTER (
+         WHERE status = ANY($1::text[]) AND tx_hash IS NOT NULL
+       )::int AS awaiting_confirmations
+     FROM payment_orders`,
+    [WATCHER_CONFIRM_STATUSES],
+  );
+  const row = rows[0] ?? {};
+  return {
+    pendingPaymentOrders: Number(row.pending_payment_orders) || 0,
+    awaitingConfirmations: Number(row.awaiting_confirmations) || 0,
+  };
+}
+
+/**
  * Apply a match result. Idempotent on (network, tx_hash) and already-applied rows.
  * @param {import("pg").Pool | import("pg").PoolClient} db
  * @param {{

@@ -5,12 +5,19 @@ import { resolveWatchScopes } from "../src/config.mjs";
 function baseConfig(overrides = {}) {
   return {
     pollIntervalMs: 5000,
+    pendingPollIntervalMs: 2000,
+    idlePollIntervalMs: 15000,
+    addressPollBudget: 64,
+    pendingFastTicks: 1,
     defaultAsset: "USDT",
     defaultNetwork: "tron",
     databaseUrl: null,
     multiNetwork: true,
     networkAllowList: null,
     assetAllowList: null,
+    scopeTimeoutMs: 60_000,
+    confirmConcurrency: 8,
+    scopeConcurrency: 4,
     ...overrides,
   };
 }

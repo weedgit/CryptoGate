@@ -68,7 +68,8 @@ verifying ──(irrecoverable chain error)──► failed
 | Phase | Behavior |
 | --- | --- |
 | **M1** | Poll interval `WATCHER_POLL_INTERVAL_MS`; log health; Tron stub `healthCheck`; no DB |
-| **M3** | Load open orders (`pending_payment`, `verifying`, …); poll `chain-clients/tron`; call `matchTransaction`; UPDATE row; idempotent on `tx_hash`. **M3-41 wire:** when `DATABASE_URL` set, watcher pool loads candidates and applies match results (transfers still stub-empty until M3-40 live RPC). |
+| **M3** | Load open orders (`pending_payment`, `verifying`, …); poll `chain-clients` per network; call `matchTransaction`; UPDATE row; idempotent on `tx_hash`. **M3-41 wire:** when `DATABASE_URL` set, watcher pool loads candidates and applies match results (transfers still stub-empty until M3-40 live RPC). |
+| **Detected hot path** | Pending-first address budget + adaptive sleep + match-only fast ticks — see [Detected-Latency-Hot-Path.md](Detected-Latency-Hot-Path.md). Applies to **all** watched networks. |
 
 ---
 
@@ -108,3 +109,4 @@ Structured JSON lines to stdout (same as M1 loop): `service`, `event`, `tick`, `
 | Date | Change |
 | --- | --- |
 | 2026-08-23 | Initial contract (M1-33) — Bruce |
+| 2026-10-02 | Detected hot path (budgeted pending poll, all networks) |

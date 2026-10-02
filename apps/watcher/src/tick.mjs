@@ -13,6 +13,16 @@ import { loadChainClient } from "./chain-client.mjs";
 import { processConfirmationBatch } from "./confirm/advance.mjs";
 import { getWatcherPool } from "./db/pool.mjs";
 import { persistTickHeartbeats } from "./health/heartbeat-store.mjs";
+import {
+  detectionLatencyFromBlockMs,
+  selectAddressesForPoll,
+} from "./ingest/address-budget.mjs";
+import {
+  getScopeCursor,
+  scopeCursorKey,
+  setScopeCursor,
+} from "./ingest/scope-cursors.mjs";
+import { drainTransferHints } from "./ingest/transfer-hints.mjs";
 import { mapPool } from "./map-pool.mjs";
 import { processTransferBatch } from "./match/inbound.mjs";
 import {
@@ -26,6 +36,7 @@ import {
   listOrdersAwaitingConfirmations,
   listAllOrdersAwaitingConfirmations,
   listOrdersByReceiveAddresses,
+  countWatcherWorkload,
   patchMissingFromAddresses,
   patchMissingReceivedAmounts,
 } from "./orders/order-store.mjs";
@@ -33,10 +44,16 @@ import {
 /**
  * @param {import("pg").Pool} pool
  * @param {{ asset: string, network: string }} filter
- * @param {{ confirmConcurrency?: number }} [opts]
+ * @param {{
+ *   confirmConcurrency?: number,
+ *   addressPollBudget?: number,
+ *   matchOnly?: boolean,
+ * }} [opts]
  */
 async function ingestScope(pool, filter, opts = {}) {
   const confirmConcurrency = opts.confirmConcurrency ?? 8;
+  const addressPollBudget = opts.addressPollBudget ?? 64;
+  const matchOnly = Boolean(opts.matchOnly);
   const chain = await loadChainClient(filter.network);
 
   const openOrders = await listOpenOrdersForMatch(pool, filter);
@@ -48,34 +65,63 @@ async function ingestScope(pool, filter, opts = {}) {
     pool,
     filter,
   );
-  const watchedAddresses = [
-    ...new Set(
-      [
-        ...openOrders.map((o) => o.receiveAddress.trim()),
-        ...fromBackfillAddresses,
-        ...receivedBackfillAddresses,
-      ].filter(Boolean),
-    ),
-  ];
+  const cursorKey = scopeCursorKey(filter.asset, filter.network);
+  const selected = selectAddressesForPoll({
+    orders: openOrders,
+    extraAddresses: [...fromBackfillAddresses, ...receivedBackfillAddresses],
+    budget: addressPollBudget,
+    cursor: getScopeCursor(cursorKey),
+  });
+  setScopeCursor(cursorKey, selected.nextCursor);
+  const watchedAddresses = selected.addresses;
+
   const crossNet = await listOrdersByReceiveAddresses(pool, {
     addresses: watchedAddresses,
   });
   const byId = new Map();
+  // Keep full open-order set for matching (amount collisions, Mode B) even when
+  // only a budgeted address subset was polled for transfers.
   for (const o of [...openOrders, ...crossNet]) {
     byId.set(o.orderId, o);
   }
   const matchCandidates = [...byId.values()];
+  const pendingPaymentOrders = openOrders.filter(
+    (o) => o.status === "pending_payment",
+  ).length;
 
   const polled = await chain.listRecentTransfers({
     ...filter,
     watchedAddresses,
   });
 
+  const hinted = drainTransferHints({
+    asset: filter.asset,
+    network: filter.network,
+    watchedAddresses,
+  });
+  if (hinted.length > 0) {
+    const seen = new Set(
+      polled.transfers.map((t) => String(t.txHash ?? "").trim()).filter(Boolean),
+    );
+    let mergedHints = 0;
+    for (const h of hinted) {
+      const hash = String(h.txHash ?? "").trim();
+      if (!hash || seen.has(hash)) continue;
+      seen.add(hash);
+      polled.transfers.push(h);
+      mergedHints += 1;
+    }
+    polled.transferHintsMerged = mergedHints;
+  } else {
+    polled.transferHintsMerged = 0;
+  }
+
   const known = await listKnownTxHashes(pool, {
     network: filter.network,
     txHashes: polled.transfers.map((t) => t.txHash).filter(Boolean),
   });
 
+  const nowMs = Date.now();
   const matchOutcomes = await processTransferBatch({
     transfers: polled.transfers.map((t) => ({
       toAddress: t.toAddress,
@@ -92,6 +138,18 @@ async function ingestScope(pool, filter, opts = {}) {
     apply: (args) => applyMatchResult(pool, args),
   });
 
+  for (const outcome of matchOutcomes) {
+    if (outcome.status !== "verifying") continue;
+    const transfer = polled.transfers.find(
+      (t) => String(t.txHash ?? "").trim() === String(outcome.txHash ?? "").trim(),
+    );
+    const lag = detectionLatencyFromBlockMs({
+      blockTimestampMs: transfer?.blockTimestampMs,
+      nowMs,
+    });
+    if (lag != null) outcome.detectionLatencyMs = lag;
+  }
+
   const fromBackfill = await patchMissingFromAddresses(pool, {
     network: filter.network,
     transfers: polled.transfers,
@@ -101,25 +159,31 @@ async function ingestScope(pool, filter, opts = {}) {
     transfers: polled.transfers,
   });
 
-  const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
-  const freshTx = new Set(
-    matchOutcomes
-      .filter((o) => o.status === "verifying" && o.txHash)
-      .map((o) => String(o.txHash).trim()),
-  );
-  const toConfirm = awaiting.filter((o) =>
-    freshTx.has(String(o.txHash ?? "").trim()),
-  );
-  const confirmOutcomes = await processConfirmationBatch({
-    orders: toConfirm,
-    concurrency: confirmConcurrency,
-    getConfirmationState: (args) =>
-      chain.getTransactionConfirmationState({
-        ...args,
-        asset: filter.asset,
-      }),
-    apply: (args) => applyConfirmationUpdate(pool, args),
-  });
+  /** @type {unknown[]} */
+  let confirmOutcomes = [];
+  let toConfirmCount = 0;
+  if (!matchOnly) {
+    const awaiting = await listOrdersAwaitingConfirmations(pool, filter);
+    const freshTx = new Set(
+      matchOutcomes
+        .filter((o) => o.status === "verifying" && o.txHash)
+        .map((o) => String(o.txHash).trim()),
+    );
+    const toConfirm = awaiting.filter((o) =>
+      freshTx.has(String(o.txHash ?? "").trim()),
+    );
+    toConfirmCount = toConfirm.length;
+    confirmOutcomes = await processConfirmationBatch({
+      orders: toConfirm,
+      concurrency: confirmConcurrency,
+      getConfirmationState: (args) =>
+        chain.getTransactionConfirmationState({
+          ...args,
+          asset: filter.asset,
+        }),
+      apply: (args) => applyConfirmationUpdate(pool, args),
+    });
+  }
 
   /** @type {string | null} */
   let rpcGapWarning = null;
@@ -127,24 +191,49 @@ async function ingestScope(pool, filter, opts = {}) {
     rpcGapWarning = "rpc_not_configured_open_orders_will_not_complete";
   }
 
+  const detectionLatencies = matchOutcomes
+    .map((o) => o.detectionLatencyMs)
+    .filter((n) => typeof n === "number" && Number.isFinite(n));
+
   return {
     asset: filter.asset,
     network: filter.network,
-    mode: "match+confirm",
+    mode: matchOnly ? "match" : "match+confirm",
     phase: "m3-43",
     chainPollMode: polled.mode,
     ingestError: polled.error ?? null,
     rpcGapWarning,
     watchedAddresses: watchedAddresses.length,
+    addressBudget: {
+      budget: selected.budget,
+      totalAddressCount: selected.totalAddressCount,
+      pendingAddressCount: selected.pendingAddressCount,
+      deferredAddressCount: selected.deferredAddressCount,
+      polledAddressCount: watchedAddresses.length,
+    },
+    pendingPaymentOrders,
     openOrders: matchCandidates.length,
     transfersSeen: polled.transfers.length,
+    transferHintsMerged: Number(polled.transferHintsMerged) || 0,
     transfersDuplicate: matchOutcomes.filter(
       (o) => o.reason === "duplicate_tx_hash",
     ).length,
     matchOutcomes,
+    detectionLatencyMs:
+      detectionLatencies.length > 0
+        ? {
+            count: detectionLatencies.length,
+            min: Math.min(...detectionLatencies),
+            max: Math.max(...detectionLatencies),
+            avg: Math.round(
+              detectionLatencies.reduce((a, b) => a + b, 0) /
+                detectionLatencies.length,
+            ),
+          }
+        : null,
     fromAddressBackfilled: fromBackfill.updated,
     receivedAmountBackfilled: receivedBackfill.updated,
-    awaitingConfirmations: toConfirm.length,
+    awaitingConfirmations: toConfirmCount,
     confirmOutcomes,
     restartSafe: true,
     reorgAware: true,
@@ -246,8 +335,18 @@ function aggregateIngest(scopeResults) {
   const sum = (key) =>
     scopeResults.reduce((n, s) => n + (Number(s[key]) || 0), 0);
 
+  const modes = new Set(scopeResults.map((s) => s.mode));
+  const aggregateMode =
+    errors.length === scopeResults.length
+      ? "error"
+      : modes.has("match+confirm")
+        ? "match+confirm"
+        : modes.has("match")
+          ? "match"
+          : "match+confirm";
+
   return {
-    mode: errors.length === scopeResults.length ? "error" : "match+confirm",
+    mode: aggregateMode,
     phase: "m3-43-multi",
     multiNetwork: true,
     scopeCount: scopeResults.length,
@@ -257,14 +356,22 @@ function aggregateIngest(scopeResults) {
       mode: s.mode,
       chainPollMode: s.chainPollMode,
       openOrders: s.openOrders,
+      pendingPaymentOrders: s.pendingPaymentOrders,
       transfersSeen: s.transfersSeen,
       awaitingConfirmations: s.awaitingConfirmations,
+      addressBudget: s.addressBudget,
+      detectionLatencyMs: s.detectionLatencyMs,
       ingestError: s.ingestError ?? s.error ?? null,
     })),
     watchedAddresses: sum("watchedAddresses"),
     openOrders: sum("openOrders"),
+    pendingPaymentOrders: sum("pendingPaymentOrders"),
     transfersSeen: sum("transfersSeen"),
     awaitingConfirmations: sum("awaitingConfirmations"),
+    deferredAddresses: scopeResults.reduce(
+      (n, s) => n + (Number(s.addressBudget?.deferredAddressCount) || 0),
+      0,
+    ),
     ingestError:
       errors.map((e) => e.error).filter(Boolean).join("; ") || null,
     restartSafe: true,
@@ -274,9 +381,15 @@ function aggregateIngest(scopeResults) {
 }
 
 /**
- * @param {{ tick: number; startedAt: string; config: ReturnType<import('./config.mjs').loadWatcherConfig> }} ctx
+ * @param {{
+ *   tick: number,
+ *   startedAt: string,
+ *   config: ReturnType<import('./config.mjs').loadWatcherConfig>,
+ *   matchOnly?: boolean,
+ * }} ctx
  */
 export async function runTick(ctx) {
+  const matchOnly = Boolean(ctx.matchOnly);
   const [
     tron,
     tronNile,
@@ -293,6 +406,8 @@ export async function runTick(ctx) {
   let ingest = {
     mode: "noop",
     note: "Set DATABASE_URL to enable payment_orders match + confirmations",
+    pendingPaymentOrders: 0,
+    awaitingConfirmations: 0,
   };
   /** @type {Record<string, Record<string, unknown>>} */
   let ingestByNetwork = {};
@@ -309,10 +424,13 @@ export async function runTick(ctx) {
       const pool = getWatcherPool();
       const confirmConcurrency = ctx.config.confirmConcurrency;
       const scopeConcurrency = ctx.config.scopeConcurrency;
-      const priorityConfirm = await processPriorityConfirmations(pool, {
-        confirmConcurrency,
-        scopeConcurrency,
-      });
+      const addressPollBudget = ctx.config.addressPollBudget;
+      const priorityConfirm = matchOnly
+        ? { priorityConfirmations: 0, priorityConfirmOutcomes: [] }
+        : await processPriorityConfirmations(pool, {
+            confirmConcurrency,
+            scopeConcurrency,
+          });
       const openScopes = ctx.config.multiNetwork
         ? await listDistinctWatchScopes(pool)
         : [];
@@ -324,7 +442,11 @@ export async function runTick(ctx) {
         async (filter) => {
           try {
             return await withScopeTimeout(
-              ingestScope(pool, filter, { confirmConcurrency }),
+              ingestScope(pool, filter, {
+                confirmConcurrency,
+                addressPollBudget,
+                matchOnly,
+              }),
               ctx.config.scopeTimeoutMs,
               filter,
             );
@@ -335,6 +457,7 @@ export async function runTick(ctx) {
               mode: "error",
               phase: "m3-40",
               error: err instanceof Error ? err.message : String(err),
+              pendingPaymentOrders: 0,
             };
           }
         },
@@ -352,6 +475,9 @@ export async function runTick(ctx) {
             ...result,
             openOrders:
               (Number(prev.openOrders) || 0) + (Number(result.openOrders) || 0),
+            pendingPaymentOrders:
+              (Number(prev.pendingPaymentOrders) || 0) +
+              (Number(result.pendingPaymentOrders) || 0),
             transfersSeen:
               (Number(prev.transfersSeen) || 0) +
               (Number(result.transfersSeen) || 0),
@@ -374,11 +500,16 @@ export async function runTick(ctx) {
       ingest = aggregateIngest(scopeResults);
       ingest.priorityConfirmations = priorityConfirm.priorityConfirmations;
       ingest.priorityConfirmOutcomes = priorityConfirm.priorityConfirmOutcomes;
+      const workload = await countWatcherWorkload(pool);
+      ingest.pendingPaymentOrders = workload.pendingPaymentOrders;
+      ingest.awaitingConfirmations = workload.awaitingConfirmations;
     } catch (err) {
       ingest = {
         mode: "error",
         phase: "m3-40",
         error: err instanceof Error ? err.message : String(err),
+        pendingPaymentOrders: 0,
+        awaitingConfirmations: 0,
       };
     }
   }
@@ -387,9 +518,13 @@ export async function runTick(ctx) {
     service: "paymentgate-watcher",
     phase: ctx.config.databaseUrl ? "m3-anomaly-paths" : "m1-loop",
     tick: ctx.tick,
+    tickKind: matchOnly ? "pending_fast" : "full",
     startedAt: ctx.startedAt,
     at: new Date().toISOString(),
     pollIntervalMs: ctx.config.pollIntervalMs,
+    pendingPollIntervalMs: ctx.config.pendingPollIntervalMs,
+    idlePollIntervalMs: ctx.config.idlePollIntervalMs,
+    addressPollBudget: ctx.config.addressPollBudget,
     multiNetwork: ctx.config.multiNetwork,
     target: {
       asset: ctx.config.defaultAsset,
@@ -404,6 +539,10 @@ export async function runTick(ctx) {
     },
     ingest,
     ingestByNetwork,
+    workload: {
+      pendingPaymentOrders: Number(ingest.pendingPaymentOrders) || 0,
+      awaitingConfirmations: Number(ingest.awaitingConfirmations) || 0,
+    },
   };
 
   if (ctx.config.databaseUrl) {

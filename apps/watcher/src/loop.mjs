@@ -1,12 +1,16 @@
 import { extraWatcherBackoffMs as tronExtraBackoff } from "@paymentgate/chain-clients/tron";
 import { extraWatcherBackoffMs as ethExtraBackoff } from "@paymentgate/chain-clients/ethereum";
 import { extraWatcherBackoffMs as solanaExtraBackoff } from "@paymentgate/chain-clients/solana";
-import { loadWatcherConfig } from "./config.mjs";
+import { loadWatcherConfig, resolveNextPollIntervalMs } from "./config.mjs";
 import { runTick } from "./tick.mjs";
-
 
 /**
  * Run the watcher loop until `signal` aborts or `--once` completes one tick.
+ *
+ * Adaptive cadence (all networks):
+ * - pending_payment open → WATCHER_PENDING_POLL_INTERVAL_MS (+ optional match-only fast ticks)
+ * - only confirming → WATCHER_POLL_INTERVAL_MS
+ * - idle → WATCHER_IDLE_POLL_INTERVAL_MS
  *
  * @param {{ once?: boolean; signal?: AbortSignal }} options
  */
@@ -15,6 +19,8 @@ export async function runWatcherLoop(options = {}) {
   const startedAt = new Date().toISOString();
   let tick = 0;
   let stopping = false;
+  /** Remaining match-only ticks after a full tick while pending work exists. */
+  let pendingFastRemaining = 0;
 
   const stop = () => {
     stopping = true;
@@ -32,16 +38,47 @@ export async function runWatcherLoop(options = {}) {
       phase: "m1-loop",
       startedAt,
       pollIntervalMs: config.pollIntervalMs,
+      pendingPollIntervalMs: config.pendingPollIntervalMs,
+      idlePollIntervalMs: config.idlePollIntervalMs,
+      addressPollBudget: config.addressPollBudget,
+      pendingFastTicks: config.pendingFastTicks,
       once: Boolean(options.once),
     }),
   );
 
   while (!stopping) {
     tick += 1;
-    const payload = await runTick({ tick, startedAt, config });
+    const matchOnly = pendingFastRemaining > 0;
+    if (matchOnly) pendingFastRemaining -= 1;
+
+    const payload = await runTick({
+      tick,
+      startedAt,
+      config,
+      matchOnly,
+    });
     console.log(JSON.stringify(payload));
 
     if (options.once) break;
+
+    const workload = payload.workload ?? {
+      pendingPaymentOrders: Number(payload.ingest?.pendingPaymentOrders) || 0,
+      awaitingConfirmations: Number(payload.ingest?.awaitingConfirmations) || 0,
+    };
+
+    if (
+      !matchOnly &&
+      workload.pendingPaymentOrders > 0 &&
+      config.pendingFastTicks > 0
+    ) {
+      pendingFastRemaining = config.pendingFastTicks;
+    }
+    if (workload.pendingPaymentOrders === 0) {
+      pendingFastRemaining = 0;
+    }
+
+    const sleepMs = resolveNextPollIntervalMs(config, workload);
+    payload.nextPollIntervalMs = sleepMs;
 
     const extraMs = Math.max(
       tronExtraBackoff(payload, config.pollIntervalMs),
@@ -60,7 +97,19 @@ export async function runWatcherLoop(options = {}) {
         }),
       );
     }
-    await sleep(config.pollIntervalMs + extraMs, options.signal);
+    console.log(
+      JSON.stringify({
+        service: "paymentgate-watcher",
+        event: "schedule",
+        sleepMs,
+        extraMs,
+        tickKind: payload.tickKind,
+        workload,
+        pendingFastRemaining,
+        at: new Date().toISOString(),
+      }),
+    );
+    await sleep(sleepMs + extraMs, options.signal);
     if (options.signal?.aborted) stopping = true;
   }
 
@@ -82,15 +131,11 @@ function sleep(ms, signal) {
       return;
     }
     const timer = setTimeout(resolve, ms);
-    if (signal) {
-      signal.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timer);
-          resolve();
-        },
-        { once: true },
-      );
-    }
+    if (!signal) return;
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }

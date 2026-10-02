@@ -710,7 +710,7 @@ class MainActivity : ComponentActivity() {
                         val id = watchingOrderId
                         if (screen != PosScreen.Pay || id == null) return@LaunchedEffect
                         while (true) {
-                            delay(4_000)
+                            delay(2_000)
                             val latest = runCatching { app.api.getPaymentDetails(id) }.getOrNull()
                                 ?: continue
                             payment = latest
