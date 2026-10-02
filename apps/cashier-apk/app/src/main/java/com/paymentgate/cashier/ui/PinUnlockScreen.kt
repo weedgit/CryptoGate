@@ -1,14 +1,9 @@
 package com.paymentgate.cashier.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.draw.shadow
 import com.paymentgate.cashier.ui.theme.LocalPosDark
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -201,16 +196,8 @@ fun PinUnlockScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (busy) {
-                CircularProgressIndicator(
-                    color = colors.primary,
-                    modifier = Modifier.size(26.dp),
-                    strokeWidth = 2.5.dp,
-                )
-            } else {
-                repeat(PIN_LENGTH) { i ->
-                    PinDot(filled = i < digits.length, error = error != null && !locked)
-                }
+            repeat(PIN_LENGTH) { i ->
+                PinDot(filled = busy || i < digits.length, error = error != null && !locked)
             }
         }
 
@@ -219,7 +206,13 @@ fun PinUnlockScreen(
             modifier = Modifier.fillMaxWidth().height(44.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (!notice.isNullOrBlank()) {
+            if (busy) {
+                CircularProgressIndicator(
+                    color = colors.primary,
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.5.dp,
+                )
+            } else if (!notice.isNullOrBlank()) {
                 Text(
                     text = notice,
                     color = colors.error,
@@ -272,15 +265,11 @@ fun PinUnlockScreen(
 @Composable
 private fun PinDot(filled: Boolean, error: Boolean) {
     val colors = MaterialTheme.colorScheme
-    val fill by animateColorAsState(
-        targetValue = when {
-            error -> colors.error
-            filled -> colors.primary
-            else -> Color.Transparent
-        },
-        animationSpec = tween(140),
-        label = "pin-dot",
-    )
+    val fill = when {
+        error -> colors.error
+        filled -> colors.primary
+        else -> Color.Transparent
+    }
     Box(
         modifier = Modifier
             .size(22.dp)
@@ -314,24 +303,16 @@ private fun PinKey(
     val shape = RoundedCornerShape(18.dp)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val elevation by animateDpAsState(
-        targetValue = when {
-            !enabled -> 0.dp
-            pressed -> 1.dp
-            else -> 6.dp
-        },
-        animationSpec = tween(120),
-        label = "pin-key-shadow",
-    )
-    val shadowTint = if (dark) Color.Black.copy(alpha = 0.55f) else Color(0xFF1E3A8A).copy(alpha = 0.22f)
+    // No shadows or ripple: on the G7's GPU they made every frame of a fast PIN entry slow.
+    // The press shows as an instant tint instead.
+    val fill = if (pressed && enabled) colors.primary.copy(alpha = if (dark) 0.28f else 0.14f) else bg
     Box(
         modifier = modifier
             .height(70.dp)
-            .shadow(elevation, shape, ambientColor = shadowTint, spotColor = shadowTint)
             .clip(shape)
-            .background(bg)
-            .border(1.dp, posKeyBorder(), shape)
-            .clickable(interactionSource = interaction, indication = LocalIndication.current, enabled = enabled, onClick = onClick),
+            .background(fill)
+            .border(1.dp, if (pressed && enabled) colors.primary.copy(alpha = 0.5f) else posKeyBorder(), shape)
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (key == KEY_BACK) {

@@ -48,7 +48,8 @@ import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PaymentOrder
 import java.time.ZoneId
 
-private enum class OrdersFilter { All, Paid, Open, Failed }
+/** Same groups as the web invoice filters; "Paid" is the web's "Completed". */
+private enum class OrdersFilter { All, Attention, Open, Paid, Closed }
 
 /** V3 Invoices — filter chips + search (All activity). */
 @Composable
@@ -68,12 +69,10 @@ fun OrdersScreen(
                 .filter { order ->
                     when (filter) {
                         OrdersFilter.All -> true
-                        OrdersFilter.Paid -> OrderStatusUi.showsCompleted(order.status)
+                        OrdersFilter.Attention -> OrderStatusUi.isAnomaly(order.status)
                         OrdersFilter.Open -> OrderStatusUi.isOpenPaymentOrder(order.status)
-                        OrdersFilter.Failed ->
-                            order.status == OrderStatusUi.FAILED ||
-                                order.status == OrderStatusUi.EXPIRED ||
-                                OrderStatusUi.isAnomaly(order.status)
+                        OrdersFilter.Paid -> OrderStatusUi.showsCompleted(order.status)
+                        OrdersFilter.Closed -> OrderStatusUi.isClosed(order.status)
                     }
                 }
                 .filter { order ->

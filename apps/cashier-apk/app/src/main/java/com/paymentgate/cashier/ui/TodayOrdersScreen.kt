@@ -70,7 +70,8 @@ private data class TodaySummary(
     val orders: List<PaymentOrder>,
     val paid: Int,
     val open: Int,
-    val failed: Int,
+    val closed: Int,
+    val attention: Int,
     val collectedUsd: BigDecimal,
     val byAsset: List<Pair<String, BigDecimal>>,
     /** Invoices per hour for the last [CHART_HOURS] hours: (hour, total, paid). */
@@ -101,7 +102,8 @@ private fun summarize(all: List<PaymentOrder>, zone: ZoneId): TodaySummary {
         orders = orders,
         paid = paidOrders.size,
         open = orders.count { OrderStatusUi.isOpenPaymentOrder(it.status) },
-        failed = orders.count { isFailedStatus(it.status) },
+        closed = orders.count { OrderStatusUi.isClosed(it.status) },
+        attention = orders.count { OrderStatusUi.isAnomaly(it.status) },
         collectedUsd = paidOrders.fold(BigDecimal.ZERO) { acc, o -> acc + (usdValue(o) ?: BigDecimal.ZERO) },
         byAsset = byAsset,
         hourly = hourly,
@@ -218,23 +220,23 @@ fun TodayOrdersScreen(
 }
 
 private val OpenBlue = Color(0xFF2563EB)
-private val FailedRed = Color(0xFFEF4444)
+private val ClosedGrey = Color(0xFF94A3B8)
+private val AttentionAmber = Color(0xFFD97706)
 
+/** Same groups as the web invoice filters: Attention, Open, Paid (Completed), Closed. */
 private enum class TodayFilter(val label: String, val tone: Color) {
     Paid("Paid", PaidGreen),
     Open("Open", OpenBlue),
-    Failed("Failed", FailedRed);
+    Closed("Closed", ClosedGrey),
+    Attention("Attention", AttentionAmber);
 
     fun matches(status: String): Boolean = when (this) {
         Paid -> OrderStatusUi.showsCompleted(status)
         Open -> OrderStatusUi.isOpenPaymentOrder(status)
-        Failed -> isFailedStatus(status)
+        Closed -> OrderStatusUi.isClosed(status)
+        Attention -> OrderStatusUi.isAnomaly(status)
     }
 }
-
-private fun isFailedStatus(status: String): Boolean =
-    status == OrderStatusUi.FAILED || status == OrderStatusUi.EXPIRED ||
-        status == OrderStatusUi.CANCELLED || OrderStatusUi.isAnomaly(status)
 private val OtherBar = Color(0xFF9DB8F5)
 
 @Composable
@@ -323,12 +325,17 @@ private fun StatusCountsCard(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.SpaceEvenly,
     ) {
-        TodayFilter.entries.forEachIndexed { i, f ->
+        // Attention only shows up when something needs review.
+        val rows = TodayFilter.entries.filter {
+            it != TodayFilter.Attention || summary.attention > 0 || selected == it
+        }
+        rows.forEachIndexed { i, f ->
             if (i > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 10.dp), color = colors.outlineVariant)
             val count = when (f) {
                 TodayFilter.Paid -> summary.paid
                 TodayFilter.Open -> summary.open
-                TodayFilter.Failed -> summary.failed
+                TodayFilter.Closed -> summary.closed
+                TodayFilter.Attention -> summary.attention
             }
             StatusCountRow(f.label, count, f.tone, selected = selected == f) { onSelect(f) }
         }

@@ -37,35 +37,15 @@ fun <S> AnimatedContentTransitionScope<S>.posScreenTransform(): ContentTransform
             ) using SizeTransform(clip = false)
 }
 
-@Composable
-fun rememberAmountPulse(amount: String): Float {
-    val scale = remember { Animatable(1f) }
-    LaunchedEffect(amount) {
-        if (amount.isBlank()) {
-            scale.snapTo(1f)
-            return@LaunchedEffect
-        }
-        scale.snapTo(1.07f)
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = 0.62f,
-                stiffness = Spring.StiffnessMedium,
-            ),
-        )
-    }
-    return scale.value
-}
-
+/**
+ * Press feedback without an animation: the G7 draws a frame in ~40 ms, so a spring that settles in
+ * ~1 s kept the GPU busy and delayed the next key. Pressed/released is one frame each.
+ */
 @Composable
 fun Modifier.posPressScale(interactionSource: MutableInteractionSource): Modifier {
     val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "pos-press",
-    )
     return graphicsLayer {
+        val scale = if (pressed) 0.96f else 1f
         scaleX = scale
         scaleY = scale
     }

@@ -259,14 +259,9 @@ private fun NetworkStatus(online: Boolean) {
         dark -> Color(0xFF4ADE80)
         else -> Color(0xFF15803D)
     }
+    // No idle pulse: this icon is on every unlocked screen, and an endless animation redrew the whole
+    // window ~50 times a second on the G7, which delayed every tap.
     val tone by animateColorAsState(target, tween(400), label = "network-tone")
-    val pulse = rememberInfiniteTransition(label = "network-pulse")
-    val iconAlpha by pulse.animateFloat(
-        initialValue = 1f,
-        targetValue = if (online) 0.45f else 1f,
-        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
-        label = "network-alpha",
-    )
     val iconScale by animateFloatAsState(if (online) 1f else 0.9f, tween(300), label = "network-scale")
     Column(
         modifier = Modifier.size(52.dp),
@@ -280,7 +275,6 @@ private fun NetworkStatus(online: Boolean) {
             modifier = Modifier
                 .size(24.dp)
                 .graphicsLayer {
-                    alpha = iconAlpha
                     scaleX = iconScale
                     scaleY = iconScale
                 },

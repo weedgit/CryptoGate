@@ -39,6 +39,10 @@ object OrderStatusUi {
     /** Completed is only the completed enum — never anomaly. */
     fun showsCompleted(status: String): Boolean = status == COMPLETED
 
+    /** Ended without payment — the web "Closed" filter: expired, failed or cancelled. */
+    fun isClosed(status: String): Boolean =
+        status == EXPIRED || status == FAILED || status == CANCELLED
+
     /** Open counter order — keep-awake and exit guard (M5-04). */
     fun isOpenPaymentOrder(status: String): Boolean =
         status == PENDING || status == VERIFYING || status == CONFIRMED

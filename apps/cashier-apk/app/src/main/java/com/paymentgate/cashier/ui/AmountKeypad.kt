@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,18 +63,20 @@ fun AmountKeypad(
                     val interaction = remember(key) { MutableInteractionSource() }
                     val shape = RoundedCornerShape(16.dp)
                     val isDel = key == "del"
+                    val pressed by interaction.collectIsPressedAsState()
+                    val base = if (isDel) colors.surfaceContainerHighest else colors.surfaceVariant
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .posPressScale(interaction)
                             .clip(shape)
-                            .background(if (isDel) colors.surfaceContainerHighest else colors.surfaceVariant)
+                            .background(if (pressed && enabled) colors.primary.copy(alpha = 0.16f) else base)
                             .border(1.dp, posKeyBorder(), shape)
                             .clickable(
                                 enabled = enabled,
                                 interactionSource = interaction,
-                                indication = androidx.compose.material3.ripple(),
+                                indication = null,
                             ) { onKey(key) },
                         contentAlignment = Alignment.Center,
                     ) {

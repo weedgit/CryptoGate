@@ -13,7 +13,8 @@ import kotlin.math.sin
 
 /**
  * Short synthesized tones on the media stream (hardware volume keys apply): a rising chime when
- * an order is paid, a falling two-tone alert on anomaly / expired / failed, a soft tick on create.
+ * an order is paid, an urgent two-tone played twice when a payment needs attention, and one soft
+ * low tone when an order expires, fails or is cancelled.
  */
 class PosSoundPlayer {
     private val thread = HandlerThread("pos-sounds").apply { start() }
@@ -56,8 +57,16 @@ class PosSoundPlayer {
     private fun synth(sound: PosSound): ShortArray =
         when (sound) {
             PosSound.Paid -> render(1.0, listOf(Note(1046.5, 0.0, 0.55), Note(1318.5, 0.11, 0.55), Note(1568.0, 0.22, 0.75)))
-            PosSound.Problem -> render(0.65, listOf(Note(880.0, 0.0, 0.28, bright = true), Note(659.3, 0.24, 0.40, bright = true)))
-            PosSound.Created -> render(0.12, listOf(Note(1975.5, 0.0, 0.09)), peak = 0.35)
+            PosSound.Attention -> render(
+                1.15,
+                listOf(
+                    Note(880.0, 0.0, 0.22, bright = true),
+                    Note(659.3, 0.2, 0.26, bright = true),
+                    Note(880.0, 0.5, 0.22, bright = true),
+                    Note(659.3, 0.7, 0.4, bright = true),
+                ),
+            )
+            PosSound.Ended -> render(0.7, listOf(Note(523.3, 0.0, 0.65)), peak = 0.5)
         }
 
     private class Note(val freq: Double, val start: Double, val length: Double, val bright: Boolean = false)

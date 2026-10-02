@@ -162,7 +162,6 @@ fun CreateOrderScreen(
             blockingOrder == null &&
             chargeBlockedNotice == null
     val shownError = chargeBlockedNotice ?: error
-    val amountPulse = rememberAmountPulse(amount)
     var showRailSheet by remember { mutableStateOf(false) }
     var showNoteSheet by remember { mutableStateOf(false) }
     var showOptions by remember { mutableStateOf(false) }
@@ -363,11 +362,7 @@ fun CreateOrderScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 18.dp)
-                            .graphicsLayer {
-                                scaleX = amountPulse
-                                scaleY = amountPulse
-                            },
+                            .padding(top = 18.dp),
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Center,
                     ) {

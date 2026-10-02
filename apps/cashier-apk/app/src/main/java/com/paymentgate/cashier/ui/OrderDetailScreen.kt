@@ -609,6 +609,12 @@ private enum class OrderDetailVariant(
         "Payment failed",
         "No on-chain settlement recorded.",
     ),
+    Cancelled(
+        "CANCELLED",
+        "This order was cancelled before payment. Create a new order from Charge if the guest still needs to pay.",
+        "Payment cancelled",
+        "No on-chain settlement recorded.",
+    ),
     Expired(
         "EXPIRED",
         "This order expired. Create a new order to collect payment again.",
@@ -628,8 +634,8 @@ private fun orderDetailVariant(status: String): OrderDetailVariant =
         OrderStatusUi.showsCompleted(status) -> OrderDetailVariant.Paid
         OrderStatusUi.isAnomaly(status) -> OrderDetailVariant.Anomaly
         OrderStatusUi.isOpenPaymentOrder(status) -> OrderDetailVariant.Open
-        status == OrderStatusUi.FAILED || status == OrderStatusUi.CANCELLED ->
-            OrderDetailVariant.Failed
+        status == OrderStatusUi.FAILED -> OrderDetailVariant.Failed
+        status == OrderStatusUi.CANCELLED -> OrderDetailVariant.Cancelled
         status == OrderStatusUi.EXPIRED -> OrderDetailVariant.Expired
         else -> OrderDetailVariant.Open
     }

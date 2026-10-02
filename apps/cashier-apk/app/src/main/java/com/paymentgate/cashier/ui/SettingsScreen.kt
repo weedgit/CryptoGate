@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.paymentgate.cashier.api.PosSound
 import com.paymentgate.cashier.hardware.PrintOutcome
 import com.paymentgate.cashier.hardware.PrinterHwStatus
 import com.paymentgate.cashier.hardware.ReceiptJob
@@ -97,6 +98,7 @@ fun SettingsScreen(
     onScreenSaverMinutesChange: ((Int) -> Unit)? = null,
     soundLevel: Int = 3,
     onSoundLevelChange: ((Int) -> Unit)? = null,
+    onPreviewSound: ((PosSound) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -282,7 +284,7 @@ fun SettingsScreen(
                 SectionHeader(
                     Icons.AutoMirrored.Outlined.VolumeUp,
                     "Sounds",
-                    subtitle = "Paid, problem and new orders",
+                    subtitle = "Paid, needs attention, and ended (expired, failed, cancelled)",
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -297,6 +299,31 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f),
                             ) { onSoundLevelChange?.invoke(level) }
                         }
+                }
+                if (onPreviewSound != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Try",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                        listOf(PosSound.Paid to "Paid", PosSound.Attention to "Attention", PosSound.Ended to "Ended")
+                            .forEach { (sound, label) ->
+                                AutoLockOption(
+                                    label = label,
+                                    selected = false,
+                                    enabled = soundLevel > 0,
+                                    modifier = Modifier.weight(1f),
+                                ) { onPreviewSound(sound) }
+                            }
+                    }
                 }
             }
 

@@ -154,13 +154,6 @@ fun OrderPayScreen(
         onPrintReceipt != null && (paid || OrderStatusUi.isAnomaly(details.status))
     val pending = details.status == OrderStatusUi.PENDING
     val urgent = pending && remainingSec in 1..60
-    val infinite = rememberInfiniteTransition(label = "pay-pulse")
-    val countdownPulse by infinite.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.45f,
-        animationSpec = infiniteRepeatable(animation = tween(700), repeatMode = RepeatMode.Reverse),
-        label = "countdown-pulse",
-    )
     val pair = remember(details.asset, details.network) { AssetNetworkCatalog.find(details.asset, details.network, null) }
     val networkLabel = pair?.shortNetworkLabel ?: details.network.uppercase()
     val testnet = pair?.chainEnv == "testnet" || details.network.contains("nile") || details.network.contains("sepolia") ||
@@ -277,7 +270,7 @@ fun OrderPayScreen(
                                     color = colors.error,
                                     modifier = Modifier
                                         .padding(bottom = 10.dp)
-                                        .graphicsLayer { alpha = if (urgent) countdownPulse else 1f },
+                                        .graphicsLayer { alpha = if (urgent && remainingSec % 2 == 1) 0.45f else 1f },
                                 )
                             }
                             if (pending && details.receiveAddress.isNotBlank()) {
@@ -521,13 +514,6 @@ private fun PayStepper(model: ConfirmationProgressModel) {
         animationSpec = tween(PosMotion.Medium * 2),
         label = "stepper-fill",
     )
-    val pulse = rememberInfiniteTransition(label = "stepper-pulse")
-    val halo by pulse.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1400)),
-        label = "stepper-halo",
-    )
     val done = if (model.phase == ConfirmationPhase.Paid) PayGreen else colors.primary
     val idle = colors.outline.copy(alpha = 0.5f)
     Column {
@@ -546,7 +532,7 @@ private fun PayStepper(model: ConfirmationProgressModel) {
                 val cx = start + (end - start) * i / 3f
                 val reached = current >= i
                 if (i == current && model.phase != ConfirmationPhase.Paid) {
-                    drawCircle(done.copy(alpha = 0.35f * (1f - halo)), radius = 6.dp.toPx() + 8.dp.toPx() * halo, center = Offset(cx, y))
+                    drawCircle(done.copy(alpha = 0.22f), radius = 11.dp.toPx(), center = Offset(cx, y))
                 }
                 drawCircle(if (reached) done else idle, radius = if (i == current) 6.dp.toPx() else 4.5.dp.toPx(), center = Offset(cx, y))
             }

@@ -35,6 +35,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import com.paymentgate.cashier.api.ApiError
 import com.paymentgate.cashier.api.AssetNetworkCatalog
@@ -45,7 +47,9 @@ import com.paymentgate.cashier.api.JsonParsers
 import com.paymentgate.cashier.api.NetworkReachability
 import com.paymentgate.cashier.api.Operator
 import com.paymentgate.cashier.api.OrderDefaults
-import com.paymentgate.cashier.api.OrderSoundTracker
+import com.paymentgate.cashier.api.OrderAlert
+import com.paymentgate.cashier.api.OrderAlertKind
+import com.paymentgate.cashier.api.OrderAlertTracker
 import com.paymentgate.cashier.api.OrderStatusUi
 import com.paymentgate.cashier.api.PosSound
 import com.paymentgate.cashier.api.OrgInfo
@@ -73,8 +77,11 @@ import com.paymentgate.cashier.ui.PageTopBar
 import com.paymentgate.cashier.ui.todayDateLabel
 import com.paymentgate.cashier.ui.LockPosButton
 import com.paymentgate.cashier.ui.AlertsButton
+import com.paymentgate.cashier.ui.OrderAlertToast
+import com.paymentgate.cashier.ui.OrderToast
 import com.paymentgate.cashier.ui.OrderDetailScreen
 import com.paymentgate.cashier.ui.OrderPayScreen
+import com.paymentgate.cashier.ui.OrderSkeleton
 import com.paymentgate.cashier.ui.OrdersScreen
 import com.paymentgate.cashier.ui.PinUnlockScreen
 import com.paymentgate.cashier.ui.PosMotion
@@ -196,11 +203,8 @@ class MainActivity : ComponentActivity() {
                     var screenSaverMinutes by remember { mutableIntStateOf(app.posPrefs.screenSaverMinutes) }
                     var soundLevel by remember { mutableIntStateOf(app.posPrefs.soundLevel) }
                     val soundPlayer = remember { PosSoundPlayer() }
-                    val soundTracker = remember { OrderSoundTracker() }
-
-                    fun playSound(sound: PosSound?) {
-                        if (sound != null) soundPlayer.play(sound, soundLevel)
-                    }
+                    val alertTracker = remember { OrderAlertTracker() }
+                    var orderToast by remember { mutableStateOf<OrderToast?>(null) }
                     var screenSaverOn by remember { mutableStateOf(false) }
 
                     fun touchActivity() {
@@ -230,6 +234,7 @@ class MainActivity : ComponentActivity() {
                     var todayLoading by remember { mutableStateOf(false) }
                     var todayError by remember { mutableStateOf<String?>(null) }
                     var ordersJob by remember { mutableStateOf<Job?>(null) }
+                    var paymentLoadingId by remember { mutableStateOf<String?>(null) }
                     val foreground by inForeground
                     var cancelling by remember { mutableStateOf(false) }
                     var online by remember { mutableStateOf(NetworkReachability.isOnline(this@MainActivity)) }
@@ -250,7 +255,9 @@ class MainActivity : ComponentActivity() {
                         chargeBlocked = false
                         payment = null
                         watchingOrderId = null
-                        soundTracker.reset()
+                        paymentLoadingId = null
+                        alertTracker.reset()
+                        orderToast = null
                         todayOrders = emptyList()
                         invoiceOrders = emptyList()
                         todayError = null
@@ -314,6 +321,33 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    /**
+                     * Plays the most important sound and explains it in a toast. The order already on
+                     * Pay / detail only sounds; that screen shows the change. A sticky Attention toast
+                     * is never replaced by a less important one.
+                     */
+                    fun announce(alerts: List<OrderAlert>, orders: List<PaymentOrder>) {
+                        if (alerts.isEmpty()) return
+                        alerts.firstNotNullOfOrNull { it.kind.sound }?.let { soundPlayer.play(it, soundLevel) }
+                        val onScreen = watchingOrderId.takeIf { screen == PosScreen.Pay || screen == PosScreen.OrderDetail }
+                        val shown = alerts.filter { it.orderId != onScreen }
+                        val top = shown.firstOrNull() ?: return
+                        val order = orders.firstOrNull { it.id == top.orderId } ?: return
+                        val current = orderToast
+                        val sticky = current?.kind == OrderAlertKind.Attention
+                        if (sticky && top.kind != OrderAlertKind.Attention) {
+                            orderToast = current!!.copy(more = current.more + shown.size)
+                            return
+                        }
+                        val carried = if (sticky && current!!.order.id != order.id) current.more + 1 else 0
+                        orderToast = OrderToast(
+                            key = System.nanoTime(),
+                            kind = top.kind,
+                            order = order,
+                            more = shown.size - 1 + carried,
+                        )
+                    }
+
                     /** [quiet]: background refresh — no spinner, keeps the last lists on a network error. */
                     fun loadOrders(quiet: Boolean = false) {
                         if (quiet && ordersJob?.isActive == true) return
@@ -340,7 +374,8 @@ class MainActivity : ComponentActivity() {
                                     todayOrders = mine.await()
                                     invoiceOrders = recent.await()
                                 }
-                                playSound(soundTracker.onList((invoiceOrders + todayOrders).distinctBy { it.id }))
+                                val known = (invoiceOrders + todayOrders).distinctBy { it.id }
+                                announce(alertTracker.onList(known), known)
                                 todayError = null
                             } catch (e: CancellationException) {
                                 throw e
@@ -364,30 +399,86 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    fun openOrder(orderId: String, preferDetail: Boolean = false) {
-                        openedOrder = (todayOrders + invoiceOrders).firstOrNull { it.id == orderId }
+                    fun screenForStatus(status: String, preferDetail: Boolean): PosScreen =
+                        if (
+                            preferDetail ||
+                            OrderStatusUi.showsCompleted(status) ||
+                            OrderStatusUi.isAnomaly(status) ||
+                            status == OrderStatusUi.FAILED ||
+                            status == OrderStatusUi.EXPIRED
+                        ) {
+                            PosScreen.OrderDetail
+                        } else {
+                            PosScreen.Pay
+                        }
+
+                    /** Shows [target] at once with a skeleton; the payment details fill it in when loaded. */
+                    fun showOrderLoading(orderId: String, target: PosScreen) {
+                        payment = null
+                        watchingOrderId = orderId
+                        paymentLoadingId = orderId
+                        screen = target
+                    }
+
+                    /**
+                     * Details of a just-created order for the Pay skeleton. The order already exists, so a
+                     * failed fetch is retried; if it keeps failing, the order is left for the Today list.
+                     */
+                    fun loadPaymentFor(orderId: String) {
                         scope.launch {
-                            todayLoading = true
+                            try {
+                                repeat(3) { attempt ->
+                                    val details =
+                                        try {
+                                            app.api.getPaymentDetails(orderId)
+                                        } catch (e: CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) {
+                                            if (handleAuthFailure(e)) return@launch
+                                            if (attempt == 2) {
+                                                if (watchingOrderId == orderId) {
+                                                    error = CashierPosSurface.userMessage(e)
+                                                    watchingOrderId = null
+                                                    screen = PosScreen.Create
+                                                }
+                                                return@launch
+                                            }
+                                            delay(1_000)
+                                            null
+                                        }
+                                    if (details != null) {
+                                        if (watchingOrderId == orderId) payment = details
+                                        return@launch
+                                    }
+                                }
+                            } finally {
+                                if (paymentLoadingId == orderId) paymentLoadingId = null
+                            }
+                        }
+                    }
+
+                    /** Opens an order instantly from what the list knows; details load behind a skeleton. */
+                    fun openOrder(orderId: String, preferDetail: Boolean = false) {
+                        val known = (todayOrders + invoiceOrders).firstOrNull { it.id == orderId }
+                        openedOrder = known
+                        val from = screen
+                        showOrderLoading(orderId, screenForStatus(known?.status ?: "", preferDetail || known == null))
+                        scope.launch {
                             try {
                                 val details = app.api.getPaymentDetails(orderId)
+                                if (watchingOrderId != orderId) return@launch
                                 payment = details
-                                watchingOrderId = orderId
-                                screen =
-                                    if (
-                                        preferDetail ||
-                                        OrderStatusUi.showsCompleted(details.status) ||
-                                        OrderStatusUi.isAnomaly(details.status) ||
-                                        details.status == OrderStatusUi.FAILED ||
-                                        details.status == OrderStatusUi.EXPIRED
-                                    ) {
-                                        PosScreen.OrderDetail
-                                    } else {
-                                        PosScreen.Pay
-                                    }
+                                screen = screenForStatus(details.status, preferDetail)
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
-                                todayError = CashierPosSurface.userMessage(e)
+                                if (watchingOrderId == orderId && !handleAuthFailure(e)) {
+                                    todayError = CashierPosSurface.userMessage(e)
+                                    watchingOrderId = null
+                                    screen = from
+                                }
                             } finally {
-                                todayLoading = false
+                                if (paymentLoadingId == orderId) paymentLoadingId = null
                             }
                         }
                     }
@@ -399,13 +490,14 @@ class MainActivity : ComponentActivity() {
                                 resetCreateForm()
                                 screen = PosScreen.Create
                             }
+                            // Lists already shown are refreshed in the background, without a spinner.
                             HardwareDockTab.Today -> {
                                 screen = PosScreen.Today
-                                loadOrders()
+                                loadOrders(quiet = todayOrders.isNotEmpty() || invoiceOrders.isNotEmpty())
                             }
                             HardwareDockTab.Orders -> {
                                 screen = PosScreen.Orders
-                                loadOrders()
+                                loadOrders(quiet = todayOrders.isNotEmpty() || invoiceOrders.isNotEmpty())
                             }
                             HardwareDockTab.More -> screen = PosScreen.More
                         }
@@ -481,7 +573,9 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // V3 idle lock — Off / 5 / 10 / 15 / 30 min; never while a payment is open on Pay.
-                    LaunchedEffect(operator, idleLockMinutes, lastActivityAt) {
+                    // The activity time is read inside the loop, not used as a key: as a key every tap
+                    // recomposed the whole app.
+                    LaunchedEffect(operator, idleLockMinutes) {
                         if (operator == null || idleLockMinutes <= 0) return@LaunchedEffect
                         while (true) {
                             delay(15_000)
@@ -489,7 +583,8 @@ class MainActivity : ComponentActivity() {
                                 screen == PosScreen.Pay &&
                                     payment?.let { OrderStatusUi.isOpenPaymentOrder(it.status) } == true
                             if (paying) continue
-                            val idleMs = System.currentTimeMillis() - lastActivityAt
+                            val lastActive = maxOf(lastActivityAt, CustomerScreen.lastInteractionAt)
+                            val idleMs = System.currentTimeMillis() - lastActive
                             if (idleMs >= idleLockMinutes * 60_000L) {
                                 lockPos()
                                 break
@@ -603,7 +698,12 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(watchingOrderId, payment?.status) {
                         val id = watchingOrderId ?: return@LaunchedEffect
                         val details = payment ?: return@LaunchedEffect
-                        playSound(soundTracker.onOrder(id, details.status, details.fulfillmentPolicy))
+                        alertTracker.onOrder(id, details.status, details.fulfillmentPolicy)
+                            ?.kind?.sound?.let { soundPlayer.play(it, soundLevel) }
+                    }
+
+                    LaunchedEffect(watchingOrderId) {
+                        if (watchingOrderId != null && orderToast?.order?.id == watchingOrderId) orderToast = null
                     }
 
                     LaunchedEffect(screen, watchingOrderId) {
@@ -820,12 +920,10 @@ class MainActivity : ComponentActivity() {
                             }
                             else -> {
                                 val op = operator!!
-                                Crossfade(
-                                    targetState = screen,
-                                    modifier = Modifier.fillMaxSize(),
-                                    animationSpec = tween(PosMotion.Fast),
-                                    label = "pos-screen",
-                                ) { current ->
+                                // Instant switch: a crossfade composed and drew both screens for ~10
+                                // frames on the G7, which made every tab change feel late.
+                                val current = screen
+                                Box(modifier = Modifier.fillMaxSize()) {
                                     when (current) {
                                         PosScreen.Splash -> Unit
                                         PosScreen.Create, PosScreen.Today, PosScreen.Orders, PosScreen.More -> {
@@ -980,9 +1078,9 @@ class MainActivity : ComponentActivity() {
                                                                                         .ifEmpty { null },
                                                                                 chargeIn = chargeIn,
                                                                             )
-                                                                        payment = app.api.getPaymentDetails(order.id)
-                                                                        watchingOrderId = order.id
-                                                                        screen = PosScreen.Pay
+                                                                        loading = false
+                                                                        showOrderLoading(order.id, PosScreen.Pay)
+                                                                        loadPaymentFor(order.id)
                                                                     } catch (e: Exception) {
                                                                         if (handleAuthFailure(e)) {
                                                                             // Back on the PIN pad or setup.
@@ -1121,6 +1219,7 @@ class MainActivity : ComponentActivity() {
                                                                 app.posPrefs.soundLevel = it
                                                                 soundPlayer.play(PosSound.Paid, it)
                                                             },
+                                                            onPreviewSound = { soundPlayer.play(it, soundLevel) },
                                                         )
                                                     }
                                                     else -> Unit
@@ -1130,11 +1229,10 @@ class MainActivity : ComponentActivity() {
                                         PosScreen.OrderDetail -> {
                                             val details = payment
                                             if (details == null) {
-                                                LaunchedEffect(Unit) { screen = PosScreen.Orders }
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center,
-                                                ) { CircularProgressIndicator() }
+                                                if (paymentLoadingId == null) {
+                                                    LaunchedEffect(Unit) { screen = PosScreen.Orders }
+                                                }
+                                                OrderSkeleton()
                                             } else {
                                                 OrderDetailScreen(
                                                     details = details,
@@ -1165,13 +1263,10 @@ class MainActivity : ComponentActivity() {
                                         PosScreen.Pay -> {
                                             val details = payment
                                             if (details == null) {
-                                                LaunchedEffect(Unit) { screen = PosScreen.Create }
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center,
-                                                ) {
-                                                    CircularProgressIndicator()
+                                                if (paymentLoadingId == null) {
+                                                    LaunchedEffect(Unit) { screen = PosScreen.Create }
                                                 }
+                                                OrderSkeleton()
                                             } else {
                                                 OrderPayScreen(
                                                     details = details,
@@ -1244,9 +1339,9 @@ class MainActivity : ComponentActivity() {
                                                                             merchantReference.trim().ifEmpty { null },
                                                                         chargeIn = ChargeCurrency.TOKEN,
                                                                     )
-                                                                payment = app.api.getPaymentDetails(order.id)
-                                                                watchingOrderId = order.id
-                                                                screen = PosScreen.Pay
+                                                                loading = false
+                                                                showOrderLoading(order.id, PosScreen.Pay)
+                                                                loadPaymentFor(order.id)
                                                                 touchActivity()
                                                             } catch (e: Exception) {
                                                                 if (!handleAuthFailure(e)) {
@@ -1261,6 +1356,21 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     }
+                                    OrderAlertToast(
+                                        toast = orderToast,
+                                        onView = {
+                                            orderToast = null
+                                            openOrder(it.order.id, preferDetail = true)
+                                        },
+                                        onSeeAll = {
+                                            orderToast = null
+                                            selectDock(HardwareDockTab.Orders)
+                                        },
+                                        onDismiss = { orderToast = null },
+                                        modifier = Modifier
+                                            .align(Alignment.TopCenter)
+                                            .padding(top = 104.dp),
+                                    )
                                 }
                             }
                         }

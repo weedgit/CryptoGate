@@ -104,8 +104,14 @@ object CustomerScreen {
     var lastInteractionAt by mutableLongStateOf(System.currentTimeMillis())
         private set
 
+    /**
+     * Called for every touch and key event, including each finger move. Readers only need
+     * second precision, so the state changes at most once a second instead of recomposing
+     * observers on every event.
+     */
     fun touch() {
-        lastInteractionAt = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        if (now - lastInteractionAt >= 1_000L) lastInteractionAt = now
     }
 }
 
