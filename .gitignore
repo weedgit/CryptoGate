@@ -22,7 +22,10 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
-.cursor/
+.cursor/*
+!.cursor/environment.json
+!.cursor/install.sh
+!.cursor/start.sh
 
 # Android (cashier-apk)
 **/local.properties
